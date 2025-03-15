@@ -1,0 +1,36 @@
+{
+    "nodeModulesDir": "auto",
+    "compilerOptions": {
+        "strict": false,
+        "types": [
+            "./config.d.ts",
+            "./app/commands/commands.d.ts",
+            "./types/global.d.ts"
+        ]
+    },
+
+    "tasks": {
+        "start": "deno run --allow-all index.ts",
+        "compile": "deno compile --allow-all --no-check --output app index.ts"
+    },
+
+    "imports": {
+        "discord.js": "npm:discord.js",
+        "mongodb": "npm:mongodb",
+
+        "config": "./lib/config.ts",
+        "app": "./app/index.ts",
+        "mongo": "./lib/mongo.ts",
+
+        "lib/": "./lib/",
+        "modals/": "./app/modals/",
+
+        "discord/modules": "./app/modules/index.ts",
+        "discord/events": "./app/events/index.ts",
+
+        "discord/commands": "./app/commands/index.ts",
+        "discord/buttons": "./app/interactions/buttons/index.ts",
+        "discord/modals": "./app/interactions/modals/index.ts",
+        "discord/stringSelectMenus": "./app/interactions/stringSelectMenus/index.ts",
+    }
+}
