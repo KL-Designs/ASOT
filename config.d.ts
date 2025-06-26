@@ -14,4 +14,9 @@ declare global {
         }
     }
 
+
+    interface cRecruiting {
+        
+    }
+
 }
