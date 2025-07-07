@@ -15,8 +15,16 @@ declare global {
     }
 
 
-    interface cRecruiting {
-        
+    interface Modlist {
+        id: string
+        name: string
+        description: string
+        mods: {
+            id: string
+            name: string
+        }[],
+        useOptionals: boolean
+        xml: any
     }
 
 }

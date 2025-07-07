@@ -32,7 +32,8 @@ client.login(config.discord.token).catch(console.error)
 client.on('ready', ready)
 
 client.on('interactionCreate', interaction => {
-    if (interaction.isChatInputCommand()) return Handle.Commands(interaction)
+    if (interaction.isUserContextMenuCommand()) return Handle.UserContextCommand(interaction)
+    if (interaction.isChatInputCommand()) return Handle.ChatCommand(interaction)
     if (interaction.isAutocomplete()) return Handle.Autocomplete(interaction)
     if (interaction.isButton()) return Handle.Button(interaction)
     if (interaction.isModalSubmit()) return Handle.ModalSubmit(interaction)
@@ -44,6 +45,7 @@ client.emit = function <K extends keyof Discord.ClientEvents>(event: K, ...args:
     try {
         Events[event](...args)
     } catch {
+        // console.warn(`No handler for event "${event}"`)
         // No event handler
     }
 

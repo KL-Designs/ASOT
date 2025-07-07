@@ -1,13 +1,13 @@
 import Discord, { ApplicationCommandType, ApplicationCommandOptionType } from 'discord.js'
 
+
 export default {
-    name: 'recruit',
-    description: 'Recruiter Commands',
-    type: ApplicationCommandType.ChatInput,
+    name: 'Award Member 🎖️',
+    type: ApplicationCommandType.User,
     dmPermission: false,
 
-    options: [
+    async execute(interaction) {
         
-    ]
+    }
 
-} as ChatCommand
+} as UserCommand

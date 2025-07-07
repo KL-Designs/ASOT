@@ -17,10 +17,13 @@
     "imports": {
         "discord.js": "npm:discord.js",
         "mongodb": "npm:mongodb",
+        "fast-xml-parser": "npm:fast-xml-parser",
 
         "config": "./lib/config.ts",
         "app": "./app/index.ts",
         "mongo": "./lib/mongo.ts",
+
+        "configurations": "./config/index.ts",
 
         "lib/": "./lib/",
         "modals/": "./app/modals/",
@@ -31,6 +34,6 @@
         "discord/commands": "./app/commands/index.ts",
         "discord/buttons": "./app/interactions/buttons/index.ts",
         "discord/modals": "./app/interactions/modals/index.ts",
-        "discord/stringSelectMenus": "./app/interactions/stringSelectMenus/index.ts",
+        "discord/stringSelectMenus": "./app/interactions/stringSelectMenus/index.ts"
     }
 }

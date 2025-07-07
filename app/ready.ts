@@ -14,13 +14,15 @@ export default async function (client: Discord.Client) {
     console.info(`App Logged in as ${client.user?.tag}`)
 
     await App.client.application?.commands.set(Commands).then(() => {
-        console.table(Commands.map(c => ({
-            name: c.name,
-            description: c.description,
-            subcommands: c.options?.map(o => o.name).join(', ') || 'N/A',
-            dmPermission: c.dmPermission,
-            type: c.type
-        })))
+        console.table(
+            Commands.map(c => ({
+                name: c.name,
+                description: c.description,
+                subcommands: c.options?.map(o => o.name).join(', ') || 'N/A',
+                dmPermission: c.dmPermission,
+                type: c.type === Discord.ApplicationCommandType.ChatInput ? 'Chat Input' : c.type === Discord.ApplicationCommandType.User ? 'User Context' : 'Unknown'
+            }))
+        )
 
         fs.writeFileSync('./commands.json', JSON.stringify(Commands, null, '\t'))
     })

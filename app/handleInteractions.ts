@@ -1,13 +1,41 @@
 import Discord from 'discord.js'
 
-import ChatCommands from 'discord/commands'
+import { ChatCommands, UserContextCommands } from 'discord/commands'
 import Buttons from 'discord/buttons'
 import Modals from 'discord/modals'
 import StringSelectMenus from 'discord/stringSelectMenus'
 
 
 
-export function Commands(interaction: Discord.ChatInputCommandInteraction) {
+export function UserContextCommand(interaction: Discord.UserContextMenuCommandInteraction) {
+
+    try {
+        let command = UserContextCommands.find(c => c.name === interaction.commandName)
+        if (!command) throw new Error(`No user context command matching "${interaction.commandName}" was found.`)
+
+        let path: string[] = []
+        let map = interaction.options.data
+
+        while (map.find(o => o.type === 1) || map.length !== 0) {
+            const subcommand = map.find(o => o.type === 2 || o.type === 1)?.name as string
+            path.push(subcommand)
+
+            map = map.find(o => o.type === 2 || o.type === 1)?.options || []
+        }
+
+        path = path.filter(p => p !== undefined)
+
+        if (!command?.execute) throw new Error(`Subcommand "${command?.name || 'UNKNOWN'}" does not contain an executable.`)
+
+        return command.execute(interaction)
+    }
+
+    catch (error: any) {
+        return interaction.reply({ content: error.message, ephemeral: true })
+    }
+}
+
+export function ChatCommand(interaction: Discord.ChatInputCommandInteraction) {
 
     try {
         let command = ChatCommands.find(c => c.name === interaction.commandName)

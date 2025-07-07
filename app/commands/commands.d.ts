@@ -16,4 +16,9 @@ declare global {
     export interface AutocompleteOption extends Discord.ApplicationCommandAutocompleteStringOptionData {
         response?: (interaction: Discord.AutocompleteInteraction) => void
     }
+
+
+    export interface UserCommand extends Discord.UserApplicationCommandData {
+        execute?: (interaction: Discord.UserContextMenuCommandInteraction) => void
+    }
 }
