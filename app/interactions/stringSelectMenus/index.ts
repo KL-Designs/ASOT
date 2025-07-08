@@ -1,8 +1,8 @@
-import menu from './menu/index.ts'
+import modlist from './modlist/index.ts'
 
 
 const menus: { [key: string]: any } = {
-    menu
+    modlist
 }
 
 

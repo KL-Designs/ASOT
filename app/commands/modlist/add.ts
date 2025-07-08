@@ -39,6 +39,18 @@ export default {
             description: 'The base mods required to play',
             type: ApplicationCommandOptionType.Attachment,
             required: true
+        },
+        {
+            name: 'banner',
+            description: 'Upload an optional image to act as a banner on the Menu',
+            type: ApplicationCommandOptionType.Attachment,
+            required: false,
+        },
+        {
+            name: 'color',
+            description: 'Set a custom color for the menu using a HEX valye (#ffffff)',
+            type: ApplicationCommandOptionType.String,
+            required: false,
         }
     ],
 
@@ -47,6 +59,8 @@ export default {
             const name = interaction.options.getString('name')
             const useOptionals = interaction.options.getBoolean('optionals')
             const file = interaction.options.getAttachment('modlist')
+            const banner = interaction.options.getAttachment('banner', false)
+            const color = interaction.options.getString('color', false)
             if (!file) throw new Error('No modlist provided')
 
             const mods = await Modlist.fetchAttachment(file)
@@ -56,6 +70,8 @@ export default {
                 id: file.id,
                 name: name,
                 description: interaction.options.getString('description'),
+                banner: banner ? banner.url : null,
+                color: color || '#800f1c',
                 useOptionals: useOptionals,
                 mods: Modlist.mapMods(mods),
                 xml: mods

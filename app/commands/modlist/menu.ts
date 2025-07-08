@@ -34,13 +34,14 @@ export default {
             const list = Modlist.fetchList(name)
 
             const embed = new Discord.EmbedBuilder()
-                .setTitle(`${list.name} | Modlist`)
-                .setDescription(list.description)
-                .setColor(Discord.resolveColor('#800f1c'))
+                .setTitle(`${list.name}`)
+                .setDescription(`>>> ${list.description}`)
+                .setColor(Discord.resolveColor(list.color as Discord.ColorResolvable))
                 .addFields([
                     { name: 'Mod Count', value: list.mods.length.toString(), inline: true },
-                    { name: 'Optionals', value: list.useOptionals ? 'Available' : 'Unavailable', inline: true }
+                    { name: 'Optional Mods', value: list.useOptionals ? 'Available' : 'Unavailable', inline: true }
                 ])
+            if (list.banner) embed.setImage(list.banner)
 
             let buttons = [
                 new Discord.ButtonBuilder()
@@ -52,7 +53,7 @@ export default {
                     .setCustomId(`modlist.list.${list.id}`)
                     .setLabel('Show Mods')
                     .setStyle(Discord.ButtonStyle.Primary)
-                    .setEmoji('🪟')
+                    .setEmoji('📜')
             ]
 
             if (list.useOptionals) buttons.push(

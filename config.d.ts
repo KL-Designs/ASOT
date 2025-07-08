@@ -19,6 +19,8 @@ declare global {
         id: string
         name: string
         description: string
+        banner?: string
+        color: string
         mods: {
             id: string
             name: string
