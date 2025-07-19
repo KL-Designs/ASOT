@@ -41,7 +41,12 @@ export default {
                     { name: 'Mod Count', value: list.mods.length.toString(), inline: true },
                     { name: 'Optional Mods', value: list.useOptionals ? 'Available' : 'Unavailable', inline: true }
                 ])
-            if (list.banner) embed.setImage(list.banner)
+
+            let bannerAttachment = []
+            if (list.banner) {
+                bannerAttachment = [Modlist.buildBanner(list.banner)]
+                embed.setImage(`attachment://${list.banner}`)
+            }
 
             let buttons = [
                 new Discord.ButtonBuilder()
@@ -66,7 +71,7 @@ export default {
 
             const actionRow = new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>().addComponents(buttons)
 
-            interaction.channel.send({ embeds: [embed], components: [actionRow] })
+            interaction.channel.send({ embeds: [embed], components: [actionRow], files: bannerAttachment })
             interaction.deferReply().then(() => interaction.deleteReply())
         }
 

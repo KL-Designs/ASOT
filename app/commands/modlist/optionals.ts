@@ -27,7 +27,7 @@ export default {
             Modlist.setOptionals(mods)
 
             interaction.reply({
-                content: `### **Optionals Updated**\n\`\`\`${mapped.map((mod, index) => `${index + 1} | ${mod.id} | ${mod.name}`).join('\n')}\`\`\``,
+                content: `### **Optionals Updated**\n\`\`\`${mapped.map((mod, index) => `${index + 1} | ${mod.id} | ${mod.name}`).join('\n').slice(0,2980)}\`\`\``,
                 ephemeral: true
             })
         }

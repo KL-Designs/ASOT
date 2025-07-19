@@ -66,11 +66,13 @@ export default {
             const mods = await Modlist.fetchAttachment(file)
             const mapped = Modlist.mapMods(mods)
 
+            if (banner) Modlist.downloadBanner(banner)
+
             Modlist.addList({
                 id: file.id,
                 name: name,
                 description: interaction.options.getString('description'),
-                banner: banner ? banner.url : null,
+                banner: banner ? `${banner.id}.${banner.name.split('.').pop() || 'jpg'}` : null,
                 color: color || '#800f1c',
                 useOptionals: useOptionals,
                 mods: Modlist.mapMods(mods),
@@ -78,7 +80,7 @@ export default {
             })
 
             interaction.reply({
-                content: `### **Added | ${name}**\n\`\`\`${mapped.map((mod, index) => `${index + 1} | ${mod.id} | ${mod.name}`).join('\n')}\`\`\``,
+                content: (`### **Added | ${name}**\n\`\`\`${mapped.map((mod, index) => `${index + 1} | ${mod.name}`).join('\n').slice(0,2980)}\`\`\``),
                 ephemeral: true
             })
         }

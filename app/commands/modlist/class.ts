@@ -13,7 +13,7 @@ class ModlistController {
     htmlPath = './app/commands/modlist/preset.html'
 
     constructor() {
-        if (!fs.existsSync('./data')) fs.mkdirSync('./data', { recursive: true })
+        if (!fs.existsSync('./data/images')) fs.mkdirSync('./data/images', { recursive: true })
         if (!fs.existsSync('./data/lists.json')) fs.writeFileSync(`./data/lists.json`, JSON.stringify([], null, '\t'))
         if (!fs.existsSync('./data/users.json')) fs.writeFileSync(`./data/users.json`, JSON.stringify([], null, '\t'))
     }
@@ -40,6 +40,20 @@ class ModlistController {
         const parser = new XMLParser()
         const buffer = await response.arrayBuffer()
         return parser.parse(Buffer.from(buffer).toString())
+    }
+
+    async downloadBanner(file: Discord.Attachment) {
+        const response = await fetch(file.url)
+        if (!response.ok) throw new Error('The server failed to download the banner')
+
+        const buffer = await response.arrayBuffer()
+        fs.writeFileSync(`./data/images/${file.id}.${file.name.split('.').pop() || 'jpg'}`, Buffer.from(buffer))
+    }
+
+    buildBanner(banner: string) {
+        const file = fs.readFileSync(`./data/images/${banner}`)
+        const buffer = Buffer.from(file)
+        return new Discord.AttachmentBuilder(buffer, { name: banner })
     }
 
     setOptionals(json) {
@@ -78,6 +92,8 @@ class ModlistController {
         const index = lists.findIndex(list => list.name === name)
         if (index === -1) throw new Error('This modlist does not exist!')
 
+        if (lists[index].banner) fs.rmSync(`./data/images/${lists[index].banner}`)
+
         lists.splice(index, 1)
         this.updateLists(lists)
     }
@@ -91,14 +107,13 @@ class ModlistController {
                     <span class="from-steam">Steam</span>
                 </td>
                 <td>
-                    <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=${mod.id}"
-                        data-type="Link">https://steamcommunity.com/sharedfiles/filedetails/?id=${mod.id}</a>
+                    <a href="https://steamcommunity.com/sharedfiles/filedetails/?id=${mod.id}" data-type="Link">https://steamcommunity.com/sharedfiles/filedetails/?id=${mod.id}</a>
                 </td>
             </tr>
             `
         }).join('')
 
-        const html = Preset(mods)
+        const html = Preset(mods, fileName)
         const file = new Discord.AttachmentBuilder(Buffer.from(html, 'utf8'), { name: `${fileName || 'modlist'}.html` })
         return file
     }
@@ -136,108 +151,105 @@ const iModlist = new ModlistController()
 export default iModlist
 
 
-export function Preset(modlist: string) {
-    return `
-<?xml version="1.0" encoding="utf-8"?>
+export function Preset(modlist: string, name: string) {
+    return `<?xml version="1.0" encoding="utf-8"?>
 <html>
-    <!--Created by Arma 3 Launcher: https://arma3.com-->
+  <!--Created by Arma 3 Launcher: https://arma3.com-->
+  <head>
+    <meta name="arma:Type" content="preset" />
+    <meta name="arma:PresetName" content="${name}" />
+    <meta name="generator" content="Arma 3 Launcher - https://arma3.com" />
+    <title>Arma 3</title>
+    <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet" type="text/css" />
+    <style>
+body {
+	margin: 0;
+	padding: 0;
+	color: #fff;
+	background: #000;	
+}
 
-    <head>
-        <meta name="arma:Type" content="list" />
-        <meta name="generator" content="Arma 3 Launcher - https://arma3.com" />
-        <title>Arma 3</title>
-        <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet" type="text/css" />
-        <style>
-            body {
-                margin: 0;
-                padding: 0;
-                color: #fff;
-                background: #000;
-            }
+body, th, td {
+	font: 95%/1.3 Roboto, Segoe UI, Tahoma, Arial, Helvetica, sans-serif;
+}
 
-            body,
-            th,
-            td {
-                font: 95%/1.3 Roboto, Segoe UI, Tahoma, Arial, Helvetica, sans-serif;
-            }
+td {
+    padding: 3px 30px 3px 0;
+}
 
-            td {
-                padding: 3px 30px 3px 0;
-            }
+h1 {
+    padding: 20px 20px 0 20px;
+    color: white;
+    font-weight: 200;
+    font-family: segoe ui;
+    font-size: 3em;
+    margin: 0;
+}
 
-            h1 {
-                padding: 20px 20px 0 20px;
-                color: white;
-                font-weight: 200;
-                font-family: segoe ui;
-                font-size: 3em;
-                margin: 0;
-            }
+em {
+    font-variant: italic;
+    color:silver;
+}
 
-            em {
-                font-variant: italic;
-                color: silver;
-            }
+.before-list {
+    padding: 5px 20px 10px 20px;
+}
 
-            .before-list {
-                padding: 5px 20px 10px 20px;
-            }
+.mod-list {
+    background: #222222;
+    padding: 20px;
+}
 
-            .mod-list {
-                background: #222222;
-                padding: 20px;
-            }
+.dlc-list {
+    background: #222222;
+    padding: 20px;
+}
 
-            .dlc-list {
-                background: #222222;
-                padding: 20px;
-            }
+.footer {
+    padding: 20px;
+    color:gray;
+}
 
-            .footer {
-                padding: 20px;
-                color: gray;
-            }
+.whups {
+    color:gray;
+}
 
-            .whups {
-                color: gray;
-            }
+a {
+    color: #D18F21;
+    text-decoration: underline;
+}
 
-            a {
-                color: #D18F21;
-                text-decoration: underline;
-            }
+a:hover {
+    color:#F1AF41;
+    text-decoration: none;
+}
 
-            a:hover {
-                color: #F1AF41;
-                text-decoration: none;
-            }
+.from-steam {
+    color: #449EBD;
+}
+.from-local {
+    color: gray;
+}
 
-            .from-steam {
-                color: #449EBD;
-            }
-
-            .from-local {
-                color: gray;
-            }
-        </style>
-    </head>
-
-    <body>
-        <h1>Arma 3 Mods</h1>
-        <p class="before-list">
-            <em>To import this preset, drag this file onto the Launcher window. Or click the MODS tab, then PRESET in the
-                top right, then IMPORT at the bottom, and finally select this file.</em>
-        </p>
-        <div class="mod-list">
-            <table>
-                ${modlist}
-            </table>
-        </div>
-        <div class="footer">
-            <span>Created by Arma 3 Launcher by Bohemia Interactive.</span>
-        </div>
-    </body>
-
+</style>
+  </head>
+  <body>
+    <h1>Arma 3  - Preset <strong>${name}</strong></h1>
+    <p class="before-list">
+      <em>To import this preset, drag this file onto the Launcher window. Or click the MODS tab, then PRESET in the top right, then IMPORT at the bottom, and finally select this file.</em>
+    </p>
+    <div class="mod-list">
+      <table>
+        ${modlist}
+      </table>
+    </div>
+    <div class="dlc-list">
+      <table />
+    </div>
+    <div class="footer">
+      <span>Created by Arma 3 Launcher by Bohemia Interactive.</span>
+    </div>
+  </body>
 </html>
     `
 }
