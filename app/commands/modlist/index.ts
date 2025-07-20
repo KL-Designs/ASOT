@@ -19,3 +19,9 @@ export default {
         menu,
     ]
 } as ChatCommand
+
+
+/*
+todo: □ not selected
+todo: ■ selected
+*/

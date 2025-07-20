@@ -1,5 +1,6 @@
 import config from 'config'
 import Discord from 'discord.js'
+import process from 'node:process'
 
 import Colors from 'lib/colors.ts'
 
@@ -26,10 +27,37 @@ const client = new Discord.Client({
     ]
 })
 
-client.login(config.discord.token).catch(console.error)
-
+client.login(config.discord.token)
+    .catch(error => {
+        console.error(error)
+        process.exit(1)
+    })
 
 client.on('ready', ready)
+
+client.on('error', (err) => {
+    console.error('Client encountered an error:', err)
+    process.exit(1)
+})
+
+client.on('shardError', (err) => {
+    console.error('Shard error:', err)
+    process.exit(1)
+})
+
+client.on('invalidated', () => {
+    console.error('Client connection invalidated')
+    process.exit(1)
+})
+
+client.on('reconnecting', () => {
+    console.log('Client is reconnecting...')
+})
+
+client.on('disconnect', (event) => {
+    console.warn(`Disconnected: ${event?.code} - ${event?.reason}`)
+})
+
 
 client.on('interactionCreate', interaction => {
     if (interaction.isUserContextMenuCommand()) return Handle.UserContextCommand(interaction)

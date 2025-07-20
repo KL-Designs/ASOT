@@ -48,7 +48,7 @@ export default {
         },
         {
             name: 'color',
-            description: 'Set a custom color for the menu using a HEX valye (#ffffff)',
+            description: 'Set a custom color for the menu using a HEX value (#ffffff)',
             type: ApplicationCommandOptionType.String,
             required: false,
         }
