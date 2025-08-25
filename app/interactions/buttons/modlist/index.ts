@@ -26,7 +26,7 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
 
     if (args[0] === 'optionals') {
         const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
-        const modOptions = Modlist.fetchOptionals().map(mod => ({
+        const modOptions = Modlist.fetchOptionals('client').map(mod => ({
             label: mod.name,
             value: mod.id
         }))
@@ -36,7 +36,7 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
                 new Discord.StringSelectMenuBuilder()
                     .setCustomId(`modlist.select`)
                     .setMinValues(0)
-                    .setMaxValues(Modlist.fetchOptionals().length)
+                    .setMaxValues(Modlist.fetchOptionals('client').length)
                     .addOptions(modOptions)
             )
 
@@ -67,7 +67,7 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
     }
 
     if (args[0] === 'all') {
-        const allOptionals = Modlist.fetchOptionals().map(mod => mod.id)
+        const allOptionals = Modlist.fetchOptionals('client').map(mod => mod.id)
         Modlist.setUserOptionals(interaction.user.id, allOptionals)
         const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
         interaction.update({ content: `**Your Enabled Optionals**\n*Remember to press download!*\n\`\`\`${foundOptionals.join('\n').slice(0, 2980)}\`\`\`` })

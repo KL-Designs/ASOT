@@ -16,6 +16,7 @@ class ModlistController {
         if (!fs.existsSync('./data/images')) fs.mkdirSync('./data/images', { recursive: true })
         if (!fs.existsSync('./data/lists.json')) fs.writeFileSync(`./data/lists.json`, JSON.stringify([], null, '\t'))
         if (!fs.existsSync('./data/users.json')) fs.writeFileSync(`./data/users.json`, JSON.stringify([], null, '\t'))
+        if (!fs.existsSync('./data/optionals.json')) fs.writeFileSync(`./data/optionals.json`, JSON.stringify({ 'client': [], 'zeus': [] }, null, '\t'))
     }
 
 
@@ -56,13 +57,20 @@ class ModlistController {
         return new Discord.AttachmentBuilder(buffer, { name: banner })
     }
 
-    setOptionals(json) {
-        json = this.mapMods(json)
+    setOptionals(mods, type: 'client' | 'zeus') {
+        mods = this.mapMods(mods)
+        const json = JSON.parse(fs.readFileSync(this.optionalsPath, 'utf8')) as { [key: string]: { id: string, name: string }[] }
+
+        switch (type) {
+            case 'client': json['client'] = mods; break
+            case 'zeus': json['zeus'] = mods; break
+        }
+
         fs.writeFileSync(this.optionalsPath, JSON.stringify(json, null, '\t'))
     }
 
-    fetchOptionals() {
-        return JSON.parse(fs.readFileSync(this.optionalsPath, 'utf8')) as { id: string, name: string }[]
+    fetchOptionals(type: 'client' | 'zeus') {
+        return JSON.parse(fs.readFileSync(this.optionalsPath, 'utf8'))[type] as { id: string, name: string }[]
     }
 
     fetchLists() {
@@ -138,7 +146,7 @@ class ModlistController {
 
     matchOptionals(user: string) {
         const userOpt = this.fetchUserOptionals(user)
-        const availableOpt = this.fetchOptionals()
+        const availableOpt = this.fetchOptionals('client')
         return userOpt.map((m, i) => {
             const mod = availableOpt.find(a => a.id === m)
             return { id: mod.id, name: mod.name }

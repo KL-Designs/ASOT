@@ -48,6 +48,8 @@ export default {
                 embed.setImage(`attachment://${list.banner}`)
             }
 
+            let rows = []
+
             let buttons = [
                 new Discord.ButtonBuilder()
                     .setCustomId(`modlist.download.${list.id}`)
@@ -69,9 +71,20 @@ export default {
                     .setEmoji('⚙️')
             )
 
-            const actionRow = new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>().addComponents(buttons)
+            let zeusButton = [
+                new Discord.ButtonBuilder()
+                    .setCustomId(`modlist.download.${list.id}`)
+                    .setLabel('Configure Zeus')
+                    .setStyle(Discord.ButtonStyle.Secondary)
+                    .setEmoji('👁️')
+            ]
 
-            interaction.channel.send({ embeds: [embed], components: [actionRow], files: bannerAttachment })
+            rows.push(new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>().addComponents(buttons))
+            if (list.useOptionals) rows.push(new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>().addComponents(buttons))
+
+
+
+            interaction.channel.send({ embeds: [embed], components: rows, files: bannerAttachment })
             interaction.deferReply().then(() => interaction.deleteReply())
         }
 
