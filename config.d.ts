@@ -8,6 +8,8 @@ declare global {
             guild: string
         }
 
+        api: number
+
         mongo: {
             uri: string
             db: string

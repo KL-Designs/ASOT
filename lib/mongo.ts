@@ -12,7 +12,7 @@ const DbInterface = {
     test: () => client.db(config.mongo.db).stats(),
     stats: () => client.db(config.mongo.db).stats().then(console.table).catch(console.error),
 
-    // users: client.db(config.mongo.db).collection('users') as MongoCollection,
+    users: client.db(config.mongo.db).collection('users') as MongoCollection<GuildMember>,
     // tickets: client.db(config.mongo.db).collection('tickets') as MongoCollection<Ticket>,
 }
 

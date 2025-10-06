@@ -1,6 +1,7 @@
 import config from 'config'
 import Discord from 'discord.js'
 import process from 'node:process'
+import express from 'express'
 
 import Colors from 'lib/colors.ts'
 
@@ -8,6 +9,10 @@ import Events from 'discord/events'
 import Modules from 'discord/modules'
 import ready from './ready.ts'
 import * as Handle from './handleInteractions.ts'
+
+
+const api = express()
+api.listen(config.api, () => console.log(`Express API Server Running on http://localhost:${config.api}`))
 
 
 const client = new Discord.Client({
@@ -94,6 +99,8 @@ for (const mod in Modules) {
 
 
 const DiscordController = {
+    api: api,
+    
     config: config.discord,
     colors: Colors,
 
