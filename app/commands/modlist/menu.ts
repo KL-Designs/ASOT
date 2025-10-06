@@ -28,7 +28,7 @@ export default {
         } as AutocompleteOption
     ],
 
-    execute(interaction) {
+    async execute(interaction) {
         try {
             const name = interaction.options.getString('modlist')
             const list = Modlist.fetchList(name)
@@ -47,8 +47,6 @@ export default {
                 bannerAttachment = [Modlist.buildBanner(list.banner)]
                 embed.setImage(`attachment://${list.banner}`)
             }
-
-            let rows = []
 
             let buttons = [
                 new Discord.ButtonBuilder()
@@ -71,13 +69,10 @@ export default {
                     .setEmoji('⚙️')
             )
 
-            rows.push(new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>().addComponents(buttons))
-            if (list.useOptionals) rows.push(new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>().addComponents(buttons))
+            const actionRow = new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>().addComponents(buttons)
 
-
-
-            interaction.channel.send({ embeds: [embed], components: rows, files: bannerAttachment })
-            interaction.deferReply().then(() => interaction.deleteReply())
+            await interaction.channel.send({ embeds: [embed], components: [actionRow], files: bannerAttachment })
+            await interaction.deferReply().then(() => interaction.deleteReply())
         }
 
         catch (e) {
