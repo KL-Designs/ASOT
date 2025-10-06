@@ -71,14 +71,6 @@ export default {
                     .setEmoji('⚙️')
             )
 
-            let zeusButton = [
-                new Discord.ButtonBuilder()
-                    .setCustomId(`modlist.download.${list.id}`)
-                    .setLabel('Configure Zeus')
-                    .setStyle(Discord.ButtonStyle.Secondary)
-                    .setEmoji('👁️')
-            ]
-
             rows.push(new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>().addComponents(buttons))
             if (list.useOptionals) rows.push(new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>().addComponents(buttons))
 

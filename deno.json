@@ -17,6 +17,7 @@
     "imports": {
         "discord.js": "npm:discord.js",
         "mongodb": "npm:mongodb",
+        "express": "npm:express",
         "fast-xml-parser": "npm:fast-xml-parser",
 
         "config": "./lib/config.ts",
