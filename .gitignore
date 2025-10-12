@@ -3,4 +3,5 @@ data/
 
 app.exe
 config.json
+config.*.json
 commands.json

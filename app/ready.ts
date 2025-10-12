@@ -29,6 +29,15 @@ export default async function (client: Discord.Client) {
     })
 
 
+    async function processRoles() {
+        const guild = await App.guild()
+        guild.roles.cache.forEach(r => {
+            Db.roles.updateOne({ id: r.id }, { $set: { _id: r.id, ...r.toJSON() as Role } }, { upsert: true })
+        })
+    }
+    setInterval(processRoles, 1000 * 60 * 60), processRoles()
+
+
     async function processMembers() {
         const guild = await App.guild()
         await guild.members.fetch()
@@ -64,7 +73,6 @@ export default async function (client: Discord.Client) {
             await delay(2000)
         }
     }
-
     setInterval(processMembers, 1000 * 60 * 60), processMembers()
 
 }

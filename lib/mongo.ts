@@ -13,6 +13,7 @@ const DbInterface = {
     stats: () => client.db(config.mongo.db).stats().then(console.table).catch(console.error),
 
     users: client.db(config.mongo.db).collection('users') as MongoCollection<GuildMember>,
+    roles: client.db(config.mongo.db).collection('roles') as MongoCollection<Role>,
     // tickets: client.db(config.mongo.db).collection('tickets') as MongoCollection<Ticket>,
 }
 

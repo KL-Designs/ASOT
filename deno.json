@@ -19,6 +19,8 @@
         "mongodb": "npm:mongodb",
         "express": "npm:express",
         "fast-xml-parser": "npm:fast-xml-parser",
+        "google-auth-library": "npm:google-auth-library",
+        "googleapis": "npm:googleapis",
 
         "config": "./lib/config.ts",
         "app": "./app/index.ts",
