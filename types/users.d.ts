@@ -28,6 +28,12 @@ declare global {
             joinedTimestamp: number
             roles: string[]
         }
+
+        optionals?: {
+            qol: string[]
+            gfx: string[]
+            zeus: string[]
+        }
     }
 
     interface Role {
