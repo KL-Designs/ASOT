@@ -31,8 +31,9 @@ declare global {
 
         optionals?: {
             qol: string[]
-            gfx: string[]
-            zeus: string[]
+            qol: { id: string, name: string }[]
+            gfx: { id: string, name: string }[]
+            zeus: { id: string, name: string }[]
         }
     }
 
