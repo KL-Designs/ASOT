@@ -148,12 +148,12 @@ class ModlistController {
         else return userFile[userIndex].mods
     }
 
-    matchOptionals(user: string) {
-        const userOpt = this.fetchUserOptionals(user)
-        const availableOpt = this.fetchOptionals()
+    async matchOptionals(user: string) {
+        const User = await Db.users.findOne({_id: user})
+        let userOpt = User.optionals.qol.concat(User.optionals.gfx, User.optionals.zeus)
+
         return userOpt.map((m, i) => {
-            const mod = availableOpt.find(a => a.id === m)
-            return { id: mod.id, name: mod.name }
+            return { id: m.id, name: m.name }
         })
     }
 

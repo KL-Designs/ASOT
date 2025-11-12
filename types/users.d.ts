@@ -30,7 +30,6 @@ declare global {
         }
 
         optionals?: {
-            qol: string[]
             qol: { id: string, name: string }[]
             gfx: { id: string, name: string }[]
             zeus: { id: string, name: string }[]

@@ -20,7 +20,7 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
 
     if (args[0] === 'download') {
         if (!list.useOptionals) return interaction.reply({ files: [Modlist.createModFile(list.mods, list.name)], ephemeral: true })
-        const foundOptionals = Modlist.matchOptionals(interaction.user.id)
+        const foundOptionals = await Modlist.matchOptionals(interaction.user.id)
         const merged = list.mods.concat(foundOptionals)
 
         return interaction.reply({ files: [Modlist.createModFile(merged, list.name)], ephemeral: true })
@@ -83,17 +83,17 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
         // })
     }
 
-    if (args[0] === 'reset') {
-        Modlist.setUserOptionals(interaction.user.id, [])
-        const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
-        interaction.update({ content: `**Your Enabled Optionals**\n*Remember to press download!*\n\`\`\`${foundOptionals.join('\n').slice(0, 2980)}\`\`\`` })
-    }
+    // if (args[0] === 'reset') {
+    //     Modlist.setUserOptionals(interaction.user.id, [])
+    //     const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
+    //     interaction.update({ content: `**Your Enabled Optionals**\n*Remember to press download!*\n\`\`\`${foundOptionals.join('\n').slice(0, 2980)}\`\`\`` })
+    // }
 
-    if (args[0] === 'all') {
-        const allOptionals = Modlist.fetchOptionals().map(mod => mod.id)
-        Modlist.setUserOptionals(interaction.user.id, allOptionals)
-        const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
-        interaction.update({ content: `**Your Enabled Optionals**\n*Remember to press download!*\n\`\`\`${foundOptionals.join('\n').slice(0, 2980)}\`\`\`` })
-    }
+    // if (args[0] === 'all') {
+    //     const allOptionals = Modlist.fetchOptionals().map(mod => mod.id)
+    //     Modlist.setUserOptionals(interaction.user.id, allOptionals)
+    //     const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
+    //     interaction.update({ content: `**Your Enabled Optionals**\n*Remember to press download!*\n\`\`\`${foundOptionals.join('\n').slice(0, 2980)}\`\`\`` })
+    // }
 
 }
