@@ -10,8 +10,19 @@ export default {
 
     options: [
         {
+            name: 'type',
+            description: 'Either Quality of Life, Gfx, or Zeus',
+            type: ApplicationCommandOptionType.String,
+            required: true,
+            choices: [
+                { name: 'Quality of Life', value: 'qol' },
+                { name: 'Graphical Effects', value: 'gfx' },
+                { name: 'Zeus', value: 'zeus' }
+            ]
+        },
+        {
             name: 'modlist',
-            description: 'The player optionals modlist to be used alongside base mods.',
+            description: 'The modlist to be used in optionals selection.',
             type: ApplicationCommandOptionType.Attachment,
             required: true
         }
@@ -19,15 +30,16 @@ export default {
 
     async execute(interaction) {
         try {
+            const type = interaction.options.getString('type')
             const file = interaction.options.getAttachment('modlist')
             if (!file) throw new Error('No modlist provided')
 
             const mods = await Modlist.fetchAttachment(file)
             const mapped = Modlist.mapMods(mods)
-            Modlist.setOptionals(mods)
+            Modlist.setOptionals(type, mods)
 
             interaction.reply({
-                content: `### **Optionals Updated**\n\`\`\`${mapped.map((mod, index) => `${index + 1} | ${mod.id} | ${mod.name}`).join('\n').slice(0, 2980)}\`\`\``,
+                content: `### **${type.toUpperCase()} Optionals Updated**\n\`\`\`${mapped.map((mod, index) => `${index + 1} | ${mod.id} | ${mod.name}`).join('\n').slice(0, 2980)}\`\`\``,
                 ephemeral: true
             })
         }
