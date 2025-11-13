@@ -1,7 +1,8 @@
+import config from "lib/config.ts"
+import app from 'app'
 import Discord from 'discord.js'
 import Db from 'lib/mongo.ts'
 import { GenerateToken } from 'lib/encryption.ts'
-import app from 'app'
 
 import Modlist from '../../../commands/modlist/class.ts'
 
@@ -57,7 +58,7 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
                             .setEmoji('📝')
                             .setLabel('Edit Your Optionals')
                             .setStyle(Discord.ButtonStyle.Link)
-                            .setURL(`http://localhost:3000/optionals/callback?token=${User.token}&info=DO_NOT_SHARE`)
+                            .setURL(`${config.api}/optionals/callback?token=${User.token}&info=DO_NOT_SHARE`)
                     )
             ],
             ephemeral: true
