@@ -150,7 +150,7 @@ class ModlistController {
 
     async matchOptionals(user: string) {
         const User = await Db.users.findOne({_id: user})
-        let userOpt = User.optionals.qol.concat(User.optionals.gfx, User.optionals.zeus)
+        let userOpt = User.optionals ? User.optionals.qol.concat(User.optionals.gfx, User.optionals.zeus) : []
 
         return userOpt.map((m, i) => {
             return { id: m.id, name: m.name }

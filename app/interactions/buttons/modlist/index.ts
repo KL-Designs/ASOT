@@ -1,6 +1,7 @@
 import Discord from 'discord.js'
 import Db from 'lib/mongo.ts'
 import { GenerateToken } from 'lib/encryption.ts'
+import app from 'app'
 
 import Modlist from '../../../commands/modlist/class.ts'
 
@@ -34,13 +35,27 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
             Db.users.updateOne({ _id: User._id }, { $set: User }, { upsert: true })
         }
 
+        const lists = []
+        if (User.optionals) {
+            if (User.optionals.qol.length > 0) lists.push({ name: 'Quality of Life', value: User.optionals.qol.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
+            if (User.optionals.gfx.length > 0) lists.push({ name: 'Graphical Effects', value: User.optionals.gfx.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
+            if (User.optionals.zeus.length > 0) lists.push({ name: 'Zeus', value: User.optionals.zeus.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
+        }
+
+        const embed = new Discord.EmbedBuilder()
+            .setTitle('Your Enabled Optionals')
+            .setColor(app.colors.secondary)
+            .setTimestamp()
+            .setFields(lists)
+
         interaction.reply({
+            embeds: [embed],
             components: [
                 new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>()
                     .addComponents(
                         new Discord.ButtonBuilder()
                             .setEmoji('📝')
-                            .setLabel('Configure Your Optionals')
+                            .setLabel('Edit Your Optionals')
                             .setStyle(Discord.ButtonStyle.Link)
                             .setURL(`http://localhost:3000/optionals/callback?token=${User.token}&info=DO_NOT_SHARE`)
                     )
