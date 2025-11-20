@@ -41,6 +41,8 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
             if (User.optionals.qol.length > 0) lists.push({ name: 'Quality of Life', value: User.optionals.qol.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
             if (User.optionals.gfx.length > 0) lists.push({ name: 'Graphical Effects', value: User.optionals.gfx.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
             if (User.optionals.zeus.length > 0) lists.push({ name: 'Zeus', value: User.optionals.zeus.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
+            if (User.optionals.j2.length > 0) lists.push({ name: 'J2 Mission Making', value: User.optionals.j2.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
+            if (User.optionals.j5.length > 0) lists.push({ name: 'J5 Media', value: User.optionals.j5.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
         }
 
         const embed = new Discord.EmbedBuilder()

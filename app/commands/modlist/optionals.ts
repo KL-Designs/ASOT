@@ -16,8 +16,10 @@ export default {
             required: true,
             choices: [
                 { name: 'Quality of Life', value: 'qol' },
-                { name: 'Graphical Effects', value: 'gfx' },
-                { name: 'Zeus', value: 'zeus' }
+                { name: 'FPS-Intensive Mods', value: 'gfx' },
+                { name: 'Zeus', value: 'zeus' },
+                { name: 'J2', value: 'j2' },
+                { name: 'J5', value: 'j5' },
             ]
         },
         {
@@ -30,7 +32,7 @@ export default {
 
     async execute(interaction) {
         try {
-            const type = interaction.options.getString('type')
+            const type = interaction.options.getString('type') as Optional['_id']
             const file = interaction.options.getAttachment('modlist')
             if (!file) throw new Error('No modlist provided')
 

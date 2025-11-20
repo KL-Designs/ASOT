@@ -58,7 +58,7 @@ class ModlistController {
         return new Discord.AttachmentBuilder(buffer, { name: banner })
     }
 
-    setOptionals(type, json) {
+    setOptionals(type: Optional['_id'], json: Optional['mods']) {
         json = this.mapMods(json)
         Db.optionals.replaceOne({ _id: type }, { mods: json }, { upsert: true })
         // fs.writeFileSync(this.optionalsPath, JSON.stringify(json, null, '\t'))
@@ -150,7 +150,7 @@ class ModlistController {
 
     async matchOptionals(user: string) {
         const User = await Db.users.findOne({_id: user})
-        let userOpt = User.optionals ? User.optionals.qol.concat(User.optionals.gfx, User.optionals.zeus) : []
+        let userOpt = User.optionals ? User.optionals.qol.concat(User.optionals.gfx, User.optionals.zeus, User.optionals.j2, User.optionals.j5) : []
 
         return userOpt.map((m, i) => {
             return { id: m.id, name: m.name }
