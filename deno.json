@@ -25,6 +25,7 @@
         "config": "./lib/config.ts",
         "app": "./app/index.ts",
         "mongo": "./lib/mongo.ts",
+        "encryption": "./lib/encryption.ts",
 
         "configurations": "./config/index.ts",
 

@@ -1,12 +1,9 @@
 import App from 'app'
 import Db from 'lib/mongo.ts'
-import config from 'config'
 import fs from 'node:fs'
 
 import Discord from 'discord.js'
 import Commands from 'discord/commands'
-
-import { NumberWithCommas } from 'lib/util.ts'
 
 
 

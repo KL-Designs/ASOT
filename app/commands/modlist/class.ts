@@ -1,6 +1,7 @@
 import Discord from 'discord.js'
 
 import fs from 'node:fs'
+import Db from 'lib/mongo.ts'
 import { Buffer } from "node:buffer"
 import { XMLBuilder, XMLParser } from 'fast-xml-parser'
 
@@ -57,9 +58,10 @@ class ModlistController {
         return new Discord.AttachmentBuilder(buffer, { name: banner })
     }
 
-    setOptionals(json) {
+    setOptionals(type: Optional['_id'], json: Optional['mods']) {
         json = this.mapMods(json)
-        fs.writeFileSync(this.optionalsPath, JSON.stringify(json, null, '\t'))
+        Db.optionals.replaceOne({ _id: type }, { mods: json }, { upsert: true })
+        // fs.writeFileSync(this.optionalsPath, JSON.stringify(json, null, '\t'))
     }
 
     fetchOptionals() {
@@ -101,9 +103,18 @@ class ModlistController {
 
     createModFile(modlist: Modlist['mods'], fileName?: string) {
         const mods = modlist.map(mod => {
+            function escapeXml(str) {
+                return str
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&apos;")
+            }
+
             return `
             <tr data-type="ModContainer">
-                <td data-type="DisplayName">${mod.name}</td>
+                <td data-type="DisplayName">${escapeXml(mod.name)}</td>
                 <td>
                     <span class="from-steam">Steam</span>
                 </td>
@@ -137,12 +148,12 @@ class ModlistController {
         else return userFile[userIndex].mods
     }
 
-    matchOptionals(user: string) {
-        const userOpt = this.fetchUserOptionals(user)
-        const availableOpt = this.fetchOptionals()
+    async matchOptionals(user: string) {
+        const User = await Db.users.findOne({_id: user})
+        let userOpt = User.optionals ? User.optionals.qol.concat(User.optionals.gfx, User.optionals.zeus, User.optionals.j2, User.optionals.j5) : []
+
         return userOpt.map((m, i) => {
-            const mod = availableOpt.find(a => a.id === m)
-            return { id: mod.id, name: mod.name }
+            return { id: m.id, name: m.name }
         })
     }
 

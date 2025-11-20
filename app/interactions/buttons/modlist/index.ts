@@ -1,4 +1,8 @@
+import config from "lib/config.ts"
+import app from 'app'
 import Discord from 'discord.js'
+import Db from 'lib/mongo.ts'
+import { GenerateToken } from 'lib/encryption.ts'
 
 import Modlist from '../../../commands/modlist/class.ts'
 
@@ -18,59 +22,96 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
 
     if (args[0] === 'download') {
         if (!list.useOptionals) return interaction.reply({ files: [Modlist.createModFile(list.mods, list.name)], ephemeral: true })
-        const foundOptionals = Modlist.matchOptionals(interaction.user.id)
+        const foundOptionals = await Modlist.matchOptionals(interaction.user.id)
         const merged = list.mods.concat(foundOptionals)
 
         return interaction.reply({ files: [Modlist.createModFile(merged, list.name)], ephemeral: true })
     }
 
     if (args[0] === 'optionals') {
-        const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
-        const modOptions = Modlist.fetchOptionals().map(mod => ({
-            label: mod.name,
-            value: mod.id
-        }))
+        const User = await Db.users.findOne({ _id: interaction.user.id })
+        if (!User) return interaction.reply('We failed to fetch your user, please try again later.\nIf the problem persists, talk to a staff member.')
+        if (!User.token) {
+            User.token = GenerateToken()
+            Db.users.updateOne({ _id: User._id }, { $set: User }, { upsert: true })
+        }
 
-        const row1 = new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>()
-            .addComponents(
-                new Discord.StringSelectMenuBuilder()
-                    .setCustomId(`modlist.select`)
-                    .setMinValues(0)
-                    .setMaxValues(Modlist.fetchOptionals().length)
-                    .addOptions(modOptions)
-            )
+        const lists = []
+        if (User.optionals) {
+            if (User.optionals.qol.length > 0) lists.push({ name: 'Quality of Life', value: User.optionals.qol.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
+            if (User.optionals.gfx.length > 0) lists.push({ name: 'Graphical Effects', value: User.optionals.gfx.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
+            if (User.optionals.zeus.length > 0) lists.push({ name: 'Zeus', value: User.optionals.zeus.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
+            if (User.optionals.j2.length > 0) lists.push({ name: 'J2 Mission Making', value: User.optionals.j2.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
+            if (User.optionals.j5.length > 0) lists.push({ name: 'J5 Media', value: User.optionals.j5.map(m => `- ${m.name}`).join('\n') || 'None', inline: true })
+        }
 
-        const row2 = new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>()
-            .addComponents(
-                new Discord.ButtonBuilder()
-                    .setCustomId(`modlist.reset.${list.id}`)
-                    .setLabel('Disable all Optionals')
-                    .setStyle(Discord.ButtonStyle.Danger),
-
-                new Discord.ButtonBuilder()
-                    .setCustomId(`modlist.all.${list.id}`)
-                    .setLabel('Enable all Optionals')
-                    .setStyle(Discord.ButtonStyle.Success)
-            )
+        const embed = new Discord.EmbedBuilder()
+            .setTitle('Your Enabled Optionals')
+            .setColor(app.colors.secondary)
+            .setTimestamp()
+            .setFields(lists)
 
         interaction.reply({
-            content: `**Your Enabled Optionals**\n*Remember to press download!*\n\`\`\`${foundOptionals.join('\n').slice(0, 2980)}\`\`\``,
-            components: [row1, row2],
+            embeds: [embed],
+            components: [
+                new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>()
+                    .addComponents(
+                        new Discord.ButtonBuilder()
+                            .setEmoji('📝')
+                            .setLabel('Edit Your Optionals')
+                            .setStyle(Discord.ButtonStyle.Link)
+                            .setURL(`${config.api}/optionals/callback?token=${User.token}&info=DO_NOT_SHARE`)
+                    )
+            ],
             ephemeral: true
         })
+
+        // const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
+        // const modOptions = Modlist.fetchOptionals().map(mod => ({
+        //     label: mod.name,
+        //     value: mod.id
+        // }))
+
+        // const row1 = new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>()
+        //     .addComponents(
+        //         new Discord.StringSelectMenuBuilder()
+        //             .setCustomId(`modlist.select`)
+        //             .setMinValues(0)
+        //             .setMaxValues(Modlist.fetchOptionals().length)
+        //             .addOptions(modOptions)
+        //     )
+
+        // const row2 = new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>()
+        //     .addComponents(
+        //         new Discord.ButtonBuilder()
+        //             .setCustomId(`modlist.reset.${list.id}`)
+        //             .setLabel('Disable all Optionals')
+        //             .setStyle(Discord.ButtonStyle.Danger),
+
+        //         new Discord.ButtonBuilder()
+        //             .setCustomId(`modlist.all.${list.id}`)
+        //             .setLabel('Enable all Optionals')
+        //             .setStyle(Discord.ButtonStyle.Success)
+        //     )
+
+        // interaction.reply({
+        //     content: `**Your Enabled Optionals**\n*Remember to press download!*\n\`\`\`${foundOptionals.join('\n').slice(0, 2980)}\`\`\``,
+        //     components: [row1, row2],
+        //     ephemeral: true
+        // })
     }
 
-    if (args[0] === 'reset') {
-        Modlist.setUserOptionals(interaction.user.id, [])
-        const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
-        interaction.update({ content: `**Your Enabled Optionals**\n*Remember to press download!*\n\`\`\`${foundOptionals.join('\n').slice(0, 2980)}\`\`\`` })
-    }
+    // if (args[0] === 'reset') {
+    //     Modlist.setUserOptionals(interaction.user.id, [])
+    //     const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
+    //     interaction.update({ content: `**Your Enabled Optionals**\n*Remember to press download!*\n\`\`\`${foundOptionals.join('\n').slice(0, 2980)}\`\`\`` })
+    // }
 
-    if (args[0] === 'all') {
-        const allOptionals = Modlist.fetchOptionals().map(mod => mod.id)
-        Modlist.setUserOptionals(interaction.user.id, allOptionals)
-        const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
-        interaction.update({ content: `**Your Enabled Optionals**\n*Remember to press download!*\n\`\`\`${foundOptionals.join('\n').slice(0, 2980)}\`\`\`` })
-    }
+    // if (args[0] === 'all') {
+    //     const allOptionals = Modlist.fetchOptionals().map(mod => mod.id)
+    //     Modlist.setUserOptionals(interaction.user.id, allOptionals)
+    //     const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
+    //     interaction.update({ content: `**Your Enabled Optionals**\n*Remember to press download!*\n\`\`\`${foundOptionals.join('\n').slice(0, 2980)}\`\`\`` })
+    // }
 
 }
