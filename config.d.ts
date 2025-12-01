@@ -6,6 +6,7 @@ declare global {
         discord: {
             token: string
             guild: string
+            memberRole: string
         }
 
         api: string

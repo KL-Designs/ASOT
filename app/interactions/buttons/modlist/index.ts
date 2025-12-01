@@ -30,7 +30,7 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
 
     if (args[0] === 'optionals') {
         const User = await Db.users.findOne({ _id: interaction.user.id })
-        if (!User) return interaction.reply('We failed to fetch your user, please try again later.\nIf the problem persists, talk to a staff member.')
+        if (!User) return interaction.reply({content: 'We failed to fetch your user, please try again later.\nIf the problem persists, talk to a staff member.', ephemeral: true})
         if (!User.token) {
             User.token = GenerateToken()
             Db.users.updateOne({ _id: User._id }, { $set: User }, { upsert: true })

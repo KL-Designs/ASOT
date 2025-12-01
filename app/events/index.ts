@@ -4,6 +4,7 @@ import guildMemberRemove from "./guildMemberRemove/index.ts"
 import messageCreate from "./messageCreate/index.ts"
 import messageUpdate from "./messageUpdate/index.ts"
 import voiceStateUpdate from "./voiceStateUpdate/index.ts"
+import guildMemberUpdate from "./guildMemberUpdate/index.ts"
 
 
 const events: { [key: string]: any } = {
@@ -12,7 +13,8 @@ const events: { [key: string]: any } = {
     guildMemberRemove,
     messageCreate,
     messageUpdate,
-    voiceStateUpdate
+    voiceStateUpdate,
+    guildMemberUpdate
 }
 
 

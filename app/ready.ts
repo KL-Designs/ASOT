@@ -38,7 +38,7 @@ export default async function (client: Discord.Client) {
     async function processMembers() {
         const guild = await App.guild()
         await guild.members.fetch()
-        const members = guild.members.cache.filter(m => m.roles.cache.has('1110471500563239012'))
+        const members = guild.members.cache.filter(m => m.roles.cache.has(App.config.memberRole))
 
         const batchSize = 10
         const delay = ms => new Promise(res => setTimeout(res, ms))
