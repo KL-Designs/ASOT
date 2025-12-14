@@ -7,6 +7,8 @@ declare global {
             token: string
             guild: string
             memberRole: string
+            adminRole: string
+            notificationChannel: string
         }
 
         api: string
