@@ -17,7 +17,7 @@ export default {
             description: 'The name of the list that users will select from',
             type: ApplicationCommandOptionType.String,
             min_length: 3,
-            max_length: 20,
+            max_length: 200,
             required: true
         },
         {
