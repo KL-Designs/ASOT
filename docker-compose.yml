@@ -1,0 +1,9 @@
+services:
+  web:
+    build: .
+    container_name: asot-tools
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    environment:
+      - MONGO_URI=mongodb://172.24.0.2:27017/ASOT
