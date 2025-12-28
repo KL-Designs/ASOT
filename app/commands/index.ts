@@ -9,7 +9,6 @@ import modlist from "./modlist/index.ts"
 export const ChatCommands = [
     ping,
     modlist,
-    count,
 ]
 
 export const UserContextCommands = [
