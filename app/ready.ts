@@ -5,6 +5,8 @@ import fs from 'node:fs'
 import Discord from 'discord.js'
 import Commands from 'discord/commands'
 
+import Dig from './commands/stats/dig.ts'
+
 
 
 export default async function (client: Discord.Client) {
@@ -33,6 +35,21 @@ export default async function (client: Discord.Client) {
         })
     }
     setInterval(processRoles, 1000 * 60 * 60), processRoles()
+
+
+    async function updateStatus() {
+        try {
+            const status = await Db.data.findOne({ _id: 'status' })
+            const guild = await App.guild()
+            const channel = await guild.channels.fetch(status.channel) as Discord.TextBasedChannel
+            const message = await channel.messages.fetch(status.message)
+
+            const embed = await Dig()
+            message.edit({ content: '', embeds: [embed] })
+        }
+        catch { }
+    }
+    setInterval(updateStatus, 1000 * 60 * 5)
 
 
     async function processMembers() {
