@@ -34,7 +34,7 @@ export default async function () {
         .setColor(App.colors.primary)
         .setTimestamp()
         .setFields(
-            {name: 'Arma 3', value: '>>> ' + output.map(server => `${server.status ? '🟢' : '🟥'} ${server.name} ‎ | ‎ ${server.players !== null ? `${server.players} / ${server.maxPlayers} Players` : 'Server Offline'}`).join('\n\n')}
+            {name: 'Arma 3', value: output.map(server => `${server.status ? '🟢' : '🟥'} ${server.name} ‎ | ‎ ${server.players !== null ? `${server.players} / ${server.maxPlayers} Players` : 'Server Offline'}`).join('\n\n')}
         )
 
     return embed
