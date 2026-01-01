@@ -49,7 +49,7 @@ export default async function (client: Discord.Client) {
         }
         catch { }
     }
-    setInterval(updateStatus, 1000 * 60 * 5)
+    setInterval(updateStatus, 1000 * 60 * 5), updateStatus()
 
 
     async function processMembers() {
