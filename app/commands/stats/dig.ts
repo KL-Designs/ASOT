@@ -36,7 +36,12 @@ export default async function () {
         return Promise.all(list.map(async (s) => {
             try {
                 const res = await GameDig.query({ type: s.game, host: s.host, port: s.port, socketTimeout: 3000 });
-                const cleanMode = decodeURIComponent(res.raw?.game || 'N/A').replace(/%20|_/g, ' ');
+                
+                // --- TRIM LOGIC ---
+                // Decode URL chars, replace underscores with spaces, and grab only the first word
+                let rawMode = decodeURIComponent(res.raw?.game || 'N/A').replace(/%20|_/g, ' ');
+                let cleanMode = rawMode.split(/[ \-.]/)[0]; // Splits by space, dash, or dot and takes the first part
+
                 return { ...s, status: true, players: res.numplayers, max: res.maxplayers, map: res.map, mode: cleanMode };
             } catch {
                 return { ...s, status: false, players: 0, max: 0, map: 'N/A', mode: 'N/A' };
@@ -50,22 +55,24 @@ export default async function () {
     const armaEmbed = new EmbedBuilder()
         .setTitle('🛰️ ASOT | ARMA 3 SERVERS')
         .setColor(App.colors.primary)
-        .setDescription('📡 **Operational Status**\n\u200b')
+        .setDescription('📡 **Operational Status**\n\u200b');
 
     armaResults.forEach(server => {
         const emoji = server.status ? '🟢' : '🔴';
         const isAux = server.name.toLowerCase().includes('auxiliary');
+        
+        // Show Mode only for Aux servers, now with the trimmed "cleanMode"
         const info = server.status 
-            ? `\`\`\`yaml\n${isAux ? `\nMode:${server.mode}\n` : ''}\nMap: ${server.map}\nPop: ${server.players}/${server.max}\`\`\``
+            ? `\`\`\`yaml\n${isAux ? `Mode: ${server.mode}\n` : ''}Map: ${server.map}\nPop: ${server.players}/${server.max}\`\`\``
             : `\`\`\`diff\n- OFFLINE -\n \`\`\``;
 
         armaEmbed.addFields({ name: `${emoji} ${server.name}`, value: info, inline: true });
     });
 
-    // --- OTHER GAMES EMBED ---
+    // --- OTHER SERVERS EMBED ---
     const otherEmbed = new EmbedBuilder()
         .setTitle('🎮 ASOT | OTHER SERVERS')
-        .setColor('#5865F2') 
+        .setColor('#5865F2')
         .setTimestamp()
         .setFooter({ text: 'Last Telemetry Update' });
 
@@ -78,5 +85,5 @@ export default async function () {
         otherEmbed.addFields({ name: `${emoji} ${server.name}`, value: info, inline: true });
     });
 
-    return { embeds: [ armaEmbed.toJSON(), otherEmbed.toJSON() ] };
+    return { embeds: [armaEmbed.toJSON(), otherEmbed.toJSON()] };
 }
