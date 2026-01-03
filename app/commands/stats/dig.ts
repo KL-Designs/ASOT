@@ -14,9 +14,9 @@ const armaServers = [
 ]
 
 const otherServers = [
-    { name: 'TeamSpeak 3', game: 'ts3', host: 'ts.asotmilsim.com', port: 9987 },
-    { name: 'Minecraft Survival', game: 'minecraft', host: '103.193.80.60', port: 25565 },
-    { name: 'Ark: Survival Evolved', game: 'arkse', host: 'arma.asotmilsim.com', port: 27015 },
+    { name: 'TeamSpeak', game: 'ts3', host: 'ts.asotmilsim.com', port: 9987 },
+    { name: 'Minecraft', game: 'minecraft', host: '103.193.80.60', port: 25565 },
+    { name: 'ARK', game: 'arkse', host: 'arma.asotmilsim.com', port: 27015 },
     //{ name: '7 Days to Die', game: '7d2d', host: 'arma.asotmilsim.com', port: 26900 },
     //{ name: 'Rust', game: 'rust', host: 'arma.asotmilsim.com', port: 28015 },
     //{ name: 'Project Zomboid', game: 'projectzomboid', host: 'arma.asotmilsim.com', port: 27016 },
@@ -63,7 +63,7 @@ export default async function () {
         
         // Show Mode only for Aux servers, now with the trimmed "cleanMode"
         const info = server.status 
-            ? `\`\`\`yaml\n${isAux ? `Mode: ${server.mode}\n` : ''}Map: ${server.map}\nPop: ${server.players}/${server.max}\`\`\``
+            ? `\`\`\`yaml\n${isAux ? `Mode: ${server.mode}\n` : ''}\nPop: ${server.players}/${server.max}\`\`\``
             : `\`\`\`diff\n- OFFLINE -\n \`\`\``;
 
         armaEmbed.addFields({ name: `${emoji} ${server.name}`, value: info, inline: true });
