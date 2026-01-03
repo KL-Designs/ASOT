@@ -14,7 +14,7 @@ const armaServers = [
 ]
 
 const otherServers = [
-    { name: 'TeamSpeak', game: 'ts3', host: 'ts.asotmilsim.com', port: 9987 },
+    { name: 'TeamSpeak', game: 'teamspeak3', host: 'ts.asotmilsim.com', port: 9987 },
     { name: 'Minecraft', game: 'minecraft', host: '103.193.80.60', port: 25565 },
     { name: 'ARK', game: 'arkse', host: 'arma.asotmilsim.com', port: 27015 },
     //{ name: '7 Days to Die', game: '7d2d', host: 'arma.asotmilsim.com', port: 26900 },
