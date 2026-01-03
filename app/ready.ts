@@ -45,7 +45,7 @@ export default async function (client: Discord.Client) {
             const message = await channel.messages.fetch(status.message)
 
             const embed = await Dig()
-            message.edit({ content: '', embeds: [embed] })
+            message.edit({ content: '', embeds: [embed] }).catch(() => console.warn('Message no longer exists'))
         }
         catch { }
     }
