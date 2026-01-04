@@ -4,12 +4,12 @@ import { EmbedBuilder } from 'discord.js'
 
 const armaServers = [
     { name: 'Main Ops', game: 'arma3', host: 'arma.asotmilsim.com', port: 4000 },
-    { name: 'Gun Range', game: 'arma3', host: 'arma.asotmilsim.com', port: 4050 },
     { name: 'Training - Primary', game: 'arma3', host: 'arma.asotmilsim.com', port: 4100 },
     { name: 'Training - Secondary', game: 'arma3', host: 'arma.asotmilsim.com', port: 4108 },
     { name: 'Primary Auxiliary', game: 'arma3', host: 'arma.asotmilsim.com', port: 4150 },
     { name: 'Secondary Auxiliary', game: 'arma3', host: 'arma.asotmilsim.com', port: 4158 },
     { name: 'Tertiary Auxiliary', game: 'arma3', host: 'arma.asotmilsim.com', port: 4166 },
+    { name: 'Gun Range', game: 'arma3', host: 'arma.asotmilsim.com', port: 4050 },
     { name: 'Medical Camp', game: 'arma3', host: 'arma.asotmilsim.com', port: 4058 },
 ]
 
@@ -35,55 +35,52 @@ export default async function () {
     async function getStatus(list) {
         return Promise.all(list.map(async (s) => {
             try {
-                const res = await GameDig.query({ type: s.game, host: s.host, port: s.port, socketTimeout: 3000 });
+                const res = await GameDig.query({ type: s.game, host: s.host, port: s.port, socketTimeout: 3000 })
                 
-                // --- TRIM LOGIC ---
-                // Decode URL chars, replace underscores with spaces, and grab only the first word
-                let rawMode = decodeURIComponent(res.raw?.game || 'N/A').replace(/%20|_/g, ' ');
-                let cleanMode = rawMode.split(/[ \-.]/)[0]; // Splits by space, dash, or dot and takes the first part
+                let rawMode = decodeURIComponent(res.raw?.game || 'N/A').replace(/%20|_/g, ' ')
+                let cleanMode = rawMode.split(/[ \-.]/)[0]
 
-                return { ...s, status: true, players: res.numplayers, max: res.maxplayers, map: res.map, mode: cleanMode };
+                return { ...s, status: true, players: res.numplayers, max: res.maxplayers, map: res.map, mode: cleanMode }
             } catch {
-                return { ...s, status: false, players: 0, max: 0, map: 'N/A', mode: 'N/A' };
+                return { ...s, status: false, players: 0, max: 0, map: 'N/A', mode: 'N/A' }
             }
-        }));
+        }))
     }
 
-    const [armaResults, otherResults] = await Promise.all([getStatus(armaServers), getStatus(otherServers)]);
+    const [armaResults, otherResults] = await Promise.all([getStatus(armaServers), getStatus(otherServers)])
 
-    // --- ARMA 3 EMBED ---
+    //? ARMA 3 EMBED
     const armaEmbed = new EmbedBuilder()
-        .setTitle('🛰️ ASOT | ARMA 3 SERVERS')
+        .setTitle('🛰️ ARMA3 SERVERS')
         .setColor(App.colors.primary)
-        .setDescription('📡 **Operational Status**\n\u200b');
+        .setDescription('📡 **Operational Status**\n\u200b')
 
     armaResults.forEach(server => {
-        const emoji = server.status ? '🟢' : '🔴';
-        const isAux = server.name.toLowerCase().includes('auxiliary');
+        const emoji = server.status ? '🟢' : '🔴'
+        const isAux = server.name.toLowerCase().includes('auxiliary')
         
-        // Show Mode only for Aux servers, now with the trimmed "cleanMode"
         const info = server.status 
-            ? `\`\`\`yaml\n${isAux ? `Mode: ${server.mode}\n` : ''}\nPop: ${server.players}/${server.max}\`\`\``
-            : `\`\`\`diff\n- OFFLINE -\n \`\`\``;
+            ? `\`\`\`yaml\nPlayers: ${server.players}/${server.max}\n${isAux ? `Mode: ${server.mode}\n` : ''}\`\`\``
+            : `\`\`\`diff\n- OFFLINE -\`\`\``
 
-        armaEmbed.addFields({ name: `${emoji} ${server.name}`, value: info, inline: true });
-    });
+        armaEmbed.addFields({ name: `${emoji} ${server.name}`, value: info, inline: true })
+    })
 
-    // --- OTHER SERVERS EMBED ---
+    //? OTHER SERVERS EMBED
     const otherEmbed = new EmbedBuilder()
-        .setTitle('🎮 ASOT | OTHER SERVERS')
-        .setColor('#5865F2')
+        .setTitle('🎮 OTHER SERVERS')
+        .setColor(App.colors.secondary)
         .setTimestamp()
-        .setFooter({ text: 'Last Telemetry Update' });
+        .setFooter({ text: 'Last Telemetry Update' })
 
     otherResults.forEach(server => {
-        const emoji = server.status ? '🟢' : '🔴';
+        const emoji = server.status ? '🟢' : '🔴'
         const info = server.status 
             ? `\`\`\`yaml\nWorld: ${server.map}\nPop: ${server.players}/${server.max}\`\`\``
-            : `\`\`\`diff\n- OFFLINE -\n \`\`\``;
+            : `\`\`\`diff\n- OFFLINE -\`\`\``
 
-        otherEmbed.addFields({ name: `${emoji} ${server.name}`, value: info, inline: true });
-    });
+        otherEmbed.addFields({ name: `${emoji} ${server.name}`, value: info, inline: true })
+    })
 
-    return { embeds: [armaEmbed.toJSON(), otherEmbed.toJSON()] };
+    return { content: '', embeds: [armaEmbed.toJSON(), otherEmbed.toJSON()] }
 }
