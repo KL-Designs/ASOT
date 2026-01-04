@@ -25,8 +25,8 @@ export default {
 
         interaction.deferReply().then(() => interaction.deleteReply())
 
-        const embed = await dig()
-        msg.edit({ content: '', embeds: [embed] })
-
+        const result = await dig()
+        msg.edit(result)
+        
     }
 } as ChatCommand

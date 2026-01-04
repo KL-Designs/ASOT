@@ -44,8 +44,8 @@ export default async function (client: Discord.Client) {
             const channel = await guild.channels.fetch(status.channel) as Discord.TextBasedChannel
             const message = await channel.messages.fetch(status.message)
 
-            const embed = await Dig()
-            message.edit({ content: '', embeds: [embed] })
+            const result = await Dig()
+            message.edit(result).catch(() => console.warn('Message no longer exists'))
         }
         catch { }
     }
