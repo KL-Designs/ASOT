@@ -8,14 +8,54 @@ export default {
 
     options: [
         {
-            name: 'when',
+            name: 'time',
             description: 'Use "/reminder help" to understand how to use this.',
             type: ApplicationCommandOptionType.String,
             required: true,
             autocomplete: true,
 
             response(interaction) {
-                const search = interaction.options.getString('when') || ''
+                const search = interaction.options.getString('time') || ''
+
+                const [hours, minutes] = search.split(":").map(Number)
+                if (!/^\d{2}:\d{2}$/.test(search)) return interaction.respond([{ name: 'Invalid Time, Must match HH:MM', value: 'invalid' }])
+                if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return interaction.respond([{ name: 'Invalid Time, hours must be 00-23 and minutes 00-59', value: 'invalid' }])
+
+                const date = new Date()
+                date.setHours(hours)
+                date.setMinutes(minutes)
+                date.setSeconds(0)
+
+                interaction.respond([{ name: date.toTimeString(), value: search }])
+            }
+        } as AutocompleteOption,
+        {
+            name: 'date',
+            description: 'Leave Blank to set as today. Use "/reminder help" to understand how to use this. (DD-MM-YYYY)',
+            type: ApplicationCommandOptionType.String,
+            required: false,
+            autocomplete: true,
+
+            response(interaction) {
+                const search = interaction.options.getString('date') || ''
+
+                if (!/^\d{2}-\d{2}-\d{4}$/.test(search)) return interaction.respond([{ name: 'Invalid Date, Must match DD-MM-YYYY', value: 'invalid' }])
+                if (!isRealDate(search)) return interaction.respond([{ name: `${search} is not a real date, please check this date exists!`, value: 'invalid' }])
+
+
+
+                interaction.respond([{ name: 'Invalid', value: 'invalid' }])
+            }
+        } as AutocompleteOption,
+        {
+            name: 'repeat',
+            description: 'Repeat every X time after the initial chosen time and date, (s/m/h/d/w)',
+            type: ApplicationCommandOptionType.String,
+            required: false,
+            autocomplete: true,
+
+            response(interaction) {
+                const search = interaction.options.getString('repeat') || ''
 
                 if (search.includes('@')) {
                     const date = search.split('@')[0]
@@ -34,16 +74,6 @@ export default {
                 interaction.respond([{ name: 'Invalid', value: 'invalid' }])
             }
         } as AutocompleteOption,
-        {
-            name: 'type',
-            description: 'Do you want this reminder to repeat or only happen once?',
-            type: ApplicationCommandOptionType.String,
-            required: true,
-            choices: [
-                { name: 'Single', value: 'single' },
-                { name: 'Repeat', value: 'repeat' }
-            ]
-        },
         {
             name: 'who',
             description: 'Who do you want to remind? (Leave blank to remind yourself)',
