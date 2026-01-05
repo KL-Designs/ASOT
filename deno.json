@@ -21,6 +21,7 @@
         "fast-xml-parser": "npm:fast-xml-parser",
         "google-auth-library": "npm:google-auth-library",
         "googleapis": "npm:googleapis",
+        "gamedig": "npm:gamedig",
 
         "config": "./lib/config.ts",
         "app": "./app/index.ts",
