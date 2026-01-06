@@ -8,7 +8,6 @@ import StringSelectMenus from 'discord/stringSelectMenus'
 
 
 export function UserContextCommand(interaction: Discord.UserContextMenuCommandInteraction) {
-
     try {
         let command = UserContextCommands.find(c => c.name === interaction.commandName)
         if (!command) throw new Error(`No user context command matching "${interaction.commandName}" was found.`)
@@ -36,7 +35,6 @@ export function UserContextCommand(interaction: Discord.UserContextMenuCommandIn
 }
 
 export function ChatCommand(interaction: Discord.ChatInputCommandInteraction) {
-
     try {
         let command = ChatCommands.find(c => c.name === interaction.commandName)
         if (!command) throw new Error(`No command matching "${interaction.commandName}" was found.`)
@@ -71,36 +69,28 @@ export function ChatCommand(interaction: Discord.ChatInputCommandInteraction) {
 
 
 export function Autocomplete(interaction: Discord.AutocompleteInteraction) {
-
     try {
-        let command = ChatCommands.find(c => c.name === interaction.commandName)
-        if (!command) throw new Error(`No command matching "${interaction.commandName}" was found.`)
+        const command = ChatCommands.find(c => c.name === interaction.commandName)
+        if (!command) throw new Error(`No command matching "${interaction.commandName}" found.`)
 
-        const path: string[] = []
-        let map = interaction.options.data
+        const focused = interaction.options.getFocused(true)
+        if (!focused) throw new Error('No focused option found for autocomplete')
 
-        while (map.find(o => o.type === 1) || map.length > 0) {
-            const subcommand = map.find(o => o.type === 2 || o.type === 1 || o.type === 3)?.name as string
-            path.push(subcommand)
+        const subcommandName = interaction.options.getSubcommand(false)
+        let subcommand: any = command
 
-            map = map.find(o => o.type === 2 || o.type === 1)?.options || []
+        if (subcommandName) {
+            const maybeSub = command.options?.find(o => o.name === subcommandName)
+            if (!maybeSub || !('options' in maybeSub)) throw new Error(`Subcommand "${subcommandName}" not found or has no options.`)
+            subcommand = maybeSub
         }
 
-        while (path.length > 0) {
-            if (!command) throw new Error(`No subcommand matching ${path.join(' ')} was found.`)
-            command = command?.options?.find(c => c.name === path[0]) as any
-            path.shift()
-        }
+        const optionDef = subcommand.options.find((o: any) => o.name === focused.name)
+        if (!optionDef) throw new Error(`No autocomplete matching "${focused.name}" found.`)
+        if (!optionDef.response) throw new Error(`Autocomplete "${focused.name}" has no response function.`)
 
-        if (!command) throw new Error(`No autocomplete matching ${path.join(' ')} was found.`)
-        const option = (command as any) as AutocompleteOption
-
-        if (!option.response) throw new Error(`Autocomplete "${command?.name || 'UNKNOWN'}" does not contain a response.`)
-
-        return option.response(interaction)
-    }
-
-    catch (error: any) {
+        return optionDef.response(interaction)
+    } catch (error: any) {
         console.warn(error.message)
         return interaction.respond([])
     }

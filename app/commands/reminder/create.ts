@@ -39,12 +39,18 @@ export default {
             response(interaction) {
                 const search = interaction.options.getString('date') || ''
 
+                const [day, month, year] = search.split("-").map(Number)
                 if (!/^\d{2}-\d{2}-\d{4}$/.test(search)) return interaction.respond([{ name: 'Invalid Date, Must match DD-MM-YYYY', value: 'invalid' }])
                 if (!isRealDate(search)) return interaction.respond([{ name: `${search} is not a real date, please check this date exists!`, value: 'invalid' }])
 
 
+                const date = new Date()
+                date.setDate(day)
+                date.setMonth(month - 1)
+                date.setFullYear(year)
 
-                interaction.respond([{ name: 'Invalid', value: 'invalid' }])
+
+                interaction.respond([{ name: date.toDateString(), value: search }])
             }
         } as AutocompleteOption,
         {
@@ -57,22 +63,28 @@ export default {
             response(interaction) {
                 const search = interaction.options.getString('repeat') || ''
 
-                if (search.includes('@')) {
-                    const date = search.split('@')[0]
-                    const time = search.split('@')[1]
+                const times = search.split('/')
+                const finalRepeat = []
 
-                    if (!date || !time) return interaction.respond([{ name: 'Invalid Date/Time', value: 'invalid' }])
+                for (const time of times) {
+                    const value = Number(time.slice(0, -1))
+                    const type = time.slice(-1)
 
-                    if (!/^\d{2}-\d{2}-\d{4}$/.test(date)) return interaction.respond([{ name: 'Invalid Date, Must match DD-MM-YYYY', value: 'invalid' }])
-                    if (!isRealDate(date)) return interaction.respond([{ name: `${date} is not a real date, please check this date exists!`, value: 'invalid' }])
+                    if (isNaN(value)) return interaction.respond([{ name: 'Invalid Repeat Syntax', value: 'invalid' }])
 
-                    const [minutes, hours] = time.split(":").map(Number)
-                    if (!/^\d{2}:\d{2}$/.test(time)) return interaction.respond([{ name: 'Invalid Time, Must match MM:HH', value: 'invalid' }])
-                    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return interaction.respond([{ name: 'Invalid Time, hours must be 00-23 and minutes 00-59', value: 'invalid' }])
+                    switch (type) {
+                        case "s": finalRepeat.push(`${value} seconds`); break
+                        case "m": finalRepeat.push(`${value} minutes`); break
+                        case "h": finalRepeat.push(`${value} hours`); break
+                        case "d": finalRepeat.push(`${value} days`); break
+                        case "w": finalRepeat.push(`${value} weeks`); break
+                        default: return interaction.respond([{ name: `Invalid Repeat Syntax Letter: "${type}"`, value: 'invalid' }])
+                    }
                 }
 
-                interaction.respond([{ name: 'Invalid', value: 'invalid' }])
+                interaction.respond([{ name: `Repeat every ${finalRepeat.reverse().join(', ')}`, value: search }])
             }
+
         } as AutocompleteOption,
         {
             name: 'who',
