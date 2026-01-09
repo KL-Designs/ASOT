@@ -16,6 +16,7 @@ declare global {
         who: string[]
 
         message: string
+        channel: string
     }
 
 }

@@ -7,6 +7,7 @@ import Commands from 'discord/commands'
 
 import processRoles from "./processRoles.ts"
 import processMembers from "./processMembers.ts"
+import processReminders from "./processReminders.ts"
 
 import Dig from './commands/stats/dig.ts'
 
@@ -48,4 +49,5 @@ export default async function (client: Discord.Client) {
     setInterval(updateStatus, 1000 * 60 * 5), updateStatus()
     setInterval(processRoles, 1000 * 60 * 60), processRoles()
     setInterval(processMembers, 1000 * 60 * 60), processMembers()
+    setInterval(processReminders, 1000 * 60), processMembers()
 }

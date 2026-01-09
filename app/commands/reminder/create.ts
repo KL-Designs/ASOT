@@ -170,7 +170,8 @@ export default {
             repeat: repeat,
             by: interaction.user.id,
             who: who,
-            message: interaction.options.getString('reminder')
+            message: interaction.options.getString('reminder'),
+            channel: interaction.channelId
         })
 
         interaction.reply({ content: `Reminder set for <t:${Math.floor(finalDate.getTime() / 1000)}:F>\n>>> ${interaction.options.getString('reminder')}`, ephemeral: true })
