@@ -54,7 +54,6 @@ export default async function () {
         .setTitle('🛰️ ARMA3 SERVERS')
         .setColor(App.colors.primary)
         .setDescription('📡 **Operational Status**\n\u200b')
-        .setTimestamp()
 
     armaResults.forEach(server => {
         const emoji = server.status ? '🟢' : '🔴'
@@ -72,7 +71,7 @@ export default async function () {
         .setTitle('🎮 OTHER SERVERS')
         .setColor(App.colors.secondary)
         .setTimestamp()
-        // .setFooter({ text: 'Last Telemetry Update' })
+        .setFooter({ text: 'Last Telemetry Update' })
 
     otherResults.forEach(server => {
         const emoji = server.status ? '🟢' : '🔴'
@@ -83,5 +82,5 @@ export default async function () {
         otherEmbed.addFields({ name: `${emoji} ${server.name}`, value: info, inline: true })
     })
 
-    return { content: '', embeds: [armaEmbed.toJSON()/*, otherEmbed.toJSON()*/] }
+    return { content: '', embeds: [armaEmbed.toJSON(), otherEmbed.toJSON()] }
 }
