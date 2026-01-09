@@ -1,4 +1,6 @@
 import Discord, { ApplicationCommandOptionType } from 'discord.js'
+import Db from 'lib/mongo.ts'
+import { ObjectId } from 'mongodb'
 
 
 export default {
@@ -7,6 +9,12 @@ export default {
     type: ApplicationCommandOptionType.Subcommand,
 
     options: [
+        {
+            name: 'reminder',
+            description: 'Whats the reminder for?',
+            type: ApplicationCommandOptionType.String,
+            required: true
+        },
         {
             name: 'time',
             description: 'Use "/reminder help" to understand how to use this.',
@@ -55,7 +63,7 @@ export default {
         } as AutocompleteOption,
         {
             name: 'repeat',
-            description: 'Repeat every X time after the initial chosen time and date, (s/m/h/d/w)',
+            description: 'Repeat every X time after the initial chosen time and date, (m/h/d/w)',
             type: ApplicationCommandOptionType.String,
             required: false,
             autocomplete: true,
@@ -73,7 +81,6 @@ export default {
                     if (isNaN(value)) return interaction.respond([{ name: 'Invalid Repeat Syntax', value: 'invalid' }])
 
                     switch (type) {
-                        case "s": finalRepeat.push(`${value} seconds`); break
                         case "m": finalRepeat.push(`${value} minutes`); break
                         case "h": finalRepeat.push(`${value} hours`); break
                         case "d": finalRepeat.push(`${value} days`); break
@@ -95,7 +102,25 @@ export default {
     ],
 
     async execute(interaction) {
+        if (interaction.options.getString('date') === 'invalid') return interaction.reply({ content: 'Date is Invalid', ephemeral: true })
+        if (interaction.options.getString('time') === 'invalid') return interaction.reply({ content: 'Time is Invalid', ephemeral: true })
+        if (interaction.options.getString('repeat') === 'invalid') return interaction.reply({ content: 'Repeat is Invalid', ephemeral: true })
+
+        const who = []
         const finalDate = new Date()
+        let repeat = 0
+
+        who.push(`<@${interaction.user.id}>`)
+
+        if (!interaction.options.getString('reminder', true)) return
+
+        if (interaction.options.getMentionable('who')) {
+            const mention = interaction.options.getMentionable('who') as Discord.GuildMember & Discord.Role
+            if (mention) {
+                if (mention.user) who.push(`<@${mention.user.id}>`)
+                else if (mention.id) who.push(`<@&${mention.id}>`)
+            }
+        }
 
         const date = () => {
             if (interaction.options.getString('date', false)) return interaction.options.getString('date')
@@ -115,9 +140,40 @@ export default {
         finalDate.setHours(parseInt(hour))
         finalDate.setMinutes(parseInt(minute))
 
-        // const repeat = interaction.options.getString('repeat', false)
 
-        interaction.reply({content: `<t:${Math.floor(finalDate.getTime() / 1000)}:F>`, ephemeral: true})
+        if (interaction.options.getString('repeat', false) !== null) {
+            const rawRepeat = interaction.options.getString('repeat', false)
+
+            const times = rawRepeat.split('/')
+            repeat = 0
+
+            times.forEach((time, i) => {
+                const value = Number(time.slice(0, -1))
+                const type = time.slice(-1)
+
+                if (isNaN(value)) return interaction.reply({ content: 'Invalid Repeat Syntax', ephemeral: true })
+
+                switch (type) {
+                    case "m": repeat += 1000 * 60 * value; break
+                    case "h": repeat += 1000 * 60 * 60 * value; break
+                    case "d": repeat += 1000 * 60 * 60 * 24 * value; break
+                    case "w": repeat += 1000 * 60 * 60 * 24 * 7 * value; break
+                    default: return interaction.reply({ content: `Invalid Repeat Syntax Letter: "${type}"`, ephemeral: true }) //! THIS IS GONNA BREAK
+                }
+            })
+        }
+
+        Db.reminders.insertOne({
+            _id: new ObjectId(),
+            enabled: true,
+            expected: finalDate,
+            repeat: repeat,
+            by: interaction.user.id,
+            who: who,
+            message: interaction.options.getString('reminder')
+        })
+
+        interaction.reply({ content: `Reminder set for <t:${Math.floor(finalDate.getTime() / 1000)}:F>\n>>> ${interaction.options.getString('reminder')}`, ephemeral: true })
 
     }
 } as ChatSubcommand

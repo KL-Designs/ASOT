@@ -7,11 +7,10 @@ declare global {
     interface Reminder {
         _id: ObjectId
 
-        type: 'single' | 'repeat'
         enabled: boolean | null
 
-        length: number
         expected: Date
+        repeat: number
 
         by: string
         who: string[]
