@@ -1,7 +1,7 @@
 import ping from './ping/index.ts'
 
 import modlist from "./modlist/index.ts"
-import remindme from "./remindme/index.ts"
+import reminder from "./reminder/index.ts"
 import stats from "./stats/index.ts"
 // import recruitment from './recruitment/menu.ts'
 // import promote from './promote/menu.ts'
@@ -11,7 +11,7 @@ import stats from "./stats/index.ts"
 export const ChatCommands = [
     ping,
     modlist,
-    // remindme,
+    reminder,
     stats,
 ]
 
