@@ -51,9 +51,9 @@ export default async function () {
 
     //? ARMA 3 EMBED
     const armaEmbed = new EmbedBuilder()
-        .setTitle('🛰️ ARMA3 SERVERS')
+        .setTitle('🛰️ ARMA 3 Server Status')
         .setColor(App.colors.primary)
-        .setDescription('📡 **Operational Status**\n\u200b')
+        // .setDescription('📡 **Server Status**\n\u200b')
         .setTimestamp()
 
     armaResults.forEach(server => {
