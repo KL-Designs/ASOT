@@ -39,8 +39,8 @@ export default {
             response(interaction) {
                 const search = interaction.options.getString('date') || ''
 
-                const [day, month, year] = search.split("-").map(Number)
-                if (!/^\d{2}-\d{2}-\d{4}$/.test(search)) return interaction.respond([{ name: 'Invalid Date, Must match DD-MM-YYYY', value: 'invalid' }])
+                const [day, month, year] = search.split("/").map(Number)
+                if (!/^\d{2}\/\d{2}\/\d{4}$/.test(search)) return interaction.respond([{ name: 'Invalid Date, Must match DD/MM/YYYY', value: 'invalid' }])
                 if (!isRealDate(search)) return interaction.respond([{ name: `${search} is not a real date, please check this date exists!`, value: 'invalid' }])
 
 
@@ -95,6 +95,29 @@ export default {
     ],
 
     async execute(interaction) {
+        const finalDate = new Date()
+
+        const date = () => {
+            if (interaction.options.getString('date', false)) return interaction.options.getString('date')
+            const today = new Date()
+            const dd = String(today.getDate()).padStart(2, '0')
+            const mm = String(today.getMonth() + 1).padStart(2, '0')
+            const yyyy = today.getFullYear()
+            return `${dd}/${mm}/${yyyy}`
+        }
+
+        const [day, month, year] = date().split('/')
+        finalDate.setDate(parseInt(day))
+        finalDate.setMonth(parseInt(month) - 1)
+        finalDate.setFullYear(parseInt(year))
+
+        const [hour, minute] = interaction.options.getString('time', true).split(':')
+        finalDate.setHours(parseInt(hour))
+        finalDate.setMinutes(parseInt(minute))
+
+        // const repeat = interaction.options.getString('repeat', false)
+
+        interaction.reply({content: `<t:${Math.floor(finalDate.getTime() / 1000)}:F>`, ephemeral: true})
 
     }
 } as ChatSubcommand
@@ -102,7 +125,7 @@ export default {
 
 
 function isRealDate(str) {
-    const [day, month, year] = str.split("-").map(Number)
+    const [day, month, year] = str.split("/").map(Number)
 
     const date = new Date(year, month - 1, day)
 
