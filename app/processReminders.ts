@@ -59,7 +59,7 @@ export default async function processReminders() {
             Db.reminders.updateOne({ _id: reminder._id }, {
                 $set: {
                     expected: new Date(reminder.expected.getTime() + reminder.repeat),
-                    nextCheck: reminder.repeat === 0 ? new Date(reminder.expected.getTime() + 1000 * 60 * 5) : null,
+                    nextCheck: reminder.repeat === 0 ? new Date(new Date().getTime() + 1000 * 60 * 5) : null,
                     acknowledged: reminder.repeat === 0 && reminder.acknowledged === null ? 2 : null
                 }
             })
