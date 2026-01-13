@@ -3,6 +3,8 @@ import Discord, { ApplicationCommandType, ApplicationCommandOptionType } from 'd
 import help from './help.ts'
 import create from './create.ts'
 import remove from "./remove.ts"
+import enable from "./enable.ts"
+import disable from "./disable.ts"
 
 
 export default {
@@ -13,6 +15,8 @@ export default {
     options: [
         help,
         create,
-        remove
+        remove,
+        enable,
+        disable
     ]
 } as ChatCommand

@@ -139,6 +139,8 @@ export default {
         const [hour, minute] = interaction.options.getString('time', true).split(':')
         finalDate.setHours(parseInt(hour))
         finalDate.setMinutes(parseInt(minute))
+        finalDate.setSeconds(0)
+        finalDate.setMilliseconds(0)
 
 
         if (interaction.options.getString('repeat', false) !== null) {
@@ -167,6 +169,8 @@ export default {
             _id: new ObjectId(),
             enabled: true,
             expected: finalDate,
+            acknowledged: null,
+            nextCheck: null,
             repeat: repeat,
             by: interaction.user.id,
             who: who,
