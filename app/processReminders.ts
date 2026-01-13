@@ -18,10 +18,10 @@ export default async function processReminders() {
             Db.reminders.updateOne({ _id: reminder._id }, {
                 $set: {
                     acknowledged: reminder.acknowledged > 0 ? reminder.acknowledged - 1 : true,
-                    nextCheck: new Date(new Date().getTime() + 1000 * 60 * 5)
+                    nextCheck: new Date(new Date().getTime() + 1000 * 60 * 60 * 8)
                 }
             })
-            channel.send(`${reminder.who.join(' ')} please acknowledge your reminder!`).then(msg => setTimeout(() => msg.delete().catch(() => { }), 1000 * 60 * 5))
+            channel.send(`${reminder.who.join(' ')} please acknowledge your reminder!`).then(msg => setTimeout(() => msg.delete().catch(() => { }), 1000 * 60 * 60 * 8))
             break
         }
 
@@ -59,7 +59,7 @@ export default async function processReminders() {
             Db.reminders.updateOne({ _id: reminder._id }, {
                 $set: {
                     expected: new Date(reminder.expected.getTime() + reminder.repeat),
-                    nextCheck: reminder.repeat === 0 ? new Date(new Date().getTime() + 1000 * 60 * 5) : null,
+                    nextCheck: reminder.repeat === 0 ? new Date(new Date().getTime() + 1000 * 60 * 60 * 8) : null,
                     acknowledged: reminder.repeat === 0 && reminder.acknowledged === null ? 2 : null
                 }
             })
