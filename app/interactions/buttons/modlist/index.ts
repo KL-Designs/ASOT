@@ -25,12 +25,24 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
         const foundOptionals = await Modlist.matchOptionals(interaction.user.id)
         const merged = list.mods.concat(foundOptionals)
 
-        return interaction.reply({ files: [Modlist.createModFile(merged, list.name)], ephemeral: true })
+        const downloadMsg = await interaction.reply({ files: [Modlist.createModFile(merged, list.name)], ephemeral: true, fetchReply: true })
+        const attachment = downloadMsg.attachments.first()
+
+        const row = new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>().addComponents(
+            new Discord.ButtonBuilder()
+                .setLabel('📥 Download Modlist')
+                .setStyle(Discord.ButtonStyle.Link)
+                .setURL(attachment.url)
+        )
+
+        await interaction.editReply({
+            components: [row]
+        })
     }
 
     if (args[0] === 'optionals') {
         const User = await Db.users.findOne({ _id: interaction.user.id })
-        if (!User) return interaction.reply({content: 'We failed to fetch your user, please try again later.\nIf the problem persists, talk to a staff member.', ephemeral: true})
+        if (!User) return interaction.reply({ content: 'We failed to fetch your user, please try again later.\nIf the problem persists, talk to a staff member.', ephemeral: true })
         if (!User.token) {
             User.token = GenerateToken()
             Db.users.updateOne({ _id: User._id }, { $set: User }, { upsert: true })
