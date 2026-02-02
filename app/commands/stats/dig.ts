@@ -14,7 +14,7 @@ const armaServers = [
 ]
 
 const otherServers = [
-    // { name: 'TeamSpeak', game: 'teamspeak3', host: 'ts.asotmilsim.com', port: 9987 },
+    { name: 'TeamSpeak', game: 'teamspeak3', host: '172.24.0.10', port: 9987 },
     { name: 'Minecraft', game: 'minecraft', host: 'ts.asotmilsim.com', port: 25565 },
     // { name: 'ARK', game: 'arkse', host: 'arma.asotmilsim.com', port: 27015 },
     //{ name: '7 Days to Die', game: '7d2d', host: 'arma.asotmilsim.com', port: 26900 },
@@ -36,7 +36,7 @@ export default async function () {
         return Promise.all(list.map(async (s) => {
             try {
                 const res = await GameDig.query({ type: s.game, host: s.host, port: s.port, socketTimeout: 3000 })
-                
+
                 let rawMode = decodeURIComponent(res.raw?.game || 'N/A').replace(/%20|_/g, ' ')
                 let cleanMode = rawMode.split(/[ \-.]/)[0]
 
@@ -59,8 +59,8 @@ export default async function () {
     armaResults.forEach(server => {
         const emoji = server.status ? '🟢' : '🔴'
         const isAux = server.name.toLowerCase().includes('auxiliary')
-        
-        const info = server.status 
+
+        const info = server.status
             ? `\`\`\`yaml\nPlayers: ${server.players}/${server.max}\n${isAux ? `Mode: ${server.mode}\n` : ''}\`\`\``
             : `\`\`\`diff\n- OFFLINE -\`\`\``
 
@@ -69,19 +69,29 @@ export default async function () {
 
     //? OTHER SERVERS EMBED
     const otherEmbed = new EmbedBuilder()
-        .setTitle('🎮 GAME SERVERS')
+        .setTitle('🎮 OTHER SERVERS')
         .setColor(App.colors.secondary)
         .setTimestamp()
-        // .setFooter({ text: 'Last Telemetry Update' })
+    // .setFooter({ text: 'Last Telemetry Update' })
 
     otherResults.forEach(server => {
-        if (server.game === 'minecraft') console.log(server)
-        const emoji = server.status ? '🟢' : '🔴'
-        const info = server.status 
-            ? `\`\`\`yaml\nPlayers: ${server.players}/${server.max}\nVersion: ${server.raw.version}\`\`\``
-            : `\`\`\`diff\n- OFFLINE -\`\`\``
+        if (server.game === 'minecraft') {
+            const emoji = server.status ? '🟢' : '🔴'
+            const info = server.status
+                ? `\`\`\`yaml\nPlayers: ${server.players}/${server.max}\nVersion: ${server.raw.version}\`\`\``
+                : `\`\`\`diff\n- OFFLINE -\`\`\``
 
-        otherEmbed.addFields({ name: `${emoji} ${server.name}`, value: info, inline: true })
+            otherEmbed.addFields({ name: `${emoji} ${server.name}`, value: info, inline: true })
+        }
+
+        else {
+            const emoji = server.status ? '🟢' : '🔴'
+            const info = server.status
+                ? `\`\`\`yaml\nPlayers: ${server.players}/${server.max}\`\`\``
+                : `\`\`\`diff\n- OFFLINE -\`\`\``
+
+            otherEmbed.addFields({ name: `${emoji} ${server.name}`, value: info, inline: true })
+        }
     })
 
     return { content: '', embeds: [armaEmbed.toJSON(), otherEmbed.toJSON()] }
