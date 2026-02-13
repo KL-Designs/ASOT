@@ -21,7 +21,13 @@ export default async function processReminders() {
                     nextCheck: new Date(new Date().getTime() + 1000 * 60 * 60 * 8)
                 }
             })
-            channel.send(`${reminder.who.join(' ')} please acknowledge your reminder!`).then(msg => setTimeout(() => msg.delete().catch(() => { }), 1000 * 60 * 60 * 8))
+
+            try {
+                channel.send(`${reminder.who.join(' ')} please acknowledge your reminder!`)
+                    .then(msg => setTimeout(() => msg.delete().catch(() => { }), 1000 * 60 * 60 * 8))
+            } catch {
+                console.error(`Failed to send acknowledgement reminder in "${reminder.channel}" (${reminder.message})`)
+            }
             break
         }
 
@@ -43,28 +49,32 @@ export default async function processReminders() {
             if (reminder.repeat === 0) actionRow.addComponents(acknowledgeButton)
             if (reminder.repeat > 0) actionRow.addComponents(acknowledgeButton, removeButton)
 
-            channel.send({
-                content: reminder.who.join(' '),
-                embeds: [
-                    new Discord.EmbedBuilder()
-                        .setTitle('Reminder')
-                        .setAuthor({ name: 'created by ' + (author.nickname || author.user.globalName || author.user.username), iconURL: author.user.displayAvatarURL() })
-                        .setDescription(reminder.message)
-                        .setColor(App.colors.warning)
-                        .setTimestamp()
-                ],
-                components: [actionRow]
-            })
+            try {
+                channel.send({
+                    content: reminder.who.join(' '),
+                    embeds: [
+                        new Discord.EmbedBuilder()
+                            .setTitle('Reminder')
+                            .setAuthor({ name: 'created by ' + (author.nickname || author.user.globalName || author.user.username), iconURL: author.user.displayAvatarURL() })
+                            .setDescription(reminder.message)
+                            .setColor(App.colors.warning)
+                            .setTimestamp()
+                    ],
+                    components: [actionRow]
+                })
 
-            Db.reminders.updateOne({ _id: reminder._id }, {
-                $set: {
-                    expected: new Date(reminder.expected.getTime() + reminder.repeat),
-                    nextCheck: reminder.repeat === 0 ? new Date(new Date().getTime() + 1000 * 60 * 60 * 8) : null,
-                    acknowledged: reminder.repeat === 0 && reminder.acknowledged === null ? 2 : null
-                }
-            })
+                Db.reminders.updateOne({ _id: reminder._id }, {
+                    $set: {
+                        expected: new Date(reminder.expected.getTime() + reminder.repeat),
+                        nextCheck: reminder.repeat === 0 ? new Date(new Date().getTime() + 1000 * 60 * 60 * 8) : null,
+                        acknowledged: reminder.repeat === 0 && reminder.acknowledged === null ? 2 : null
+                    }
+                })
 
-            console.log(`Reminder ${reminder._id} has been sent`)
+                console.log(`Reminder ${reminder._id} has been sent`)
+            } catch {
+                console.error(`Failed to send reminder in "${reminder.channel}" (${reminder.message})`)
+            }
             break
         }
 
