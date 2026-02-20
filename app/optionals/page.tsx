@@ -10,7 +10,7 @@ import { ChevronRight, Launch } from '@mui/icons-material'
 export default function Page() {
 
     const [agreement, setAgreement] = useState(false)
-    const [waitTime, setWaitTime] = useState(5)
+    const [waitTime, setWaitTime] = useState(10)
 
     const [qolList, setQolList] = useState<{ id: string, name: string }[]>([])
     const [gfxList, setGfxList] = useState<{ id: string, name: string }[]>([])
