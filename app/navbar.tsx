@@ -6,9 +6,8 @@ import Image from 'next/image'
 
 import { useState, useEffect } from 'react'
 
-import { Button, IconButton, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider } from '@mui/material'
-import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Menu, Login } from '@mui/icons-material'
-
+import { Button, IconButton, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider, Menu, MenuItem } from '@mui/material'
+import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Menu as MenuIcon, ArrowRight, ArrowDropDown } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import Avatar from '@/components/member/avatar'
@@ -17,16 +16,48 @@ import Logo from '@/public/logo.png'
 import Honeycomb from '@/public/designs/honeycombs.svg'
 
 
+type Link = ({
+    name: string
+    href: string
+    icon: React.JSX.Element
+    subLinks?: undefined
+} | {
+    name: string
+    href: string
+    icon: React.JSX.Element
+    subLinks: {
+        name: string
+        link: string
+    }[]
+})
+
+
 
 export default function Navbar() {
 
     const [sideMenuOpen, setSideMenuOpen] = useState(false)
     const [user, setUser] = useState<User | null>(null)
 
-    const Links = [
+    const Links: Link[] = [
         { name: 'Home', href: '/', icon: <Home /> },
-        { name: 'About Us', href: '/about', icon: <School />, subLinks: ['/callsigns', '/contact', '/rules', '/faq'] },
-        { name: 'ORBAT', href: '/orbat', icon: <Group /> },
+        {
+            name: 'About Us', href: '/about', icon: <School />,
+            subLinks: [
+                { name: 'About Us', link: '/about' },
+                { name: 'callsigns', link: '/about/callsigns' },
+                { name: 'contact', link: '/about/contact' },
+                { name: 'rules', link: '/about/rules' },
+                { name: 'PRINCIPLES & VALUES', link: '/about/values' },
+                { name: 'faq', link: '/about/faq' }
+            ]
+        },
+        {
+            name: 'ORBAT', href: '/orbat', icon: <Group />,
+            subLinks: [
+                { name: 'ORBAT', link: '/orbat' },
+                { name: 'BIOS', link: '/bios' },
+            ]
+        },
         { name: 'MILPACS', href: 'https://www.australianspecialoperationstaskforce.com/milpacs', icon: <MilitaryTech /> },
         { name: 'Gallery', href: '/gallery', icon: <Collections /> },
         { name: 'Partners', href: '/partnerships', icon: <Handshake /> },
@@ -70,16 +101,15 @@ export default function Navbar() {
                     </div>
 
                     <div className='hidden md:flex flex-row flex-wrap justify-end gap-x-10 gap-y-2 self-center'>
-                        {Links.map((link) => (
-                            <React.Fragment key={link.name}>
-                                <Link href={link.href} target={/*link.target || */'_self'}>
-                                    <div className={Navigation['nav-button']}>
-                                        {link.icon}
-                                        <p>{link.name}</p>
-                                    </div>
+                        {Links.map((link) => {
+                            if (!link.subLinks) return (
+                                <Link key={link.name} href={link.href} target={/*link.target || */'_self'}>
+                                    <Button startIcon={link.icon} color='light'>{link.name}</Button>
                                 </Link>
-                            </React.Fragment>
-                        ))}
+                            )
+
+                            else return <DropDownMenu key={link.name} data={link} />
+                        })}
                     </div>
 
                     <div className='flex self-center gap-x-3'>
@@ -104,7 +134,7 @@ export default function Navbar() {
                         }
 
                         <div className={Navigation['nav-button'] + ' visible md:hidden'} onClick={() => setSideMenuOpen(true)}>
-                            <Menu />
+                            <MenuIcon />
                         </div>
                     </div>
                 </div>
@@ -149,5 +179,48 @@ export default function Navbar() {
                 </div>
             </Drawer>
         </>
+    )
+}
+
+
+function DropDownMenu({ data }: { data: Link }) {
+    const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
+    const open = Boolean(anchorEl)
+    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+        setAnchorEl(event.currentTarget)
+    };
+    const handleClose = () => {
+        setAnchorEl(null)
+    }
+
+    return (
+        <div>
+            <Button
+                id="basic-button"
+                variant='text'
+                color='light'
+                aria-controls={open ? 'basic-menu' : undefined}
+                aria-haspopup="true"
+                aria-expanded={open ? 'true' : undefined}
+                startIcon={data.icon}
+                endIcon={open ? <ArrowRight /> : <ArrowDropDown />}
+                onClick={handleClick}
+            >
+                {data.name}
+            </Button>
+            <Menu
+                id="basic-menu"
+                anchorEl={anchorEl}
+                open={open}
+                onClose={handleClose}
+                slotProps={{
+                    list: {
+                        'aria-labelledby': 'basic-button',
+                    },
+                }}
+            >
+                {data.subLinks?.map(link => (<Link href={link.link}><MenuItem onClick={handleClose}>{link.name.toUpperCase()}</MenuItem></Link>))}
+            </Menu>
+        </div>
     )
 }
