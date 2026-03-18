@@ -48,7 +48,7 @@ export default function Page() {
 			{/* ── Hero ─────────────────────────────────────────────── */}
 			<div
 				ref={ref}
-				className='h-[70vh] md:h-[90vh] w-full relative my-[-5px]'
+				className='h-[70vh] md:h-[80vh] w-full relative my-[-5px]'
 				style={{ zIndex: -1 }}
 				onKeyDown={handleKeyDown}
 				tabIndex={0}
@@ -99,17 +99,19 @@ export default function Page() {
 				<div className='m-auto flex flex-col max-w-[1400px]' style={{ padding: '4rem 2rem', gap: '5rem' }}>
 
 					{/* Largest Milsim */}
-					<FeatureSection
-						label='Recognition'
-						title='The Largest Milsim In Australia'
-						image={LargestMilsim}
-						imageSide='right'
-						action={{ href: '/about', label: 'About Us' }}
-					>
-						<Typography>We are proudly the largest milsim unit not only in Australia, but the entire Oceania Region.</Typography>
-						<br />
-						<Typography>With new recruits joining each week from across Australia, New Zealand, Asia and beyond, our operations regularly boast numbers of 50+ every week.</Typography>
-					</FeatureSection>
+					<div style={{ border: '1px solid rgba(219,0,29,0.2)', borderTop: '2px solid var(--red)', background: 'rgba(219,0,29,0.03)' }}>
+						<FeatureSection
+							label='Recognition'
+							title='The Largest Milsim In Australia'
+							image={LargestMilsim}
+							imageSide='right'
+							action={{ href: '/about', label: 'About Us' }}
+						>
+							<Typography>We are proudly the largest milsim unit not only in Australia, but the entire Oceania Region.</Typography>
+							<br />
+							<Typography>With new recruits joining each week from across Australia, New Zealand, Asia and beyond, our operations regularly boast numbers of 50+ every week.</Typography>
+						</FeatureSection>
+					</div>
 
 					{/* Discord CTA */}
 					<div style={{ border: '1px solid rgba(88,101,242,0.2)', borderTop: '2px solid #5865F2', background: 'rgba(88,101,242,0.04)' }}>
