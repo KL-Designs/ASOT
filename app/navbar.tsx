@@ -14,7 +14,7 @@ import Navigation from '@/styles/navigation.module.css'
 import Avatar from '@/components/member/avatar'
 
 import Logo from '@/public/logo.png'
-import Honeycomb from '@/public/designs/honeycombs.svg'
+import MapBg from '@/public/designs/map.png'
 
 
 type SubLink = {
@@ -104,7 +104,7 @@ export default function Navbar() {
             >
 
                 <div className='absolute w-full h-full' style={{ top: 0, left: 0 }}>
-                    <Image src={Honeycomb} alt='honeycomb' fill className='object-cover opacity-10' />
+                    <Image src={MapBg} alt='map' fill className='object-cover opacity-15' />
                 </div>
 
                 <div className='flex flex-row justify-between gap-10 px-[30px]' style={{ zIndex: 1, padding: scrolled ? '10px 30px' : '15px 30px', transition: 'padding 0.3s ease' }}>
