@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react"
-import { Button, TextField } from "@mui/material"
+import { TextField } from "@mui/material"
 import { UploadFile } from "@mui/icons-material"
 
 import Image from 'next/image'
@@ -57,14 +57,51 @@ export function Bio() {
 
     return (
         <div className="flex gap-5">
-            <TextField fullWidth multiline rows={6} placeholder='Type your bio here...' value={bio || ''} onChange={(e) => setBio(e.currentTarget.value)} />
+            <TextField
+                fullWidth
+                multiline
+                rows={6}
+                placeholder='Type your bio here...'
+                value={bio || ''}
+                onChange={(e) => setBio(e.currentTarget.value)}
+                sx={{
+                    '& .MuiOutlinedInput-root': {
+                        borderRadius: 0,
+                        fontSize: '0.85rem',
+                        '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
+                        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.3)' },
+                        '&.Mui-focused fieldset': { borderColor: 'rgba(219,0,29,0.5)', borderWidth: 1 },
+                    },
+                }}
+            />
 
             <div className="hidden sm:flex flex-col justify-between gap-3">
-                <div className="relative w-full h-full min-w-[175px]">
+                <div
+                    className="relative w-full h-full min-w-[175px]"
+                    style={{ border: '1px solid rgba(255,255,255,0.06)' }}
+                >
                     <Image src={`/api/uploads/bio?id=${id}&time=${new Date().getTime()}`} alt="User Bio Image" fill className="object-contain" />
                 </div>
-                <Button variant="contained" component="label">
-                    <UploadFile /> Upload JPG
+                <label
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        background: 'transparent',
+                        border: '1px solid rgba(219,0,29,0.3)',
+                        color: 'rgba(219,0,29,0.8)',
+                        padding: '7px 14px',
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                    }}
+                >
+                    <UploadFile style={{ fontSize: 14 }} />
+                    Upload JPG
                     <input
                         type="file"
                         hidden
@@ -73,8 +110,7 @@ export function Bio() {
                             if (file) upload(file)
                         }}
                     />
-                </Button>
-
+                </label>
             </div>
         </div>
     )
@@ -116,11 +152,30 @@ export function BioInfo() {
     }, [name, rank, callsign])
 
 
+    const fieldSx = {
+        '& .MuiInput-root': {
+            fontSize: '0.82rem',
+            letterSpacing: '0.03em',
+            '&:before': { borderBottomColor: 'rgba(255,255,255,0.1)' },
+            '&:hover:before': { borderBottomColor: 'rgba(219,0,29,0.4) !important' },
+            '&:after': { borderBottomColor: 'rgba(219,0,29,0.6)' },
+        },
+        '& .MuiInputLabel-root': {
+            fontSize: '0.72rem',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: 'rgba(237,237,237,0.3)',
+        },
+        '& .MuiInputLabel-root.Mui-focused': {
+            color: 'rgba(219,0,29,0.7)',
+        },
+    }
+
     return (
-        <div className='flex flex-col gap-2'>
-            <TextField placeholder='Name' variant='standard' value={name || ''} onChange={(e) => setName(e.currentTarget.value)} />
-            <TextField placeholder='Rank' variant='standard' value={rank || ''} onChange={(e) => setRank(e.currentTarget.value)} />
-            <TextField placeholder='Callsign' variant='standard' value={callsign || ''} onChange={(e) => setCallsign(e.currentTarget.value)} />
+        <div className='flex flex-col gap-3 justify-center min-w-[140px]'>
+            <TextField label='Name' variant='standard' value={name || ''} onChange={(e) => setName(e.currentTarget.value)} sx={fieldSx} />
+            <TextField label='Rank' variant='standard' value={rank || ''} onChange={(e) => setRank(e.currentTarget.value)} sx={fieldSx} />
+            <TextField label='Callsign' variant='standard' value={callsign || ''} onChange={(e) => setCallsign(e.currentTarget.value)} sx={fieldSx} />
         </div>
     )
 }
