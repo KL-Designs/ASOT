@@ -6,8 +6,8 @@ import Image from 'next/image'
 
 import { useState, useEffect } from 'react'
 
-import { Button, IconButton, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Divider, Menu, MenuItem } from '@mui/material'
-import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Menu as MenuIcon, ArrowRight, ArrowDropDown } from '@mui/icons-material'
+import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse } from '@mui/material'
+import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import Avatar from '@/components/member/avatar'
@@ -15,6 +15,13 @@ import Avatar from '@/components/member/avatar'
 import Logo from '@/public/logo.png'
 import Honeycomb from '@/public/designs/honeycombs.svg'
 
+
+type SubLink = {
+    name: string
+    link: string
+    icon: React.JSX.Element
+    description: string
+}
 
 type Link = ({
     name: string
@@ -25,10 +32,7 @@ type Link = ({
     name: string
     href: string
     icon: React.JSX.Element
-    subLinks: {
-        name: string
-        link: string
-    }[]
+    subLinks: SubLink[]
 })
 
 
@@ -43,19 +47,19 @@ export default function Navbar() {
         {
             name: 'About Us', href: '/about', icon: <School />,
             subLinks: [
-                { name: 'About Us', link: '/about' },
-                { name: 'callsigns', link: '/about/callsigns' },
-                { name: 'contact', link: '/about/contact' },
-                { name: 'rules', link: '/about/rules' },
-                { name: 'PRINCIPLES & VALUES', link: '/about/values' },
-                { name: 'faq', link: '/about/faq' }
+                { name: 'About Us', link: '/about', icon: <InfoOutlined />, description: 'Learn about our unit and history' },
+                { name: 'Callsigns', link: '/about/callsigns', icon: <Tag />, description: 'Platoon and section callsigns' },
+                { name: 'Contact', link: '/about/contact', icon: <ContactMail />, description: 'Get in touch with us' },
+                { name: 'Rules', link: '/about/rules', icon: <Gavel />, description: 'Unit rules and regulations' },
+                { name: 'Principles & Values', link: '/about/values', icon: <AutoAwesome />, description: 'What we stand for' },
+                { name: 'FAQ', link: '/about/faq', icon: <HelpOutline />, description: 'Frequently asked questions' },
             ]
         },
         {
             name: 'ORBAT', href: '/orbat', icon: <Group />,
             subLinks: [
-                { name: 'ORBAT', link: '/orbat' },
-                { name: 'biographies', link: '/bios' },
+                { name: 'ORBAT', link: '/orbat', icon: <AccountTree />, description: 'Full order of battle' },
+                { name: 'Biographies', link: '/bios', icon: <Badge />, description: 'Member biographies' },
             ]
         },
         { name: 'MILPACS', href: 'https://www.australianspecialoperationstaskforce.com/milpacs', icon: <MilitaryTech /> },
@@ -141,44 +145,105 @@ export default function Navbar() {
 
             </div>
 
-            <Drawer open={sideMenuOpen} onClose={() => setSideMenuOpen(false)}>
-                <div className='relative h-full flex flex-col gap-5' style={{
-                    borderRight: '1px solid #db001d',
-                    background: '#0a0a0a'
-                }}>
-
-                    <div className='absolute w-full h-full blur-[5px]'>
-                        <Image src={Honeycomb} alt='honeycomb' fill className='object-cover opacity-40' />
-                    </div>
-
-                    <Link className='self-center pt-3' href='/'>
-                        <IconButton style={{ padding: 0 }}>
-                            <Image src={Logo} width={75} alt='Logo' />
-                        </IconButton>
+            <Drawer
+                open={sideMenuOpen}
+                onClose={() => setSideMenuOpen(false)}
+                slotProps={{
+                    paper: {
+                        style: {
+                            width: 280,
+                            background: '#0a0a0a',
+                            borderRight: '1px solid rgba(219, 0, 29, 0.3)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                        }
+                    }
+                }}
+            >
+                <div className='flex justify-between items-center p-[12px_16px]'>
+                    <Link href='/' onClick={() => setSideMenuOpen(false)}>
+                        <Image src={Logo} width={45} alt='Logo' />
                     </Link>
+                    <IconButton onClick={() => setSideMenuOpen(false)} style={{ color: 'rgba(237,237,237,0.6)' }}>
+                        <Close />
+                    </IconButton>
+                </div>
 
-                    <Divider color='#db001d' />
+                <Divider style={{ borderColor: 'rgba(219, 0, 29, 0.4)' }} />
 
-                    <List>
-                        {Links.map((link, index) => (
-                            <ListItem key={link.name} disablePadding>
-                                <Link href={link.href}>
-                                    <ListItemButton onClick={() => setSideMenuOpen(false)}>
-                                        <div className='pl-3 pr-10 flex items-center'>
-                                            <ListItemIcon>
-                                                {link.icon}
-                                            </ListItemIcon>
-                                            <ListItemText primary={link.name} />
-                                        </div>
-                                    </ListItemButton>
-                                </Link>
-                            </ListItem>
-                        ))}
-                    </List>
+                <div className='flex-1 overflow-y-auto p-2'>
+                    {Links.map(link => (
+                        <MobileNavItem key={link.name} link={link} onClose={() => setSideMenuOpen(false)} />
+                    ))}
+                </div>
 
+                <Divider style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+
+                <div className='flex gap-2 p-3'>
+                    <Link href='/donate' className='flex-1' onClick={() => setSideMenuOpen(false)}>
+                        <Button variant='outlined' color='primary' fullWidth startIcon={<VolunteerActivism />} size='small'>Donate</Button>
+                    </Link>
+                    {user ?
+                        <Link href='/me' onClick={() => setSideMenuOpen(false)}>
+                            <div className='relative w-[36px] h-[36px]'><Avatar user={user} /></div>
+                        </Link>
+                        :
+                        <Link href='/login' className='flex-1' onClick={() => setSideMenuOpen(false)}>
+                            <Button variant='outlined' color='inherit' fullWidth startIcon={<Login />} size='small'
+                                style={{ borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(237,237,237,0.7)' }}>
+                                Login
+                            </Button>
+                        </Link>
+                    }
                 </div>
             </Drawer>
         </>
+    )
+}
+
+
+function MobileNavItem({ link, onClose }: { link: Link, onClose: () => void }) {
+    const [expanded, setExpanded] = useState(false)
+
+    if (!link.subLinks) return (
+        <Link href={link.href} onClick={onClose}>
+            <div className='flex items-center gap-3 px-3 py-[10px] rounded-md cursor-pointer transition-colors hover:bg-white/5'
+                style={{ color: 'rgba(237,237,237,0.7)' }}>
+                <span className='flex text-[20px]'>{link.icon}</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 500, letterSpacing: '0.06em' }}>{link.name.toUpperCase()}</span>
+            </div>
+        </Link>
+    )
+
+    return (
+        <div>
+            <div
+                className='flex items-center gap-3 px-3 py-[10px] rounded-md cursor-pointer transition-colors hover:bg-white/5'
+                style={{
+                    borderLeft: expanded ? '2px solid var(--red)' : '2px solid transparent',
+                    color: expanded ? 'var(--foreground)' : 'rgba(237,237,237,0.7)',
+                }}
+                onClick={() => setExpanded(!expanded)}
+            >
+                <span className='flex text-[20px]' style={{ color: expanded ? 'var(--red)' : 'inherit' }}>{link.icon}</span>
+                <span className='flex-1' style={{ fontSize: '0.85rem', fontWeight: 500, letterSpacing: '0.06em' }}>{link.name.toUpperCase()}</span>
+                {expanded ? <ExpandLess style={{ fontSize: 18, opacity: 0.5 }} /> : <ExpandMore style={{ fontSize: 18, opacity: 0.5 }} />}
+            </div>
+
+            <Collapse in={expanded}>
+                <div className='pl-4 pb-1 flex flex-col gap-[2px]'>
+                    {link.subLinks.map(sub => (
+                        <Link key={sub.link} href={sub.link} onClick={onClose}>
+                            <div className='flex items-center gap-3 px-3 py-2 rounded cursor-pointer transition-colors hover:bg-white/5'
+                                style={{ color: 'rgba(237,237,237,0.6)' }}>
+                                <span className='flex text-[18px]' style={{ color: 'rgba(219, 0, 29, 0.8)' }}>{sub.icon}</span>
+                                <span style={{ fontSize: '0.82rem' }}>{sub.name}</span>
+                            </div>
+                        </Link>
+                    ))}
+                </div>
+            </Collapse>
+        </div>
     )
 }
 
@@ -188,10 +253,12 @@ function DropDownMenu({ data }: { data: Link }) {
     const open = Boolean(anchorEl)
     const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
         setAnchorEl(event.currentTarget)
-    };
+    }
     const handleClose = () => {
         setAnchorEl(null)
     }
+
+    const cols = (data.subLinks?.length ?? 0) > 3 ? 2 : 1
 
     return (
         <div>
@@ -214,12 +281,55 @@ function DropDownMenu({ data }: { data: Link }) {
                 open={open}
                 onClose={handleClose}
                 slotProps={{
-                    list: {
-                        'aria-labelledby': 'basic-button',
-                    },
+                    list: { 'aria-labelledby': 'basic-button', style: { padding: '8px' } },
+                    paper: {
+                        style: {
+                            background: 'rgb(10,10,10)',
+                            borderTop: '2px solid var(--red)',
+                            border: '1px solid rgba(219, 0, 29, 0.25)',
+                            borderRadius: 0,
+                            minWidth: cols === 2 ? 520 : 280,
+                        }
+                    }
                 }}
             >
-                {data.subLinks?.map(link => (<Link href={link.link}><MenuItem onClick={handleClose}>{link.name.toUpperCase()}</MenuItem></Link>))}
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '4px' }}>
+                    {data.subLinks?.map(link => (
+                        <Link key={link.link} href={link.link}>
+                            <MenuItem
+                                onClick={handleClose}
+                                style={{ borderRadius: 4, padding: '10px 12px', alignItems: 'flex-start', gap: 12 }}
+                                sx={{
+                                    '&:hover': { backgroundColor: 'rgba(219, 0, 29, 0.08)' },
+                                    '&:hover .sublink-icon': { borderColor: 'rgba(219, 0, 29, 0.6)', color: 'var(--red)' },
+                                }}
+                            >
+                                <div
+                                    className='sublink-icon'
+                                    style={{
+                                        flexShrink: 0,
+                                        padding: 8,
+                                        border: '1px solid rgba(219, 0, 29, 0.25)',
+                                        background: 'rgba(219, 0, 29, 0.08)',
+                                        color: 'rgba(237, 237, 237, 0.6)',
+                                        display: 'flex',
+                                        transition: 'border-color 0.2s, color 0.2s',
+                                    }}
+                                >
+                                    {link.icon}
+                                </div>
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: '0.8rem', letterSpacing: '0.08em', color: 'var(--foreground)' }}>
+                                        {link.name.toUpperCase()}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: 'rgba(237, 237, 237, 0.45)', marginTop: 2 }}>
+                                        {link.description}
+                                    </div>
+                                </div>
+                            </MenuItem>
+                        </Link>
+                    ))}
+                </div>
             </Menu>
         </div>
     )
