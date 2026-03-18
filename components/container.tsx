@@ -47,7 +47,7 @@ export default function Container({ children, title, subtitle, background, sx }:
 
 
             <div>
-                <div className={`m-auto flex flex-col ${sx?.gap ? sx.gap : 'gap-10'} ${sx?.maxWidth || 'max-w-md'}`} style={{ padding: sx?.padding || '2rem 2rem' }}>
+                <div className={`w-full m-auto flex flex-col ${sx?.gap ? sx.gap : 'gap-10'} ${sx?.maxWidth || 'max-w-md'}`} style={{ padding: sx?.padding || '2rem 2rem' }}>
 
                     {children}
 

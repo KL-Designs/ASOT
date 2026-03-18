@@ -73,7 +73,7 @@ export default function Page() {
     }, [operation])
 
     return (
-        <div className='w-full flex flex-col justify-between items-center gap-8 max-w-[1500px]'>
+        <div className='w-full mx-auto flex flex-col gap-8 max-w-[1500px]'>
 
             <div className='w-full flex flex-col justify-center items-center gap-5'>
                 <Typography className='text-[40px]' variant='h1' align='center' fontWeight={700} fontFamily={'inherit'} letterSpacing={10}>FEATURED</Typography>
@@ -102,92 +102,148 @@ export default function Page() {
 
             <Divider flexItem />
 
-            <div className='min-h-[600px] w-full flex flex-row flex-wrap justify-center gap-5'>
-                <div className='w-full flex flex-col md:flex-row md:flex-wrap gap-6 md:gap-10 justify-center max-w-[1400px]'>
-                    <div className='flex flex-col gap-2 flex-grow'>
-                        <Typography className='text-[40px]' variant='h1' align='center' fontWeight={700} fontFamily={'inherit'} letterSpacing={4}>
-                            YEAR
-                        </Typography>
+            <div className='w-full flex flex-col gap-8'>
 
-                        {data.map((g) => (
-                            <Button key={g.year} fullWidth variant='contained' color={g.year === year ? 'primary' : 'secondary'} onClick={() => setYear(g.year)}>{g.year}</Button>
-                        )).reverse()}
+                {/* Filter Bar */}
+                <div className='w-full flex flex-col md:flex-row' style={{
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    borderTop: '2px solid var(--red)',
+                    background: 'rgba(255,255,255,0.02)',
+                }}>
+
+                    {/* YEAR */}
+                    <div className='flex flex-col gap-2 p-4 md:p-5 flex-1 min-w-0'>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.15em', color: 'var(--red)', textTransform: 'uppercase', opacity: 0.85 }}>Year</span>
+                        <div className='flex flex-row md:flex-col gap-1 flex-wrap'>
+                            {data.map((g) => (
+                                <button key={g.year} onClick={() => setYear(g.year)} style={{
+                                    background: g.year === year ? 'rgba(219,0,29,0.12)' : 'transparent',
+                                    border: `1px solid ${g.year === year ? 'rgba(219,0,29,0.6)' : 'rgba(255,255,255,0.08)'}`,
+                                    borderLeft: `3px solid ${g.year === year ? 'var(--red)' : 'rgba(255,255,255,0.08)'}`,
+                                    color: g.year === year ? 'var(--foreground)' : 'rgba(237,237,237,0.45)',
+                                    fontSize: '0.75rem', fontWeight: g.year === year ? 600 : 400,
+                                    letterSpacing: '0.08em', padding: '5px 10px',
+                                    cursor: 'pointer', textAlign: 'left',
+                                    transition: 'all 0.15s ease',
+                                }}>{g.year}</button>
+                            )).reverse()}
+                        </div>
                     </div>
 
-                    <div className='flex flex-col gap-2 flex-grow w-full md:max-w-[50%]'>
-                        <Typography sx={{ textTransform: 'none' }} className='text-[40px]' variant='h1' align='center' fontWeight={700} fontFamily={'inherit'} letterSpacing={4}>
-                            OPERATION
-                        </Typography>
+                    <div className='hidden md:block' style={{ width: 1, background: 'rgba(255,255,255,0.07)', flexShrink: 0 }} />
+                    <div className='block md:hidden' style={{ height: 1, background: 'rgba(255,255,255,0.07)' }} />
 
-                        <div className='flex flex-row gap-2 flex-wrap justify-evenly'>
+                    {/* OPERATION */}
+                    <div className='flex flex-col gap-2 p-4 md:p-5 flex-1 min-w-0'>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.15em', color: 'var(--red)', textTransform: 'uppercase', opacity: 0.85 }}>Operation</span>
+                        <div className='flex flex-row gap-1 flex-wrap'>
                             {data.find(g => g.year === year)?.operations.slice().sort((a, b) => {
-                                const numA = parseInt(a.operation.match(/^\d+/)?.[0] || "0", 10)
-                                const numB = parseInt(b.operation.match(/^\d+/)?.[0] || "0", 10)
+                                const numA = parseInt(a.operation.match(/^\d+/)?.[0] || '0', 10)
+                                const numB = parseInt(b.operation.match(/^\d+/)?.[0] || '0', 10)
                                 return numA - numB
                             }).map(op => (
-                                <Button key={op.operation} sx={{ textTransform: 'none' }} className='flex-grow' variant='contained' color={op.operation === operation ? 'primary' : 'secondary'} onClick={() => setOperation(op.operation)}>{op.operation}</Button>
+                                <button key={op.operation} onClick={() => setOperation(op.operation)} style={{
+                                    background: op.operation === operation ? 'rgba(219,0,29,0.12)' : 'transparent',
+                                    border: `1px solid ${op.operation === operation ? 'rgba(219,0,29,0.6)' : 'rgba(255,255,255,0.08)'}`,
+                                    borderBottom: `2px solid ${op.operation === operation ? 'var(--red)' : 'rgba(255,255,255,0.08)'}`,
+                                    color: op.operation === operation ? 'var(--foreground)' : 'rgba(237,237,237,0.45)',
+                                    fontSize: '0.75rem', fontWeight: op.operation === operation ? 600 : 400,
+                                    letterSpacing: '0.04em', padding: '5px 12px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                }}>{op.operation}</button>
                             ))}
                         </div>
                     </div>
 
-                    <div className='flex flex-col gap-2 flex-grow'>
-                        <Typography className='text-[40px]' variant='h1' align='center' fontWeight={700} fontFamily={'inherit'} letterSpacing={4}>
-                            MISSION
-                        </Typography>
+                    <div className='hidden md:block' style={{ width: 1, background: 'rgba(255,255,255,0.07)', flexShrink: 0 }} />
+                    <div className='block md:hidden' style={{ height: 1, background: 'rgba(255,255,255,0.07)' }} />
 
-                        {data.find(g => g.year === year)?.operations.find(op => op.operation === operation)?.stages.map(s => (
-                            <Button key={s.stage} sx={{ textTransform: 'none' }} fullWidth variant='contained' color={s.stage === stage ? 'primary' : 'secondary'} onClick={() => setStage(s.stage)}>{s.stage}</Button>
-                        ))}
+                    {/* MISSION */}
+                    <div className='flex flex-col gap-2 p-4 md:p-5 flex-1 min-w-0'>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.15em', color: 'var(--red)', textTransform: 'uppercase', opacity: 0.85 }}>Mission</span>
+                        <div className='flex flex-row md:flex-col gap-1 flex-wrap'>
+                            {data.find(g => g.year === year)?.operations.find(op => op.operation === operation)?.stages.map(s => (
+                                <button key={s.stage} onClick={() => setStage(s.stage)} style={{
+                                    background: s.stage === stage ? 'rgba(219,0,29,0.12)' : 'transparent',
+                                    border: `1px solid ${s.stage === stage ? 'rgba(219,0,29,0.6)' : 'rgba(255,255,255,0.08)'}`,
+                                    borderLeft: `3px solid ${s.stage === stage ? 'var(--red)' : 'rgba(255,255,255,0.08)'}`,
+                                    color: s.stage === stage ? 'var(--foreground)' : 'rgba(237,237,237,0.45)',
+                                    fontSize: '0.75rem', fontWeight: s.stage === stage ? 600 : 400,
+                                    letterSpacing: '0.04em', padding: '5px 10px',
+                                    cursor: 'pointer', textAlign: 'left',
+                                    transition: 'all 0.15s ease',
+                                }}>{s.stage}</button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
 
-                <div className='w-full flex flex-row flex-wrap gap-4 justify-center'>
+                {/* Image Grid */}
+                <div className='w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2'>
                     {data.find(g => g.year === year)?.operations.find(op => op.operation === operation)?.stages.find(s => s.stage === stage)?.media.map(img => (
-                        <Image
+                        <div
                             key={img}
-                            className='h-[200px] w-auto object-contain rounded-sm cursor-pointer'
-                            src={`${process.env.NEXT_PUBLIC_BASEURL}/api/gallery/fetch?stage=${stage}&operation=${operation}&year=${year}&img=${img}`}
-                            alt={img}
-                            width={200}
-                            height={200}
-                            // quality={75}
-                            loading='lazy'
+                            className='relative w-full overflow-hidden cursor-pointer group'
+                            style={{ aspectRatio: '16/10' }}
                             onClick={() => setOpenImg(`/api/gallery/fetch?stage=${encodeURIComponent(stage)}&operation=${encodeURIComponent(operation)}&year=${encodeURIComponent(year)}&img=${encodeURIComponent(img)}`)}
-                        />
+                        >
+                            <Image
+                                className='object-cover transition-transform duration-300 group-hover:scale-105'
+                                src={`${process.env.NEXT_PUBLIC_BASEURL}/api/gallery/fetch?stage=${stage}&operation=${operation}&year=${year}&img=${img}`}
+                                alt={img}
+                                fill
+                                loading='lazy'
+                            />
+                            <div className='absolute inset-0 bg-black opacity-0 group-hover:opacity-20 transition-opacity duration-300' />
+                        </div>
                     ))}
                 </div>
 
-
-                {openImg ?
-                    (
-                        <div className='fixed top-0 w-full h-full bg-[rgba(0,0,0,0.5)] p-5 md:p-20 flex justify-center' onClick={(e) => e.target === e.currentTarget ? setOpenImg('') : null}>
-                            <div className='h-full w-full md:w-[80%] p-5 md:p-10 flex flex-col justify-center' style={{ border: '1px solid red', backdropFilter: 'blur(5px)', background: 'rgba(0,0,0,0.5)' }}>
-
-                                <div className='absolute top-5 right-5 flex gap-5'>
-                                    <Button variant='contained' color='info' onClick={() => {
-                                        navigator.clipboard.writeText(process.env.NEXT_PUBLIC_BASEURL + openImg)
-                                        alert('Image copied to clipboard!')
-                                    }}><Reply /></Button>
-                                    <Button variant='contained' onClick={() => setOpenImg('')}><Close /></Button>
-                                </div>
-
-                                <div className='relative h-[90%]'>
-                                    <Image
-                                        key={openImg}
-                                        className='m-auto object-contain rounded-sm'
-                                        src={process.env.NEXT_PUBLIC_BASEURL + openImg}
-                                        alt={openImg}
-                                        quality={100}
-                                        loading='lazy'
-                                        fill
-                                    />
-                                </div>
-                            </div>
+                {/* Lightbox */}
+                {openImg && (
+                    <div
+                        className='fixed inset-0 z-50 flex items-center justify-center p-4 md:p-10'
+                        style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(8px)' }}
+                        onClick={(e) => e.target === e.currentTarget ? setOpenImg('') : null}
+                    >
+                        <div className='relative w-full h-full max-w-6xl flex items-center justify-center'>
+                            <Image
+                                key={openImg}
+                                className='object-contain'
+                                src={process.env.NEXT_PUBLIC_BASEURL + openImg}
+                                alt={openImg}
+                                quality={100}
+                                fill
+                            />
                         </div>
-                    )
-                    : null
-                }
+
+                        <div className='absolute top-4 right-4 flex gap-2'>
+                            <Button
+                                size='small'
+                                variant='contained'
+                                color='inherit'
+                                style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', minWidth: 0, padding: '6px 12px', fontSize: '0.7rem', letterSpacing: '0.08em' }}
+                                onClick={() => {
+                                    navigator.clipboard.writeText(process.env.NEXT_PUBLIC_BASEURL + openImg)
+                                    alert('Copied!')
+                                }}
+                            >
+                                <Reply style={{ fontSize: 16 }} />
+                            </Button>
+                            <Button
+                                size='small'
+                                variant='contained'
+                                color='inherit'
+                                style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', minWidth: 0, padding: '6px 12px' }}
+                                onClick={() => setOpenImg('')}
+                            >
+                                <Close style={{ fontSize: 16 }} />
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )
