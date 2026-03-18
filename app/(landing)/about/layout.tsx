@@ -71,7 +71,7 @@ export default function AboutLayout({ children }: Readonly<{ children: React.Rea
 	return (
 		<Container title={page?.title.toUpperCase()} subtitle={page?.subtitle} background={page?.background} sx={{ bannerHeight: 'md', maxWidth: 'max-w-md' }}>
 
-			<div className='w-full flex flex-row flex-wrap gap-[2px]' style={{ borderBottom: '1px solid rgba(219, 0, 29, 0.25)' }}>
+			<div className='w-full flex flex-row flex-wrap justify-center gap-[2px]' style={{ borderBottom: '1px solid rgba(219, 0, 29, 0.25)' }}>
 				{Pages.map((p, i) => {
 					const active = page?.href === p.href
 					return (
