@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 
 import { Typography, Button, Divider } from '@mui/material'
-import { Reply, Close } from '@mui/icons-material'
+import { Reply, Close, ZoomIn, ArrowBackIos, ArrowForwardIos } from '@mui/icons-material'
 
 import { useEffect, useState } from "react"
 
@@ -19,7 +19,8 @@ export default function Page() {
     const [operation, setOperation] = useState('')
     const [stage, setStage] = useState('')
 
-    const [openImg, setOpenImg] = useState('')
+    const [openImgIndex, setOpenImgIndex] = useState<number | null>(null)
+    const [openFeaturedImg, setOpenFeaturedImg] = useState('')
     const [featured, setFeatured] = useState<string[]>([])
 
     useEffect(() => {
@@ -72,6 +73,19 @@ export default function Page() {
         setStage(stage)
     }, [operation])
 
+    const currentMedia = data.find(g => g.year === year)?.operations.find(op => op.operation === operation)?.stages.find(s => s.stage === stage)?.media ?? []
+
+    useEffect(() => {
+        if (openImgIndex === null) return
+        const handler = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowLeft') setOpenImgIndex(i => (i !== null && i > 0) ? i - 1 : i)
+            if (e.key === 'ArrowRight') setOpenImgIndex(i => (i !== null && i < currentMedia.length - 1) ? i + 1 : i)
+            if (e.key === 'Escape') setOpenImgIndex(null)
+        }
+        window.addEventListener('keydown', handler)
+        return () => window.removeEventListener('keydown', handler)
+    }, [openImgIndex, currentMedia.length])
+
     return (
         <div className='w-full mx-auto flex flex-col gap-8 max-w-[1500px]'>
 
@@ -85,7 +99,7 @@ export default function Page() {
                     >
                         {[...featured, ...featured].map((img, i) => (
                             <div key={i} className='relative h-[200px] w-[320px] flex-shrink-0 cursor-pointer transition-all duration-300 hover:scale-110 hover:mx-6 hover:z-10 mx-2'
-                                onClick={() => setOpenImg(`/api/gallery/featured?img=${img}`)}>
+                                onClick={() => setOpenFeaturedImg(`/api/gallery/featured?img=${img}`)}>
                                 <Image
                                     className='object-cover rounded-sm'
                                     src={`${process.env.NEXT_PUBLIC_BASEURL}/api/gallery/featured?img=${img}`}
@@ -182,12 +196,12 @@ export default function Page() {
 
                 {/* Image Grid */}
                 <div className='w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2'>
-                    {data.find(g => g.year === year)?.operations.find(op => op.operation === operation)?.stages.find(s => s.stage === stage)?.media.map(img => (
+                    {currentMedia.map((img, i) => (
                         <div
                             key={img}
                             className='relative w-full overflow-hidden cursor-pointer group'
                             style={{ aspectRatio: '16/10' }}
-                            onClick={() => setOpenImg(`/api/gallery/fetch?stage=${encodeURIComponent(stage)}&operation=${encodeURIComponent(operation)}&year=${encodeURIComponent(year)}&img=${encodeURIComponent(img)}`)}
+                            onClick={() => setOpenImgIndex(i)}
                         >
                             <Image
                                 className='object-cover transition-transform duration-300 group-hover:scale-105'
@@ -196,52 +210,98 @@ export default function Page() {
                                 fill
                                 loading='lazy'
                             />
-                            <div className='absolute inset-0 bg-black opacity-0 group-hover:opacity-20 transition-opacity duration-300' />
+                            <div className='absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center'
+                                style={{ background: 'linear-gradient(to bottom, rgba(219,0,29,0.08), rgba(0,0,0,0.55))' }}>
+                                <div style={{
+                                    border: '1px solid rgba(255,255,255,0.4)',
+                                    borderRadius: '50%',
+                                    padding: 8,
+                                    color: 'rgba(255,255,255,0.9)',
+                                    display: 'flex',
+                                    backdropFilter: 'blur(2px)',
+                                    background: 'rgba(0,0,0,0.25)',
+                                }}>
+                                    <ZoomIn style={{ fontSize: 22 }} />
+                                </div>
+                            </div>
                         </div>
                     ))}
                 </div>
 
-                {/* Lightbox */}
-                {openImg && (
-                    <div
-                        className='fixed inset-0 z-50 flex items-center justify-center p-4 md:p-10'
-                        style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(8px)' }}
-                        onClick={(e) => e.target === e.currentTarget ? setOpenImg('') : null}
-                    >
-                        <div className='relative w-full h-full max-w-6xl flex items-center justify-center'>
-                            <Image
-                                key={openImg}
-                                className='object-contain'
-                                src={process.env.NEXT_PUBLIC_BASEURL + openImg}
-                                alt={openImg}
-                                quality={100}
-                                fill
-                            />
-                        </div>
-
-                        <div className='absolute top-4 right-4 flex gap-2'>
-                            <Button
-                                size='small'
-                                variant='contained'
-                                color='inherit'
-                                style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', minWidth: 0, padding: '6px 12px', fontSize: '0.7rem', letterSpacing: '0.08em' }}
-                                onClick={() => {
-                                    navigator.clipboard.writeText(process.env.NEXT_PUBLIC_BASEURL + openImg)
-                                    alert('Copied!')
+                {/* Grid Lightbox */}
+                {openImgIndex !== null && (() => {
+                    const img = currentMedia[openImgIndex]
+                    const imgUrl = `/api/gallery/fetch?stage=${encodeURIComponent(stage)}&operation=${encodeURIComponent(operation)}&year=${encodeURIComponent(year)}&img=${encodeURIComponent(img)}`
+                    return (
+                        <div className='fixed inset-0 z-50 flex items-center justify-center'
+                            style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(8px)' }}
+                            onClick={(e) => e.target === e.currentTarget ? setOpenImgIndex(null) : null}
+                        >
+                            {/* Prev */}
+                            <button
+                                onClick={() => setOpenImgIndex(i => i! - 1)}
+                                disabled={openImgIndex === 0}
+                                style={{
+                                    position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)',
+                                    background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+                                    color: openImgIndex === 0 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.85)',
+                                    borderRadius: 4, padding: '12px 10px', cursor: openImgIndex === 0 ? 'default' : 'pointer',
+                                    display: 'flex', backdropFilter: 'blur(4px)', transition: 'all 0.15s',
                                 }}
-                            >
-                                <Reply style={{ fontSize: 16 }} />
-                            </Button>
-                            <Button
-                                size='small'
-                                variant='contained'
-                                color='inherit'
-                                style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', minWidth: 0, padding: '6px 12px' }}
-                                onClick={() => setOpenImg('')}
-                            >
-                                <Close style={{ fontSize: 16 }} />
-                            </Button>
+                            ><ArrowBackIos style={{ fontSize: 20 }} /></button>
+
+                            {/* Image */}
+                            <div className='relative w-full h-full max-w-6xl p-4 md:p-16'>
+                                <Image key={imgUrl} className='object-contain' src={process.env.NEXT_PUBLIC_BASEURL + imgUrl} alt={img} quality={100} fill />
+                            </div>
+
+                            {/* Next */}
+                            <button
+                                onClick={() => setOpenImgIndex(i => i! + 1)}
+                                disabled={openImgIndex === currentMedia.length - 1}
+                                style={{
+                                    position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
+                                    background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+                                    color: openImgIndex === currentMedia.length - 1 ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.85)',
+                                    borderRadius: 4, padding: '12px 10px', cursor: openImgIndex === currentMedia.length - 1 ? 'default' : 'pointer',
+                                    display: 'flex', backdropFilter: 'blur(4px)', transition: 'all 0.15s',
+                                }}
+                            ><ArrowForwardIos style={{ fontSize: 20 }} /></button>
+
+                            {/* Top controls */}
+                            <div className='absolute top-4 right-4 flex gap-2'>
+                                <Button size='small' variant='contained' color='inherit'
+                                    style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', minWidth: 0, padding: '6px 12px' }}
+                                    onClick={() => { navigator.clipboard.writeText(process.env.NEXT_PUBLIC_BASEURL + imgUrl); alert('Copied!') }}
+                                ><Reply style={{ fontSize: 16 }} /></Button>
+                                <Button size='small' variant='contained' color='inherit'
+                                    style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', minWidth: 0, padding: '6px 12px' }}
+                                    onClick={() => setOpenImgIndex(null)}
+                                ><Close style={{ fontSize: 16 }} /></Button>
+                            </div>
+
+                            {/* Counter */}
+                            <div className='absolute bottom-4 left-1/2 -translate-x-1/2'
+                                style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em' }}>
+                                {openImgIndex + 1} / {currentMedia.length}
+                            </div>
                         </div>
+                    )
+                })()}
+
+                {/* Featured Lightbox */}
+                {openFeaturedImg && (
+                    <div className='fixed inset-0 z-50 flex items-center justify-center p-4 md:p-16'
+                        style={{ background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(8px)' }}
+                        onClick={(e) => e.target === e.currentTarget ? setOpenFeaturedImg('') : null}
+                    >
+                        <div className='relative w-full h-full max-w-6xl'>
+                            <Image key={openFeaturedImg} className='object-contain' src={process.env.NEXT_PUBLIC_BASEURL + openFeaturedImg} alt='' quality={100} fill />
+                        </div>
+                        <Button size='small' variant='contained' color='inherit'
+                            style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', minWidth: 0, padding: '6px 12px' }}
+                            onClick={() => setOpenFeaturedImg('')}
+                        ><Close style={{ fontSize: 16 }} /></Button>
                     </div>
                 )}
             </div>
