@@ -44,7 +44,7 @@ export default function Page() {
                 if (!searchParams.get('operation')) setOperation(json.years[yearI].operations[operationI].operation)
                 if (!searchParams.get('stage')) setStage(json.years[yearI].operations[operationI].stages[stageI].stage)
 
-                setFeatured([...json.featured].sort(() => Math.random() - 0.5).slice(0, 4))
+                setFeatured([...json.featured].sort(() => Math.random() - 0.5))
 
                 setReady(true)
             })
@@ -73,34 +73,37 @@ export default function Page() {
     }, [operation])
 
     return (
-        <div className='flex flex-col justify-between items-center gap-8 max-w-[1500px]'>
+        <div className='w-full flex flex-col justify-between items-center gap-8 max-w-[1500px]'>
 
             <div className='w-full flex flex-col justify-center items-center gap-5'>
                 <Typography className='text-[40px]' variant='h1' align='center' fontWeight={700} fontFamily={'inherit'} letterSpacing={10}>FEATURED</Typography>
 
-                <div className='relative h-[200px] w-full flex flex-row flex-wrap gap-4 justify-center overflow-hidden'>
-
-                    {featured.map(img => (
-                        <div key={img} className="relative h-[200px] w-[350px]">
-                            <Image
-                                className='h-[200px] w-auto object-cover rounded-sm cursor-pointer'
-                                src={`${process.env.NEXT_PUBLIC_BASEURL}/api/gallery/featured?img=${img}`}
-                                alt={img}
-                                quality={75}
-                                loading='eager'
-                                fill
-                                onClick={() => setOpenImg(`/api/gallery/featured?img=${img}`)}
-                            />
-                        </div>
-                    ))}
-
+                <div className='w-full overflow-hidden relative' style={{ height: '252px', maskImage: 'linear-gradient(to right, transparent, black 10%, black 90%, transparent)' }}>
+                    <div
+                        className='carousel-track flex items-center h-full absolute left-0 top-0'
+                        style={{ animationDuration: `${featured.length * 8}s`, width: 'max-content' }}
+                    >
+                        {[...featured, ...featured].map((img, i) => (
+                            <div key={i} className='relative h-[200px] w-[320px] flex-shrink-0 cursor-pointer transition-all duration-300 hover:scale-110 hover:mx-6 hover:z-10 mx-2'
+                                onClick={() => setOpenImg(`/api/gallery/featured?img=${img}`)}>
+                                <Image
+                                    className='object-cover rounded-sm'
+                                    src={`${process.env.NEXT_PUBLIC_BASEURL}/api/gallery/featured?img=${img}`}
+                                    alt={img}
+                                    quality={75}
+                                    loading='eager'
+                                    fill
+                                />
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
             <Divider flexItem />
 
             <div className='min-h-[600px] w-full flex flex-row flex-wrap justify-center gap-5'>
-                <div className='w-full flex flex-row flex-wrap gap-10 justify-center max-w-[1400px]'>
+                <div className='w-full flex flex-col md:flex-row md:flex-wrap gap-6 md:gap-10 justify-center max-w-[1400px]'>
                     <div className='flex flex-col gap-2 flex-grow'>
                         <Typography className='text-[40px]' variant='h1' align='center' fontWeight={700} fontFamily={'inherit'} letterSpacing={4}>
                             YEAR
@@ -111,7 +114,7 @@ export default function Page() {
                         )).reverse()}
                     </div>
 
-                    <div className='flex flex-col gap-2 flex-grow max-w-[700px] md:max-w-[50%]'>
+                    <div className='flex flex-col gap-2 flex-grow w-full md:max-w-[50%]'>
                         <Typography sx={{ textTransform: 'none' }} className='text-[40px]' variant='h1' align='center' fontWeight={700} fontFamily={'inherit'} letterSpacing={4}>
                             OPERATION
                         </Typography>

@@ -13,7 +13,9 @@ const montserrat = Montserrat({ subsets: ["latin"] })
 const plex = IBM_Plex_Sans({ weight: "500", subsets: ["latin"] })
 
 export const viewport: Viewport = {
-	themeColor: "#9d000c"
+	themeColor: "#9d000c",
+	width: 'device-width',
+	initialScale: 1,
 }
 
 export const metadata: Metadata = {
