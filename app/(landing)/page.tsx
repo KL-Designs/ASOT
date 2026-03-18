@@ -248,6 +248,7 @@ function FeatureSection({ label, title, image, imageSide, children, action }: {
 		<div className='grid grid-cols-1 md:grid-cols-2'>
 			<div className={`relative min-h-[300px] md:min-h-[420px] ${imageSide === 'right' ? 'md:order-last' : ''}`}>
 				<Image src={image} alt={title} fill className='object-cover object-center' />
+				<div className='absolute inset-0 hidden md:block' style={{ background: `linear-gradient(to ${imageSide === 'right' ? 'right' : 'left'}, rgba(10,10,10,0.9) 0%, transparent 30%)` }} />
 			</div>
 			<div className={`flex flex-col justify-center gap-5 p-8 md:p-14 ${imageSide === 'right' ? 'md:order-first' : ''}`}>
 				<div>
