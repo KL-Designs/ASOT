@@ -55,7 +55,7 @@ export default function Navbar() {
             name: 'ORBAT', href: '/orbat', icon: <Group />,
             subLinks: [
                 { name: 'ORBAT', link: '/orbat' },
-                { name: 'BIOS', link: '/bios' },
+                { name: 'biographies', link: '/bios' },
             ]
         },
         { name: 'MILPACS', href: 'https://www.australianspecialoperationstaskforce.com/milpacs', icon: <MilitaryTech /> },
