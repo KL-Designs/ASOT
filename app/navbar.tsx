@@ -3,6 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 
 import { useState, useEffect } from 'react'
 
@@ -41,6 +42,8 @@ export default function Navbar() {
 
     const [sideMenuOpen, setSideMenuOpen] = useState(false)
     const [user, setUser] = useState<User | null>(null)
+    const [scrolled, setScrolled] = useState(false)
+    const pathname = usePathname()
 
     const Links: Link[] = [
         { name: 'Home', href: '/', icon: <Home /> },
@@ -79,40 +82,64 @@ export default function Navbar() {
             .catch(() => { })
     }, [])
 
+    useEffect(() => {
+        const handleScroll = () => setScrolled(window.scrollY > 10)
+        window.addEventListener('scroll', handleScroll, { passive: true })
+        return () => window.removeEventListener('scroll', handleScroll)
+    }, [])
+
 
     return (
         <>
             <div
-                className='relative'
+                className='sticky top-0 z-50'
                 style={{
                     width: '100%',
-                    borderBottom: '1px solid var(--red)',
-                    backgroundColor: 'var(--background)',
+                    borderBottom: '1px solid rgba(219,0,29,0.4)',
+                    backgroundColor: scrolled ? 'rgba(10,10,10,0.82)' : 'var(--background)',
+                    backdropFilter: scrolled ? 'blur(16px)' : 'none',
+                    WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none',
+                    transition: 'background-color 0.3s ease, backdrop-filter 0.3s ease',
                 }}
             >
 
-                <div className='absolute w-full h-full'>
+                <div className='absolute w-full h-full' style={{ top: 0, left: 0 }}>
                     <Image src={Honeycomb} alt='honeycomb' fill className='object-cover opacity-10' />
                 </div>
 
-                <div className='flex flex-row justify-between gap-10 p-[15px] px-[30px]' style={{ zIndex: 1 }}>
+                <div className='flex flex-row justify-between gap-10 px-[30px]' style={{ zIndex: 1, padding: scrolled ? '10px 30px' : '15px 30px', transition: 'padding 0.3s ease' }}>
                     <div className='min-w-[50px] self-center flex flex-row items-center gap-x-3'>
                         <Link href='/'>
                             <IconButton style={{ padding: 0 }}>
-                                <Image src={Logo} width={50} quality={100} alt='Logo' />
+                                <Image src={Logo} width={scrolled ? 40 : 50} quality={100} alt='Logo' style={{ transition: 'width 0.3s ease' }} />
                             </IconButton>
                         </Link>
                     </div>
 
                     <div className='hidden md:flex flex-row flex-wrap justify-end gap-x-10 gap-y-2 self-center'>
                         {Links.map((link) => {
-                            if (!link.subLinks) return (
-                                <Link key={link.name} href={link.href} target={/*link.target || */'_self'}>
-                                    <Button startIcon={link.icon} color='light'>{link.name}</Button>
-                                </Link>
-                            )
+                            if (!link.subLinks) {
+                                const isActive = link.href === '/' ? pathname === '/' : pathname.startsWith(link.href)
+                                return (
+                                    <Link key={link.name} href={link.href} target='_self'>
+                                        <Button
+                                            startIcon={link.icon}
+                                            color='light'
+                                            style={{
+                                                borderBottom: isActive ? '2px solid var(--red)' : '2px solid transparent',
+                                                borderRadius: 0,
+                                                opacity: isActive ? 1 : 0.75,
+                                                transition: 'border-color 0.2s, opacity 0.2s',
+                                            }}
+                                        >
+                                            {link.name}
+                                        </Button>
+                                    </Link>
+                                )
+                            }
 
-                            else return <DropDownMenu key={link.name} data={link} />
+                            const isActive = pathname.startsWith(link.href)
+                            return <DropDownMenu key={link.name} data={link} isActive={isActive} />
                         })}
                     </div>
 
@@ -248,7 +275,7 @@ function MobileNavItem({ link, onClose }: { link: Link, onClose: () => void }) {
 }
 
 
-function DropDownMenu({ data }: { data: Link }) {
+function DropDownMenu({ data, isActive }: { data: Link, isActive: boolean }) {
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
     const open = Boolean(anchorEl)
     const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -272,6 +299,12 @@ function DropDownMenu({ data }: { data: Link }) {
                 startIcon={data.icon}
                 endIcon={open ? <ArrowRight /> : <ArrowDropDown />}
                 onClick={handleClick}
+                style={{
+                    borderBottom: isActive ? '2px solid var(--red)' : '2px solid transparent',
+                    borderRadius: 0,
+                    opacity: isActive ? 1 : 0.75,
+                    transition: 'border-color 0.2s, opacity 0.2s',
+                }}
             >
                 {data.name}
             </Button>
@@ -284,7 +317,9 @@ function DropDownMenu({ data }: { data: Link }) {
                     list: { 'aria-labelledby': 'basic-button', style: { padding: '8px' } },
                     paper: {
                         style: {
-                            background: 'rgb(10,10,10)',
+                            background: 'rgba(10,10,10,0.95)',
+                            backdropFilter: 'blur(16px)',
+                            WebkitBackdropFilter: 'blur(16px)',
                             borderTop: '2px solid var(--red)',
                             border: '1px solid rgba(219, 0, 29, 0.25)',
                             borderRadius: 0,
