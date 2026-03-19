@@ -23,6 +23,7 @@ import Droneteam7 from '@/public/images/home/Droneteam7.png'
 
 import FireEmbers from '@/components/fire-embers'
 import PhysicsGame from '@/components/physics-game'
+import MinigameScoreboard from '@/components/minigame-scoreboard'
 
 
 
@@ -31,6 +32,10 @@ export default function Page() {
 	const ref = useRef<HTMLDivElement>(null)
 	const [keys, setKeys] = useState<string>('')
 	const [gameActive, setGameActive] = useState(false)
+	const [currentUser, setCurrentUser] = useState<User | null>(null)
+	const [scoreboardKey, setScoreboardKey] = useState(0)
+	const [gameDead, setGameDead] = useState(false)
+	const [lastScore, setLastScore] = useState<{ score: number; collectScore: number } | undefined>(undefined)
 
 	useEffect(() => {
 		if (ref.current) ref.current.focus({ preventScroll: true })
@@ -40,6 +45,23 @@ export default function Page() {
 		const phrase = keys.toLocaleLowerCase()
 		if (phrase === 'id10t') window.location.href = 'https://www.youtube.com/watch?v=xvFZjo5PgG0'
 	}, [keys])
+
+	useEffect(() => {
+		fetch('/api/me').then(r => r.json()).then(data => {
+			if (!data.error) setCurrentUser(data)
+		}).catch(() => {})
+	}, [])
+
+	function handleGameOver(score: number, collectScore: number) {
+		setLastScore({ score, collectScore })
+		setGameDead(true)
+		if (!currentUser) return
+		fetch('/api/minigame/score', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ score, collectScore }),
+		}).then(() => setScoreboardKey(k => k + 1)).catch(() => {})
+	}
 
 	function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
 		if (e.key === 'Shift') return
@@ -61,7 +83,8 @@ export default function Page() {
 				<div className='absolute inset-0' style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.1) 50%, rgba(10,10,10,0.95) 100%)' }} />
 			<div className='absolute inset-0' style={{ background: 'rgba(0,0,0,0.45)', opacity: gameActive ? 1 : 0, transition: 'opacity 0.7s ease', pointerEvents: 'none', zIndex: 1 }} />
 			<FireEmbers />
-			<PhysicsGame onActivate={() => setGameActive(true)} />
+			<PhysicsGame onActivate={() => setGameActive(true)} onGameOver={handleGameOver} onRestart={() => setGameDead(false)} />
+			<MinigameScoreboard visible={gameDead} currentUserId={currentUser?.id} refreshKey={scoreboardKey} lastScore={lastScore} />
 
 				<div className='h-full flex flex-col items-center justify-center gap-6 px-6 relative' style={{ opacity: gameActive ? 0 : 1, transition: 'opacity 0.6s ease', pointerEvents: gameActive ? 'none' : 'auto' }}>
 					<div className='relative w-full max-w-[800px]' style={{ height: 'clamp(160px, 24vw, 340px)' }}>

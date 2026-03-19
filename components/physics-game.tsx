@@ -2,8 +2,17 @@
 
 import { useRef, useEffect } from 'react'
 
-export default function PhysicsGame({ onActivate }: { onActivate: () => void }) {
+export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
+	onActivate: () => void
+	onGameOver?: (score: number, collectScore: number) => void
+	onRestart?: () => void
+}) {
 	const canvasRef = useRef<HTMLCanvasElement>(null)
+	const onGameOverRef = useRef(onGameOver)
+	const onRestartRef = useRef(onRestart)
+
+	useEffect(() => { onGameOverRef.current = onGameOver }, [onGameOver])
+	useEffect(() => { onRestartRef.current = onRestart }, [onRestart])
 
 	useEffect(() => {
 		const canvas = canvasRef.current
@@ -11,7 +20,7 @@ export default function PhysicsGame({ onActivate }: { onActivate: () => void }) 
 		const ctx = canvas.getContext('2d')
 		if (!ctx) return
 
-		const BOX = 22
+		const BOX = 50
 		const OBS_W = 18
 		const GRAVITY = 0.12
 		const JUMP_VEL = -9
@@ -20,11 +29,13 @@ export default function PhysicsGame({ onActivate }: { onActivate: () => void }) 
 		interface Obstacle { x: number; height: number; speed: number }
 		interface Platform { x: number; y: number; width: number; speed: number }
 		interface Collectible { x: number; y: number; size: number; speed: number }
+		interface Projectile { x: number; y: number; size: number; speed: number }
 
 		const state = {
 			active: false,
 			dead: false,
 			deadTimer: 0,
+			deathReported: false,
 			x: 0, y: 0,
 			vx: 0, vy: 0,
 			onGround: false,
@@ -40,6 +51,8 @@ export default function PhysicsGame({ onActivate }: { onActivate: () => void }) 
 			collectScore: 0,
 			collectibles: [] as Collectible[],
 			collectTimer: 120,
+			projectiles: [] as Projectile[],
+			projectileTimer: 350,
 		}
 
 		const floor = () => canvas.height - BOX
@@ -60,8 +73,11 @@ export default function PhysicsGame({ onActivate }: { onActivate: () => void }) 
 			state.collectScore = 0
 			state.collectibles = []
 			state.collectTimer = 120
+			state.projectiles = []
+			state.projectileTimer = 350
 			state.dead = false
 			state.deadTimer = 0
+			state.deathReported = false
 			state.hintTimer = 200
 		}
 
@@ -76,7 +92,7 @@ export default function PhysicsGame({ onActivate }: { onActivate: () => void }) 
 			if (e.code === 'Space') {
 				e.preventDefault()
 				if (!state.active) { state.active = true; reset(); onActivate(); return }
-				if (state.dead && state.deadTimer <= 0) { reset(); return }
+				if (state.dead && state.deadTimer <= 0) { reset(); onRestartRef.current?.(); return }
 				if (state.onGround) { state.vy = JUMP_VEL; state.onGround = false }
 			}
 			if (!state.active || state.dead) return
@@ -126,7 +142,14 @@ export default function PhysicsGame({ onActivate }: { onActivate: () => void }) 
 						state.y = plat.y - BOX; state.vy = 0; state.onGround = true; break
 					}
 				}
-				if (state.x <= 0) { state.dead = true; state.deadTimer = 100 }
+				if (state.x <= 0) {
+					state.dead = true
+					state.deadTimer = 100
+					if (!state.deathReported) {
+						state.deathReported = true
+						onGameOverRef.current?.(state.score, state.collectScore)
+					}
+				}
 				if (state.x > canvas.width * 0.45) { state.x = canvas.width * 0.45; state.vx = 0 }
 
 				// Platforms
@@ -183,6 +206,23 @@ export default function PhysicsGame({ onActivate }: { onActivate: () => void }) 
 					if (state.collectibles[i].x < -20) state.collectibles.splice(i, 1)
 				}
 
+				// Projectiles — large fast boxes through the air
+				state.projectileTimer--
+				if (state.projectileTimer <= 0) {
+					const size = 110 + Math.random() * 40
+					state.projectiles.push({
+						x: canvas.width + 10,
+						y: canvas.height * (0.35 + Math.random() * 0.3),
+						size,
+						speed: 6 + Math.random() * 3 + state.obsSpeed * 0.6,
+					})
+					state.projectileTimer = Math.floor(500 * (0.6 + Math.random() * 0.9))
+				}
+				for (let i = state.projectiles.length - 1; i >= 0; i--) {
+					state.projectiles[i].x -= state.projectiles[i].speed
+					if (state.projectiles[i].x + state.projectiles[i].size < 0) state.projectiles.splice(i, 1)
+				}
+
 				// Collision — push player left, lose if they hit the left edge
 				for (const obs of state.obstacles) {
 					const obsY = canvas.height - obs.height
@@ -190,6 +230,16 @@ export default function PhysicsGame({ onActivate }: { onActivate: () => void }) 
 						state.y < obsY + obs.height && state.y + BOX > obsY) {
 						state.vx = -7
 						state.x = obs.x - BOX - 1
+					}
+				}
+
+				// Projectile collision — hit sends player flying left
+				for (const proj of state.projectiles) {
+					if (state.x < proj.x + proj.size && state.x + BOX > proj.x &&
+						state.y < proj.y + proj.size && state.y + BOX > proj.y) {
+						state.vx = -11
+						state.vy = -4
+						state.x = proj.x - BOX - 1
 					}
 				}
 
@@ -212,6 +262,31 @@ export default function PhysicsGame({ onActivate }: { onActivate: () => void }) 
 					ctx.strokeRect(obs.x, obsY, OBS_W, obs.height)
 					ctx.fillStyle = 'rgba(219,0,29,0.07)'
 					ctx.fillRect(obs.x, obsY, OBS_W, obs.height)
+					ctx.restore()
+				}
+
+				// Draw projectiles
+				for (const proj of state.projectiles) {
+					ctx.save()
+					ctx.strokeStyle = 'rgba(255,120,0,0.9)'
+					ctx.lineWidth = 2
+					ctx.strokeRect(proj.x, proj.y, proj.size, proj.size)
+					ctx.fillStyle = 'rgba(255,120,0,0.12)'
+					ctx.fillRect(proj.x, proj.y, proj.size, proj.size)
+					// Speed lines trailing behind
+					ctx.strokeStyle = 'rgba(255,120,0,0.3)'
+					ctx.lineWidth = 1
+					for (let l = 1; l <= 3; l++) {
+						const lx = proj.x + proj.size * (l / 4)
+						ctx.beginPath()
+						ctx.moveTo(lx, proj.y)
+						ctx.lineTo(lx + l * 12, proj.y)
+						ctx.stroke()
+						ctx.beginPath()
+						ctx.moveTo(lx, proj.y + proj.size)
+						ctx.lineTo(lx + l * 12, proj.y + proj.size)
+						ctx.stroke()
+					}
 					ctx.restore()
 				}
 
@@ -294,6 +369,13 @@ export default function PhysicsGame({ onActivate }: { onActivate: () => void }) 
 					ctx.strokeStyle = 'rgba(219,0,29,0.4)'
 					ctx.lineWidth = 1.5
 					ctx.strokeRect(obs.x, obsY, OBS_W, obs.height)
+					ctx.restore()
+				}
+				for (const proj of state.projectiles) {
+					ctx.save()
+					ctx.strokeStyle = 'rgba(255,120,0,0.35)'
+					ctx.lineWidth = 2
+					ctx.strokeRect(proj.x, proj.y, proj.size, proj.size)
 					ctx.restore()
 				}
 				if (state.deadTimer <= 0) {
