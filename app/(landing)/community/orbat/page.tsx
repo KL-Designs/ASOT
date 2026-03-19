@@ -8,204 +8,27 @@ import {
 } from '@mui/icons-material'
 import Container from "@/components/container"
 import Banner from '@/public/images/home/3DMA_Final2.png'
+import { fetchORBAT, type Member, type RawSection } from '@/lib/orbat'
 
 export const metadata: Metadata = {
 	title: "ORBAT | Australian Special Operations Taskforce"
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-interface Member { role: string; name: string }
-interface UnitSection { title: string; members: Member[]; icon?: React.ReactNode }
+interface UnitSection extends RawSection { icon?: React.ReactNode }
+
+function getSupportIcon(title: string): React.ReactNode {
+	const t = title.toUpperCase()
+	if (t.includes('ECHO') || t.includes('ENGINEER')) return <Engineering sx={{ fontSize: 18 }} />
+	if (t.includes('GOLF') || t.includes('WEAPON'))   return <GpsFixed sx={{ fontSize: 18 }} />
+	if (t.includes('HOTEL') || t.includes('ROTARY'))  return <Flight sx={{ fontSize: 18 }} />
+	if (t.includes('MIKE') || t.includes('MEDICAL'))  return <LocalHospital sx={{ fontSize: 18 }} />
+	if (t.includes('VICTOR') || t.includes('CAVALRY') || t.includes('ARMOUR')) return <DirectionsCar sx={{ fontSize: 18 }} />
+	return null
+}
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const companyHQ = {
-	title: '0-A India Company Headquarters',
-	senior: { role: 'Commanding Officer', name: 'LTGEN Thomas' },
-	subTitle: '1-0 India Company Headquarters',
-	members: [
-		{ role: 'Officer Commanding',        name: 'MAJGEN Six'  },
-		{ role: 'Adjutant',                  name: 'SCAPT Yoshi' },
-		{ role: 'Regimental Sergeant Major', name: 'CSM Apex'    },
-		{ role: 'Company Sergeant Major',    name: 'RSM Res'     },
-	],
-}
-
-const platoon11: UnitSection[] = [
-	{ title: '1-1-0 Platoon Headquarters', members: [
-		{ role: 'Platoon Commander', name: 'OCDT Bants'        },
-		{ role: 'Platoon Signaller', name: 'SIG(S) Animarchy'  },
-		{ role: 'Platoon Sergeant',  name: 'SAM Brolof'        },
-		{ role: 'Platoon Medic',     name: 'LCPL(P) Jayzee'   },
-	]},
-	{ title: '1-1-1 Alpha', members: [
-		{ role: 'Section Commander', name: 'CPL(L) Hotshot'   },
-		{ role: 'Rifleman (CFA)',    name: 'PTE Joey'          },
-		{ role: 'Fireteam Leader',   name: 'LCPL(J) Danno'    },
-		{ role: 'Medium Anti-Tank',  name: 'PTE(S) Nunn'      },
-		{ role: 'Machinegunner',     name: 'PTE(S) Conway'    },
-		{ role: 'Fireteam Leader',   name: 'LCPL(S) Nadric'   },
-		{ role: 'Machinegunner',     name: 'PTE Jester'        },
-		{ role: 'Rifleman',          name: ''                  },
-	]},
-	{ title: '1-1-2 Bravo', members: [
-		{ role: 'Section Commander', name: 'CPL(P) Guardsman'  },
-		{ role: 'Rifleman (CFA)',    name: 'PTE(L) Koda'       },
-		{ role: 'Fireteam Leader',   name: 'LCPL(J) CJ'        },
-		{ role: 'Medium Anti-Tank',  name: 'PTE(L) Vade'       },
-		{ role: 'Machinegunner',     name: 'PTE(S) McDongle'   },
-		{ role: 'Fireteam Leader',   name: 'LCPL(J) Oliver'    },
-		{ role: 'Fireteam Leader',   name: 'PTE(SL) Zilo'      },
-		{ role: 'Rifleman',          name: 'PTE(L) Nutpirom'   },
-	]},
-	{ title: '1-1-3 Charlie', members: [
-		{ role: 'Section Commander', name: 'CPL(L) Pogo'       },
-		{ role: 'Rifleman (CFA)',    name: 'PTE AnnoyingTaco'  },
-		{ role: 'Fireteam Leader',   name: 'LCPL Gum'          },
-		{ role: 'Medium Anti-Tank',  name: 'PTE Willum'        },
-		{ role: 'Machinegunner',     name: ''                  },
-		{ role: 'Fireteam Leader',   name: 'LCPL(P) Tatsyugo'  },
-		{ role: 'Machinegunner',     name: 'PTE Southie'       },
-		{ role: 'Rifleman',          name: 'PTE Iron'          },
-	]},
-]
-
-const platoon12: UnitSection[] = [
-	{ title: '1-2-0 Platoon Headquarters', members: [
-		{ role: 'Platoon Commander', name: '2LT Talon'              },
-		{ role: 'Platoon Signaller', name: 'SIG(S) Assassin'        },
-		{ role: 'Platoon Sergeant',  name: 'SSAM Andrew'            },
-		{ role: 'Platoon Medic',     name: 'LCPL(S) BadDragonRaz'   },
-	]},
-	{ title: '1-2-1 Alpha', members: [
-		{ role: 'Section Commander', name: 'CPL(L) TheCheds'   },
-		{ role: 'Rifleman (CFA)',    name: 'PTE(S) Pants'      },
-		{ role: 'Fireteam Leader',   name: 'LCPL(J) Dawn'      },
-		{ role: 'Medium Anti-Tank',  name: ''                  },
-		{ role: 'Machinegunner',     name: 'PTE(P) Pegasus'    },
-		{ role: 'Fireteam Leader',   name: 'LCPL(L) Nic'       },
-		{ role: 'Machinegunner',     name: 'PTE(SL) Dempsey'   },
-		{ role: 'Rifleman',          name: 'PTE(L) Wombat'     },
-	]},
-	{ title: '1-2-2 Bravo', members: [
-		{ role: 'Section Commander', name: 'CPL(P) Rendez'      },
-		{ role: 'Rifleman (CFA)',    name: 'PTE(S) Cheeseye'    },
-		{ role: 'Fireteam Leader',   name: 'LCPL(P) Soundless'  },
-		{ role: 'Medium Anti-Tank',  name: 'PTE Soapy'          },
-		{ role: 'Machinegunner',     name: 'REC NakedSnake'     },
-		{ role: 'Fireteam Leader',   name: ''                   },
-		{ role: 'Machinegunner',     name: 'PTE(P) Iffy'        },
-		{ role: 'Rifleman',          name: 'PTE(SL) Dennis'     },
-	]},
-	{ title: '1-2-3 Charlie', members: [
-		{ role: 'Section Commander', name: 'CPL(P) Flurp'      },
-		{ role: 'Rifleman (CFA)',    name: 'PTE(S) Phantom'    },
-		{ role: 'Fireteam Leader',   name: 'LCPL(P) Osprey'    },
-		{ role: 'Medium Anti-Tank',  name: 'PTE(S) Walshy'    },
-		{ role: 'Machinegunner',     name: 'PTE(L) Noisy'      },
-		{ role: 'Fireteam Leader',   name: 'LCPL Bones'        },
-		{ role: 'Machinegunner',     name: 'PTE(L) J45un'      },
-		{ role: 'Rifleman',          name: 'PTE(SL) Rox'       },
-	]},
-]
-
-const support: UnitSection[] = [
-	{ title: '1-3 Echo — Combat Engineers', icon: <Engineering sx={{ fontSize: 18 }} />, members: [
-		{ role: 'Squadron Commander', name: 'CLT WhiteWolf'      },
-		{ role: 'Squadron Commander', name: 'SGT Billy'          },
-		{ role: 'Section Commander',  name: 'CPL(J) Violet'      },
-		{ role: 'Sapper',             name: 'SAP(L) Slaydevil'   },
-		{ role: 'Sapper',             name: 'SAP Gem'            },
-		{ role: 'Section Commander',  name: 'CPL(J) Carl'        },
-		{ role: 'Sapper',             name: 'SAP Sens'           },
-		{ role: 'Fireteam Leader',    name: 'LCPL Lazypid'       },
-		{ role: 'Sapper',             name: 'SAP(L) AgentDove'   },
-		{ role: 'Sapper',             name: 'SAP Jewel'          },
-	]},
-	{ title: '1-3 Golf — Heavy Weapons', icon: <GpsFixed sx={{ fontSize: 18 }} />, members: [
-		{ role: 'Troop Commander',   name: 'OCDT Trey'    },
-		{ role: 'Troop Sergeant',    name: 'SSGT Jayden'  },
-		{ role: 'Section Commander', name: 'BDR(S) Mold'  },
-		{ role: 'Gunner',            name: 'GNR Bradford' },
-		{ role: 'Gunner',            name: ''             },
-		{ role: 'Fireteam Leader',   name: ''             },
-		{ role: 'Gunner',            name: 'GNR(P) Ares'  },
-	]},
-	{ title: '1-3 Hotel — Rotary Wing (Flt 1)', icon: <Flight sx={{ fontSize: 18 }} />, members: [
-		{ role: 'Squadron CO',      name: 'AVM BobittiHaxs'  },
-		{ role: 'Squadron XO',      name: 'ACM Rauty'        },
-		{ role: 'Flight Commander', name: 'WGCO Nova'        },
-		{ role: 'Flight 2IC',       name: 'WGCO Brendo'      },
-		{ role: 'Pilot',            name: 'FLT Jin'          },
-		{ role: 'Pilot',            name: ''                 },
-		{ role: 'Trainee Pilot',    name: 'OFFCDT Enfield'   },
-		{ role: 'Crewman',          name: 'LAC Coffee'       },
-	]},
-	{ title: '1-3 Hotel — Rotary Wing (Flt 2)', icon: <Flight sx={{ fontSize: 18 }} />, members: [
-		{ role: 'Flight Commander', name: 'FLL Chef'          },
-		{ role: 'Flight 2IC',       name: 'GPCAPT MitchMash' },
-		{ role: 'Pilot',            name: 'FLT(S) Lobo'      },
-		{ role: 'Pilot',            name: 'FLL Maloney'      },
-		{ role: 'Trainee Pilot',    name: 'OFFCDT Panther'   },
-		{ role: 'Crewman',          name: 'AC Storm'         },
-		{ role: 'Crewman',          name: 'REC Mundocrnoo'   },
-	]},
-	{ title: '1-3 Mike — Medical (MERT)', icon: <LocalHospital sx={{ fontSize: 18 }} />, members: [
-		{ role: 'Medical Officer',   name: '2LT Fulcrum'       },
-		{ role: 'Medical Sergeant',  name: 'SGT Boeing'        },
-		{ role: 'Section Commander', name: 'CPL(J) Milcry'     },
-		{ role: 'Medic',             name: 'PTE(P) Stevens'    },
-		{ role: 'Fireteam Leader',   name: ''                  },
-		{ role: 'Medic',             name: 'REC Sal'           },
-		{ role: 'Medic',             name: 'PTE Tommy'         },
-		{ role: 'Section Commander', name: 'CPL(J) Frankie'    },
-		{ role: 'Medic',             name: 'PTE Bard'          },
-		{ role: 'Fireteam Leader',   name: 'LCPL(J) Formula'   },
-		{ role: 'Medic',             name: 'REC HackJack'      },
-		{ role: 'Medic',             name: 'PTE(S) Duros'      },
-	]},
-	{ title: '1-3 Victor — Cavalry / Armour', icon: <DirectionsCar sx={{ fontSize: 18 }} />, members: [
-		{ role: 'Troop Leader',    name: 'LT Conboy'       },
-		{ role: 'Crewman',         name: 'TPR(SL) Trew'    },
-		{ role: 'Crewman',         name: 'TPR(L) J.Cole'   },
-		{ role: 'Troop Sergeant',  name: 'SGT Valinor'     },
-		{ role: 'Crewman',         name: 'TRP(S) Pluto'    },
-		{ role: 'Crewman',         name: 'TRP Gryphorim'   },
-		{ role: 'Troop Corporal',  name: 'CPL(J) Rita'     },
-		{ role: 'Crewman',         name: 'TRP Mango'       },
-		{ role: 'Crewman',         name: 'TRP Seimsey'     },
-		{ role: 'Crew Commander',  name: 'LCPL(J) Phox'    },
-		{ role: 'Crewman',         name: 'TPR Rhino'       },
-		{ role: 'Crewman',         name: 'TRP Omega'       },
-	]},
-]
-
-const activeReservists = [
-	'PTE(SL) Aqwaman', 'PTE Jesse',       'PTE(S) Arson',      'REC Happy',
-	'PTE(P) Hord',     'REC Abuza',       'PTE(S) Jackal',     'PTE(P) Crimp',
-	'PTE DamagedGoods','REC Thatcher',    'PTE Goose',         'PTE(P) Fry',
-	'PTE Azza',        'REC Ryzza',       'PTE Wingman',       'PTE(S) Lest',
-	'REC Vaalis',      'PTE(S) Jetz',     'PTE Xantenius',     'PTE(P) Odin',
-	'PTE Nemo',        'REC Wrighty',     'REC Anomalie',      'REC Xia',
-	'PTE(P) Petrov',   'PTE Racka',       'PTE Cyrus',         'REC Hectic',
-	'PTE Bee',         'REC Spike',       'PTE BigBoss',       'PTE Henerse',
-	'REC Zadori',      'PTE Bard',        'REC Riley',         'PTE Parko',
-	'PTE Abdul',       'REC Llama',       'REC Berserker',     'PTE Ugly',
-	'PTE(P) Battery',  'PTE(S) Dab',
-]
-
-const inactiveReservists = [
-	'PTE(P) Tredrea', 'PTE Bunji', 'PTE Crow', 'PTE DaJame', 'REC Aztex',
-]
-
-const gamemasters: Member[] = [
-	{ role: 'Zeus — Team Leader', name: 'GM(D) Slotter' },
-	{ role: 'Zeus',               name: 'GM(P) Alexoe'  },
-	{ role: 'Zeus',               name: ''              },
-	{ role: 'Zeus',               name: ''              },
-	{ role: 'Zeus',               name: ''              },
-	{ role: 'Zeus',               name: ''              },
-]
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -327,10 +150,10 @@ function PlatoonColumn({ name, icon, sections }: { name: string; icon: React.Rea
 	)
 }
 
-function ReservistsCard() {
+function ReservistsCard({ names }: { names: string[] }) {
 	const rows: string[][] = []
-	for (let i = 0; i < activeReservists.length; i += 2) {
-		rows.push([activeReservists[i], activeReservists[i + 1] ?? ''])
+	for (let i = 0; i < names.length; i += 2) {
+		rows.push([names[i], names[i + 1] ?? ''])
 	}
 	return (
 		<div style={{ border: '1px solid rgba(219,0,29,0.15)', overflow: 'hidden', marginBottom: 6 }}>
@@ -363,11 +186,11 @@ function ReservistsCard() {
 	)
 }
 
-function InactiveReservistsCard() {
+function InactiveReservistsCard({ names }: { names: string[] }) {
 	return (
 		<div style={{ border: '1px solid rgba(219,0,29,0.15)', overflow: 'hidden', marginBottom: 6 }}>
 			<SectionHeader>Company Reservists (Inactive)</SectionHeader>
-			{inactiveReservists.map((name, i) => (
+			{names.map((name, i) => (
 				<div key={i} style={{
 					padding: '3px 8px',
 					fontSize: '0.67rem',
@@ -383,14 +206,14 @@ function InactiveReservistsCard() {
 	)
 }
 
-function GamemastersCard() {
+function GamemastersCard({ members }: { members: Member[] }) {
 	return (
 		<div style={{ border: '1px solid rgba(219,0,29,0.15)', overflow: 'hidden', marginBottom: 6 }}>
 			<div className='flex items-stretch'>
 				{iconStrip(<SportsEsports sx={{ fontSize: 18 }} />)}
 				<div className='flex-1 min-w-0'>
 					<SectionHeader>1-0 Zulu — Gamemasters</SectionHeader>
-					{gamemasters.map((m, i) => (
+					{members.map((m, i) => (
 						<MemberRow key={i} role={m.role} name={m.name} index={i} />
 					))}
 				</div>
@@ -401,7 +224,9 @@ function GamemastersCard() {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function Page() {
+export default async function Page() {
+	const orbat = await fetchORBAT()
+	const support: UnitSection[] = orbat.support.map(s => ({ ...s, icon: getSupportIcon(s.title) }))
 	return (
 		<Container
 			title="OUR ORBAT"
@@ -500,7 +325,7 @@ export default function Page() {
 							textTransform: 'uppercase',
 							marginBottom: 6,
 						}}>
-							{companyHQ.senior.role}
+							{orbat.companyHQ.senior.role}
 						</div>
 						<div style={{
 							fontSize: '2rem',
@@ -511,7 +336,7 @@ export default function Page() {
 							lineHeight: 1,
 							textShadow: '0 2px 20px rgba(219,0,29,0.3)',
 						}}>
-							{companyHQ.senior.name}
+							{orbat.companyHQ.senior.name}
 						</div>
 						<div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
 							<div style={{ height: 2, width: 40, background: 'var(--red)' }} />
@@ -535,13 +360,13 @@ export default function Page() {
 					gap: 10,
 				}}>
 					<div style={{ height: 1, width: 16, background: 'rgba(219,0,29,0.3)', flexShrink: 0 }} />
-					{companyHQ.subTitle}
+					{orbat.companyHQ.subTitle}
 					<div style={{ height: 1, flex: 1, background: 'rgba(219,0,29,0.1)' }} />
 				</div>
 
 				{/* HQ members grid */}
 				<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'>
-					{companyHQ.members.map((m, i) => (
+					{orbat.companyHQ.members.map((m, i) => (
 						<div key={i} style={{
 							padding: '12px 20px',
 							borderRight: i < 3 ? '1px solid rgba(219,0,29,0.1)' : 'none',
@@ -561,13 +386,13 @@ export default function Page() {
 
 			{/* Main 4-column layout */}
 			<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start'>
-				<PlatoonColumn name='1-1 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={platoon11} />
-				<PlatoonColumn name='1-2 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={platoon12} />
+				<PlatoonColumn name='1-1 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={orbat.platoon11} />
+				<PlatoonColumn name='1-2 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={orbat.platoon12} />
 				<PlatoonColumn name='1-3 Support Platoon'  icon={<MilitaryTech sx={{ fontSize: 20 }} />} sections={support} />
 				<div>
-					<GamemastersCard />
-					<ReservistsCard />
-					<InactiveReservistsCard />
+					<GamemastersCard members={orbat.gamemasters} />
+					<ReservistsCard names={orbat.activeReservists} />
+					<InactiveReservistsCard names={orbat.inactiveReservists} />
 				</div>
 			</div>
 		</Container>
