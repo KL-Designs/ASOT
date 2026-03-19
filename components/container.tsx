@@ -40,7 +40,11 @@ export default function Container({ children, title, subtitle, background, sx }:
 
                 <div className='relative z-10 flex flex-col items-center gap-3 pb-10 px-6 text-center w-full'>
                     <h1 className='container-h1'>{title || 'PAGE TITLE'}</h1>
-                    <div style={{ width: 56, height: 2, background: 'var(--red)', flexShrink: 0 }} />
+                    <div className='flex items-center gap-3 w-full' style={{ maxWidth: 360 }}>
+                        <div style={{ flex: 1, height: 1, background: 'rgba(219,0,29,0.2)' }} />
+                        <div style={{ height: 2, width: 48, background: 'var(--red)' }} />
+                        <div style={{ flex: 1, height: 1, background: 'rgba(219,0,29,0.2)' }} />
+                    </div>
                     {subtitle && <h2 className="container-h2 max-w-[400px] md:max-w-[680px]" style={{ opacity: 0.8 }}>{subtitle}</h2>}
                 </div>
             </div>

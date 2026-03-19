@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse } from '@mui/material'
-import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess } from '@mui/icons-material'
+import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import Avatar from '@/components/member/avatar'
@@ -59,10 +59,11 @@ export default function Navbar() {
             ]
         },
         {
-            name: 'ORBAT', href: '/orbat', icon: <Group />,
+            name: 'Community', href: '/community', icon: <Group />,
             subLinks: [
-                { name: 'ORBAT', link: '/orbat', icon: <AccountTree />, description: 'Full order of battle' },
-                { name: 'Biographies', link: '/bios', icon: <Badge />, description: 'Member biographies' },
+                { name: 'ORBAT', link: '/community/orbat', icon: <AccountTree />, description: 'Full order of battle' },
+                { name: 'Biographies', link: '/community/bios', icon: <Badge />, description: 'Member biographies' },
+                { name: 'Hall of Fame', link: '/community/hof', icon: <EmojiEvents />, description: 'Honoured unit members' },
             ]
         },
         { name: 'MILPACS', href: 'https://www.australianspecialoperationstaskforce.com/milpacs', icon: <MilitaryTech /> },

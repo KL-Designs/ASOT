@@ -13,9 +13,9 @@ const navColumns = [
         links: [
             { label: 'Home', href: '/' },
             { label: 'About Us', href: '/about' },
-            { label: 'ORBAT', href: '/orbat' },
-            { label: 'Biographies', href: '/bios' },
-            { label: 'Hall of Fame', href: '/hof' },
+            { label: 'ORBAT', href: '/community/orbat' },
+            { label: 'Biographies', href: '/community/bios' },
+            { label: 'Hall of Fame', href: '/community/hof' },
         ],
     },
     {

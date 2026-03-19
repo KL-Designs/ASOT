@@ -3,8 +3,47 @@
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 
-import { Typography, Button, Divider } from '@mui/material'
+import { Button, Divider, CircularProgress } from '@mui/material'
 import { Reply, Close, ZoomIn, ArrowBackIos, ArrowForwardIos } from '@mui/icons-material'
+
+function GalleryImage({ src, alt, onClick }: { src: string, alt: string, onClick: () => void }) {
+    const [loaded, setLoaded] = useState(false)
+    return (
+        <div
+            className='relative w-full overflow-hidden cursor-pointer group'
+            style={{ aspectRatio: '16/10' }}
+            onClick={onClick}
+        >
+            {!loaded && (
+                <div className='absolute inset-0 flex items-center justify-center' style={{ background: 'rgba(10,10,10,0.6)' }}>
+                    <CircularProgress size={28} style={{ color: 'var(--red)' }} />
+                </div>
+            )}
+            <Image
+                className='object-cover transition-transform duration-300 group-hover:scale-105'
+                src={src}
+                alt={alt}
+                fill
+                loading='lazy'
+                onLoad={() => setLoaded(true)}
+            />
+            <div className='absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center'
+                style={{ background: 'linear-gradient(to bottom, rgba(219,0,29,0.08), rgba(0,0,0,0.55))' }}>
+                <div style={{
+                    border: '1px solid rgba(255,255,255,0.4)',
+                    borderRadius: '50%',
+                    padding: 8,
+                    color: 'rgba(255,255,255,0.9)',
+                    display: 'flex',
+                    backdropFilter: 'blur(2px)',
+                    background: 'rgba(0,0,0,0.25)',
+                }}>
+                    <ZoomIn style={{ fontSize: 22 }} />
+                </div>
+            </div>
+        </div>
+    )
+}
 
 import { useEffect, useState } from "react"
 
@@ -90,7 +129,6 @@ export default function Page() {
         <div className='w-full mx-auto flex flex-col gap-8 max-w-[1500px]'>
 
             <div className='w-full flex flex-col justify-center items-center gap-5'>
-                <Typography className='text-[40px]' variant='h1' align='center' fontWeight={700} fontFamily={'inherit'} letterSpacing={10}>FEATURED</Typography>
 
                 <div className='w-full overflow-hidden relative' style={{ height: '252px', maskImage: 'linear-gradient(to right, transparent, black 10%, black 90%, transparent)' }}>
                     <div
@@ -197,34 +235,12 @@ export default function Page() {
                 {/* Image Grid */}
                 <div className='w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2'>
                     {currentMedia.map((img, i) => (
-                        <div
+                        <GalleryImage
                             key={img}
-                            className='relative w-full overflow-hidden cursor-pointer group'
-                            style={{ aspectRatio: '16/10' }}
+                            src={`${process.env.NEXT_PUBLIC_BASEURL}/api/gallery/fetch?stage=${stage}&operation=${operation}&year=${year}&img=${img}`}
+                            alt={img}
                             onClick={() => setOpenImgIndex(i)}
-                        >
-                            <Image
-                                className='object-cover transition-transform duration-300 group-hover:scale-105'
-                                src={`${process.env.NEXT_PUBLIC_BASEURL}/api/gallery/fetch?stage=${stage}&operation=${operation}&year=${year}&img=${img}`}
-                                alt={img}
-                                fill
-                                loading='lazy'
-                            />
-                            <div className='absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center'
-                                style={{ background: 'linear-gradient(to bottom, rgba(219,0,29,0.08), rgba(0,0,0,0.55))' }}>
-                                <div style={{
-                                    border: '1px solid rgba(255,255,255,0.4)',
-                                    borderRadius: '50%',
-                                    padding: 8,
-                                    color: 'rgba(255,255,255,0.9)',
-                                    display: 'flex',
-                                    backdropFilter: 'blur(2px)',
-                                    background: 'rgba(0,0,0,0.25)',
-                                }}>
-                                    <ZoomIn style={{ fontSize: 22 }} />
-                                </div>
-                            </div>
-                        </div>
+                        />
                     ))}
                 </div>
 
