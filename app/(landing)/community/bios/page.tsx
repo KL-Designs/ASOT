@@ -64,7 +64,7 @@ export default async function Page() {
                                     <div style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.18em', color: 'rgba(219,0,29,0.8)', textTransform: 'uppercase', marginBottom: 4 }}>
                                         Callsign
                                     </div>
-                                    <h3 style={{ fontSize: '1.4rem', fontWeight: 700, letterSpacing: '0.08em', margin: 0, textTransform: 'uppercase', color: 'rgba(237,237,237,0.95)' }}>
+                                    <h3 className='text-right' style={{ fontSize: '1.4rem', fontWeight: 700, letterSpacing: '0.08em', margin: 0, textTransform: 'uppercase', color: 'rgba(237,237,237,0.95)' }}>
                                         {user.bio?.callsign}
                                     </h3>
                                     <p className='text-right' style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(237,237,237,0.35)', textTransform: 'uppercase', margin: 0 }}>
