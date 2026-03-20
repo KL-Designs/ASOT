@@ -6,7 +6,7 @@ import { Typography } from '@mui/material'
 import { Api, Tune, CalendarToday } from '@mui/icons-material'
 
 import ConvertColor from '@/lib/discord/color'
-import { Bio, BioInfo } from './bio'
+import { BioSections } from './bio'
 import Avatar from '@/components/member/avatar'
 
 
@@ -23,7 +23,7 @@ export default async function Page() {
     return (
         <div className='h-full w-full p-6 md:p-10 flex flex-col gap-5 max-w-[1000px] mx-auto'>
 
-            {/* Profile Card */}
+            {/* Profile Card — full width */}
             <div
                 className='flex flex-col'
                 style={{
@@ -41,7 +41,7 @@ export default async function Page() {
                     </Typography>
                 </div>
 
-                <div className='p-5 flex flex-col gap-5'>
+                <div className='p-5'>
                     <div className='flex flex-wrap gap-5'>
                         <div className='relative h-[90px] min-w-[90px]'>
                             <Avatar user={me} />
@@ -69,52 +69,48 @@ export default async function Page() {
                                 JOINED {new Date(me.guild.joinedTimestamp).toDateString().toUpperCase()}
                             </div>
                         </div>
-
-                        {isHQ && <BioInfo />}
                     </div>
-
-                    {isHQ && (
-                        <>
-                            <div style={{ height: 1, background: 'rgba(255,255,255,0.05)' }} />
-                            <Bio />
-                        </>
-                    )}
                 </div>
             </div>
 
-            {/* Bottom row */}
-            <div className='flex flex-col sm:flex-row gap-5'>
+            {/* Bottom area: left column + Roles */}
+            <div className='flex gap-5 items-start'>
 
-                {/* Navigation cards */}
-                <div className='flex flex-wrap gap-4 flex-grow'>
-                    <Link href='/operations' className='flex-1 min-w-[160px]'>
-                        <div
-                            className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
-                            style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
-                        >
-                            <Api sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
-                            <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                Operations
-                            </Typography>
-                        </div>
-                    </Link>
+                {/* Left column */}
+                <div className='flex flex-col gap-5 flex-grow min-w-0'>
+                    {isHQ && <BioSections />}
 
-                    <Link href='/optionals' className='flex-1 min-w-[160px]'>
-                        <div
-                            className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
-                            style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
-                        >
-                            <Tune sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
-                            <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                Configure<br />Optionals
-                            </Typography>
-                        </div>
-                    </Link>
+                    {/* Navigation cards */}
+                    <div className='flex flex-wrap gap-4'>
+                        <Link href='/operations' className='flex-1 min-w-[160px]'>
+                            <div
+                                className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
+                                style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
+                            >
+                                <Api sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
+                                <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
+                                    Operations
+                                </Typography>
+                            </div>
+                        </Link>
+
+                        <Link href='/optionals' className='flex-1 min-w-[160px]'>
+                            <div
+                                className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
+                                style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
+                            >
+                                <Tune sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
+                                <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
+                                    Configure<br />Optionals
+                                </Typography>
+                            </div>
+                        </Link>
+                    </div>
                 </div>
 
-                {/* Roles */}
+                {/* Roles — stretches to match left column height */}
                 <div
-                    className='flex flex-col sm:w-[220px] sm:shrink-0'
+                    className='flex flex-col w-[220px] shrink-0 self-stretch'
                     style={{
                         border: '1px solid rgba(219,0,29,0.15)',
                         borderTop: '2px solid var(--red)',
@@ -171,7 +167,9 @@ export default async function Page() {
                         ))}
                     </div>
                 </div>
+
             </div>
+
         </div>
     )
 }
