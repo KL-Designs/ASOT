@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
 	const profile = await resolveProfile(username)
 	if (!profile) return { title: 'Australian Special Operations Taskforce' }
 	const { name, fullRank, member, orbatEntry } = profile
-	const title = `${fullRank ? `${fullRank} ${name}` : name} | Australian Special Operations Taskforce`
+	const title = `${fullRank ? `${fullRank} ${name}` : name} | ASOT`
 	const description = member.bio?.content || undefined
 	const role = orbatEntry?.role || undefined
 	return {
