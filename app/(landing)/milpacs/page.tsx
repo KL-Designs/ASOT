@@ -33,30 +33,22 @@ export default async function Page() {
 			<div className='m-auto max-w-[1400px]' style={{ padding: '3rem 2rem', display: 'flex', flexDirection: 'column', gap: '3rem' }}>
 
 				{/* ── India Company HQ ──────────────────────────────────── */}
-				<Section label='Command' title='India Company Headquarters'>
-					<div className='flex flex-wrap gap-4'>
-						{[orbat.companyHQ.senior, ...orbat.companyHQ.members].map(m => {
-							const member = lookup(m.name)
-							return member ? <Card key={member.id} member={member} role={m.role} /> : null
-						})}
-					</div>
+				<Section label='Command' title='India Company'>
+					<SubSection title='Headquarters'>
+						<div className='flex flex-wrap gap-4'>
+							{[orbat.companyHQ.senior, ...orbat.companyHQ.members].map(m => {
+								const member = lookup(m.name)
+								return member ? <Card key={member.id} member={member} role={m.role} /> : null
+							})}
+						</div>
+					</SubSection>
 				</Section>
 
 				<RedDivider />
 
-				{/* ── 1st Platoon — sections from ORBAT ─────────────────── */}
-				{orbat.platoon11.map((section, i) => {
-					const isHQ = i === 0
-					return isHQ ? (
-						<Section key={section.title} label='1st Platoon' title='1st Platoon Headquarters'>
-							<div className='flex flex-wrap gap-4'>
-								{section.members.map(m => {
-									const member = lookup(m.name)
-									return member ? <Card key={member.id} member={member} role={m.role} /> : null
-								})}
-							</div>
-						</Section>
-					) : (
+				{/* ── 1st Platoon — sections from ORBAT ───────────── */}
+				<Section label='Saturday' title='1st Platoon'>
+					{orbat.platoon11.map((section) => (
 						<SubSection key={section.title} title={section.title}>
 							<div className='flex flex-wrap gap-4'>
 								{section.members.map(m => {
@@ -65,24 +57,14 @@ export default async function Page() {
 								})}
 							</div>
 						</SubSection>
-					)
-				})}
+					))}
+				</Section>
 
 				<RedDivider />
 
-				{/* ── 2nd Platoon — sections from ORBAT ─────────────────── */}
-				{orbat.platoon12.map((section, i) => {
-					const isHQ = i === 0
-					return isHQ ? (
-						<Section key={section.title} label='2nd Platoon' title='2nd Platoon Headquarters'>
-							<div className='flex flex-wrap gap-4'>
-								{section.members.map(m => {
-									const member = lookup(m.name)
-									return member ? <Card key={member.id} member={member} role={m.role} /> : null
-								})}
-							</div>
-						</Section>
-					) : (
+				{/* ── 2nd Platoon — sections from ORBAT ───────────── */}
+				<Section label='Sunday' title='2nd Platoon'>
+					{orbat.platoon12.map((section) => (
 						<SubSection key={section.title} title={section.title}>
 							<div className='flex flex-wrap gap-4'>
 								{section.members.map(m => {
@@ -91,25 +73,14 @@ export default async function Page() {
 								})}
 							</div>
 						</SubSection>
-					)
-				})}
+					))}
+				</Section>
 
-			</div>
 				<RedDivider />
 
 				{/* ── Support Platoon (1-3) ─────────────────── */}
-				{orbat.support.map((section, i) => {
-					const isHQ = i === 0
-					return isHQ ? (
-						<Section key={section.title} label='Support Platoon' title={section.title}>
-							<div className='flex flex-wrap gap-4'>
-								{section.members.map(m => {
-									const member = lookup(m.name)
-									return member ? <Card key={member.id} member={member} role={m.role} /> : null
-								})}
-							</div>
-						</Section>
-					) : (
+				<Section label='Saturday & Sunday' title='Support Platoon'>
+					{orbat.support.map((section) => (
 						<SubSection key={section.title} title={section.title}>
 							<div className='flex flex-wrap gap-4'>
 								{section.members.map(m => {
@@ -118,8 +89,8 @@ export default async function Page() {
 								})}
 							</div>
 						</SubSection>
-					)
-				})}
+					))}
+				</Section>
 
 				<RedDivider />
 
@@ -147,6 +118,7 @@ export default async function Page() {
 					)}
 				</Section>
 
+			</div>
 		</div>
 	)
 }
