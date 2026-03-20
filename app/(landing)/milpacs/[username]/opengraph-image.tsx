@@ -28,6 +28,8 @@ export default async function Image({ params }: { params: Promise<{ username: st
 
     const { accent, name, fullRank } = resolveMilpacProfile(member, orbatEntry)
 
+    const nameFontSize = name.length > 18 ? 52 : name.length > 14 ? 64 : name.length > 10 ? 78 : 96
+
     const enlistedDate = member.milpac?.enlistedDate
         || (member.guild?.joinedTimestamp ? new Date(member.guild.joinedTimestamp).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) : null)
 
@@ -80,12 +82,12 @@ export default async function Image({ params }: { params: Promise<{ username: st
                         </span>
                     )}
 
-                    <span style={{ fontSize: 96, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.95)', lineHeight: 1 }}>
+                    <span style={{ fontSize: nameFontSize, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.95)', lineHeight: 1 }}>
                         {name}
                     </span>
 
                     {orbatEntry && (
-                        <div style={{ display: 'flex', gap: 14, marginTop: 4 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 4 }}>
                             <span style={{
                                 padding: '8px 22px',
                                 border: `1px solid ${accent}50`,

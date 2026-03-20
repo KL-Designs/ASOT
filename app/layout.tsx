@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { Montserrat, IBM_Plex_Sans } from "next/font/google"
+import { Montserrat } from "next/font/google"
 import "@/styles/globals.css"
 import { headers } from "next/headers"
 
@@ -12,7 +12,6 @@ import CustomCursor from '@/components/cursor'
 
 
 const montserrat = Montserrat({ subsets: ["latin"] })
-const plex = IBM_Plex_Sans({ weight: "500", subsets: ["latin"] })
 
 export const viewport: Viewport = {
 	themeColor: "#9d000c",
@@ -31,12 +30,6 @@ export async function generateMetadata(): Promise<Metadata> {
 		title: "Australian Special Operations Taskforce",
 		description: "Australia's premiere ARMA 3 milsim community. Recruiting now! 17+ unless vouched for by a current member. Any experience level is welcome!",
 		keywords: ["arma", "arma 3", "australian", "special", "operations", "taskforce", "asot", "milsim"],
-		twitter: {
-			images: `${base}meta_banner.png`
-		},
-		openGraph: {
-			images: `${base}meta_banner.png`
-		}
 	}
 }
 

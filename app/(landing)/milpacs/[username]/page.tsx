@@ -28,11 +28,22 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
 	const { username } = await params
 	const profile = await resolveProfile(username)
 	if (!profile) return { title: 'Australian Special Operations Taskforce' }
-	const { name, member, orbatEntry } = profile
+	const { name, fullRank, member, orbatEntry } = profile
+	const title = `${fullRank ? `${fullRank} ${name}` : name} | Australian Special Operations Taskforce`
+	const description = member.bio?.content || undefined
+	const role = orbatEntry?.role || undefined
 	return {
-		title: `${name} | Australian Special Operations Taskforce`,
-		description: member.bio?.content || undefined,
-		authors: orbatEntry?.role ? [{ name: orbatEntry.role }] : undefined,
+		title,
+		description,
+		openGraph: {
+			title,
+			description,
+			siteName: role,
+		},
+		twitter: {
+			title,
+			description,
+		},
 	}
 }
 
