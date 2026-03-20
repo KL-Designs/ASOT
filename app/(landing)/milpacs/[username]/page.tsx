@@ -28,10 +28,11 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
 	const { username } = await params
 	const profile = await resolveProfile(username)
 	if (!profile) return { title: 'Australian Special Operations Taskforce' }
-	const { name, member } = profile
+	const { name, member, orbatEntry } = profile
 	return {
 		title: `${name} | Australian Special Operations Taskforce`,
 		description: member.bio?.content || undefined,
+		authors: orbatEntry?.role ? [{ name: orbatEntry.role }] : undefined,
 	}
 }
 

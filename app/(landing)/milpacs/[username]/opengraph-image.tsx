@@ -40,65 +40,54 @@ export default async function Image({ params }: { params: Promise<{ username: st
             style={{
                 width: '100%',
                 height: '100%',
-                background: 'rgb(10,10,10)',
+                background: `linear-gradient(160deg, ${accent}12 0%, ${accent}04 40%, rgb(10,10,10) 100%)`,
+                borderTop: `4px solid ${accent}`,
+                borderRadius: 24,
+                overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
-                padding: '60px 80px',
+                padding: '52px 80px',
                 fontFamily: 'sans-serif',
             }}
         >
-            {/* Top accent line */}
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: accent }} />
-
-            {/* Card */}
-            <div
-                style={{
-                    display: 'flex',
-                    gap: 48,
-                    alignItems: 'center',
-                    padding: '48px 56px',
-                    borderRadius: 16,
-                    border: `1px solid ${accent}30`,
-                    borderTop: `3px solid ${accent}`,
-                    background: `linear-gradient(160deg, ${accent}12 0%, ${accent}04 40%, transparent 100%)`,
-                }}
-            >
+            {/* Content row */}
+            <div style={{ display: 'flex', gap: 64, alignItems: 'center', flex: 1 }}>
                 {/* Avatar */}
                 <div
                     style={{
-                        width: 160,
-                        height: 160,
+                        width: 240,
+                        height: 240,
                         borderRadius: '50%',
                         overflow: 'hidden',
                         flexShrink: 0,
-                        border: `3px solid ${accent}80`,
+                        border: `4px solid ${accent}80`,
                         display: 'flex',
                     }}
                 >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={avatarUrl} width={160} height={160} style={{ objectFit: 'cover' }} alt='' />
+                    <img src={avatarUrl} width={240} height={240} style={{ objectFit: 'cover' }} alt='' />
                 </div>
 
                 {/* Info */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 18, flex: 1 }}>
                     {fullRank && (
-                        <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: `${accent}cc` }}>
+                        <span style={{ fontSize: 24, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: `${accent}cc` }}>
                             {fullRank}
                         </span>
                     )}
 
-                    <span style={{ fontSize: 64, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.95)', lineHeight: 1 }}>
+                    <span style={{ fontSize: 96, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.95)', lineHeight: 1 }}>
                         {name}
                     </span>
 
                     {orbatEntry && (
-                        <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                        <div style={{ display: 'flex', gap: 14, marginTop: 4 }}>
                             <span style={{
-                                padding: '6px 18px',
+                                padding: '8px 22px',
                                 border: `1px solid ${accent}50`,
                                 background: `${accent}18`,
-                                fontSize: 18,
+                                fontSize: 22,
                                 fontWeight: 700,
                                 letterSpacing: '0.14em',
                                 textTransform: 'uppercase',
@@ -107,10 +96,10 @@ export default async function Image({ params }: { params: Promise<{ username: st
                                 {orbatEntry.role}
                             </span>
                             <span style={{
-                                padding: '6px 18px',
+                                padding: '8px 22px',
                                 border: '1px solid rgba(237,237,237,0.1)',
                                 background: 'rgba(237,237,237,0.04)',
-                                fontSize: 18,
+                                fontSize: 22,
                                 fontWeight: 600,
                                 letterSpacing: '0.14em',
                                 textTransform: 'uppercase',
@@ -121,12 +110,12 @@ export default async function Image({ params }: { params: Promise<{ username: st
                         </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginTop: 4 }}>
-                        <span style={{ fontSize: 20, color: 'rgba(237,237,237,0.25)', letterSpacing: '0.12em' }}>
+                    <div style={{ display: 'flex', gap: 20, alignItems: 'center', marginTop: 4 }}>
+                        <span style={{ fontSize: 26, color: 'rgba(237,237,237,0.25)', letterSpacing: '0.12em' }}>
                             @{member.username}
                         </span>
                         {enlistedDate && (
-                            <span style={{ fontSize: 16, color: 'rgba(237,237,237,0.15)', letterSpacing: '0.1em' }}>
+                            <span style={{ fontSize: 22, color: 'rgba(237,237,237,0.15)', letterSpacing: '0.1em' }}>
                                 Enlisted {enlistedDate}
                             </span>
                         )}
@@ -135,9 +124,9 @@ export default async function Image({ params }: { params: Promise<{ username: st
             </div>
 
             {/* Footer */}
-            <div style={{ position: 'absolute', bottom: 32, right: 80, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 32 }}>
                 <div style={{ width: 3, height: 3, borderRadius: '50%', background: `${accent}60` }} />
-                <span style={{ fontSize: 15, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.15)' }}>
+                <span style={{ fontSize: 20, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.15)' }}>
                     Australian Special Operations Task Force
                 </span>
             </div>
