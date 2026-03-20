@@ -64,7 +64,7 @@ export default function Navbar() {
             subLinks: [
                 { name: 'ORBAT', link: '/community/orbat', icon: <AccountTree />, description: 'Full order of battle' },
                 { name: 'Biographies', link: '/community/bios', icon: <Badge />, description: 'Member biographies' },
-                { name: 'Hall of Fame', link: '/community/hof', icon: <EmojiEvents />, description: 'Honoured unit members' },
+                // { name: 'Hall of Fame', link: '/community/hof', icon: <EmojiEvents />, description: 'Honoured unit members' },
             ]
         },
         { name: 'MILPACS', href: '/milpacs', icon: <MilitaryTech /> },
