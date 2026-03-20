@@ -21,31 +21,7 @@ export default async function Page() {
 		client.fetchAllMembers(),
 	])
 
-	// Build a lookup: stripped lowercase nickname → User
-	const byName = new Map<string, User>()
-	for (const member of allMembers) {
-		const nick = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').replace(/\s*\([^)]*\)/g, '').trim()
-		const key = (nick || member.globalName || '').toLowerCase()
-		if (key) byName.set(key, member)
-	}
-
-	function lookup(orbatName: string): User | null {
-		const key = orbatName.replace(/\s*\[[^\]]*\]/g, '').replace(/\s*\([^)]*\)/g, '').trim().toLowerCase()
-		if (byName.has(key)) return byName.get(key)!
-		// Fallback: Discord nickname may have trailing plain-text status (e.g. "LOA", "AWOL")
-		for (const [discordKey, member] of byName) {
-			if (discordKey.startsWith(key + ' ')) return member
-		}
-		// Fallback: rank prefix differs between sheet and Discord (e.g. "SAM" vs "SSAM")
-		const orbatSuffix = key.includes(' ') ? key.slice(key.indexOf(' ') + 1) : ''
-		if (orbatSuffix) {
-			for (const [discordKey, member] of byName) {
-				const discordSuffix = discordKey.includes(' ') ? discordKey.slice(discordKey.indexOf(' ') + 1) : ''
-				if (discordSuffix === orbatSuffix || discordSuffix.startsWith(orbatSuffix + ' ')) return member
-			}
-		}
-		return null
-	}
+	const lookup = client.buildOrbatLookup(allMembers)
 
 	const navSections = [
 		{
