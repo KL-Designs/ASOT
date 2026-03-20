@@ -3,9 +3,10 @@ import { connection } from 'next/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Typography } from '@mui/material'
-import { Api, Tune, CalendarToday } from '@mui/icons-material'
+import { Api, Tune, CalendarToday, ManageAccounts } from '@mui/icons-material'
 
 import ConvertColor from '@/lib/discord/color'
+import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
 import { BioSections } from './bio'
 import Avatar from '@/components/member/avatar'
 
@@ -19,6 +20,16 @@ export default async function Page() {
     if (!me) return redirect('/login')
 
     const isHQ = client.hasRoles(me, ['HQ Staff'])
+    const isJ5 = client.hasRoles(me, ['J5-Media'])
+
+    const [allMembers, orbat] = await Promise.all([client.fetchAllMembers(), fetchORBAT()])
+    const lookup = client.buildOrbatLookup(allMembers)
+    const orbatEntry = findOrbatEntry(orbat, lookup, me.id)
+
+    const bioDisplayName = me.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || me.globalName || me.username
+    const bioRank = me.bio?.rank || null
+    const bioCallsign = me.bio?.callsign || null
+    const bioRole = orbatEntry?.role || null
 
     return (
         <div className='h-full w-full p-6 md:p-10 flex flex-col gap-5 max-w-[1000px] mx-auto'>
@@ -53,14 +64,26 @@ export default async function Page() {
                         />
 
                         <div className='flex flex-col justify-center gap-2 flex-grow min-w-0'>
-                            <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
-                                {me.username}
-                            </Typography>
-                            {me.guild.nickname && (
-                                <Typography fontSize='0.8rem' style={{ color: 'rgba(237,237,237,0.4)', letterSpacing: '0.04em' }}>
-                                    {me.guild.nickname}
+                            {bioRank && (
+                                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)' }}>
+                                    {bioRank}
                                 </Typography>
                             )}
+                            <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
+                                {bioDisplayName}
+                            </Typography>
+                            <div className='flex flex-wrap gap-3'>
+                                {bioRole && (
+                                    <Typography fontSize='0.68rem' fontWeight={600} letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.45)' }}>
+                                        {bioRole}
+                                    </Typography>
+                                )}
+                                {bioCallsign && (
+                                    <Typography fontSize='0.68rem' fontWeight={600} letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
+                                        {bioCallsign}
+                                    </Typography>
+                                )}
+                            </div>
                             <div
                                 className='flex items-center gap-2'
                                 style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.72rem', letterSpacing: '0.06em' }}
@@ -105,6 +128,20 @@ export default async function Page() {
                                 </Typography>
                             </div>
                         </Link>
+
+                        {isJ5 && (
+                            <Link href='/members' className='flex-1 min-w-[160px]'>
+                                <div
+                                    className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
+                                    style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
+                                >
+                                    <ManageAccounts sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
+                                    <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
+                                        Member<br />Management
+                                    </Typography>
+                                </div>
+                            </Link>
+                        )}
                     </div>
                 </div>
 

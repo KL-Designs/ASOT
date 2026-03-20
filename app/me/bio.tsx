@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react"
-import { TextField, Typography } from "@mui/material"
+import { TextField, Typography } from '@mui/material'
 import { UploadFile } from "@mui/icons-material"
 import Image from 'next/image'
 
@@ -9,9 +9,6 @@ import Image from 'next/image'
 
 function useBioData() {
     const [id, setId] = useState<string | null>(null)
-    const [name, setName] = useState<string | null>(null)
-    const [rank, setRank] = useState<string | null>(null)
-    const [callsign, setCallsign] = useState<string | null>(null)
     const [bio, setBio] = useState<string | null>(null)
 
     useEffect(() => {
@@ -21,9 +18,6 @@ function useBioData() {
                 if (json.error) return console.error(json.error)
                 const user = json as User
                 setId(user.id)
-                setName(user.bio?.name || '')
-                setRank(user.bio?.rank || '')
-                setCallsign(user.bio?.callsign || '')
                 setBio(user.bio?.content || '')
             })
     }, [])
@@ -36,28 +30,10 @@ function useBioData() {
         })
     }
 
-    return { id, name, setName, rank, setRank, callsign, setCallsign, bio, setBio, save }
+    return { id, bio, setBio, save }
 }
 
 
-const fieldSx = {
-    '& .MuiInput-root': {
-        fontSize: '0.85rem',
-        letterSpacing: '0.03em',
-        '&:before': { borderBottomColor: 'rgba(255,255,255,0.1)' },
-        '&:hover:before': { borderBottomColor: 'rgba(219,0,29,0.4) !important' },
-        '&:after': { borderBottomColor: 'rgba(219,0,29,0.6)' },
-    },
-    '& .MuiInputLabel-root': {
-        fontSize: '0.72rem',
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase',
-        color: 'rgba(237,237,237,0.3)',
-    },
-    '& .MuiInputLabel-root.Mui-focused': {
-        color: 'rgba(219,0,29,0.7)',
-    },
-}
 
 const cardStyle = {
     border: '1px solid rgba(219,0,29,0.15)',
@@ -71,7 +47,7 @@ const headerStyle = {
 
 
 export function BioSections() {
-    const { id, name, setName, rank, setRank, callsign, setCallsign, bio, setBio, save } = useBioData()
+    const { id, bio, setBio, save } = useBioData()
 
     const upload = async (file: File) => {
         const formData = new FormData()
@@ -93,59 +69,8 @@ export function BioSections() {
             </div>
 
             <div className='flex flex-col'>
-                {/* Name */}
-                <div className='flex items-center gap-5 px-5 py-4' style={headerStyle}>
-                    <Typography fontSize='0.72rem' letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', minWidth: 70 }}>
-                        Name
-                    </Typography>
-                    <TextField
-                        fullWidth
-                        variant='standard'
-                        placeholder='Your display name...'
-                        value={name || ''}
-                        onChange={(e) => setName(e.currentTarget.value)}
-                        onBlur={() => name !== null && save({ name })}
-                        sx={fieldSx}
-                    />
-                </div>
-
-                {/* Rank */}
-                <div className='flex items-center gap-5 px-5 py-4' style={headerStyle}>
-                    <Typography fontSize='0.72rem' letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', minWidth: 70 }}>
-                        Rank
-                    </Typography>
-                    <TextField
-                        fullWidth
-                        variant='standard'
-                        placeholder='Your rank...'
-                        value={rank || ''}
-                        onChange={(e) => setRank(e.currentTarget.value)}
-                        onBlur={() => rank !== null && save({ rank })}
-                        sx={fieldSx}
-                    />
-                </div>
-
-                {/* Callsign */}
-                <div className='flex items-center gap-5 px-5 py-4' style={headerStyle}>
-                    <Typography fontSize='0.72rem' letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', minWidth: 70 }}>
-                        Callsign
-                    </Typography>
-                    <TextField
-                        fullWidth
-                        variant='standard'
-                        placeholder='Your callsign...'
-                        value={callsign || ''}
-                        onChange={(e) => setCallsign(e.currentTarget.value)}
-                        onBlur={() => callsign !== null && save({ callsign })}
-                        sx={fieldSx}
-                    />
-                </div>
-
                 {/* Bio */}
                 <div className='flex items-start gap-5 px-5 py-4' style={headerStyle}>
-                    <Typography fontSize='0.72rem' letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', minWidth: 70, paddingTop: 8 }}>
-                        Bio
-                    </Typography>
                     <TextField
                         fullWidth
                         multiline

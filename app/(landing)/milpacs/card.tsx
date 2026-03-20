@@ -3,15 +3,14 @@
 import { useRef, useState } from 'react'
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
+import { ensureVisible } from '@/lib/discord/color'
 
 
 export default function Card({ member, role }: { member: User; role?: string }) {
 
-	const accent = member.hexAccentColor || '#db001d'
+	const accent = ensureVisible(member.hexAccentColor || '#db001d')
 	const name = member.guild.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName || 'Unknown'
-	const urlName = (name.includes(' ') ? name.slice(name.indexOf(' ') + 1) : name).toLowerCase().replace(/\s+/g, '-')
-
-	const cardRef = useRef<HTMLDivElement>(null)
+const cardRef = useRef<HTMLDivElement>(null)
 	const [tilt, setTilt] = useState({ x: 0, y: 0 })
 	const [hovered, setHovered] = useState(false)
 
@@ -33,9 +32,7 @@ export default function Card({ member, role }: { member: User; role?: string }) 
 
 	return (
 		<Link
-			href={`https://www.australianspecialoperationstaskforce.com/${urlName}`}
-			target='_blank'
-			rel='noreferrer'
+			href={`/milpacs/${member.username}`}
 			style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignSelf: 'stretch', flexShrink: 0 }}
 		>
 			<div

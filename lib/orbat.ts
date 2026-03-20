@@ -114,3 +114,51 @@ export async function fetchORBAT(): Promise<ORBATData> {
 	if (!res.ok) throw new Error(`Failed to fetch ORBAT data: ${res.status}`)
 	return parseORBAT(await res.text())
 }
+
+export interface OrbatEntry {
+	role: string
+	section: string
+}
+
+export function findOrbatEntry(
+	orbat: ORBATData,
+	lookup: (name: string) => User | null,
+	targetId: string,
+): OrbatEntry | null {
+	const match = (m: Member, section: string): OrbatEntry | null => {
+		const user = lookup(m.name)
+		return user?.id === targetId ? { role: m.role, section } : null
+	}
+
+	// Company HQ
+	const hqResult =
+		match(orbat.companyHQ.senior, 'India Company HQ') ||
+		orbat.companyHQ.members.map(m => match(m, 'India Company HQ')).find(Boolean)
+	if (hqResult) return hqResult
+
+	// Platoons and Support
+	for (const group of [...orbat.platoon11, ...orbat.platoon12, ...orbat.support]) {
+		for (const m of group.members) {
+			const result = match(m, group.title)
+			if (result) return result
+		}
+	}
+
+	// Reservists (role-less, just names)
+	for (const name of orbat.activeReservists) {
+		const user = lookup(name)
+		if (user?.id === targetId) return { role: 'Active Reservist', section: 'Company Reservists' }
+	}
+	for (const name of orbat.inactiveReservists) {
+		const user = lookup(name)
+		if (user?.id === targetId) return { role: 'Inactive Reservist', section: 'Company Reservists' }
+	}
+
+	// Gamemasters
+	for (const m of orbat.gamemasters) {
+		const result = match(m, 'Gamemasters')
+		if (result) return result
+	}
+
+	return null
+}
