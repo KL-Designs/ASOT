@@ -83,7 +83,7 @@ export default async function Page() {
 
 				{/* ── India Company HQ ──────────────────────────────────── */}
 				<Section id='india-company' label='Command' title='India Company' rgb='219, 105, 105'>
-					<SubSection id='hq' title='Headquarters' rgb='232, 160, 32'>
+					<SubSection id='hq' title='Headquarters' rgb='219, 105, 105'>
 						<div className='flex flex-wrap gap-4 justify-center'>
 							{[orbat.companyHQ.senior, ...orbat.companyHQ.members].map(m => {
 								const member = lookup(m.name)
@@ -96,7 +96,7 @@ export default async function Page() {
 				{/* ── 1st Platoon — sections from ORBAT ───────────── */}
 				<Section id='1st-platoon' label='Saturday' title='1st Platoon' rgb='173, 114, 4'>
 					{orbat.platoon11.map((section) => (
-						<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='30, 110, 232'>
+						<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='173, 114, 4'>
 							<div className='flex flex-wrap gap-4 justify-center'>
 								{section.members.map(m => {
 									const member = lookup(m.name)
@@ -110,7 +110,7 @@ export default async function Page() {
 				{/* ── 2nd Platoon — sections from ORBAT ───────────── */}
 				<Section id='2nd-platoon' label='Sunday' title='2nd Platoon' rgb='29, 116, 85'>
 					{orbat.platoon12.map((section) => (
-						<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='32, 184, 122'>
+						<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='29, 116, 85'>
 							<div className='flex flex-wrap gap-4 justify-center'>
 								{section.members.map(m => {
 									const member = lookup(m.name)
@@ -124,7 +124,7 @@ export default async function Page() {
 				{/* ── Support Platoon (1-3) ─────────────────── */}
 				<Section id='support-platoon' label='Saturday & Sunday' title='Support Platoon' rgb='32, 102, 148'>
 					{orbat.support.map((section) => (
-						<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='139, 92, 246'>
+						<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='32, 102, 148'>
 							<div className='flex flex-wrap gap-4 justify-center'>
 								{section.members.map(m => {
 									const member = lookup(m.name)
@@ -138,7 +138,7 @@ export default async function Page() {
 				{/* ── Reservists ─────────────────────────── */}
 				<Section id='reservists' label='Reservists' title='Company Reservists' rgb='194, 8, 154'>
 					{orbat.activeReservists.length > 0 && (
-						<SubSection title='Active' rgb='219, 0, 29'>
+						<SubSection title='Active' rgb='194, 8, 154'>
 							<div className='flex flex-wrap gap-4 justify-center'>
 								{orbat.activeReservists.map(name => {
 									const member = lookup(name)
@@ -148,7 +148,7 @@ export default async function Page() {
 						</SubSection>
 					)}
 					{orbat.inactiveReservists.length > 0 && (
-						<SubSection title='Inactive' rgb='219, 0, 29'>
+						<SubSection title='Inactive' rgb='194, 8, 154'>
 							<div className='flex flex-wrap gap-4 justify-center' style={{ opacity: 0.5 }}>
 								{orbat.inactiveReservists.map(name => {
 									const member = lookup(name)

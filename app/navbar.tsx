@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse } from '@mui/material'
-import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents } from '@mui/icons-material'
+import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import Avatar from '@/components/member/avatar'
@@ -43,6 +43,7 @@ export default function Navbar() {
     const [sideMenuOpen, setSideMenuOpen] = useState(false)
     const [user, setUser] = useState<User | null>(null)
     const [scrolled, setScrolled] = useState(false)
+    const [scrollBtnHovered, setScrollBtnHovered] = useState(false)
     const pathname = usePathname()
 
     const Links: Link[] = [
@@ -172,6 +173,39 @@ export default function Navbar() {
                 </div>
 
             </div>
+
+            {/* Scroll to top */}
+            <button
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                onMouseEnter={() => setScrollBtnHovered(true)}
+                onMouseLeave={() => setScrollBtnHovered(false)}
+                style={{
+                    position: 'fixed',
+                    bottom: 28,
+                    right: 28,
+                    zIndex: 50,
+                    width: 40,
+                    height: 40,
+                    background: 'rgba(10,10,10,0.85)',
+                    border: `1px solid rgba(219,0,29,${scrollBtnHovered ? 0.7 : 0.35})`,
+                    color: scrollBtnHovered ? 'rgba(237,237,237,1)' : 'rgba(237,237,237,0.75)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    boxShadow: scrollBtnHovered
+                        ? '0 0 16px 4px rgba(219,0,29,0.5), 0 0 4px 1px rgba(219,0,29,0.4)'
+                        : '0 0 6px 1px rgba(219,0,29,0.18)',
+                    transition: 'opacity 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, color 0.25s ease',
+                    opacity: scrolled ? 1 : 0,
+                    pointerEvents: scrolled ? 'auto' : 'none',
+                    transform: scrolled ? 'translateY(0)' : 'translateY(10px)',
+                }}
+            >
+                <KeyboardArrowUp style={{ fontSize: 22 }} />
+            </button>
 
             <Drawer
                 open={sideMenuOpen}
