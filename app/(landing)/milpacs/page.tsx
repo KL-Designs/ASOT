@@ -82,7 +82,7 @@ export default async function Page() {
 			<div className='m-auto max-w-[1400px]' style={{ padding: '3rem 2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
 				{/* ── India Company HQ ──────────────────────────────────── */}
-				<Section id='india-company' label='Command' title='India Company' rgb='232, 160, 32'>
+				<Section id='india-company' label='Command' title='India Company' rgb='219, 105, 105'>
 					<SubSection id='hq' title='Headquarters' rgb='232, 160, 32'>
 						<div className='flex flex-wrap gap-4 justify-center'>
 							{[orbat.companyHQ.senior, ...orbat.companyHQ.members].map(m => {
@@ -94,7 +94,7 @@ export default async function Page() {
 				</Section>
 
 				{/* ── 1st Platoon — sections from ORBAT ───────────── */}
-				<Section id='1st-platoon' label='Saturday' title='1st Platoon' rgb='30, 110, 232'>
+				<Section id='1st-platoon' label='Saturday' title='1st Platoon' rgb='173, 114, 4'>
 					{orbat.platoon11.map((section) => (
 						<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='30, 110, 232'>
 							<div className='flex flex-wrap gap-4 justify-center'>
@@ -108,7 +108,7 @@ export default async function Page() {
 				</Section>
 
 				{/* ── 2nd Platoon — sections from ORBAT ───────────── */}
-				<Section id='2nd-platoon' label='Sunday' title='2nd Platoon' rgb='32, 184, 122'>
+				<Section id='2nd-platoon' label='Sunday' title='2nd Platoon' rgb='29, 116, 85'>
 					{orbat.platoon12.map((section) => (
 						<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='32, 184, 122'>
 							<div className='flex flex-wrap gap-4 justify-center'>
@@ -122,7 +122,7 @@ export default async function Page() {
 				</Section>
 
 				{/* ── Support Platoon (1-3) ─────────────────── */}
-				<Section id='support-platoon' label='Saturday & Sunday' title='Support Platoon' rgb='139, 92, 246'>
+				<Section id='support-platoon' label='Saturday & Sunday' title='Support Platoon' rgb='32, 102, 148'>
 					{orbat.support.map((section) => (
 						<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='139, 92, 246'>
 							<div className='flex flex-wrap gap-4 justify-center'>
@@ -136,7 +136,7 @@ export default async function Page() {
 				</Section>
 
 				{/* ── Reservists ─────────────────────────── */}
-				<Section id='reservists' label='Reservists' title='Company Reservists' rgb='219, 0, 29'>
+				<Section id='reservists' label='Reservists' title='Company Reservists' rgb='194, 8, 154'>
 					{orbat.activeReservists.length > 0 && (
 						<SubSection title='Active' rgb='219, 0, 29'>
 							<div className='flex flex-wrap gap-4 justify-center'>
