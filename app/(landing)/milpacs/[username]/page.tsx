@@ -21,7 +21,11 @@ export default async function Page({ params }: { params: Promise<{ username: str
 
 	const rankAndName = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || displayName
 	const parts = rankAndName.split(' ')
-	const rank = parts.length > 1 ? parts[0] : null
+	const rankAbbr = parts.length > 1 ? parts[0] : null
+	const promotions = member.milpac?.promotions
+	const fullRank = member.bio?.rank
+		|| (promotions && promotions.length > 0 ? promotions[promotions.length - 1].rank : null)
+		|| rankAbbr
 	const callsign = member.bio?.callsign || null
 
 	return (
@@ -71,9 +75,9 @@ export default async function Page({ params }: { params: Promise<{ username: str
 
 					<div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
 						{/* Rank above name */}
-						{rank && (
+						{fullRank && (
 							<span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: `${accent}cc` }}>
-								{rank}
+								{fullRank}
 							</span>
 						)}
 
@@ -135,55 +139,90 @@ export default async function Page({ params }: { params: Promise<{ username: str
 					<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
 						<tbody>
 							<Row label='Status' value='Active' />
-							<Row label='Joined' value={member.guild?.joinedTimestamp ? new Date(member.guild.joinedTimestamp).toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' }) : '—'} />
-							<Row label='Rank' value={rank || '—'} />
+							<Row label='Enlisted' value={member.milpac?.enlistedDate || (member.guild?.joinedTimestamp ? new Date(member.guild.joinedTimestamp).toLocaleDateString('en-AU', { year: 'numeric', month: 'long', day: 'numeric' }) : '—')} />
+							<Row label='Rank' value={fullRank || '—'} />
 						</tbody>
 					</table>
-					<Placeholder text='Full promotion history coming soon.' />
+
+					{member.milpac?.promotions && member.milpac.promotions.length > 0 ? (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+							<span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)' }}>
+								Promotion History
+							</span>
+							<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+								<thead>
+									<tr>
+										<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Date</th>
+										<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Rank</th>
+										<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Role</th>
+									</tr>
+								</thead>
+								<tbody>
+									{member.milpac.promotions.map((p, i) => (
+										<tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+											<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem', width: 130 }}>{p.date}</td>
+											<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{p.rank}</td>
+											<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.5)' }}>{p.role}</td>
+										</tr>
+									))}
+								</tbody>
+							</table>
+						</div>
+					) : (
+						<Placeholder text='No promotion history on record.' />
+					)}
 				</Section>
 
 				{/* ── Qualifications ───────────────────────────────────── */}
 				<Section accent={accent} title='Qualifications'>
-					{member.optionals ? (
-						<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-							{[
-								...member.optionals.qol,
-								...member.optionals.gfx,
-								...member.optionals.zeus,
-								...member.optionals.j2,
-								...member.optionals.j5,
-							].map(q => (
-								<span key={q.id} style={{
-									padding: '4px 12px',
-									borderRadius: 4,
-									border: `1px solid ${accent}40`,
-									background: `${accent}10`,
-									fontSize: '0.7rem',
-									fontWeight: 600,
-									letterSpacing: '0.1em',
-									textTransform: 'uppercase',
-									color: 'rgba(237,237,237,0.7)',
-								}}>
-									{q.name}
-								</span>
-							))}
-							{Object.values(member.optionals).flat().length === 0 && (
-								<Placeholder text='No qualifications on record.' />
-							)}
-						</div>
-					) : (
-						<Placeholder text='No qualifications on record.' />
-					)}
+					<Placeholder text='No qualifications on record.' />
 				</Section>
 
-				{/* ── Awards & Commendations ───────────────────────────── */}
-				<Section accent={accent} title='Awards & Commendations'>
-					<Placeholder text='Awards system coming soon.' />
+				{/* ── Awards & Citations ───────────────────────────── */}
+				<Section accent={accent} title='Awards & Citations'>
+					{member.milpac?.awards && member.milpac.awards.length > 0 ? (
+						<div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+							{member.milpac.awards.map((a, i) => (
+								<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+									<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+										<span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'rgba(237,237,237,0.8)' }}>{a.name}</span>
+										<span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: `${accent}bb`, padding: '2px 8px', border: `1px solid ${accent}40`, background: `${accent}10` }}>
+											{a.type}
+										</span>
+									</div>
+									{a.date && (
+										<span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}>{a.date}</span>
+									)}
+								</div>
+							))}
+						</div>
+					) : (
+						<Placeholder text='No awards on record.' />
+					)}
 				</Section>
 
 				{/* ── Operation History ─────────────────────────────────── */}
 				<Section accent={accent} title='Operation History'>
-					<Placeholder text='Operation attendance tracking coming soon.' />
+					{member.milpac?.operations && member.milpac.operations.length > 0 ? (
+						<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+							<thead>
+								<tr>
+									<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Operation</th>
+									<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Date</th>
+								</tr>
+							</thead>
+							<tbody>
+								{member.milpac.operations.map((op, i) => (
+									<tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+										<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{op.name}</td>
+										<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem' }}>{op.startToEndDate}</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					) : (
+						<Placeholder text='No operations on record.' />
+					)}
 				</Section>
 
 			</div>

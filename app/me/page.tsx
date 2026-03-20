@@ -3,7 +3,7 @@ import { connection } from 'next/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Typography } from '@mui/material'
-import { Api, Tune, CalendarToday } from '@mui/icons-material'
+import { Api, Tune, CalendarToday, ManageAccounts } from '@mui/icons-material'
 
 import ConvertColor from '@/lib/discord/color'
 import { BioSections } from './bio'
@@ -19,6 +19,7 @@ export default async function Page() {
     if (!me) return redirect('/login')
 
     const isHQ = client.hasRoles(me, ['HQ Staff'])
+    const isJ5 = client.hasRoles(me, ['J5-Media'])
 
     return (
         <div className='h-full w-full p-6 md:p-10 flex flex-col gap-5 max-w-[1000px] mx-auto'>
@@ -105,6 +106,20 @@ export default async function Page() {
                                 </Typography>
                             </div>
                         </Link>
+
+                        {isJ5 && (
+                            <Link href='/members' className='flex-1 min-w-[160px]'>
+                                <div
+                                    className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
+                                    style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
+                                >
+                                    <ManageAccounts sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
+                                    <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
+                                        Member<br />Management
+                                    </Typography>
+                                </div>
+                            </Link>
+                        )}
                     </div>
                 </div>
 
