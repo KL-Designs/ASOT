@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Montserrat, IBM_Plex_Sans } from "next/font/google"
 import "@/styles/globals.css"
+import { headers } from "next/headers"
 
 
 import { ThemeProvider } from "@mui/material"
@@ -19,15 +20,23 @@ export const viewport: Viewport = {
 	initialScale: 1,
 }
 
-export const metadata: Metadata = {
-	title: "Australian Special Operations Taskforce",
-	description: "Australia's premiere ARMA 3 milsim community. Recruiting now! 17+ unless vouched for by a current member. Any experience level is welcome!",
-	keywords: ["arma", "arma 3", "australian", "special", "operations", "taskforce", "asot", "milsim"],
-	twitter: {
-		images: `${process.env.NEXT_PUBLIC_BASEURL}/meta_banner.png`
-	},
-	openGraph: {
-		images: `${process.env.NEXT_PUBLIC_BASEURL}/meta_banner.png`
+export async function generateMetadata(): Promise<Metadata> {
+	const hdrs = await headers()
+	const host = hdrs.get('host') ?? 'localhost:3000'
+	const proto = hdrs.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https')
+	const base = new URL(`${proto}://${host}`)
+
+	return {
+		metadataBase: base,
+		title: "Australian Special Operations Taskforce",
+		description: "Australia's premiere ARMA 3 milsim community. Recruiting now! 17+ unless vouched for by a current member. Any experience level is welcome!",
+		keywords: ["arma", "arma 3", "australian", "special", "operations", "taskforce", "asot", "milsim"],
+		twitter: {
+			images: `${base}meta_banner.png`
+		},
+		openGraph: {
+			images: `${base}meta_banner.png`
+		}
 	}
 }
 

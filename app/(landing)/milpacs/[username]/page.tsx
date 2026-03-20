@@ -1,51 +1,90 @@
+import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
 import client from '@/lib/discord'
 import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
-import { ensureVisible } from '@/lib/discord/color'
+import { resolveMilpacProfile } from '@/lib/milpac-profile'
+
+
+async function resolveProfile(username: string) {
+	const [allMembers, orbat] = await Promise.all([client.fetchAllMembers(), fetchORBAT()])
+	const member = allMembers.find(m => m.username === username) ?? null
+	if (!member) return null
+	const lookup = client.buildOrbatLookup(allMembers)
+	const orbatEntry = findOrbatEntry(orbat, lookup, member.id)
+	return { member, ...resolveMilpacProfile(member, orbatEntry) }
+}
+
+
+export async function generateViewport({ params }: { params: Promise<{ username: string }> }): Promise<Viewport> {
+	const { username } = await params
+	const profile = await resolveProfile(username)
+	return { themeColor: profile?.accent ?? '#9d000c' }
+}
+
+
+export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
+	const { username } = await params
+	const profile = await resolveProfile(username)
+	if (!profile) return { title: 'Australian Special Operations Taskforce' }
+	const { name, member } = profile
+	return {
+		title: `${name} | Australian Special Operations Taskforce`,
+		description: member.bio?.content || undefined,
+	}
+}
 
 
 export default async function Page({ params }: { params: Promise<{ username: string }> }) {
 	const { username } = await params
 
-	const [allMembers, orbat] = await Promise.all([client.fetchAllMembers(), fetchORBAT()])
-	const member = allMembers.find(m => m.username === username)
-	if (!member) notFound()
+	const profile = await resolveProfile(username)
+	if (!profile) notFound()
 
-	const lookup = client.buildOrbatLookup(allMembers)
-	const orbatEntry = findOrbatEntry(orbat, lookup, member.id)
-
-	const accent = ensureVisible(member.hexAccentColor || '#db001d')
-	const displayName = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName || member.username
-
-	const rankAndName = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || displayName
-	const parts = rankAndName.split(' ')
-	const rankAbbr = parts.length > 1 ? parts[0] : null
-	const promotions = member.milpac?.promotions
-	const fullRank = member.bio?.rank
-		|| (promotions && promotions.length > 0 ? promotions[promotions.length - 1].rank : null)
-		|| rankAbbr
-	const callsign = member.bio?.callsign || null
+	const { member, orbatEntry, accent, name, fullRank, callsign } = profile
 
 	return (
 		<div style={{ background: 'rgb(10,10,10)', minHeight: '100vh', color: 'rgba(237,237,237,0.9)' }}>
 			<div style={{ maxWidth: 900, margin: '0 auto', padding: '4rem 2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
-				<Link href='/milpacs' style={{
-					display: 'inline-flex',
-					alignItems: 'center',
-					gap: 8,
-					fontSize: '0.7rem',
-					fontWeight: 600,
-					letterSpacing: '0.14em',
-					textTransform: 'uppercase',
-					color: 'rgba(237,237,237,0.35)',
-					textDecoration: 'none',
-					alignSelf: 'flex-start',
-				}}>
-					← Milpacs
-				</Link>
+				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+					<Link href='/milpacs' style={{
+						display: 'inline-flex',
+						alignItems: 'center',
+						gap: 8,
+						fontSize: '0.7rem',
+						fontWeight: 600,
+						letterSpacing: '0.14em',
+						textTransform: 'uppercase',
+						color: 'rgba(237,237,237,0.35)',
+						textDecoration: 'none',
+					}}>
+						← Milpacs
+					</Link>
+
+					<a
+						href={`https://www.australianspecialoperationstaskforce.com/${name.toLocaleLowerCase()}`}
+						target='_blank'
+						rel='noopener noreferrer'
+						style={{
+							display: 'inline-flex',
+							alignItems: 'center',
+							gap: 6,
+							fontSize: '0.7rem',
+							fontWeight: 600,
+							letterSpacing: '0.14em',
+							textTransform: 'uppercase',
+							color: `${accent}cc`,
+							textDecoration: 'none',
+							padding: '5px 12px',
+							border: `1px solid ${accent}40`,
+							background: `${accent}0d`,
+						}}
+					>
+						View Original ↗
+					</a>
+				</div>
 
 				{/* ── Header ───────────────────────────────────────────── */}
 				<div style={{
@@ -82,7 +121,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 						)}
 
 						<h1 style={{ margin: 0, fontSize: 'clamp(1.4rem, 4vw, 2.2rem)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1 }}>
-							{parts.length > 1 ? parts.slice(1).join(' ') : displayName}
+							{name}
 						</h1>
 
 						{/* Role & Section badges */}
