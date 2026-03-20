@@ -101,7 +101,10 @@ export default function MilpacEditor({ member }: { member: User }) {
     const displayName = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName || member.username
 
     const [bioRank, setBioRank] = useState(member.bio?.rank ?? '')
-    const [enlistedDate, setEnlistedDate] = useState(member.milpac?.enlistedDate ?? '')
+    const joinDateStr = member.guild?.joinedTimestamp
+        ? new Date(member.guild.joinedTimestamp).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
+        : ''
+    const [enlistedDate, setEnlistedDate] = useState(member.milpac?.enlistedDate || joinDateStr)
     const [promotions, setPromotions] = useState<Promotion[]>(member.milpac?.promotions ?? [])
     const [awards, setAwards] = useState<Award[]>(member.milpac?.awards ?? [])
     const [operations, setOperations] = useState<Operation[]>(member.milpac?.operations ?? [])
