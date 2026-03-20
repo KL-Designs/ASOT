@@ -13,7 +13,12 @@ const RANKS = [
     'Private', 'Recruit',
 ]
 
-const AWARD_TYPES = ['Non-Operational Award', 'Service Citation', 'Operational Service Citation']
+const AWARD_TYPES = [
+    'Non-Operational Award',
+    'Service Citation',
+    'Operational Service Citation',
+    'Period of Service Citation'
+]
 
 function todayStr() {
     return new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })

@@ -42,13 +42,17 @@ export default function CustomCursor() {
 				dotRef.current.style.transform = `translate(calc(${mouse.current.x}px - 50%), calc(${mouse.current.y}px - 50%))`
 			}
 
-			// Ring lerps behind
-			ringPos.current.x += (mouse.current.x - ringPos.current.x) * 0.38
-			ringPos.current.y += (mouse.current.y - ringPos.current.y) * 0.38
+			// Ring lerps behind when idle, snaps to mouse on hover
+			if (hoveringRef.current) {
+				ringPos.current.x = mouse.current.x
+				ringPos.current.y = mouse.current.y
+			} else {
+				ringPos.current.x += (mouse.current.x - ringPos.current.x) * 0.38
+				ringPos.current.y += (mouse.current.y - ringPos.current.y) * 0.38
+			}
 
-			// Rotation lerps to 45° on hover, back to 0° otherwise
-			const targetRotation = hoveringRef.current ? 45 : 0
-			rotation.current += (targetRotation - rotation.current) * 0.12
+			// No rotation — reticle stays square
+			rotation.current = 0
 
 			if (ringRef.current) {
 				ringRef.current.style.transform = `translate(calc(${ringPos.current.x}px - 50%), calc(${ringPos.current.y}px - 50%)) rotate(${rotation.current}deg)`
@@ -88,24 +92,44 @@ export default function CustomCursor() {
 					willChange: 'transform',
 				}}
 			/>
-			{/* Ring — circle default, diamond on hover */}
+			{/* Ring — circle default, tactical reticle on hover */}
 			<div
 				ref={ringRef}
 				style={{
 					position: 'fixed',
 					top: 0,
 					left: 0,
-					width: hovering ? 27 : 24,
-					height: hovering ? 27 : 24,
-					borderRadius: hovering ? '2px' : '50%',
-					border: '1.5px solid rgba(237,237,237,0.65)',
+					width: hovering ? 32 : 24,
+					height: hovering ? 32 : 24,
+					borderRadius: hovering ? 0 : '50%',
+					border: hovering ? 'none' : '1.5px solid rgba(237,237,237,0.65)',
 					pointerEvents: 'none',
 					zIndex: 99999,
 					opacity: visible ? 1 : 0,
-					transition: 'width 0.2s ease, height 0.2s ease, border-radius 0.2s ease, opacity 0.3s ease',
+					transition: 'width 0.15s ease, height 0.15s ease, opacity 0.3s ease',
 					willChange: 'transform',
 				}}
-			/>
+			>
+				{hovering && (() => {
+					const c = 'rgba(237,237,237,0.9)'
+					const b = `1.5px solid ${c}`
+					const corner = 7
+					return (
+						<>
+							{/* Corner brackets */}
+							<span style={{ position: 'absolute', top: 0, left: 0, width: corner, height: corner, borderTop: b, borderLeft: b }} />
+							<span style={{ position: 'absolute', top: 0, right: 0, width: corner, height: corner, borderTop: b, borderRight: b }} />
+							<span style={{ position: 'absolute', bottom: 0, left: 0, width: corner, height: corner, borderBottom: b, borderLeft: b }} />
+							<span style={{ position: 'absolute', bottom: 0, right: 0, width: corner, height: corner, borderBottom: b, borderRight: b }} />
+							{/* Cardinal ticks with center gap */}
+							<span style={{ position: 'absolute', top: '50%', left: '50%', width: 1.5, height: 6, background: c, transform: 'translate(-50%, calc(-100% - 2px))' }} />
+							<span style={{ position: 'absolute', top: '50%', left: '50%', width: 1.5, height: 6, background: c, transform: 'translate(-50%, 2px)' }} />
+							<span style={{ position: 'absolute', top: '50%', left: '50%', width: 6, height: 1.5, background: c, transform: 'translate(calc(-100% - 2px), -50%)' }} />
+							<span style={{ position: 'absolute', top: '50%', left: '50%', width: 6, height: 1.5, background: c, transform: 'translate(2px, -50%)' }} />
+						</>
+					)
+				})()}
+			</div>
 		</>
 	)
 }
