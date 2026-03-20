@@ -1,11 +1,32 @@
-import Db from '@/lib/mongo'
+import { connection } from 'next/server'
+
+import { fetchORBAT } from '@/lib/orbat'
+import client from '@/lib/discord'
+
 import Card from './card'
 
 
 
 export default async function Page() {
 
-	const members = await Db.milpacs.find({}).toArray()
+	await connection()
+
+	const [orbat, allMembers] = await Promise.all([
+		fetchORBAT(),
+		client.fetchAllMembers(),
+	])
+
+	// Build a lookup: stripped lowercase nickname → User
+	const byName = new Map<string, User>()
+	for (const member of allMembers) {
+		const nick = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
+		const key = (nick || member.globalName || '').toLowerCase()
+		if (key) byName.set(key, member)
+	}
+
+	function lookup(orbatName: string): User | null {
+		return byName.get(orbatName.toLowerCase()) ?? null
+	}
 
 	return (
 		<div style={{ background: 'rgb(10,10,10)', minHeight: '100vh' }}>
@@ -14,53 +35,118 @@ export default async function Page() {
 				{/* ── India Company HQ ──────────────────────────────────── */}
 				<Section label='Command' title='India Company Headquarters'>
 					<div className='flex flex-wrap gap-4'>
-						<Card milpac={members.find(m => m._id === '224086573560365057')} />
-						<Card milpac={members.find(m => m._id === '325502946781691916')} />
-						<Card milpac={members.find(m => m._id === '166798494424760320')} />
-						<Card milpac={members.find(m => m._id === '1344770342006034595')} />
-						<Card milpac={members.find(m => m._id === '256691919969714176')} />
+						{[orbat.companyHQ.senior, ...orbat.companyHQ.members].map(m => {
+							const member = lookup(m.name)
+							return member ? <Card key={member.id} member={member} role={m.role} /> : null
+						})}
 					</div>
 				</Section>
 
 				<RedDivider />
 
-				{/* ── 1st Platoon ───────────────────────────────────────── */}
-				<Section label='1st Platoon' title='1st Platoon Headquarters'>
-					<CardGrid members={members} section='1-1' />
-				</Section>
-
-				<SubSection title='1-1 Alpha'>
-					<CardGrid members={members} section='1-1-1' />
-				</SubSection>
-
-				<SubSection title='1-1 Bravo'>
-					<CardGrid members={members} section='1-1-2' />
-				</SubSection>
-
-				<SubSection title='1-1 Charlie'>
-					<CardGrid members={members} section='1-1-3' />
-				</SubSection>
+				{/* ── 1st Platoon — sections from ORBAT ─────────────────── */}
+				{orbat.platoon11.map((section, i) => {
+					const isHQ = i === 0
+					return isHQ ? (
+						<Section key={section.title} label='1st Platoon' title='1st Platoon Headquarters'>
+							<div className='flex flex-wrap gap-4'>
+								{section.members.map(m => {
+									const member = lookup(m.name)
+									return member ? <Card key={member.id} member={member} role={m.role} /> : null
+								})}
+							</div>
+						</Section>
+					) : (
+						<SubSection key={section.title} title={section.title}>
+							<div className='flex flex-wrap gap-4'>
+								{section.members.map(m => {
+									const member = lookup(m.name)
+									return member ? <Card key={member.id} member={member} role={m.role} /> : null
+								})}
+							</div>
+						</SubSection>
+					)
+				})}
 
 				<RedDivider />
 
-				{/* ── 2nd Platoon ───────────────────────────────────────── */}
-				<Section label='2nd Platoon' title='2nd Platoon Headquarters'>
-					<CardGrid members={members} section='1-2' />
-				</Section>
-
-				<SubSection title='1-2 Alpha'>
-					<CardGrid members={members} section='1-2-1' />
-				</SubSection>
-
-				<SubSection title='1-2 Bravo'>
-					<CardGrid members={members} section='1-2-2' />
-				</SubSection>
-
-				<SubSection title='1-2 Charlie'>
-					<CardGrid members={members} section='1-2-3' />
-				</SubSection>
+				{/* ── 2nd Platoon — sections from ORBAT ─────────────────── */}
+				{orbat.platoon12.map((section, i) => {
+					const isHQ = i === 0
+					return isHQ ? (
+						<Section key={section.title} label='2nd Platoon' title='2nd Platoon Headquarters'>
+							<div className='flex flex-wrap gap-4'>
+								{section.members.map(m => {
+									const member = lookup(m.name)
+									return member ? <Card key={member.id} member={member} role={m.role} /> : null
+								})}
+							</div>
+						</Section>
+					) : (
+						<SubSection key={section.title} title={section.title}>
+							<div className='flex flex-wrap gap-4'>
+								{section.members.map(m => {
+									const member = lookup(m.name)
+									return member ? <Card key={member.id} member={member} role={m.role} /> : null
+								})}
+							</div>
+						</SubSection>
+					)
+				})}
 
 			</div>
+				<RedDivider />
+
+				{/* ── Support Platoon (1-3) ─────────────────── */}
+				{orbat.support.map((section, i) => {
+					const isHQ = i === 0
+					return isHQ ? (
+						<Section key={section.title} label='Support Platoon' title={section.title}>
+							<div className='flex flex-wrap gap-4'>
+								{section.members.map(m => {
+									const member = lookup(m.name)
+									return member ? <Card key={member.id} member={member} role={m.role} /> : null
+								})}
+							</div>
+						</Section>
+					) : (
+						<SubSection key={section.title} title={section.title}>
+							<div className='flex flex-wrap gap-4'>
+								{section.members.map(m => {
+									const member = lookup(m.name)
+									return member ? <Card key={member.id} member={member} role={m.role} /> : null
+								})}
+							</div>
+						</SubSection>
+					)
+				})}
+
+				<RedDivider />
+
+				{/* ── Reservists ─────────────────────────── */}
+				<Section label='Reservists' title='Company Reservists'>
+					{orbat.activeReservists.length > 0 && (
+						<SubSection title='Active'>
+							<div className='flex flex-wrap gap-4'>
+								{orbat.activeReservists.map(name => {
+									const member = lookup(name)
+									return member ? <Card key={member.id} member={member} role='Active Reservist' /> : null
+								})}
+							</div>
+						</SubSection>
+					)}
+					{orbat.inactiveReservists.length > 0 && (
+						<SubSection title='Inactive'>
+							<div className='flex flex-wrap gap-4' style={{ opacity: 0.5 }}>
+								{orbat.inactiveReservists.map(name => {
+									const member = lookup(name)
+									return member ? <Card key={member.id} member={member} role='Inactive Reservist' /> : null
+								})}
+							</div>
+						</SubSection>
+					)}
+				</Section>
+
 		</div>
 	)
 }
@@ -102,17 +188,6 @@ function SubSection({ title, children }: { title: string; children: React.ReactN
 				<div style={{ height: 1, flexGrow: 1, background: 'rgba(219,0,29,0.1)' }} />
 			</div>
 			{children}
-		</div>
-	)
-}
-
-
-function CardGrid({ members, section }: { members: Milpac[]; section: string }) {
-	return (
-		<div className='flex flex-wrap gap-4'>
-			{members.filter(m => m.section === section).map(m => (
-				<Card key={m._id} milpac={m} />
-			))}
 		</div>
 	)
 }
