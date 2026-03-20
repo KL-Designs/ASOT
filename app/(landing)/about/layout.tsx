@@ -27,7 +27,7 @@ const Pages: { href: string, title: string, icon: React.JSX.Element, background:
 	},
 	{
 		href: '/about/callsigns',
-		title: 'Call Signs',
+		title: 'Callsigns',
 		icon: <Tag fontSize='small' />,
 		subtitle: 'Here you can see the current call signs we have and some basic information on how they are utilised in missions.',
 		background: ImgCallsigns,

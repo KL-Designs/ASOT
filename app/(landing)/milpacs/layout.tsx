@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function Page({ children }: Readonly<{ children: React.ReactNode }>) {
 	return (
-		<Container title="MILPACS" subtitle="Military Personnel Accounting Centre" background={Banner} sx={{ bannerHeight: 'md', maxWidth: 'max-w-lg' }}>
+		<Container title="MILPACS" subtitle="Military Personnel Accounting Centre" background={Banner} sx={{ bannerHeight: 'sm', maxWidth: 'max-w-lg' }}>
 
 			{children}
 
