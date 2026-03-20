@@ -43,8 +43,8 @@ export default function CustomCursor() {
 			}
 
 			// Ring lerps behind
-			ringPos.current.x += (mouse.current.x - ringPos.current.x) * 0.22
-			ringPos.current.y += (mouse.current.y - ringPos.current.y) * 0.22
+			ringPos.current.x += (mouse.current.x - ringPos.current.x) * 0.38
+			ringPos.current.y += (mouse.current.y - ringPos.current.y) * 0.38
 
 			// Rotation lerps to 45° on hover, back to 0° otherwise
 			const targetRotation = hoveringRef.current ? 45 : 0
