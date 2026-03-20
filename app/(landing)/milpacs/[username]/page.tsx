@@ -41,6 +41,7 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
 			siteName: role,
 		},
 		twitter: {
+			card: 'summary_large_image',
 			title,
 			description,
 		},
