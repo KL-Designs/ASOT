@@ -19,13 +19,14 @@ export default async function Page() {
 	// Build a lookup: stripped lowercase nickname → User
 	const byName = new Map<string, User>()
 	for (const member of allMembers) {
-		const nick = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
+		const nick = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').replace(/\s*\([^)]*\)/g, '').trim()
 		const key = (nick || member.globalName || '').toLowerCase()
 		if (key) byName.set(key, member)
 	}
 
 	function lookup(orbatName: string): User | null {
-		return byName.get(orbatName.toLowerCase()) ?? null
+		const key = orbatName.replace(/\s*\([^)]*\)/g, '').trim().toLowerCase()
+		return byName.get(key) ?? null
 	}
 
 	return (
