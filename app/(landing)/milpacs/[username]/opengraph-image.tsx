@@ -40,7 +40,7 @@ export default async function Image({ params }: { params: Promise<{ username: st
             style={{
                 width: '100%',
                 height: '100%',
-                background: `linear-gradient(160deg, ${accent}12 0%, ${accent}04 40%, rgb(10,10,10) 100%)`,
+                background: 'rgb(8,8,8)',
                 borderTop: `4px solid ${accent}`,
                 borderRadius: 24,
                 overflow: 'hidden',
@@ -51,6 +51,9 @@ export default async function Image({ params }: { params: Promise<{ username: st
                 fontFamily: 'sans-serif',
             }}
         >
+            {/* Gradient overlay */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: `linear-gradient(160deg, ${accent}22 0%, ${accent}0a 45%, transparent 100%)`, display: 'flex' }} />
+
             {/* Content row */}
             <div style={{ display: 'flex', gap: 64, alignItems: 'center', flex: 1 }}>
                 {/* Avatar */}
