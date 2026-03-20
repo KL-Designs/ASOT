@@ -3,7 +3,7 @@ import client from '@/lib/discord'
 import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/milpac-profile'
 
-export const size = { width: 1200, height: 630 }
+export const size = { width: 1500, height: 550 }
 export const contentType = 'image/png'
 
 export default async function Image({ params }: { params: Promise<{ username: string }> }) {
