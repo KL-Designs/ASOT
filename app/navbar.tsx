@@ -66,7 +66,7 @@ export default function Navbar() {
                 { name: 'Hall of Fame', link: '/community/hof', icon: <EmojiEvents />, description: 'Honoured unit members' },
             ]
         },
-        { name: 'MILPACS', href: 'https://www.australianspecialoperationstaskforce.com/milpacs', icon: <MilitaryTech /> },
+        { name: 'MILPACS', href: '/milpacs', icon: <MilitaryTech /> },
         { name: 'Gallery', href: '/gallery', icon: <Collections /> },
         { name: 'Partners', href: '/partnerships', icon: <Handshake /> },
         { name: 'Support', href: '/support', icon: <Support /> },
