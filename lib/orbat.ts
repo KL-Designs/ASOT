@@ -110,7 +110,7 @@ function parseORBAT(csv: string): ORBATData {
 }
 
 export async function fetchORBAT(): Promise<ORBATData> {
-	const res = await fetch(CSV_URL, { next: { revalidate: 3600 } })
+	const res = await fetch(CSV_URL)
 	if (!res.ok) throw new Error(`Failed to fetch ORBAT data: ${res.status}`)
 	return parseORBAT(await res.text())
 }
