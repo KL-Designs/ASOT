@@ -1,43 +1,92 @@
-import fs from 'fs'
-
 import { connection } from 'next/server'
-import Image, { StaticImageData } from 'next/image'
-import Link from 'next/link'
 
-import client from "@/lib/discord"
 import Avatar from '@/components/member/avatar'
-import Banner from '@/components/member/banner'
-
-import { Typography, Button, Divider } from '@mui/material'
+import client from '@/lib/discord'
 
 
 
 export default async function Card({ milpac }: { milpac?: Milpac }) {
 
-    if (!milpac) return null
+	if (!milpac) return null
 
-    await connection()
-    const member = await client.fetchMember(milpac._id).catch(e => console.error(e))
-    if (!member) return null
+	await connection()
+	const member = await client.fetchMember(milpac._id).catch(e => console.error(e))
+	if (!member) return null
 
+	const accent = member.hexAccentColor || '#db001d'
+	const name = member.guild.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName || 'Unknown'
 
-    return (
-        <div className='flex flex-col justify-center items-center p-5 gap-5 w-[300px] rounded-md' style={{ border: `1px solid ${member.hexAccentColor || '#db001d'}` }}>
-            <div className='relative h-[100px] w-[100px]'>
-                <Avatar user={member} />
-            </div>
+	return (
+		<div style={{
+			width: 180,
+			flexShrink: 0,
+			background: 'rgb(13,13,13)',
+			border: '1px solid rgba(219,0,29,0.15)',
+			borderTop: `2px solid ${accent}`,
+			display: 'flex',
+			flexDirection: 'column',
+			overflow: 'hidden',
+		}}>
+			{/* Avatar block */}
+			<div style={{
+				padding: '22px 16px 16px',
+				display: 'flex',
+				flexDirection: 'column',
+				alignItems: 'center',
+				gap: 14,
+				background: 'rgba(219,0,29,0.02)',
+			}}>
+				<div style={{
+					position: 'relative',
+					width: 76,
+					height: 76,
+					borderRadius: '50%',
+					padding: 2,
+					background: `linear-gradient(135deg, ${accent}99, rgba(237,237,237,0.08))`,
+					flexShrink: 0,
+				}}>
+					<div style={{
+						position: 'relative',
+						width: '100%',
+						height: '100%',
+						borderRadius: '50%',
+						overflow: 'hidden',
+						background: 'rgb(13,13,13)',
+					}}>
+						<Avatar user={member} />
+					</div>
+				</div>
 
-            <div className='flex flex-col gap-2'>
-                <Typography sx={{ textTransform: 'uppercase', display: 'inline-block' }} className='text-[20px]' align='center' variant='h3' fontWeight={700} fontFamily={'inherit'} letterSpacing={4}>
-                    {member.guild.nickname.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName}
-                </Typography>
+				<p style={{
+					margin: 0,
+					fontSize: '0.8rem',
+					fontWeight: 700,
+					letterSpacing: '0.1em',
+					textTransform: 'uppercase',
+					textAlign: 'center',
+					color: 'rgba(237,237,237,0.92)',
+					lineHeight: 1.3,
+				}}>
+					{name}
+				</p>
+			</div>
 
-                <Divider />
+			{/* Divider */}
+			<div style={{ height: 1, background: 'rgba(219,0,29,0.12)', flexShrink: 0 }} />
 
-                <Typography sx={{ textTransform: 'uppercase', display: 'inline-block' }} className='text-[12px]' align='center' variant='h4' fontWeight={500} fontFamily={'inherit'} letterSpacing={4}>
-                    {milpac.title}
-                </Typography>
-            </div>
-        </div>
-    )
+			{/* Title block */}
+			<div style={{ padding: '10px 16px', textAlign: 'center' }}>
+				<p style={{
+					margin: 0,
+					fontSize: '0.6rem',
+					fontWeight: 600,
+					letterSpacing: '0.18em',
+					textTransform: 'uppercase',
+					color: 'rgba(237,237,237,0.38)',
+				}}>
+					{milpac.title}
+				</p>
+			</div>
+		</div>
+	)
 }
