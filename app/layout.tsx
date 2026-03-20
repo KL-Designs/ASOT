@@ -41,7 +41,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 			</head>
 
 			<body className={`${montserrat.className}  antialiased h-full`}>
-				{/* <CustomCursor /> */}
+				<CustomCursor />
 				<ThemeProvider theme={UnitTheme}>
 					<div className="h-full flex flex-col">
 
