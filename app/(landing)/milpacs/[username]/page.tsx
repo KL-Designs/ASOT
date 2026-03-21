@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { existsSync } from 'fs'
+import { join } from 'path'
 import Avatar from '@/components/member/avatar'
 import client from '@/lib/discord'
 import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
@@ -56,6 +58,10 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	if (!profile) notFound()
 
 	const { member, orbatEntry, accent, name, fullRank, callsign } = profile
+
+	const uniformFilename = `${name.toUpperCase()}.png`
+	const uniformPath = join(process.cwd(), 'milpacs', uniformFilename)
+	const hasUniform = existsSync(uniformPath)
 
 	return (
 		<div style={{ background: 'rgb(10,10,10)', minHeight: '100vh', color: 'rgba(237,237,237,0.9)' }}>
@@ -175,6 +181,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 					</div>
 				</div>
 
+				{/* ── Uniform ──────────────────────────────────────────── */}
 				{/* ── Bio ──────────────────────────────────────────────── */}
 				<Section accent={accent} title='Biography'>
 					{member.bio?.content ? (
@@ -185,6 +192,37 @@ export default async function Page({ params }: { params: Promise<{ username: str
 						<Placeholder text='No biography on record.' />
 					)}
 				</Section>
+
+				{hasUniform && (
+					<div style={{
+						borderRadius: 8,
+						border: `1px solid rgba(255,255,255,0.06)`,
+						borderLeft: `2px solid ${accent}80`,
+						background: 'rgba(255,255,255,0.02)',
+						overflow: 'hidden',
+						display: 'flex',
+						flexDirection: 'column',
+					}}>
+						<span style={{
+							padding: '1.25rem 1.75rem 0',
+							fontSize: '0.65rem',
+							fontWeight: 700,
+							letterSpacing: '0.2em',
+							textTransform: 'uppercase',
+							color: `${accent}cc`,
+						}}>
+							Uniform
+						</span>
+						<div style={{ display: 'flex', justifyContent: 'center', padding: '1rem' }}>
+							{/* eslint-disable-next-line @next/next/no-img-element */}
+							<img
+								src={`/api/milpacs/${name.toUpperCase()}`}
+								alt={`${name} uniform`}
+								style={{ objectFit: 'contain', maxHeight: 500 }}
+							/>
+						</div>
+					</div>
+				)}
 
 				{/* ── Service Record ───────────────────────────────────── */}
 				<Section accent={accent} title='Service Record'>

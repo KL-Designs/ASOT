@@ -6,7 +6,7 @@ services:
       - "3000:3000"
     volumes:
       - ./gallery:/app/gallery
-      - ./milpacs:/app/milpacs
+      - ~/milpac-gen/milpac:/app/milpacs
       - ./uploads:/app/uploads
     restart: unless-stopped
     environment:
