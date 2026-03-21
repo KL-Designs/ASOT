@@ -106,7 +106,7 @@ export default async function Page() {
 
                 {/* Left column */}
                 <div className='flex flex-col gap-5 flex-grow min-w-0'>
-                    <BioSections canUploadImage={isHQ} />
+                    <BioSections canUploadImage={isHQ} isHQ={isHQ} />
 
                     {/* Navigation cards */}
                     <div className='flex flex-wrap gap-4'>

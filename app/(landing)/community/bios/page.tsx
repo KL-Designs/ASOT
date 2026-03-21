@@ -6,13 +6,20 @@ import Image from 'next/image'
 
 import Container from '@/components/container'
 import BannerImg from '@/public/images/home/VicPose2.png'
+import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
+import { resolveMilpacProfile } from '@/lib/milpac-profile'
 
 
 export default async function Page() {
 
     await connection()
 
-    const users = await Db.users.find({ "guild.roles": { $in: ["745793767185055744", "1387622241654673498"] } }).toArray()
+    const [users, allMembers, orbat] = await Promise.all([
+        Db.users.find({ "guild.roles": { $in: ["745793767185055744", "1387622241654673498"] } }).toArray(),
+        client.fetchAllMembers(),
+        fetchORBAT(),
+    ])
+    const lookup = client.buildOrbatLookup(allMembers)
 
     return (
         <Container
@@ -23,7 +30,13 @@ export default async function Page() {
         >
             {users.map(user => {
 
-                if (!user.bio?.name || !user.bio?.content || !user.bio?.rank || !user.bio?.callsign) return null
+                if (!user.bio?.content) return null
+
+                const member = allMembers.find(m => m.id === user.id)
+                if (!member) return null
+
+                const orbatEntry = findOrbatEntry(orbat, lookup, member.id)
+                const { name, fullRank, callsign } = resolveMilpacProfile(member, orbatEntry)
 
                 return (
                     <div key={user.id} className='flex overflow-hidden' style={{
@@ -49,10 +62,10 @@ export default async function Page() {
                                     </div>
                                     <div>
                                         <div style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.18em', color: 'rgba(219,0,29,0.8)', textTransform: 'uppercase', marginBottom: 4 }}>
-                                            Member
+                                            {orbatEntry?.role ?? 'Member'}
                                         </div>
                                         <h3 style={{ fontSize: '1.4rem', fontWeight: 700, letterSpacing: '0.08em', margin: 0, textTransform: 'uppercase', color: 'rgba(237,237,237,0.95)' }}>
-                                            {user.bio?.name}
+                                            {name}
                                         </h3>
                                         <p style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(237,237,237,0.35)', textTransform: 'uppercase', margin: 0 }}>
                                             Joined {new Date(user.guild.joinedTimestamp).toLocaleDateString()}
@@ -65,10 +78,10 @@ export default async function Page() {
                                         Callsign
                                     </div>
                                     <h3 className='text-right' style={{ fontSize: '1.4rem', fontWeight: 700, letterSpacing: '0.08em', margin: 0, textTransform: 'uppercase', color: 'rgba(237,237,237,0.95)' }}>
-                                        {user.bio?.callsign}
+                                        {callsign ?? '—'}
                                     </h3>
                                     <p className='text-right' style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.16em', color: 'rgba(237,237,237,0.35)', textTransform: 'uppercase', margin: 0 }}>
-                                        {user.bio?.rank}
+                                        {fullRank ?? '—'}
                                     </p>
                                 </div>
                             </div>

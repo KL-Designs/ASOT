@@ -1,5 +1,6 @@
 import { ensureVisible } from '@/lib/discord/color'
 import type { OrbatEntry } from '@/lib/orbat'
+import { rankNameFromAbbr } from '@/lib/ranks'
 
 export function resolveMilpacProfile(member: User, orbatEntry: OrbatEntry | null) {
     const accent = ensureVisible(member.hexAccentColor || '#db001d')
@@ -12,7 +13,7 @@ export function resolveMilpacProfile(member: User, orbatEntry: OrbatEntry | null
     const rankAbbr = parts.length > 1 ? parts[0] : null
 
     const promotions = member.milpac?.promotions
-    const fullRank = member.bio?.rank
+    const fullRank = (member.milpac?.currentRank ? rankNameFromAbbr(member.milpac.currentRank) : null)
         || (promotions && promotions.length > 0 ? promotions[promotions.length - 1].rank : null)
         || rankAbbr
 
