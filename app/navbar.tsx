@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse } from '@mui/material'
-import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, AdminPanelSettings } from '@mui/icons-material'
+import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, AdminPanelSettings, Api, Tune } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import { rankNameFromAbbr } from '@/lib/ranks'
@@ -18,7 +18,6 @@ import Logo from '@/public/logo.png'
 import MapBg from '@/public/designs/map.png'
 
 
-const ADMIN_ROLES = ['J3-Training', 'J5-Media', 'J1-Recruiting']
 
 type SubLink = {
     name: string
@@ -249,7 +248,7 @@ export default function Navbar() {
                             <Link href='/me' onClick={() => setSideMenuOpen(false)}>
                                 <div className='relative w-[36px] h-[36px]'><Avatar user={user} /></div>
                             </Link>
-                            {((user as any).roles as Role[] | undefined)?.some(r => ADMIN_ROLES.includes(r.name)) && (
+                            {(user as any).isAdmin && (
                                 <Link href='/admin' onClick={() => setSideMenuOpen(false)}>
                                     <IconButton size='small' title='Admin' style={{ border: '1px solid rgba(219,0,29,0.35)', borderRadius: 0, color: 'rgba(219,0,29,0.8)', padding: 6 }}>
                                         <AdminPanelSettings style={{ fontSize: 20 }} />
@@ -324,7 +323,7 @@ function ProfileDropdown({ user }: { user: User }) {
     const open = Boolean(anchorEl)
 
     const userRoles = (user as any).roles as Role[] | undefined
-    const isAdmin = userRoles?.some(r => ADMIN_ROLES.includes(r.name)) ?? false
+    const isAdmin = !!(user as any).isAdmin
 
     const accent = user.hexAccentColor ? `#${user.hexAccentColor.replace('#', '')}` : '#DB001D'
     const strippedNickname = user.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
@@ -356,7 +355,7 @@ function ProfileDropdown({ user }: { user: User }) {
                     width: 38,
                     height: 38,
                     borderRadius: 6,
-                    border: `2px solid ${accent}`,
+                    border: `1px solid ${accent}`,
                     overflow: 'hidden',
                     flexShrink: 0,
                     boxShadow: `0 0 8px 0 ${accent}55`,
@@ -421,12 +420,26 @@ function ProfileDropdown({ user }: { user: User }) {
                             <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>PROFILE</span>
                         </MenuItem>
                     </Link>
+                    <Link href='/operations'>
+                        <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
+                            sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
+                            <Api style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
+                            <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>OPERATIONS</span>
+                        </MenuItem>
+                    </Link>
+                    <Link href='/optionals'>
+                        <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
+                            sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
+                            <Tune style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
+                            <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>OPTIONALS</span>
+                        </MenuItem>
+                    </Link>
                     {isAdmin && (
                         <Link href='/admin'>
                             <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
                                 sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
                                 <AdminPanelSettings style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
-                                <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>ADMIN</span>
+                                <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>ADMINISTRATION</span>
                             </MenuItem>
                         </Link>
                     )}

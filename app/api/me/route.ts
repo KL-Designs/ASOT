@@ -8,7 +8,8 @@ export async function GET(request: NextRequest) {
 
     try {
         const me = await client.fetchMe()
-        return NextResponse.json({ ...me }, { status: 200 })
+        const isAdmin = client.hasRoles(me, ['J3-Training', 'J5-Media', 'J1-Recruiting'])
+        return NextResponse.json({ ...me, isAdmin }, { status: 200 })
     }
 
     catch (err: any) {

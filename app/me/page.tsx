@@ -110,29 +110,6 @@ export default async function Page() {
 
                     {/* Navigation cards */}
                     <div className='flex flex-wrap gap-4'>
-                        <Link href='/operations' className='flex-1 min-w-[160px]'>
-                            <div
-                                className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
-                                style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
-                            >
-                                <Api sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
-                                <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                    Operations
-                                </Typography>
-                            </div>
-                        </Link>
-
-                        <Link href='/optionals' className='flex-1 min-w-[160px]'>
-                            <div
-                                className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
-                                style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
-                            >
-                                <Tune sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
-                                <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                    Configure<br />Optionals
-                                </Typography>
-                            </div>
-                        </Link>
 
                         {isJ5 && (
                             <Link href='/members' className='flex-1 min-w-[160px]'>
