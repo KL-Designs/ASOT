@@ -8,14 +8,17 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse } from '@mui/material'
-import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp } from '@mui/icons-material'
+import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, AdminPanelSettings } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
+import { rankNameFromAbbr } from '@/lib/ranks'
 import Avatar from '@/components/member/avatar'
 
 import Logo from '@/public/logo.png'
 import MapBg from '@/public/designs/map.png'
 
+
+const ADMIN_ROLES = ['J3-Training', 'J5-Media', 'J1-Recruiting']
 
 type SubLink = {
     name: string
@@ -153,11 +156,7 @@ export default function Navbar() {
                         </Link>
 
                         {user ?
-                            <Link href='/me' title={user.globalName || user.username}>
-                                <div className='relative w-[40px] h-[40px]'>
-                                    <Avatar user={user} />
-                                </div>
-                            </Link>
+                            <ProfileDropdown user={user} />
                             :
                             <Link href='/login' title='Login'>
                                 <div className={Navigation['nav-button']}>
@@ -245,18 +244,27 @@ export default function Navbar() {
                     <Link href='/donate' className='flex-1' onClick={() => setSideMenuOpen(false)}>
                         <Button variant='outlined' color='primary' fullWidth startIcon={<VolunteerActivism />} size='small'>Donate</Button>
                     </Link>
-                    {user ?
-                        <Link href='/me' onClick={() => setSideMenuOpen(false)}>
-                            <div className='relative w-[36px] h-[36px]'><Avatar user={user} /></div>
-                        </Link>
-                        :
+                    {user ? (
+                        <>
+                            <Link href='/me' onClick={() => setSideMenuOpen(false)}>
+                                <div className='relative w-[36px] h-[36px]'><Avatar user={user} /></div>
+                            </Link>
+                            {((user as any).roles as Role[] | undefined)?.some(r => ADMIN_ROLES.includes(r.name)) && (
+                                <Link href='/admin' onClick={() => setSideMenuOpen(false)}>
+                                    <IconButton size='small' title='Admin' style={{ border: '1px solid rgba(219,0,29,0.35)', borderRadius: 0, color: 'rgba(219,0,29,0.8)', padding: 6 }}>
+                                        <AdminPanelSettings style={{ fontSize: 20 }} />
+                                    </IconButton>
+                                </Link>
+                            )}
+                        </>
+                    ) : (
                         <Link href='/login' className='flex-1' onClick={() => setSideMenuOpen(false)}>
                             <Button variant='outlined' color='inherit' fullWidth startIcon={<Login />} size='small'
                                 style={{ borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(237,237,237,0.7)' }}>
                                 Login
                             </Button>
                         </Link>
-                    }
+                    )}
                 </div>
             </Drawer>
         </>
@@ -306,6 +314,125 @@ function MobileNavItem({ link, onClose }: { link: Link, onClose: () => void }) {
                 </div>
             </Collapse>
         </div>
+    )
+}
+
+
+function ProfileDropdown({ user }: { user: User }) {
+    const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
+    const [orbatEntry, setOrbatEntry] = React.useState<{ role: string; section: string } | null | undefined>(undefined)
+    const open = Boolean(anchorEl)
+
+    const userRoles = (user as any).roles as Role[] | undefined
+    const isAdmin = userRoles?.some(r => ADMIN_ROLES.includes(r.name)) ?? false
+
+    const accent = user.hexAccentColor ? `#${user.hexAccentColor.replace('#', '')}` : '#DB001D'
+    const strippedNickname = user.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
+    const displayName = strippedNickname || user.globalName || user.username
+    const parts = displayName.split(' ')
+    const name = parts.length > 1 ? parts.slice(1).join(' ') : displayName
+    const rankAbbr = user.milpac?.currentRank || user.bio?.rank
+    const rank = rankAbbr ? rankNameFromAbbr(rankAbbr) : null
+
+    function handleOpen(e: React.MouseEvent<HTMLElement>) {
+        setAnchorEl(e.currentTarget)
+        if (orbatEntry === undefined) {
+            fetch('/api/me/orbat')
+                .then(r => r.json())
+                .then(data => setOrbatEntry(data ?? null))
+                .catch(() => setOrbatEntry(null))
+        }
+    }
+
+    return (
+        <>
+            {/* Navbar avatar button — square with accent border */}
+            <div
+                className='cursor-pointer flex-shrink-0'
+                title={displayName}
+                onClick={handleOpen}
+                style={{
+                    position: 'relative',
+                    width: 38,
+                    height: 38,
+                    borderRadius: 6,
+                    border: `2px solid ${accent}`,
+                    overflow: 'hidden',
+                    flexShrink: 0,
+                    boxShadow: `0 0 8px 0 ${accent}55`,
+                    transition: 'box-shadow 0.2s',
+                }}
+            >
+                <Avatar user={user} borderRadius='4px' />
+            </div>
+
+            <Menu
+                anchorEl={anchorEl}
+                open={open}
+                onClose={() => setAnchorEl(null)}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                slotProps={{
+                    list: { style: { padding: 0 } },
+                    paper: {
+                        style: {
+                            background: 'rgba(10,10,10,0.97)',
+                            backdropFilter: 'blur(16px)',
+                            WebkitBackdropFilter: 'blur(16px)',
+                            borderTop: `2px solid ${accent}`,
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: 6,
+                            minWidth: 210,
+                            overflow: 'hidden',
+                        }
+                    }
+                }}
+            >
+                {/* Mini profile header */}
+                <div style={{ padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                    <div style={{ position: 'relative', width: 46, height: 46, borderRadius: 6, border: `2px solid ${accent}`, overflow: 'hidden', flexShrink: 0, boxShadow: `0 0 10px 0 ${accent}44` }}>
+                        <Avatar user={user} borderRadius='4px' />
+                    </div>
+                    <div style={{ overflow: 'hidden' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {name}
+                        </div>
+                        {rank && (
+                            <div style={{ fontSize: '0.72rem', color: accent, fontWeight: 600, marginTop: 2, letterSpacing: '0.05em' }}>
+                                {rank}
+                            </div>
+                        )}
+                        <div style={{ fontSize: '0.70rem', color: 'rgba(237,237,237,0.4)', marginTop: 1 }}>
+                            {orbatEntry === undefined
+                                ? '...'
+                                : orbatEntry
+                                    ? orbatEntry.role
+                                    : null}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Menu items */}
+                <div style={{ padding: '6px 8px' }}>
+                    <Link href='/me'>
+                        <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
+                            sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
+                            <Person style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
+                            <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>PROFILE</span>
+                        </MenuItem>
+                    </Link>
+                    {isAdmin && (
+                        <Link href='/admin'>
+                            <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
+                                sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
+                                <AdminPanelSettings style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
+                                <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>ADMIN</span>
+                            </MenuItem>
+                        </Link>
+                    )}
+                </div>
+            </Menu>
+        </>
     )
 }
 

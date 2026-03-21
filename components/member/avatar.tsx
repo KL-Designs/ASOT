@@ -8,7 +8,7 @@ import Fallback from '@/public/images/fallback_pfp.png'
 
 
 
-export default function Avatar({ user }: { user?: User }) {
+export default function Avatar({ user, borderRadius = '100%' }: { user?: User, borderRadius?: string }) {
 
     const [image, setImage] = useState<string | StaticImageData>(user ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}?size=256` : Fallback)
 
@@ -18,7 +18,7 @@ export default function Avatar({ user }: { user?: User }) {
             alt='Profile Picture'
             fill
             className='object-cover'
-            style={{ borderRadius: '100%' }}
+            style={{ borderRadius }}
             onError={(e) => setImage(Fallback)}
         />
     )
