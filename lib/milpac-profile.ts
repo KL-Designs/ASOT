@@ -17,7 +17,9 @@ export function resolveMilpacProfile(member: User, orbatEntry: OrbatEntry | null
         || (promotions && promotions.length > 0 ? promotions[promotions.length - 1].rank : null)
         || rankAbbr
 
+    const rankAbbrResolved = member.milpac?.currentRank || rankAbbr
+
     const callsign = member.bio?.callsign || null
 
-    return { accent, displayName, name, fullRank, callsign, orbatEntry }
+    return { accent, displayName, name, rankAbbr: rankAbbrResolved, fullRank, callsign, orbatEntry }
 }

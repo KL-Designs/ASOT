@@ -30,8 +30,8 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
 	const { username } = await params
 	const profile = await resolveProfile(username)
 	if (!profile) return { title: 'Australian Special Operations Taskforce' }
-	const { name, fullRank, member, orbatEntry } = profile
-	const title = `${fullRank ? `${fullRank} ${name}` : name} | ASOT`
+	const { name, rankAbbr, member, orbatEntry } = profile
+	const title = `${rankAbbr ? `${rankAbbr} ${name}` : name} | ASOT`
 	const description = member.bio?.content || undefined
 	const role = orbatEntry?.role || undefined
 	return {
@@ -57,7 +57,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const profile = await resolveProfile(username)
 	if (!profile) notFound()
 
-	const { member, orbatEntry, accent, name, fullRank, callsign } = profile
+	const { member, orbatEntry, accent, name, rankAbbr, fullRank, callsign } = profile
 
 	const uniformPath = join(process.cwd(), 'milpacs', `${username}.png`)
 	const hasUniform = existsSync(uniformPath)
