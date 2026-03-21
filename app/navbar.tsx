@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse } from '@mui/material'
-import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, AdminPanelSettings, Api, Tune } from '@mui/icons-material'
+import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, AdminPanelSettings, Api, Tune } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import { rankNameFromAbbr } from '@/lib/ranks'
@@ -323,6 +323,11 @@ function ProfileDropdown({ user }: { user: User }) {
     const [avatarHovered, setAvatarHovered] = React.useState(false)
     const open = Boolean(anchorEl)
 
+    async function handleLogout() {
+        await fetch('/api/logout', { method: 'POST' })
+        window.location.href = '/'
+    }
+
     const userRoles = (user as any).roles as Role[] | undefined
     const isAdmin = !!(user as any).isAdmin
 
@@ -455,6 +460,15 @@ function ProfileDropdown({ user }: { user: User }) {
                             </MenuItem>
                         </Link>
                     )}
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', margin: '6px 0' }} />
+                    <MenuItem
+                        onClick={handleLogout}
+                        style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
+                        sx={{ '&:hover': { backgroundColor: 'rgba(219,0,29,0.08)' } }}
+                    >
+                        <Logout style={{ fontSize: 17, color: 'rgba(219,0,29,0.6)' }} />
+                        <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(219,0,29,0.7)' }}>LOGOUT</span>
+                    </MenuItem>
                 </div>
             </Menu>
         </>
