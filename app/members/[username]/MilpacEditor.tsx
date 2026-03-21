@@ -266,6 +266,13 @@ export default function MilpacEditor({ member }: { member: User }) {
     const [uniformError, setUniformError] = useState<string | null>(null)
     const [uniformKey, setUniformKey] = useState(0)
 
+    const [medalsFile, setMedalsFile] = useState<File | null>(null)
+    const [medalsPreview, setMedalsPreview] = useState<string | null>(null)
+    const [medalsUploading, setMedalsUploading] = useState(false)
+    const [medalsSaved, setMedalsSaved] = useState(false)
+    const [medalsError, setMedalsError] = useState<string | null>(null)
+    const [medalsKey, setMedalsKey] = useState(0)
+
     function onUniformChange(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0] ?? null
         setUniformFile(file)
@@ -292,6 +299,36 @@ export default function MilpacEditor({ member }: { member: User }) {
             setUniformError(e.message)
         } finally {
             setUniformUploading(false)
+        }
+    }
+
+    function onMedalsChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0] ?? null
+        setMedalsFile(file)
+        setMedalsSaved(false)
+        setMedalsError(null)
+        if (file) setMedalsPreview(URL.createObjectURL(file))
+    }
+
+    async function uploadMedals() {
+        if (!medalsFile) return
+        setMedalsUploading(true)
+        setMedalsError(null)
+        try {
+            const fd = new FormData()
+            fd.append('file', medalsFile)
+            fd.append('type', 'medals')
+            const res = await fetch(`/api/milpacs/${member.username}`, { method: 'POST', body: fd })
+            const json = await res.json()
+            if (!res.ok) throw new Error(json.error || 'Upload failed')
+            setMedalsSaved(true)
+            setMedalsFile(null)
+            setMedalsPreview(null)
+            setMedalsKey(k => k + 1)
+        } catch (e: any) {
+            setMedalsError(e.message)
+        } finally {
+            setMedalsUploading(false)
         }
     }
 
@@ -590,6 +627,51 @@ export default function MilpacEditor({ member }: { member: User }) {
                             </button>
                             {uniformSaved && <span style={{ fontSize: '0.75rem', color: 'rgba(80,200,80,0.7)' }}>Saved.</span>}
                             {uniformError && <span style={{ fontSize: '0.75rem', color: 'rgba(219,0,29,0.8)' }}>{uniformError}</span>}
+                        </div>
+                    </div>
+                </div>
+            </SectionCard>
+
+            {/* Medals */}
+            <SectionCard title='Medals'>
+                <div className='flex gap-6 items-start'>
+                    <div style={{ flexShrink: 0, width: 200, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 80, overflow: 'hidden' }}>
+                        {medalsPreview ? (
+                            <img src={medalsPreview} alt='preview' style={{ width: '100%', objectFit: 'contain' }} />
+                        ) : (
+                            <img
+                                key={medalsKey}
+                                src={`/api/milpacs/${member.username}?type=medals`}
+                                alt='medals'
+                                style={{ width: '100%', objectFit: 'contain' }}
+                                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                            />
+                        )}
+                    </div>
+
+                    <div className='flex flex-col gap-3 flex-1'>
+                        <Label>Upload Medals Image</Label>
+                        <input
+                            type='file'
+                            accept='image/png'
+                            onChange={onMedalsChange}
+                            style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.5)', cursor: 'pointer' }}
+                        />
+                        <div className='flex items-center gap-3'>
+                            <button
+                                onClick={uploadMedals}
+                                disabled={!medalsFile || medalsUploading}
+                                style={{
+                                    padding: '6px 16px', fontSize: '0.75rem', fontWeight: 700,
+                                    letterSpacing: '0.1em', textTransform: 'uppercase', cursor: medalsFile ? 'pointer' : 'not-allowed',
+                                    background: medalsFile ? 'rgba(219,0,29,0.15)' : 'transparent',
+                                    border: '1px solid rgba(219,0,29,0.3)', color: medalsFile ? 'rgba(219,0,29,0.9)' : 'rgba(219,0,29,0.3)',
+                                }}
+                            >
+                                {medalsUploading ? 'Uploading…' : 'Upload'}
+                            </button>
+                            {medalsSaved && <span style={{ fontSize: '0.75rem', color: 'rgba(80,200,80,0.7)' }}>Saved.</span>}
+                            {medalsError && <span style={{ fontSize: '0.75rem', color: 'rgba(219,0,29,0.8)' }}>{medalsError}</span>}
                         </div>
                     </div>
                 </div>

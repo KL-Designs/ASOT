@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import fs from 'fs'
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
 	const { name } = await params
-	const path = `./milpacs/${name}.png`
+	const type = request.nextUrl.searchParams.get('type')
+	const filename = type === 'medals' ? `${name}-medals.png` : `${name}.png`
+	const path = `./milpacs/${filename}`
 	if (!fs.existsSync(path)) return NextResponse.json('Not found', { status: 404 })
 	const output = fs.readFileSync(path)
 	return new NextResponse(output as BodyInit, {
@@ -24,11 +26,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ nam
 	const { name } = await params
 	const formData = await req.formData()
 	const file = formData.get('file') as File | null
+	const type = formData.get('type') as string | null
 	if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
 	if (!fs.existsSync('./milpacs')) fs.mkdirSync('./milpacs')
+	const filename = type === 'medals' ? `${name}-medals.png` : `${name}.png`
 	const buffer = Buffer.from(await file.arrayBuffer())
-	fs.writeFileSync(`./milpacs/${name}.png`, buffer)
+	fs.writeFileSync(`./milpacs/${filename}`, buffer)
 
 	return NextResponse.json({ success: true })
 }
