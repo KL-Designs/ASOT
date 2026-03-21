@@ -320,6 +320,7 @@ function MobileNavItem({ link, onClose }: { link: Link, onClose: () => void }) {
 function ProfileDropdown({ user }: { user: User }) {
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
     const [orbatEntry, setOrbatEntry] = React.useState<{ role: string; section: string } | null | undefined>(undefined)
+    const [avatarHovered, setAvatarHovered] = React.useState(false)
     const open = Boolean(anchorEl)
 
     const userRoles = (user as any).roles as Role[] | undefined
@@ -351,6 +352,8 @@ function ProfileDropdown({ user }: { user: User }) {
                 role='button'
                 title={displayName}
                 onClick={handleOpen}
+                onMouseEnter={() => setAvatarHovered(true)}
+                onMouseLeave={() => setAvatarHovered(false)}
                 style={{
                     position: 'relative',
                     width: 38,
@@ -359,7 +362,7 @@ function ProfileDropdown({ user }: { user: User }) {
                     border: `1px solid ${accent}`,
                     overflow: 'hidden',
                     flexShrink: 0,
-                    boxShadow: `0 0 8px 0 ${accent}55`,
+                    boxShadow: avatarHovered ? `0 0 16px 4px ${accent}88` : `0 0 8px 0 ${accent}55`,
                     transition: 'box-shadow 0.2s',
                     cursor: 'pointer',
                 }}
