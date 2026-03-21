@@ -3,210 +3,11 @@
 import { useState, useRef, useEffect, Fragment } from 'react'
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
+import { RANK_GROUPS, RANKS_FLAT, rankAbbrFromName, rankNameFromAbbr } from '@/lib/ranks'
 
 
 let _keyCount = 0
 
-type RankEntry = { name: string; abbr: string }
-type RankGroup = { group: string; ranks: RankEntry[] }
-
-const RANK_GROUPS: RankGroup[] = [
-    {
-        group: 'Entry',
-        ranks: [
-            { name: 'Recruit',                          abbr: 'REC'     },
-        ],
-    },
-    {
-        group: 'Infantry (Enlisted)',
-        ranks: [
-            { name: 'Private',                          abbr: 'PTE'     },
-            { name: 'Private Proficient',               abbr: 'PTE(P)'  },
-            { name: 'Leading Private',                  abbr: 'PTE(L)'  },
-            { name: 'Senior Private',                   abbr: 'PTE(S)'  },
-            { name: 'Senior Leading Private',           abbr: 'PTE(SL)' },
-        ],
-    },
-    {
-        group: 'ECHO — Engineers (Enlisted)',
-        ranks: [
-            { name: 'Sapper',                           abbr: 'SAP'     },
-            { name: 'Sapper Proficient',                abbr: 'SAP(P)'  },
-            { name: 'Leading Sapper',                   abbr: 'SAP(L)'  },
-            { name: 'Senior Sapper',                    abbr: 'SAP(S)'  },
-            { name: 'Senior Leading Sapper',            abbr: 'SAP(SL)' },
-        ],
-    },
-    {
-        group: 'GOLF — Artillery (Enlisted)',
-        ranks: [
-            { name: 'Gunner',                           abbr: 'GNR'     },
-            { name: 'Gunner Proficient',                abbr: 'GNR(P)'  },
-            { name: 'Leading Gunner',                   abbr: 'GNR(L)'  },
-            { name: 'Senior Gunner',                    abbr: 'GNR(S)'  },
-            { name: 'Senior Leading Gunner',            abbr: 'GNR(SL)' },
-        ],
-    },
-    {
-        group: 'VICTOR — Cavalry (Enlisted)',
-        ranks: [
-            { name: 'Trooper',                          abbr: 'TPR'     },
-            { name: 'Trooper Proficient',               abbr: 'TPR(P)'  },
-            { name: 'Leading Trooper',                  abbr: 'TPR(L)'  },
-            { name: 'Senior Trooper',                   abbr: 'TPR(S)'  },
-            { name: 'Senior Leading Trooper',           abbr: 'TPR(SL)' },
-        ],
-    },
-    {
-        group: 'Lance Corporal Billet (MIKE / ECHO / VICTOR)',
-        ranks: [
-            { name: 'Junior Lance Corporal',            abbr: 'LCPL(J)' },
-            { name: 'Lance Corporal',                   abbr: 'LCPL'    },
-            { name: 'Lance Corporal Proficient',        abbr: 'LCPL(P)' },
-            { name: 'Leading Lance Corporal',           abbr: 'LCPL(L)' },
-            { name: 'Senior Lance Corporal',            abbr: 'LCPL(S)' },
-        ],
-    },
-    {
-        group: 'Lance Bombardier Billet (GOLF)',
-        ranks: [
-            { name: 'Junior Lance Bombardier',          abbr: 'LBDR(J)' },
-            { name: 'Lance Bombardier',                 abbr: 'LBDR'    },
-            { name: 'Lance Bombardier Proficient',      abbr: 'LBDR(P)' },
-            { name: 'Leading Lance Bombardier',         abbr: 'LBDR(L)' },
-            { name: 'Senior Lance Bombardier',          abbr: 'LBDR(S)' },
-        ],
-    },
-    {
-        group: 'Corporal Billet (MIKE / ECHO / VICTOR)',
-        ranks: [
-            { name: 'Junior Corporal',                  abbr: 'CPL(J)'  },
-            { name: 'Corporal',                         abbr: 'CPL'     },
-            { name: 'Corporal Proficient',              abbr: 'CPL(P)'  },
-            { name: 'Leading Corporal',                 abbr: 'CPL(L)'  },
-            { name: 'Senior Corporal',                  abbr: 'CPL(S)'  },
-        ],
-    },
-    {
-        group: 'Bombardier Billet (GOLF)',
-        ranks: [
-            { name: 'Junior Bombardier',                abbr: 'BDR(J)'  },
-            { name: 'Bombardier',                       abbr: 'BDR'     },
-            { name: 'Bombardier Proficient',            abbr: 'BDR(P)'  },
-            { name: 'Leading Bombardier',               abbr: 'BDR(L)'  },
-            { name: 'Senior Bombardier',                abbr: 'BDR(S)'  },
-        ],
-    },
-    {
-        group: 'Signaller',
-        ranks: [
-            { name: 'Signaller',                        abbr: 'SIG'     },
-            { name: 'Signaller Proficient',             abbr: 'SIG(P)'  },
-            { name: 'Leading Signaller',                abbr: 'SIG(L)'  },
-            { name: 'Senior Signaller',                 abbr: 'SIG(S)'  },
-            { name: 'Senior Leading Signaller',         abbr: 'SIG(SL)' },
-        ],
-    },
-    {
-        group: 'SNCO — Sergeant Billet',
-        ranks: [
-            { name: 'Sergeant',                         abbr: 'SGT'     },
-            { name: 'Staff Sergeant',                   abbr: 'SSGT'    },
-            { name: 'Sergeant-at-Arms',                 abbr: 'SAM'     },
-            { name: 'Senior Sergeant-at-Arms',          abbr: 'SSAM'    },
-            { name: 'Platoon Sergeant Major',           abbr: 'PSM'     },
-            { name: 'Platoon Technician Sergeant',      abbr: 'PTSG'    },
-            { name: 'Battery Sergeant',                 abbr: 'B/SGT'   },
-            { name: 'Troop Sergeant Major',             abbr: 'T/SGM'   },
-        ],
-    },
-    {
-        group: 'Officer Billet',
-        ranks: [
-            { name: 'Officer Cadet',                    abbr: 'OCDT'    },
-            { name: '2nd Lieutenant',                   abbr: '2LT'     },
-            { name: 'Lieutenant',                       abbr: 'LT'      },
-            { name: 'Senior Lieutenant',                abbr: 'SLT'     },
-            { name: 'Commanding Lieutenant',            abbr: 'CLT'     },
-        ],
-    },
-    {
-        group: 'Warrant Officer Billet',
-        ranks: [
-            { name: 'Warrant Officer 2',                abbr: 'WO2'     },
-            { name: 'Warrant Officer 1',                abbr: 'WO1'     },
-            { name: 'Company Sergeant Major',           abbr: 'CSM'     },
-            { name: 'Regimental Sergeant Major',        abbr: 'RSM'     },
-            { name: 'RSM of ASOT',                      abbr: 'RSM-A'   },
-        ],
-    },
-    {
-        group: 'Command',
-        ranks: [
-            { name: 'Staff Captain',                    abbr: 'SCAPT'   },
-            { name: 'Captain',                          abbr: 'CAPT'    },
-            { name: 'Major',                            abbr: 'MAJ'     },
-            { name: 'Lieutenant Colonel',               abbr: 'LTCOL'   },
-            { name: 'Colonel',                          abbr: 'COL'     },
-            { name: 'Brigadier',                        abbr: 'BRIG'    },
-            { name: 'Major General',                    abbr: 'MAJGEN'  },
-            { name: 'Lieutenant General',               abbr: 'LTGEN'   },
-            { name: 'General',                          abbr: 'GEN'     },
-            { name: 'Chief of ASOT',                    abbr: 'CA'      },
-        ],
-    },
-    {
-        group: 'HOTEL — Crew',
-        ranks: [
-            { name: 'Aircraftsman',                     abbr: 'AC'      },
-            { name: 'Leading Aircraftsman',             abbr: 'LAC'     },
-            { name: 'Loadmaster',                       abbr: 'LM'      },
-            { name: 'Senior Loadmaster',                abbr: 'LM(S)'   },
-            { name: 'Flight Sergeant',                  abbr: 'FSGT'    },
-        ],
-    },
-    {
-        group: 'HOTEL — Pilot',
-        ranks: [
-            { name: 'Pilot Officer',                    abbr: 'POF'     },
-            { name: 'Flying Officer',                   abbr: 'FOF'     },
-            { name: 'Flight Lieutenant',                abbr: 'FLT'     },
-            { name: 'Senior Flight Lieutenant',         abbr: 'FLT(S)'  },
-        ],
-    },
-    {
-        group: 'HOTEL — Officer',
-        ranks: [
-            { name: 'Flight Leader',                    abbr: 'FLL'     },
-            { name: 'Squadron Leader',                  abbr: 'SQLD'    },
-            { name: 'Wing Captain',                     abbr: 'WGCP'    },
-            { name: 'Wing Commander',                   abbr: 'WGCO'    },
-            { name: 'Group Captain',                    abbr: 'GPCAPT'  },
-        ],
-    },
-    {
-        group: 'HOTEL — Command',
-        ranks: [
-            { name: 'Commodore',                        abbr: 'COM'     },
-            { name: 'Air Vice Marshal',                 abbr: 'AVM'     },
-            { name: 'Air Marshal',                      abbr: 'AM'      },
-            { name: 'Air Chief Marshal',                abbr: 'ACM'     },
-            { name: 'Senior Air Chief Marshal',         abbr: 'SACM'    },
-        ],
-    },
-    {
-        group: 'Game Master',
-        ranks: [
-            { name: 'Game Master',                      abbr: 'GM'      },
-            { name: 'Game Master Proficient',           abbr: 'GM(P)'   },
-            { name: 'Senior Game Master',               abbr: 'GM(S)'   },
-            { name: 'Grand Game Master',                abbr: 'GM(G)'   },
-            { name: 'Distinguished Game Master',        abbr: 'GM(D)'   },
-        ],
-    },
-]
-
-const RANKS_FLAT = RANK_GROUPS.flatMap(g => g.ranks)
 
 const AWARD_TYPES = [
     'Non-Operational Award',
@@ -219,9 +20,9 @@ function todayStr() {
     return new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-type Promotion = { date: string; rank: string; role: string }
-type Award = { date: string; name: string; type: string }
-type Operation = { startToEndDate: string; name: string }
+type Promotion = { _key: string; date: string; rank: string; role: string }
+type Award = { _key: string; date: string; name: string; type: string }
+type Operation = { _key: string; startToEndDate: string; name: string }
 
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -439,14 +240,17 @@ function DragHandle() {
 export default function MilpacEditor({ member }: { member: User }) {
     const displayName = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName || member.username
 
-    const [bioRank, setBioRank] = useState(member.bio?.rank ?? '')
+    const [bioRank, setBioRank] = useState(rankNameFromAbbr(member.milpac?.currentRank ?? member.bio?.rank ?? ''))
     const joinDateStr = member.guild?.joinedTimestamp
         ? new Date(member.guild.joinedTimestamp).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
         : ''
     const [enlistedDate, setEnlistedDate] = useState(member.milpac?.enlistedDate || joinDateStr)
-    const [promotions, setPromotions] = useState<Promotion[]>(member.milpac?.promotions ?? [])
-    const [awards, setAwards] = useState<Award[]>(member.milpac?.awards ?? [])
-    const [operations, setOperations] = useState<Operation[]>(member.milpac?.operations ?? [])
+    const [promotions, setPromotions] = useState<Promotion[]>(() =>
+        (member.milpac?.promotions ?? []).map(p => ({ _key: String(_keyCount++), ...p })))
+    const [awards, setAwards] = useState<Award[]>(() =>
+        (member.milpac?.awards ?? []).map(a => ({ _key: String(_keyCount++), ...a })))
+    const [operations, setOperations] = useState<Operation[]>(() =>
+        (member.milpac?.operations ?? []).map(o => ({ _key: String(_keyCount++), ...o })))
 
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
@@ -457,13 +261,6 @@ export default function MilpacEditor({ member }: { member: User }) {
     const dragSrc = useRef<{ list: string; index: number } | null>(null)
     const [dragging, setDragging] = useState<{ list: string; index: number } | null>(null)
     const [dragOver, setDragOver] = useState<{ list: string; index: number } | null>(null)
-    const keysMap = useRef(new WeakMap<object, string>())
-
-    function getKey(item: object) {
-        if (!keysMap.current.has(item)) keysMap.current.set(item, String(_keyCount++))
-        return keysMap.current.get(item)!
-    }
-
     // Show insertion line above item i when dragging down toward it (src < i),
     // or below when dragging up toward it (src > i)
     function showLine(list: string, i: number, pos: 'above' | 'below') {
@@ -502,7 +299,12 @@ export default function MilpacEditor({ member }: { member: User }) {
             const res = await fetch(`/api/members/${member.username}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ bioRank, enlistedDate, promotions, awards, operations }),
+                body: JSON.stringify({
+                    bioRank: rankAbbrFromName(bioRank), enlistedDate,
+                    promotions: promotions.map(({ _key, ...rest }) => rest),
+                    awards: awards.map(({ _key, ...rest }) => rest),
+                    operations: operations.map(({ _key, ...rest }) => rest),
+                }),
             })
             const json = await res.json()
             if (!res.ok) throw new Error(json.error || 'Save failed')
@@ -518,7 +320,7 @@ export default function MilpacEditor({ member }: { member: User }) {
     // ── Promotion helpers ──────────────────────────────────────────────────────
 
     function addPromotion() {
-        setPromotions(prev => [...prev, { date: todayStr(), rank: RANKS_FLAT[0].name, role: '' }])
+        setPromotions(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), rank: RANKS_FLAT[0].name, role: '' }])
     }
     function updatePromotion(i: number, field: keyof Promotion, value: string) {
         setPromotions(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p))
@@ -530,7 +332,7 @@ export default function MilpacEditor({ member }: { member: User }) {
     // ── Award helpers ──────────────────────────────────────────────────────────
 
     function addAward() {
-        setAwards(prev => [...prev, { date: todayStr(), name: '', type: AWARD_TYPES[0] }])
+        setAwards(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), name: '', type: AWARD_TYPES[0] }])
     }
     function updateAward(i: number, field: keyof Award, value: string) {
         setAwards(prev => prev.map((a, idx) => idx === i ? { ...a, [field]: value } : a))
@@ -542,7 +344,7 @@ export default function MilpacEditor({ member }: { member: User }) {
     // ── Operation helpers ──────────────────────────────────────────────────────
 
     function addOperation() {
-        setOperations(prev => [...prev, { startToEndDate: `${todayStr()} - ${todayStr()}`, name: '' }])
+        setOperations(prev => [...prev, { _key: String(_keyCount++), startToEndDate: `${todayStr()} - ${todayStr()}`, name: '' }])
     }
     function updateOperation(i: number, field: keyof Operation, value: string) {
         setOperations(prev => prev.map((o, idx) => idx === i ? { ...o, [field]: value } : o))
@@ -610,7 +412,7 @@ export default function MilpacEditor({ member }: { member: User }) {
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No promotions on record.</span>
                 ) : (
                     promotions.map((p, i) => (
-                        <Fragment key={getKey(p)}>
+                        <Fragment key={p._key}>
                             {showLine('promotions', i, 'above') && <InsertionLine />}
                             <div className='flex gap-2 items-end' {...dragProps('promotions', promotions, setPromotions, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragging?.list === 'promotions' && dragging.index === i ? 0.3 : 1, transition: 'opacity 0.15s' }}>
                                 <DragHandle />
@@ -640,7 +442,7 @@ export default function MilpacEditor({ member }: { member: User }) {
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No awards on record.</span>
                 ) : (
                     awards.map((a, i) => (
-                        <Fragment key={getKey(a)}>
+                        <Fragment key={a._key}>
                             {showLine('awards', i, 'above') && <InsertionLine />}
                             <div className='flex gap-2 items-end' {...dragProps('awards', awards, setAwards, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragging?.list === 'awards' && dragging.index === i ? 0.3 : 1, transition: 'opacity 0.15s' }}>
                                 <DragHandle />
@@ -672,7 +474,7 @@ export default function MilpacEditor({ member }: { member: User }) {
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No operations on record.</span>
                 ) : (
                     operations.map((op, i) => (
-                        <Fragment key={getKey(op)}>
+                        <Fragment key={op._key}>
                             {showLine('operations', i, 'above') && <InsertionLine />}
                             <div className='flex gap-2 items-end' {...dragProps('operations', operations, setOperations, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragging?.list === 'operations' && dragging.index === i ? 0.3 : 1, transition: 'opacity 0.15s' }}>
                                 <DragHandle />

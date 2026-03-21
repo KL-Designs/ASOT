@@ -19,7 +19,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         'milpac.awards': awards ?? [],
         'milpac.operations': operations ?? [],
     }
-    if (bioRank !== undefined) update['bio.rank'] = bioRank
+    if (bioRank !== undefined) {
+        update['milpac.currentRank'] = bioRank
+        update['bio.rank'] = bioRank
+    }
 
     const result = await Db.users.updateOne({ username }, { $set: update })
     if (result.matchedCount === 0) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
