@@ -20,16 +20,21 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 		const ctx = canvas.getContext('2d')
 		if (!ctx) return
 
-		const BOX = 50
-		const OBS_W = 18
-		const GRAVITY = 0.12
-		const JUMP_VEL = -9
-		const MOVE_SPEED = 2.5
+		const TRI      = 26
+		const GRAVITY  = 0.06
+		const THRUST   = 0.13
+		const MAX_UP   = -2.0
+		const MAX_DOWN = 2.5
 
-		interface Obstacle { x: number; height: number; speed: number }
-		interface Platform { x: number; y: number; width: number; speed: number }
-		interface Collectible { x: number; y: number; size: number; speed: number }
-		interface Projectile { x: number; y: number; size: number; speed: number }
+		interface Asteroid {
+			x: number; y: number
+			radius: number
+			verts: { a: number; r: number }[]
+			rotation: number
+			rotSpeed: number
+			speed: number
+		}
+		interface Gem { x: number; y: number; size: number; speed: number }
 
 		const state = {
 			active: false,
@@ -37,293 +42,270 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			deadTimer: 0,
 			deathReported: false,
 			x: 0, y: 0,
-			vx: 0, vy: 0,
-			onGround: false,
+			vy: 0,
+			thrusting: false,
 			hintTimer: 0,
-			keys: { left: false, right: false },
-			obstacles: [] as Obstacle[],
-			platforms: [] as Platform[],
-			spawnTimer: 90,
-			platformTimer: 170,
-			spawnInterval: 150,
-			obsSpeed: 1.5,
+			countdown: -1,
+			countdownTimer: 0,
+			asteroids: [] as Asteroid[],
+			spawnTimer: 130,
+			spawnInterval: 190,
+			obsSpeed: 1.6,
 			score: 0,
 			collectScore: 0,
-			collectibles: [] as Collectible[],
-			collectTimer: 120,
-			projectiles: [] as Projectile[],
-			projectileTimer: 350,
+			gems: [] as Gem[],
+			gemTimer: 130,
 		}
 
-		const floor = () => canvas.height - BOX
+		const makeAsteroid = (): Asteroid => {
+			const numV   = 6 + Math.floor(Math.random() * 5)   // 6–10 sides
+			const radius = 16 + Math.random() * 54              // 16–70 px
+			const verts  = Array.from({ length: numV }, (_, i) => ({
+				a: (i / numV) * Math.PI * 2 + (Math.random() - 0.5) * (Math.PI / numV) * 1.2,
+				r: radius * (0.55 + Math.random() * 0.55),
+			}))
+			return {
+				x:        canvas.width + radius + 10,
+				y:        radius + 20 + Math.random() * (canvas.height - radius * 2 - 40),
+				radius,
+				verts,
+				rotation: Math.random() * Math.PI * 2,
+				rotSpeed: (Math.random() - 0.5) * 0.016,
+				speed:    state.obsSpeed * (0.65 + Math.random() * 0.7),
+			}
+		}
 
 		const reset = () => {
-			state.x = 60
-			state.y = -BOX
-			state.vx = 0
-			state.vy = 0
-			state.onGround = false
-			state.obstacles = []
-			state.platforms = []
-			state.spawnTimer = 90
-			state.platformTimer = 170
-			state.spawnInterval = 150
-			state.obsSpeed = 1.5
-			state.score = 0
+			state.x            = canvas.width * 0.18
+			state.y            = canvas.height * 0.5 - TRI / 2
+			state.vy           = 0
+			state.thrusting    = false
+			state.asteroids    = []
+			state.spawnTimer   = 130
+			state.spawnInterval = 190
+			state.obsSpeed     = 1.6
+			state.score        = 0
 			state.collectScore = 0
-			state.collectibles = []
-			state.collectTimer = 120
-			state.projectiles = []
-			state.projectileTimer = 350
-			state.dead = false
-			state.deadTimer = 0
+			state.gems         = []
+			state.gemTimer     = 130
+			state.dead         = false
+			state.deadTimer    = 0
 			state.deathReported = false
-			state.hintTimer = 200
+			state.hintTimer    = 230
+			state.countdown    = 3
+			state.countdownTimer = 90
 		}
 
 		const resize = () => {
-			canvas.width = canvas.offsetWidth
+			canvas.width  = canvas.offsetWidth
 			canvas.height = canvas.offsetHeight
 		}
 		resize()
 		window.addEventListener('resize', resize)
 
 		const onKeyDown = (e: KeyboardEvent) => {
-			if (e.code === 'Space') {
+			if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
 				e.preventDefault()
 				if (!state.active) { state.active = true; reset(); onActivate(); return }
 				if (state.dead && state.deadTimer <= 0) { reset(); onRestartRef.current?.(); return }
-				if (state.onGround) { state.vy = JUMP_VEL; state.onGround = false }
-			}
-			if (!state.active || state.dead) return
-			if (e.code === 'KeyA') state.keys.left = true
-			if (e.code === 'KeyD') state.keys.right = true
-			if (e.code === 'Space' && state.onGround) {
-				state.vy = JUMP_VEL
-				state.onGround = false
+				if (state.countdown < 0) state.thrusting = true
 			}
 		}
 		const onKeyUp = (e: KeyboardEvent) => {
-			if (e.code === 'KeyA') state.keys.left = false
-			if (e.code === 'KeyD') state.keys.right = false
-			if ((e.code === 'KeyW' || e.code === 'Space') && state.vy < -3) state.vy = -3
+			if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') state.thrusting = false
 		}
-
 		window.addEventListener('keydown', onKeyDown)
 		window.addEventListener('keyup', onKeyUp)
 
 		let animId: number
 		let frame = 0
 
+		const die = () => {
+			if (state.dead) return
+			state.y     = Math.max(0, Math.min(canvas.height - TRI, state.y))
+			state.dead  = true
+			state.deadTimer = 80
+			if (!state.deathReported) {
+				state.deathReported = true
+				onGameOverRef.current?.(state.score, state.collectScore)
+			}
+		}
+
+		const drawTri = (cx: number, cy: number, size: number, tilt: number, stroke: string, fill: string) => {
+			ctx.save()
+			ctx.translate(cx, cy)
+			ctx.rotate(tilt)
+			ctx.beginPath()
+			ctx.moveTo( size / 2,  0)
+			ctx.lineTo(-size / 2, -size / 2)
+			ctx.lineTo(-size / 2,  size / 2)
+			ctx.closePath()
+			ctx.strokeStyle = stroke
+			ctx.lineWidth   = 1.5
+			ctx.stroke()
+			ctx.fillStyle = fill
+			ctx.fill()
+			ctx.restore()
+		}
+
+		const drawAsteroid = (ast: Asteroid, alpha = 1) => {
+			ctx.save()
+			ctx.globalAlpha = alpha
+			ctx.translate(ast.x, ast.y)
+			ctx.rotate(ast.rotation)
+			ctx.beginPath()
+			ast.verts.forEach((v, i) => {
+				const px = Math.cos(v.a) * v.r
+				const py = Math.sin(v.a) * v.r
+				i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
+			})
+			ctx.closePath()
+			ctx.strokeStyle = 'rgba(219,0,29,0.8)'
+			ctx.lineWidth   = 1.5
+			ctx.stroke()
+			ctx.fillStyle   = 'rgba(219,0,29,0.06)'
+			ctx.fill()
+			ctx.restore()
+		}
+
 		const animate = () => {
 			frame++
 			ctx.clearRect(0, 0, canvas.width, canvas.height)
-
 			if (!state.active) { animId = requestAnimationFrame(animate); return }
 
-			const f = floor()
+			const cx   = state.x + TRI / 2
+			const cy   = state.y + TRI / 2
+			const tilt = Math.atan2(state.vy, 6) * 0.85
+
+			// ── Countdown ────────────────────────────────────────────
+			if (state.countdown >= 0) {
+				state.countdownTimer--
+				if (state.countdownTimer <= 0) {
+					if (state.countdown === 0) {
+						state.countdown = -1   // done — game starts next frame
+					} else {
+						state.countdown--
+						state.countdownTimer = state.countdown === 0 ? 65 : 90
+					}
+				}
+
+				// Ship hovering in place
+				drawTri(cx, cy, TRI, 0, 'rgba(237,237,237,0.88)', 'rgba(237,237,237,0.08)')
+
+				// Number shrinks slightly as each beat elapses (1.3 → 1.0)
+				const stepFrames = state.countdown === 0 ? 65 : 90
+				const progress   = state.countdownTimer / stepFrames   // 1 → 0
+				const fontSize   = Math.round((state.countdown === 0 ? 62 : 80) * (1.0 + progress * 0.28))
+				const label      = state.countdown > 0 ? String(state.countdown) : 'GO!'
+				const fadeAlpha  = state.countdown === 0 ? Math.min(1, state.countdownTimer / 18) : 1
+
+				ctx.save()
+				ctx.globalAlpha  = fadeAlpha
+				ctx.fillStyle    = state.countdown === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(237,237,237,0.88)'
+				ctx.font         = `700 ${fontSize}px monospace`
+				ctx.textAlign    = 'center'
+				ctx.textBaseline = 'middle'
+				ctx.fillText(label, canvas.width / 2, canvas.height / 2)
+				ctx.restore()
+
+				animId = requestAnimationFrame(animate); return
+			}
 
 			if (!state.dead) {
-				// Physics
+				// ── Physics ──────────────────────────────────────────
 				state.vy += GRAVITY
-				if (state.keys.left) state.vx = -MOVE_SPEED
-				else if (state.keys.right) state.vx = MOVE_SPEED
-				else state.vx *= 0.75
-				state.x += state.vx
+				if (state.thrusting) state.vy -= THRUST + GRAVITY
+				state.vy = Math.max(MAX_UP, Math.min(MAX_DOWN, state.vy))
 				state.y += state.vy
+				if (state.y < 0 || state.y + TRI > canvas.height) die()
 
-				// Ground + platform landing
-				state.onGround = false
-				if (state.y >= f) { state.y = f; state.vy = 0; state.onGround = true }
-				for (const plat of state.platforms) {
-					if (state.vy >= 0 &&
-						state.x + BOX > plat.x && state.x < plat.x + plat.width &&
-						state.y + BOX >= plat.y && state.y + BOX - state.vy <= plat.y + 4) {
-						state.y = plat.y - BOX; state.vy = 0; state.onGround = true; break
-					}
-				}
-				if (state.x <= 0) {
-					state.dead = true
-					state.deadTimer = 100
-					if (!state.deathReported) {
-						state.deathReported = true
-						onGameOverRef.current?.(state.score, state.collectScore)
-					}
-				}
-				if (state.x > canvas.width * 0.45) { state.x = canvas.width * 0.45; state.vx = 0 }
-
-				// Platforms
-				state.platformTimer--
-				if (state.platformTimer <= 0) {
-					const minY = canvas.height * 0.52
-					const maxY = canvas.height * 0.78
-					state.platforms.push({
-						x: canvas.width + 10,
-						y: minY + Math.random() * (maxY - minY),
-						width: 50 + Math.random() * 45,
-						speed: state.obsSpeed * 0.9,
-					})
-					state.platformTimer = Math.floor(190 * (0.5 + Math.random() * 1.0))
-				}
-				for (let i = state.platforms.length - 1; i >= 0; i--) {
-					state.platforms[i].x -= state.platforms[i].speed
-					if (state.platforms[i].x + state.platforms[i].width < 0) state.platforms.splice(i, 1)
-				}
-
-				// Obstacles
+				// ── Asteroids ─────────────────────────────────────────
 				state.spawnTimer--
-				if (state.spawnTimer <= 0) {
-					state.obstacles.push({
-						x: canvas.width + 10,
-						height: Math.random() * 52 + 32,
-						speed: state.obsSpeed,
+				if (state.spawnTimer <= 0 && state.asteroids.length < 8) {
+					state.asteroids.push(makeAsteroid())
+					state.spawnTimer    = Math.floor(state.spawnInterval * (0.55 + Math.random() * 0.9))
+					state.obsSpeed      = Math.min(4.2, state.obsSpeed + 0.04)
+					state.spawnInterval = Math.max(85, state.spawnInterval - 2)
+				}
+				for (let i = state.asteroids.length - 1; i >= 0; i--) {
+					const ast = state.asteroids[i]
+					ast.x        -= ast.speed
+					ast.rotation += ast.rotSpeed
+					if (ast.x + ast.radius < 0) { state.asteroids.splice(i, 1); state.score++ }
+				}
+
+				// ── Gems ──────────────────────────────────────────────
+				state.gemTimer--
+				if (state.gemTimer <= 0) {
+					state.gems.push({
+						x:     canvas.width + 10,
+						y:     canvas.height * (0.12 + Math.random() * 0.76),
+						size:  9,
+						speed: state.obsSpeed * 0.85,
 					})
-					state.spawnTimer = Math.floor(state.spawnInterval * (0.6 + Math.random() * 0.8))
-					state.obsSpeed = Math.min(3.2, state.obsSpeed + 0.02)
-					state.spawnInterval = Math.max(90, state.spawnInterval - 1)
+					state.gemTimer = Math.floor(130 * (0.5 + Math.random() * 1.0))
 				}
-				for (let i = state.obstacles.length - 1; i >= 0; i--) {
-					state.obstacles[i].x -= state.obstacles[i].speed
-					if (state.obstacles[i].x + OBS_W < 0) {
-						state.obstacles.splice(i, 1)
-						state.score++
-					}
+				for (let i = state.gems.length - 1; i >= 0; i--) {
+					state.gems[i].x -= state.gems[i].speed
+					if (state.gems[i].x < -20) state.gems.splice(i, 1)
 				}
 
-				// Collectibles
-				state.collectTimer--
-				if (state.collectTimer <= 0) {
-					state.collectibles.push({
-						x: canvas.width + 10,
-						y: canvas.height * (0.12 + Math.random() * 0.76),
-						size: 11,
-						speed: state.obsSpeed * 0.95,
-					})
-					state.collectTimer = Math.floor(140 * (0.5 + Math.random() * 1.0))
-				}
-				for (let i = state.collectibles.length - 1; i >= 0; i--) {
-					state.collectibles[i].x -= state.collectibles[i].speed
-					if (state.collectibles[i].x < -20) state.collectibles.splice(i, 1)
+				// ── Collision (circle–circle) ──────────────────────────
+				const shipR = TRI / 3.8
+				for (const ast of state.asteroids) {
+					if (Math.hypot(cx - ast.x, cy - ast.y) < shipR + ast.radius * 0.70) die()
 				}
 
-				// Projectiles — large fast boxes through the air
-				state.projectileTimer--
-				if (state.projectileTimer <= 0) {
-					const size = 110 + Math.random() * 40
-					state.projectiles.push({
-						x: canvas.width + 10,
-						y: canvas.height * (0.35 + Math.random() * 0.3),
-						size,
-						speed: 6 + Math.random() * 3 + state.obsSpeed * 0.6,
-					})
-					state.projectileTimer = Math.floor(500 * (0.6 + Math.random() * 0.9))
-				}
-				for (let i = state.projectiles.length - 1; i >= 0; i--) {
-					state.projectiles[i].x -= state.projectiles[i].speed
-					if (state.projectiles[i].x + state.projectiles[i].size < 0) state.projectiles.splice(i, 1)
-				}
-
-				// Collision — push player left, lose if they hit the left edge
-				for (const obs of state.obstacles) {
-					const obsY = canvas.height - obs.height
-					if (state.x < obs.x + OBS_W && state.x + BOX > obs.x &&
-						state.y < obsY + obs.height && state.y + BOX > obsY) {
-						state.vx = -7
-						state.x = obs.x - BOX - 1
-					}
-				}
-
-				// Projectile collision — hit sends player flying left
-				for (const proj of state.projectiles) {
-					if (state.x < proj.x + proj.size && state.x + BOX > proj.x &&
-						state.y < proj.y + proj.size && state.y + BOX > proj.y) {
-						state.vx = -11
-						state.vy = -4
-						state.x = proj.x - BOX - 1
-					}
-				}
-
-				// Collect gems
-				for (let i = state.collectibles.length - 1; i >= 0; i--) {
-					const col = state.collectibles[i]
-					if (state.x < col.x + col.size && state.x + BOX > col.x - col.size &&
-						state.y < col.y + col.size && state.y + BOX > col.y - col.size) {
-						state.collectibles.splice(i, 1)
+				// ── Gem collection ────────────────────────────────────
+				for (let i = state.gems.length - 1; i >= 0; i--) {
+					const g = state.gems[i]
+					if (Math.hypot(cx - g.x, cy - g.y) < g.size + TRI / 2.5) {
+						state.gems.splice(i, 1)
 						state.collectScore++
 					}
 				}
 
-				// Draw obstacles
-				for (const obs of state.obstacles) {
-					const obsY = canvas.height - obs.height
-					ctx.save()
-					ctx.strokeStyle = 'rgba(219,0,29,0.8)'
-					ctx.lineWidth = 1.5
-					ctx.strokeRect(obs.x, obsY, OBS_W, obs.height)
-					ctx.fillStyle = 'rgba(219,0,29,0.07)'
-					ctx.fillRect(obs.x, obsY, OBS_W, obs.height)
-					ctx.restore()
-				}
+				// ── Draw asteroids ────────────────────────────────────
+				for (const ast of state.asteroids) drawAsteroid(ast)
 
-				// Draw projectiles
-				for (const proj of state.projectiles) {
+				// ── Draw gems ─────────────────────────────────────────
+				for (const g of state.gems) {
 					ctx.save()
-					ctx.strokeStyle = 'rgba(255,120,0,0.9)'
-					ctx.lineWidth = 2
-					ctx.strokeRect(proj.x, proj.y, proj.size, proj.size)
-					ctx.fillStyle = 'rgba(255,120,0,0.12)'
-					ctx.fillRect(proj.x, proj.y, proj.size, proj.size)
-					// Speed lines trailing behind
-					ctx.strokeStyle = 'rgba(255,120,0,0.3)'
-					ctx.lineWidth = 1
-					for (let l = 1; l <= 3; l++) {
-						const lx = proj.x + proj.size * (l / 4)
-						ctx.beginPath()
-						ctx.moveTo(lx, proj.y)
-						ctx.lineTo(lx + l * 12, proj.y)
-						ctx.stroke()
-						ctx.beginPath()
-						ctx.moveTo(lx, proj.y + proj.size)
-						ctx.lineTo(lx + l * 12, proj.y + proj.size)
-						ctx.stroke()
-					}
-					ctx.restore()
-				}
-
-				// Draw collectibles
-				for (const col of state.collectibles) {
-					ctx.save()
-					ctx.translate(col.x, col.y)
-					ctx.rotate(Math.PI / 4)
+					ctx.translate(g.x, g.y)
+					ctx.rotate(Math.PI / 4 + frame * 0.022)
 					ctx.strokeStyle = 'rgba(255,210,0,0.95)'
-					ctx.lineWidth = 1.5
-					ctx.strokeRect(-col.size, -col.size, col.size * 2, col.size * 2)
-					ctx.fillStyle = 'rgba(255,210,0,0.18)'
-					ctx.fillRect(-col.size, -col.size, col.size * 2, col.size * 2)
+					ctx.lineWidth   = 1.5
+					ctx.strokeRect(-g.size, -g.size, g.size * 2, g.size * 2)
+					ctx.fillStyle   = 'rgba(255,210,0,0.2)'
+					ctx.fillRect(-g.size, -g.size, g.size * 2, g.size * 2)
 					ctx.restore()
 				}
 
-				// Draw platforms
-				for (const plat of state.platforms) {
-					ctx.save()
-					ctx.strokeStyle = 'rgba(237,237,237,0.85)'
-					ctx.lineWidth = 2
-					ctx.strokeRect(plat.x, plat.y, plat.width, 8)
-					ctx.fillStyle = 'rgba(237,237,237,0.15)'
-					ctx.fillRect(plat.x, plat.y, plat.width, 8)
-					ctx.restore()
+				// ── Thruster flame ────────────────────────────────────
+				{
+					const showFlame = state.thrusting || Math.random() < 0.15
+					if (showFlame) {
+						const fl = state.thrusting ? 6 + Math.random() * 10 : 2 + Math.random() * 4
+						ctx.save()
+						ctx.translate(cx, cy)
+						ctx.rotate(tilt)
+						ctx.beginPath()
+						ctx.moveTo(-TRI / 2, -TRI * 0.22)
+						ctx.lineTo(-TRI / 2 - fl, 0)
+						ctx.lineTo(-TRI / 2,  TRI * 0.22)
+						ctx.closePath()
+						ctx.fillStyle = state.thrusting
+							? `rgba(255,${100 + Math.floor(Math.random() * 80)},0,0.78)`
+							: 'rgba(255,160,0,0.35)'
+						ctx.fill()
+						ctx.restore()
+					}
 				}
 
-				// Draw player
-				ctx.save()
-				ctx.strokeStyle = 'rgba(237,237,237,0.85)'
-				ctx.lineWidth = 1.5
-				ctx.strokeRect(state.x, state.y, BOX, BOX)
-				ctx.fillStyle = 'rgba(237,237,237,0.06)'
-				ctx.fillRect(state.x, state.y, BOX, BOX)
-				ctx.restore()
+				// ── Draw player ───────────────────────────────────────
+				drawTri(cx, cy, TRI, tilt, 'rgba(237,237,237,0.88)', 'rgba(237,237,237,0.08)')
 
-				// Score
+				// ── HUD ───────────────────────────────────────────────
 				ctx.save()
 				ctx.fillStyle = 'rgba(237,237,237,0.3)'
 				ctx.font = '600 14px monospace'
@@ -331,7 +313,6 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 				ctx.fillText(`SCORE  ${state.score}`, 14, 22)
 				ctx.restore()
 
-				// Gem score at bottom
 				ctx.save()
 				ctx.fillStyle = 'rgba(255,210,0,0.55)'
 				ctx.font = '600 14px monospace'
@@ -339,53 +320,37 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 				ctx.fillText(`◆  ${state.collectScore}`, canvas.width / 2, canvas.height - 10)
 				ctx.restore()
 
-				// Hint
+				// ── Hint ──────────────────────────────────────────────
 				if (state.hintTimer > 0) {
 					state.hintTimer--
-					const alpha = Math.min(1, state.hintTimer / 40) * 0.6
+					const alpha = Math.min(1, state.hintTimer / 40) * 0.55
 					ctx.save()
 					ctx.globalAlpha = alpha
-					ctx.fillStyle = '#fff'
-					ctx.font = '600 11px monospace'
-					ctx.textAlign = 'center'
-					ctx.fillText('W TO JUMP  ·  A D TO MOVE', canvas.width / 2, f - BOX - 14)
+					ctx.fillStyle   = '#fff'
+					ctx.font        = '600 11px monospace'
+					ctx.textAlign   = 'center'
+					ctx.fillText('HOLD W / SPACE / ↑  TO FLY', canvas.width / 2, canvas.height * 0.72)
 					ctx.restore()
 				}
+
 			} else {
-				// Dead — flash player
+				// ── Dead state ────────────────────────────────────────
 				if (state.deadTimer > 0) state.deadTimer--
+
+				for (const ast of state.asteroids) drawAsteroid(ast, 0.3)
+
 				if (Math.floor(frame / 5) % 2 === 0) {
-					ctx.save()
-					ctx.strokeStyle = 'rgba(219,0,29,0.9)'
-					ctx.lineWidth = 1.5
-					ctx.strokeRect(state.x, state.y, BOX, BOX)
-					ctx.fillStyle = 'rgba(219,0,29,0.18)'
-					ctx.fillRect(state.x, state.y, BOX, BOX)
-					ctx.restore()
+					drawTri(cx, cy, TRI, tilt, 'rgba(219,0,29,0.9)', 'rgba(219,0,29,0.2)')
 				}
-				for (const obs of state.obstacles) {
-					const obsY = canvas.height - obs.height
-					ctx.save()
-					ctx.strokeStyle = 'rgba(219,0,29,0.4)'
-					ctx.lineWidth = 1.5
-					ctx.strokeRect(obs.x, obsY, OBS_W, obs.height)
-					ctx.restore()
-				}
-				for (const proj of state.projectiles) {
-					ctx.save()
-					ctx.strokeStyle = 'rgba(255,120,0,0.35)'
-					ctx.lineWidth = 2
-					ctx.strokeRect(proj.x, proj.y, proj.size, proj.size)
-					ctx.restore()
-				}
+
 				if (state.deadTimer <= 0) {
 					ctx.save()
 					ctx.textAlign = 'center'
 					ctx.fillStyle = 'rgba(237,237,237,0.8)'
-					ctx.font = '700 22px monospace'
+					ctx.font      = '700 22px monospace'
 					ctx.fillText(`SCORE  ${state.score}  ◆  ${state.collectScore}`, canvas.width / 2, canvas.height / 2 - 16)
 					ctx.fillStyle = 'rgba(237,237,237,0.4)'
-					ctx.font = '600 16px monospace'
+					ctx.font      = '600 16px monospace'
 					ctx.fillText('SPACE TO RESTART', canvas.width / 2, canvas.height / 2 + 10)
 					ctx.restore()
 				}
