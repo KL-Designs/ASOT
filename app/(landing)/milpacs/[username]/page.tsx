@@ -59,8 +59,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 
 	const { member, orbatEntry, accent, name, fullRank, callsign } = profile
 
-	const uniformFilename = `${name.toUpperCase()}.png`
-	const uniformPath = join(process.cwd(), 'milpacs', uniformFilename)
+	const uniformPath = join(process.cwd(), 'milpacs', `${username}.png`)
 	const hasUniform = existsSync(uniformPath)
 
 	return (
@@ -216,7 +215,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 						<div style={{ display: 'flex', justifyContent: 'center', padding: '1rem' }}>
 							{/* eslint-disable-next-line @next/next/no-img-element */}
 							<img
-								src={`/api/milpacs/${name.toUpperCase()}`}
+								src={`/api/milpacs/${username}`}
 								alt={`${name} uniform`}
 								style={{ objectFit: 'contain', maxHeight: 500 }}
 							/>

@@ -259,6 +259,42 @@ export default function MilpacEditor({ member }: { member: User }) {
     const [saved, setSaved] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
+    const [uniformFile, setUniformFile] = useState<File | null>(null)
+    const [uniformPreview, setUniformPreview] = useState<string | null>(null)
+    const [uniformUploading, setUniformUploading] = useState(false)
+    const [uniformSaved, setUniformSaved] = useState(false)
+    const [uniformError, setUniformError] = useState<string | null>(null)
+    const [uniformKey, setUniformKey] = useState(0)
+
+    function onUniformChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0] ?? null
+        setUniformFile(file)
+        setUniformSaved(false)
+        setUniformError(null)
+        if (file) setUniformPreview(URL.createObjectURL(file))
+    }
+
+    async function uploadUniform() {
+        if (!uniformFile) return
+        setUniformUploading(true)
+        setUniformError(null)
+        try {
+            const fd = new FormData()
+            fd.append('file', uniformFile)
+            const res = await fetch(`/api/milpacs/${member.username}`, { method: 'POST', body: fd })
+            const json = await res.json()
+            if (!res.ok) throw new Error(json.error || 'Upload failed')
+            setUniformSaved(true)
+            setUniformFile(null)
+            setUniformPreview(null)
+            setUniformKey(k => k + 1)
+        } catch (e: any) {
+            setUniformError(e.message)
+        } finally {
+            setUniformUploading(false)
+        }
+    }
+
     // ── Drag state ─────────────────────────────────────────────────────────────
 
     const dragSrc = useRef<{ list: string; index: number } | null>(null)
@@ -503,6 +539,52 @@ export default function MilpacEditor({ member }: { member: User }) {
                         </Fragment>
                     ))
                 )}
+            </SectionCard>
+
+            {/* Uniform */}
+            <SectionCard title='Uniform'>
+                <div className='flex gap-6 items-start'>
+                    {/* Current / preview image */}
+                    <div style={{ flexShrink: 0, width: 120, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 160, overflow: 'hidden' }}>
+                        {uniformPreview ? (
+                            <img src={uniformPreview} alt='preview' style={{ width: '100%', objectFit: 'contain' }} />
+                        ) : (
+                            <img
+                                key={uniformKey}
+                                src={`/api/milpacs/${member.username}`}
+                                alt='uniform'
+                                style={{ width: '100%', objectFit: 'contain' }}
+                                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+                            />
+                        )}
+                    </div>
+
+                    <div className='flex flex-col gap-3 flex-1'>
+                        <Label>Upload Uniform Image</Label>
+                        <input
+                            type='file'
+                            accept='image/png'
+                            onChange={onUniformChange}
+                            style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.5)', cursor: 'pointer' }}
+                        />
+                        <div className='flex items-center gap-3'>
+                            <button
+                                onClick={uploadUniform}
+                                disabled={!uniformFile || uniformUploading}
+                                style={{
+                                    padding: '6px 16px', fontSize: '0.75rem', fontWeight: 700,
+                                    letterSpacing: '0.1em', textTransform: 'uppercase', cursor: uniformFile ? 'pointer' : 'not-allowed',
+                                    background: uniformFile ? 'rgba(219,0,29,0.15)' : 'transparent',
+                                    border: '1px solid rgba(219,0,29,0.3)', color: uniformFile ? 'rgba(219,0,29,0.9)' : 'rgba(219,0,29,0.3)',
+                                }}
+                            >
+                                {uniformUploading ? 'Uploading…' : 'Upload'}
+                            </button>
+                            {uniformSaved && <span style={{ fontSize: '0.75rem', color: 'rgba(80,200,80,0.7)' }}>Saved.</span>}
+                            {uniformError && <span style={{ fontSize: '0.75rem', color: 'rgba(219,0,29,0.8)' }}>{uniformError}</span>}
+                        </div>
+                    </div>
+                </div>
             </SectionCard>
 
             {/* Save bar */}

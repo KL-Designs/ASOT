@@ -21,8 +21,6 @@ export async function POST(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    if (!client.hasRoles(me, ['HQ Staff'])) return NextResponse.json({ error: 'Access Denied' }, { status: 401 })
-
     const body = await request.json()
 
     const update: Record<string, any> = {}

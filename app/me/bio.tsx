@@ -46,7 +46,7 @@ const headerStyle = {
 }
 
 
-export function BioSections() {
+export function BioSections({ canUploadImage }: { canUploadImage?: boolean }) {
     const { id, bio, setBio, save } = useBioData()
 
     const upload = async (file: File) => {
@@ -89,7 +89,7 @@ export function BioSections() {
                             },
                         }}
                     />
-                    <div className="hidden sm:flex flex-col justify-between gap-3 h-[152px]">
+                    {canUploadImage && <div className="hidden sm:flex flex-col justify-between gap-3 h-[152px]">
                         <div
                             className="relative w-full h-full min-w-[140px]"
                             style={{ border: '1px solid rgba(255,255,255,0.06)' }}
@@ -125,7 +125,7 @@ export function BioSections() {
                                 }}
                             />
                         </label>
-                    </div>
+                    </div>}
                 </div>
             </div>
         </div>

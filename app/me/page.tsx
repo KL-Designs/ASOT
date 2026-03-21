@@ -7,6 +7,7 @@ import { Api, Tune, CalendarToday, ManageAccounts } from '@mui/icons-material'
 
 import ConvertColor from '@/lib/discord/color'
 import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
+import { rankNameFromAbbr } from '@/lib/ranks'
 import { BioSections } from './bio'
 import Avatar from '@/components/member/avatar'
 
@@ -26,8 +27,12 @@ export default async function Page() {
     const lookup = client.buildOrbatLookup(allMembers)
     const orbatEntry = findOrbatEntry(orbat, lookup, me.id)
 
-    const bioDisplayName = me.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || me.globalName || me.username
-    const bioRank = me.bio?.rank || null
+    const strippedNickname = me.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
+    const fullDisplay = strippedNickname || me.globalName || me.username
+    const nameParts = fullDisplay.split(' ')
+    const bioDisplayName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : fullDisplay
+    const bioRankAbbr = me.milpac?.currentRank || me.bio?.rank || null
+    const bioRank = bioRankAbbr ? rankNameFromAbbr(bioRankAbbr) : null
     const bioCallsign = me.bio?.callsign || null
     const bioRole = orbatEntry?.role || null
 
@@ -101,7 +106,7 @@ export default async function Page() {
 
                 {/* Left column */}
                 <div className='flex flex-col gap-5 flex-grow min-w-0'>
-                    {isHQ && <BioSections />}
+                    <BioSections canUploadImage={isHQ} />
 
                     {/* Navigation cards */}
                     <div className='flex flex-wrap gap-4'>
