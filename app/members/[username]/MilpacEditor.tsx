@@ -282,8 +282,9 @@ function DeleteBtn({ onClick }: { onClick: () => void }) {
             onClick={onClick}
             title='Remove'
             style={{
+                alignSelf: 'stretch', display: 'flex', alignItems: 'center',
                 background: 'transparent', border: '1px solid rgba(219,0,29,0.25)',
-                color: 'rgba(219,0,29,0.6)', padding: '4px 8px', cursor: 'pointer',
+                color: 'rgba(219,0,29,0.6)', padding: '0 8px', cursor: 'pointer',
                 fontSize: '0.75rem', lineHeight: 1, flexShrink: 0,
             }}
         >
@@ -407,6 +408,21 @@ function RankSelect({ value, onChange, placeholder = '— None —' }: { value: 
 }
 
 
+// ── Drag handle ────────────────────────────────────────────────────────────────
+
+function DragHandle() {
+    return (
+        <div style={{
+            alignSelf: 'stretch', display: 'flex', alignItems: 'center',
+            cursor: 'grab', padding: '0 4px', color: 'rgba(255,255,255,0.2)',
+            fontSize: '0.9rem', lineHeight: 1, flexShrink: 0, userSelect: 'none',
+        }}>
+            ⠿
+        </div>
+    )
+}
+
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function MilpacEditor({ member }: { member: User }) {
@@ -424,6 +440,32 @@ export default function MilpacEditor({ member }: { member: User }) {
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
     const [error, setError] = useState<string | null>(null)
+
+    // ── Drag state ─────────────────────────────────────────────────────────────
+
+    const dragSrc = useRef<{ list: string; index: number } | null>(null)
+    const [dragOver, setDragOver] = useState<{ list: string; index: number } | null>(null)
+
+    function dragProps<T>(list: string, items: T[], setItems: React.Dispatch<React.SetStateAction<T[]>>, i: number) {
+        return {
+            draggable: true as const,
+            onDragStart: () => { dragSrc.current = { list, index: i } },
+            onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDragOver({ list, index: i }) },
+            onDragLeave: () => setDragOver(null),
+            onDrop: (e: React.DragEvent) => {
+                e.preventDefault()
+                setDragOver(null)
+                const src = dragSrc.current
+                if (!src || src.list !== list || src.index === i) return
+                const next = [...items]
+                const [moved] = next.splice(src.index, 1)
+                next.splice(i, 0, moved)
+                setItems(next)
+                dragSrc.current = null
+            },
+            onDragEnd: () => { dragSrc.current = null; setDragOver(null) },
+        }
+    }
 
     async function handleSave() {
         setSaving(true)
@@ -540,7 +582,8 @@ export default function MilpacEditor({ member }: { member: User }) {
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No promotions on record.</span>
                 ) : (
                     promotions.map((p, i) => (
-                        <div key={i} className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div key={i} className='flex gap-2 items-end' {...dragProps('promotions', promotions, setPromotions, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragOver?.list === 'promotions' && dragOver.index === i ? 0.4 : 1 }}>
+                            <DragHandle />
                             <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
                                 <Label>Date</Label>
                                 <input value={p.date} onChange={e => updatePromotion(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
@@ -565,7 +608,8 @@ export default function MilpacEditor({ member }: { member: User }) {
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No awards on record.</span>
                 ) : (
                     awards.map((a, i) => (
-                        <div key={i} className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div key={i} className='flex gap-2 items-end' {...dragProps('awards', awards, setAwards, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragOver?.list === 'awards' && dragOver.index === i ? 0.4 : 1 }}>
+                            <DragHandle />
                             <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
                                 <Label>Date</Label>
                                 <input value={a.date} onChange={e => updateAward(i, 'date', e.target.value)} placeholder='05 Feb 2022' style={inputStyle} />
@@ -592,7 +636,8 @@ export default function MilpacEditor({ member }: { member: User }) {
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No operations on record.</span>
                 ) : (
                     operations.map((op, i) => (
-                        <div key={i} className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div key={i} className='flex gap-2 items-end' {...dragProps('operations', operations, setOperations, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragOver?.list === 'operations' && dragOver.index === i ? 0.4 : 1 }}>
+                            <DragHandle />
                             <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 160, maxWidth: 220 }}>
                                 <Label>Date Range</Label>
                                 <input value={op.startToEndDate} onChange={e => updateOperation(i, 'startToEndDate', e.target.value)} placeholder='13 Sep 2020 - 12 Oct 2020' style={inputStyle} />
