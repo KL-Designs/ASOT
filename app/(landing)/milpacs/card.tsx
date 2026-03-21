@@ -10,7 +10,7 @@ export default function Card({ member, role }: { member: User; role?: string }) 
 
 	const accent = ensureVisible(member.hexAccentColor || '#db001d')
 	const name = member.guild.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName || 'Unknown'
-const cardRef = useRef<HTMLDivElement>(null)
+	const cardRef = useRef<HTMLDivElement>(null)
 	const [tilt, setTilt] = useState({ x: 0, y: 0 })
 	const [hovered, setHovered] = useState(false)
 
