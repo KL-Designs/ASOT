@@ -28,6 +28,8 @@ export default async function Page() {
         orbatMap[member.id] = findOrbatEntry(orbat, lookup, member.id)
     }
 
+    const isAdmin = client.hasRoles(me, ['J4-Administration'])
+
     return (
         <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[1000px] mx-auto'>
 
@@ -52,7 +54,7 @@ export default async function Page() {
                 </span>
             </div>
 
-            <MemberList members={sorted} orbatMap={orbatMap} />
+            <MemberList members={sorted} orbatMap={orbatMap} isAdmin={isAdmin} />
 
         </div>
     )

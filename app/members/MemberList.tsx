@@ -21,14 +21,31 @@ type MemberRow = {
 export default function MemberList({
     members,
     orbatMap,
+    isAdmin = false,
 }: {
     members: MemberRow[]
     orbatMap: Record<string, OrbatEntry>
+    isAdmin?: boolean
 }) {
     const [query, setQuery] = useState('')
     const [filterOpen, setFilterOpen] = useState(false)
     const [selected, setSelected] = useState<Set<string>>(new Set())
     const filterRef = useRef<HTMLDivElement>(null)
+    const [impersonating, setImpersonating] = useState<string | null>(null)
+
+    async function loginAs(userId: string) {
+        setImpersonating(userId)
+        try {
+            const res = await fetch('/api/admin/impersonate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId }),
+            })
+            if (res.ok) window.location.href = '/me'
+        } finally {
+            setImpersonating(null)
+        }
+    }
 
     const roles = Array.from(
         new Set(Object.values(orbatMap).map(e => e?.role).filter(Boolean) as string[])
@@ -156,13 +173,15 @@ export default function MemberList({
                         return (
                             <div
                                 key={member.id}
-                                className='flex items-center gap-4 px-4 py-3'
+                                className='flex items-center gap-3 px-4 py-3'
                                 style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
                             >
+                                {/* Avatar */}
                                 <div style={{ position: 'relative', width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)' }}>
                                     <Avatar user={member as User} />
                                 </div>
 
+                                {/* Name block — orbat role shown inline on mobile */}
                                 <div className='flex flex-col gap-[2px] flex-1 min-w-0'>
                                     {rank && (
                                         <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)' }}>
@@ -172,29 +191,53 @@ export default function MemberList({
                                     <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {displayName}
                                     </span>
-                                    <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.04em' }}>
-                                        @{member.username}
-                                    </span>
+                                    <div className='flex items-center gap-2 flex-wrap'>
+                                        <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.04em' }}>
+                                            @{member.username}
+                                        </span>
+                                        {orbatEntry && (
+                                            <span className='sm:hidden' style={{ fontSize: '0.62rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
+                                                {orbatEntry.role}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
 
+                                {/* Orbat role — hidden on mobile, shown on sm+ */}
                                 {orbatEntry && (
-                                    <span style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', flexShrink: 0, textAlign: 'right' }}>
+                                    <span className='hidden sm:block' style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', flexShrink: 0, textAlign: 'right' }}>
                                         {orbatEntry.role}
                                     </span>
                                 )}
 
-                                <Link
-                                    href={`/milpacs/${member.username}`}
-                                    style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', flexShrink: 0, textDecoration: 'none' }}
-                                >
-                                    View
-                                </Link>
-                                <Link
-                                    href={`/members/${member.username}`}
-                                    style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', flexShrink: 0, textDecoration: 'none' }}
-                                >
-                                    Edit →
-                                </Link>
+                                {/* Actions */}
+                                <div className='flex items-center gap-3 flex-shrink-0'>
+                                    {isAdmin && (
+                                        <button
+                                            onClick={() => loginAs(member.id)}
+                                            disabled={impersonating === member.id}
+                                            style={{
+                                                fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase',
+                                                color: impersonating === member.id ? 'rgba(255,160,0,0.3)' : 'rgba(255,160,0,0.6)',
+                                                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                                            }}
+                                        >
+                                            {impersonating === member.id ? '…' : 'Login As'}
+                                        </button>
+                                    )}
+                                    <Link
+                                        href={`/milpacs/${member.username}`}
+                                        style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', textDecoration: 'none' }}
+                                    >
+                                        View
+                                    </Link>
+                                    <Link
+                                        href={`/members/${member.username}`}
+                                        style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', textDecoration: 'none' }}
+                                    >
+                                        Edit →
+                                    </Link>
+                                </div>
                             </div>
                         )
                     })

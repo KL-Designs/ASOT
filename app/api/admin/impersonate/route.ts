@@ -1,0 +1,24 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import client from '@/lib/discord'
+import Db from '@/lib/mongo'
+
+export async function POST(request: NextRequest) {
+    const me = await client.fetchMe().catch(() => null)
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    if (!client.hasRoles(me, ['J4-Administration'])) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const { userId } = await request.json()
+    if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
+
+    const target = await Db.users.findOne({ _id: userId })
+    if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    if (!target.token) return NextResponse.json({ error: 'User has no token' }, { status: 400 })
+
+    const response = NextResponse.json({ success: true })
+    response.cookies.set('token', target.token, { httpOnly: true, maxAge: 60 * 60 * 24 * 30 })
+    return response
+}
