@@ -1,4 +1,6 @@
+import Image from 'next/image'
 import { connection } from 'next/server'
+import Banner from '@/public/images/home/Droneteam7.png'
 
 import { fetchORBAT } from '@/lib/orbat'
 import client from '@/lib/discord'
@@ -53,6 +55,22 @@ export default async function Page() {
 
 	return (
 		<div style={{ background: 'rgb(10,10,10)', minHeight: '100vh' }}>
+
+			{/* Hero Banner */}
+			<div className='relative w-full h-banner-sm md:h-banner-sm-md flex flex-col justify-end items-center overflow-hidden'>
+				<Image src={Banner} alt='Banner' fill className='object-cover object-center' loading='eager' />
+				<div className='absolute inset-0' style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.2) 40%, rgba(10,10,10,0.7) 75%, #0a0a0a 100%)' }} />
+				<div className='relative z-10 flex flex-col items-center gap-3 pb-10 px-6 text-center w-full'>
+					<h1 style={{ margin: 0, fontSize: 'clamp(2rem, 6vw, 3.5rem)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>MILPACS</h1>
+					<div className='flex items-center gap-3' style={{ maxWidth: 360, width: '100%' }}>
+						<div style={{ flex: 1, height: 1, background: 'rgba(219,0,29,0.2)' }} />
+						<div style={{ height: 2, width: 48, background: 'var(--red)' }} />
+						<div style={{ flex: 1, height: 1, background: 'rgba(219,0,29,0.2)' }} />
+					</div>
+					<p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.8, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.8)' }}>Military Personnel Accounting Centre</p>
+				</div>
+			</div>
+
 			<MilpacsNav sections={navSections} />
 
 			<div className='m-auto max-w-[1400px]' style={{ padding: '3rem 2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>

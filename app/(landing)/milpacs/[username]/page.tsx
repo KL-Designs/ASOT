@@ -3,7 +3,9 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { existsSync } from 'fs'
 import { join } from 'path'
+import Image from 'next/image'
 import Avatar from '@/components/member/avatar'
+import Banner from '@/public/images/home/Droneteam7.png'
 import client from '@/lib/discord'
 import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/milpac-profile'
@@ -57,7 +59,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const profile = await resolveProfile(username)
 	if (!profile) notFound()
 
-	const { member, orbatEntry, accent, name, rankAbbr, fullRank, callsign } = profile
+	const { member, orbatEntry, accent, name, fullRank } = profile
 
 	const uniformPath = join(process.cwd(), 'milpacs', `${username}.png`)
 	const hasUniform = existsSync(uniformPath)
@@ -66,8 +68,40 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const canEdit = me ? client.hasRoles(me, ['J5-Media']) : false
 
 	return (
-		<div style={{ background: 'rgb(10,10,10)', minHeight: '100vh', color: 'rgba(237,237,237,0.9)' }}>
-			<div style={{ maxWidth: 900, margin: '0 auto', padding: '4rem 2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+		<div style={{ background: 'rgb(10,10,10)', color: 'rgba(237,237,237,0.9)' }}>
+
+			{/* Hero banner */}
+			<div className='relative w-full h-banner-sm md:h-banner-sm-md flex flex-col justify-end items-center overflow-hidden'>
+				<Image src={Banner} alt='Banner' fill className='object-cover object-center' loading='eager' />
+				<div className='absolute inset-0' style={{ background: `linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, ${accent}20 40%, rgba(10,10,10,0.85) 75%, #0a0a0a 100%)` }} />
+				<div className='relative z-10 flex flex-col items-center gap-3 pb-12 px-6 text-center'>
+					<div style={{ position: 'relative', width: 90, height: 90, borderRadius: '50%', padding: 3, background: `linear-gradient(135deg, ${accent}99, rgba(237,237,237,0.08))`, flexShrink: 0, marginBottom: 4 }}>
+						<div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: 'rgb(13,13,13)' }}>
+							<Avatar user={member} />
+						</div>
+					</div>
+					{fullRank && (
+						<span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: `${accent}cc` }}>
+							{fullRank}
+						</span>
+					)}
+					<h1 style={{ margin: 0, fontSize: 'clamp(1.6rem, 5vw, 2.8rem)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1 }}>
+						{name}
+					</h1>
+					<div className='flex items-center gap-3' style={{ maxWidth: 360, width: '100%' }}>
+						<div style={{ flex: 1, height: 1, background: `${accent}40` }} />
+						<div style={{ height: 2, width: 40, background: accent }} />
+						<div style={{ flex: 1, height: 1, background: `${accent}40` }} />
+					</div>
+					{orbatEntry?.role && (
+						<span style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
+							{orbatEntry.role}
+						</span>
+					)}
+				</div>
+			</div>
+
+			<div style={{ maxWidth: 900, margin: '0 auto', padding: '2rem 2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
 				<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 					<Link href='/milpacs' style={{
@@ -127,84 +161,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 					</div>
 				</div>
 
-				{/* ── Header ───────────────────────────────────────────── */}
-				<div style={{
-					display: 'flex',
-					gap: '2rem',
-					alignItems: 'center',
-					flexWrap: 'wrap',
-					padding: 'clamp(1.5rem, 4vw, 2.5rem)',
-					borderRadius: 8,
-					border: `1px solid ${accent}30`,
-					borderTop: `2px solid ${accent}`,
-					background: `linear-gradient(160deg, ${accent}10 0%, ${accent}04 40%, transparent 100%)`,
-				}}>
-					<div style={{
-						position: 'relative',
-						width: 100,
-						height: 100,
-						borderRadius: '50%',
-						padding: 3,
-						background: `linear-gradient(135deg, ${accent}99, rgba(237,237,237,0.08))`,
-						flexShrink: 0,
-					}}>
-						<div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: 'rgb(13,13,13)' }}>
-							<Avatar user={member} />
-						</div>
-					</div>
-
-					<div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-						{/* Rank above name */}
-						{fullRank && (
-							<span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: `${accent}cc` }}>
-								{fullRank}
-							</span>
-						)}
-
-						<h1 style={{ margin: 0, fontSize: 'clamp(1.4rem, 4vw, 2.2rem)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1 }}>
-							{name}
-						</h1>
-
-						{/* Role & Section badges */}
-						{orbatEntry && (
-							<div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 2 }}>
-								<span style={{
-									padding: '4px 12px',
-									borderRadius: 4,
-									border: `1px solid ${accent}50`,
-									background: `${accent}18`,
-									fontSize: '0.65rem',
-									fontWeight: 700,
-									letterSpacing: '0.14em',
-									textTransform: 'uppercase',
-									color: `${accent}ee`,
-								}}>
-									{orbatEntry.role}
-								</span>
-								<span style={{
-									padding: '4px 12px',
-									borderRadius: 4,
-									border: '1px solid rgba(237,237,237,0.1)',
-									background: 'rgba(237,237,237,0.04)',
-									fontSize: '0.65rem',
-									fontWeight: 600,
-									letterSpacing: '0.14em',
-									textTransform: 'uppercase',
-									color: 'rgba(237,237,237,0.4)',
-								}}>
-									{orbatEntry.section}
-								</span>
-							</div>
-						)}
-
-						<span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', letterSpacing: '0.12em' }}>
-							@{member.username}
-						</span>
-					</div>
-				</div>
-
-				{/* ── Uniform ──────────────────────────────────────────── */}
-				{/* ── Bio ──────────────────────────────────────────────── */}
 				<Section accent={accent} title='Biography'>
 					{member.bio?.content ? (
 						<p style={{ margin: 0, lineHeight: 1.8, color: 'rgba(237,237,237,0.65)', fontSize: '0.9rem' }}>
