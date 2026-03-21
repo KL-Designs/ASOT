@@ -93,8 +93,25 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			verts: { a: number; r: number }[]
 			rotation: number; rotSpeed: number; speed: number
 		}
-		interface Gem    { x: number; y: number; size: number; speed: number }
+		interface Gem    { x: number; y: number; size: number; speed: number; rare: boolean }
 		interface Powerup { x: number; y: number; type: 'magnet' | 'slowtime' | 'shield'; speed: number }
+		interface Debris  { x: number; y: number; verts: [number,number][]; rotation: number; rotSpeed: number; speed: number; scale: number; radius: number }
+
+		// Right-angle polygon shapes (normalised, centered near origin)
+		const DEBRIS_SHAPES: [number,number][][] = [
+			// L-shape
+			[[-1,-1],[0,-1],[0,0],[1,0],[1,1],[-1,1]],
+			// T-shape
+			[[-1,-1],[1,-1],[1,0],[0.35,0],[0.35,1],[-0.35,1],[-0.35,0],[-1,0]],
+			// Plus / cross
+			[[-0.35,-1],[0.35,-1],[0.35,-0.35],[1,-0.35],[1,0.35],[0.35,0.35],[0.35,1],[-0.35,1],[-0.35,0.35],[-1,0.35],[-1,-0.35],[-0.35,-0.35]],
+			// S-shape
+			[[-1,0],[-1,-1],[0.35,-1],[0.35,0],[1,0],[1,1],[-0.35,1],[-0.35,0]],
+			// C-shape
+			[[0,-1],[1,-1],[1,-0.35],[0.35,-0.35],[0.35,0.35],[1,0.35],[1,1],[0,1],[-0.5,1],[-0.5,-1]],
+			// Stepped
+			[[-1,-1],[0,-1],[0,0],[1,0],[1,1],[0,1],[0,0],[-1,0]],
+		]
 
 		const state = {
 			active: false,
@@ -103,12 +120,14 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			hintTimer: 0,
 			countdown: -1, countdownTimer: 0,
 			asteroids:     [] as Asteroid[],
-			spawnTimer:    130, spawnInterval: 190, obsSpeed: 1.6,
+			spawnTimer:    60, spawnInterval: 100, obsSpeed: 1.6,
 			score: 0, collectScore: 0,
 			gems:          [] as Gem[],
 			gemTimer:      130,
 			powerups:      [] as Powerup[],
 			powerupTimer:  280,
+			debris:        [] as Debris[],
+			debrisTimer:   100,
 			magnetEnd:     0,   // performance.now() expiry, 0 = inactive
 			slowTimeEnd:   0,
 			shieldEnd:     0,
@@ -131,6 +150,40 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			}
 		}
 
+		const makeDebris = (): Debris => {
+			const shape = DEBRIS_SHAPES[Math.floor(Math.random() * DEBRIS_SHAPES.length)]
+			const scale = 10 + Math.random() * 22
+			const radius = scale * 1.35
+			return {
+				x:        canvas.width + radius + 10,
+				y:        radius + 20 + Math.random() * (canvas.height - radius * 2 - 40),
+				verts:    shape,
+				rotation: Math.random() * Math.PI * 2,
+				rotSpeed: (Math.random() - 0.5) * 0.025,
+				speed:    state.obsSpeed * (0.55 + Math.random() * 0.8),
+				scale, radius,
+			}
+		}
+
+		const drawDebris = (d: Debris) => {
+			ctx.save()
+			ctx.translate(d.x, d.y)
+			ctx.rotate(d.rotation)
+			ctx.beginPath()
+			d.verts.forEach(([vx, vy], i) => {
+				const px = vx * d.scale, py = vy * d.scale
+				i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
+			})
+			ctx.closePath()
+			ctx.strokeStyle = 'rgba(160,200,230,0.80)'
+			ctx.lineWidth   = 1.5
+			ctx.stroke()
+			ctx.fillStyle   = 'rgba(160,200,230,0.05)'
+			ctx.fill()
+			ctx.restore()
+		}
+
+
 		const makePowerup = (): Powerup => ({
 			x:     canvas.width + 30,
 			y:     canvas.height * (0.1 + Math.random() * 0.8),
@@ -145,7 +198,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			state.thrusting     = false
 			state.asteroids     = []
 			state.spawnTimer    = 130
-			state.spawnInterval = 190
+			state.spawnInterval = 100
 			state.obsSpeed      = 7.5
 			state.score         = 0
 			state.collectScore  = 0
@@ -153,6 +206,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			state.gemTimer      = 130
 			state.powerups      = []
 			state.powerupTimer  = 280
+			state.debris        = []
+			state.debrisTimer   = 100
 			state.magnetEnd     = 0
 			state.slowTimeEnd   = 0
 			state.shieldEnd     = 0
@@ -510,11 +565,11 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 
 				// ── Asteroids ─────────────────────────────────────────
 				state.spawnTimer -= dt
-				if (state.spawnTimer <= 0 && state.asteroids.length < 12) {
+				if (state.spawnTimer <= 0 && state.asteroids.length < 22) {
 					state.asteroids.push(makeAsteroid())
-					state.spawnTimer    = state.spawnInterval * (0.55 + Math.random() * 0.9)
+					state.spawnTimer    = state.spawnInterval * (0.45 + Math.random() * 0.7)
 					state.obsSpeed      = Math.min(20.0, state.obsSpeed + 0.20)
-					state.spawnInterval = Math.max(55, state.spawnInterval - 2)
+					state.spawnInterval = Math.max(30, state.spawnInterval - 3)
 				}
 				for (let i = state.asteroids.length - 1; i >= 0; i--) {
 					const ast = state.asteroids[i]
@@ -529,8 +584,9 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 					state.gems.push({
 						x:     canvas.width + 10,
 						y:     canvas.height * (0.12 + Math.random() * 0.76),
-						size:  9,
+						size:  Math.random() < 0.15 ? 16 : 13,
 						speed: state.obsSpeed * 0.85,
+						rare:  Math.random() < 0.15,
 					})
 					state.gemTimer = 130 * (0.5 + Math.random() * 1.0)
 				}
@@ -539,7 +595,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 						const dx = cx - g.x, dy = cy - g.y
 						const dist = Math.hypot(dx, dy)
 						if (dist > 5) {
-							const pull = Math.min(4.5, 150 / dist) * dt
+							const pull = Math.min(10.0, 400 / dist) * dt
 							g.x += (dx / dist) * pull
 							g.y += (dy / dist) * pull
 						}
@@ -562,6 +618,20 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 					if (state.gems[i].x < -20) state.gems.splice(i, 1)
 				}
 
+				// ── Debris spawning & movement ──────────────────────
+				state.debrisTimer -= dt
+				if (state.debrisTimer <= 0 && state.debris.length < 18) {
+					state.debris.push(makeDebris())
+					state.debrisTimer = 80 + Math.random() * 100
+				}
+				for (let i = state.debris.length - 1; i >= 0; i--) {
+					const d = state.debris[i]
+					d.x        -= d.speed * speedMult * dt
+					d.rotation += d.rotSpeed * dt
+					if (d.x + d.radius < 0) { state.debris.splice(i, 1); state.score++ }
+				}
+
+
 				// ── Powerup spawning & movement ───────────────────────
 				state.powerupTimer -= dt
 				if (state.powerupTimer <= 0) {
@@ -578,6 +648,9 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 				if (!shieldActive) {
 					for (const ast of state.asteroids) {
 						if (Math.hypot(cx - ast.x, cy - ast.y) < shipR + ast.radius * 0.70) die()
+					}
+					for (const d of state.debris) {
+						if (Math.hypot(cx - d.x, cy - d.y) < shipR + d.radius * 0.75) die()
 					}
 				}
 
@@ -597,8 +670,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 				for (let i = state.gems.length - 1; i >= 0; i--) {
 					const g = state.gems[i]
 					if (Math.hypot(cx - g.x, cy - g.y) < g.size + TRI / 2.5) {
+						state.collectScore += g.rare ? 10 : 1
 						state.gems.splice(i, 1)
-						state.collectScore++
 					}
 				}
 
@@ -636,6 +709,10 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 				// ── Draw powerups ─────────────────────────────────────
 				for (const p of state.powerups) drawPowerup(p)
 
+
+				// ── Draw debris ──────────────────────────────────────
+				for (const d of state.debris) drawDebris(d)
+
 				// ── Draw asteroids ────────────────────────────────────
 				for (const ast of state.asteroids) drawAsteroid(ast)
 
@@ -644,11 +721,26 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 					ctx.save()
 					ctx.translate(g.x, g.y)
 					ctx.rotate(Math.PI / 4 + frame * 0.022)
-					if (magnetActive) { ctx.shadowColor = 'rgba(0,220,255,0.8)'; ctx.shadowBlur = 10 }
-					ctx.strokeStyle = 'rgba(255,210,0,0.95)'; ctx.lineWidth = 1.5
-					ctx.strokeRect(-g.size, -g.size, g.size * 2, g.size * 2)
-					ctx.fillStyle = 'rgba(255,210,0,0.2)'
-					ctx.fillRect(-g.size, -g.size, g.size * 2, g.size * 2)
+					if (g.rare) {
+						const pulse = 0.7 + Math.sin(frame * 0.10) * 0.3
+						ctx.shadowColor = `rgba(0,255,120,${pulse})`
+						ctx.shadowBlur  = 18
+						ctx.strokeStyle = 'rgba(0,255,130,0.95)'; ctx.lineWidth = 2
+						ctx.strokeRect(-g.size, -g.size, g.size * 2, g.size * 2)
+						ctx.fillStyle = 'rgba(0,255,130,0.22)'
+						ctx.fillRect(-g.size, -g.size, g.size * 2, g.size * 2)
+						const h = g.size * 0.45
+						ctx.beginPath()
+						ctx.moveTo(0,-h); ctx.lineTo(h,0); ctx.lineTo(0,h); ctx.lineTo(-h,0)
+						ctx.closePath()
+						ctx.fillStyle = 'rgba(0,255,130,0.35)'; ctx.fill()
+					} else {
+						if (magnetActive) { ctx.shadowColor = 'rgba(0,220,255,0.8)'; ctx.shadowBlur = 10 }
+						ctx.strokeStyle = 'rgba(255,210,0,0.95)'; ctx.lineWidth = 1.5
+						ctx.strokeRect(-g.size, -g.size, g.size * 2, g.size * 2)
+						ctx.fillStyle = 'rgba(255,210,0,0.2)'
+						ctx.fillRect(-g.size, -g.size, g.size * 2, g.size * 2)
+					}
 					ctx.restore()
 				}
 
