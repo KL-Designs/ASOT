@@ -6,7 +6,7 @@ import Avatar from '@/components/member/avatar'
 
 
 const RANKS = [
-    'ASOT Commanding Officer', 'ASOT Officer Commanding', 'Captain',
+    'Commanding Officer', 'Officer Commanding', 'Captain',
     'Warrant Officer Class 1', 'Warrant Officer Class 2',
     'Flight Lieutenant', 'Squadron Leader', ' Wing Commander',
     'Lieutenant', 'Sergeant', 'Corporal', 'Lance Corporal',

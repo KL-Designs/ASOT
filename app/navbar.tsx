@@ -97,7 +97,7 @@ export default function Navbar() {
                 className='sticky top-0 z-50'
                 style={{
                     width: '100%',
-                    borderBottom: '1px solid rgba(219,0,29,0.4)',
+                    borderBottom: '1px solid var(--primary)',
                     backgroundColor: scrolled ? 'rgba(10,10,10,0.82)' : 'var(--background)',
                     backdropFilter: scrolled ? 'blur(16px)' : 'none',
                     WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none',
