@@ -62,6 +62,9 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const uniformPath = join(process.cwd(), 'milpacs', `${username}.png`)
 	const hasUniform = existsSync(uniformPath)
 
+	const me = await client.fetchMe().catch(() => null)
+	const canEdit = me ? client.hasRoles(me, ['J5-Media']) : false
+
 	return (
 		<div style={{ background: 'rgb(10,10,10)', minHeight: '100vh', color: 'rgba(237,237,237,0.9)' }}>
 			<div style={{ maxWidth: 900, margin: '0 auto', padding: '4rem 2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -81,27 +84,47 @@ export default async function Page({ params }: { params: Promise<{ username: str
 						← Milpacs
 					</Link>
 
-					<a
-						href={`https://www.australianspecialoperationstaskforce.com/${name.toLocaleLowerCase()}`}
-						target='_blank'
-						rel='noopener noreferrer'
-						style={{
-							display: 'inline-flex',
-							alignItems: 'center',
-							gap: 6,
-							fontSize: '0.7rem',
-							fontWeight: 600,
-							letterSpacing: '0.14em',
-							textTransform: 'uppercase',
-							color: `${accent}cc`,
-							textDecoration: 'none',
-							padding: '5px 12px',
-							border: `1px solid ${accent}40`,
-							background: `${accent}0d`,
-						}}
-					>
-						View Original ↗
-					</a>
+					<div style={{ display: 'flex', gap: 8 }}>
+						{canEdit && (
+							<Link href={`/members/${username}`} style={{
+								display: 'inline-flex',
+								alignItems: 'center',
+								gap: 6,
+								fontSize: '0.7rem',
+								fontWeight: 600,
+								letterSpacing: '0.14em',
+								textTransform: 'uppercase',
+								color: 'rgba(237,237,237,0.5)',
+								textDecoration: 'none',
+								padding: '5px 12px',
+								border: '1px solid rgba(237,237,237,0.12)',
+								background: 'rgba(237,237,237,0.04)',
+							}}>
+								Edit
+							</Link>
+						)}
+						<a
+							href={`https://www.australianspecialoperationstaskforce.com/${name.toLocaleLowerCase()}`}
+							target='_blank'
+							rel='noopener noreferrer'
+							style={{
+								display: 'inline-flex',
+								alignItems: 'center',
+								gap: 6,
+								fontSize: '0.7rem',
+								fontWeight: 600,
+								letterSpacing: '0.14em',
+								textTransform: 'uppercase',
+								color: `${accent}cc`,
+								textDecoration: 'none',
+								padding: '5px 12px',
+								border: `1px solid ${accent}40`,
+								background: `${accent}0d`,
+							}}
+						>
+							View Original ↗
+						</a>
+					</div>
 				</div>
 
 				{/* ── Header ───────────────────────────────────────────── */}

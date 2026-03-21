@@ -399,20 +399,28 @@ export default function MilpacEditor({ member }: { member: User }) {
             <style>{`@keyframes ilIn { from { opacity: 0; transform: scaleX(0.6) } to { opacity: 1; transform: scaleX(1) } }`}</style>
 
             {/* Back nav */}
-            <div className='flex items-center gap-4'>
+            <div className='flex items-center justify-between'>
+                <div className='flex items-center gap-4'>
+                    <Link
+                        href='/members'
+                        style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', textDecoration: 'none' }}
+                    >
+                        ← All Members
+                    </Link>
+                    <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)' }}>
+                        {member.milpac?.currentRank && (
+                            <span style={{ color: 'rgba(219,0,29,0.5)', marginRight: '0.4em' }}>{member.milpac.currentRank}</span>
+                        )}
+                        {displayName}
+                    </span>
+                </div>
                 <Link
-                    href='/members'
-                    style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', textDecoration: 'none' }}
+                    href={`/milpacs/${member.username}`}
+                    style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', textDecoration: 'none', padding: '5px 12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}
                 >
-                    ← All Members
+                    View Profile ↗
                 </Link>
-                <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
-                <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)' }}>
-                    {member.milpac?.currentRank && (
-                        <span style={{ color: 'rgba(219,0,29,0.5)', marginRight: '0.4em' }}>{member.milpac.currentRank}</span>
-                    )}
-                    {displayName}
-                </span>
             </div>
 
             {/* Member header */}

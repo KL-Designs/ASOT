@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python3 -c \":*)",
       "Bash(python3:*)",
-      "WebFetch(domain:www.australianspecialoperationstaskforce.com)"
+      "WebFetch(domain:www.australianspecialoperationstaskforce.com)",
+      "Bash(cat -A \"f:/Clients/ASOT-Website/app/\\(landing\\)/milpacs/[username]/page.tsx\")"
     ]
   }
 }
