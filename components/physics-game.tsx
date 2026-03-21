@@ -26,6 +26,63 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 		const MAX_UP   = -2.0
 		const MAX_DOWN = 2.5
 
+		// ── Space background (persists across rounds) ──────────────────
+		interface Star { x: number; y: number; size: number; speed: number; alpha: number; phase: number }
+		interface ShootingStar { x: number; y: number; vx: number; vy: number; length: number; life: number; maxLife: number }
+
+		let bgAlpha = 0
+		let shootingStarTimer = 180
+
+		const starField: Star[] = []
+		const shootingStars: ShootingStar[] = []
+
+		const initStars = () => {
+			starField.length = 0
+			// Layer 1 — distant tiny stars, barely moving
+			for (let i = 0; i < 110; i++) starField.push({
+				x: Math.random() * canvas.width,
+				y: Math.random() * canvas.height,
+				size: 0.6 + Math.random() * 0.5,
+				speed: 0.12 + Math.random() * 0.22,
+				alpha: 0.2 + Math.random() * 0.5,
+				phase: Math.random() * Math.PI * 2,
+			})
+			// Layer 2 — mid-field
+			for (let i = 0; i < 55; i++) starField.push({
+				x: Math.random() * canvas.width,
+				y: Math.random() * canvas.height,
+				size: 1.0 + Math.random() * 0.8,
+				speed: 0.35 + Math.random() * 0.45,
+				alpha: 0.35 + Math.random() * 0.45,
+				phase: Math.random() * Math.PI * 2,
+			})
+			// Layer 3 — close, larger, fast
+			for (let i = 0; i < 28; i++) starField.push({
+				x: Math.random() * canvas.width,
+				y: Math.random() * canvas.height,
+				size: 1.6 + Math.random() * 1.2,
+				speed: 0.8 + Math.random() * 1.1,
+				alpha: 0.5 + Math.random() * 0.45,
+				phase: Math.random() * Math.PI * 2,
+			})
+		}
+		initStars()
+
+		const spawnShootingStar = () => {
+			const speed  = 11 + Math.random() * 9
+			const angle  = 0.06 + Math.random() * 0.12   // slight downward drift
+			shootingStars.push({
+				x:       canvas.width + 80,
+				y:       Math.random() * canvas.height * 0.85,
+				vx:      -speed,
+				vy:      speed * Math.tan(angle),
+				length:  55 + Math.random() * 90,
+				life:    0,
+				maxLife: 45 + Math.floor(Math.random() * 25),
+			})
+		}
+
+		// ── Game state ─────────────────────────────────────────────────
 		interface Asteroid {
 			x: number; y: number
 			radius: number
@@ -58,8 +115,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 		}
 
 		const makeAsteroid = (): Asteroid => {
-			const numV   = 6 + Math.floor(Math.random() * 5)   // 6–10 sides
-			const radius = 16 + Math.random() * 54              // 16–70 px
+			const numV   = 6 + Math.floor(Math.random() * 5)
+			const radius = 16 + Math.random() * 54
 			const verts  = Array.from({ length: numV }, (_, i) => ({
 				a: (i / numV) * Math.PI * 2 + (Math.random() - 0.5) * (Math.PI / numV) * 1.2,
 				r: radius * (0.55 + Math.random() * 0.55),
@@ -76,29 +133,30 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 		}
 
 		const reset = () => {
-			state.x            = canvas.width * 0.18
-			state.y            = canvas.height * 0.5 - TRI / 2
-			state.vy           = 0
-			state.thrusting    = false
-			state.asteroids    = []
-			state.spawnTimer   = 130
+			state.x             = canvas.width * 0.18
+			state.y             = canvas.height * 0.5 - TRI / 2
+			state.vy            = 0
+			state.thrusting     = false
+			state.asteroids     = []
+			state.spawnTimer    = 130
 			state.spawnInterval = 190
-			state.obsSpeed     = 1.6
-			state.score        = 0
-			state.collectScore = 0
-			state.gems         = []
-			state.gemTimer     = 130
-			state.dead         = false
-			state.deadTimer    = 0
+			state.obsSpeed      = 1.6
+			state.score         = 0
+			state.collectScore  = 0
+			state.gems          = []
+			state.gemTimer      = 130
+			state.dead          = false
+			state.deadTimer     = 0
 			state.deathReported = false
-			state.hintTimer    = 230
-			state.countdown    = 3
+			state.hintTimer     = 230
+			state.countdown     = 3
 			state.countdownTimer = 90
 		}
 
 		const resize = () => {
 			canvas.width  = canvas.offsetWidth
 			canvas.height = canvas.offsetHeight
+			initStars()
 		}
 		resize()
 		window.addEventListener('resize', resize)
@@ -168,10 +226,70 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			ctx.restore()
 		}
 
+		const drawSpaceBackground = () => {
+			// Dark space fill
+			ctx.fillStyle = `rgba(4,6,20,${bgAlpha})`
+			ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+			// Stars
+			for (const s of starField) {
+				s.x -= s.speed
+				if (s.x < -4) s.x = canvas.width + 4
+
+				const twinkle = 0.72 + Math.sin(frame * 0.04 + s.phase) * 0.28
+				ctx.save()
+				ctx.globalAlpha = s.alpha * twinkle * Math.min(1, bgAlpha * 1.8)
+				ctx.fillStyle   = '#ffffff'
+				ctx.beginPath()
+				ctx.arc(s.x, s.y, s.size * 0.5, 0, Math.PI * 2)
+				ctx.fill()
+				ctx.restore()
+			}
+
+			// Shooting stars
+			shootingStarTimer--
+			if (shootingStarTimer <= 0) {
+				spawnShootingStar()
+				shootingStarTimer = 140 + Math.floor(Math.random() * 220)
+			}
+			for (let i = shootingStars.length - 1; i >= 0; i--) {
+				const ss = shootingStars[i]
+				ss.x += ss.vx
+				ss.y += ss.vy
+				ss.life++
+
+				const t      = ss.life / ss.maxLife
+				const fade   = t < 0.25 ? t / 0.25 : 1 - (t - 0.25) / 0.75
+				const tailX  = ss.x + ss.length
+				const tailY  = ss.y + (ss.vy / Math.abs(ss.vx)) * ss.length
+
+				ctx.save()
+				ctx.globalAlpha = fade * 0.88 * Math.min(1, bgAlpha * 2)
+				const grad = ctx.createLinearGradient(ss.x, ss.y, tailX, tailY)
+				grad.addColorStop(0, 'rgba(255,255,255,0.95)')
+				grad.addColorStop(0.4, 'rgba(200,220,255,0.5)')
+				grad.addColorStop(1, 'rgba(180,210,255,0)')
+				ctx.strokeStyle = grad
+				ctx.lineWidth   = 1.4
+				ctx.beginPath()
+				ctx.moveTo(ss.x, ss.y)
+				ctx.lineTo(tailX, tailY)
+				ctx.stroke()
+				ctx.restore()
+
+				if (ss.life >= ss.maxLife || ss.x + ss.length < 0) shootingStars.splice(i, 1)
+			}
+		}
+
 		const animate = () => {
 			frame++
 			ctx.clearRect(0, 0, canvas.width, canvas.height)
+
 			if (!state.active) { animId = requestAnimationFrame(animate); return }
+
+			// Fade background in
+			bgAlpha = Math.min(0.94, bgAlpha + 0.012)
+			drawSpaceBackground()
 
 			const cx   = state.x + TRI / 2
 			const cy   = state.y + TRI / 2
@@ -182,19 +300,17 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 				state.countdownTimer--
 				if (state.countdownTimer <= 0) {
 					if (state.countdown === 0) {
-						state.countdown = -1   // done — game starts next frame
+						state.countdown = -1
 					} else {
 						state.countdown--
 						state.countdownTimer = state.countdown === 0 ? 65 : 90
 					}
 				}
 
-				// Ship hovering in place
 				drawTri(cx, cy, TRI, 0, 'rgba(237,237,237,0.88)', 'rgba(237,237,237,0.08)')
 
-				// Number shrinks slightly as each beat elapses (1.3 → 1.0)
 				const stepFrames = state.countdown === 0 ? 65 : 90
-				const progress   = state.countdownTimer / stepFrames   // 1 → 0
+				const progress   = state.countdownTimer / stepFrames
 				const fontSize   = Math.round((state.countdown === 0 ? 62 : 80) * (1.0 + progress * 0.28))
 				const label      = state.countdown > 0 ? String(state.countdown) : 'GO!'
 				const fadeAlpha  = state.countdown === 0 ? Math.min(1, state.countdownTimer / 18) : 1
@@ -250,7 +366,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 					if (state.gems[i].x < -20) state.gems.splice(i, 1)
 				}
 
-				// ── Collision (circle–circle) ──────────────────────────
+				// ── Collision ─────────────────────────────────────────
 				const shipR = TRI / 3.8
 				for (const ast of state.asteroids) {
 					if (Math.hypot(cx - ast.x, cy - ast.y) < shipR + ast.radius * 0.70) die()
