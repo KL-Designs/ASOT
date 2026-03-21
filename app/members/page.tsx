@@ -34,7 +34,7 @@ export default async function Page() {
             {/* Header */}
             <div className='flex items-center gap-4'>
                 <Link
-                    href='/me'
+                    href='/admin'
                     style={{
                         fontSize: '0.7rem',
                         fontWeight: 600,

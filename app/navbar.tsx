@@ -347,7 +347,8 @@ function ProfileDropdown({ user }: { user: User }) {
         <>
             {/* Navbar avatar button — square with accent border */}
             <div
-                className='cursor-pointer flex-shrink-0'
+                className='flex-shrink-0'
+                role='button'
                 title={displayName}
                 onClick={handleOpen}
                 style={{
@@ -360,6 +361,7 @@ function ProfileDropdown({ user }: { user: User }) {
                     flexShrink: 0,
                     boxShadow: `0 0 8px 0 ${accent}55`,
                     transition: 'box-shadow 0.2s',
+                    cursor: 'pointer',
                 }}
             >
                 <Avatar user={user} borderRadius='4px' />

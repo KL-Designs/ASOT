@@ -111,7 +111,7 @@ export default async function Page() {
                     {/* Navigation cards */}
                     <div className='flex flex-wrap gap-4'>
 
-                        {isJ5 && (
+                        {/* {isJ5 && (
                             <Link href='/members' className='flex-1 min-w-[160px]'>
                                 <div
                                     className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
@@ -123,7 +123,7 @@ export default async function Page() {
                                     </Typography>
                                 </div>
                             </Link>
-                        )}
+                        )} */}
                     </div>
                 </div>
 
