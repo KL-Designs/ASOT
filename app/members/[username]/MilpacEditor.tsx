@@ -238,7 +238,10 @@ function DragHandle() {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function MilpacEditor({ member }: { member: User }) {
-    const displayName = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName || member.username
+    const strippedNickname = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
+    const fullDisplay = strippedNickname || member.globalName || member.username
+    const nameParts = fullDisplay.split(' ')
+    const displayName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : fullDisplay
 
     const [bioRank, setBioRank] = useState(rankNameFromAbbr(member.milpac?.currentRank ?? member.bio?.rank ?? ''))
     const joinDateStr = member.guild?.joinedTimestamp
@@ -369,6 +372,9 @@ export default function MilpacEditor({ member }: { member: User }) {
                 </Link>
                 <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
                 <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)' }}>
+                    {member.milpac?.currentRank && (
+                        <span style={{ color: 'rgba(219,0,29,0.5)', marginRight: '0.4em' }}>{member.milpac.currentRank}</span>
+                    )}
                     {displayName}
                 </span>
             </div>
@@ -382,7 +388,12 @@ export default function MilpacEditor({ member }: { member: User }) {
                     <Avatar user={member} />
                 </div>
                 <div className='flex flex-col gap-1'>
-                    <span style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{displayName}</span>
+                    <span style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                        {member.milpac?.currentRank && (
+                            <span style={{ color: 'rgba(219,0,29,0.7)', marginRight: '0.35em', fontWeight: 400, letterSpacing: '0.12em' }}>{member.milpac.currentRank}</span>
+                        )}
+                        {displayName}
+                    </span>
                     <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.04em' }}>@{member.username}</span>
                 </div>
             </div>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
+import { rankNameFromAbbr } from '@/lib/ranks'
 
 type OrbatEntry = { role: string; section: string } | null
 
@@ -25,18 +26,20 @@ export default function MemberList({
     orbatMap: Record<string, OrbatEntry>
 }) {
     const [query, setQuery] = useState('')
+    const [roleFilter, setRoleFilter] = useState<string | null>(null)
 
-    const filtered = query.trim()
-        ? members.filter(m => {
-              const nick = m.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || ''
-              const display = nick || m.globalName || m.username
-              const q = query.trim().toLowerCase()
-              return (
-                  display.toLowerCase().includes(q) ||
-                  m.username.toLowerCase().includes(q)
-              )
-          })
-        : members
+    const roles = Array.from(
+        new Set(Object.values(orbatMap).map(e => e?.role).filter(Boolean) as string[])
+    ).sort()
+
+    const filtered = members.filter(m => {
+        if (roleFilter && orbatMap[m.id]?.role !== roleFilter) return false
+        if (!query.trim()) return true
+        const nick = m.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || ''
+        const display = nick || m.globalName || m.username
+        const q = query.trim().toLowerCase()
+        return display.toLowerCase().includes(q) || m.username.toLowerCase().includes(q)
+    })
 
     return (
         <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.02)' }}>
@@ -69,6 +72,27 @@ export default function MemberList({
                 />
             </div>
 
+            {/* Role filter */}
+            {roles.length > 0 && (
+                <div className='flex flex-wrap gap-2 px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    {roles.map(role => (
+                        <button
+                            key={role}
+                            onClick={() => setRoleFilter(roleFilter === role ? null : role)}
+                            style={{
+                                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
+                                textTransform: 'uppercase', padding: '3px 9px', cursor: 'pointer',
+                                border: roleFilter === role ? '1px solid rgba(219,0,29,0.6)' : '1px solid rgba(255,255,255,0.1)',
+                                background: roleFilter === role ? 'rgba(219,0,29,0.12)' : 'transparent',
+                                color: roleFilter === role ? 'rgba(219,0,29,0.85)' : 'rgba(237,237,237,0.4)',
+                            }}
+                        >
+                            {role}
+                        </button>
+                    ))}
+                </div>
+            )}
+
             {/* List */}
             <div className='flex flex-col'>
                 {filtered.length === 0 ? (
@@ -78,7 +102,7 @@ export default function MemberList({
                 ) : (
                     filtered.map(member => {
                         const displayName = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName || member.username
-                        const rank = member.bio?.rank || null
+                        const rank = member.bio?.rank ? rankNameFromAbbr(member.bio.rank) : null
                         const orbatEntry = orbatMap[member.id] ?? null
 
                         return (
