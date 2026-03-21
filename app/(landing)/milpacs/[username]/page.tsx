@@ -10,6 +10,7 @@ import client from '@/lib/discord'
 import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/milpac-profile'
 import { CoverUpload } from './cover-upload'
+import { BiographyEditor } from './bio-editor'
 
 
 async function resolveProfile(username: string) {
@@ -178,7 +179,9 @@ export default async function Page({ params }: { params: Promise<{ username: str
 				</div>
 
 				<Section accent={accent} title='Biography'>
-					{member.bio?.content ? (
+					{isOwn ? (
+						<BiographyEditor initial={member.bio?.content ?? null} accent={accent} />
+					) : member.bio?.content ? (
 						<p style={{ margin: 0, lineHeight: 1.8, color: 'rgba(237,237,237,0.65)', fontSize: '0.9rem' }}>
 							{member.bio.content}
 						</p>
