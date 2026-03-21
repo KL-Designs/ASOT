@@ -81,7 +81,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 				) : (
 					<Image src={Banner} alt='Banner' fill className='object-cover object-center' loading='eager' />
 				)}
-				{isOwn && <CoverUpload memberId={member.id} />}
+				{isOwn && <CoverUpload hasCover={hasCover} />}
 				<div className='absolute inset-0' style={{ background: `linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, ${accent}20 40%, rgba(10,10,10,0.85) 75%, #0a0a0a 100%)` }} />
 				<div className='relative z-10 flex flex-col items-center gap-3 pb-12 px-6 text-center'>
 					<div style={{ position: 'relative', width: 90, height: 90, borderRadius: '50%', padding: 3, background: `linear-gradient(135deg, ${accent}99, rgba(237,237,237,0.08))`, flexShrink: 0, marginBottom: 4 }}>
@@ -90,7 +90,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 						</div>
 					</div>
 					{fullRank && (
-						<span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: `${accent}cc` }}>
+						<span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: `${accent}ee`, background: 'rgba(0,0,0,0.45)', padding: '3px 10px', backdropFilter: 'blur(4px)' }}>
 							{fullRank}
 						</span>
 					)}

@@ -37,3 +37,14 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true })
 }
+
+
+export async function DELETE() {
+    const me = await client.fetchMe().catch(() => null)
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const path = `./uploads/cover/${me.id}.png`
+    if (fs.existsSync(path)) fs.unlinkSync(path)
+
+    return NextResponse.json({ success: true })
+}
