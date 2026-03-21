@@ -9,6 +9,7 @@ import Banner from '@/public/images/home/Droneteam7.png'
 import client from '@/lib/discord'
 import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/milpac-profile'
+import { CoverUpload } from './cover-upload'
 
 
 async function resolveProfile(username: string) {
@@ -59,20 +60,28 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const profile = await resolveProfile(username)
 	if (!profile) notFound()
 
-	const { member, orbatEntry, accent, name, fullRank } = profile
+	const { member, orbatEntry, accent, name, fullRank, callsign } = profile
 
 	const uniformPath = join(process.cwd(), 'milpacs', `${username}.png`)
 	const hasUniform = existsSync(uniformPath)
 
 	const me = await client.fetchMe().catch(() => null)
 	const canEdit = me ? client.hasRoles(me, ['J5-Media']) : false
+	const isOwn = me?.id === member.id
+	const hasCover = existsSync(join(process.cwd(), 'uploads', 'cover', `${member.id}.png`))
 
 	return (
 		<div style={{ background: 'rgb(10,10,10)', color: 'rgba(237,237,237,0.9)' }}>
 
 			{/* Hero banner */}
 			<div className='relative w-full h-banner-sm md:h-banner-sm-md flex flex-col justify-end items-center overflow-hidden'>
-				<Image src={Banner} alt='Banner' fill className='object-cover object-center' loading='eager' />
+				{hasCover ? (
+					// eslint-disable-next-line @next/next/no-img-element
+					<img src={`/api/uploads/cover?id=${member.id}&t=${Date.now()}`} alt='Cover' style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
+				) : (
+					<Image src={Banner} alt='Banner' fill className='object-cover object-center' loading='eager' />
+				)}
+				{isOwn && <CoverUpload memberId={member.id} />}
 				<div className='absolute inset-0' style={{ background: `linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, ${accent}20 40%, rgba(10,10,10,0.85) 75%, #0a0a0a 100%)` }} />
 				<div className='relative z-10 flex flex-col items-center gap-3 pb-12 px-6 text-center'>
 					<div style={{ position: 'relative', width: 90, height: 90, borderRadius: '50%', padding: 3, background: `linear-gradient(135deg, ${accent}99, rgba(237,237,237,0.08))`, flexShrink: 0, marginBottom: 4 }}>
@@ -96,6 +105,11 @@ export default async function Page({ params }: { params: Promise<{ username: str
 					{orbatEntry?.role && (
 						<span style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
 							{orbatEntry.role}
+						</span>
+					)}
+					{callsign && (
+						<span style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.14em', color: 'rgba(237,237,237,0.5)' }}>
+							{callsign}
 						</span>
 					)}
 				</div>
