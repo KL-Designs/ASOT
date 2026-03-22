@@ -302,6 +302,31 @@ body {
     font-family: monospace;
 }
 
+/* Collaboration cursors */
+.collaboration-cursor__caret {
+    border-left: 2px solid;
+    border-right: none;
+    margin-left: -1px;
+    margin-right: -1px;
+    pointer-events: none;
+    position: relative;
+    word-break: normal;
+}
+.collaboration-cursor__label {
+    border-radius: 2px 2px 2px 0;
+    font-size: 0.65rem;
+    font-weight: 700;
+    left: -1px;
+    letter-spacing: 0.04em;
+    line-height: normal;
+    padding: 1px 5px;
+    position: absolute;
+    top: -1.5em;
+    user-select: none;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
 /* Placeholder */
 .op-editor p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);

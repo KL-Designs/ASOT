@@ -11,3 +11,16 @@ services:
     restart: unless-stopped
     environment:
       - MONGO_URI=mongodb://172.24.0.11:27017/ASOT
+      - NEXT_PUBLIC_COLLAB_WS_URL=ws://YOUR_SERVER_IP:1234
+
+  collab:
+    build: .
+    container_name: asot-collab
+    ports:
+      - "3001:3001"
+    command: node collab-server.mjs
+    restart: unless-stopped
+    environment:
+      - MONGO_URI=mongodb://172.24.0.11:27017/ASOT
+      - COLLAB_PORT=3001
+      - WEB_URL=http://YOUR_SERVER_IP:3000

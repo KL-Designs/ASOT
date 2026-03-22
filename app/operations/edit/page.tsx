@@ -27,6 +27,7 @@ export default function Page() {
         const id = params.get('op') || ''
         setOpID(id)
 
+
         if (!id) return
 
         fetch(`/api/operations?id=${id}`)

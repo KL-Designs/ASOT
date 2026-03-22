@@ -3,12 +3,14 @@
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
-import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
 import GlobalDragHandle from 'tiptap-extension-global-drag-handle'
-import { useRef, useState } from 'react'
+import Collaboration from '@tiptap/extension-collaboration'
+import { HocuspocusProvider } from '@hocuspocus/provider'
+import * as Y from 'yjs'
+import { useEffect, useRef, useState } from 'react'
 
 import {
     Undo, Redo,
@@ -25,42 +27,69 @@ interface Props {
     onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
 }
 
+const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS_URL || 'ws://localhost:1234'
+
 export default function OperationEditor({ operationId, initialContent, onSaveStatusChange }: Props) {
-    const saveTimer = useRef<ReturnType<typeof setTimeout>>()
     const imageInputRef = useRef<HTMLInputElement>(null)
     const [uploadingImage, setUploadingImage] = useState(false)
+    const seededRef = useRef(false)
+
+    const [ydoc] = useState(() => new Y.Doc())
+    const [provider, setProvider] = useState<HocuspocusProvider | null>(null)
+
+    useEffect(() => {
+        let destroyed = false
+        let p: HocuspocusProvider | null = null
+
+        fetch('/api/me/token')
+            .then(r => r.json())
+            .then(({ token }) => {
+                if (destroyed || !token) return
+                p = new HocuspocusProvider({
+                    url: COLLAB_WS_URL,
+                    name: operationId,
+                    document: ydoc,
+                    token,
+                    onSynced: () => setTimeout(() => onSaveStatusChange?.('saved'), 0),
+                    onStatus: ({ status }) => {
+                        if (status === 'connecting') setTimeout(() => onSaveStatusChange?.('saving'), 0)
+                    },
+                })
+                setProvider(p)
+            })
+
+        return () => {
+            destroyed = true
+            p?.destroy()
+        }
+    }, [operationId, ydoc])
 
     const editor = useEditor({
         immediatelyRender: false,
         extensions: [
-            StarterKit,
-            Underline,
+            StarterKit.configure({ undoRedo: false }),
             TextAlign.configure({ types: ['heading', 'paragraph'] }),
             Highlight.configure({ multicolor: false }),
             Placeholder.configure({ placeholder: 'Begin writing the operation document...' }),
             Image.configure({ inline: false, allowBase64: false }),
             GlobalDragHandle.configure({ dragHandleWidth: 20 }),
+            Collaboration.configure({ document: ydoc }),
         ],
-        content: initialContent || null,
         editorProps: { attributes: { class: 'op-editor' } },
-        onUpdate: ({ editor }) => {
-            onSaveStatusChange?.('unsaved')
-            clearTimeout(saveTimer.current)
-            saveTimer.current = setTimeout(async () => {
-                onSaveStatusChange?.('saving')
-                try {
-                    await fetch('/api/operations/content', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: operationId, content: editor.getJSON() }),
-                    })
-                    onSaveStatusChange?.('saved')
-                } catch {
-                    onSaveStatusChange?.('unsaved')
-                }
-            }, 1500)
-        },
     })
+
+    // Seed the Yjs doc with existing content the first time it's opened collaboratively
+    useEffect(() => {
+        if (!editor || !provider || seededRef.current) return
+        const onSynced = () => {
+            if (editor.isEmpty && initialContent) {
+                editor.commands.setContent(initialContent)
+            }
+            seededRef.current = true
+        }
+        provider.on('synced', onSynced)
+        return () => { provider.off('synced', onSynced) }
+    }, [editor, provider, initialContent])
 
     async function handleImageUpload(file: File) {
         if (!editor || uploadingImage) return
