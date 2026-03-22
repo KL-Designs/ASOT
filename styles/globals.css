@@ -325,6 +325,16 @@ body {
     user-select: none;
     white-space: nowrap;
     pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+/* Show label when cursor parent paragraph is hovered */
+.op-editor p:hover .collaboration-cursor__label,
+.op-editor li:hover .collaboration-cursor__label,
+.op-editor h1:hover .collaboration-cursor__label,
+.op-editor h2:hover .collaboration-cursor__label,
+.op-editor h3:hover .collaboration-cursor__label {
+    opacity: 1;
 }
 
 /* Placeholder */

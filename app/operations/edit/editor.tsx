@@ -8,6 +8,8 @@ import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
 import GlobalDragHandle from 'tiptap-extension-global-drag-handle'
 import Collaboration from '@tiptap/extension-collaboration'
+import { Extension } from '@tiptap/core'
+import { yCursorPlugin, defaultSelectionBuilder } from '@tiptap/y-tiptap'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 import { useEffect, useRef, useState } from 'react'
@@ -27,15 +29,30 @@ interface Props {
     onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
 }
 
+interface PresenceUser {
+    name: string
+    color: string
+}
+
+interface Peer extends PresenceUser {
+    clientId: number
+}
+
+interface ReadyState {
+    provider: HocuspocusProvider
+    user: PresenceUser
+}
+
 const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS_URL || 'ws://localhost:1234'
 
-export default function OperationEditor({ operationId, initialContent, onSaveStatusChange }: Props) {
-    const imageInputRef = useRef<HTMLInputElement>(null)
-    const [uploadingImage, setUploadingImage] = useState(false)
-    const seededRef = useRef(false)
+// ─── Outer shell ─────────────────────────────────────────────────────────────
+// Handles the async token fetch + provider creation. Only renders the real
+// editor once the provider is live, so CollaborationCursor always gets a
+// valid provider at init time (avoids y-prosemirror "doc" crash).
 
+export default function OperationEditor({ operationId, initialContent, onSaveStatusChange }: Props) {
     const [ydoc] = useState(() => new Y.Doc())
-    const [provider, setProvider] = useState<HocuspocusProvider | null>(null)
+    const [ready, setReady] = useState<ReadyState | null>(null)
 
     useEffect(() => {
         let destroyed = false
@@ -43,8 +60,9 @@ export default function OperationEditor({ operationId, initialContent, onSaveSta
 
         fetch('/api/me/token')
             .then(r => r.json())
-            .then(({ token }) => {
+            .then(({ token, name, color }) => {
                 if (destroyed || !token) return
+                const user: PresenceUser = { name: name || 'Unknown', color: color || '#db001d' }
                 p = new HocuspocusProvider({
                     url: COLLAB_WS_URL,
                     name: operationId,
@@ -55,14 +73,105 @@ export default function OperationEditor({ operationId, initialContent, onSaveSta
                         if (status === 'connecting') setTimeout(() => onSaveStatusChange?.('saving'), 0)
                     },
                 })
-                setProvider(p)
+                if (!destroyed) setReady({ provider: p, user })
             })
 
         return () => {
             destroyed = true
             p?.destroy()
+            setReady(null)
         }
     }, [operationId, ydoc])
+
+    if (!ready) {
+        return (
+            <div style={{ padding: '48px 0', textAlign: 'center', color: 'rgba(237,237,237,0.15)', fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                Connecting…
+            </div>
+        )
+    }
+
+    return (
+        <ActiveEditor
+            ydoc={ydoc}
+            provider={ready.provider}
+            user={ready.user}
+            initialContent={initialContent}
+            onSaveStatusChange={onSaveStatusChange}
+        />
+    )
+}
+
+// Build a cursor extension using @tiptap/y-tiptap's yCursorPlugin so it shares
+// the same ySyncPluginKey as @tiptap/extension-collaboration (v3.x moved off
+// y-prosemirror's key, so the stock CollaborationCursor@3 crashes at init).
+function buildCursorExtension(provider: HocuspocusProvider, user: PresenceUser) {
+    return Extension.create({
+        name: 'collaborationCursor',
+        addProseMirrorPlugins() {
+            return [
+                yCursorPlugin(
+                    (() => {
+                        const awareness = provider.awareness!
+                        awareness.setLocalStateField('user', user)
+                        return awareness
+                    })(),
+                    {
+                        cursorBuilder: (u: any) => {
+                            const el = document.createElement('span')
+                            el.classList.add('collaboration-cursor__caret')
+                            el.setAttribute('style', `border-color: ${u.color}`)
+                            const label = document.createElement('div')
+                            label.classList.add('collaboration-cursor__label')
+                            label.setAttribute('style', `background-color: ${u.color}`)
+                            label.textContent = u.name
+                            el.appendChild(label)
+                            return el
+                        },
+                        selectionBuilder: defaultSelectionBuilder,
+                    }
+                ),
+            ]
+        },
+    })
+}
+
+// ─── Inner editor ─────────────────────────────────────────────────────────────
+// Mounted once provider is ready. Editor is created once — no deps recreation.
+
+interface ActiveEditorProps {
+    ydoc: Y.Doc
+    provider: HocuspocusProvider
+    user: PresenceUser
+    initialContent?: any
+    onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
+}
+
+function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange }: ActiveEditorProps) {
+    const imageInputRef = useRef<HTMLInputElement>(null)
+    const [uploadingImage, setUploadingImage] = useState(false)
+    const seededRef = useRef(false)
+    const [peers, setPeers] = useState<Peer[]>([])
+
+    // Track presence of other connected users
+    useEffect(() => {
+        const awareness = provider.awareness
+        if (!awareness) return
+        const localId = awareness.clientID
+        const update = () => {
+            const states = Array.from(awareness.getStates().entries()) as [number, any][]
+            setPeers(
+                states
+                    .filter(([clientId]) => clientId !== localId)
+                    .flatMap(([clientId, state]) =>
+                        state.user ? [{ clientId, ...(state.user as PresenceUser) }] : []
+                    )
+            )
+        }
+        awareness.on('update', update)
+        update()
+        return () => { awareness.off('update', update) }
+    }, [provider])
 
     const editor = useEditor({
         immediatelyRender: false,
@@ -74,13 +183,14 @@ export default function OperationEditor({ operationId, initialContent, onSaveSta
             Image.configure({ inline: false, allowBase64: false }),
             GlobalDragHandle.configure({ dragHandleWidth: 20 }),
             Collaboration.configure({ document: ydoc }),
+            buildCursorExtension(provider, user),
         ],
         editorProps: { attributes: { class: 'op-editor' } },
     })
 
     // Seed the Yjs doc with existing content the first time it's opened collaboratively
     useEffect(() => {
-        if (!editor || !provider || seededRef.current) return
+        if (!editor || seededRef.current) return
         const onSynced = () => {
             if (editor.isEmpty && initialContent) {
                 editor.commands.setContent(initialContent)
@@ -203,6 +313,18 @@ export default function OperationEditor({ operationId, initialContent, onSaveSta
                 <TBtn title='Clear Formatting' onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>
                     <FormatClear style={{ fontSize: 17 }} />
                 </TBtn>
+
+                {/* Presence avatars — right-aligned */}
+                {peers.length > 0 && (
+                    <>
+                        <div style={{ flex: 1 }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            {peers.map(peer => (
+                                <PresenceAvatar key={peer.clientId} peer={peer} />
+                            ))}
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Content area */}
@@ -220,6 +342,50 @@ export default function OperationEditor({ operationId, initialContent, onSaveSta
                     e.target.value = ''
                 }}
             />
+        </div>
+    )
+}
+
+
+function PresenceAvatar({ peer }: { peer: Peer }) {
+    const [hovered, setHovered] = useState(false)
+    return (
+        <div
+            style={{ position: 'relative', flexShrink: 0 }}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+        >
+            <div style={{
+                width: 26, height: 26,
+                borderRadius: '50%',
+                background: peer.color,
+                border: '2px solid rgba(0,0,0,0.5)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, fontWeight: 700, color: '#fff',
+                textTransform: 'uppercase',
+                cursor: 'default',
+            }}>
+                {peer.name.charAt(0)}
+            </div>
+            {hovered && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '120%',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: peer.color,
+                    color: '#fff',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: '3px 8px',
+                    borderRadius: 3,
+                    whiteSpace: 'nowrap',
+                    pointerEvents: 'none',
+                    zIndex: 100,
+                }}>
+                    {peer.name}
+                </div>
+            )}
         </div>
     )
 }
