@@ -38,7 +38,7 @@ next-env.d.ts
 
 # local
 config.ts
-/.uploads
+/uploads
 /gallery
 /gallery.new
 /gallery.old

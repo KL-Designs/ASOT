@@ -12,8 +12,10 @@ export default createTheme({
         },
         secondaryGrey: {
             main: '#3a629c'
+        },
+        light: {
+            main: '#ffffff'
         }
-
     },
 
     typography: {
@@ -24,6 +26,16 @@ export default createTheme({
         }
     },
     components: {
+        MuiButton: {
+            styleOverrides: {
+                root: {
+                    fontSize: '15px',
+                    fontWeight: 500,
+                    fontFamily: 'Montserrat'
+                }
+            }
+        },
+
         MuiPaper: {
             styleOverrides: {
                 root: {
@@ -38,10 +50,12 @@ export default createTheme({
 declare module '@mui/material/styles' {
     interface Palette {
         secondaryGrey: Palette['primary'];
+        light: Palette['primary'];
         // ocean: Palette['primary'];
     }
     interface PaletteOptions {
         secondaryGrey?: PaletteOptions['primary'];
+        light?: PaletteOptions['primary'];
         // ocean?: PaletteOptions['primary'];
     }
 }
@@ -49,6 +63,7 @@ declare module '@mui/material/styles' {
 declare module '@mui/material/Button' {
     interface ButtonPropsColorOverrides {
         secondaryGrey: true;
+        light: true;
         // ocean: true;
     }
 }

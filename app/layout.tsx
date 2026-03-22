@@ -1,30 +1,35 @@
 import type { Metadata, Viewport } from "next"
-import { Montserrat, IBM_Plex_Sans } from "next/font/google"
+import { Montserrat } from "next/font/google"
 import "@/styles/globals.css"
+import { headers } from "next/headers"
 
 
 import { ThemeProvider } from "@mui/material"
 import UnitTheme from '@/themes/unit'
 import Navbar from './navbar'
 import Footer from "./footer"
+import CustomCursor from '@/components/cursor'
 
 
 const montserrat = Montserrat({ subsets: ["latin"] })
-const plex = IBM_Plex_Sans({ weight: "500", subsets: ["latin"] })
 
 export const viewport: Viewport = {
-	themeColor: "#9d000c"
+	themeColor: "#9d000c",
+	width: 'device-width',
+	initialScale: 1,
 }
 
-export const metadata: Metadata = {
-	title: "Australian Special Operations Taskforce",
-	description: "Australia's premiere ARMA 3 milsim community. Recruiting now! 17+ unless vouched for by a current member. Any experience level is welcome!",
-	keywords: ["arma", "arma 3", "australian", "special", "operations", "taskforce", "asot", "milsim"],
-	twitter: {
-		images: `${process.env.NEXT_PUBLIC_BASEURL}/meta_banner.png`
-	},
-	openGraph: {
-		images: `${process.env.NEXT_PUBLIC_BASEURL}/meta_banner.png`
+export async function generateMetadata(): Promise<Metadata> {
+	const hdrs = await headers()
+	const host = hdrs.get('host') ?? 'localhost:3000'
+	const proto = hdrs.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https')
+	const base = new URL(`${proto}://${host}`)
+
+	return {
+		metadataBase: base,
+		title: "Australian Special Operations Taskforce",
+		description: "Australia's premiere ARMA 3 milsim community. Recruiting now! 17+ unless vouched for by a current member. Any experience level is welcome!",
+		keywords: ["arma", "arma 3", "australian", "special", "operations", "taskforce", "asot", "milsim"],
 	}
 }
 
@@ -38,6 +43,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 			</head>
 
 			<body className={`${montserrat.className}  antialiased h-full`}>
+				<CustomCursor />
 				<ThemeProvider theme={UnitTheme}>
 					<div className="h-full flex flex-col">
 

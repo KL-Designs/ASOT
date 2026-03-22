@@ -2,7 +2,6 @@ import "./landing.css"
 
 import Image, { StaticImageData } from 'next/image'
 
-import { Typography, Divider } from '@mui/material'
 
 
 
@@ -31,29 +30,28 @@ export default function Container({ children, title, subtitle, background, sx }:
     return (
         <div className='h-full w-full'>
 
-            <div className={`relative w-full ${bannerHeight} flex flex-col justify-center items-center`}>
-                <Image src={background || '/images/fallback.webp'} alt='Banner' fill className='object-cover object-center blur-[2px]' loading='eager' />
+            <div className={`relative w-full ${bannerHeight} flex flex-col justify-end items-center overflow-hidden`}>
+                <Image src={background || '/images/fallback.webp'} alt='Banner' fill className='object-cover object-center' loading='eager' />
 
-                <div className='max-w-[1000px] mx-10 flex flex-col justify-center gap-5'>
-                    <div className='flex flex-col justify-center items-center gap-3' style={{
-                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                        backdropFilter: 'blur(10px)',
-                        border: '2px solid #db001d',
-                        padding: '15px'
-                    }}>
-                        <h1 className='container-h1'>{title || 'PAGE TITLE'}</h1>
+                {/* Gradient overlay — dark top edge, heavy fade to page bg at bottom */}
+                <div className='absolute inset-0' style={{
+                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.2) 40%, rgba(10,10,10,0.7) 75%, #0a0a0a 100%)'
+                }} />
 
-                        {subtitle ? <>
-                            <Divider flexItem color='#db001d' />
-                            <h2 className="container-h2 max-w-[400px] md:max-w-[700px]">{subtitle}</h2>
-                        </> : null}
+                <div className='relative z-10 flex flex-col items-center gap-3 pb-10 px-6 text-center w-full'>
+                    <h1 className='container-h1'>{title || 'PAGE TITLE'}</h1>
+                    <div className='flex items-center gap-3 w-full' style={{ maxWidth: 360 }}>
+                        <div style={{ flex: 1, height: 1, background: 'rgba(219,0,29,0.2)' }} />
+                        <div style={{ height: 2, width: 48, background: 'var(--red)' }} />
+                        <div style={{ flex: 1, height: 1, background: 'rgba(219,0,29,0.2)' }} />
                     </div>
+                    {subtitle && <h2 className="container-h2 max-w-[400px] md:max-w-[680px]" style={{ opacity: 0.8 }}>{subtitle}</h2>}
                 </div>
             </div>
 
 
-            <div style={{ borderTop: '1px solid #db001d' }}>
-                <div className={`m-auto flex flex-col ${sx?.gap ? sx.gap : 'gap-10'} ${sx?.maxWidth || 'max-w-md'}`} style={{ padding: sx?.padding || '2rem 2rem' }}>
+            <div>
+                <div className={`w-full m-auto flex flex-col ${sx?.gap ? sx.gap : 'gap-10'} ${sx?.maxWidth || 'max-w-md'}`} style={{ padding: sx?.padding || '2rem 2rem' }}>
 
                     {children}
 

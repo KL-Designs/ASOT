@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \":*)",
+      "Bash(python3:*)",
+      "WebFetch(domain:www.australianspecialoperationstaskforce.com)",
+      "Bash(cat -A \"f:/Clients/ASOT-Website/app/\\(landing\\)/milpacs/[username]/page.tsx\")",
+      "Bash(ls -la /f/Clients/ASOT-Website/app/\\\\\\(landing\\\\\\)/community/)",
+      "Bash(find /f/Clients/ASOT-Website -path *api*orbat* -o -path *api*/members*)",
+      "Bash(ls -la /f/Clients/ASOT-Website/app/\\\\\\(landing\\\\\\)/community/orbat/)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}

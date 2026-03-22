@@ -42,6 +42,21 @@ const nextConfig: NextConfig = {
 				port: "3000",
 				pathname: "/api/gallery/featured/**",
 			},
+
+
+			{
+				protocol: 'https',
+				hostname: 'www.asotmilsim.com',
+				pathname: '/api/uploads/**',
+			},
+
+			{
+				protocol: "http",
+				hostname: "localhost",
+				port: "3000",
+				pathname: "/api/uploads/**",
+			},
+
 		]
 	},
 

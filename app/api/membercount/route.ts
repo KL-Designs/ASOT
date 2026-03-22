@@ -7,7 +7,7 @@ import Db from '@/lib/mongo'
 
 export async function GET(request: NextRequest) {
 
-    const members = await Db.users.find({}).toArray()
+    const members = await Db.users.find({ "guild.roles": "1110471500563239012" }).toArray()
 
     // if (new Date().getTime() - cache[1].getTime() >= 1000 * 60 * 30) {
 
