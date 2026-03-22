@@ -12,6 +12,8 @@ declare global {
         date: Date
         loreDate: Date
 
+        content?: any
+
         fields: {
             title: string
 

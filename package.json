@@ -19,13 +19,21 @@
     "@mui/icons-material": "^7.3.6",
     "@mui/material": "^7.3.6",
     "@mui/x-date-pickers": "^8.27.0",
+    "@tiptap/extension-highlight": "^3.20.4",
+    "@tiptap/extension-image": "^3.20.4",
+    "@tiptap/extension-placeholder": "^3.20.4",
+    "@tiptap/extension-text-align": "^3.20.4",
+    "@tiptap/extension-underline": "^3.20.4",
+    "@tiptap/react": "^3.20.4",
+    "@tiptap/starter-kit": "^3.20.4",
     "dayjs": "^1.11.19",
     "luxon": "^3.7.2",
     "mongodb": "^7.0.0",
     "next": "^15.5.7",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "tiptap-extension-global-drag-handle": "^0.1.18"
   },
   "devDependencies": {
     "@types/luxon": "^3.7.1",

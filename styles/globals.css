@@ -166,3 +166,148 @@ body {
 ::-webkit-scrollbar-thumb:hover {
 	background: #474747;
 }
+
+
+/* ─── Operation Document Editor & Viewer ─────────────────────────────────── */
+
+/* Drag handle (tiptap-extension-global-drag-handle) */
+.drag-handle {
+    opacity: 0;
+    transition: opacity 0.15s;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 2px;
+    color: rgba(237, 237, 237, 0.3);
+}
+.drag-handle:hover {
+    opacity: 1 !important;
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(237, 237, 237, 0.7);
+}
+.tiptap-drag-handle-visible .drag-handle {
+    opacity: 0.4;
+}
+
+/* Shared styles for both editor content and viewer */
+.op-editor,
+.op-doc {
+    color: rgba(237, 237, 237, 0.85);
+    font-size: 0.92rem;
+    line-height: 1.75;
+    outline: none;
+    min-height: 500px;
+    padding: 36px 48px;
+}
+
+.op-editor h1, .op-doc h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.95);
+    margin: 1.6em 0 0.4em;
+    border-bottom: 1px solid rgba(219, 0, 29, 0.25);
+    padding-bottom: 6px;
+}
+
+.op-editor h2, .op-doc h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(219, 0, 29, 0.85);
+    margin: 1.4em 0 0.3em;
+}
+
+.op-editor h3, .op-doc h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.55);
+    margin: 1.2em 0 0.25em;
+}
+
+.op-editor p, .op-doc p {
+    margin: 0.5em 0;
+}
+
+.op-editor ul, .op-doc ul,
+.op-editor ol, .op-doc ol {
+    padding-left: 1.6em;
+    margin: 0.5em 0;
+}
+
+.op-editor li, .op-doc li {
+    margin: 0.25em 0;
+}
+
+.op-editor ul li::marker, .op-doc ul li::marker {
+    color: rgba(219, 0, 29, 0.6);
+}
+
+.op-editor ol li::marker, .op-doc ol li::marker {
+    color: rgba(219, 0, 29, 0.6);
+}
+
+.op-editor blockquote, .op-doc blockquote {
+    border-left: 3px solid rgba(219, 0, 29, 0.5);
+    padding: 8px 16px;
+    margin: 1em 0;
+    background: rgba(219, 0, 29, 0.04);
+    color: rgba(237, 237, 237, 0.6);
+    font-style: italic;
+}
+
+.op-editor hr, .op-doc hr {
+    border: none;
+    border-top: 1px solid rgba(219, 0, 29, 0.2);
+    margin: 2em 0;
+}
+
+.op-editor img, .op-doc img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1.5em auto;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.op-editor img.ProseMirror-selectednode {
+    outline: 2px solid rgba(219, 0, 29, 0.6);
+}
+
+.op-editor mark, .op-doc mark {
+    background: rgba(219, 0, 29, 0.2);
+    color: rgba(237, 237, 237, 0.95);
+    border-radius: 2px;
+    padding: 0 2px;
+}
+
+.op-editor strong, .op-doc strong {
+    font-weight: 700;
+    color: rgba(237, 237, 237, 0.95);
+}
+
+.op-editor code, .op-doc code {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-size: 0.85em;
+    font-family: monospace;
+}
+
+/* Placeholder */
+.op-editor p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: rgba(237, 237, 237, 0.15);
+    pointer-events: none;
+    float: left;
+    height: 0;
+    font-style: italic;
+}
