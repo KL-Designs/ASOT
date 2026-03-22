@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse } from '@mui/material'
-import { Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, AdminPanelSettings, Api, Tune } from '@mui/icons-material'
+import { AccountCircle, Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, AdminPanelSettings, Api, Tune } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import { rankNameFromAbbr } from '@/lib/ranks'
@@ -125,7 +125,7 @@ export default function Navbar() {
                             if (!link.subLinks) {
                                 const isActive = link.href === '/' ? pathname === '/' : pathname.startsWith(link.href)
                                 return (
-                                    <Link key={link.name} href={link.href} target='_self'>
+                                    <Link key={link.name} href={link.href as any} target='_self'>
                                         <Button
                                             startIcon={link.icon}
                                             color='light'
@@ -275,7 +275,7 @@ function MobileNavItem({ link, onClose }: { link: Link, onClose: () => void }) {
     const [expanded, setExpanded] = useState(false)
 
     if (!link.subLinks) return (
-        <Link href={link.href} onClick={onClose}>
+        <Link href={link.href as any} onClick={onClose}>
             <div className='flex items-center gap-3 px-3 py-[10px] rounded-md cursor-pointer transition-colors hover:bg-white/5'
                 style={{ color: 'rgba(237,237,237,0.7)' }}>
                 <span className='flex text-[20px]'>{link.icon}</span>
@@ -302,7 +302,7 @@ function MobileNavItem({ link, onClose }: { link: Link, onClose: () => void }) {
             <Collapse in={expanded}>
                 <div className='pl-4 pb-1 flex flex-col gap-[2px]'>
                     {link.subLinks.map(sub => (
-                        <Link key={sub.link} href={sub.link} onClick={onClose}>
+                        <Link key={sub.link} href={sub.link as any} onClick={onClose}>
                             <div className='flex items-center gap-3 px-3 py-2 rounded cursor-pointer transition-colors hover:bg-white/5'
                                 style={{ color: 'rgba(237,237,237,0.6)' }}>
                                 <span className='flex text-[18px]' style={{ color: 'rgba(219, 0, 29, 0.8)' }}>{sub.icon}</span>
@@ -531,7 +531,7 @@ function DropDownMenu({ data, isActive }: { data: Link, isActive: boolean }) {
             >
                 <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '4px' }}>
                     {data.subLinks?.map(link => (
-                        <Link key={link.link} href={link.link}>
+                        <Link key={link.link} href={link.link as any}>
                             <MenuItem
                                 onClick={handleClose}
                                 style={{ borderRadius: 4, padding: '10px 12px', alignItems: 'flex-start', gap: 12 }}
