@@ -1,13 +1,7 @@
 import client from '@/lib/discord'
 import { connection } from 'next/server'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-
-import { Paper, Divider, Typography, Button } from '@mui/material'
-import { AddBox, Tune } from '@mui/icons-material'
 
 import { CreateButton, MissionList } from './list'
-
 
 
 export default async function Page() {
@@ -21,18 +15,31 @@ export default async function Page() {
     } catch { }
 
     return (
-        <div className='h-full w-full p-5'>
+        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[900px] mx-auto'>
 
-            <div className='m-auto max-w-[600px] flex flex-col gap-5'>
-                {editAccess ? <CreateButton /> : null}
+            {/* Header */}
+            <div className='flex items-center justify-between gap-4'>
+                <div className='flex flex-col gap-1'>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)' }}>
+                        Australian Special Operations Taskforce
+                    </span>
+                    <h1 style={{ fontSize: '1.35rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)', margin: 0 }}>
+                        Operations Board
+                    </h1>
+                </div>
+                {editAccess && <CreateButton />}
+            </div>
 
+            {/* Mission list card */}
+            <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)' }}>
+                <div className='flex items-center px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>
+                        Active Operations
+                    </span>
+                </div>
                 <MissionList />
             </div>
 
-            {/* <Paper className='m-auto w-[250px] h-[250px] p-5 flex flex-col justify-center items-center'>
-                <AddBox sx={{ fontSize: 100 }} />
-                <Typography variant='h2'>New Mission</Typography>
-            </Paper> */}
         </div>
     )
 }
