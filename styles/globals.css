@@ -235,7 +235,9 @@ body {
 .op-editor p { margin: 0.5em 0; }
 
 .op-editor ul, .op-editor ol { padding-left: 1.6em; margin: 0.5em 0; }
-.op-editor li { margin: 0.25em 0; }
+.op-editor ul { list-style-type: disc; }
+.op-editor ol { list-style-type: decimal; }
+.op-editor li { margin: 0.25em 0; display: list-item; }
 .op-editor ul li::marker { color: rgba(219, 0, 29, 0.6); }
 .op-editor ol li::marker { color: rgba(219, 0, 29, 0.6); }
 
@@ -270,6 +272,9 @@ body {
 }
 
 .op-editor strong { font-weight: 700; color: rgba(237, 237, 237, 0.95); }
+
+.op-editor a { color: rgba(219, 0, 29, 0.85); text-decoration: underline; text-underline-offset: 3px; }
+.op-editor a:hover { color: rgba(237, 237, 237, 0.9); }
 
 .op-editor code {
     background: rgba(255, 255, 255, 0.06);
@@ -340,7 +345,9 @@ body {
 .op-doc p { margin: 0.6em 0; }
 
 .op-doc ul, .op-doc ol { padding-left: 1.6em; margin: 0.6em 0; }
-.op-doc li { margin: 0.3em 0; }
+.op-doc ul { list-style-type: disc; }
+.op-doc ol { list-style-type: decimal; }
+.op-doc li { margin: 0.3em 0; display: list-item; }
 /* markers injected */
 
 .op-doc blockquote {
@@ -370,6 +377,10 @@ body {
 }
 
 .op-doc strong { font-weight: 700; color: rgba(237, 237, 237, 0.95); }
+
+/* Link color injected via themeCSS in DocBody */
+.op-doc a { text-decoration: underline; text-underline-offset: 3px; opacity: 0.9; }
+.op-doc a:hover { opacity: 1; }
 
 .op-doc code {
     background: rgba(255, 255, 255, 0.06);

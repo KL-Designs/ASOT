@@ -14,12 +14,14 @@ import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 import { useEffect, useRef, useState } from 'react'
 
+import Link from '@tiptap/extension-link'
 import {
     Undo, Redo,
     FormatBold, FormatItalic, FormatUnderlined, StrikethroughS,
     FormatListBulleted, FormatListNumbered,
     FormatAlignLeft, FormatAlignCenter, FormatAlignRight,
     FormatQuote, HorizontalRule, AddPhotoAlternate, FormatClear, FormatColorFill,
+    InsertLink, LinkOff,
 } from '@mui/icons-material'
 
 
@@ -315,6 +317,9 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
     const [uploadingImage, setUploadingImage] = useState(false)
     const seededRef = useRef(false)
     const [peers, setPeers] = useState<Peer[]>([])
+    const [linkPopover, setLinkPopover] = useState(false)
+    const [linkUrl, setLinkUrl] = useState('')
+    const linkInputRef = useRef<HTMLInputElement>(null)
 
     // Track presence of other connected users
     useEffect(() => {
@@ -344,6 +349,7 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
             Highlight.configure({ multicolor: false }),
             Placeholder.configure({ placeholder: 'Begin writing the operation document...' }),
             ResizableImage,
+            Link.configure({ openOnClick: false, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
             GlobalDragHandle.configure({ dragHandleWidth: 20 }),
             Collaboration.configure({ document: ydoc }),
             buildCursorExtension(provider, user),
@@ -363,6 +369,15 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
         provider.on('synced', onSynced)
         return () => { provider.off('synced', onSynced) }
     }, [editor, provider, initialContent])
+
+    useEffect(() => {
+        if (!linkPopover) return
+        const close = (e: MouseEvent) => {
+            if (!(e.target as Element).closest('[data-link-popover]')) setLinkPopover(false)
+        }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [linkPopover])
 
     async function handleImageUpload(file: File) {
         if (!editor || uploadingImage) return
@@ -469,6 +484,76 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                     active={uploadingImage}
                 >
                     <AddPhotoAlternate style={{ fontSize: 17, opacity: uploadingImage ? 0.4 : 1 }} />
+                </TBtn>
+
+                {/* Link button + inline popover */}
+                <div style={{ position: 'relative' }}>
+                    <TBtn
+                        title={editor.isActive('link') ? 'Edit Link' : 'Insert Link'}
+                        active={editor.isActive('link')}
+                        onClick={() => {
+                            const existing = editor.getAttributes('link').href || ''
+                            setLinkUrl(existing)
+                            setLinkPopover(v => !v)
+                            setTimeout(() => linkInputRef.current?.focus(), 40)
+                        }}
+                    >
+                        <InsertLink style={{ fontSize: 17 }} />
+                    </TBtn>
+                    {linkPopover && (
+                        <div
+                            data-link-popover
+                            onMouseDown={e => e.stopPropagation()}
+                            style={{
+                                position: 'absolute', top: '110%', left: 0, zIndex: 50,
+                                background: 'rgba(14,14,14,0.97)', border: '1px solid rgba(255,255,255,0.12)',
+                                borderRadius: 4, padding: '8px 10px',
+                                display: 'flex', alignItems: 'center', gap: 6,
+                                minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+                            }}
+                        >
+                            <input
+                                ref={linkInputRef}
+                                value={linkUrl}
+                                onChange={e => setLinkUrl(e.target.value)}
+                                placeholder='https://…'
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault()
+                                        if (linkUrl.trim()) editor.chain().focus().setLink({ href: linkUrl.trim() }).run()
+                                        else editor.chain().focus().unsetLink().run()
+                                        setLinkPopover(false)
+                                    }
+                                    if (e.key === 'Escape') setLinkPopover(false)
+                                }}
+                                style={{
+                                    flex: 1, background: 'transparent', border: 'none',
+                                    borderBottom: '1px solid rgba(255,255,255,0.15)',
+                                    color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem',
+                                    letterSpacing: '0.02em', outline: 'none', padding: '3px 2px',
+                                }}
+                            />
+                            <button
+                                type='button'
+                                onClick={() => {
+                                    if (linkUrl.trim()) editor.chain().focus().setLink({ href: linkUrl.trim() }).run()
+                                    else editor.chain().focus().unsetLink().run()
+                                    setLinkPopover(false)
+                                }}
+                                style={{
+                                    fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
+                                    textTransform: 'uppercase', color: 'rgba(219,0,29,0.85)',
+                                    background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0,
+                                }}
+                            >Apply</button>
+                        </div>
+                    )}
+                </div>
+                <TBtn
+                    title='Remove Link'
+                    onClick={() => { editor.chain().focus().unsetLink().run(); setLinkPopover(false) }}
+                >
+                    <LinkOff style={{ fontSize: 17 }} />
                 </TBtn>
 
                 <TDivider />

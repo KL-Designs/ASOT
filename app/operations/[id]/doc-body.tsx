@@ -7,11 +7,13 @@ import Image from '@tiptap/extension-image'
 import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
+import Link from '@tiptap/extension-link'
 
 const extensions = [
     StarterKit,
     Underline,
     Image,
+    Link.configure({ HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
     Highlight,
 ]
@@ -49,6 +51,7 @@ export default function DocBody({ content, themeColor = '#db001d' }: { content: 
         .op-doc blockquote { border-left-color: ${c(0.5)}; background: ${c(0.04)}; }
         .op-doc hr { border-top-color: ${c(0.2)}; }
         .op-doc mark { background: ${c(0.22)}; }
+        .op-doc a { color: ${c(0.9)}; }
     `
 
     if (!html) return (
