@@ -1,4 +1,4 @@
-import { Metadata } from "next"
+import { Metadata, Viewport } from "next"
 import Db from '@/lib/mongo'
 import { ObjectId } from "mongodb"
 import dayjs from 'dayjs'
@@ -6,6 +6,16 @@ import dayjs from 'dayjs'
 
 type Props = {
 	params: Promise<{ id: string }>
+}
+
+export async function generateViewport({ params }: Props): Promise<Viewport> {
+	const { id } = await params
+	try {
+		const operation = await Db.operations.findOne({ _id: new ObjectId(id) }, { projection: { themeColor: 1 } })
+		return { themeColor: operation?.themeColor || '#db001d' }
+	} catch {
+		return { themeColor: '#db001d' }
+	}
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -21,7 +31,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		return {
 			title,
 			description,
-			themeColor: operation.themeColor || '#db001d',
 			openGraph: {
 				title,
 				description,
