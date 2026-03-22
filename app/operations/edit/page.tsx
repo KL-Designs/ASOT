@@ -6,7 +6,9 @@ import dayjs, { Dayjs } from 'dayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
-import OperationEditor, { type MetaFields } from './editor'
+import dynamic from 'next/dynamic'
+import { type MetaFields } from './editor'
+const OperationEditor = dynamic(() => import('./editor'), { ssr: false })
 
 
 export default function Page() {
