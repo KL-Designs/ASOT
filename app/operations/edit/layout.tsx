@@ -1,21 +1,12 @@
-import { Metadata } from "next"
+import { redirect } from 'next/navigation'
+import client from '@/lib/discord'
 
-
-
-// export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-// 	const slug = params.slug
-// 	return {
-// 		title: `${slug} | Australian Special Operations Taskforce`,
-// 		description: `Read about ${slug}`,
-// 	}
-// }
-
-
-
-export default function Page({ children }: Readonly<{ children: React.ReactNode }>) {
-	return (
-		<div className="h-full">
-			{children}
-		</div>
-	)
+export default async function Layout({ children }: { children: React.ReactNode }) {
+    try {
+        const me = await client.fetchMe()
+        if (!client.hasRoles(me, ['HQ Staff'])) redirect('/operations')
+    } catch {
+        redirect('/operations')
+    }
+    return <div className='h-full'>{children}</div>
 }

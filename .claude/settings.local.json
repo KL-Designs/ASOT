@@ -8,7 +8,9 @@
       "Bash(ls -la /f/Clients/ASOT-Website/app/\\\\\\(landing\\\\\\)/community/)",
       "Bash(find /f/Clients/ASOT-Website -path *api*orbat* -o -path *api*/members*)",
       "Bash(ls -la /f/Clients/ASOT-Website/app/\\\\\\(landing\\\\\\)/community/orbat/)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "WebFetch(domain:docs.google.com)",
+      "Bash(grep -E \"^-.*\\\\.\\(d\\\\.ts|ts|json\\)$\")"
     ]
   }
 }

@@ -10,6 +10,11 @@ declare global {
         title: string
         department: string
         date: Date
+        loreDate: Date
+
+        content?: any
+        themeColor?: string
+        coverImage?: string
 
         fields: {
             title: string

@@ -10,4 +10,7 @@ services:
       - ./uploads:/app/uploads
     restart: unless-stopped
     environment:
+      - NODE_ENV=production
       - MONGO_URI=mongodb://172.24.0.11:27017/ASOT
+      - NEXT_PUBLIC_COLLAB_WS_URL=wss://www.asotmilsim.com/collab
+      - WEB_URL=https://www.asotmilsim.com

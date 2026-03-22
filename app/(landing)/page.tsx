@@ -291,7 +291,7 @@ function FeatureSection({ label, title, image, imageSide, children, action }: {
 				<div>{children}</div>
 				{action && (
 					<div>
-						<Link href={action.href}>
+						<Link href={action.href as any}>
 							<Button variant='outlined' color='primary' endIcon={<ChevronRight />}>
 								{action.label.toUpperCase()}
 							</Button>
@@ -330,7 +330,7 @@ function PlatoonCard({ children, title, link, image }: { children: React.ReactNo
 					>
 						<p style={{ fontSize: '0.83rem', lineHeight: 1.65, color: 'rgba(237,237,237,0.75)' }}>{children}</p>
 					</div>
-					<Link href={link} className='pButton'>
+					<Link href={link as any} className='pButton'>
 						<p>LEARN MORE</p>
 						<ChevronRight />
 					</Link>

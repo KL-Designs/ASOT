@@ -100,7 +100,7 @@ export default function Footer() {
                                 </Typography>
                                 <div className='flex flex-col gap-[6px]'>
                                     {col.links.map(link => (
-                                        <Link key={link.label} href={link.href}>
+                                        <Link key={link.label} href={link.href as any}>
                                             <Typography
                                                 fontSize='0.8rem'
                                                 letterSpacing='0.04em'

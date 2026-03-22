@@ -78,7 +78,7 @@ function SupportCard({ name, phone, link, available, location, image, children }
 						{phone}
 					</div>
 					{link && (
-						<Link href={link} target='_blank' className='flex items-center gap-1' style={{ color: 'rgba(237,237,237,0.5)', fontSize: '0.78rem', letterSpacing: '0.04em' }}>
+						<Link href={link as any} target='_blank' className='flex items-center gap-1' style={{ color: 'rgba(237,237,237,0.5)', fontSize: '0.78rem', letterSpacing: '0.04em' }}>
 							<OpenInNew style={{ fontSize: '0.85rem' }} />
 							{link.replace(/^https?:\/\//, '')}
 						</Link>
