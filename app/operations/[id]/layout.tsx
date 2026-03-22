@@ -15,12 +15,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 		const operation = await Db.operations.findOne({ _id: new ObjectId(id) })
 		if (!operation) return { title: 'Unknown Operation | ASOT' }
 
+		const title = `${operation.title} | ASOT`
+		const description = `${operation.department || 'Joint Operation'} — ${dayjs(operation.date).format('DD MMM YYYY')}`
+
 		return {
-			title: `${operation.title} | ASOT`,
-			description: `${operation.department || 'Joint Operation'} — ${dayjs(operation.date).format('DD MMM YYYY')}`,
+			title,
+			description,
 			themeColor: operation.themeColor || '#db001d',
-			openGraph: { images: [] },
-			twitter: { images: [] },
+			openGraph: {
+				title,
+				description,
+				images: [],
+			},
+			twitter: {
+				card: 'summary_large_image',
+				title,
+				description,
+				images: [],
+			},
 		}
 	} catch {
 		return { title: 'Unknown Operation | ASOT' }

@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og'
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
+import fs from 'fs'
 
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
@@ -43,15 +44,19 @@ export default async function Image({ params }: { params: Promise<{ id: string }
         )
     }
 
-    // Fetch cover image as base64 so next/og can render it
+    // Read cover image directly from disk (URL is /api/operations/image?id=X&ext=Y)
     let coverDataUrl: string | null = null
     if (operation.coverImage) {
         try {
-            const res = await fetch(operation.coverImage)
-            const buf = await res.arrayBuffer()
-            const mime = res.headers.get('content-type') || 'image/jpeg'
-            coverDataUrl = `data:${mime};base64,${Buffer.from(buf).toString('base64')}`
-        } catch { /* skip cover if fetch fails */ }
+            const url = new URL(operation.coverImage, 'http://localhost')
+            const imgId = url.searchParams.get('id')
+            const ext = url.searchParams.get('ext') || 'jpg'
+            if (imgId) {
+                const buf = fs.readFileSync(`./uploads/operations/${imgId}.${ext}`)
+                const mimeMap: Record<string, string> = { png: 'image/png', gif: 'image/gif', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg' }
+                coverDataUrl = `data:${mimeMap[ext] ?? 'image/jpeg'};base64,${buf.toString('base64')}`
+            }
+        } catch { /* skip if file missing */ }
     }
 
     const title = operation.title || 'Untitled Operation'
@@ -88,7 +93,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             <div style={{
                 position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex',
                 background: coverDataUrl
-                    ? 'linear-gradient(to bottom, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.35) 40%, rgba(10,10,10,0.92) 100%)'
+                    ? 'linear-gradient(to bottom, rgba(10,10,10,0.72) 0%, rgba(10,10,10,0.60) 40%, rgba(10,10,10,0.97) 100%)'
                     : `linear-gradient(150deg, rgba(10,10,10,1) 0%, rgba(10,10,10,0.92) 100%)`,
             }} />
 
