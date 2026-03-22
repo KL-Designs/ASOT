@@ -16,6 +16,9 @@ export default function Page() {
     const [date, setDate] = useState<Dayjs | null>(null)
     const [loreDate, setLoreDate] = useState<Dayjs | null>(null)
     const [department, setDepartment] = useState('')
+    const [themeColor, setThemeColor] = useState('#db001d')
+    const [coverImage, setCoverImage] = useState<string | null>(null)
+    const [coverUploading, setCoverUploading] = useState(false)
     const [initialContent, setInitialContent] = useState<any>(undefined)
     const [loaded, setLoaded] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
@@ -40,6 +43,8 @@ export default function Page() {
                 setDate(op.date ? dayjs(op.date) : null)
                 setLoreDate(op.loreDate ? dayjs(op.loreDate) : null)
                 setDepartment(op.department || '')
+                setThemeColor(op.themeColor || '#db001d')
+                setCoverImage(op.coverImage || null)
                 setInitialContent(op.content ?? null)
                 setLoaded(true)
             })
@@ -62,6 +67,31 @@ export default function Page() {
         }, 1000)
     }
 
+    async function uploadCover(file: File) {
+        setCoverUploading(true)
+        const form = new FormData()
+        form.append('file', file)
+        try {
+            const res = await fetch('/api/operations/upload', { method: 'POST', body: form })
+            const json = await res.json()
+            if (json.url) {
+                setCoverImage(json.url)
+                const params = new URLSearchParams(window.location.search)
+                const id = params.get('op') || ''
+                await fetch(`/api/operations/update?id=${id}&coverImage=${encodeURIComponent(json.url)}`)
+            }
+        } finally {
+            setCoverUploading(false)
+        }
+    }
+
+    async function removeCover() {
+        setCoverImage(null)
+        const params = new URLSearchParams(window.location.search)
+        const id = params.get('op') || ''
+        await fetch(`/api/operations/update?id=${id}&coverImage=`)
+    }
+
     const statusColor = saveStatus === 'saved' ? 'rgba(100,220,100,0.65)' : saveStatus === 'saving' ? 'rgba(219,0,29,0.65)' : 'rgba(237,200,0,0.65)'
     const statusLabel = saveStatus === 'saved' ? '● Saved' : saveStatus === 'saving' ? '● Saving…' : '● Unsaved'
 
@@ -81,6 +111,17 @@ export default function Page() {
                     <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)' }}>
                         Mission Edit
                     </span>
+                    {opID && (
+                        <>
+                            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
+                            <Link
+                                href={`/operations/${opID}`}
+                                style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', textDecoration: 'none' }}
+                            >
+                                View →
+                            </Link>
+                        </>
+                    )}
                 </div>
                 <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor }}>
                     {statusLabel}
@@ -114,7 +155,7 @@ export default function Page() {
                             padding: '4px 0',
                         }}
                     />
-                    {/* Sub-fields */}
+                    {/* Sub-fields row 1 */}
                     <div className='flex flex-wrap gap-4'>
                         <input
                             value={department}
@@ -132,6 +173,16 @@ export default function Page() {
                                 minWidth: 160,
                             }}
                         />
+                        {/* Theme color picker */}
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid rgba(255,255,255,0.1)', padding: '6px 12px', cursor: 'pointer', userSelect: 'none' }}>
+                            <input
+                                type='color'
+                                value={themeColor}
+                                onChange={e => { setThemeColor(e.target.value); scheduleSave({ themeColor: e.target.value }) }}
+                                style={{ width: 22, height: 22, border: 'none', padding: 0, background: 'transparent', cursor: 'pointer' }}
+                            />
+                            <span style={{ fontSize: '0.75rem', letterSpacing: '0.06em', color: 'rgba(237,237,237,0.55)', whiteSpace: 'nowrap' }}>Theme Color</span>
+                        </label>
                         <LocalizationProvider dateAdapter={AdapterDayjs}>
                             <DateTimePicker
                                 label='Operation Date'
@@ -148,6 +199,35 @@ export default function Page() {
                                 slotProps={{ textField: { size: 'small', sx: { flex: 1, minWidth: 190 } } }}
                             />
                         </LocalizationProvider>
+                    </div>
+
+                    {/* Cover image */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {coverImage ? (
+                            <>
+                                <div style={{ position: 'relative', width: 140, height: 52, flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={coverImage} alt='cover' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                </div>
+                                <button
+                                    onClick={removeCover}
+                                    style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                                >
+                                    Remove Cover
+                                </button>
+                                <label style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', cursor: 'pointer' }}>
+                                    Replace
+                                    <input type='file' accept='image/*' style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCover(f) }} />
+                                </label>
+                            </>
+                        ) : (
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px dashed rgba(255,255,255,0.12)', padding: '10px 18px', cursor: 'pointer' }}>
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: coverUploading ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.4)' }}>
+                                    {coverUploading ? 'Uploading…' : '+ Cover Photo'}
+                                </span>
+                                <input type='file' accept='image/*' style={{ display: 'none' }} disabled={coverUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCover(f) }} />
+                            </label>
+                        )}
                     </div>
                 </div>
             </div>

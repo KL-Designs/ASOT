@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date')
     const loreDate = searchParams.get('loreDate')
     const department = searchParams.get('department')
+    const themeColor = searchParams.get('themeColor')
+    const coverImage = searchParams.get('coverImage')
 
     if (!id) return NextResponse.json({ error: 'Operation ID Missing' }, { status: 401 })
 
@@ -23,6 +25,8 @@ export async function GET(request: NextRequest) {
         if (date) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { date: new Date(date) } })
         if (loreDate) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { loreDate: new Date(loreDate) } })
         if (department) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { department } })
+        if (themeColor) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { themeColor } })
+        if (coverImage !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { coverImage } })
 
         return NextResponse.json({ success: true }, { status: 200 })
     }

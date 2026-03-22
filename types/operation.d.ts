@@ -13,6 +13,8 @@ declare global {
         loreDate: Date
 
         content?: any
+        themeColor?: string
+        coverImage?: string
 
         fields: {
             title: string
