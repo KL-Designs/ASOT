@@ -3,11 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node --env-file=.env server.mjs",
     "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "collab": "node collab-server.mjs"
+    "start": "node --env-file=.env server.mjs",
+    "lint": "next lint"
   },
   "dependencies": {
     "@emotion/react": "^11.13.3",
@@ -41,6 +40,7 @@
     "react-dom": "^19.2.3",
     "sharp": "^0.33.5",
     "tiptap-extension-global-drag-handle": "^0.1.18",
+    "ws": "^8.20.0",
     "y-prosemirror": "^1.3.7",
     "yjs": "^13.6.30"
   },
@@ -49,6 +49,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/ws": "^8.18.1",
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
     "postcss": "^8",

@@ -56,7 +56,7 @@ interface ReadyState {
     user: PresenceUser
 }
 
-const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS_URL || 'ws://localhost:1234'
+const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS_URL || 'ws://localhost:3000/collab'
 
 // ─── Outer shell ─────────────────────────────────────────────────────────────
 // Handles the async token fetch + provider creation. Only renders the real

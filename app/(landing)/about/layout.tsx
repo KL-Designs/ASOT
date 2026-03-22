@@ -75,7 +75,7 @@ export default function AboutLayout({ children }: Readonly<{ children: React.Rea
 				{Pages.map((p, i) => {
 					const active = page?.href === p.href
 					return (
-						<Link key={i} href={p.href}>
+						<Link key={i} href={p.href as any}>
 							<div
 								className='flex items-center gap-2 px-4 py-[10px] cursor-pointer transition-all duration-200'
 								style={{

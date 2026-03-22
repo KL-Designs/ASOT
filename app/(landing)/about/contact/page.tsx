@@ -21,7 +21,7 @@ function ContactCard({ icon, title, accentColor, accentRgb, href, label, descrip
 	external?: boolean
 }) {
 	return (
-		<Link href={href} target={external ? '_blank' : '_self'}>
+		<Link href={href as any} target={external ? '_blank' : '_self'}>
 			<div
 				className='h-full flex flex-col gap-4 p-5 cursor-pointer transition-all duration-200 hover:bg-white/[0.04]'
 				style={{
