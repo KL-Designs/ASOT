@@ -36,6 +36,32 @@ declare global {
             j2: { id: string, name: string }[]
             j5: { id: string, name: string }[]
         }
+
+        bio?: {
+            content: string
+            name: string
+            rank: string
+            callsign: string
+        }
+
+        milpac?: {
+            currentRank?: string
+            enlistedDate?: string
+            promotions?: {
+                date: string
+                rank: string
+                role: string
+            }[]
+            awards?: {
+                date: string
+                name: string
+                type: string
+            }[]
+            operations?: {
+                startToEndDate: string
+                name: string
+            }[]
+        }
     }
 
     interface Role {
