@@ -180,7 +180,7 @@ export default async function Page({ params }: { params: { id: string } }) {
                     <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
                 </div>
 
-                <DocBody content={operation.content ?? null} />
+                <DocBody content={operation.content ?? null} themeColor={operation.themeColor || '#db001d'} />
             </div>
 
         </div>
