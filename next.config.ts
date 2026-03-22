@@ -1,7 +1,13 @@
 import type { NextConfig } from "next"
+import path from 'path'
 
 const nextConfig: NextConfig = {
 	typedRoutes: true,
+
+	webpack(config) {
+		config.resolve.alias['yjs'] = path.resolve('./node_modules/yjs')
+		return config
+	},
 	images: {
 		qualities: [100, 75],
 		remotePatterns: [
