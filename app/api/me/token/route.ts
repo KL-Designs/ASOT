@@ -10,7 +10,8 @@ export async function GET() {
         const me = await client.fetchMe(token)
         const name = me.guild?.displayName || me.globalName || me.username || 'Unknown'
         const color = me.hexAccentColor || '#db001d'
-        return NextResponse.json({ token, name, color })
+        const avatar = me.guild?.avatarURL || me.avatarURL || null
+        return NextResponse.json({ token, name, color, avatar })
     } catch {
         return NextResponse.json({ token, name: 'Unknown', color: '#db001d' })
     }

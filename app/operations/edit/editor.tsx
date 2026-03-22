@@ -32,6 +32,7 @@ interface Props {
 interface PresenceUser {
     name: string
     color: string
+    avatar: string | null
 }
 
 interface Peer extends PresenceUser {
@@ -60,9 +61,9 @@ export default function OperationEditor({ operationId, initialContent, onSaveSta
 
         fetch('/api/me/token')
             .then(r => r.json())
-            .then(({ token, name, color }) => {
+            .then(({ token, name, color, avatar }) => {
                 if (destroyed || !token) return
-                const user: PresenceUser = { name: name || 'Unknown', color: color || '#db001d' }
+                const user: PresenceUser = { name: name || 'Unknown', color: color || '#db001d', avatar: avatar || null }
                 p = new HocuspocusProvider({
                     url: COLLAB_WS_URL,
                     name: operationId,
@@ -359,13 +360,18 @@ function PresenceAvatar({ peer }: { peer: Peer }) {
                 width: 26, height: 26,
                 borderRadius: '50%',
                 background: peer.color,
-                border: '2px solid rgba(0,0,0,0.5)',
+                border: `2px solid ${peer.color}`,
+                overflow: 'hidden',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 10, fontWeight: 700, color: '#fff',
                 textTransform: 'uppercase',
                 cursor: 'default',
+                flexShrink: 0,
             }}>
-                {peer.name.charAt(0)}
+                {peer.avatar
+                    ? <img src={peer.avatar} alt={peer.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    : peer.name.charAt(0)
+                }
             </div>
             {hovered && (
                 <div style={{
