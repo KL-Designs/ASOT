@@ -23,9 +23,19 @@ import {
 } from '@mui/icons-material'
 
 
+export interface MetaFields {
+    title: string
+    department: string
+    date: string
+    loreDate: string
+}
+
 interface Props {
     operationId: string
     initialContent?: any
+    initialMeta?: Partial<MetaFields>
+    onMetaChange?: (fields: Partial<MetaFields>) => void
+    metaHandleRef?: React.MutableRefObject<{ set: (key: keyof MetaFields, value: string) => void } | null>
     onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
 }
 
@@ -51,13 +61,26 @@ const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS_URL || 'ws://localhost:1
 // editor once the provider is live, so CollaborationCursor always gets a
 // valid provider at init time (avoids y-prosemirror "doc" crash).
 
-export default function OperationEditor({ operationId, initialContent, onSaveStatusChange }: Props) {
+export default function OperationEditor({ operationId, initialContent, initialMeta, onMetaChange, metaHandleRef, onSaveStatusChange }: Props) {
     const [ydoc] = useState(() => new Y.Doc())
     const [ready, setReady] = useState<ReadyState | null>(null)
+    // Keep a stable ref to the callback so the observer closure never goes stale
+    const onMetaChangeRef = useRef(onMetaChange)
+    useEffect(() => { onMetaChangeRef.current = onMetaChange }, [onMetaChange])
 
     useEffect(() => {
         let destroyed = false
         let p: HocuspocusProvider | null = null
+
+        // Bind the meta Y.Map immediately — observation works before the provider connects
+        const meta = ydoc.getMap<string>('meta')
+        const onObserve = () => {
+            const fields: Partial<MetaFields> = {}
+            meta.forEach((v, k) => { (fields as Record<string, string>)[k] = v })
+            onMetaChangeRef.current?.(fields)
+        }
+        meta.observe(onObserve)
+        if (metaHandleRef) metaHandleRef.current = { set: (key, value) => meta.set(key, value) }
 
         fetch('/api/me/token')
             .then(r => r.json())
@@ -69,7 +92,17 @@ export default function OperationEditor({ operationId, initialContent, onSaveSta
                     name: operationId,
                     document: ydoc,
                     token,
-                    onSynced: () => setTimeout(() => onSaveStatusChange?.('saved'), 0),
+                    onSynced: () => {
+                        setTimeout(() => onSaveStatusChange?.('saved'), 0)
+                        // Seed meta from server values only if no peer has written anything yet
+                        if (meta.size === 0 && initialMeta) {
+                            ydoc.transact(() => {
+                                Object.entries(initialMeta).forEach(([k, v]) => {
+                                    if (v) meta.set(k, v)
+                                })
+                            })
+                        }
+                    },
                     onStatus: ({ status }) => {
                         if (status === 'connecting') setTimeout(() => onSaveStatusChange?.('saving'), 0)
                     },
@@ -81,6 +114,8 @@ export default function OperationEditor({ operationId, initialContent, onSaveSta
             destroyed = true
             p?.destroy()
             setReady(null)
+            meta.unobserve(onObserve)
+            if (metaHandleRef) metaHandleRef.current = null
         }
     }, [operationId, ydoc])
 

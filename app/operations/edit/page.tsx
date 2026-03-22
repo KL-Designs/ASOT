@@ -6,7 +6,7 @@ import dayjs, { Dayjs } from 'dayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
-import OperationEditor from './editor'
+import OperationEditor, { type MetaFields } from './editor'
 
 
 export default function Page() {
@@ -21,6 +21,7 @@ export default function Page() {
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
+    const metaHandleRef = useRef<{ set: (key: keyof MetaFields, value: string) => void } | null>(null)
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
@@ -98,7 +99,7 @@ export default function Page() {
                     <input
                         value={title}
                         placeholder='Operation Name'
-                        onChange={e => { setTitle(e.target.value); scheduleSave({ title: e.target.value }) }}
+                        onChange={e => { setTitle(e.target.value); metaHandleRef.current?.set('title', e.target.value); scheduleSave({ title: e.target.value }) }}
                         style={{
                             background: 'transparent',
                             border: 'none',
@@ -118,7 +119,7 @@ export default function Page() {
                         <input
                             value={department}
                             placeholder='Department'
-                            onChange={e => { setDepartment(e.target.value); scheduleSave({ department: e.target.value }) }}
+                            onChange={e => { setDepartment(e.target.value); metaHandleRef.current?.set('department', e.target.value); scheduleSave({ department: e.target.value }) }}
                             style={{
                                 background: 'transparent',
                                 border: '1px solid rgba(255,255,255,0.1)',
@@ -136,14 +137,14 @@ export default function Page() {
                                 label='Operation Date'
                                 value={date}
                                 format='DD/MM/YYYY HH:mm'
-                                onChange={v => { setDate(v); if (v) scheduleSave({ date: v.toISOString() }) }}
+                                onChange={v => { setDate(v); if (v) { metaHandleRef.current?.set('date', v.toISOString()); scheduleSave({ date: v.toISOString() }) } }}
                                 slotProps={{ textField: { size: 'small', sx: { flex: 1, minWidth: 190 } } }}
                             />
                             <DateTimePicker
                                 label='In-Game Date'
                                 value={loreDate}
                                 format='DD/MM/YYYY HH:mm'
-                                onChange={v => { setLoreDate(v); if (v) scheduleSave({ loreDate: v.toISOString() }) }}
+                                onChange={v => { setLoreDate(v); if (v) { metaHandleRef.current?.set('loreDate', v.toISOString()); scheduleSave({ loreDate: v.toISOString() }) } }}
                                 slotProps={{ textField: { size: 'small', sx: { flex: 1, minWidth: 190 } } }}
                             />
                         </LocalizationProvider>
@@ -162,6 +163,14 @@ export default function Page() {
                     <OperationEditor
                         operationId={opID}
                         initialContent={initialContent}
+                        initialMeta={{ title, department, date: date?.toISOString() ?? '', loreDate: loreDate?.toISOString() ?? '' }}
+                        onMetaChange={fields => {
+                            if (fields.title !== undefined) setTitle(fields.title)
+                            if (fields.department !== undefined) setDepartment(fields.department)
+                            if (fields.date !== undefined) setDate(fields.date ? dayjs(fields.date) : null)
+                            if (fields.loreDate !== undefined) setLoreDate(fields.loreDate ? dayjs(fields.loreDate) : null)
+                        }}
+                        metaHandleRef={metaHandleRef}
                         onSaveStatusChange={setSaveStatus}
                     />
                 ) : (
