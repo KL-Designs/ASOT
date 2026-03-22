@@ -1,6 +1,6 @@
 'use client'
 
-import { useEditor, EditorContent } from '@tiptap/react'
+import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -137,6 +137,133 @@ function buildCursorExtension(provider: HocuspocusProvider, user: PresenceUser) 
     })
 }
 
+// ─── Resizable image node view ────────────────────────────────────────────────
+
+function ResizableImageView({ node, selected, updateAttributes }: {
+    node: any; selected: boolean; updateAttributes: (attrs: Record<string, any>) => void
+}) {
+    const { src, alt, title, width, align } = node.attrs
+    const containerRef = useRef<HTMLDivElement>(null)
+    const startXRef = useRef(0)
+    const startWRef = useRef(0)
+
+    function onResizeStart(e: React.MouseEvent) {
+        e.preventDefault()
+        e.stopPropagation()
+        startXRef.current = e.clientX
+        startWRef.current = containerRef.current?.offsetWidth || 300
+        const onMove = (ev: MouseEvent) => {
+            const newWidth = Math.max(80, startWRef.current + (ev.clientX - startXRef.current))
+            updateAttributes({ width: Math.round(newWidth) })
+        }
+        const onUp = () => {
+            document.removeEventListener('mousemove', onMove)
+            document.removeEventListener('mouseup', onUp)
+        }
+        document.addEventListener('mousemove', onMove)
+        document.addEventListener('mouseup', onUp)
+    }
+
+    const justifyMap: Record<string, string> = { left: 'flex-start', center: 'center', right: 'flex-end' }
+
+    return (
+        <NodeViewWrapper style={{ display: 'flex', justifyContent: justifyMap[align] || 'center', margin: '1.5em 0', lineHeight: 0 }}>
+            <div ref={containerRef} style={{ position: 'relative', display: 'inline-block', width: width ? `${width}px` : undefined, maxWidth: '100%' }}>
+
+                {/* Toolbar — shown when image is selected */}
+                {selected && (
+                    <div
+                        onMouseDown={e => e.preventDefault()}
+                        style={{
+                            position: 'absolute', top: -36, left: '50%', transform: 'translateX(-50%)',
+                            display: 'flex', alignItems: 'center', gap: 2,
+                            background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: 4, padding: '3px 5px', zIndex: 20, whiteSpace: 'nowrap',
+                        }}
+                    >
+                        {(['left', 'center', 'right'] as const).map(a => (
+                            <button
+                                key={a} type='button' title={`Align ${a}`}
+                                onMouseDown={e => { e.preventDefault(); updateAttributes({ align: a }) }}
+                                style={{
+                                    padding: '3px 5px', borderRadius: 2, cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center',
+                                    background: align === a ? 'rgba(219,0,29,0.2)' : 'transparent',
+                                    border: align === a ? '1px solid rgba(219,0,29,0.4)' : '1px solid transparent',
+                                    color: align === a ? 'rgba(219,0,29,0.9)' : 'rgba(237,237,237,0.5)',
+                                }}
+                            >
+                                {a === 'left' && <FormatAlignLeft style={{ fontSize: 14 }} />}
+                                {a === 'center' && <FormatAlignCenter style={{ fontSize: 14 }} />}
+                                {a === 'right' && <FormatAlignRight style={{ fontSize: 14 }} />}
+                            </button>
+                        ))}
+                        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+                        <button
+                            type='button' title='Reset to full width'
+                            onMouseDown={e => { e.preventDefault(); updateAttributes({ width: null }) }}
+                            style={{
+                                padding: '3px 6px', borderRadius: 2, cursor: 'pointer',
+                                background: !width ? 'rgba(219,0,29,0.2)' : 'transparent',
+                                border: !width ? '1px solid rgba(219,0,29,0.4)' : '1px solid transparent',
+                                color: 'rgba(237,237,237,0.5)', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em',
+                            }}
+                        >
+                            FIT
+                        </button>
+                    </div>
+                )}
+
+                <img
+                    src={src} alt={alt || ''} title={title || ''} draggable={false}
+                    style={{
+                        display: 'block', width: width ? `${width}px` : '100%',
+                        maxWidth: '100%', height: 'auto',
+                        border: selected ? '2px solid rgba(219,0,29,0.6)' : '1px solid rgba(255,255,255,0.06)',
+                    }}
+                />
+
+                {/* Resize handle */}
+                {selected && (
+                    <div
+                        onMouseDown={onResizeStart}
+                        style={{
+                            position: 'absolute', bottom: 4, right: 4,
+                            width: 12, height: 12,
+                            background: 'rgba(219,0,29,0.85)', border: '2px solid rgba(255,255,255,0.7)',
+                            borderRadius: 2, cursor: 'se-resize', zIndex: 10,
+                        }}
+                    />
+                )}
+            </div>
+        </NodeViewWrapper>
+    )
+}
+
+const ResizableImage = Image.extend({
+    addAttributes() {
+        return {
+            ...this.parent?.(),
+            width: {
+                default: null,
+                parseHTML: el => {
+                    const w = el.getAttribute('width') || el.style.width
+                    return w ? (parseInt(w, 10) || null) : null
+                },
+                renderHTML: attrs => attrs.width ? { style: `width:${attrs.width}px`, width: attrs.width } : {},
+            },
+            align: {
+                default: 'center',
+                parseHTML: el => el.getAttribute('data-align') || 'center',
+                renderHTML: attrs => ({ 'data-align': attrs.align || 'center' }),
+            },
+        }
+    },
+    addNodeView() {
+        return ReactNodeViewRenderer(ResizableImageView)
+    },
+})
+
 // ─── Inner editor ─────────────────────────────────────────────────────────────
 // Mounted once provider is ready. Editor is created once — no deps recreation.
 
@@ -181,7 +308,7 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
             TextAlign.configure({ types: ['heading', 'paragraph'] }),
             Highlight.configure({ multicolor: false }),
             Placeholder.configure({ placeholder: 'Begin writing the operation document...' }),
-            Image.configure({ inline: false, allowBase64: false }),
+            ResizableImage,
             GlobalDragHandle.configure({ dragHandleWidth: 20 }),
             Collaboration.configure({ document: ydoc }),
             buildCursorExtension(provider, user),

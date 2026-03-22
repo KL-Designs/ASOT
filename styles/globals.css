@@ -277,6 +277,12 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+/* NodeView-managed images handle their own margin/border */
+.op-editor .node-image img {
+    margin: 0;
+    border: none;
+}
+
 .op-editor img.ProseMirror-selectednode {
     outline: 2px solid rgba(219, 0, 29, 0.6);
 }
