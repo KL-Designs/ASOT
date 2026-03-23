@@ -20,16 +20,16 @@ const PERMISSIONS = {
         /** /members — who can view the member management list */
         members:        ['J5-Media'],
         /** /operations/edit — who can access the mission editor */
-        operationsEdit: ['HQ Staff'],
+        operationsEdit: ['HQ Staff', 'J2-Mission Making'],
     },
 
     // ── Operations ────────────────────────────────────────────────────────────
 
     operations: {
         /** Create, update, delete, duplicate, upload cover, edit content */
-        write:             ['HQ Staff'],
+        write:             ['HQ Staff', 'J2-Mission Making'],
         /** Seeing "In Development" missions on the operations board */
-        viewInDevelopment: ['HQ Staff'],
+        viewInDevelopment: ['HQ Staff', 'J2-Mission Making'],
     },
 
     // ── Uploads ───────────────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ const PERMISSIONS = {
 
     auth: {
         /** GET /api/auth/collab — collaborative editor authorization */
-        collab: ['HQ Staff'],
+        collab: ['HQ Staff', 'J2-Mission Making'],
     },
 
 } satisfies Record<string, Record<string, string[]>>
