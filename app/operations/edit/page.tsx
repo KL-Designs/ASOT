@@ -134,19 +134,24 @@ export default function Page() {
     return (
         <div className='h-full w-full flex' style={{ overflow: 'hidden' }}>
 
-            {/* Edit column — scrollable */}
+            {/* Edit column — outer sizing shell (flex-aware, no scroll) */}
             <div style={{
                 width: previewOpen ? 480 : '100%',
                 maxWidth: previewOpen ? 480 : 1000,
                 margin: previewOpen ? '0' : '0 auto',
                 flexShrink: 0,
+                height: '100%',
+                transition: 'width 0.3s ease, max-width 0.3s ease',
+                overflow: 'hidden',
+            }}>
+            {/* Inner scroll container — plain block so position:sticky works on descendants */}
+            <div style={{
                 overflowY: 'auto',
                 height: '100%',
                 padding: 'clamp(1.5rem, 2.5vw, 2.5rem)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 20,
-                transition: 'width 0.3s ease, max-width 0.3s ease',
             }}>
 
             <ConfirmDialog
@@ -371,6 +376,7 @@ export default function Page() {
                 </div>
             )}
 
+            </div>{/* end inner scroll container */}
             </div>{/* end edit column */}
 
             {/* Preview panel — desktop only */}

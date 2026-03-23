@@ -500,6 +500,8 @@ function SectionEditor({ ydoc, sectionId, provider, user, onRemove, onMoveUp, on
     const seededRef = useRef(false)
     const imageInputRef = useRef<HTMLInputElement>(null)
     const [uploadingImage, setUploadingImage] = useState(false)
+    const uploadingImageRef = useRef(false)
+    const pasteUploadRef = useRef<(file: File) => void>(() => {})
     const [linkPopover, setLinkPopover] = useState(false)
     const [linkUrl, setLinkUrl] = useState('')
     const linkInputRef = useRef<HTMLInputElement>(null)
@@ -538,7 +540,24 @@ function SectionEditor({ ydoc, sectionId, provider, user, onRemove, onMoveUp, on
             Collaboration.configure({ document: ydoc, field: 'scontent-' + sectionId }),
             buildCursorExtension(provider, user),
         ],
-        editorProps: { attributes: { class: `op-editor op-editor-${sectionId}` } },
+        editorProps: {
+            attributes: { class: `op-editor op-editor-${sectionId}` },
+            handlePaste(_view, event) {
+                const items = event.clipboardData?.items
+                if (!items) return false
+                for (const item of Array.from(items)) {
+                    if (item.type.startsWith('image/')) {
+                        const file = item.getAsFile()
+                        if (file) {
+                            event.preventDefault()
+                            pasteUploadRef.current(file)
+                            return true
+                        }
+                    }
+                }
+                return false
+            },
+        },
     })
 
     // Seed content for the auto-created default section (backward compat)
@@ -567,7 +586,8 @@ function SectionEditor({ ydoc, sectionId, provider, user, onRemove, onMoveUp, on
     }, [linkPopover, sectionId])
 
     async function handleImageUpload(file: File) {
-        if (!editor || uploadingImage) return
+        if (!editor || uploadingImageRef.current) return
+        uploadingImageRef.current = true
         setUploadingImage(true)
         try {
             const formData = new FormData()
@@ -577,9 +597,11 @@ function SectionEditor({ ydoc, sectionId, provider, user, onRemove, onMoveUp, on
             if (json.url) editor.chain().focus().setImage({ src: json.url }).run()
             else alert(json.error || 'Upload failed')
         } finally {
+            uploadingImageRef.current = false
             setUploadingImage(false)
         }
     }
+    pasteUploadRef.current = handleImageUpload
 
     if (!editor) return null
 
@@ -691,9 +713,10 @@ function SectionEditor({ ydoc, sectionId, provider, user, onRemove, onMoveUp, on
             <div style={{
                 display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2,
                 padding: '7px 10px',
-                background: 'rgba(0,0,0,0.4)',
-                borderBottom: '1px solid rgba(255,255,255,0.06)',
-                position: 'sticky', top: 0, zIndex: 10,
+                background: 'rgb(10,10,10)',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                position: 'sticky', top: 0, zIndex: 20,
             }}>
                 <TBtn title='Undo' onClick={() => editor.chain().focus().undo().run()}>
                     <Undo style={{ fontSize: 16 }} />
