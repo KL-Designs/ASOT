@@ -5,6 +5,7 @@ import { connection } from 'next/server'
 import { ObjectId } from 'mongodb'
 import DocBody from './doc-body'
 import SectionNav from './section-nav'
+import LocalDate from './local-date'
 import client from '@/lib/discord'
 
 
@@ -154,7 +155,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '14px 32px', borderRight: operation.loreDate ? '1px solid rgba(255,255,255,0.06)' : undefined }}>
                             <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.22)' }}>Operation Date</span>
                             <span style={{ fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.8)' }}>
-                                {dayjs(operation.date).format('DD MMM YYYY — HH:mm').toUpperCase()}
+                                <LocalDate iso={operation.date?.toString() ?? ''} />
                             </span>
                         </div>
                         {operation.loreDate && (
