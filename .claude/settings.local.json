@@ -11,7 +11,8 @@
       "Bash(xargs grep:*)",
       "WebFetch(domain:docs.google.com)",
       "Bash(grep -E \"^-.*\\\\.\\(d\\\\.ts|ts|json\\)$\")",
-      "Bash(grep -v \"^--$\")"
+      "Bash(grep -v \"^--$\")",
+      "Bash(grep -r \"public\\\\|private\\\\|visibility\\\\|visible\" /f/Clients/ASOT-Website/app/operations --include=*.ts --include=*.tsx)"
     ]
   }
 }

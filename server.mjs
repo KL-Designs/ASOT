@@ -18,6 +18,15 @@ import { WebSocketServer } from 'ws'
 const dev  = process.env.NODE_ENV !== 'production'
 const port = Number(process.env.PORT || 3000)
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function extractText(node) {
+    if (!node) return ''
+    if (node.type === 'text') return node.text || ''
+    if (Array.isArray(node.content)) return node.content.map(extractText).join(' ')
+    return ''
+}
+
 // ── MongoDB ───────────────────────────────────────────────────────────────────
 
 const mongoClient = new MongoClient(process.env.MONGO_URI || 'mongodb://localhost:27017/ASOT')
@@ -76,11 +85,38 @@ const collab = new Hocuspocus({
             store: async ({ documentName, state, document }) => {
                 console.log(`[collab] DB store     doc=${documentName}  (${state.length} bytes) — attempting…`)
                 try {
-                    const content = yDocToProsemirrorJSON(document, 'default')
-                    console.log(`[collab] DB store     doc=${documentName}  yDocToProsemirrorJSON OK, nodes=${content?.content?.length ?? 0}`)
+                    const sectionOrder = document.getArray('sectionOrder').toArray()
+                    let updateFields
+
+                    if (sectionOrder.length > 0) {
+                        // Multi-section document
+                        const sections = sectionOrder.map(sid => {
+                            const meta = document.getMap('smeta-' + sid)
+                            let content = null
+                            try { content = yDocToProsemirrorJSON(document, 'scontent-' + sid) } catch {}
+                            return {
+                                id: sid,
+                                title: meta.get('title') || '',
+                                isPublic: meta.get('isPublic') !== 'false',
+                                content,
+                            }
+                        })
+                        updateFields = { yjsState: state, sections }
+                        const text = sections.map(s => `[${s.title}] ${extractText(s.content)}`).join(' | ')
+                        console.log(`[collab] DB store     doc=${documentName}  sections=${sections.length}`)
+                        console.log(`[collab] content      ${text.slice(0, 300)}${text.length > 300 ? '…' : ''}`)
+                    } else {
+                        // Legacy single-body document
+                        const content = yDocToProsemirrorJSON(document, 'default')
+                        updateFields = { yjsState: state, content }
+                        const text = extractText(content)
+                        console.log(`[collab] DB store     doc=${documentName}  (legacy single-body, nodes=${content?.content?.length ?? 0})`)
+                        console.log(`[collab] content      ${text.slice(0, 300)}${text.length > 300 ? '…' : ''}`)
+                    }
+
                     const result = await operations.updateOne(
                         { _id: new ObjectId(documentName) },
-                        { $set: { yjsState: state, content } },
+                        { $set: updateFields },
                     )
                     if (result.matchedCount === 0) {
                         console.warn(`[collab] DB store WARN doc=${documentName}  no document matched — _id may be wrong`)

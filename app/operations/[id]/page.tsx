@@ -215,7 +215,37 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
                     {/* Body */}
                     <div style={{ padding: '0 28px' }}>
-                        <DocBody content={operation.content ?? null} themeColor={operation.themeColor || '#db001d'} />
+                        {operation.sections && operation.sections.length > 0 ? (
+                            operation.sections
+                                .filter(s => isHQ || s.isPublic)
+                                .map((s, i, arr) => (
+                                    <div key={s.id}>
+                                        {/* Section title */}
+                                        <div style={{
+                                            display: 'flex', alignItems: 'center', gap: 10,
+                                            padding: '24px 0 10px',
+                                            borderBottom: `1px solid ${c(0.12)}`,
+                                            marginBottom: 4,
+                                        }}>
+                                            <div style={{ width: 3, height: 14, background: c(0.6), flexShrink: 0 }} />
+                                            <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', color: c(0.7) }}>
+                                                {s.title}
+                                            </span>
+                                            {isHQ && !s.isPublic && (
+                                                <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,180,0,0.6)', border: '1px solid rgba(219,180,0,0.25)', padding: '1px 6px' }}>
+                                                    Members Only
+                                                </span>
+                                            )}
+                                        </div>
+                                        <DocBody content={s.content ?? null} themeColor={operation.themeColor || '#db001d'} />
+                                        {i < arr.length - 1 && (
+                                            <div style={{ height: 1, background: `linear-gradient(to right, ${c(0.1)}, transparent)`, margin: '8px 0' }} />
+                                        )}
+                                    </div>
+                                ))
+                        ) : (
+                            <DocBody content={operation.content ?? null} themeColor={operation.themeColor || '#db001d'} />
+                        )}
                     </div>
 
                     {/* Document footer stamp */}

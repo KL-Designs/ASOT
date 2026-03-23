@@ -14,15 +14,15 @@ import { yCursorPlugin, defaultSelectionBuilder } from '@tiptap/y-tiptap'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 
-
 import Link from '@tiptap/extension-link'
+import Underline from '@tiptap/extension-underline'
 import {
     Undo, Redo,
     FormatBold, FormatItalic, FormatUnderlined, StrikethroughS,
     FormatListBulleted, FormatListNumbered,
     FormatAlignLeft, FormatAlignCenter, FormatAlignRight,
     FormatQuote, HorizontalRule, AddPhotoAlternate, FormatClear, FormatColorFill,
-    InsertLink, LinkOff,
+    InsertLink, LinkOff, Delete, Lock, LockOpen,
 } from '@mui/icons-material'
 
 
@@ -66,6 +66,7 @@ interface Peer extends PresenceUser {
 
 interface ReadyState {
     provider: HocuspocusProvider
+    ydoc: Y.Doc
     user: PresenceUser
 }
 
@@ -73,13 +74,11 @@ const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS_URL || 'ws://localhost:3
 
 // ─── Outer shell ─────────────────────────────────────────────────────────────
 // Handles the async token fetch + provider creation. Only renders the real
-// editor once the provider is live, so CollaborationCursor always gets a
-// valid provider at init time (avoids y-prosemirror "doc" crash).
+// editor once the provider is live.
 
 export default function OperationEditor({ operationId, initialContent, initialMeta, onMetaChange, metaHandleRef, onSaveStatusChange, themeColor = '#db001d' }: Props) {
     const [ydoc] = useState(() => new Y.Doc())
     const [ready, setReady] = useState<ReadyState | null>(null)
-    // Keep a stable ref to the callback so the observer closure never goes stale
     const onMetaChangeRef = useRef(onMetaChange)
     useEffect(() => { onMetaChangeRef.current = onMetaChange }, [onMetaChange])
 
@@ -87,7 +86,6 @@ export default function OperationEditor({ operationId, initialContent, initialMe
         let destroyed = false
         let p: HocuspocusProvider | null = null
 
-        // Bind the meta Y.Map immediately — observation works before the provider connects
         const meta = ydoc.getMap<string>('meta')
         const onObserve = () => {
             const fields: Partial<MetaFields> = {}
@@ -109,7 +107,6 @@ export default function OperationEditor({ operationId, initialContent, initialMe
                     token,
                     onSynced: () => {
                         setTimeout(() => onSaveStatusChange?.('saved'), 0)
-                        // Seed meta from server values only if no peer has written anything yet
                         if (meta.size === 0 && initialMeta) {
                             ydoc.transact(() => {
                                 Object.entries(initialMeta).forEach(([k, v]) => {
@@ -122,7 +119,7 @@ export default function OperationEditor({ operationId, initialContent, initialMe
                         if (status === 'connecting') setTimeout(() => onSaveStatusChange?.('saving'), 0)
                     },
                 })
-                if (!destroyed) setReady({ provider: p, user })
+                if (!destroyed) setReady({ provider: p, ydoc, user })
             })
 
         return () => {
@@ -144,7 +141,7 @@ export default function OperationEditor({ operationId, initialContent, initialMe
 
     return (
         <ActiveEditor
-            ydoc={ydoc}
+            ydoc={ready.ydoc}
             provider={ready.provider}
             user={ready.user}
             initialContent={initialContent}
@@ -154,9 +151,7 @@ export default function OperationEditor({ operationId, initialContent, initialMe
     )
 }
 
-// Build a cursor extension using @tiptap/y-tiptap's yCursorPlugin so it shares
-// the same ySyncPluginKey as @tiptap/extension-collaboration (v3.x moved off
-// y-prosemirror's key, so the stock CollaborationCursor@3 crashes at init).
+// Build a cursor extension using @tiptap/y-tiptap's yCursorPlugin
 function buildCursorExtension(provider: HocuspocusProvider, user: PresenceUser) {
     return Extension.create({
         name: 'collaborationCursor',
@@ -224,7 +219,6 @@ function ResizableImageView({ node, selected, updateAttributes }: {
         <NodeViewWrapper style={{ display: 'flex', justifyContent: justifyMap[align] || 'center', margin: '1.5em 0', lineHeight: 0 }}>
             <div ref={containerRef} style={{ position: 'relative', display: 'inline-block', width: width ? `${width}px` : undefined, maxWidth: '100%' }}>
 
-                {/* Toolbar — shown when image is selected */}
                 {selected && (
                     <div
                         onMouseDown={e => e.preventDefault()}
@@ -277,7 +271,6 @@ function ResizableImageView({ node, selected, updateAttributes }: {
                     }}
                 />
 
-                {/* Resize handle */}
                 {selected && (
                     <div
                         onMouseDown={onResizeStart}
@@ -318,8 +311,7 @@ const ResizableImage = Image.extend({
     },
 })
 
-// ─── Inner editor ─────────────────────────────────────────────────────────────
-// Mounted once provider is ready. Editor is created once — no deps recreation.
+// ─── Active Editor (sections manager) ─────────────────────────────────────────
 
 interface ActiveEditorProps {
     ydoc: Y.Doc
@@ -334,27 +326,40 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
-    const themeCSS = `
-        .op-editor h1 { border-left-color: ${c(0.75)}; background: ${c(0.045)}; }
-        .op-editor h2 { color: ${c(0.88)}; }
-        .op-editor h2::before { color: ${c(0.65)}; }
-        .op-editor ul li::marker { color: ${c(0.6)}; }
-        .op-editor ol li::marker { color: ${c(0.6)}; }
-        .op-editor blockquote { border-left-color: ${c(0.5)}; background: ${c(0.04)}; }
-        .op-editor hr { border-top-color: ${c(0.2)}; }
-        .op-editor mark { background: ${c(0.2)}; }
-        .op-editor a { color: ${c(0.85)}; }
-        .op-editor img.ProseMirror-selectednode { outline-color: ${c(0.6)}; }
-    `
-    const imageInputRef = useRef<HTMLInputElement>(null)
-    const [uploadingImage, setUploadingImage] = useState(false)
-    const seededRef = useRef(false)
+    const [sectionIds, setSectionIds] = useState<string[]>([])
+    // ID of a newly-created default section that should receive initialContent
+    const [seedSectionId, setSeedSectionId] = useState<string | null>(null)
     const [peers, setPeers] = useState<Peer[]>([])
-    const [linkPopover, setLinkPopover] = useState(false)
-    const [linkUrl, setLinkUrl] = useState('')
-    const linkInputRef = useRef<HTMLInputElement>(null)
 
-    // Track presence of other connected users
+    // Observe sectionOrder Y.Array
+    useEffect(() => {
+        const order = ydoc.getArray<string>('sectionOrder')
+        const handler = () => setSectionIds([...order.toArray()])
+        order.observe(handler)
+        setSectionIds([...order.toArray()])
+        return () => order.unobserve(handler)
+    }, [ydoc])
+
+    // On first sync: if no sections exist yet, create a default "Orders" section
+    useEffect(() => {
+        const onSynced = () => {
+            const order = ydoc.getArray<string>('sectionOrder')
+            if (order.length === 0) {
+                const id = Math.random().toString(36).slice(2, 10)
+                ydoc.transact(() => {
+                    order.push([id])
+                    const smeta = ydoc.getMap<string>('smeta-' + id)
+                    smeta.set('title', 'Orders')
+                    smeta.set('isPublic', 'true')
+                })
+                setSeedSectionId(id)
+            }
+        }
+        provider.on('synced', onSynced)
+        return () => { provider.off('synced', onSynced) }
+    }, [ydoc, provider])
+
+    // Track presence
     useEffect(() => {
         const awareness = provider.awareness
         if (!awareness) return
@@ -374,43 +379,171 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
         return () => { awareness.off('update', update) }
     }, [provider])
 
+    function addSection() {
+        const id = Math.random().toString(36).slice(2, 10)
+        ydoc.transact(() => {
+            ydoc.getArray<string>('sectionOrder').push([id])
+            const smeta = ydoc.getMap<string>('smeta-' + id)
+            smeta.set('title', 'New Section')
+            smeta.set('isPublic', 'true')
+        })
+    }
+
+    function removeSection(id: string) {
+        const order = ydoc.getArray<string>('sectionOrder')
+        const idx = order.toArray().indexOf(id)
+        if (idx !== -1) order.delete(idx, 1)
+    }
+
+    return (
+        <ThemeContext.Provider value={themeColor}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Presence avatars */}
+                {peers.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                        {peers.map(peer => (
+                            <PresenceAvatar key={peer.clientId} peer={peer} />
+                        ))}
+                    </div>
+                )}
+
+                {/* Section editors */}
+                {sectionIds.map(id => (
+                    <SectionEditor
+                        key={id}
+                        ydoc={ydoc}
+                        sectionId={id}
+                        provider={provider}
+                        user={user}
+                        onRemove={() => removeSection(id)}
+                        themeColor={themeColor}
+                        seedContent={id === seedSectionId ? initialContent : undefined}
+                    />
+                ))}
+
+                {/* Add section button */}
+                <button
+                    type='button'
+                    onClick={addSection}
+                    style={{
+                        alignSelf: 'flex-start',
+                        padding: '7px 16px',
+                        background: 'transparent',
+                        border: `1px dashed ${c(0.3)}`,
+                        color: c(0.55),
+                        fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = c(0.7); e.currentTarget.style.color = c(0.9) }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = c(0.3); e.currentTarget.style.color = c(0.55) }}
+                >
+                    + Add Section
+                </button>
+            </div>
+        </ThemeContext.Provider>
+    )
+}
+
+// ─── Section Editor ────────────────────────────────────────────────────────────
+
+interface SectionEditorProps {
+    ydoc: Y.Doc
+    sectionId: string
+    provider: HocuspocusProvider
+    user: PresenceUser
+    onRemove: () => void
+    themeColor?: string
+    seedContent?: any  // seed this section's content on first load
+}
+
+function SectionEditor({ ydoc, sectionId, provider, user, onRemove, themeColor = '#db001d', seedContent }: SectionEditorProps) {
+    const { r, g, b } = hexToRgb(themeColor)
+    const c = (a: number) => `rgba(${r},${g},${b},${a})`
+
+    const themeCSS = `
+        .op-editor-${sectionId} h1 { border-left-color: ${c(0.75)}; background: ${c(0.045)}; }
+        .op-editor-${sectionId} h2 { color: ${c(0.88)}; }
+        .op-editor-${sectionId} h2::before { color: ${c(0.65)}; }
+        .op-editor-${sectionId} ul li::marker { color: ${c(0.6)}; }
+        .op-editor-${sectionId} ol li::marker { color: ${c(0.6)}; }
+        .op-editor-${sectionId} blockquote { border-left-color: ${c(0.5)}; background: ${c(0.04)}; }
+        .op-editor-${sectionId} hr { border-top-color: ${c(0.2)}; }
+        .op-editor-${sectionId} mark { background: ${c(0.2)}; }
+        .op-editor-${sectionId} a { color: ${c(0.85)}; }
+    `
+
+    const [title, setTitle] = useState('')
+    const [isPublic, setIsPublic] = useState(true)
+    const [confirmingRemove, setConfirmingRemove] = useState(false)
+    const seededRef = useRef(false)
+    const imageInputRef = useRef<HTMLInputElement>(null)
+    const [uploadingImage, setUploadingImage] = useState(false)
+    const [linkPopover, setLinkPopover] = useState(false)
+    const [linkUrl, setLinkUrl] = useState('')
+    const linkInputRef = useRef<HTMLInputElement>(null)
+
+    // Observe this section's metadata
+    useEffect(() => {
+        const smeta = ydoc.getMap<string>('smeta-' + sectionId)
+        const handler = () => {
+            setTitle(smeta.get('title') || '')
+            setIsPublic(smeta.get('isPublic') !== 'false')
+        }
+        smeta.observe(handler)
+        handler()
+        return () => smeta.unobserve(handler)
+    }, [ydoc, sectionId])
+
+    function updateMeta(updates: { title?: string; isPublic?: boolean }) {
+        const smeta = ydoc.getMap<string>('smeta-' + sectionId)
+        ydoc.transact(() => {
+            if (updates.title !== undefined) smeta.set('title', updates.title!)
+            if (updates.isPublic !== undefined) smeta.set('isPublic', updates.isPublic ? 'true' : 'false')
+        })
+    }
+
     const editor = useEditor({
         immediatelyRender: false,
         extensions: [
             StarterKit.configure({ undoRedo: false }),
             TextAlign.configure({ types: ['heading', 'paragraph'] }),
             Highlight.configure({ multicolor: false }),
-            Placeholder.configure({ placeholder: 'Begin writing the operation document...' }),
+            Underline,
+            Placeholder.configure({ placeholder: 'Begin writing this section…' }),
             ResizableImage,
             Link.configure({ openOnClick: false, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
             GlobalDragHandle.configure({ dragHandleWidth: 20 }),
-            Collaboration.configure({ document: ydoc }),
+            Collaboration.configure({ document: ydoc, field: 'scontent-' + sectionId }),
             buildCursorExtension(provider, user),
         ],
-        editorProps: { attributes: { class: 'op-editor' } },
+        editorProps: { attributes: { class: `op-editor op-editor-${sectionId}` } },
     })
 
-    // Seed the Yjs doc with existing content the first time it's opened collaboratively
+    // Seed content for the auto-created default section (backward compat)
     useEffect(() => {
-        if (!editor || seededRef.current) return
-        const onSynced = () => {
-            if (editor.isEmpty && initialContent) {
-                editor.commands.setContent(initialContent)
+        if (!editor || !seedContent || seededRef.current) return
+        // Provider may already be synced when SectionEditor mounts; seed directly if empty
+        const trySeek = () => {
+            if (!seededRef.current && editor.isEmpty) {
+                editor.commands.setContent(seedContent)
+                seededRef.current = true
             }
-            seededRef.current = true
         }
-        provider.on('synced', onSynced)
-        return () => { provider.off('synced', onSynced) }
-    }, [editor, provider, initialContent])
+        provider.on('synced', trySeek)
+        // Also try immediately in case sync already happened
+        trySeek()
+        return () => { provider.off('synced', trySeek) }
+    }, [editor, provider, seedContent])
 
     useEffect(() => {
         if (!linkPopover) return
         const close = (e: MouseEvent) => {
-            if (!(e.target as Element).closest('[data-link-popover]')) setLinkPopover(false)
+            if (!(e.target as Element).closest(`[data-link-popover-${sectionId}]`)) setLinkPopover(false)
         }
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
-    }, [linkPopover])
+    }, [linkPopover, sectionId])
 
     async function handleImageUpload(file: File) {
         if (!editor || uploadingImage) return
@@ -430,9 +563,82 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
     if (!editor) return null
 
     return (
-        <ThemeContext.Provider value={themeColor}>
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(1)}`, background: 'rgba(255,255,255,0.01)' }}>
             <style>{themeCSS}</style>
+
+            {/* Section header */}
+            <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 12px',
+                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                background: 'rgba(0,0,0,0.25)',
+            }}>
+                {/* Title input */}
+                <input
+                    value={title}
+                    onChange={e => updateMeta({ title: e.target.value })}
+                    placeholder='Section Title'
+                    style={{
+                        flex: 1,
+                        background: 'transparent', border: 'none',
+                        borderBottom: '1px solid rgba(255,255,255,0.1)',
+                        color: 'rgba(237,237,237,0.85)',
+                        fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                        outline: 'none', padding: '2px 0',
+                    }}
+                />
+
+                {/* Public / private toggle */}
+                <button
+                    type='button'
+                    title={isPublic ? 'Publicly visible — click to make private' : 'Members only — click to make public'}
+                    onClick={() => updateMeta({ isPublic: !isPublic })}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        padding: '4px 10px',
+                        background: isPublic ? 'rgba(100,220,100,0.07)' : 'rgba(219,180,0,0.07)',
+                        border: `1px solid ${isPublic ? 'rgba(100,220,100,0.25)' : 'rgba(219,180,0,0.3)'}`,
+                        color: isPublic ? 'rgba(100,220,100,0.8)' : 'rgba(219,180,0,0.8)',
+                        fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                        cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s',
+                    }}
+                >
+                    {isPublic
+                        ? <><LockOpen style={{ fontSize: 12 }} /> Public</>
+                        : <><Lock style={{ fontSize: 12 }} /> Members Only</>
+                    }
+                </button>
+
+                {/* Remove section */}
+                {confirmingRemove ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <span style={{ fontSize: '0.6rem', color: 'rgba(219,0,29,0.7)', letterSpacing: '0.08em' }}>Remove section?</span>
+                        <button
+                            type='button' onClick={onRemove}
+                            style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.9)', background: 'rgba(219,0,29,0.1)', border: '1px solid rgba(219,0,29,0.3)', padding: '3px 8px', cursor: 'pointer' }}
+                        >
+                            Yes
+                        </button>
+                        <button
+                            type='button' onClick={() => setConfirmingRemove(false)}
+                            style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', background: 'none', border: '1px solid rgba(255,255,255,0.1)', padding: '3px 8px', cursor: 'pointer' }}
+                        >
+                            No
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        type='button'
+                        title='Remove section'
+                        onClick={() => setConfirmingRemove(true)}
+                        style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'rgba(237,237,237,0.2)', cursor: 'pointer', padding: 4, flexShrink: 0, transition: 'color 0.15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.7)')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.2)')}
+                    >
+                        <Delete style={{ fontSize: 16 }} />
+                    </button>
+                )}
+            </div>
 
             {/* Toolbar */}
             <div style={{
@@ -442,7 +648,6 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                 borderBottom: '1px solid rgba(255,255,255,0.06)',
                 position: 'sticky', top: 0, zIndex: 10,
             }}>
-
                 <TBtn title='Undo' onClick={() => editor.chain().focus().undo().run()}>
                     <Undo style={{ fontSize: 16 }} />
                 </TBtn>
@@ -537,7 +742,7 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                     </TBtn>
                     {linkPopover && (
                         <div
-                            data-link-popover
+                            {...{ [`data-link-popover-${sectionId}`]: true }}
                             onMouseDown={e => e.stopPropagation()}
                             style={{
                                 position: 'absolute', top: '110%', left: 0, zIndex: 50,
@@ -577,7 +782,7 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                                 }}
                                 style={{
                                     fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
-                                    textTransform: 'uppercase', color: c(0.85),
+                                    textTransform: 'uppercase', color: `rgba(${r},${g},${b},0.85)`,
                                     background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0,
                                 }}
                             >Apply</button>
@@ -596,21 +801,9 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                 <TBtn title='Clear Formatting' onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>
                     <FormatClear style={{ fontSize: 17 }} />
                 </TBtn>
-
-                {/* Presence avatars — right-aligned */}
-                {peers.length > 0 && (
-                    <>
-                        <div style={{ flex: 1 }} />
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            {peers.map(peer => (
-                                <PresenceAvatar key={peer.clientId} peer={peer} />
-                            ))}
-                        </div>
-                    </>
-                )}
             </div>
 
-            {/* Content area */}
+            {/* Editor content */}
             <EditorContent editor={editor} />
 
             {/* Hidden image input */}
@@ -626,7 +819,6 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                 }}
             />
         </div>
-        </ThemeContext.Provider>
     )
 }
 

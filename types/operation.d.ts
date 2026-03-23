@@ -4,6 +4,13 @@ export { }
 
 declare global {
 
+    interface OperationSection {
+        id: string
+        title: string
+        isPublic: boolean
+        content?: any  // ProseMirror JSON
+    }
+
     interface Operation {
         _id: ObjectId
 
@@ -13,9 +20,12 @@ declare global {
         loreDate: Date
         status?: 'Completed' | 'Active' | 'Upcoming' | 'In Development'
 
-        content?: any
+        sections?: OperationSection[]
+        content?: any  // legacy single-body field
         themeColor?: string
         coverImage?: string
+
+        yjsState?: Buffer
 
         fields: {
             title: string

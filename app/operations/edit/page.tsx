@@ -349,34 +349,27 @@ export default function Page() {
                 </div>
             </div>
 
-            {/* Document editor card */}
-            <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(1)}`, background: 'rgba(255,255,255,0.01)', display: 'flex', flexDirection: 'column' }}>
-                <div className='flex items-center px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
-                        Document Body
-                    </span>
+            {/* Document sections */}
+            {loaded ? (
+                <OperationEditor
+                    operationId={opID}
+                    initialContent={initialContent}
+                    themeColor={themeColor}
+                    initialMeta={{ title, department, date: date?.toISOString() ?? '', loreDate: loreDate?.toISOString() ?? '' }}
+                    onMetaChange={fields => {
+                        if (fields.title !== undefined) setTitle(fields.title)
+                        if (fields.department !== undefined) setDepartment(fields.department)
+                        if (fields.date !== undefined) setDate(fields.date ? dayjs(fields.date) : null)
+                        if (fields.loreDate !== undefined) setLoreDate(fields.loreDate ? dayjs(fields.loreDate) : null)
+                    }}
+                    metaHandleRef={metaHandleRef}
+                    onSaveStatusChange={setSaveStatus}
+                />
+            ) : (
+                <div style={{ padding: '48px 0', textAlign: 'center', color: 'rgba(237,237,237,0.15)', fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                    Loading…
                 </div>
-                {loaded ? (
-                    <OperationEditor
-                        operationId={opID}
-                        initialContent={initialContent}
-                        themeColor={themeColor}
-                        initialMeta={{ title, department, date: date?.toISOString() ?? '', loreDate: loreDate?.toISOString() ?? '' }}
-                        onMetaChange={fields => {
-                            if (fields.title !== undefined) setTitle(fields.title)
-                            if (fields.department !== undefined) setDepartment(fields.department)
-                            if (fields.date !== undefined) setDate(fields.date ? dayjs(fields.date) : null)
-                            if (fields.loreDate !== undefined) setLoreDate(fields.loreDate ? dayjs(fields.loreDate) : null)
-                        }}
-                        metaHandleRef={metaHandleRef}
-                        onSaveStatusChange={setSaveStatus}
-                    />
-                ) : (
-                    <div style={{ padding: '48px 0', textAlign: 'center', color: 'rgba(237,237,237,0.15)', fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                        Loading…
-                    </div>
-                )}
-            </div>
+            )}
 
             </div>{/* end edit column */}
 
