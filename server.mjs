@@ -24,7 +24,9 @@ const mongoClient = new MongoClient(process.env.MONGO_URI || 'mongodb://localhos
 await mongoClient.connect()
 console.log('[collab] MongoDB connected')
 
-const operations = mongoClient.db().collection('operations')
+const db = mongoClient.db(process.env.MONGO_DB || 'test')
+const operations = db.collection('operations')
+console.log(`[collab] MongoDB db=${db.databaseName} collection=operations`)
 
 // ── Hocuspocus ────────────────────────────────────────────────────────────────
 // We don't call server.listen() — connections are fed in via the upgrade hook.
@@ -72,15 +74,21 @@ const collab = new Hocuspocus({
             },
 
             store: async ({ documentName, state, document }) => {
+                console.log(`[collab] DB store     doc=${documentName}  (${state.length} bytes) — attempting…`)
                 try {
                     const content = yDocToProsemirrorJSON(document, 'default')
-                    await operations.updateOne(
+                    console.log(`[collab] DB store     doc=${documentName}  yDocToProsemirrorJSON OK, nodes=${content?.content?.length ?? 0}`)
+                    const result = await operations.updateOne(
                         { _id: new ObjectId(documentName) },
                         { $set: { yjsState: state, content } },
                     )
-                    console.log(`[collab] DB store OK  doc=${documentName}  (${state.length} bytes)`)
+                    if (result.matchedCount === 0) {
+                        console.warn(`[collab] DB store WARN doc=${documentName}  no document matched — _id may be wrong`)
+                    } else {
+                        console.log(`[collab] DB store OK  doc=${documentName}  matched=${result.matchedCount} modified=${result.modifiedCount}`)
+                    }
                 } catch (e) {
-                    console.error(`[collab] DB store ERR doc=${documentName}`, e.message)
+                    console.error(`[collab] DB store ERR doc=${documentName}  ${e.message}`, e.stack)
                 }
             },
         }),
