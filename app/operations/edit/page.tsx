@@ -144,14 +144,11 @@ export default function Page() {
                 transition: 'width 0.3s ease, max-width 0.3s ease',
                 overflow: 'hidden',
             }}>
-            {/* Inner scroll container — plain block so position:sticky works on descendants */}
+            {/* Inner scroll container — display:block so position:sticky works on descendants */}
             <div style={{
                 overflowY: 'auto',
                 height: '100%',
                 padding: 'clamp(1.5rem, 2.5vw, 2.5rem)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 20,
             }}>
 
             <ConfirmDialog
@@ -165,7 +162,7 @@ export default function Page() {
             />
 
             {/* Page header */}
-            <div className='flex items-center justify-between gap-4'>
+            <div className='flex items-center justify-between gap-4' style={{ marginBottom: 20 }}>
                 <div className='flex items-center gap-4'>
                     <Link
                         href='/operations'
@@ -230,7 +227,7 @@ export default function Page() {
             </div>
 
             {/* Metadata card */}
-            <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(1)}`, background: 'rgba(255,255,255,0.01)' }}>
+            <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(1)}`, background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
                 <div className='flex items-center px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
                         Operation Details
