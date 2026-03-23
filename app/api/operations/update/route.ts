@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         if (department) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { department } })
         if (themeColor) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { themeColor } })
         if (coverImage !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { coverImage } })
-        if (status) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { status } })
+        if (status) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { status: status as Operation['status'] } })
 
         return NextResponse.json({ success: true }, { status: 200 })
     }
