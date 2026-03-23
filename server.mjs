@@ -110,9 +110,8 @@ httpServer.on('upgrade', (request, socket, head) => {
         wss.handleUpgrade(request, socket, head, (ws) => {
             wss.emit('connection', ws, request)
         })
-    } else {
-        socket.destroy()
     }
+    // Other paths (e.g. /_next/webpack-hmr) are handled by Next.js itself
 })
 
 httpServer.listen(port, '0.0.0.0', () => {

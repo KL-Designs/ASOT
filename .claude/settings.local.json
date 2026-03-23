@@ -10,7 +10,8 @@
       "Bash(ls -la /f/Clients/ASOT-Website/app/\\\\\\(landing\\\\\\)/community/orbat/)",
       "Bash(xargs grep:*)",
       "WebFetch(domain:docs.google.com)",
-      "Bash(grep -E \"^-.*\\\\.\\(d\\\\.ts|ts|json\\)$\")"
+      "Bash(grep -E \"^-.*\\\\.\\(d\\\\.ts|ts|json\\)$\")",
+      "Bash(grep -v \"^--$\")"
     ]
   }
 }

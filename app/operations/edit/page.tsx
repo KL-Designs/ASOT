@@ -12,6 +12,15 @@ import dynamic from 'next/dynamic'
 import { type MetaFields } from './editor'
 const OperationEditor = dynamic(() => import('./editor'), { ssr: false })
 
+function hexToRgb(hex: string) {
+    const h = hex.replace('#', '')
+    return {
+        r: parseInt(h.substring(0, 2), 16),
+        g: parseInt(h.substring(2, 4), 16),
+        b: parseInt(h.substring(4, 6), 16),
+    }
+}
+
 
 export default function Page() {
 
@@ -116,6 +125,9 @@ export default function Page() {
         await fetch(`/api/operations/update?id=${id}&coverImage=`)
     }
 
+    const { r, g, b } = hexToRgb(themeColor)
+    const c = (a: number) => `rgba(${r},${g},${b},${a})`
+
     const statusColor = saveStatus === 'saved' ? 'rgba(100,220,100,0.65)' : saveStatus === 'saving' ? 'rgba(219,0,29,0.65)' : 'rgba(237,200,0,0.65)'
     const statusLabel = saveStatus === 'saved' ? '● Saved' : saveStatus === 'saving' ? '● Saving…' : '● Unsaved'
 
@@ -165,7 +177,7 @@ export default function Page() {
                             <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
                             <Link
                                 href={`/operations/${opID}`}
-                                style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', textDecoration: 'none' }}
+                                style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: c(0.55), textDecoration: 'none' }}
                             >
                                 View →
                             </Link>
@@ -213,7 +225,7 @@ export default function Page() {
             </div>
 
             {/* Metadata card */}
-            <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)' }}>
+            <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(1)}`, background: 'rgba(255,255,255,0.01)' }}>
                 <div className='flex items-center px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
                         Operation Details
@@ -316,7 +328,7 @@ export default function Page() {
                                 </div>
                                 <button
                                     onClick={removeCover}
-                                    style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                                    style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: c(0.6), background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                                 >
                                     Remove Cover
                                 </button>
@@ -338,7 +350,7 @@ export default function Page() {
             </div>
 
             {/* Document editor card */}
-            <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(1)}`, background: 'rgba(255,255,255,0.01)', display: 'flex', flexDirection: 'column' }}>
                 <div className='flex items-center px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
                         Document Body
@@ -348,6 +360,7 @@ export default function Page() {
                     <OperationEditor
                         operationId={opID}
                         initialContent={initialContent}
+                        themeColor={themeColor}
                         initialMeta={{ title, department, date: date?.toISOString() ?? '', loreDate: loreDate?.toISOString() ?? '' }}
                         onMetaChange={fields => {
                             if (fields.title !== undefined) setTitle(fields.title)
@@ -398,9 +411,9 @@ export default function Page() {
                             </button>
                             <button
                                 onClick={() => setPreviewOpen(false)}
-                                style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', background: 'none', border: '1px solid rgba(219,0,29,0.2)', padding: '3px 10px', cursor: 'pointer' }}
-                                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.9)')}
-                                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.5)')}
+                                style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: c(0.5), background: 'none', border: `1px solid ${c(0.2)}`, padding: '3px 10px', cursor: 'pointer' }}
+                                onMouseEnter={e => (e.currentTarget.style.color = c(0.9))}
+                                onMouseLeave={e => (e.currentTarget.style.color = c(0.5))}
                             >
                                 Close
                             </button>

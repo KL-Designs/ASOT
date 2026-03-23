@@ -1,5 +1,6 @@
 'use client'
 
+import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
@@ -12,7 +13,7 @@ import { Extension } from '@tiptap/core'
 import { yCursorPlugin, defaultSelectionBuilder } from '@tiptap/y-tiptap'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
-import { useEffect, useRef, useState } from 'react'
+
 
 import Link from '@tiptap/extension-link'
 import {
@@ -24,6 +25,8 @@ import {
     InsertLink, LinkOff,
 } from '@mui/icons-material'
 
+
+const ThemeContext = React.createContext('#db001d')
 
 export interface MetaFields {
     title: string
@@ -39,6 +42,16 @@ interface Props {
     onMetaChange?: (fields: Partial<MetaFields>) => void
     metaHandleRef?: React.MutableRefObject<{ set: (key: keyof MetaFields, value: string) => void } | null>
     onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
+    themeColor?: string
+}
+
+function hexToRgb(hex: string) {
+    const h = hex.replace('#', '')
+    return {
+        r: parseInt(h.substring(0, 2), 16),
+        g: parseInt(h.substring(2, 4), 16),
+        b: parseInt(h.substring(4, 6), 16),
+    }
 }
 
 interface PresenceUser {
@@ -63,7 +76,7 @@ const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS_URL || 'ws://localhost:3
 // editor once the provider is live, so CollaborationCursor always gets a
 // valid provider at init time (avoids y-prosemirror "doc" crash).
 
-export default function OperationEditor({ operationId, initialContent, initialMeta, onMetaChange, metaHandleRef, onSaveStatusChange }: Props) {
+export default function OperationEditor({ operationId, initialContent, initialMeta, onMetaChange, metaHandleRef, onSaveStatusChange, themeColor = '#db001d' }: Props) {
     const [ydoc] = useState(() => new Y.Doc())
     const [ready, setReady] = useState<ReadyState | null>(null)
     // Keep a stable ref to the callback so the observer closure never goes stale
@@ -136,6 +149,7 @@ export default function OperationEditor({ operationId, initialContent, initialMe
             user={ready.user}
             initialContent={initialContent}
             onSaveStatusChange={onSaveStatusChange}
+            themeColor={themeColor}
         />
     )
 }
@@ -179,6 +193,9 @@ function buildCursorExtension(provider: HocuspocusProvider, user: PresenceUser) 
 function ResizableImageView({ node, selected, updateAttributes }: {
     node: any; selected: boolean; updateAttributes: (attrs: Record<string, any>) => void
 }) {
+    const themeColor = useContext(ThemeContext)
+    const { r, g, b } = hexToRgb(themeColor)
+    const c = (a: number) => `rgba(${r},${g},${b},${a})`
     const { src, alt, title, width, align } = node.attrs
     const containerRef = useRef<HTMLDivElement>(null)
     const startXRef = useRef(0)
@@ -225,9 +242,9 @@ function ResizableImageView({ node, selected, updateAttributes }: {
                                 style={{
                                     padding: '3px 5px', borderRadius: 2, cursor: 'pointer',
                                     display: 'flex', alignItems: 'center',
-                                    background: align === a ? 'rgba(219,0,29,0.2)' : 'transparent',
-                                    border: align === a ? '1px solid rgba(219,0,29,0.4)' : '1px solid transparent',
-                                    color: align === a ? 'rgba(219,0,29,0.9)' : 'rgba(237,237,237,0.5)',
+                                    background: align === a ? c(0.2) : 'transparent',
+                                    border: align === a ? `1px solid ${c(0.4)}` : '1px solid transparent',
+                                    color: align === a ? c(0.9) : 'rgba(237,237,237,0.5)',
                                 }}
                             >
                                 {a === 'left' && <FormatAlignLeft style={{ fontSize: 14 }} />}
@@ -241,8 +258,8 @@ function ResizableImageView({ node, selected, updateAttributes }: {
                             onMouseDown={e => { e.preventDefault(); updateAttributes({ width: null }) }}
                             style={{
                                 padding: '3px 6px', borderRadius: 2, cursor: 'pointer',
-                                background: !width ? 'rgba(219,0,29,0.2)' : 'transparent',
-                                border: !width ? '1px solid rgba(219,0,29,0.4)' : '1px solid transparent',
+                                background: !width ? c(0.2) : 'transparent',
+                                border: !width ? `1px solid ${c(0.4)}` : '1px solid transparent',
                                 color: 'rgba(237,237,237,0.5)', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em',
                             }}
                         >
@@ -256,7 +273,7 @@ function ResizableImageView({ node, selected, updateAttributes }: {
                     style={{
                         display: 'block', width: width ? `${width}px` : '100%',
                         maxWidth: '100%', height: 'auto',
-                        border: selected ? '2px solid rgba(219,0,29,0.6)' : '1px solid rgba(255,255,255,0.06)',
+                        border: selected ? `2px solid ${c(0.6)}` : '1px solid rgba(255,255,255,0.06)',
                     }}
                 />
 
@@ -267,7 +284,7 @@ function ResizableImageView({ node, selected, updateAttributes }: {
                         style={{
                             position: 'absolute', bottom: 4, right: 4,
                             width: 12, height: 12,
-                            background: 'rgba(219,0,29,0.85)', border: '2px solid rgba(255,255,255,0.7)',
+                            background: c(0.85), border: '2px solid rgba(255,255,255,0.7)',
                             borderRadius: 2, cursor: 'se-resize', zIndex: 10,
                         }}
                     />
@@ -310,9 +327,25 @@ interface ActiveEditorProps {
     user: PresenceUser
     initialContent?: any
     onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
+    themeColor?: string
 }
 
-function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange }: ActiveEditorProps) {
+function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange, themeColor = '#db001d' }: ActiveEditorProps) {
+    const { r, g, b } = hexToRgb(themeColor)
+    const c = (a: number) => `rgba(${r},${g},${b},${a})`
+
+    const themeCSS = `
+        .op-editor h1 { border-left-color: ${c(0.75)}; background: ${c(0.045)}; }
+        .op-editor h2 { color: ${c(0.88)}; }
+        .op-editor h2::before { color: ${c(0.65)}; }
+        .op-editor ul li::marker { color: ${c(0.6)}; }
+        .op-editor ol li::marker { color: ${c(0.6)}; }
+        .op-editor blockquote { border-left-color: ${c(0.5)}; background: ${c(0.04)}; }
+        .op-editor hr { border-top-color: ${c(0.2)}; }
+        .op-editor mark { background: ${c(0.2)}; }
+        .op-editor a { color: ${c(0.85)}; }
+        .op-editor img.ProseMirror-selectednode { outline-color: ${c(0.6)}; }
+    `
     const imageInputRef = useRef<HTMLInputElement>(null)
     const [uploadingImage, setUploadingImage] = useState(false)
     const seededRef = useRef(false)
@@ -397,7 +430,9 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
     if (!editor) return null
 
     return (
+        <ThemeContext.Provider value={themeColor}>
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <style>{themeCSS}</style>
 
             {/* Toolbar */}
             <div style={{
@@ -542,7 +577,7 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                                 }}
                                 style={{
                                     fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
-                                    textTransform: 'uppercase', color: 'rgba(219,0,29,0.85)',
+                                    textTransform: 'uppercase', color: c(0.85),
                                     background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0,
                                 }}
                             >Apply</button>
@@ -591,6 +626,7 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                 }}
             />
         </div>
+        </ThemeContext.Provider>
     )
 }
 
@@ -645,6 +681,9 @@ function PresenceAvatar({ peer }: { peer: Peer }) {
 
 
 function TBtn({ onClick, active, title, children }: { onClick: () => void; active?: boolean; title: string; children: React.ReactNode }) {
+    const themeColor = useContext(ThemeContext)
+    const { r, g, b } = hexToRgb(themeColor)
+    const c = (a: number) => `rgba(${r},${g},${b},${a})`
     return (
         <button
             type='button'
@@ -652,9 +691,9 @@ function TBtn({ onClick, active, title, children }: { onClick: () => void; activ
             onClick={onClick}
             style={{
                 padding: '4px 7px',
-                background: active ? 'rgba(219,0,29,0.15)' : 'transparent',
-                border: active ? '1px solid rgba(219,0,29,0.3)' : '1px solid transparent',
-                color: active ? 'rgba(219,0,29,0.9)' : 'rgba(237,237,237,0.5)',
+                background: active ? c(0.15) : 'transparent',
+                border: active ? `1px solid ${c(0.3)}` : '1px solid transparent',
+                color: active ? c(0.9) : 'rgba(237,237,237,0.5)',
                 cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 borderRadius: 2,
