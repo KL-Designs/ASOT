@@ -5,6 +5,17 @@ import { useState, useEffect } from 'react'
 import { Edit, ContentCopy, Delete, ArrowForward, Add, ChevronLeft, ChevronRight } from '@mui/icons-material'
 
 
+// ── Colour helpers ─────────────────────────────────────────────────────────────
+
+function hexToRgba(hex: string, alpha: number): string {
+    const h = hex.replace('#', '')
+    const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+    const r = parseInt(full.slice(0, 2), 16)
+    const g = parseInt(full.slice(2, 4), 16)
+    const b = parseInt(full.slice(4, 6), 16)
+    return `rgba(${r},${g},${b},${alpha})`
+}
+
 // ── Status helpers ─────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
@@ -209,8 +220,9 @@ function ActiveMissionsPanel({ hasAccess: _hasAccess }: { hasAccess: boolean }) 
 
 function ActiveMissionCard({ mission }: { mission: Operation }) {
     const [hovered, setHovered] = useState(false)
-    const accentBorder = STATUS_BORDER[mission.status || ''] || 'rgba(219,0,29,0.25)'
-    const accentGlow   = STATUS_GLOW[mission.status || '']   || 'rgba(219,0,29,0.12)'
+    const theme      = mission.themeColor || '#db001d'
+    const accentBorder = hexToRgba(theme, hovered ? 0.6 : 0.3)
+    const accentGlow   = hexToRgba(theme, hovered ? 0.25 : 0)
 
     return (
         <Link href={`/operations/${mission._id.toString()}`} style={{ textDecoration: 'none', display: 'block' }}>
@@ -221,8 +233,8 @@ function ActiveMissionCard({ mission }: { mission: Operation }) {
                     position: 'relative',
                     height: 145,
                     overflow: 'hidden',
-                    border: `1px solid ${hovered ? accentBorder : 'rgba(255,255,255,0.07)'}`,
-                    boxShadow: hovered ? `0 0 22px ${accentGlow}, inset 0 0 0 1px ${accentBorder}` : 'none',
+                    border: `1px solid ${accentBorder}`,
+                    boxShadow: hovered ? `0 0 24px ${accentGlow}` : 'none',
                     cursor: 'pointer',
                     transition: 'border-color 0.25s, box-shadow 0.25s',
                     background: 'rgba(0,0,0,0.5)',
@@ -237,7 +249,7 @@ function ActiveMissionCard({ mission }: { mission: Operation }) {
                         style={{
                             position: 'absolute', inset: 0,
                             width: '100%', height: '100%', objectFit: 'cover',
-                            filter: `brightness(${hovered ? 0.45 : 0.38})`,
+                            filter: `brightness(${hovered ? 0.62 : 0.52})`,
                             transition: 'filter 0.25s',
                         }}
                     />
@@ -269,7 +281,7 @@ function ActiveMissionCard({ mission }: { mission: Operation }) {
                     </span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 10px' }}>
                         {mission.department && (
-                            <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.8)', textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
+                            <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: hexToRgba(theme, 0.9), textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
                                 {mission.department}
                             </span>
                         )}
