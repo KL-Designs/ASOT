@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse } from '@mui/material'
-import { AccountCircle, Home, School, Group, MilitaryTech, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, AdminPanelSettings, Api, Tune } from '@mui/icons-material'
+import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, AdminPanelSettings, Api, Tune } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import { rankNameFromAbbr } from '@/lib/ranks'
@@ -62,14 +62,15 @@ export default function Navbar() {
             ]
         },
         {
-            name: 'Community', href: '/community', icon: <Group />,
+            name: 'Our Orbat', href: '/community', icon: <AccountTree />,
             subLinks: [
-                { name: 'ORBAT', link: '/community/orbat', icon: <AccountTree />, description: 'Full order of battle' },
-                { name: 'Biographies', link: '/community/bios', icon: <Badge />, description: 'Member biographies' },
+                { name: 'ORBAT', link: '/community/orbat', icon: <Group />, description: "ASOT's Callsign Structure" },
+                { name: 'MILPACS', link: '/milpacs', icon: <MilitaryTech />, description: 'Military Personnel Accounting Centre' },
+                { name: 'Biographies', link: '/community/bios', icon: <Badge />, description: 'Meet our Staff' },
                 // { name: 'Hall of Fame', link: '/community/hof', icon: <EmojiEvents />, description: 'Honoured unit members' },
             ]
         },
-        { name: 'MILPACS', href: '/milpacs', icon: <MilitaryTech /> },
+        { name: 'Operations', href: '/operations', icon: <TrackChanges /> },
         { name: 'Gallery', href: '/gallery', icon: <Collections /> },
         { name: 'Partners', href: '/partnerships', icon: <Handshake /> },
         { name: 'Support', href: '/support', icon: <Support /> },
