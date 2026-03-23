@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const month = searchParams.get('month')   // 1–12
     const year = searchParams.get('year')
     const statusFilter = searchParams.get('status') // comma-separated, e.g. "Active,Upcoming"
+    const search = searchParams.get('search')
 
     let isHQ = false
     try {
@@ -41,6 +42,11 @@ export async function GET(request: NextRequest) {
             if (allowed.length > 0) {
                 query.status = { $in: allowed }
             }
+        }
+
+        // Optional full-text search on title
+        if (search) {
+            query.title = { $regex: search, $options: 'i' }
         }
 
         // Optional month + year filter

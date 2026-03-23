@@ -4,7 +4,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import ConfirmDialog from '@/components/confirm-dialog'
 import { useState, useEffect } from 'react'
-import { Edit, ContentCopy, Delete, ArrowForward, Add, ChevronLeft, ChevronRight } from '@mui/icons-material'
+import { Edit, ContentCopy, Delete, ArrowForward, Add, ChevronLeft, ChevronRight, Search } from '@mui/icons-material'
+import { useRef } from 'react'
 
 
 // ── Colour helpers ─────────────────────────────────────────────────────────────
@@ -74,6 +75,140 @@ function IconBtn({ children, danger }: { children: React.ReactNode, danger?: boo
 
 
 // ── Create button ──────────────────────────────────────────────────────────────
+
+export function SearchBar() {
+    const [query, setQuery] = useState('')
+    const [results, setResults] = useState<Operation[]>([])
+    const [open, setOpen] = useState(false)
+    const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+    const containerRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        const close = (e: MouseEvent) => {
+            if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [])
+
+    function handleChange(value: string) {
+        setQuery(value)
+        clearTimeout(debounceRef.current)
+        if (!value.trim()) { setResults([]); setOpen(false); return }
+        debounceRef.current = setTimeout(() => {
+            fetch(`/api/operations?search=${encodeURIComponent(value)}`)
+                .then(r => r.json())
+                .then(json => {
+                    setResults(json.missions || [])
+                    setOpen(true)
+                })
+        }, 250)
+    }
+
+    return (
+        <div ref={containerRef} style={{ position: 'relative', flex: 1 }}>
+            <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderBottom: open && results.length > 0 ? '1px solid transparent' : '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(0,0,0,0.3)',
+                padding: '9px 14px',
+            }}>
+                <Search style={{ fontSize: 17, color: 'rgba(237,237,237,0.25)', flexShrink: 0 }} />
+                <input
+                    value={query}
+                    onChange={e => handleChange(e.target.value)}
+                    onFocus={() => { if (results.length > 0) setOpen(true) }}
+                    placeholder='Search operations…'
+                    style={{
+                        flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                        color: 'rgba(237,237,237,0.8)', fontSize: '0.82rem',
+                        letterSpacing: '0.05em',
+                    }}
+                />
+                {query && (
+                    <button
+                        onClick={() => { setQuery(''); setResults([]); setOpen(false) }}
+                        style={{ background: 'none', border: 'none', color: 'rgba(237,237,237,0.25)', cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: 16 }}
+                    >×</button>
+                )}
+            </div>
+
+            {open && results.length > 0 && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                    background: 'rgba(10,10,10,0.98)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderTop: '1px solid rgba(219,0,29,0.3)',
+                    maxHeight: 340, overflowY: 'auto',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
+                }}>
+                    {results.map(m => (
+                        <Link
+                            key={m._id.toString()}
+                            href={`/operations/${m._id.toString()}`}
+                            onClick={() => { setOpen(false); setQuery('') }}
+                            style={{ textDecoration: 'none', display: 'block' }}
+                        >
+                            <SearchResult mission={m} />
+                        </Link>
+                    ))}
+                </div>
+            )}
+
+            {open && query && results.length === 0 && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                    background: 'rgba(10,10,10,0.98)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderTop: '1px solid rgba(219,0,29,0.3)',
+                    padding: '16px', textAlign: 'center',
+                    color: 'rgba(237,237,237,0.2)', fontSize: '0.7rem',
+                    letterSpacing: '0.1em', textTransform: 'uppercase', fontStyle: 'italic',
+                }}>
+                    No operations found
+                </div>
+            )}
+        </div>
+    )
+}
+
+function SearchResult({ mission }: { mission: Operation }) {
+    const [hovered, setHovered] = useState(false)
+    const theme = mission.themeColor || '#db001d'
+    return (
+        <div
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 12px',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                background: hovered ? 'rgba(255,255,255,0.04)' : 'transparent',
+                borderLeft: `2px solid ${hovered ? hexToRgba(theme, 0.7) : 'transparent'}`,
+                transition: 'background 0.15s, border-color 0.15s',
+            }}
+        >
+            {mission.coverImage && (
+                <div style={{ width: 44, height: 30, flexShrink: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={mission.coverImage} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                </div>
+            )}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {mission.title}
+                </span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <StatusBadge status={mission.status} />
+                    <span style={{ fontSize: '0.58rem', letterSpacing: '0.07em', color: 'rgba(237,237,237,0.28)', textTransform: 'uppercase' }}>
+                        {new Date(mission.date).toDateString()}
+                    </span>
+                </div>
+            </div>
+        </div>
+    )
+}
 
 export function CreateButton() {
     const [active, setActive] = useState(false)

@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
             department: '1-0 HQ',
             date: new Date(),
             loreDate: new Date(),
-            status: 'Upcoming' as const,
+            status: 'In Development' as const,
             fields: []
         })
 
