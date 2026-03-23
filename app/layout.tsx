@@ -47,7 +47,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 				<ThemeProvider theme={UnitTheme}>
 					<div className="h-full flex flex-col">
 
-						<div style={{ zIndex: 1 }}>
+						<div id="site-navbar" style={{ zIndex: 1 }}>
 							<Navbar />
 						</div>
 
@@ -55,7 +55,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 							{children}
 						</div>
 
-						<div style={{ zIndex: 1 }}>
+						<div id="site-footer" style={{ zIndex: 1 }}>
 							<Footer />
 						</div>
 

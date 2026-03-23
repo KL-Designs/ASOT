@@ -30,6 +30,8 @@ export default function Page() {
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
     const [confirmDelete, setConfirmDelete] = useState(false)
+    const [previewOpen, setPreviewOpen] = useState(false)
+    const [previewKey, setPreviewKey] = useState(0)
     const router = useRouter()
 
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -118,7 +120,22 @@ export default function Page() {
     const statusLabel = saveStatus === 'saved' ? '● Saved' : saveStatus === 'saving' ? '● Saving…' : '● Unsaved'
 
     return (
-        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-5 max-w-[1000px] mx-auto'>
+        <div className='h-full w-full flex' style={{ overflow: 'hidden' }}>
+
+            {/* Edit column — scrollable */}
+            <div style={{
+                width: previewOpen ? 480 : '100%',
+                maxWidth: previewOpen ? 480 : 1000,
+                margin: previewOpen ? '0' : '0 auto',
+                flexShrink: 0,
+                overflowY: 'auto',
+                height: '100%',
+                padding: 'clamp(1.5rem, 2.5vw, 2.5rem)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 20,
+                transition: 'width 0.3s ease, max-width 0.3s ease',
+            }}>
 
             <ConfirmDialog
                 open={confirmDelete}
@@ -159,6 +176,22 @@ export default function Page() {
                     <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor }}>
                         {statusLabel}
                     </span>
+                    {opID && (
+                        <button
+                            className='hidden md:block'
+                            onClick={() => { setPreviewOpen(o => !o); setPreviewKey(k => k + 1) }}
+                            style={{
+                                padding: '6px 14px',
+                                background: previewOpen ? 'rgba(237,237,237,0.07)' : 'rgba(237,237,237,0.03)',
+                                border: `1px solid ${previewOpen ? 'rgba(237,237,237,0.25)' : 'rgba(255,255,255,0.1)'}`,
+                                color: previewOpen ? 'rgba(237,237,237,0.8)' : 'rgba(237,237,237,0.35)',
+                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+                                cursor: 'pointer', transition: 'all 0.15s',
+                            }}
+                        >
+                            {previewOpen ? '⊠ Preview' : '⊡ Preview'}
+                        </button>
+                    )}
                     {opID && (
                         <button
                             onClick={() => setConfirmDelete(true)}
@@ -331,6 +364,65 @@ export default function Page() {
                     </div>
                 )}
             </div>
+
+            </div>{/* end edit column */}
+
+            {/* Preview panel — desktop only */}
+            {previewOpen && opID && (
+                <div className='hidden md:flex' style={{
+                    flex: 1,
+                    flexDirection: 'column',
+                    borderLeft: '1px solid rgba(255,255,255,0.07)',
+                    overflow: 'hidden',
+                    height: '100%',
+                }}>
+                    {/* Panel header */}
+                    <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '8px 16px',
+                        borderBottom: '1px solid rgba(255,255,255,0.06)',
+                        background: 'rgba(0,0,0,0.3)',
+                        flexShrink: 0,
+                    }}>
+                        <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)' }}>
+                            Live Preview
+                        </span>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <button
+                                onClick={() => setPreviewKey(k => k + 1)}
+                                style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', background: 'none', border: '1px solid rgba(255,255,255,0.08)', padding: '3px 10px', cursor: 'pointer' }}
+                                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.7)')}
+                                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.3)')}
+                            >
+                                Refresh
+                            </button>
+                            <button
+                                onClick={() => setPreviewOpen(false)}
+                                style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', background: 'none', border: '1px solid rgba(219,0,29,0.2)', padding: '3px 10px', cursor: 'pointer' }}
+                                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.9)')}
+                                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.5)')}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                    <iframe
+                        key={previewKey}
+                        src={`/operations/${opID}`}
+                        scrolling='no'
+                        onLoad={e => {
+                            try {
+                                const doc = (e.target as HTMLIFrameElement).contentDocument
+                                if (!doc) return
+                                const style = doc.createElement('style')
+                                style.textContent = '#site-navbar, #site-footer { display: none !important; }'
+                                doc.head.appendChild(style)
+                            } catch {}
+                        }}
+                        style={{ flex: 1, border: 'none', width: '100%', height: '100%', overflow: 'hidden', display: 'block', pointerEvents: 'none' }}
+                    />
+                </div>
+            )}
 
         </div>
     )
