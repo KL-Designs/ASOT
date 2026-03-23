@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import ConfirmDialog from '@/components/confirm-dialog'
 import dayjs, { Dayjs } from 'dayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
@@ -26,6 +28,9 @@ export default function Page() {
     const [initialContent, setInitialContent] = useState<any>(undefined)
     const [loaded, setLoaded] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
+
+    const [confirmDelete, setConfirmDelete] = useState(false)
+    const router = useRouter()
 
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
     const metaHandleRef = useRef<{ set: (key: keyof MetaFields, value: string) => void } | null>(null)
@@ -94,6 +99,14 @@ export default function Page() {
         }
     }
 
+    async function handleDelete() {
+        const params = new URLSearchParams(window.location.search)
+        const id = params.get('op') || ''
+        const json = await fetch(`/api/operations/delete?id=${id}`).then(r => r.json())
+        if (json.error) { alert(json.error); return }
+        router.push('/operations')
+    }
+
     async function removeCover() {
         setCoverImage(null)
         const params = new URLSearchParams(window.location.search)
@@ -106,6 +119,16 @@ export default function Page() {
 
     return (
         <div className='h-full w-full p-6 md:p-10 flex flex-col gap-5 max-w-[1000px] mx-auto'>
+
+            <ConfirmDialog
+                open={confirmDelete}
+                title='Delete Mission'
+                message={`"${title || 'This mission'}" will be permanently deleted. This cannot be undone.`}
+                confirmLabel='Delete'
+                danger
+                onConfirm={handleDelete}
+                onCancel={() => setConfirmDelete(false)}
+            />
 
             {/* Page header */}
             <div className='flex items-center justify-between gap-4'>
@@ -132,9 +155,28 @@ export default function Page() {
                         </>
                     )}
                 </div>
-                <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor }}>
-                    {statusLabel}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor }}>
+                        {statusLabel}
+                    </span>
+                    {opID && (
+                        <button
+                            onClick={() => setConfirmDelete(true)}
+                            style={{
+                                padding: '6px 14px',
+                                background: 'rgba(219,0,29,0.06)',
+                                border: '1px solid rgba(219,0,29,0.3)',
+                                color: 'rgba(219,0,29,0.65)',
+                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+                                cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+                            }}
+                            onMouseEnter={e => { const el = e.currentTarget; el.style.background = 'rgba(219,0,29,0.14)'; el.style.color = 'rgba(219,0,29,1)'; el.style.borderColor = 'rgba(219,0,29,0.6)' }}
+                            onMouseLeave={e => { const el = e.currentTarget; el.style.background = 'rgba(219,0,29,0.06)'; el.style.color = 'rgba(219,0,29,0.65)'; el.style.borderColor = 'rgba(219,0,29,0.3)' }}
+                        >
+                            Delete Mission
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Metadata card */}

@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
         const newOp = await Db.operations.insertOne({
             ...originalMission,
             _id: new ObjectId(),
+            title: `${originalMission.title} (Copy)`,
         })
 
         return NextResponse.json({ success: true, id: newOp.insertedId }, { status: 200 })

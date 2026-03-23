@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import ConfirmDialog from '@/components/confirm-dialog'
 import { useState, useEffect } from 'react'
 import { Edit, ContentCopy, Delete, ArrowForward, Add, ChevronLeft, ChevronRight } from '@mui/icons-material'
 
@@ -75,15 +77,15 @@ function IconBtn({ children, danger }: { children: React.ReactNode, danger?: boo
 
 export function CreateButton() {
     const [active, setActive] = useState(false)
+    const router = useRouter()
 
     function createMission() {
         setActive(true)
         fetch('/api/operations/new')
             .then(res => res.json())
             .then(json => {
-                if (json.error) return alert(json.error)
-                alert('New Mission Created!')
-                setActive(false)
+                if (json.error) { alert(json.error); setActive(false); return }
+                router.push(`/operations/edit?op=${json.id}`)
             })
             .catch(err => { alert(err); setActive(false) })
     }
@@ -316,11 +318,15 @@ function MonthlyMissionsPanel({
     const [missions, setMissions] = useState<Operation[]>([])
     const monthName = new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' })
 
-    useEffect(() => {
-        setMissions([])
+    function load() {
         fetch(`/api/operations?month=${month}&year=${year}`)
             .then(r => r.json())
             .then(json => { if (json.missions) setMissions(json.missions) })
+    }
+
+    useEffect(() => {
+        setMissions([])
+        load()
     }, [year, month])
 
     return (
@@ -341,7 +347,7 @@ function MonthlyMissionsPanel({
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     {missions.map(m => (
-                        <MissionRow key={m._id.toString()} mission={m} hasAccess={hasAccess} />
+                        <MissionRow key={m._id.toString()} mission={m} hasAccess={hasAccess} onDeleted={id => setMissions(prev => prev.filter(x => x._id.toString() !== id))} onDuplicated={load} />
                     ))}
                 </div>
             )}
@@ -349,10 +355,29 @@ function MonthlyMissionsPanel({
     )
 }
 
-function MissionRow({ mission, hasAccess }: { mission: Operation; hasAccess: boolean }) {
+function MissionRow({ mission, hasAccess, onDeleted, onDuplicated }: { mission: Operation; hasAccess: boolean; onDeleted?: (id: string) => void; onDuplicated?: () => void }) {
     const [hovered, setHovered] = useState(false)
+    const [confirmDelete, setConfirmDelete] = useState(false)
+
+    function handleDelete() {
+        const id = mission._id.toString()
+        fetch(`/api/operations/delete?id=${id}`)
+            .then(r => r.json())
+            .then(j => { if (j.error) alert(j.error); else onDeleted?.(id) })
+        setConfirmDelete(false)
+    }
 
     return (
+        <>
+        <ConfirmDialog
+            open={confirmDelete}
+            title='Delete Mission'
+            message={`"${mission.title}" will be permanently deleted. This cannot be undone.`}
+            confirmLabel='Delete'
+            danger
+            onConfirm={handleDelete}
+            onCancel={() => setConfirmDelete(false)}
+        />
         <div
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
@@ -399,14 +424,14 @@ function MissionRow({ mission, hasAccess }: { mission: Operation; hasAccess: boo
                         </Link>
                         <button
                             title='Duplicate'
-                            onClick={() => fetch(`/api/operations/duplicate?id=${mission._id}`).then(r => r.json()).then(j => { if (j.error) alert(j.error) })}
+                            onClick={() => fetch(`/api/operations/duplicate?id=${mission._id}`).then(r => r.json()).then(j => { if (j.error) alert(j.error); else onDuplicated?.() })}
                             style={{ all: 'unset', cursor: 'pointer' }}
                         >
                             <IconBtn><ContentCopy style={{ fontSize: 14 }} /></IconBtn>
                         </button>
                         <button
                             title='Delete'
-                            onClick={() => { if (confirm(`Delete "${mission.title}"?`)) fetch(`/api/operations/delete?id=${mission._id}`).then(r => r.json()).then(j => { if (j.error) alert(j.error) }) }}
+                            onClick={() => setConfirmDelete(true)}
                             style={{ all: 'unset', cursor: 'pointer' }}
                         >
                             <IconBtn danger><Delete style={{ fontSize: 14 }} /></IconBtn>
@@ -432,6 +457,7 @@ function MissionRow({ mission, hasAccess }: { mission: Operation; hasAccess: boo
                 </Link>
             </div>
         </div>
+        </>
     )
 }
 
