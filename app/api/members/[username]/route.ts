@@ -11,13 +11,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { username } = await params
     const body = await request.json()
 
-    const { bioRank, enlistedDate, promotions, awards, operations } = body
+    const { bioRank, enlistedDate, promotions, awards, operations, qualifications } = body
 
     const update: Record<string, any> = {
         'milpac.enlistedDate': enlistedDate ?? '',
         'milpac.promotions': promotions ?? [],
         'milpac.awards': awards ?? [],
         'milpac.operations': operations ?? [],
+        'milpac.qualifications': qualifications ?? [],
     }
     if (bioRank !== undefined) {
         update['milpac.currentRank'] = bioRank

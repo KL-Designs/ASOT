@@ -23,6 +23,7 @@ function todayStr() {
 type Promotion = { _key: string; date: string; rank: string; role: string }
 type Award = { _key: string; date: string; name: string; type: string }
 type Operation = { _key: string; startToEndDate: string; name: string }
+type Qualification = { _key: string; date: string; qualification: string; trainer: string }
 
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -254,6 +255,8 @@ export default function MilpacEditor({ member }: { member: User }) {
         (member.milpac?.awards ?? []).map(a => ({ _key: String(_keyCount++), ...a })))
     const [operations, setOperations] = useState<Operation[]>(() =>
         (member.milpac?.operations ?? []).map(o => ({ _key: String(_keyCount++), ...o })))
+    const [qualifications, setQualifications] = useState<Qualification[]>(() =>
+        (member.milpac?.qualifications ?? []).map(q => ({ _key: String(_keyCount++), ...q })))
 
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
@@ -380,6 +383,7 @@ export default function MilpacEditor({ member }: { member: User }) {
                     promotions: promotions.map(({ _key, ...rest }) => rest),
                     awards: awards.map(({ _key, ...rest }) => rest),
                     operations: operations.map(({ _key, ...rest }) => rest),
+                    qualifications: qualifications.map(({ _key, ...rest }) => rest),
                 }),
             })
             const json = await res.json()
@@ -415,6 +419,18 @@ export default function MilpacEditor({ member }: { member: User }) {
     }
     function removeAward(i: number) {
         setAwards(prev => prev.filter((_, idx) => idx !== i))
+    }
+
+    // ── Qualification helpers ──────────────────────────────────────────────────
+
+    function addQualification() {
+        setQualifications(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), qualification: '', trainer: '' }])
+    }
+    function updateQualification(i: number, field: keyof Qualification, value: string) {
+        setQualifications(prev => prev.map((q, idx) => idx === i ? { ...q, [field]: value } : q))
+    }
+    function removeQualification(i: number) {
+        setQualifications(prev => prev.filter((_, idx) => idx !== i))
     }
 
     // ── Operation helpers ──────────────────────────────────────────────────────
@@ -523,6 +539,36 @@ export default function MilpacEditor({ member }: { member: User }) {
                                 <DeleteBtn onClick={() => removePromotion(i)} />
                             </div>
                             {showLine('promotions', i, 'below') && <InsertionLine />}
+                        </Fragment>
+                    ))
+                )}
+            </SectionCard>
+
+            {/* Qualifications */}
+            <SectionCard title='Qualifications' onAdd={addQualification} addLabel='Qualification'>
+                {qualifications.length === 0 ? (
+                    <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No qualifications on record.</span>
+                ) : (
+                    qualifications.map((q, i) => (
+                        <Fragment key={q._key}>
+                            {showLine('qualifications', i, 'above') && <InsertionLine />}
+                            <div className='flex gap-2 items-end' {...dragProps('qualifications', qualifications, setQualifications, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragging?.list === 'qualifications' && dragging.index === i ? 0.3 : 1, transition: 'opacity 0.15s' }}>
+                                <DragHandle />
+                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                    <Label>Date</Label>
+                                    <input value={q.date} onChange={e => updateQualification(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                </div>
+                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                    <Label>Qualification</Label>
+                                    <input value={q.qualification} onChange={e => updateQualification(i, 'qualification', e.target.value)} placeholder='Basic Rifleman Course' style={inputStyle} />
+                                </div>
+                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                    <Label>Trainer</Label>
+                                    <input value={q.trainer} onChange={e => updateQualification(i, 'trainer', e.target.value)} placeholder='SGT Smith' style={inputStyle} />
+                                </div>
+                                <DeleteBtn onClick={() => removeQualification(i)} />
+                            </div>
+                            {showLine('qualifications', i, 'below') && <InsertionLine />}
                         </Fragment>
                     ))
                 )}
