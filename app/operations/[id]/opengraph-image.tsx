@@ -16,9 +16,14 @@ function hexToRgb(hex: string) {
 }
 
 function fmt(date: Date) {
-    return date.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
-        + ' — '
-        + date.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false })
+    const tz = 'Australia/Sydney'
+    const parts = new Intl.DateTimeFormat('en-AU', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true,
+        timeZone: tz, timeZoneName: 'short',
+    }).formatToParts(date)
+    const get = (type: string) => parts.find(p => p.type === type)?.value ?? ''
+    return `${get('day')} ${get('month')} ${get('year')} — ${get('hour')}:${get('minute')} ${get('dayPeriod')} ${get('timeZoneName')}`.toUpperCase()
 }
 
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
