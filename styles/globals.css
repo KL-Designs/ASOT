@@ -204,32 +204,46 @@ body {
 }
 
 .op-editor h1 {
-    font-size: 1.6rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.32em;
     text-transform: uppercase;
-    color: rgba(237, 237, 237, 0.95);
-    margin: 1.6em 0 0.4em;
-    border-bottom: 1px solid rgba(219, 0, 29, 0.25);
-    padding-bottom: 6px;
+    color: rgba(237, 237, 237, 0.9);
+    margin: 2em 0 1em;
+    padding: 8px 14px;
+    border-left: 3px solid rgba(219, 0, 29, 0.75);
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(219, 0, 29, 0.045);
+    line-height: 1;
 }
 
 .op-editor h2 {
-    font-size: 1.2rem;
+    font-size: 0.82rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: rgba(219, 0, 29, 0.85);
-    margin: 1.4em 0 0.3em;
+    color: rgba(219, 0, 29, 0.88);
+    margin: 1.6em 0 0.4em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.op-editor h2::before {
+    content: '▸';
+    font-size: 0.58rem;
+    flex-shrink: 0;
+    color: rgba(219, 0, 29, 0.65);
 }
 
 .op-editor h3 {
-    font-size: 0.95rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: rgba(237, 237, 237, 0.55);
-    margin: 1.2em 0 0.25em;
+    color: rgba(237, 237, 237, 0.32);
+    margin: 1.4em 0 0.3em;
 }
 
 .op-editor p { margin: 0.5em 0; }
@@ -243,14 +257,19 @@ body {
 
 .op-editor blockquote {
     border-left: 3px solid rgba(219, 0, 29, 0.5);
-    padding: 8px 16px;
-    margin: 1em 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 12px 18px;
+    margin: 1.4em 0;
     background: rgba(219, 0, 29, 0.04);
     color: rgba(237, 237, 237, 0.6);
-    font-style: italic;
+    font-style: normal;
+    font-size: 0.86rem;
+    letter-spacing: 0.01em;
 }
 
-.op-editor hr { border: none; border-top: 1px solid rgba(219, 0, 29, 0.2); margin: 2em 0; }
+.op-editor hr { border: none; border-top: 1px solid rgba(219, 0, 29, 0.2); margin: 2.5em 0; }
 
 .op-editor img {
     max-width: 100%;
@@ -289,74 +308,78 @@ body {
 /* ── Viewer (theme colors injected inline by DocBody) ─────────────────────── */
 
 .op-doc {
-    color: rgba(237, 237, 237, 0.78);
-    font-size: 0.95rem;
-    line-height: 1.85;
-    padding: 40px 0 0;
+    color: rgba(237, 237, 237, 0.75);
+    font-size: 0.9rem;
+    line-height: 1.78;
+    padding: 20px 0 20px;
 }
 
-/* Section header */
+/* Major section header — SITUATION, MISSION, EXECUTION etc. */
 .op-doc h1 {
-    font-size: 1.8rem;
-    font-weight: 900;
-    letter-spacing: 0.12em;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.32em;
     text-transform: uppercase;
-    color: rgba(237, 237, 237, 0.92);
-    margin: 3em 0 1em;
-    padding: 14px 20px;
-    border-left: 4px solid; /* color injected */
+    color: rgba(237, 237, 237, 0.9);
+    margin: 3em 0 1.2em;
+    padding: 8px 14px;
+    border-left: 3px solid; /* color injected */
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     /* background injected */
-    border-bottom: none;
-    line-height: 1.1;
+    line-height: 1;
 }
 
 /* Subsection heading */
 .op-doc h2 {
-    font-size: 1.05rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    letter-spacing: 0.07em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     /* color injected */
     margin: 1.8em 0 0.5em;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .op-doc h2::before {
-    content: '';
-    display: inline-block;
-    width: 14px;
-    height: 2px;
+    content: '▸';
+    font-size: 0.58rem;
     flex-shrink: 0;
-    /* background injected */
+    /* color injected */
 }
 
 /* Sub-subsection */
 .op-doc h3 {
-    font-size: 0.78rem;
+    font-size: 0.68rem;
     font-weight: 700;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: rgba(237, 237, 237, 0.38);
-    margin: 1.4em 0 0.4em;
+    color: rgba(237, 237, 237, 0.32);
+    margin: 1.4em 0 0.35em;
 }
 
-.op-doc p { margin: 0.6em 0; }
+.op-doc p { margin: 0.55em 0; }
 
 .op-doc ul, .op-doc ol { padding-left: 1.6em; margin: 0.6em 0; }
 .op-doc ul { list-style-type: disc; }
 .op-doc ol { list-style-type: decimal; }
-.op-doc li { margin: 0.3em 0; display: list-item; }
+.op-doc li { margin: 0.3em 0; display: list-item; font-size: 0.88rem; }
 /* markers injected */
 
 .op-doc blockquote {
     border-left: 3px solid; /* color injected */
-    padding: 10px 18px;
-    margin: 1.2em 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 12px 18px;
+    margin: 1.4em 0;
     /* background injected */
-    color: rgba(237, 237, 237, 0.55);
-    font-style: italic;
+    color: rgba(237, 237, 237, 0.6);
+    font-style: normal;
+    font-size: 0.86rem;
+    letter-spacing: 0.01em;
 }
 
 .op-doc hr { border: none; border-top: 1px solid; margin: 2.5em 0; /* color injected */ }

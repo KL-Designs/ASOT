@@ -170,17 +170,70 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             </div>
 
             {/* ── Orders / Document body ────────────────────────────────────── */}
-            <div className='w-full max-w-[900px] mx-auto px-6 md:px-10 pb-16 flex flex-col gap-0' style={{ marginTop: -1 }}>
+            <div className='w-full max-w-[900px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
+                <div style={{ position: 'relative', border: `1px solid ${c(0.18)}`, borderTop: `2px solid ${c(0.6)}` }}>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 0 }}>
-                    <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
-                    <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.28em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.18)' }}>
-                        Orders
-                    </span>
-                    <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                    {/* Bottom corner ticks */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}>
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: 12, height: 1, background: c(0.45) }} />
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: 1, height: 12, background: c(0.45) }} />
+                    </div>
+                    <div style={{ position: 'absolute', bottom: 0, right: 0, pointerEvents: 'none', zIndex: 1 }}>
+                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 12, height: 1, background: c(0.45) }} />
+                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 1, height: 12, background: c(0.45) }} />
+                    </div>
+
+                    {/* Document header stamp */}
+                    <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
+                        padding: '8px 20px',
+                        borderBottom: '1px solid rgba(255,255,255,0.06)',
+                        background: 'rgba(0,0,0,0.4)',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 6, height: 6, background: c(0.7), flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.8) }}>
+                                Operation Orders
+                            </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                            {operation.status && (
+                                <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
+                                    {operation.status}
+                                </span>
+                            )}
+                            {operation.department && (
+                                <>
+                                    <div style={{ width: 1, height: 10, background: 'rgba(255,255,255,0.1)' }} />
+                                    <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
+                                        {operation.department}
+                                    </span>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Body */}
+                    <div style={{ padding: '0 28px' }}>
+                        <DocBody content={operation.content ?? null} themeColor={operation.themeColor || '#db001d'} />
+                    </div>
+
+                    {/* Document footer stamp */}
+                    <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '7px 20px',
+                        borderTop: '1px solid rgba(255,255,255,0.04)',
+                        background: 'rgba(0,0,0,0.25)',
+                    }}>
+                        <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)' }}>
+                            ASOT // End of Order
+                        </span>
+                        <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%' }}>
+                            {operation.title}
+                        </span>
+                    </div>
+
                 </div>
-
-                <DocBody content={operation.content ?? null} themeColor={operation.themeColor || '#db001d'} />
             </div>
 
         </div>
