@@ -1,5 +1,6 @@
 import client from '@/lib/discord'
 import { connection } from 'next/server'
+import PERMISSIONS from '@/lib/permissions'
 
 import { CreateButton, OperationsBoard, SearchBar } from './list'
 
@@ -11,7 +12,7 @@ export default async function Page() {
 
     try {
         const me = await client.fetchMe()
-        if (await client.hasRoles(me, ['HQ Staff'])) editAccess = true
+        if (await client.hasRoles(me, PERMISSIONS.pages.operationsEdit)) editAccess = true
     } catch { }
 
     return (
