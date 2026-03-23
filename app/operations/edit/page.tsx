@@ -132,22 +132,15 @@ export default function Page() {
     const statusLabel = saveStatus === 'saved' ? '● Saved' : saveStatus === 'saving' ? '● Saving…' : '● Unsaved'
 
     return (
-        <div className='h-full w-full flex' style={{ overflow: 'hidden' }}>
+        <div className='w-full flex items-start'>
 
-            {/* Edit column — outer sizing shell (flex-aware, no scroll) */}
+            {/* Edit column — natural flow, body scrolls */}
             <div style={{
                 width: previewOpen ? 480 : '100%',
                 maxWidth: previewOpen ? 480 : 1000,
                 margin: previewOpen ? '0' : '0 auto',
                 flexShrink: 0,
-                height: '100%',
                 transition: 'width 0.3s ease, max-width 0.3s ease',
-                overflow: 'hidden',
-            }}>
-            {/* Inner scroll container — display:block so position:sticky works on descendants */}
-            <div style={{
-                overflowY: 'auto',
-                height: '100%',
                 padding: 'clamp(1.5rem, 2.5vw, 2.5rem)',
             }}>
 
@@ -373,7 +366,6 @@ export default function Page() {
                 </div>
             )}
 
-            </div>{/* end inner scroll container */}
             </div>{/* end edit column */}
 
             {/* Preview panel — desktop only */}
@@ -382,8 +374,10 @@ export default function Page() {
                     flex: 1,
                     flexDirection: 'column',
                     borderLeft: '1px solid rgba(255,255,255,0.07)',
+                    position: 'sticky',
+                    top: 0,
+                    height: '100vh',
                     overflow: 'hidden',
-                    height: '100%',
                 }}>
                     {/* Panel header */}
                     <div style={{

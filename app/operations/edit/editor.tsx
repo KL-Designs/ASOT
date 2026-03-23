@@ -606,7 +606,7 @@ function SectionEditor({ ydoc, sectionId, provider, user, onRemove, onMoveUp, on
     if (!editor) return null
 
     return (
-        <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(1)}`, background: 'rgba(255,255,255,0.01)' }}>
+        <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(1)}`, background: 'rgba(255,255,255,0.01)', position: 'relative' }}>
             <style>{themeCSS}</style>
 
             {/* Section header */}
