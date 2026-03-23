@@ -414,15 +414,29 @@ function PlatoonCard({ children, title, link, image }: { children: React.ReactNo
 }
 
 
+const STATUS_COLORS: Record<string, string> = {
+	'Active':         'rgba(0,200,80,0.9)',
+	'Upcoming':       'rgba(219,160,0,0.9)',
+	'Completed':      'rgba(100,150,237,0.8)',
+	'In Development': 'rgba(219,0,29,0.75)',
+}
+
+const STATUS_ORDER: Record<string, number> = {
+	'Active': 0, 'Upcoming': 1, 'Completed': 2, 'In Development': 3,
+}
+
 function OpsTeaser() {
 	const [ops, setOps] = useState<Operation[]>([])
 	const [loading, setLoading] = useState(true)
 
 	useEffect(() => {
-		fetch('/api/operations')
+		fetch('/api/operations?status=Active,Upcoming,Completed')
 			.then(r => r.json())
 			.then(data => {
-				setOps((data.missions || []).slice(0, 3))
+				const sorted = (data.missions || []).sort((a: Operation, b: Operation) =>
+					(STATUS_ORDER[a.status ?? ''] ?? 99) - (STATUS_ORDER[b.status ?? ''] ?? 99)
+				)
+				setOps(sorted.slice(0, 3))
 				setLoading(false)
 			})
 			.catch(() => setLoading(false))
@@ -431,15 +445,6 @@ function OpsTeaser() {
 	function milDate(d: any) {
 		if (!d) return '——'
 		return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
-	}
-
-	function opStatus(d: any): { label: string; opacity: string } {
-		if (!d) return { label: 'Completed', opacity: 'cc' }
-		const opDay = new Date(d).toDateString()
-		const today = new Date().toDateString()
-		if (opDay === today) return { label: 'Active', opacity: 'ff' }
-		if (new Date(d) > new Date()) return { label: 'Upcoming', opacity: '99' }
-		return { label: 'Completed', opacity: 'cc' }
 	}
 
 	if (!loading && ops.length === 0) return null
@@ -456,7 +461,7 @@ function OpsTeaser() {
 					ops.map(op => {
 						const color = op.themeColor || '#db001d'
 						const id = String(op._id)
-						const s = opStatus(op.date)
+						const statusColor = STATUS_COLORS[op.status ?? ''] || 'rgba(237,237,237,0.35)'
 						return (
 							<Link key={id} href={`/operations/${id}` as any} style={{ textDecoration: 'none', display: 'block' }}>
 								<div className='relative overflow-hidden' style={{ height: 260, background: 'rgb(13,13,13)', border: '1px solid rgba(255,255,255,0.06)', borderTop: `2px solid ${color}`, cursor: 'pointer' }}>
@@ -473,8 +478,8 @@ function OpsTeaser() {
 									<div className='relative h-full flex flex-col justify-between p-5' style={{ zIndex: 1 }}>
 										{/* Top row */}
 										<div className='flex items-center justify-between'>
-											<span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: `${color}${s.opacity}` }}>
-												● {s.label}
+											<span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: statusColor }}>
+												● {op.status || 'Unknown'}
 											</span>
 											{op.department && (
 												<span style={{ fontSize: '0.58rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', background: 'rgba(255,255,255,0.04)', padding: '2px 8px', border: '1px solid rgba(255,255,255,0.06)' }}>
