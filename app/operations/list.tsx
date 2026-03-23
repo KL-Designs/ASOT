@@ -604,15 +604,19 @@ export function OperationsBoard({ editAccess }: { editAccess: boolean }) {
     const [selected, setSelected] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr 220px', gap: 16, alignItems: 'start' }}>
-            {/* Left: Active & Upcoming missions */}
+        <div className='grid grid-cols-1 md:grid-cols-[280px_1fr_220px] gap-4 items-start'>
+            {/* Col 1 on desktop / top on mobile */}
             <ActiveMissionsPanel hasAccess={editAccess} />
 
-            {/* Centre: Operations for selected month */}
-            <MonthlyMissionsPanel year={selected.year} month={selected.month} hasAccess={editAccess} />
+            {/* Col 2 on desktop / bottom on mobile (order-3) */}
+            <div className='order-3 md:order-2'>
+                <MonthlyMissionsPanel year={selected.year} month={selected.month} hasAccess={editAccess} />
+            </div>
 
-            {/* Right: Month/year picker */}
-            <CalendarPicker selected={selected} onChange={setSelected} />
+            {/* Col 3 on desktop / middle on mobile (order-2) so user picks month before seeing list */}
+            <div className='order-2 md:order-3'>
+                <CalendarPicker selected={selected} onChange={setSelected} />
+            </div>
         </div>
     )
 }

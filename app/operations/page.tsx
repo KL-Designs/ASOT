@@ -18,7 +18,7 @@ export default async function Page() {
         <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6' style={{ maxWidth: 1400, margin: '0 auto' }}>
 
             {/* Header */}
-            <div className='flex items-center gap-4'>
+            <div className='flex flex-col gap-3 md:flex-row md:items-center md:gap-4'>
                 <div className='flex flex-col gap-1' style={{ flexShrink: 0 }}>
                     <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)' }}>
                         Australian Special Operations Taskforce
