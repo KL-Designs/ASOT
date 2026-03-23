@@ -137,6 +137,7 @@ export default function Page() {
             {/* Edit column — natural flow, body scrolls */}
             <div style={{
                 width: previewOpen ? 480 : '100%',
+                minWidth: previewOpen ? 480 : undefined,
                 maxWidth: previewOpen ? 480 : 1000,
                 margin: previewOpen ? '0' : '0 auto',
                 flexShrink: 0,
@@ -372,12 +373,12 @@ export default function Page() {
             {previewOpen && opID && (
                 <div className='hidden md:flex' style={{
                     flex: 1,
+                    minWidth: 0,
                     flexDirection: 'column',
                     borderLeft: '1px solid rgba(255,255,255,0.07)',
                     position: 'sticky',
                     top: 0,
                     height: '100vh',
-                    overflow: 'hidden',
                 }}>
                     {/* Panel header */}
                     <div style={{
@@ -412,7 +413,6 @@ export default function Page() {
                     <iframe
                         key={previewKey}
                         src={`/operations/${opID}`}
-                        scrolling='no'
                         onLoad={e => {
                             try {
                                 const doc = (e.target as HTMLIFrameElement).contentDocument
@@ -422,7 +422,7 @@ export default function Page() {
                                 doc.head.appendChild(style)
                             } catch {}
                         }}
-                        style={{ flex: 1, border: 'none', width: '100%', height: '100%', overflow: 'hidden', display: 'block', pointerEvents: 'none' }}
+                        style={{ flex: 1, border: 'none', width: '100%', display: 'block' }}
                     />
                 </div>
             )}
