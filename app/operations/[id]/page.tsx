@@ -137,7 +137,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
                         backgroundClip: 'text',
-                        filter: `drop-shadow(0 0 28px ${c(0.55)}) drop-shadow(0 0 8px ${c(0.3)})`,
+                        filter: `drop-shadow(0 0 50px ${c(0.55)}) drop-shadow(0 0 8px ${c(0.3)})`,
                         textAlign: 'center',
                     }}>
                         {operation.title}
