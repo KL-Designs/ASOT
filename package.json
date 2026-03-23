@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node --env-file=.env server.mjs",
+    "dev": "next dev",
+    "dev-collab": "node --env-file=.env server.mjs",
     "build": "next build",
     "start": "node --env-file=.env server.mjs",
     "lint": "next lint"

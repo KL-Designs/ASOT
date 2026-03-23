@@ -195,6 +195,10 @@ function ActiveMissionsPanel({ hasAccess: _hasAccess }: { hasAccess: boolean }) 
         return () => clearInterval(interval)
     }, [])
 
+    const active   = missions.filter(m => m.status === 'Active')
+    const upcoming = missions.filter(m => m.status === 'Upcoming')
+    const sorted   = [...active, ...upcoming]
+
     return (
         <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)' }}>
             <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -203,13 +207,13 @@ function ActiveMissionsPanel({ hasAccess: _hasAccess }: { hasAccess: boolean }) 
                 </span>
             </div>
 
-            {missions.length === 0 ? (
+            {sorted.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(237,237,237,0.12)', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', fontStyle: 'italic' }}>
                     No active missions
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 10 }}>
-                    {missions.map(m => (
+                    {sorted.map(m => (
                         <ActiveMissionCard key={m._id.toString()} mission={m} />
                     ))}
                 </div>
@@ -220,9 +224,13 @@ function ActiveMissionsPanel({ hasAccess: _hasAccess }: { hasAccess: boolean }) 
 
 function ActiveMissionCard({ mission }: { mission: Operation }) {
     const [hovered, setHovered] = useState(false)
-    const theme      = mission.themeColor || '#db001d'
-    const accentBorder = hexToRgba(theme, hovered ? 0.6 : 0.3)
-    const accentGlow   = hexToRgba(theme, hovered ? 0.25 : 0)
+    const isActive = mission.status === 'Active'
+    const theme    = mission.themeColor || '#db001d'
+
+    const borderOpacity = isActive ? (hovered ? 0.85 : 0.55) : (hovered ? 0.55 : 0.25)
+    const glowOpacity   = isActive ? (hovered ? 0.35 : 0.15) : (hovered ? 0.2 : 0)
+    const brightness    = isActive ? (hovered ? 0.95 : 0.85) : (hovered ? 0.65 : 0.55)
+    const height        = isActive ? 175 : 130
 
     return (
         <Link href={`/operations/${mission._id.toString()}`} style={{ textDecoration: 'none', display: 'block' }}>
@@ -231,10 +239,10 @@ function ActiveMissionCard({ mission }: { mission: Operation }) {
                 onMouseLeave={() => setHovered(false)}
                 style={{
                     position: 'relative',
-                    height: 145,
+                    height,
                     overflow: 'hidden',
-                    border: `1px solid ${accentBorder}`,
-                    boxShadow: hovered ? `0 0 24px ${accentGlow}` : 'none',
+                    border: `${isActive ? '1.5px' : '1px'} solid ${hexToRgba(theme, borderOpacity)}`,
+                    boxShadow: glowOpacity > 0 ? `0 0 28px ${hexToRgba(theme, glowOpacity)}` : 'none',
                     cursor: 'pointer',
                     transition: 'border-color 0.25s, box-shadow 0.25s',
                     background: 'rgba(0,0,0,0.5)',
@@ -249,7 +257,7 @@ function ActiveMissionCard({ mission }: { mission: Operation }) {
                         style={{
                             position: 'absolute', inset: 0,
                             width: '100%', height: '100%', objectFit: 'cover',
-                            filter: `brightness(${hovered ? 0.62 : 0.52})`,
+                            filter: `brightness(${brightness})`,
                             transition: 'filter 0.25s',
                         }}
                     />
@@ -258,7 +266,7 @@ function ActiveMissionCard({ mission }: { mission: Operation }) {
                 {/* Gradient overlay — darker at bottom for text legibility */}
                 <div style={{
                     position: 'absolute', inset: 0,
-                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.55) 55%, rgba(0,0,0,0.85) 100%)',
+                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.82) 100%)',
                 }} />
 
                 {/* Status badge — top right */}
