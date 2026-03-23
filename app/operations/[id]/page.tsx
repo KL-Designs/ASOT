@@ -20,10 +20,12 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     const { id } = await params
     await connection()
 
-    const [operation, isHQ] = await Promise.all([
+    const [operation, me] = await Promise.all([
         Db.operations.findOne({ _id: new ObjectId(id) }),
-        client.fetchMe().then(me => client.hasRoles(me, ['HQ Staff'])).catch(() => false),
+        client.fetchMe().catch(() => null),
     ])
+    const isLoggedIn = !!me
+    const isHQ = me ? client.hasRoles(me, ['HQ Staff']) : false
 
     if (!operation) return (
         <div className='flex items-center justify-center h-full' style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
@@ -169,101 +171,123 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, background: 'linear-gradient(to bottom, transparent, var(--background))', zIndex: 5, pointerEvents: 'none' }} />
             </div>
 
-            {/* ── Orders / Document body ────────────────────────────────────── */}
-            <div className='w-full max-w-[900px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
-                <div style={{ position: 'relative', border: `1px solid ${c(0.18)}`, borderTop: `2px solid ${c(0.6)}` }}>
+            {/* ── Document sections ─────────────────────────────────────────── */}
+            <div className='w-full max-w-[900px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {operation.sections && operation.sections.length > 0 ? (
+                    operation.sections
+                        .filter(s => isLoggedIn || s.isPublic)
+                        .map(s => (
+                            <div key={s.id} style={{ position: 'relative', border: `1px solid ${c(0.18)}`, borderTop: `2px solid ${c(0.6)}` }}>
 
-                    {/* Bottom corner ticks */}
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}>
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: 12, height: 1, background: c(0.45) }} />
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: 1, height: 12, background: c(0.45) }} />
-                    </div>
-                    <div style={{ position: 'absolute', bottom: 0, right: 0, pointerEvents: 'none', zIndex: 1 }}>
-                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 12, height: 1, background: c(0.45) }} />
-                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 1, height: 12, background: c(0.45) }} />
-                    </div>
+                                {/* Corner ticks */}
+                                <div style={{ position: 'absolute', bottom: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}>
+                                    <div style={{ position: 'absolute', bottom: 0, left: 0, width: 12, height: 1, background: c(0.45) }} />
+                                    <div style={{ position: 'absolute', bottom: 0, left: 0, width: 1, height: 12, background: c(0.45) }} />
+                                </div>
+                                <div style={{ position: 'absolute', bottom: 0, right: 0, pointerEvents: 'none', zIndex: 1 }}>
+                                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: 12, height: 1, background: c(0.45) }} />
+                                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: 1, height: 12, background: c(0.45) }} />
+                                </div>
 
-                    {/* Document header stamp */}
-                    <div style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
-                        padding: '8px 20px',
-                        borderBottom: '1px solid rgba(255,255,255,0.06)',
-                        background: 'rgba(0,0,0,0.4)',
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ width: 6, height: 6, background: c(0.7), flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.8) }}>
-                                Operation Orders
+                                {/* Section header */}
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
+                                    padding: '8px 20px',
+                                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                                    background: 'rgba(0,0,0,0.4)',
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <div style={{ width: 6, height: 6, background: c(0.7), flexShrink: 0 }} />
+                                        <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.8) }}>
+                                            {s.title}
+                                        </span>
+                                    </div>
+                                    {isLoggedIn && !s.isPublic && (
+                                        <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,180,0,0.6)', border: '1px solid rgba(219,180,0,0.25)', padding: '1px 6px' }}>
+                                            Members Only
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Body */}
+                                <div style={{ padding: '0 28px' }}>
+                                    <DocBody content={s.content ?? null} themeColor={operation.themeColor || '#db001d'} />
+                                </div>
+
+                                {/* Footer stamp */}
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    padding: '7px 20px',
+                                    borderTop: '1px solid rgba(255,255,255,0.04)',
+                                    background: 'rgba(0,0,0,0.25)',
+                                }}>
+                                    <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)' }}>
+                                        ASOT // {s.title}
+                                    </span>
+                                    <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%' }}>
+                                        {operation.title}
+                                    </span>
+                                </div>
+
+                            </div>
+                        ))
+                ) : (
+                    // Legacy single-body fallback
+                    <div style={{ position: 'relative', border: `1px solid ${c(0.18)}`, borderTop: `2px solid ${c(0.6)}` }}>
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}>
+                            <div style={{ position: 'absolute', bottom: 0, left: 0, width: 12, height: 1, background: c(0.45) }} />
+                            <div style={{ position: 'absolute', bottom: 0, left: 0, width: 1, height: 12, background: c(0.45) }} />
+                        </div>
+                        <div style={{ position: 'absolute', bottom: 0, right: 0, pointerEvents: 'none', zIndex: 1 }}>
+                            <div style={{ position: 'absolute', bottom: 0, right: 0, width: 12, height: 1, background: c(0.45) }} />
+                            <div style={{ position: 'absolute', bottom: 0, right: 0, width: 1, height: 12, background: c(0.45) }} />
+                        </div>
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
+                            padding: '8px 20px',
+                            borderBottom: '1px solid rgba(255,255,255,0.06)',
+                            background: 'rgba(0,0,0,0.4)',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ width: 6, height: 6, background: c(0.7), flexShrink: 0 }} />
+                                <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.8) }}>
+                                    Operation Orders
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                                {operation.status && (
+                                    <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
+                                        {operation.status}
+                                    </span>
+                                )}
+                                {operation.department && (
+                                    <>
+                                        <div style={{ width: 1, height: 10, background: 'rgba(255,255,255,0.1)' }} />
+                                        <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
+                                            {operation.department}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                        <div style={{ padding: '0 28px' }}>
+                            <DocBody content={operation.content ?? null} themeColor={operation.themeColor || '#db001d'} />
+                        </div>
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '7px 20px',
+                            borderTop: '1px solid rgba(255,255,255,0.04)',
+                            background: 'rgba(0,0,0,0.25)',
+                        }}>
+                            <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)' }}>
+                                ASOT // End of Order
+                            </span>
+                            <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%' }}>
+                                {operation.title}
                             </span>
                         </div>
-                        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                            {operation.status && (
-                                <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
-                                    {operation.status}
-                                </span>
-                            )}
-                            {operation.department && (
-                                <>
-                                    <div style={{ width: 1, height: 10, background: 'rgba(255,255,255,0.1)' }} />
-                                    <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
-                                        {operation.department}
-                                    </span>
-                                </>
-                            )}
-                        </div>
                     </div>
-
-                    {/* Body */}
-                    <div style={{ padding: '0 28px' }}>
-                        {operation.sections && operation.sections.length > 0 ? (
-                            operation.sections
-                                .filter(s => isHQ || s.isPublic)
-                                .map((s, i, arr) => (
-                                    <div key={s.id}>
-                                        {/* Section title */}
-                                        <div style={{
-                                            display: 'flex', alignItems: 'center', gap: 10,
-                                            padding: '24px 0 10px',
-                                            borderBottom: `1px solid ${c(0.12)}`,
-                                            marginBottom: 4,
-                                        }}>
-                                            <div style={{ width: 3, height: 14, background: c(0.6), flexShrink: 0 }} />
-                                            <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.28em', textTransform: 'uppercase', color: c(0.7) }}>
-                                                {s.title}
-                                            </span>
-                                            {isHQ && !s.isPublic && (
-                                                <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,180,0,0.6)', border: '1px solid rgba(219,180,0,0.25)', padding: '1px 6px' }}>
-                                                    Members Only
-                                                </span>
-                                            )}
-                                        </div>
-                                        <DocBody content={s.content ?? null} themeColor={operation.themeColor || '#db001d'} />
-                                        {i < arr.length - 1 && (
-                                            <div style={{ height: 1, background: `linear-gradient(to right, ${c(0.1)}, transparent)`, margin: '8px 0' }} />
-                                        )}
-                                    </div>
-                                ))
-                        ) : (
-                            <DocBody content={operation.content ?? null} themeColor={operation.themeColor || '#db001d'} />
-                        )}
-                    </div>
-
-                    {/* Document footer stamp */}
-                    <div style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '7px 20px',
-                        borderTop: '1px solid rgba(255,255,255,0.04)',
-                        background: 'rgba(0,0,0,0.25)',
-                    }}>
-                        <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)' }}>
-                            ASOT // End of Order
-                        </span>
-                        <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%' }}>
-                            {operation.title}
-                        </span>
-                    </div>
-
-                </div>
+                )}
             </div>
 
         </div>
