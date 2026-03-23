@@ -36,6 +36,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     const { r, g, b } = hexToRgb(operation.themeColor || '#db001d')
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
     const hasCover = !!operation.coverImage
+    const hasHiddenSections = !isLoggedIn && (operation.sections?.some(s => !s.isPublic) ?? false)
 
     return (
         <div className='flex flex-col min-h-full'>
@@ -289,6 +290,40 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     </div>
                 )}
             </div>
+
+            {/* Classified banner — shown to logged-out users when sections are hidden */}
+            {hasHiddenSections && (
+                <a href={`/login?returnTo=/operations/${id}`} style={{ textDecoration: 'none', display: 'block', marginBottom: 64 }}>
+                    <div style={{
+                        position: 'relative',
+                        overflow: 'hidden',
+                        padding: '28px 32px',
+                        background: 'rgba(180, 80, 0, 0.08)',
+                        borderTop: '2px solid rgba(220, 120, 0, 0.5)',
+                        borderBottom: '2px solid rgba(220, 120, 0, 0.5)',
+                        cursor: 'pointer',
+                    }}>
+                        {/* Diagonal stripe background */}
+                        <div style={{
+                            position: 'absolute', inset: 0, pointerEvents: 'none',
+                            backgroundImage: 'repeating-linear-gradient(45deg, rgba(220,120,0,0.04) 0px, rgba(220,120,0,0.04) 10px, transparent 10px, transparent 20px)',
+                        }} />
+
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
+                            <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(220,120,0,0.4))' }} />
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.42em', textTransform: 'uppercase', color: 'rgba(220, 140, 0, 0.95)' }}>
+                                    ██ Information Classified ██
+                                </span>
+                                <span style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
+                                    Login to Access →
+                                </span>
+                            </div>
+                            <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(220,120,0,0.4))' }} />
+                        </div>
+                    </div>
+                </a>
+            )}
 
         </div>
     )

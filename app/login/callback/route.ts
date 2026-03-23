@@ -7,7 +7,11 @@ import { ExchangeToken, GetUser } from "@/lib/discord/oauth"
 
 export async function GET(request: NextRequest) {
 
-    const response = NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASEURL!}/me`)
+    // Read the returnTo cookie set before the Discord redirect
+    const returnTo = request.cookies.get('login_return_to')?.value || '/me'
+
+    const response = NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASEURL!}${returnTo}`)
+    response.cookies.delete('login_return_to')
 
     const code = request.nextUrl.searchParams.get('code')
     if (!code) NextResponse.json({ error: 'No code provided' }, { status: 400 })
