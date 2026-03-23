@@ -229,7 +229,7 @@ function ActiveMissionCard({ mission }: { mission: Operation }) {
 
     const borderOpacity = isActive ? (hovered ? 0.85 : 0.55) : (hovered ? 0.55 : 0.25)
     const glowOpacity   = isActive ? (hovered ? 0.35 : 0.15) : (hovered ? 0.2 : 0)
-    const brightness    = isActive ? (hovered ? 0.95 : 0.85) : (hovered ? 0.65 : 0.55)
+    const brightness    = isActive ? 1 : (hovered ? 0.65 : 0.55)
     const height        = isActive ? 175 : 130
 
     return (
@@ -266,7 +266,9 @@ function ActiveMissionCard({ mission }: { mission: Operation }) {
                 {/* Gradient overlay — darker at bottom for text legibility */}
                 <div style={{
                     position: 'absolute', inset: 0,
-                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.82) 100%)',
+                    background: isActive
+                        ? 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.72) 100%)'
+                        : 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.45) 50%, rgba(0,0,0,0.82) 100%)',
                 }} />
 
                 {/* Status badge — top right */}
