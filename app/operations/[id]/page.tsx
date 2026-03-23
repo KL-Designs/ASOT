@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { connection } from 'next/server'
 import { ObjectId } from 'mongodb'
 import DocBody from './doc-body'
+import SectionNav from './section-nav'
 import client from '@/lib/discord'
 
 
@@ -172,13 +173,23 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, background: 'linear-gradient(to bottom, transparent, var(--background))', zIndex: 5, pointerEvents: 'none' }} />
             </div>
 
+            {/* ── Section nav ───────────────────────────────────────────────── */}
+            {operation.sections && operation.sections.length > 1 && (
+                <SectionNav
+                    themeColor={operation.themeColor || '#db001d'}
+                    sections={operation.sections
+                        .filter(s => isLoggedIn || s.isPublic)
+                        .map(s => ({ id: s.id, title: s.title }))}
+                />
+            )}
+
             {/* ── Document sections ─────────────────────────────────────────── */}
             <div className='w-full max-w-[900px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {operation.sections && operation.sections.length > 0 ? (
                     operation.sections
                         .filter(s => isLoggedIn || s.isPublic)
                         .map(s => (
-                            <div key={s.id} style={{ position: 'relative', border: `1px solid ${c(0.18)}`, borderTop: `2px solid ${c(0.6)}` }}>
+                            <div key={s.id} id={`section-${s.id}`} style={{ position: 'relative', border: `1px solid ${c(0.18)}`, borderTop: `2px solid ${c(0.6)}` }}>
 
                                 {/* Corner ticks */}
                                 <div style={{ position: 'absolute', bottom: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}>
