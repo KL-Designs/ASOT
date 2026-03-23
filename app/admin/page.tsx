@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Typography } from '@mui/material'
 import { ManageAccounts } from '@mui/icons-material'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 
 
 
@@ -12,9 +13,9 @@ export default async function Page() {
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) redirect('/login')
-    if (!client.hasRoles(me, ['J3-Training', 'J5-Media', 'J1-Recruiting'])) redirect('/me')
+    if (!client.hasRoles(me, PERMISSIONS.pages.admin)) redirect('/me')
 
-    const canManageMembers = client.hasRoles(me, ['J5-Media'])
+    const canManageMembers = client.hasRoles(me, PERMISSIONS.admin.manageMembers)
 
     return (
         <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[1000px] mx-auto'>

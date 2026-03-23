@@ -7,6 +7,7 @@ import DocBody from './doc-body'
 import SectionNav from './section-nav'
 import LocalDate from './local-date'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 
 
 function hexToRgb(hex: string) {
@@ -27,7 +28,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         client.fetchMe().catch(() => null),
     ])
     const isLoggedIn = !!me
-    const isHQ = me ? client.hasRoles(me, ['HQ Staff']) : false
+    const isHQ = me ? client.hasRoles(me, PERMISSIONS.pages.operationsEdit) : false
 
     if (!operation) return (
         <div className='flex items-center justify-center h-full' style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>

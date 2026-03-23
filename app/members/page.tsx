@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { connection } from 'next/server'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
 import MemberList from './MemberList'
 
@@ -11,7 +12,7 @@ export default async function Page() {
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) redirect('/login')
-    if (!client.hasRoles(me, ['J5-Media'])) redirect('/me')
+    if (!client.hasRoles(me, PERMISSIONS.pages.members)) redirect('/me')
 
     const [allMembers, orbat] = await Promise.all([client.fetchAllMembers(), fetchORBAT()])
     const lookup = client.buildOrbatLookup(allMembers)
@@ -28,7 +29,7 @@ export default async function Page() {
         orbatMap[member.id] = findOrbatEntry(orbat, lookup, member.id)
     }
 
-    const isAdmin = client.hasRoles(me, ['J4-Administration'])
+    const isAdmin = client.hasRoles(me, PERMISSIONS.admin.impersonate)
 
     return (
         <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[1000px] mx-auto'>

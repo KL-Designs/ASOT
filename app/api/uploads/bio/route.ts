@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 
 import fs from 'fs'
 
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    if (!client.hasRoles(me, ['HQ Staff'])) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!client.hasRoles(me, PERMISSIONS.uploads.bio)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const formData = await req.formData()
     const file = formData.get("file") as File | null

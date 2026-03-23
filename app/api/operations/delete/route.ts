@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 
 
 export async function GET(request: NextRequest) {
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     try {
         const me = await client.fetchMe()
-        if (!client.hasRoles(me, ['HQ Staff'])) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+        if (!client.hasRoles(me, PERMISSIONS.operations.write)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
         await Db.operations.deleteOne({_id: new ObjectId(id)})
 

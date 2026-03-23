@@ -9,6 +9,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dynamic from 'next/dynamic'
+import PERMISSIONS from '@/lib/permissions'
 import { type MetaFields } from './editor'
 const OperationEditor = dynamic(() => import('./editor'), { ssr: false })
 
@@ -54,7 +55,7 @@ export default function Page() {
 
         if (!id) return
 
-        fetch('/api/me/roles?has=HQ Staff')
+        fetch(`/api/me/roles?has=${PERMISSIONS.pages.operationsEdit.join(',')}`)
             .then(r => r.json())
             .then(json => { if (!json.error) setIsHQ(json.access) })
 

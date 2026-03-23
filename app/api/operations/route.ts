@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 
 
 export async function GET(request: NextRequest) {
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     let isHQ = false
     try {
         const me = await client.fetchMe()
-        isHQ = !!(await client.hasRoles(me, ['HQ Staff']))
+        isHQ = !!(await client.hasRoles(me, PERMISSIONS.operations.viewInDevelopment))
     } catch { }
 
     try {

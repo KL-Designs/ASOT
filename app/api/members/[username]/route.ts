@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, ['J5-Media'])) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+    if (!client.hasRoles(me, PERMISSIONS.members.edit)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
     const { username } = await params
     const body = await request.json()

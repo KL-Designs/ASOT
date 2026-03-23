@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 
 export async function POST(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    if (!client.hasRoles(me, ['J4-Administration'])) {
+    if (!client.hasRoles(me, PERMISSIONS.admin.impersonate)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
