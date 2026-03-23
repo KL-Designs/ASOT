@@ -1,7 +1,7 @@
 import client from '@/lib/discord'
 import { connection } from 'next/server'
 
-import { CreateButton, MissionList } from './list'
+import { CreateButton, OperationsBoard } from './list'
 
 
 export default async function Page() {
@@ -15,7 +15,7 @@ export default async function Page() {
     } catch { }
 
     return (
-        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[900px] mx-auto'>
+        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6' style={{ maxWidth: 1400, margin: '0 auto' }}>
 
             {/* Header */}
             <div className='flex items-center justify-between gap-4'>
@@ -30,15 +30,8 @@ export default async function Page() {
                 {editAccess && <CreateButton />}
             </div>
 
-            {/* Mission list card */}
-            <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)' }}>
-                <div className='flex items-center px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>
-                        Active Operations
-                    </span>
-                </div>
-                <MissionList />
-            </div>
+            {/* 3-column board */}
+            <OperationsBoard editAccess={editAccess} />
 
         </div>
     )

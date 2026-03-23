@@ -19,8 +19,10 @@ export default function Page() {
     const [loreDate, setLoreDate] = useState<Dayjs | null>(null)
     const [department, setDepartment] = useState('')
     const [themeColor, setThemeColor] = useState('#db001d')
+    const [status, setStatus] = useState<string>('Upcoming')
     const [coverImage, setCoverImage] = useState<string | null>(null)
     const [coverUploading, setCoverUploading] = useState(false)
+    const [isHQ, setIsHQ] = useState(false)
     const [initialContent, setInitialContent] = useState<any>(undefined)
     const [loaded, setLoaded] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
@@ -36,6 +38,10 @@ export default function Page() {
 
         if (!id) return
 
+        fetch('/api/me/roles?has=HQ Staff')
+            .then(r => r.json())
+            .then(json => { if (!json.error) setIsHQ(json.access) })
+
         fetch(`/api/operations?id=${id}`)
             .then(r => r.json())
             .then(json => {
@@ -46,6 +52,7 @@ export default function Page() {
                 setLoreDate(op.loreDate ? dayjs(op.loreDate) : null)
                 setDepartment(op.department || '')
                 setThemeColor(op.themeColor || '#db001d')
+                setStatus(op.status || 'Upcoming')
                 setCoverImage(op.coverImage || null)
                 setInitialContent(op.content ?? null)
                 setLoaded(true)
@@ -175,6 +182,27 @@ export default function Page() {
                                 minWidth: 160,
                             }}
                         />
+                        {/* Status */}
+                        <select
+                            value={status}
+                            onChange={e => { setStatus(e.target.value); scheduleSave({ status: e.target.value }) }}
+                            style={{
+                                background: 'rgba(0,0,0,0.4)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'rgba(237,237,237,0.75)',
+                                fontSize: '0.8rem',
+                                letterSpacing: '0.06em',
+                                outline: 'none',
+                                padding: '8px 12px',
+                                minWidth: 160,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            <option value='Upcoming'>Upcoming</option>
+                            <option value='Active'>Active</option>
+                            <option value='Completed'>Completed</option>
+                            {isHQ && <option value='In Development'>In Development</option>}
+                        </select>
                         {/* Theme color picker */}
                         <label style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid rgba(255,255,255,0.1)', padding: '6px 12px', cursor: 'pointer', userSelect: 'none' }}>
                             <input
