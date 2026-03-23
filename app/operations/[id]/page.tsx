@@ -217,7 +217,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                                     </div>
                                     {isLoggedIn && !s.isPublic && (
                                         <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,180,0,0.6)', border: '1px solid rgba(219,180,0,0.25)', padding: '1px 6px' }}>
-                                            Members Only
+                                            Classified
                                         </span>
                                     )}
                                 </div>
