@@ -395,6 +395,19 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
         if (idx !== -1) order.delete(idx, 1)
     }
 
+    function moveSection(id: string, direction: 'up' | 'down') {
+        const order = ydoc.getArray<string>('sectionOrder')
+        const arr = order.toArray()
+        const idx = arr.indexOf(id)
+        if (idx === -1) return
+        const newIdx = direction === 'up' ? idx - 1 : idx + 1
+        if (newIdx < 0 || newIdx >= arr.length) return
+        ydoc.transact(() => {
+            order.delete(idx, 1)
+            order.insert(newIdx, [id])
+        })
+    }
+
     return (
         <ThemeContext.Provider value={themeColor}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -409,7 +422,7 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                 )}
 
                 {/* Section editors */}
-                {sectionIds.map(id => (
+                {sectionIds.map((id, idx) => (
                     <SectionEditor
                         key={id}
                         ydoc={ydoc}
@@ -417,6 +430,10 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                         provider={provider}
                         user={user}
                         onRemove={() => removeSection(id)}
+                        onMoveUp={() => moveSection(id, 'up')}
+                        onMoveDown={() => moveSection(id, 'down')}
+                        canMoveUp={idx > 0}
+                        canMoveDown={idx < sectionIds.length - 1}
                         themeColor={themeColor}
                         seedContent={id === seedSectionId ? initialContent : undefined}
                     />
@@ -453,11 +470,15 @@ interface SectionEditorProps {
     provider: HocuspocusProvider
     user: PresenceUser
     onRemove: () => void
+    onMoveUp: () => void
+    onMoveDown: () => void
+    canMoveUp: boolean
+    canMoveDown: boolean
     themeColor?: string
     seedContent?: any  // seed this section's content on first load
 }
 
-function SectionEditor({ ydoc, sectionId, provider, user, onRemove, themeColor = '#db001d', seedContent }: SectionEditorProps) {
+function SectionEditor({ ydoc, sectionId, provider, user, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, themeColor = '#db001d', seedContent }: SectionEditorProps) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
@@ -608,6 +629,32 @@ function SectionEditor({ ydoc, sectionId, provider, user, onRemove, themeColor =
                         : <><Lock style={{ fontSize: 12 }} /> Members Only</>
                     }
                 </button>
+
+                {/* Move up / down */}
+                <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                    <button
+                        type='button'
+                        title='Move section up'
+                        onClick={onMoveUp}
+                        disabled={!canMoveUp}
+                        style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: canMoveUp ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.08)', cursor: canMoveUp ? 'pointer' : 'default', padding: '2px 4px', fontSize: '0.75rem', lineHeight: 1, transition: 'color 0.15s' }}
+                        onMouseEnter={e => { if (canMoveUp) e.currentTarget.style.color = 'rgba(237,237,237,0.8)' }}
+                        onMouseLeave={e => { if (canMoveUp) e.currentTarget.style.color = 'rgba(237,237,237,0.3)' }}
+                    >
+                        ▲
+                    </button>
+                    <button
+                        type='button'
+                        title='Move section down'
+                        onClick={onMoveDown}
+                        disabled={!canMoveDown}
+                        style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: canMoveDown ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.08)', cursor: canMoveDown ? 'pointer' : 'default', padding: '2px 4px', fontSize: '0.75rem', lineHeight: 1, transition: 'color 0.15s' }}
+                        onMouseEnter={e => { if (canMoveDown) e.currentTarget.style.color = 'rgba(237,237,237,0.8)' }}
+                        onMouseLeave={e => { if (canMoveDown) e.currentTarget.style.color = 'rgba(237,237,237,0.3)' }}
+                    >
+                        ▼
+                    </button>
+                </div>
 
                 {/* Remove section */}
                 {confirmingRemove ? (
