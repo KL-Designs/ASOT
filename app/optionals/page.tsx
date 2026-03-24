@@ -3,35 +3,25 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
-import { Typography, Switch, Divider, CircularProgress } from '@mui/material'
-import { WarningAmber, CheckCircleOutline, Launch, RestartAlt, Tune, Engineering, Videocam, FlashOn, Psychology } from '@mui/icons-material'
+import { Typography, Switch, CircularProgress } from '@mui/material'
+import { WarningAmber, CheckCircleOutline, Launch, RestartAlt, Tune, Engineering, Videocam, FlashOn, Psychology, DoneAll } from '@mui/icons-material'
+
+type ModEntry = { id: string; name: string }
+type OptType = 'qol' | 'gfx' | 'zeus' | 'j2' | 'j5'
+
+const TYPES: OptType[] = ['qol', 'gfx', 'zeus', 'j2', 'j5']
+const GFX_KEY = 'asot-gfx-acknowledged'
+const emptyRecord = (): Record<OptType, string[]> => ({ qol: [], gfx: [], zeus: [], j2: [], j5: [] })
 
 
 // ─── Mod row ──────────────────────────────────────────────────────────────────
 
-function Mod({ type, details }: { type: 'qol' | 'gfx' | 'zeus' | 'j2' | 'j5', details: { id: string, name: string } }) {
-    const [enabled, setEnabled] = useState<boolean | null>(null)
-
-    useEffect(() => {
-        fetch(`/optionals/me?type=${type}&id=${details.id}&mode=check`)
-            .then(res => res.json())
-            .then(json => {
-                if (json.error) return console.error(json.error)
-                setEnabled(json.enabled ? true : false)
-            })
-    }, [])
-
-    useEffect(() => {
-        if (enabled === null) return
-        const mode = enabled ? 'add' : 'remove'
-        const url = enabled
-            ? `/optionals/me?type=${type}&id=${details.id}&mode=${mode}&name=${encodeURIComponent(details.name)}`
-            : `/optionals/me?type=${type}&id=${details.id}&mode=${mode}`
-        fetch(url).then(res => res.json()).then(json => {
-            if (json.error) console.error(json.error)
-        })
-    }, [enabled])
-
+function Mod({ details, enabled, loading, onToggle }: {
+    details: ModEntry
+    enabled: boolean
+    loading: boolean
+    onToggle: (enabled: boolean) => void
+}) {
     return (
         <div
             className='flex flex-row justify-between items-center gap-3 px-3 py-[6px] rounded transition-colors'
@@ -62,12 +52,12 @@ function Mod({ type, details }: { type: 'qol' | 'gfx' | 'zeus' | 'j2' | 'j5', de
                 <Launch style={{ fontSize: 11, color: 'rgba(237,237,237,0.2)', flexShrink: 0 }} />
             </Link>
 
-            {enabled === null
+            {loading
                 ? <CircularProgress size={16} style={{ color: 'rgba(219,0,29,0.5)', flexShrink: 0 }} />
                 : <Switch
                     size='small'
                     checked={enabled}
-                    onChange={e => setEnabled(e.currentTarget.checked)}
+                    onChange={e => onToggle(e.currentTarget.checked)}
                     sx={{
                         flexShrink: 0,
                         '& .MuiSwitch-thumb': { background: enabled ? 'var(--red)' : 'rgba(237,237,237,0.3)' },
@@ -82,15 +72,20 @@ function Mod({ type, details }: { type: 'qol' | 'gfx' | 'zeus' | 'j2' | 'j5', de
 
 // ─── Mod category card ────────────────────────────────────────────────────────
 
-function ModCard({
-    title, icon, warning, list, type,
-}: {
+function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isBulkLoading, onToggle, onToggleAll }: {
     title: string
     icon: React.ReactNode
     warning?: string
-    list: { id: string, name: string }[]
-    type: 'qol' | 'gfx' | 'zeus' | 'j2' | 'j5'
+    list: ModEntry[]
+    type: OptType
+    enabledIds: string[]
+    loadingIds: Set<string>
+    isBulkLoading: boolean
+    onToggle: (id: string, name: string, enabled: boolean) => void
+    onToggleAll: (enable: boolean) => void
 }) {
+    const allEnabled = list.length > 0 && list.every(m => enabledIds.includes(m.id))
+
     return (
         <div
             className='flex flex-col'
@@ -106,17 +101,36 @@ function ModCard({
                 <Typography fontWeight={600} fontSize='0.8rem' letterSpacing={2} style={{ textTransform: 'uppercase', flex: 1 }}>
                     {title}
                 </Typography>
-                <span
+
+                {/* Toggle all */}
+                <button
+                    onClick={() => onToggleAll(!allEnabled)}
+                    disabled={isBulkLoading || list.length === 0}
                     style={{
-                        fontSize: '0.68rem',
-                        fontWeight: 600,
-                        letterSpacing: '0.06em',
-                        color: 'rgba(219,0,29,0.7)',
-                        background: 'rgba(219,0,29,0.08)',
-                        border: '1px solid rgba(219,0,29,0.2)',
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        background: 'transparent',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: 'rgba(237,237,237,0.4)',
                         padding: '2px 8px',
+                        fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                        cursor: isBulkLoading || list.length === 0 ? 'not-allowed' : 'pointer',
+                        opacity: isBulkLoading ? 0.4 : 1,
+                        transition: 'all 0.2s',
                     }}
                 >
+                    {isBulkLoading
+                        ? <CircularProgress size={10} style={{ color: 'rgba(237,237,237,0.4)' }} />
+                        : <DoneAll style={{ fontSize: 11 }} />
+                    }
+                    {allEnabled ? 'Disable All' : 'Enable All'}
+                </button>
+
+                <span style={{
+                    fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.06em',
+                    color: 'rgba(219,0,29,0.7)', background: 'rgba(219,0,29,0.08)',
+                    border: '1px solid rgba(219,0,29,0.2)', padding: '2px 8px',
+                }}>
                     {list.length} MODS
                 </span>
             </div>
@@ -133,8 +147,80 @@ function ModCard({
             <div className='flex flex-col px-1 py-2'>
                 {list.length === 0
                     ? <Typography fontSize='0.78rem' style={{ color: 'rgba(237,237,237,0.25)', padding: '8px 12px' }}>No mods in this category</Typography>
-                    : list.map(mod => <Mod key={mod.id} type={type} details={mod} />)
+                    : list.map(mod => (
+                        <Mod
+                            key={mod.id}
+                            details={mod}
+                            enabled={enabledIds.includes(mod.id)}
+                            loading={isBulkLoading || loadingIds.has(mod.id)}
+                            onToggle={enabled => onToggle(mod.id, mod.name, enabled)}
+                        />
+                    ))
                 }
+            </div>
+        </div>
+    )
+}
+
+
+// ─── FPS warning modal ────────────────────────────────────────────────────────
+
+function GfxWarningModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+    return (
+        <div
+            className='fixed inset-0 flex items-center justify-center z-50'
+            style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(4px)' }}
+            onClick={onCancel}
+        >
+            <div
+                className='flex flex-col gap-5 mx-4'
+                style={{
+                    maxWidth: 460, width: '100%',
+                    border: '1px solid rgba(219,0,29,0.2)', borderTop: '2px solid var(--red)',
+                    background: 'rgb(12,12,14)', padding: '2rem',
+                }}
+                onClick={e => e.stopPropagation()}
+            >
+                <div className='flex flex-col items-center gap-3'>
+                    <WarningAmber style={{ fontSize: 40, color: 'var(--red)', opacity: 0.85 }} />
+                    <Typography fontWeight={700} fontSize='0.95rem' letterSpacing={4} style={{ textTransform: 'uppercase' }}>
+                        Performance Warning
+                    </Typography>
+                    <div style={{ width: 40, height: 2, background: 'var(--red)' }} />
+                </div>
+
+                <Typography style={{ color: 'rgba(237,237,237,0.6)', fontSize: '0.875rem', lineHeight: 1.75, textAlign: 'center' }}>
+                    FPS-Intensive mods can significantly degrade game performance and stability — expect reduced FPS, longer load times, and potential crashes.
+                    <br /><br />
+                    Only enable mods you understand and intend to use.
+                </Typography>
+
+                <div className='flex gap-3'>
+                    <button
+                        onClick={onCancel}
+                        style={{
+                            flex: 1, padding: '9px',
+                            background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+                            color: 'rgba(237,237,237,0.4)',
+                            fontSize: '0.75rem', fontWeight: 600, letterSpacing: '0.1em',
+                            textTransform: 'uppercase', cursor: 'pointer',
+                        }}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={onConfirm}
+                        style={{
+                            flex: 2, padding: '9px',
+                            background: 'var(--red)', border: '1px solid var(--red)',
+                            color: 'white',
+                            fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em',
+                            textTransform: 'uppercase', cursor: 'pointer',
+                        }}
+                    >
+                        I Understand, Enable
+                    </button>
+                </div>
             </div>
         </div>
     )
@@ -145,106 +231,109 @@ function ModCard({
 
 export default function Page() {
 
-    const [agreement, setAgreement] = useState(false)
-    const [waitTime, setWaitTime] = useState(10)
+    const [lists, setLists] = useState<Record<OptType, ModEntry[]>>({ qol: [], gfx: [], zeus: [], j2: [], j5: [] })
+    const [enabledIds, setEnabledIds] = useState<Record<OptType, string[]>>(emptyRecord())
+    const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set())
+    const [bulkLoading, setBulkLoading] = useState<Set<OptType>>(new Set())
+    const [initialLoading, setInitialLoading] = useState(true)
     const [resetting, setResetting] = useState(false)
+    const [showGfxWarning, setShowGfxWarning] = useState(false)
+    const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
 
-    const [qolList, setQolList] = useState<{ id: string, name: string }[]>([])
-    const [gfxList, setGfxList] = useState<{ id: string, name: string }[]>([])
-    const [zeusList, setZeusList] = useState<{ id: string, name: string }[]>([])
-    const [j2List, setJ2List] = useState<{ id: string, name: string }[]>([])
-    const [j5List, setJ5List] = useState<{ id: string, name: string }[]>([])
-
+    // Load all mod lists and user's enabled state in parallel
     useEffect(() => {
-        const interval = setInterval(() => {
-            setWaitTime(prev => {
-                if (prev <= 0) { clearInterval(interval); return 0 }
-                return prev - 1
-            })
-        }, 1000)
-        return () => clearInterval(interval)
+        Promise.all([
+            ...TYPES.map(t => fetch(`/optionals/fetch?type=${t}`).then(r => r.json())),
+            fetch('/optionals/me?mode=all').then(r => r.json()),
+        ]).then(([qol, gfx, zeus, j2, j5, user]) => {
+            setLists({ qol, gfx, zeus, j2, j5 })
+            if (!user.error) {
+                setEnabledIds({
+                    qol: (user.qol ?? []).map((m: ModEntry) => m.id),
+                    gfx: (user.gfx ?? []).map((m: ModEntry) => m.id),
+                    zeus: (user.zeus ?? []).map((m: ModEntry) => m.id),
+                    j2: (user.j2 ?? []).map((m: ModEntry) => m.id),
+                    j5: (user.j5 ?? []).map((m: ModEntry) => m.id),
+                })
+            }
+            setInitialLoading(false)
+        })
     }, [])
 
-    useEffect(() => {
-        if (!agreement) return
-        const load = (type: string, setter: (v: { id: string, name: string }[]) => void) => {
-            fetch(`/optionals/fetch?type=${type}`)
-                .then(r => r.json())
-                .then(j => { if (!j.error) setter(j) })
-        }
-        load('qol', setQolList)
-        load('gfx', setGfxList)
-        load('zeus', setZeusList)
-        load('j2', setJ2List)
-        load('j5', setJ5List)
-    }, [agreement])
+    function doToggle(type: OptType, id: string, name: string, enable: boolean) {
+        const prev = enabledIds[type]
+
+        setEnabledIds(cur => ({ ...cur, [type]: enable ? [...cur[type], id] : cur[type].filter(i => i !== id) }))
+        setLoadingIds(cur => new Set(cur).add(id))
+
+        const url = enable
+            ? `/optionals/me?type=${type}&id=${id}&mode=add&name=${encodeURIComponent(name)}`
+            : `/optionals/me?type=${type}&id=${id}&mode=remove`
+
+        fetch(url).then(r => r.json()).then(json => {
+            if (json.error) setEnabledIds(cur => ({ ...cur, [type]: prev }))
+        }).finally(() => {
+            setLoadingIds(cur => { const n = new Set(cur); n.delete(id); return n })
+        })
+    }
+
+    function doToggleAll(type: OptType, enable: boolean) {
+        const prev = enabledIds[type]
+
+        setEnabledIds(cur => ({ ...cur, [type]: enable ? lists[type].map(m => m.id) : [] }))
+        setBulkLoading(cur => new Set(cur).add(type))
+
+        fetch('/optionals/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, action: enable ? 'enable-all' : 'disable-all', mods: lists[type] }),
+        }).then(r => r.json()).then(json => {
+            if (json.error) setEnabledIds(cur => ({ ...cur, [type]: prev }))
+        }).finally(() => {
+            setBulkLoading(cur => { const n = new Set(cur); n.delete(type); return n })
+        })
+    }
+
+    function withGfxCheck(action: () => void) {
+        if (sessionStorage.getItem(GFX_KEY)) return action()
+        setPendingAction(() => action)
+        setShowGfxWarning(true)
+    }
+
+    function handleToggle(type: OptType, id: string, name: string, enable: boolean) {
+        if (type === 'gfx' && enable) withGfxCheck(() => doToggle(type, id, name, enable))
+        else doToggle(type, id, name, enable)
+    }
+
+    function handleToggleAll(type: OptType, enable: boolean) {
+        if (type === 'gfx' && enable) withGfxCheck(() => doToggleAll(type, enable))
+        else doToggleAll(type, enable)
+    }
+
+    function handleGfxConfirm() {
+        sessionStorage.setItem(GFX_KEY, '1')
+        setShowGfxWarning(false)
+        pendingAction?.()
+        setPendingAction(null)
+    }
+
+    function handleGfxCancel() {
+        setShowGfxWarning(false)
+        setPendingAction(null)
+    }
 
     function handleReset() {
         setResetting(true)
-        fetch('/optionals/reset')
-            .then(r => r.json())
-            .then(j => {
-                if (j.error) { alert(j.error); setResetting(false) }
-                if (j.success) location.reload()
-            })
+        fetch('/optionals/reset').then(r => r.json()).then(j => {
+            if (j.error) { alert(j.error); setResetting(false); return }
+            if (j.success) { setEnabledIds(emptyRecord()); setResetting(false) }
+        })
     }
-
-    // ── Warning screen ────────────────────────────────────────────────────────
-
-    if (!agreement) return (
-        <div
-            className='mx-auto w-full max-w-[520px] flex flex-col gap-5'
-            style={{
-                border: '1px solid rgba(219,0,29,0.2)',
-                borderTop: '2px solid var(--red)',
-                background: 'rgba(219,0,29,0.03)',
-                padding: '2rem',
-            }}
-        >
-            <div className='flex flex-col items-center gap-3'>
-                <WarningAmber style={{ fontSize: 44, color: 'var(--red)', opacity: 0.85 }} />
-                <Typography fontWeight={700} fontSize='1rem' letterSpacing={4} style={{ textTransform: 'uppercase' }}>
-                    Performance Warning
-                </Typography>
-                <div style={{ width: 40, height: 2, background: 'var(--red)' }} />
-            </div>
-
-            <Typography style={{ color: 'rgba(237,237,237,0.6)', fontSize: '0.875rem', lineHeight: 1.75, textAlign: 'center' }}>
-                Optional mods are provided for customisation, but enabling too many can significantly degrade game performance and stability.
-                <br /><br />
-                The more mods you activate, the higher the risk of reduced FPS, long load times, and potential game crashes.
-                <br /><br />
-                Only enable mods you understand and actually intend to use.
-            </Typography>
-
-            <Divider style={{ borderColor: 'rgba(219,0,29,0.15)' }} />
-
-            <button
-                onClick={() => setAgreement(true)}
-                disabled={waitTime > 0}
-                style={{
-                    background: waitTime > 0 ? 'rgba(255,255,255,0.04)' : 'var(--red)',
-                    border: `1px solid ${waitTime > 0 ? 'rgba(255,255,255,0.1)' : 'var(--red)'}`,
-                    color: waitTime > 0 ? 'rgba(237,237,237,0.3)' : 'white',
-                    padding: '10px 24px',
-                    fontSize: '0.8rem',
-                    fontWeight: 700,
-                    letterSpacing: '0.12em',
-                    textTransform: 'uppercase',
-                    cursor: waitTime > 0 ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s',
-                    width: '100%',
-                }}
-            >
-                {waitTime > 0 ? `I Understand  —  ${waitTime}s` : 'I Understand, Continue'}
-            </button>
-        </div>
-    )
-
-    // ── Config screen ─────────────────────────────────────────────────────────
 
     return (
         <div className='w-full flex flex-col gap-8'>
+
+            {showGfxWarning && <GfxWarningModal onConfirm={handleGfxConfirm} onCancel={handleGfxCancel} />}
 
             {/* Header */}
             <div className='flex flex-col sm:flex-row sm:items-start justify-between gap-4'>
@@ -258,30 +347,21 @@ export default function Page() {
                 </div>
 
                 <div className='flex items-center gap-3 shrink-0'>
-                    {/* Auto-save indicator */}
                     <div className='flex items-center gap-2' style={{ color: 'rgba(237,237,237,0.35)', fontSize: '0.75rem', letterSpacing: '0.06em' }}>
                         <CheckCircleOutline style={{ fontSize: 14, color: 'rgba(80,200,80,0.6)' }} />
                         Auto-saved
                     </div>
 
-                    {/* Divider */}
                     <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)' }} />
 
-                    {/* Reset button */}
                     <button
                         onClick={handleReset}
                         disabled={resetting}
                         style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            background: 'transparent',
-                            border: '1px solid rgba(219,0,29,0.3)',
-                            color: 'rgba(219,0,29,0.8)',
-                            padding: '6px 14px',
-                            fontSize: '0.72rem',
-                            fontWeight: 600,
-                            letterSpacing: '0.1em',
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            background: 'transparent', border: '1px solid rgba(219,0,29,0.3)',
+                            color: 'rgba(219,0,29,0.8)', padding: '6px 14px',
+                            fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.1em',
                             textTransform: 'uppercase',
                             cursor: resetting ? 'not-allowed' : 'pointer',
                             opacity: resetting ? 0.5 : 1,
@@ -297,40 +377,78 @@ export default function Page() {
             {/* Divider */}
             <div style={{ height: 1, background: 'linear-gradient(to right, rgba(219,0,29,0.4), rgba(255,255,255,0.06), transparent)' }} />
 
-            {/* General addons */}
-            <div className='flex flex-col gap-3'>
-                <div className='flex items-center gap-3'>
-                    <Typography fontSize='0.7rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
-                        General Addons
-                    </Typography>
-                    <div style={{ height: 1, flex: 1, background: 'rgba(255,255,255,0.06)' }} />
+            {initialLoading ? (
+                <div className='flex items-center justify-center' style={{ minHeight: 200 }}>
+                    <CircularProgress style={{ color: 'var(--red)' }} />
                 </div>
-                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                    <ModCard title='Quality of Life' icon={<Tune fontSize='small' />} list={qolList} type='qol' />
-                    <ModCard
-                        title='FPS-Intensive Mods'
-                        icon={<FlashOn fontSize='small' />}
-                        warning='Some of these addons may significantly affect your performance.'
-                        list={gfxList}
-                        type='gfx'
-                    />
-                </div>
-            </div>
+            ) : (
+                <>
+                    {/* General addons */}
+                    <div className='flex flex-col gap-3'>
+                        <div className='flex items-center gap-3'>
+                            <Typography fontSize='0.7rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
+                                General Addons
+                            </Typography>
+                            <div style={{ height: 1, flex: 1, background: 'rgba(255,255,255,0.06)' }} />
+                        </div>
+                        <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                            <ModCard
+                                title='Quality of Life' icon={<Tune fontSize='small' />}
+                                list={lists.qol} type='qol'
+                                enabledIds={enabledIds.qol} loadingIds={loadingIds}
+                                isBulkLoading={bulkLoading.has('qol')}
+                                onToggle={(id, name, en) => handleToggle('qol', id, name, en)}
+                                onToggleAll={en => handleToggleAll('qol', en)}
+                            />
+                            <ModCard
+                                title='FPS-Intensive Mods' icon={<FlashOn fontSize='small' />}
+                                warning='Some of these addons may significantly affect your performance.'
+                                list={lists.gfx} type='gfx'
+                                enabledIds={enabledIds.gfx} loadingIds={loadingIds}
+                                isBulkLoading={bulkLoading.has('gfx')}
+                                onToggle={(id, name, en) => handleToggle('gfx', id, name, en)}
+                                onToggleAll={en => handleToggleAll('gfx', en)}
+                            />
+                        </div>
+                    </div>
 
-            {/* Department addons */}
-            <div className='flex flex-col gap-3'>
-                <div className='flex items-center gap-3'>
-                    <Typography fontSize='0.7rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
-                        Department Addons
-                    </Typography>
-                    <div style={{ height: 1, flex: 1, background: 'rgba(255,255,255,0.06)' }} />
-                </div>
-                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                    <ModCard title='J2 Mission Making' icon={<Engineering fontSize='small' />} list={j2List} type='j2' />
-                    <ModCard title='J5 Media' icon={<Videocam fontSize='small' />} list={j5List} type='j5' />
-                    <ModCard title='J6 Zeus' icon={<Psychology fontSize='small' />} list={zeusList} type='zeus' />
-                </div>
-            </div>
+                    {/* Department addons */}
+                    <div className='flex flex-col gap-3'>
+                        <div className='flex items-center gap-3'>
+                            <Typography fontSize='0.7rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
+                                Department Addons
+                            </Typography>
+                            <div style={{ height: 1, flex: 1, background: 'rgba(255,255,255,0.06)' }} />
+                        </div>
+                        <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                            <ModCard
+                                title='J2 Mission Making' icon={<Engineering fontSize='small' />}
+                                list={lists.j2} type='j2'
+                                enabledIds={enabledIds.j2} loadingIds={loadingIds}
+                                isBulkLoading={bulkLoading.has('j2')}
+                                onToggle={(id, name, en) => handleToggle('j2', id, name, en)}
+                                onToggleAll={en => handleToggleAll('j2', en)}
+                            />
+                            <ModCard
+                                title='J5 Media' icon={<Videocam fontSize='small' />}
+                                list={lists.j5} type='j5'
+                                enabledIds={enabledIds.j5} loadingIds={loadingIds}
+                                isBulkLoading={bulkLoading.has('j5')}
+                                onToggle={(id, name, en) => handleToggle('j5', id, name, en)}
+                                onToggleAll={en => handleToggleAll('j5', en)}
+                            />
+                            <ModCard
+                                title='J6 Zeus' icon={<Psychology fontSize='small' />}
+                                list={lists.zeus} type='zeus'
+                                enabledIds={enabledIds.zeus} loadingIds={loadingIds}
+                                isBulkLoading={bulkLoading.has('zeus')}
+                                onToggle={(id, name, en) => handleToggle('zeus', id, name, en)}
+                                onToggleAll={en => handleToggleAll('zeus', en)}
+                            />
+                        </div>
+                    </div>
+                </>
+            )}
 
         </div>
     )

@@ -438,13 +438,6 @@ function ProfileDropdown({ user }: { user: User }) {
                             <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>MY MILPAC</span>
                         </MenuItem>
                     </Link>
-                    <Link href='/operations'>
-                        <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
-                            sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
-                            <Api style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
-                            <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>OPERATIONS</span>
-                        </MenuItem>
-                    </Link>
                     <Link href='/optionals'>
                         <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
                             sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>

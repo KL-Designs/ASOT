@@ -13,7 +13,11 @@
       "Bash(grep -E \"^-.*\\\\.\\(d\\\\.ts|ts|json\\)$\")",
       "Bash(grep -v \"^--$\")",
       "Bash(grep -r \"public\\\\|private\\\\|visibility\\\\|visible\" /f/Clients/ASOT-Website/app/operations --include=*.ts --include=*.tsx)",
-      "Bash(grep -l \"PERMISSIONS\" f:/Clients/ASOT-Website/app/api/operations/*.ts f:/Clients/ASOT-Website/app/api/operations/**/*.ts)"
+      "Bash(grep -l \"PERMISSIONS\" f:/Clients/ASOT-Website/app/api/operations/*.ts f:/Clients/ASOT-Website/app/api/operations/**/*.ts)",
+      "Bash(grep -r Optional /f/Clients/ASOT-Website/lib /f/Clients/ASOT-Website/types --include=*.ts --include=*.tsx --include=*.js)",
+      "Bash(grep -r .optionals /f/Clients/ASOT-Website/app --include=*.ts --include=*.tsx)",
+      "Bash(grep -r optionals /f/Clients/ASOT-Website/app --include=*.ts --include=*.tsx)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
     ]
   }
 }
