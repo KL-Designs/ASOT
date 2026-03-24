@@ -44,6 +44,7 @@ export default function Page() {
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [previewOpen, setPreviewOpen] = useState(false)
     const [previewKey, setPreviewKey] = useState(0)
+    const [activityOpen, setActivityOpen] = useState(false)
     const router = useRouter()
 
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -188,6 +189,22 @@ export default function Page() {
                     <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor }}>
                         {statusLabel}
                     </span>
+                    {opID && (
+                        <button
+                            className='hidden md:block'
+                            onClick={() => setActivityOpen(o => !o)}
+                            style={{
+                                padding: '6px 14px',
+                                background: activityOpen ? 'rgba(237,237,237,0.07)' : 'rgba(237,237,237,0.03)',
+                                border: `1px solid ${activityOpen ? 'rgba(237,237,237,0.25)' : 'rgba(255,255,255,0.1)'}`,
+                                color: activityOpen ? 'rgba(237,237,237,0.8)' : 'rgba(237,237,237,0.35)',
+                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+                                cursor: 'pointer', transition: 'all 0.15s',
+                            }}
+                        >
+                            Activity
+                        </button>
+                    )}
                     {opID && (
                         <button
                             className='hidden md:block'
@@ -398,18 +415,22 @@ export default function Page() {
 
             </div>{/* end edit column */}
 
-            {/* Activity log panel — desktop only */}
-            {opID && !previewOpen && (
-                <div className='hidden xl:flex' style={{
-                    width: 280,
-                    flexShrink: 0,
-                    flexDirection: 'column',
-                    borderLeft: '1px solid rgba(255,255,255,0.07)',
-                    position: 'sticky',
+            {/* Activity log drawer — fixed overlay from right */}
+            {opID && (
+                <div style={{
+                    position: 'fixed',
                     top: 0,
-                    height: '100vh',
+                    right: 0,
+                    bottom: 0,
+                    width: 'clamp(280px, 30vw, 460px)',
+                    transform: activityOpen ? 'translateX(0)' : 'translateX(100%)',
+                    transition: 'transform 0.25s ease',
+                    zIndex: 50,
+                    borderLeft: '1px solid rgba(255,255,255,0.09)',
+                    display: 'flex',
+                    flexDirection: 'column',
                 }}>
-                    <ActivityLog operationId={opID} />
+                    <ActivityLog operationId={opID} onClose={() => setActivityOpen(false)} />
                 </div>
             )}
 

@@ -156,7 +156,7 @@ function LogItem({ entry }: { entry: LogEntry }) {
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
-export default function ActivityLog({ operationId }: { operationId: string }) {
+export default function ActivityLog({ operationId, onClose }: { operationId: string; onClose?: () => void }) {
     const [logs, setLogs] = useState<LogEntry[]>([])
     const [loading, setLoading] = useState(true)
     const intervalRef = useRef<ReturnType<typeof setInterval>>()
@@ -194,16 +194,30 @@ export default function ActivityLog({ operationId }: { operationId: string }) {
                 <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
                     Activity Log
                 </span>
-                <button
-                    type='button'
-                    onClick={fetchLogs}
-                    title='Refresh'
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(237,237,237,0.2)', fontSize: 13, padding: 2, lineHeight: 1, transition: 'color 0.15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.6)')}
-                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.2)')}
-                >
-                    ↺
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button
+                        type='button'
+                        onClick={fetchLogs}
+                        title='Refresh'
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(237,237,237,0.2)', fontSize: 13, padding: 2, lineHeight: 1, transition: 'color 0.15s' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.6)')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.2)')}
+                    >
+                        ↺
+                    </button>
+                    {onClose && (
+                        <button
+                            type='button'
+                            onClick={onClose}
+                            title='Close'
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(237,237,237,0.2)', fontSize: 13, padding: 2, lineHeight: 1, transition: 'color 0.15s' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.6)')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.2)')}
+                        >
+                            ✕
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Log list */}
