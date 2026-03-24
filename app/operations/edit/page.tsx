@@ -43,12 +43,12 @@ export default function Page() {
 
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [previewOpen, setPreviewOpen] = useState(false)
-    const [previewKey, setPreviewKey] = useState(0)
-    const [activityOpen, setActivityOpen] = useState(false)
+const [activityOpen, setActivityOpen] = useState(false)
     const router = useRouter()
 
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
     const metaHandleRef = useRef<{ set: (key: keyof MetaFields, value: string) => void } | null>(null)
+    const previewIframeRef = useRef<HTMLIFrameElement>(null)
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
@@ -192,6 +192,23 @@ export default function Page() {
                     </span>
                     {opID && (
                         <button
+                            onClick={() => setConfirmDelete(true)}
+                            style={{
+                                padding: '6px 14px',
+                                background: 'rgba(219,0,29,0.06)',
+                                border: '1px solid rgba(219,0,29,0.3)',
+                                color: 'rgba(219,0,29,0.65)',
+                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+                                cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+                            }}
+                            onMouseEnter={e => { const el = e.currentTarget; el.style.background = 'rgba(219,0,29,0.14)'; el.style.color = 'rgba(219,0,29,1)'; el.style.borderColor = 'rgba(219,0,29,0.6)' }}
+                            onMouseLeave={e => { const el = e.currentTarget; el.style.background = 'rgba(219,0,29,0.06)'; el.style.color = 'rgba(219,0,29,0.65)'; el.style.borderColor = 'rgba(219,0,29,0.3)' }}
+                        >
+                            Delete Mission
+                        </button>
+                    )}
+                    {opID && (
+                        <button
                             className='hidden md:block'
                             onClick={() => setActivityOpen(o => !o)}
                             style={{
@@ -209,7 +226,7 @@ export default function Page() {
                     {opID && (
                         <button
                             className='hidden md:block'
-                            onClick={() => { setPreviewOpen(o => !o); setPreviewKey(k => k + 1) }}
+                            onClick={() => setPreviewOpen(o => !o)}
                             style={{
                                 padding: '6px 14px',
                                 background: previewOpen ? 'rgba(237,237,237,0.07)' : 'rgba(237,237,237,0.03)',
@@ -220,23 +237,6 @@ export default function Page() {
                             }}
                         >
                             {previewOpen ? '⊠ Preview' : '⊡ Preview'}
-                        </button>
-                    )}
-                    {opID && (
-                        <button
-                            onClick={() => setConfirmDelete(true)}
-                            style={{
-                                padding: '6px 14px',
-                                background: 'rgba(219,0,29,0.06)',
-                                border: '1px solid rgba(219,0,29,0.3)',
-                                color: 'rgba(219,0,29,0.65)',
-                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-                                cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
-                            }}
-                            onMouseEnter={e => { const el = e.currentTarget; el.style.background = 'rgba(219,0,29,0.14)'; el.style.color = 'rgba(219,0,29,1)'; el.style.borderColor = 'rgba(219,0,29,0.6)' }}
-                            onMouseLeave={e => { const el = e.currentTarget; el.style.background = 'rgba(219,0,29,0.06)'; el.style.color = 'rgba(219,0,29,0.65)'; el.style.borderColor = 'rgba(219,0,29,0.3)' }}
-                        >
-                            Delete Mission
                         </button>
                     )}
                 </div>
@@ -464,7 +464,10 @@ export default function Page() {
                         </span>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             <button
-                                onClick={() => setPreviewKey(k => k + 1)}
+                                onClick={() => {
+                                    if (previewIframeRef.current)
+                                        previewIframeRef.current.src = `/operations/${opID}?_t=${Date.now()}`
+                                }}
                                 style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', background: 'none', border: '1px solid rgba(255,255,255,0.08)', padding: '3px 10px', cursor: 'pointer' }}
                                 onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.7)')}
                                 onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.3)')}
@@ -482,7 +485,7 @@ export default function Page() {
                         </div>
                     </div>
                     <iframe
-                        key={previewKey}
+                        ref={previewIframeRef}
                         src={`/operations/${opID}`}
                         onLoad={e => {
                             try {
