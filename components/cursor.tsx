@@ -73,7 +73,7 @@ export default function CustomCursor() {
 	if (isTouch) return null
 
 	return (
-		<>
+		<div id='custom-cursor'>
 			{/* Dot — always visible when cursor is on screen */}
 			<div
 				ref={dotRef}
@@ -130,6 +130,6 @@ export default function CustomCursor() {
 					)
 				})()}
 			</div>
-		</>
+		</div>
 	)
 }

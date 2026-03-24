@@ -6,6 +6,7 @@ import { ObjectId } from 'mongodb'
 import DocBody from './doc-body'
 import SectionNav from './section-nav'
 import LocalDate from './local-date'
+import PrintButton from './print-button'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 
@@ -164,7 +165,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     style={{ position: 'relative', zIndex: 4, maxWidth: 960, margin: '0 auto', width: '100%', paddingTop: hasCover ? '7rem' : '4rem', paddingBottom: hasCover ? '8rem' : '5rem' }}
                 >
                     {/* Back nav + edit */}
-                    <div style={{ position: 'absolute', top: 20, left: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className='print-hide' style={{ position: 'absolute', top: 20, left: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
                         <Link
                             href='/operations'
                             style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: isOF ? 'rgba(180,145,60,0.45)' : 'rgba(237,237,237,0.28)', textDecoration: 'none' }}
@@ -182,6 +183,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                                 </Link>
                             </>
                         )}
+                    </div>
+
+                    {/* Export PDF */}
+                    <div style={{ position: 'absolute', top: 20, right: 0 }}>
+                        <PrintButton bgColor={isOF ? '#140f07' : isSF ? '#01050a' : 'rgb(10,10,10)'} />
                     </div>
 
                     {/* Department badge */}
@@ -358,13 +364,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
             {/* ── Section nav ───────────────────────────────────────────────── */}
             {operation.sections && operation.sections.length > 1 && (
-                <SectionNav
-                    themeColor={operation.themeColor || '#db001d'}
-                    pageTheme={pageTheme}
-                    sections={operation.sections
-                        .filter(s => isLoggedIn || s.isPublic)
-                        .map(s => ({ id: s.id, title: s.title }))}
-                />
+                <div className='print-hide'>
+                    <SectionNav
+                        themeColor={operation.themeColor || '#db001d'}
+                        pageTheme={pageTheme}
+                        sections={operation.sections
+                            .filter(s => isLoggedIn || s.isPublic)
+                            .map(s => ({ id: s.id, title: s.title }))}
+                    />
+                </div>
             )}
 
             {/* ── Document sections ─────────────────────────────────────────── */}
@@ -373,7 +381,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     operation.sections
                         .filter(s => isLoggedIn || s.isPublic)
                         .map(s => (
-                            <div key={s.id} id={`section-${s.id}`} style={isOF ? {
+                            <div key={s.id} id={`section-${s.id}`} data-print-section style={isOF ? {
                                 position: 'relative',
                                 border: '1px solid rgba(160,120,50,0.25)',
                                 borderTop: `2px solid ${c(0.8)}`,
@@ -590,7 +598,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
             {/* Classified banner — shown to logged-out users when sections are hidden */}
             {hasHiddenSections && (
-                <a href={`/login?returnTo=/operations/${id}`} style={{ textDecoration: 'none', display: 'block', marginBottom: 64 }}>
+                <a href={`/login?returnTo=/operations/${id}`} className='print-hide' style={{ textDecoration: 'none', display: 'block', marginBottom: 64 }}>
                     <div style={{
                         position: 'relative',
                         overflow: 'hidden',
