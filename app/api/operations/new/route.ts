@@ -26,7 +26,6 @@ export async function GET(request: NextRequest) {
             date: new Date(),
             loreDate: new Date(),
             status: 'In Development' as const,
-            fields: []
         })
 
         return NextResponse.json({ success: true, id: newOp.insertedId }, { status: 200 })

@@ -8,6 +8,8 @@
 
 import { createServer } from 'http'
 import { parse } from 'url'
+import { readdirSync, unlinkSync, existsSync, statSync } from 'fs'
+import { resolve, join } from 'path'
 import next from 'next'
 import { Hocuspocus } from '@hocuspocus/server'
 import { Database } from '@hocuspocus/extension-database'
@@ -157,6 +159,73 @@ httpServer.on('upgrade', (request, socket, head) => {
     }
     // Other paths (e.g. /_next/webpack-hmr) are handled by Next.js itself
 })
+
+// ── Operation image cleanup ───────────────────────────────────────────────────
+
+const UPLOADS_DIR = resolve('./uploads/operations')
+const IMAGE_URL_PREFIX = '/api/operations/image'
+
+function urlToFilename(src) {
+    try {
+        const url = new URL(src, 'http://localhost')
+        if (!url.pathname.startsWith(IMAGE_URL_PREFIX)) return null
+        const id = url.searchParams.get('id')
+        const ext = url.searchParams.get('ext') || 'jpg'
+        if (!id) return null
+        return `${id}.${ext}`
+    } catch { return null }
+}
+
+function collectImageSrcs(node, out) {
+    if (!node || typeof node !== 'object') return
+    if (node.type === 'image' && typeof node.attrs?.src === 'string') out.add(node.attrs.src)
+    if (Array.isArray(node.content)) node.content.forEach(c => collectImageSrcs(c, out))
+}
+
+async function cleanupOperationImages() {
+    const referencedFiles = new Set()
+    const ops = await operations.find({}).toArray()
+
+    for (const op of ops) {
+        if (op.coverImage) {
+            const f = urlToFilename(op.coverImage)
+            if (f) referencedFiles.add(f)
+        }
+        for (const section of (op.sections ?? [])) {
+            const srcs = new Set()
+            collectImageSrcs(section.content, srcs)
+            srcs.forEach(src => { const f = urlToFilename(src); if (f) referencedFiles.add(f) })
+        }
+        if (op.content) {
+            const srcs = new Set()
+            collectImageSrcs(op.content, srcs)
+            srcs.forEach(src => { const f = urlToFilename(src); if (f) referencedFiles.add(f) })
+        }
+    }
+
+    if (!existsSync(UPLOADS_DIR)) return
+    const diskFiles = readdirSync(UPLOADS_DIR)
+    const TWO_HOURS = 2 * 60 * 60 * 1000
+    let deleted = 0
+    for (const file of diskFiles) {
+        if (!referencedFiles.has(file)) {
+            const { mtimeMs } = statSync(join(UPLOADS_DIR, file))
+            if (Date.now() - mtimeMs > TWO_HOURS) {
+                unlinkSync(join(UPLOADS_DIR, file))
+                deleted++
+            }
+        }
+    }
+
+    if (deleted > 0) {
+        console.log(`[image-cleanup] Removed ${deleted} orphaned image(s). ${referencedFiles.size} in use across ${ops.length} operation(s).`)
+    } else {
+        console.log(`[image-cleanup] No orphaned images. ${referencedFiles.size} in use across ${ops.length} operation(s).`)
+    }
+}
+
+cleanupOperationImages().catch(e => console.error('[image-cleanup] Error:', e.message))
+setInterval(() => cleanupOperationImages().catch(e => console.error('[image-cleanup] Error:', e.message)), 60 * 60 * 1000)
 
 httpServer.listen(port, '0.0.0.0', () => {
     console.log(`> Next.js ready on http://0.0.0.0:${port}`)

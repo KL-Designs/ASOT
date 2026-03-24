@@ -4,11 +4,123 @@ export { }
 
 declare global {
 
+    // ── ProseMirror / TipTap JSON types ─────────────────────────────────────
+
+    /** Marks that can appear on inline nodes (bold, italic, etc.) */
+    type PMMarkType =
+        | { type: 'bold' }
+        | { type: 'italic' }
+        | { type: 'strike' }
+        | { type: 'underline' }
+        | { type: 'code' }
+        | { type: 'highlight'; attrs?: { color?: string | null } }
+        | { type: 'link'; attrs: { href: string; target?: string | null; rel?: string | null } }
+        | { type: 'textStyle'; attrs?: Record<string, unknown> }
+
+    /** A text leaf node */
+    interface PMTextNode {
+        type: 'text'
+        text: string
+        marks?: PMMarkType[]
+    }
+
+    /** An image node — `src` is the stored URL (local `/api/operations/image?...` or external) */
+    interface PMImageNode {
+        type: 'image'
+        attrs: {
+            src: string
+            alt?: string | null
+            title?: string | null
+        }
+    }
+
+    /** A hard break */
+    interface PMHardBreakNode {
+        type: 'hardBreak'
+        marks?: PMMarkType[]
+    }
+
+    /** Block nodes that carry inline children */
+    interface PMParagraphNode {
+        type: 'paragraph'
+        attrs?: { textAlign?: string | null }
+        content?: PMInlineNode[]
+    }
+
+    interface PMHeadingNode {
+        type: 'heading'
+        attrs: { level: 1 | 2 | 3 | 4 | 5 | 6; textAlign?: string | null }
+        content?: PMInlineNode[]
+    }
+
+    interface PMBlockquoteNode {
+        type: 'blockquote'
+        content?: PMBlockNode[]
+    }
+
+    interface PMCodeBlockNode {
+        type: 'codeBlock'
+        attrs?: { language?: string | null }
+        content?: PMTextNode[]
+    }
+
+    interface PMHorizontalRuleNode {
+        type: 'horizontalRule'
+    }
+
+    interface PMListItemNode {
+        type: 'listItem'
+        content?: PMBlockNode[]
+    }
+
+    interface PMBulletListNode {
+        type: 'bulletList'
+        content?: PMListItemNode[]
+    }
+
+    interface PMOrderedListNode {
+        type: 'orderedList'
+        attrs?: { start?: number }
+        content?: PMListItemNode[]
+    }
+
+    /** All valid inline nodes */
+    type PMInlineNode = PMTextNode | PMImageNode | PMHardBreakNode
+
+    /** All valid block nodes */
+    type PMBlockNode =
+        | PMParagraphNode
+        | PMHeadingNode
+        | PMBlockquoteNode
+        | PMCodeBlockNode
+        | PMHorizontalRuleNode
+        | PMBulletListNode
+        | PMOrderedListNode
+
+    /** Root document node — this is what TipTap saves to MongoDB */
+    interface PMDoc {
+        type: 'doc'
+        content?: PMBlockNode[]
+    }
+
+    // ── Utility: extract all image srcs from a document ─────────────────────
+
+    /**
+     * Recursively walk a PMDoc (or any node) and collect every `image` node's
+     * `src`.  Useful for auditing which uploads a section references.
+     *
+     * @example
+     * const urls = collectImageUrls(section.content)
+     */
+    function collectImageUrls(node: PMDoc | PMBlockNode | PMInlineNode | null | undefined): string[]
+
+    // ── Operation types ──────────────────────────────────────────────────────
+
     interface OperationSection {
         id: string
         title: string
         isPublic: boolean
-        content?: any  // ProseMirror JSON
+        content?: PMDoc
     }
 
     interface Operation {
@@ -21,21 +133,11 @@ declare global {
         status?: 'Completed' | 'Active' | 'Upcoming' | 'In Development'
 
         sections?: OperationSection[]
-        content?: any  // legacy single-body field
+        content?: any  // legacy single-body (pre-sections) — kept for backwards compatibility
+
         themeColor?: string
         pageTheme?: 'modern' | 'oldfashioned' | 'scifi'
         coverImage?: string
-
-        yjsState?: Buffer
-
-        fields: {
-            title: string
-
-            subfields: {
-                content: string
-                images: string[]
-            }[]
-        }[]
     }
 
 }
