@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const loreDate = searchParams.get('loreDate')
     const department = searchParams.get('department')
     const themeColor = searchParams.get('themeColor')
+    const pageTheme = searchParams.get('pageTheme')
     const coverImage = searchParams.get('coverImage')
     const status = searchParams.get('status')
 
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
         if (loreDate) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { loreDate: new Date(loreDate) } })
         if (department) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { department } })
         if (themeColor) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { themeColor } })
+        if (pageTheme) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { pageTheme: pageTheme as Operation['pageTheme'] } })
         if (coverImage !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { coverImage } })
         if (status) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { status: status as Operation['status'] } })
 

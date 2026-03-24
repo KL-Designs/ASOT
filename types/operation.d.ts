@@ -23,6 +23,7 @@ declare global {
         sections?: OperationSection[]
         content?: any  // legacy single-body field
         themeColor?: string
+        pageTheme?: 'modern' | 'oldfashioned' | 'scifi'
         coverImage?: string
 
         yjsState?: Buffer

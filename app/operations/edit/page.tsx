@@ -31,6 +31,7 @@ export default function Page() {
     const [loreDate, setLoreDate] = useState<Dayjs | null>(null)
     const [department, setDepartment] = useState('')
     const [themeColor, setThemeColor] = useState('#db001d')
+    const [pageTheme, setPageTheme] = useState<'modern' | 'oldfashioned' | 'scifi'>('modern')
     const [status, setStatus] = useState<string>('Upcoming')
     const [coverImage, setCoverImage] = useState<string | null>(null)
     const [coverUploading, setCoverUploading] = useState(false)
@@ -69,6 +70,7 @@ export default function Page() {
                 setLoreDate(op.loreDate ? dayjs(op.loreDate) : null)
                 setDepartment(op.department || '')
                 setThemeColor(op.themeColor || '#db001d')
+                setPageTheme((op.pageTheme as any) || 'modern')
                 setStatus(op.status || 'Upcoming')
                 setCoverImage(op.coverImage || null)
                 setInitialContent(op.content ?? null)
@@ -297,6 +299,31 @@ export default function Page() {
                             />
                             <span style={{ fontSize: '0.75rem', letterSpacing: '0.06em', color: 'rgba(237,237,237,0.55)', whiteSpace: 'nowrap' }}>Theme Color</span>
                         </label>
+                        {/* Page Theme */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid rgba(255,255,255,0.1)', padding: '4px 8px' }}>
+                            <span style={{ fontSize: '0.68rem', letterSpacing: '0.08em', color: 'rgba(237,237,237,0.4)', whiteSpace: 'nowrap', marginRight: 4 }}>Page Theme</span>
+                            {(['modern', 'oldfashioned', 'scifi'] as const).map(t => (
+                                <button
+                                    key={t}
+                                    onClick={() => { setPageTheme(t); scheduleSave({ pageTheme: t }) }}
+                                    style={{
+                                        padding: '4px 10px',
+                                        fontSize: '0.62rem',
+                                        fontWeight: 700,
+                                        letterSpacing: '0.08em',
+                                        textTransform: 'uppercase',
+                                        background: pageTheme === t ? c(0.12) : 'transparent',
+                                        border: `1px solid ${pageTheme === t ? c(0.55) : 'rgba(255,255,255,0.08)'}`,
+                                        color: pageTheme === t ? c(0.9) : 'rgba(237,237,237,0.35)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    {t === 'modern' ? 'Modern' : t === 'oldfashioned' ? 'Old Fashioned' : 'Sci-Fi'}
+                                </button>
+                            ))}
+                        </div>
                         <LocalizationProvider dateAdapter={AdapterDayjs}>
                             <DateTimePicker
                                 label='Operation Date'
