@@ -359,6 +359,14 @@ function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isB
 // ─── FPS warning modal ────────────────────────────────────────────────────────
 
 function GfxWarningModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+    const [countdown, setCountdown] = useState(5)
+
+    useEffect(() => {
+        if (countdown === 0) return
+        const t = setTimeout(() => setCountdown(c => c - 1), 1000)
+        return () => clearTimeout(t)
+    }, [countdown])
+
     return (
         <div
             className='fixed inset-0 flex items-center justify-center z-50'
@@ -403,15 +411,19 @@ function GfxWarningModal({ onConfirm, onCancel }: { onConfirm: () => void; onCan
                     </button>
                     <button
                         onClick={onConfirm}
+                        disabled={countdown > 0}
                         style={{
                             flex: 2, padding: '9px',
-                            background: 'var(--red)', border: '1px solid var(--red)',
+                            background: countdown > 0 ? 'rgba(219,0,29,0.25)' : 'var(--red)',
+                            border: '1px solid var(--red)',
                             color: 'white',
                             fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em',
-                            textTransform: 'uppercase', cursor: 'pointer',
+                            textTransform: 'uppercase',
+                            cursor: countdown > 0 ? 'not-allowed' : 'pointer',
+                            transition: 'background 0.3s',
                         }}
                     >
-                        I Understand, Enable
+                        {countdown > 0 ? `I Understand, Enable (${countdown})` : 'I Understand, Enable'}
                     </button>
                 </div>
             </div>
