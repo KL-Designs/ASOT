@@ -133,6 +133,14 @@ const [activityOpen, setActivityOpen] = useState(false)
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
+    const STATUS_COLORS: Record<string, string> = {
+        'Active':         'rgba(0,200,80,0.9)',
+        'Upcoming':       'rgba(219,160,0,0.9)',
+        'Completed':      'rgba(100,150,237,0.8)',
+        'In Development': 'rgba(219,0,29,0.75)',
+    }
+    const currentStatusColor = STATUS_COLORS[status] || 'rgba(237,237,237,0.5)'
+
     const statusColor = saveStatus === 'saved' ? 'rgba(100,220,100,0.65)' : saveStatus === 'saving' ? 'rgba(219,0,29,0.65)' : 'rgba(237,200,0,0.65)'
     const statusLabel = saveStatus === 'saved' ? '● Saved' : saveStatus === 'saving' ? '● Saving…' : '● Unsaved'
 
@@ -293,20 +301,21 @@ const [activityOpen, setActivityOpen] = useState(false)
                             onChange={e => { setStatus(e.target.value); scheduleSave({ status: e.target.value }) }}
                             style={{
                                 background: 'rgba(0,0,0,0.4)',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                color: 'rgba(237,237,237,0.75)',
+                                border: `1px solid ${currentStatusColor}`,
+                                color: currentStatusColor,
                                 fontSize: '0.8rem',
                                 letterSpacing: '0.06em',
                                 outline: 'none',
                                 padding: '8px 12px',
                                 minWidth: 160,
                                 cursor: 'pointer',
+                                fontWeight: 700,
                             }}
                         >
-                            <option value='Upcoming'>Upcoming</option>
-                            <option value='Active'>Active</option>
-                            <option value='Completed'>Completed</option>
-                            {isHQ && <option value='In Development'>In Development</option>}
+                            <option value='Upcoming' style={{ background: 'rgb(18,18,18)', color: 'rgba(219,160,0,0.9)' }}>Upcoming</option>
+                            <option value='Active' style={{ background: 'rgb(18,18,18)', color: 'rgba(0,200,80,0.9)' }}>Active</option>
+                            <option value='Completed' style={{ background: 'rgb(18,18,18)', color: 'rgba(100,150,237,0.8)' }}>Completed</option>
+                            {isHQ && <option value='In Development' style={{ background: 'rgb(18,18,18)', color: 'rgba(219,0,29,0.75)' }}>In Development</option>}
                         </select>
                         {/* Theme color picker */}
                         <label style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid rgba(255,255,255,0.1)', padding: '6px 12px', cursor: 'pointer', userSelect: 'none' }}>

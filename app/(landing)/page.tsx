@@ -451,7 +451,7 @@ function OpsTeaser() {
 
 	return (
 		<div className='flex flex-col gap-6'>
-			<SectionHeader label='Intel Board' title='Recent Operations' />
+			<SectionHeader label='Intel Board' title='Recent & Upcoming Operations' />
 			<div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
 				{loading ? (
 					[0, 1, 2].map(i => (
@@ -469,8 +469,8 @@ function OpsTeaser() {
 									{op.coverImage && (
 										<>
 											{/* eslint-disable-next-line @next/next/no-img-element */}
-											<img src={op.coverImage} alt='' style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.15 }} />
-											<div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(13,13,13,0.3) 0%, rgba(13,13,13,0.75) 60%, rgb(13,13,13) 100%)' }} />
+											<img src={op.coverImage} alt='' style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.45 }} />
+											<div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(13,13,13,0.1) 0%, rgba(13,13,13,0.5) 55%, rgb(13,13,13) 100%)' }} />
 										</>
 									)}
 
@@ -482,7 +482,7 @@ function OpsTeaser() {
 												● {op.status || 'Unknown'}
 											</span>
 											{op.department && (
-												<span style={{ fontSize: '0.58rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', background: 'rgba(255,255,255,0.04)', padding: '2px 8px', border: '1px solid rgba(255,255,255,0.06)' }}>
+												<span style={{ fontSize: '0.58rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: `${color}cc`, background: `${color}18`, padding: '2px 8px', border: `1px solid ${color}44` }}>
 													{op.department}
 												</span>
 											)}
