@@ -46,10 +46,33 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     const isSF = pageTheme === 'scifi'
     const isModern = pageTheme === 'modern'
 
+    const sfStars = isSF ? [
+        `radial-gradient(ellipse 70% 50% at 10% 70%, ${c(0.04)} 0%, transparent 60%)`,
+        `radial-gradient(ellipse 50% 40% at 88% 20%, ${c(0.035)} 0%, transparent 60%)`,
+        `radial-gradient(ellipse 80% 30% at 50% 98%, rgba(20,40,80,0.08) 0%, transparent 60%)`,
+        ...[
+            ['2%','4%','1px','0.55'], ['8%','12%','1px','0.35'], ['15%','2%','2px','0.65'], ['22%','18%','1px','0.4'],
+            ['31%','7%','1px','0.3'], ['38%','22%','1px','0.45'], ['45%','5%','2px','0.6'], ['52%','15%','1px','0.35'],
+            ['60%','3%','1px','0.5'], ['68%','20%','1px','0.3'], ['75%','10%','2px','0.7'], ['83%','6%','1px','0.4'],
+            ['90%','16%','1px','0.35'], ['95%','3%','1px','0.55'], ['4%','28%','1px','0.3'], ['11%','35%','1px','0.45'],
+            ['19%','42%','2px','0.6'], ['27%','31%','1px','0.35'], ['35%','48%','1px','0.4'], ['43%','37%','1px','0.3'],
+            ['50%','25%','1px','0.55'], ['58%','40%','1px','0.35'], ['65%','33%','2px','0.65'], ['72%','45%','1px','0.4'],
+            ['80%','28%','1px','0.3'], ['88%','38%','1px','0.5'], ['93%','47%','1px','0.35'], ['6%','55%','1px','0.4'],
+            ['14%','62%','2px','0.6'], ['21%','70%','1px','0.3'], ['29%','58%','1px','0.45'], ['36%','75%','1px','0.35'],
+            ['44%','63%','1px','0.5'], ['51%','52%','1px','0.3'], ['59%','68%','2px','0.7'], ['66%','60%','1px','0.4'],
+            ['74%','72%','1px','0.35'], ['81%','55%','1px','0.45'], ['89%','65%','1px','0.3'], ['97%','58%','1px','0.55'],
+            ['3%','82%','1px','0.35'], ['10%','88%','1px','0.4'], ['17%','78%','2px','0.6'], ['25%','92%','1px','0.3'],
+            ['33%','83%','1px','0.45'], ['40%','96%','1px','0.35'], ['48%','85%','1px','0.5'], ['55%','79%','1px','0.3'],
+            ['62%','90%','2px','0.65'], ['70%','84%','1px','0.4'], ['77%','95%','1px','0.35'], ['85%','80%','1px','0.5'],
+            ['92%','92%','1px','0.3'], ['7%','15%','1px','0.45'], ['18%','55%','1px','0.35'], ['28%','78%','2px','0.6'],
+            ['47%','42%','1px','0.4'], ['63%','25%','1px','0.35'], ['79%','67%','1px','0.5'], ['94%','38%','1px','0.3'],
+        ].map(([x, y, s, o]) => `radial-gradient(${s} ${s} at ${x} ${y}, rgba(255,255,255,${o}) 0%, transparent 100%)`),
+    ].join(',') : ''
+
     return (
         <div
             className='flex flex-col min-h-full'
-            style={isOF ? { background: '#f5ead8', fontFamily: 'Georgia, "Times New Roman", serif' } : isSF ? { background: '#01050a' } : undefined}
+            style={isOF ? { background: '#140f07' } : isSF ? { backgroundColor: '#01050a', backgroundImage: sfStars, backgroundAttachment: 'fixed' } : undefined}
         >
 
             {/* ── Hero ─────────────────────────────────────────────────────── */}
@@ -69,14 +92,18 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 {hasCover && (
                     <div style={{
                         position: 'absolute', inset: 0, zIndex: 1,
-                        background: `linear-gradient(to bottom, rgba(10,10,10,0.65) 0%, rgba(10,10,10,0.45) 55%, rgba(10,10,10,1) 100%)`,
+                        background: isOF
+                            ? `linear-gradient(to bottom, rgba(20,13,5,0.45) 0%, rgba(20,13,5,0.25) 55%, rgba(20,15,7,1) 100%)`
+                            : isSF
+                                ? `linear-gradient(to bottom, rgba(0,4,14,0.6) 0%, rgba(0,4,14,0.3) 55%, rgba(1,5,10,1) 100%)`
+                                : `linear-gradient(to bottom, rgba(10,10,10,0.65) 0%, rgba(10,10,10,0.45) 55%, rgba(10,10,10,1) 100%)`,
                     }} />
                 )}
 
                 {/* Tactical grid / ruled lines */}
                 <div style={isOF ? {
                     position: 'absolute', inset: 0, zIndex: 2,
-                    backgroundImage: `repeating-linear-gradient(to bottom, rgba(90,55,20,0.08) 0px, rgba(90,55,20,0.08) 1px, transparent 1px, transparent 28px)`,
+                    backgroundImage: `repeating-linear-gradient(to bottom, rgba(160,120,50,0.07) 0px, rgba(160,120,50,0.07) 1px, transparent 1px, transparent 28px)`,
                 } : isSF ? {
                     position: 'absolute', inset: 0, zIndex: 2,
                     backgroundImage: `linear-gradient(${c(hasCover ? 0.06 : 0.1)} 1px, transparent 1px), linear-gradient(90deg, ${c(hasCover ? 0.06 : 0.1)} 1px, transparent 1px)`,
@@ -98,26 +125,38 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     }} />
                 )}
 
-                {/* Sci-fi radial glow */}
-                {!hasCover && isSF && (
+                {/* Sci-fi radial glow — always shown, dimmer with cover */}
+                {isSF && (
                     <div style={{
                         position: 'absolute', top: '-20%', left: '50%', transform: 'translateX(-50%)',
                         width: '70%', height: '180%',
-                        background: `radial-gradient(ellipse at 50% 40%, ${c(0.12)} 0%, ${c(0.04)} 40%, transparent 70%)`,
+                        background: `radial-gradient(ellipse at 50% 40%, ${c(hasCover ? 0.07 : 0.14)} 0%, ${c(hasCover ? 0.03 : 0.05)} 40%, transparent 70%)`,
                         zIndex: 2, pointerEvents: 'none',
                         filter: `blur(2px)`,
                     }} />
                 )}
 
+                {/* Sci-fi distant planet orb */}
+                {isSF && !hasCover && (
+                    <div style={{
+                        position: 'absolute', top: '8%', right: '8%',
+                        width: 140, height: 140, borderRadius: '50%',
+                        background: `radial-gradient(circle at 35% 35%, rgba(${r},${g},${b},0.12) 0%, rgba(${r},${g},${b},0.04) 45%, transparent 70%)`,
+                        boxShadow: `0 0 40px rgba(${r},${g},${b},0.08), 0 0 80px rgba(${r},${g},${b},0.04)`,
+                        filter: 'blur(6px)',
+                        zIndex: 2, pointerEvents: 'none',
+                    }} />
+                )}
+
                 {/* Corner accents — top left */}
                 <div style={{ position: 'absolute', top: 0, left: 0, width: 80, height: 80, zIndex: 3, pointerEvents: 'none' }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: 50, height: isOF ? 3 : 2, background: isOF ? 'rgba(90,55,20,0.7)' : c(1), opacity: isOF ? 1 : 0.7, ...(isSF ? { boxShadow: `0 0 6px rgba(${r},${g},${b},0.8)` } : {}) }} />
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: isOF ? 3 : 2, height: 50, background: isOF ? 'rgba(90,55,20,0.7)' : c(1), opacity: isOF ? 1 : 0.7, ...(isSF ? { boxShadow: `0 0 6px rgba(${r},${g},${b},0.8)` } : {}) }} />
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: 50, height: isOF ? 3 : 2, background: isOF ? 'rgba(160,120,50,0.65)' : c(1), opacity: isOF ? 1 : 0.7, ...(isSF ? { boxShadow: `0 0 6px rgba(${r},${g},${b},0.8)` } : {}) }} />
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: isOF ? 3 : 2, height: 50, background: isOF ? 'rgba(160,120,50,0.65)' : c(1), opacity: isOF ? 1 : 0.7, ...(isSF ? { boxShadow: `0 0 6px rgba(${r},${g},${b},0.8)` } : {}) }} />
                 </div>
                 {/* Corner accents — top right */}
                 <div style={{ position: 'absolute', top: 0, right: 0, width: 80, height: 80, zIndex: 3, pointerEvents: 'none' }}>
-                    <div style={{ position: 'absolute', top: 0, right: 0, width: 50, height: isOF ? 3 : 2, background: isOF ? 'rgba(90,55,20,0.7)' : c(1), opacity: isOF ? 1 : 0.7, ...(isSF ? { boxShadow: `0 0 6px rgba(${r},${g},${b},0.8)` } : {}) }} />
-                    <div style={{ position: 'absolute', top: 0, right: 0, width: isOF ? 3 : 2, height: 50, background: isOF ? 'rgba(90,55,20,0.7)' : c(1), opacity: isOF ? 1 : 0.7, ...(isSF ? { boxShadow: `0 0 6px rgba(${r},${g},${b},0.8)` } : {}) }} />
+                    <div style={{ position: 'absolute', top: 0, right: 0, width: 50, height: isOF ? 3 : 2, background: isOF ? 'rgba(160,120,50,0.65)' : c(1), opacity: isOF ? 1 : 0.7, ...(isSF ? { boxShadow: `0 0 6px rgba(${r},${g},${b},0.8)` } : {}) }} />
+                    <div style={{ position: 'absolute', top: 0, right: 0, width: isOF ? 3 : 2, height: 50, background: isOF ? 'rgba(160,120,50,0.65)' : c(1), opacity: isOF ? 1 : 0.7, ...(isSF ? { boxShadow: `0 0 6px rgba(${r},${g},${b},0.8)` } : {}) }} />
                 </div>
 
                 <div
@@ -128,7 +167,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     <div style={{ position: 'absolute', top: 20, left: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
                         <Link
                             href='/operations'
-                            style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.28)', textDecoration: 'none' }}
+                            style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: isOF ? 'rgba(180,145,60,0.45)' : 'rgba(237,237,237,0.28)', textDecoration: 'none' }}
                         >
                             ← Operations
                         </Link>
@@ -148,12 +187,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     {/* Department badge */}
                     <div style={isOF ? {
                         display: 'inline-flex', alignItems: 'center', gap: 8,
-                        border: '2px solid rgba(90,55,20,0.6)',
-                        outline: '1px solid rgba(90,55,20,0.25)',
-                        outlineOffset: 3,
+                        border: '1px solid rgba(160,120,50,0.4)',
                         padding: '5px 20px',
                         marginBottom: 28,
-                        background: 'rgba(230,210,170,0.5)',
+                        background: 'rgba(160,120,50,0.08)',
                         letterSpacing: '0.04em',
                     } : isSF ? {
                         display: 'inline-flex', alignItems: 'center', gap: 10,
@@ -170,7 +207,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         background: c(0.07),
                     }}>
                         <span style={isOF ? {
-                            width: 6, height: 6, background: 'rgba(90,55,20,0.7)', borderRadius: 0, display: 'inline-block', flexShrink: 0,
+                            width: 6, height: 6, background: 'rgba(160,120,50,0.75)', borderRadius: 0, display: 'inline-block', flexShrink: 0,
                         } : isSF ? {
                             width: 4, height: 4, background: c(1), borderRadius: '50%', display: 'inline-block', flexShrink: 0,
                             boxShadow: `0 0 4px rgba(${r},${g},${b},1)`,
@@ -178,7 +215,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                             width: 4, height: 4, background: c(1), borderRadius: '50%', display: 'inline-block', flexShrink: 0,
                         }} />
                         <span style={isOF ? {
-                            fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#3d2b1a', fontFamily: 'Georgia, serif',
+                            fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#c8a850', fontFamily: '"Courier New", monospace',
                         } : isSF ? {
                             fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.26em', textTransform: 'uppercase', color: c(0.9),
                             textShadow: `0 0 6px rgba(${r},${g},${b},0.7)`,
@@ -188,7 +225,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                             {operation.department || 'Joint Operation'}
                         </span>
                         <span style={isOF ? {
-                            width: 6, height: 6, background: 'rgba(90,55,20,0.7)', borderRadius: 0, display: 'inline-block', flexShrink: 0,
+                            width: 6, height: 6, background: 'rgba(160,120,50,0.75)', borderRadius: 0, display: 'inline-block', flexShrink: 0,
                         } : isSF ? {
                             width: 4, height: 4, background: c(1), borderRadius: '50%', display: 'inline-block', flexShrink: 0,
                             boxShadow: `0 0 4px rgba(${r},${g},${b},1)`,
@@ -201,13 +238,12 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     <h1 style={isOF ? {
                         fontSize: 'clamp(1.8rem, 5vw, 3.2rem)',
                         fontWeight: 700,
-                        fontFamily: 'Georgia, "Times New Roman", serif',
-                        fontStyle: 'italic',
-                        letterSpacing: '0.02em',
-                        textTransform: 'none',
+                        fontFamily: '"Courier New", Courier, monospace',
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
                         margin: '0 0 8px',
                         lineHeight: 1.15,
-                        color: '#2a1a08',
+                        color: '#d4b870',
                         textAlign: 'center',
                     } : isSF ? {
                         fontSize: 'clamp(1.8rem, 5vw, 3.4rem)',
@@ -240,8 +276,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     {/* Decorative rule */}
                     {isOF ? (
                         <div style={{ width: '100%', maxWidth: 480, margin: '20px auto 28px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                            <div style={{ height: 2, background: 'rgba(90,55,20,0.4)' }} />
-                            <div style={{ height: 1, background: 'rgba(90,55,20,0.2)' }} />
+                            <div style={{ height: 2, background: 'rgba(160,120,50,0.4)' }} />
+                            <div style={{ height: 1, background: 'rgba(160,120,50,0.2)' }} />
                         </div>
                     ) : isSF ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', maxWidth: 480, margin: '20px auto 28px' }}>
@@ -262,8 +298,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     {/* Meta row */}
                     <div style={isOF ? {
                         display: 'flex', gap: 0, flexWrap: 'wrap', justifyContent: 'center',
-                        border: '2px solid rgba(90,55,20,0.5)',
-                        background: 'rgba(230,210,170,0.4)',
+                        border: '1px solid rgba(160,120,50,0.3)',
+                        background: 'rgba(0,0,0,0.5)',
                     } : isSF ? {
                         display: 'flex', gap: 0, flexWrap: 'wrap', justifyContent: 'center',
                         border: `1px solid ${c(0.35)}`,
@@ -274,16 +310,16 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         border: '1px solid rgba(255,255,255,0.06)',
                         background: 'rgba(0,0,0,0.45)',
                     }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '14px 32px', borderRight: operation.loreDate ? (isOF ? '1px solid rgba(90,55,20,0.25)' : isSF ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(255,255,255,0.06)') : undefined }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '14px 32px', borderRight: operation.loreDate ? (isOF ? '1px solid rgba(160,120,50,0.2)' : isSF ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(255,255,255,0.06)') : undefined }}>
                             <span style={isOF ? {
-                                fontSize: '0.6rem', fontWeight: 400, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(60,35,10,0.45)', fontFamily: 'Georgia, serif',
+                                fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(180,145,60,0.4)', fontFamily: '"Courier New", monospace',
                             } : isSF ? {
                                 fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: c(0.55), fontFamily: '"Courier New", monospace',
                             } : {
                                 fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.22)',
                             }}>Operation Date</span>
                             <span style={isOF ? {
-                                fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.02em', color: '#2a1a08', fontFamily: 'Georgia, serif',
+                                fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.06em', color: '#c8a850', fontFamily: '"Courier New", monospace',
                             } : isSF ? {
                                 fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.1em', color: c(1), textShadow: `0 0 6px rgba(${r},${g},${b},0.5)`, fontFamily: '"Courier New", monospace',
                             } : {
@@ -295,14 +331,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         {operation.loreDate && (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, padding: '14px 32px' }}>
                                 <span style={isOF ? {
-                                    fontSize: '0.6rem', fontWeight: 400, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(60,35,10,0.45)', fontFamily: 'Georgia, serif',
+                                    fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(180,145,60,0.4)', fontFamily: '"Courier New", monospace',
                                 } : isSF ? {
                                     fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: c(0.55), fontFamily: '"Courier New", monospace',
                                 } : {
                                     fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.22)',
                                 }}>In-Game Date</span>
                                 <span style={isOF ? {
-                                    fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.02em', color: c(1), fontFamily: 'Georgia, serif',
+                                    fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.06em', color: c(1), fontFamily: '"Courier New", monospace',
                                 } : isSF ? {
                                     fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.1em', color: c(1), textShadow: `0 0 6px rgba(${r},${g},${b},0.6)`, fontFamily: '"Courier New", monospace',
                                 } : {
@@ -317,7 +353,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 </div>
 
                 {/* Bottom fade */}
-                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, background: isOF ? 'linear-gradient(to bottom, transparent, #f5ead8)' : 'linear-gradient(to bottom, transparent, var(--background))', zIndex: 5, pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, background: isOF ? 'linear-gradient(to bottom, transparent, #140f07)' : isSF ? 'linear-gradient(to bottom, transparent, #01050a)' : 'linear-gradient(to bottom, transparent, var(--background))', zIndex: 5, pointerEvents: 'none' }} />
             </div>
 
             {/* ── Section nav ───────────────────────────────────────────────── */}
@@ -339,19 +375,25 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         .map(s => (
                             <div key={s.id} id={`section-${s.id}`} style={isOF ? {
                                 position: 'relative',
-                                border: '2px solid rgba(90,55,20,0.4)',
-                                borderTop: `3px solid ${c(1)}`,
-                                background: 'rgba(240,225,195,0.6)',
+                                border: '1px solid rgba(160,120,50,0.25)',
+                                borderTop: `2px solid ${c(0.8)}`,
+                                background: '#1d1408',
                             } : isSF ? {
                                 position: 'relative',
                                 border: `1px solid ${c(0.3)}`,
                                 borderTop: `2px solid ${c(0.8)}`,
-                                boxShadow: `0 0 16px ${c(0.08)}, inset 0 0 20px ${c(0.02)}`,
+                                background: 'rgba(0,4,14,0.82)',
+                                boxShadow: `0 0 20px ${c(0.1)}, inset 0 0 30px ${c(0.03)}`,
                             } : {
                                 position: 'relative',
                                 border: `1px solid ${c(0.18)}`,
                                 borderTop: `2px solid ${c(0.6)}`,
                             }}>
+
+                                {/* Sci-fi scan lines */}
+                                {isSF && (
+                                    <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundImage: `repeating-linear-gradient(to bottom, ${c(0.02)} 0px, ${c(0.02)} 1px, transparent 1px, transparent 4px)` }} />
+                                )}
 
                                 {/* Corner ticks — hidden in oldfashioned */}
                                 {!isOF && (
@@ -371,8 +413,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                                 <div style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
                                     padding: '8px 20px',
-                                    borderBottom: isOF ? '1px solid rgba(90,55,20,0.2)' : isSF ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(255,255,255,0.06)',
-                                    background: isOF ? 'rgba(205,182,140,0.5)' : isSF ? c(0.06) : 'rgba(0,0,0,0.4)',
+                                    borderBottom: isOF ? '1px solid rgba(160,120,50,0.15)' : isSF ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(255,255,255,0.06)',
+                                    background: isOF ? 'rgba(0,0,0,0.55)' : isSF ? c(0.06) : 'rgba(0,0,0,0.4)',
                                     ...(isSF ? { boxShadow: `inset 0 0 20px rgba(${r},${g},${b},0.05)` } : {}),
                                 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -384,7 +426,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                                             width: 6, height: 6, background: c(0.7), flexShrink: 0,
                                         }} />
                                         <span style={isOF ? {
-                                            fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#3d2b1a', fontFamily: 'Georgia, serif',
+                                            fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c8a850', fontFamily: '"Courier New", monospace',
                                         } : isSF ? {
                                             fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.9), textShadow: `0 0 6px rgba(${r},${g},${b},0.5)`, fontFamily: '"Courier New", monospace',
                                         } : {
@@ -395,7 +437,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                                     </div>
                                     {isLoggedIn && !s.isPublic && (
                                         <span style={isOF ? {
-                                            fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(150,60,20,0.85)', border: '1px solid rgba(150,60,20,0.4)', padding: '1px 8px', fontFamily: 'Georgia, serif',
+                                            fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(200,160,50,0.75)', border: '1px solid rgba(160,120,50,0.35)', padding: '1px 8px', fontFamily: '"Courier New", monospace',
                                         } : {
                                             fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,180,0,0.6)', border: '1px solid rgba(219,180,0,0.25)', padding: '1px 6px',
                                         }}>
@@ -413,11 +455,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                                 <div style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                     padding: '7px 20px',
-                                    borderTop: isOF ? '1px solid rgba(90,55,20,0.15)' : isSF ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(255,255,255,0.04)',
-                                    background: isOF ? 'rgba(205,182,140,0.3)' : isSF ? c(0.025) : 'rgba(0,0,0,0.25)',
+                                    borderTop: isOF ? '1px solid rgba(160,120,50,0.12)' : isSF ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(255,255,255,0.04)',
+                                    background: isOF ? 'rgba(0,0,0,0.4)' : isSF ? c(0.025) : 'rgba(0,0,0,0.25)',
                                 }}>
                                     <span style={isOF ? {
-                                        fontSize: '0.5rem', fontWeight: 400, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(60,35,10,0.25)', fontFamily: 'Georgia, serif',
+                                        fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,120,50,0.2)', fontFamily: '"Courier New", monospace',
                                     } : isSF ? {
                                         fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.18), fontFamily: '"Courier New", monospace',
                                     } : {
@@ -426,7 +468,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                                         ASOT // {s.title}
                                     </span>
                                     <span style={isOF ? {
-                                        fontSize: '0.5rem', fontWeight: 400, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(60,35,10,0.25)', fontFamily: 'Georgia, serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
+                                        fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,120,50,0.2)', fontFamily: '"Courier New", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
                                     } : isSF ? {
                                         fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.18), fontFamily: '"Courier New", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
                                     } : {
@@ -442,19 +484,24 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     // Legacy single-body fallback
                     <div style={isOF ? {
                         position: 'relative',
-                        border: '2px solid rgba(90,55,20,0.4)',
-                        borderTop: `3px solid ${c(1)}`,
-                        background: 'rgba(240,225,195,0.6)',
+                        border: '1px solid rgba(160,120,50,0.25)',
+                        borderTop: `2px solid ${c(0.8)}`,
+                        background: '#1d1408',
                     } : isSF ? {
                         position: 'relative',
                         border: `1px solid ${c(0.3)}`,
                         borderTop: `2px solid ${c(0.8)}`,
-                        boxShadow: `0 0 16px ${c(0.08)}, inset 0 0 20px ${c(0.02)}`,
+                        background: 'rgba(0,4,14,0.82)',
+                        boxShadow: `0 0 20px ${c(0.1)}, inset 0 0 30px ${c(0.03)}`,
                     } : {
                         position: 'relative',
                         border: `1px solid ${c(0.18)}`,
                         borderTop: `2px solid ${c(0.6)}`,
                     }}>
+                        {/* Sci-fi scan lines */}
+                        {isSF && (
+                            <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundImage: `repeating-linear-gradient(to bottom, ${c(0.02)} 0px, ${c(0.02)} 1px, transparent 1px, transparent 4px)` }} />
+                        )}
                         {/* Corner ticks — hidden in oldfashioned */}
                         {!isOF && (
                             <>
@@ -471,8 +518,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         <div style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
                             padding: '8px 20px',
-                            borderBottom: isOF ? '1px solid rgba(90,55,20,0.2)' : isSF ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(255,255,255,0.06)',
-                            background: isOF ? 'rgba(205,182,140,0.5)' : isSF ? c(0.06) : 'rgba(0,0,0,0.4)',
+                            borderBottom: isOF ? '1px solid rgba(160,120,50,0.15)' : isSF ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(255,255,255,0.06)',
+                            background: isOF ? 'rgba(0,0,0,0.55)' : isSF ? c(0.06) : 'rgba(0,0,0,0.4)',
                             ...(isSF ? { boxShadow: `inset 0 0 20px rgba(${r},${g},${b},0.05)` } : {}),
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -484,7 +531,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                                     width: 6, height: 6, background: c(0.7), flexShrink: 0,
                                 }} />
                                 <span style={isOF ? {
-                                    fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#3d2b1a', fontFamily: 'Georgia, serif',
+                                    fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c8a850', fontFamily: '"Courier New", monospace',
                                 } : isSF ? {
                                     fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.9), textShadow: `0 0 6px rgba(${r},${g},${b},0.5)`, fontFamily: '"Courier New", monospace',
                                 } : {
@@ -495,14 +542,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                             </div>
                             <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                                 {operation.status && (
-                                    <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: isOF ? 'rgba(60,35,10,0.4)' : 'rgba(237,237,237,0.3)' }}>
+                                    <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: isOF ? 'rgba(160,120,50,0.35)' : 'rgba(237,237,237,0.3)' }}>
                                         {operation.status}
                                     </span>
                                 )}
                                 {operation.department && (
                                     <>
-                                        <div style={{ width: 1, height: 10, background: isOF ? 'rgba(90,55,20,0.2)' : 'rgba(255,255,255,0.1)' }} />
-                                        <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: isOF ? 'rgba(60,35,10,0.4)' : 'rgba(237,237,237,0.3)' }}>
+                                        <div style={{ width: 1, height: 10, background: isOF ? 'rgba(160,120,50,0.15)' : 'rgba(255,255,255,0.1)' }} />
+                                        <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: isOF ? 'rgba(160,120,50,0.35)' : 'rgba(237,237,237,0.3)' }}>
                                             {operation.department}
                                         </span>
                                     </>
@@ -515,11 +562,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         <div style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                             padding: '7px 20px',
-                            borderTop: isOF ? '1px solid rgba(90,55,20,0.15)' : isSF ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(255,255,255,0.04)',
-                            background: isOF ? 'rgba(205,182,140,0.3)' : isSF ? c(0.025) : 'rgba(0,0,0,0.25)',
+                            borderTop: isOF ? '1px solid rgba(160,120,50,0.12)' : isSF ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(255,255,255,0.04)',
+                            background: isOF ? 'rgba(0,0,0,0.4)' : isSF ? c(0.025) : 'rgba(0,0,0,0.25)',
                         }}>
                             <span style={isOF ? {
-                                fontSize: '0.5rem', fontWeight: 400, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(60,35,10,0.25)', fontFamily: 'Georgia, serif',
+                                fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,120,50,0.2)', fontFamily: '"Courier New", monospace',
                             } : isSF ? {
                                 fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.18), fontFamily: '"Courier New", monospace',
                             } : {
@@ -528,7 +575,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                                 ASOT // End of Order
                             </span>
                             <span style={isOF ? {
-                                fontSize: '0.5rem', fontWeight: 400, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(60,35,10,0.25)', fontFamily: 'Georgia, serif', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
+                                fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,120,50,0.2)', fontFamily: '"Courier New", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
                             } : isSF ? {
                                 fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.18), fontFamily: '"Courier New", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
                             } : {

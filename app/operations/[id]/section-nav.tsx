@@ -62,10 +62,10 @@ export default function SectionNav({ sections, themeColor, pageTheme = 'modern' 
         position: 'sticky',
         top: 0,
         zIndex: 40,
-        background: 'rgba(230,215,185,0.97)',
+        background: 'rgba(20,15,7,0.97)',
         backdropFilter: 'blur(8px)',
-        borderBottom: '2px solid rgba(90,55,20,0.3)',
-        boxShadow: '0 2px 8px rgba(90,55,20,0.15)',
+        borderBottom: '1px solid rgba(160,120,50,0.2)',
+        boxShadow: '0 2px 16px rgba(0,0,0,0.7)',
     } : isSF ? {
         position: 'sticky',
         top: 0,
@@ -138,11 +138,11 @@ export default function SectionNav({ sections, themeColor, pageTheme = 'modern' 
 
                     const spanStyle: React.CSSProperties = isOF ? {
                         fontSize: '0.55rem',
-                        fontWeight: 800,
-                        fontFamily: 'Georgia, serif',
-                        letterSpacing: '0.04em',
-                        textTransform: 'none',
-                        color: isActive ? '#4a2e12' : 'rgba(90,55,20,0.45)',
+                        fontWeight: 700,
+                        fontFamily: '"Courier New", monospace',
+                        letterSpacing: '0.12em',
+                        textTransform: 'uppercase',
+                        color: isActive ? '#d4b870' : 'rgba(160,120,50,0.4)',
                         whiteSpace: 'nowrap',
                         transition: 'color 0.2s',
                     } : isSF ? {
