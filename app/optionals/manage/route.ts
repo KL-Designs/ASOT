@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     try {
         if (action === 'add') {
-            await Db.optionals.updateOne({ _id: type }, { $addToSet: { mods: { id, name } } })
+            await Db.optionals.updateOne({ _id: type }, { $addToSet: { mods: { id, name: name! } } })
         }
 
         if (action === 'remove') {
