@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 
 const VALID_TYPES = ['qol', 'gfx', 'zeus', 'j2', 'j5'] as const
@@ -26,7 +27,8 @@ export async function GET(request: NextRequest) {
 
         if (mode === 'all') {
             const user = await Db.users.findOne({ _id: me._id }, { projection: { optionals: 1 } })
-            return NextResponse.json(user?.optionals ?? { qol: [], gfx: [], zeus: [], j2: [], j5: [] }, { status: 200 })
+            const isAdmin = client.hasRoles(me, PERMISSIONS.optionals.manage)
+            return NextResponse.json({ ...(user?.optionals ?? { qol: [], gfx: [], zeus: [], j2: [], j5: [] }), isAdmin }, { status: 200 })
         }
 
         if (mode === 'check') {

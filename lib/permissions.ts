@@ -55,6 +55,13 @@ const PERMISSIONS = {
         manageMembers: ['J5-Media'],
     },
 
+    // ── Optionals ─────────────────────────────────────────────────────────────
+
+    optionals: {
+        /** POST /optionals/manage — add or remove mods from the master lists */
+        manage: ['J4-Administration'],
+    },
+
     // ── Auth / integrations ───────────────────────────────────────────────────
 
     auth: {

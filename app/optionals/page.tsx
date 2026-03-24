@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { Typography, Switch, CircularProgress } from '@mui/material'
-import { WarningAmber, CheckCircleOutline, Launch, RestartAlt, Tune, Engineering, Videocam, FlashOn, Psychology, DoneAll } from '@mui/icons-material'
+import { WarningAmber, CheckCircleOutline, Launch, RestartAlt, Tune, Engineering, Videocam, FlashOn, Psychology, DoneAll, DeleteOutline, Add, Close, EditOutlined } from '@mui/icons-material'
 
 type ModEntry = { id: string; name: string }
 type OptType = 'qol' | 'gfx' | 'zeus' | 'j2' | 'j5'
@@ -12,19 +12,69 @@ type OptType = 'qol' | 'gfx' | 'zeus' | 'j2' | 'j5'
 const TYPES: OptType[] = ['qol', 'gfx', 'zeus', 'j2', 'j5']
 const GFX_KEY = 'asot-gfx-acknowledged'
 const emptyRecord = (): Record<OptType, string[]> => ({ qol: [], gfx: [], zeus: [], j2: [], j5: [] })
+const sortMods = (mods: ModEntry[]) => [...mods].sort((a, b) => a.name.localeCompare(b.name))
 
 
 // ─── Mod row ──────────────────────────────────────────────────────────────────
 
-function Mod({ details, enabled, loading, onToggle }: {
+function Mod({ details, enabled, loading, onToggle, editMode, onRemove }: {
     details: ModEntry
     enabled: boolean
     loading: boolean
     onToggle: (enabled: boolean) => void
+    editMode: boolean
+    onRemove: () => Promise<void>
 }) {
+    const [confirming, setConfirming] = useState(false)
+    const [removing, setRemoving] = useState(false)
+
+    async function handleConfirm() {
+        setRemoving(true)
+        try { await onRemove() }
+        catch { setRemoving(false); setConfirming(false) }
+    }
+
+    if (confirming) return (
+        <div
+            className='flex items-center gap-2 px-3 py-[7px]'
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(219,0,29,0.05)' }}
+        >
+            <Typography fontSize='0.78rem' style={{ flex: 1, color: 'rgba(237,237,237,0.5)' }}>
+                Remove <span style={{ color: 'var(--foreground)', fontWeight: 600 }}>{details.name}</span>?
+            </Typography>
+            <button
+                onClick={() => setConfirming(false)}
+                disabled={removing}
+                style={{
+                    background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'rgba(237,237,237,0.4)', padding: '2px 10px',
+                    fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
+                    textTransform: 'uppercase', cursor: 'pointer',
+                }}
+            >
+                Cancel
+            </button>
+            <button
+                onClick={handleConfirm}
+                disabled={removing}
+                style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    background: 'rgba(219,0,29,0.15)', border: '1px solid rgba(219,0,29,0.4)',
+                    color: 'rgba(219,0,29,0.9)', padding: '2px 10px',
+                    fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
+                    textTransform: 'uppercase', cursor: removing ? 'not-allowed' : 'pointer',
+                    opacity: removing ? 0.6 : 1,
+                }}
+            >
+                {removing ? <CircularProgress size={10} style={{ color: 'rgba(219,0,29,0.8)' }} /> : <DeleteOutline style={{ fontSize: 12 }} />}
+                Remove
+            </button>
+        </div>
+    )
+
     return (
         <div
-            className='flex flex-row justify-between items-center gap-3 px-3 py-[6px] rounded transition-colors'
+            className='flex flex-row items-center gap-2 px-3 py-[6px] rounded transition-colors group'
             style={{
                 background: enabled ? 'rgba(219,0,29,0.05)' : 'transparent',
                 borderBottom: '1px solid rgba(255,255,255,0.05)',
@@ -33,7 +83,7 @@ function Mod({ details, enabled, loading, onToggle }: {
             <Link
                 href={`https://steamcommunity.com/sharedfiles/filedetails/?id=${details.id}`}
                 target='_blank'
-                className='flex items-center gap-2 min-w-0'
+                className='flex items-center gap-2 min-w-0 flex-1'
             >
                 <Typography
                     fontSize='0.82rem'
@@ -52,18 +102,37 @@ function Mod({ details, enabled, loading, onToggle }: {
                 <Launch style={{ fontSize: 11, color: 'rgba(237,237,237,0.2)', flexShrink: 0 }} />
             </Link>
 
-            {loading
-                ? <CircularProgress size={16} style={{ color: 'rgba(219,0,29,0.5)', flexShrink: 0 }} />
-                : <Switch
-                    size='small'
-                    checked={enabled}
-                    onChange={e => onToggle(e.currentTarget.checked)}
-                    sx={{
-                        flexShrink: 0,
-                        '& .MuiSwitch-thumb': { background: enabled ? 'var(--red)' : 'rgba(237,237,237,0.3)' },
-                        '& .MuiSwitch-track': { background: enabled ? 'rgba(219,0,29,0.35) !important' : 'rgba(255,255,255,0.1) !important', opacity: '1 !important' },
-                    }}
-                />
+            {editMode
+                ? (
+                    <button
+                        onClick={() => setConfirming(true)}
+                        title='Remove mod from list'
+                        style={{
+                            display: 'flex', alignItems: 'center',
+                            background: 'transparent', border: 'none',
+                            color: 'rgba(219,0,29,0.35)', cursor: 'pointer',
+                            padding: '2px', flexShrink: 0,
+                            transition: 'color 0.15s',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.8)')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.35)')}
+                    >
+                        <DeleteOutline style={{ fontSize: 14 }} />
+                    </button>
+                ) : (
+                    loading
+                        ? <CircularProgress size={16} style={{ color: 'rgba(219,0,29,0.5)', flexShrink: 0 }} />
+                        : <Switch
+                            size='small'
+                            checked={enabled}
+                            onChange={e => onToggle(e.currentTarget.checked)}
+                            sx={{
+                                flexShrink: 0,
+                                '& .MuiSwitch-thumb': { background: enabled ? 'var(--red)' : 'rgba(237,237,237,0.3)' },
+                                '& .MuiSwitch-track': { background: enabled ? 'rgba(219,0,29,0.35) !important' : 'rgba(255,255,255,0.1) !important', opacity: '1 !important' },
+                            }}
+                        />
+                )
             }
         </div>
     )
@@ -72,7 +141,7 @@ function Mod({ details, enabled, loading, onToggle }: {
 
 // ─── Mod category card ────────────────────────────────────────────────────────
 
-function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isBulkLoading, onToggle, onToggleAll }: {
+function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isBulkLoading, editMode, onToggle, onToggleAll, onAddMod, onRemoveMod }: {
     title: string
     icon: React.ReactNode
     warning?: string
@@ -81,10 +150,56 @@ function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isB
     enabledIds: string[]
     loadingIds: Set<string>
     isBulkLoading: boolean
+    editMode: boolean
     onToggle: (id: string, name: string, enabled: boolean) => void
     onToggleAll: (enable: boolean) => void
+    onAddMod: (id: string, name: string) => Promise<void>
+    onRemoveMod: (id: string) => Promise<void>
 }) {
+    const [addingMod, setAddingMod] = useState(false)
+    const [newId, setNewId] = useState('')
+    const [newName, setNewName] = useState('')
+    const [addLoading, setAddLoading] = useState(false)
+    const [addError, setAddError] = useState('')
+
     const allEnabled = list.length > 0 && list.every(m => enabledIds.includes(m.id))
+
+    async function handleAddSubmit() {
+        const trimId = newId.trim()
+        const trimName = newName.trim()
+        if (!trimId || !trimName) return
+        if (!/^\d+$/.test(trimId)) { setAddError('ID must be a numeric Steam Workshop ID'); return }
+
+        setAddError('')
+        setAddLoading(true)
+        try {
+            await onAddMod(trimId, trimName)
+            setNewId('')
+            setNewName('')
+            setAddingMod(false)
+        } catch (e: any) {
+            setAddError(e.message ?? 'Failed to add mod')
+        } finally {
+            setAddLoading(false)
+        }
+    }
+
+    function handleCancel() {
+        setAddingMod(false)
+        setNewId('')
+        setNewName('')
+        setAddError('')
+    }
+
+    const inputStyle: React.CSSProperties = {
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        color: 'var(--foreground)',
+        padding: '6px 10px',
+        fontSize: '0.78rem',
+        outline: 'none',
+        width: '100%',
+    }
 
     return (
         <div
@@ -102,29 +217,49 @@ function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isB
                     {title}
                 </Typography>
 
-                {/* Toggle all */}
-                <button
-                    onClick={() => onToggleAll(!allEnabled)}
-                    disabled={isBulkLoading || list.length === 0}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 4,
-                        background: 'transparent',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: 'rgba(237,237,237,0.4)',
-                        padding: '2px 8px',
-                        fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em',
-                        textTransform: 'uppercase',
-                        cursor: isBulkLoading || list.length === 0 ? 'not-allowed' : 'pointer',
-                        opacity: isBulkLoading ? 0.4 : 1,
-                        transition: 'all 0.2s',
-                    }}
-                >
-                    {isBulkLoading
-                        ? <CircularProgress size={10} style={{ color: 'rgba(237,237,237,0.4)' }} />
-                        : <DoneAll style={{ fontSize: 11 }} />
-                    }
-                    {allEnabled ? 'Disable All' : 'Enable All'}
-                </button>
+                {/* Toggle all (hidden in edit mode) */}
+                {!editMode && (
+                    <button
+                        onClick={() => onToggleAll(!allEnabled)}
+                        disabled={isBulkLoading || list.length === 0}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 4,
+                            background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+                            color: 'rgba(237,237,237,0.4)', padding: '2px 8px',
+                            fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                            cursor: isBulkLoading || list.length === 0 ? 'not-allowed' : 'pointer',
+                            opacity: isBulkLoading ? 0.4 : 1,
+                            transition: 'all 0.2s',
+                        }}
+                    >
+                        {isBulkLoading
+                            ? <CircularProgress size={10} style={{ color: 'rgba(237,237,237,0.4)' }} />
+                            : <DoneAll style={{ fontSize: 11 }} />
+                        }
+                        {allEnabled ? 'Disable All' : 'Enable All'}
+                    </button>
+                )}
+
+                {/* Add mod button (edit mode only) */}
+                {editMode && (
+                    <button
+                        onClick={() => addingMod ? handleCancel() : setAddingMod(true)}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 4,
+                            background: addingMod ? 'transparent' : 'rgba(219,0,29,0.08)',
+                            border: `1px solid ${addingMod ? 'rgba(255,255,255,0.1)' : 'rgba(219,0,29,0.3)'}`,
+                            color: addingMod ? 'rgba(237,237,237,0.4)' : 'rgba(219,0,29,0.8)',
+                            padding: '2px 8px',
+                            fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em',
+                            textTransform: 'uppercase', cursor: 'pointer',
+                            transition: 'all 0.2s',
+                        }}
+                    >
+                        {addingMod ? <Close style={{ fontSize: 11 }} /> : <Add style={{ fontSize: 11 }} />}
+                        {addingMod ? 'Cancel' : 'Add Mod'}
+                    </button>
+                )}
 
                 <span style={{
                     fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.06em',
@@ -154,10 +289,57 @@ function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isB
                             enabled={enabledIds.includes(mod.id)}
                             loading={isBulkLoading || loadingIds.has(mod.id)}
                             onToggle={enabled => onToggle(mod.id, mod.name, enabled)}
+                            editMode={editMode}
+                            onRemove={() => onRemoveMod(mod.id)}
                         />
                     ))
                 }
             </div>
+
+            {/* Add mod form (edit mode only) */}
+            {editMode && addingMod && (
+                <div className='flex flex-col gap-2 px-3 py-3' style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(219,0,29,0.02)' }}>
+                    <Typography fontSize='0.68rem' fontWeight={700} letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>
+                        Add Mod to {title}
+                    </Typography>
+                    <input
+                        placeholder='Steam Workshop ID (numeric)'
+                        value={newId}
+                        onChange={e => setNewId(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddSubmit()}
+                        style={inputStyle}
+                    />
+                    <input
+                        placeholder='Mod name'
+                        value={newName}
+                        onChange={e => setNewName(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddSubmit()}
+                        style={inputStyle}
+                    />
+                    {addError && (
+                        <Typography fontSize='0.72rem' style={{ color: 'rgba(219,0,29,0.8)' }}>{addError}</Typography>
+                    )}
+                    <div className='flex gap-2'>
+                        <button
+                            onClick={handleAddSubmit}
+                            disabled={addLoading || !newId.trim() || !newName.trim()}
+                            style={{
+                                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                background: 'var(--red)', border: '1px solid var(--red)',
+                                color: 'white', padding: '7px',
+                                fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em',
+                                textTransform: 'uppercase',
+                                cursor: addLoading || !newId.trim() || !newName.trim() ? 'not-allowed' : 'pointer',
+                                opacity: !newId.trim() || !newName.trim() ? 0.4 : 1,
+                                transition: 'opacity 0.2s',
+                            }}
+                        >
+                            {addLoading ? <CircularProgress size={12} style={{ color: 'white' }} /> : <Add style={{ fontSize: 14 }} />}
+                            Add Mod
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
@@ -237,6 +419,8 @@ export default function Page() {
     const [bulkLoading, setBulkLoading] = useState<Set<OptType>>(new Set())
     const [initialLoading, setInitialLoading] = useState(true)
     const [resetting, setResetting] = useState(false)
+    const [isAdmin, setIsAdmin] = useState(false)
+    const [editMode, setEditMode] = useState(false)
     const [showGfxWarning, setShowGfxWarning] = useState(false)
     const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
 
@@ -246,7 +430,7 @@ export default function Page() {
             ...TYPES.map(t => fetch(`/optionals/fetch?type=${t}`).then(r => r.json())),
             fetch('/optionals/me?mode=all').then(r => r.json()),
         ]).then(([qol, gfx, zeus, j2, j5, user]) => {
-            setLists({ qol, gfx, zeus, j2, j5 })
+            setLists({ qol: sortMods(qol), gfx: sortMods(gfx), zeus: sortMods(zeus), j2: sortMods(j2), j5: sortMods(j5) })
             if (!user.error) {
                 setEnabledIds({
                     qol: (user.qol ?? []).map((m: ModEntry) => m.id),
@@ -255,6 +439,7 @@ export default function Page() {
                     j2: (user.j2 ?? []).map((m: ModEntry) => m.id),
                     j5: (user.j5 ?? []).map((m: ModEntry) => m.id),
                 })
+                setIsAdmin(user.isAdmin ?? false)
             }
             setInitialLoading(false)
         })
@@ -322,6 +507,29 @@ export default function Page() {
         setPendingAction(null)
     }
 
+    async function handleAddMod(type: OptType, id: string, name: string) {
+        const res = await fetch('/optionals/manage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add', type, id, name }),
+        })
+        const json = await res.json()
+        if (json.error) throw new Error(json.error)
+        setLists(cur => ({ ...cur, [type]: sortMods([...cur[type], { id, name }]) }))
+    }
+
+    async function handleRemoveMod(type: OptType, id: string) {
+        const res = await fetch('/optionals/manage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'remove', type, id }),
+        })
+        const json = await res.json()
+        if (json.error) throw new Error(json.error)
+        setLists(cur => ({ ...cur, [type]: cur[type].filter(m => m.id !== id) }))
+        setEnabledIds(cur => ({ ...cur, [type]: cur[type].filter(i => i !== id) }))
+    }
+
     function handleReset() {
         setResetting(true)
         fetch('/optionals/reset').then(r => r.json()).then(j => {
@@ -329,6 +537,19 @@ export default function Page() {
             if (j.success) { setEnabledIds(emptyRecord()); setResetting(false) }
         })
     }
+
+    const cardProps = (type: OptType) => ({
+        list: lists[type],
+        type,
+        enabledIds: enabledIds[type],
+        loadingIds,
+        isBulkLoading: bulkLoading.has(type),
+        editMode,
+        onToggle: (id: string, name: string, en: boolean) => handleToggle(type, id, name, en),
+        onToggleAll: (en: boolean) => handleToggleAll(type, en),
+        onAddMod: (id: string, name: string) => handleAddMod(type, id, name),
+        onRemoveMod: (id: string) => handleRemoveMod(type, id),
+    })
 
     return (
         <div className='w-full flex flex-col gap-8'>
@@ -351,6 +572,28 @@ export default function Page() {
                         <CheckCircleOutline style={{ fontSize: 14, color: 'rgba(80,200,80,0.6)' }} />
                         Auto-saved
                     </div>
+
+                    {isAdmin && (
+                        <>
+                            <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)' }} />
+                            <button
+                                onClick={() => setEditMode(e => !e)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 6,
+                                    background: editMode ? 'rgba(219,0,29,0.12)' : 'transparent',
+                                    border: `1px solid ${editMode ? 'rgba(219,0,29,0.5)' : 'rgba(255,255,255,0.15)'}`,
+                                    color: editMode ? 'rgba(219,0,29,0.9)' : 'rgba(237,237,237,0.45)',
+                                    padding: '6px 14px',
+                                    fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.1em',
+                                    textTransform: 'uppercase', cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                <EditOutlined style={{ fontSize: 13 }} />
+                                {editMode ? 'Done' : 'Edit Lists'}
+                            </button>
+                        </>
+                    )}
 
                     <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.1)' }} />
 
@@ -392,22 +635,11 @@ export default function Page() {
                             <div style={{ height: 1, flex: 1, background: 'rgba(255,255,255,0.06)' }} />
                         </div>
                         <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                            <ModCard
-                                title='Quality of Life' icon={<Tune fontSize='small' />}
-                                list={lists.qol} type='qol'
-                                enabledIds={enabledIds.qol} loadingIds={loadingIds}
-                                isBulkLoading={bulkLoading.has('qol')}
-                                onToggle={(id, name, en) => handleToggle('qol', id, name, en)}
-                                onToggleAll={en => handleToggleAll('qol', en)}
-                            />
+                            <ModCard title='Quality of Life' icon={<Tune fontSize='small' />} {...cardProps('qol')} />
                             <ModCard
                                 title='FPS-Intensive Mods' icon={<FlashOn fontSize='small' />}
                                 warning='Some of these addons may significantly affect your performance.'
-                                list={lists.gfx} type='gfx'
-                                enabledIds={enabledIds.gfx} loadingIds={loadingIds}
-                                isBulkLoading={bulkLoading.has('gfx')}
-                                onToggle={(id, name, en) => handleToggle('gfx', id, name, en)}
-                                onToggleAll={en => handleToggleAll('gfx', en)}
+                                {...cardProps('gfx')}
                             />
                         </div>
                     </div>
@@ -421,30 +653,9 @@ export default function Page() {
                             <div style={{ height: 1, flex: 1, background: 'rgba(255,255,255,0.06)' }} />
                         </div>
                         <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                            <ModCard
-                                title='J2 Mission Making' icon={<Engineering fontSize='small' />}
-                                list={lists.j2} type='j2'
-                                enabledIds={enabledIds.j2} loadingIds={loadingIds}
-                                isBulkLoading={bulkLoading.has('j2')}
-                                onToggle={(id, name, en) => handleToggle('j2', id, name, en)}
-                                onToggleAll={en => handleToggleAll('j2', en)}
-                            />
-                            <ModCard
-                                title='J5 Media' icon={<Videocam fontSize='small' />}
-                                list={lists.j5} type='j5'
-                                enabledIds={enabledIds.j5} loadingIds={loadingIds}
-                                isBulkLoading={bulkLoading.has('j5')}
-                                onToggle={(id, name, en) => handleToggle('j5', id, name, en)}
-                                onToggleAll={en => handleToggleAll('j5', en)}
-                            />
-                            <ModCard
-                                title='J6 Zeus' icon={<Psychology fontSize='small' />}
-                                list={lists.zeus} type='zeus'
-                                enabledIds={enabledIds.zeus} loadingIds={loadingIds}
-                                isBulkLoading={bulkLoading.has('zeus')}
-                                onToggle={(id, name, en) => handleToggle('zeus', id, name, en)}
-                                onToggleAll={en => handleToggleAll('zeus', en)}
-                            />
+                            <ModCard title='J2 Mission Making' icon={<Engineering fontSize='small' />} {...cardProps('j2')} />
+                            <ModCard title='J5 Media' icon={<Videocam fontSize='small' />} {...cardProps('j5')} />
+                            <ModCard title='J6 Zeus' icon={<Psychology fontSize='small' />} {...cardProps('zeus')} />
                         </div>
                     </div>
                 </>
