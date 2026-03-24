@@ -16,7 +16,7 @@ export default async function Page() {
     } catch { }
 
     return (
-        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6' style={{ maxWidth: 1400, margin: '0 auto' }}>
+        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6' style={{ maxWidth: 1700, margin: '0 auto' }}>
 
             {/* Header */}
             <div className='flex flex-col gap-3 md:flex-row md:items-center md:gap-4'>

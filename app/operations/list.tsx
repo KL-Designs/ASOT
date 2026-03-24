@@ -22,23 +22,23 @@ function hexToRgba(hex: string, alpha: number): string {
 // ── Status helpers ─────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-    'Active':         'rgba(0,200,80,0.9)',
-    'Upcoming':       'rgba(219,160,0,0.9)',
-    'Completed':      'rgba(100,150,237,0.8)',
+    'Active': 'rgba(0,200,80,0.9)',
+    'Upcoming': 'rgba(219,160,0,0.9)',
+    'Completed': 'rgba(100,150,237,0.8)',
     'In Development': 'rgba(219,0,29,0.75)',
 }
 
 const STATUS_BORDER: Record<string, string> = {
-    'Active':         'rgba(0,200,80,0.35)',
-    'Upcoming':       'rgba(219,160,0,0.35)',
-    'Completed':      'rgba(100,150,237,0.3)',
+    'Active': 'rgba(0,200,80,0.35)',
+    'Upcoming': 'rgba(219,160,0,0.35)',
+    'Completed': 'rgba(100,150,237,0.3)',
     'In Development': 'rgba(219,0,29,0.35)',
 }
 
 const STATUS_GLOW: Record<string, string> = {
-    'Active':         'rgba(0,200,80,0.18)',
-    'Upcoming':       'rgba(219,160,0,0.18)',
-    'Completed':      'rgba(100,150,237,0.15)',
+    'Active': 'rgba(0,200,80,0.18)',
+    'Upcoming': 'rgba(219,160,0,0.18)',
+    'Completed': 'rgba(100,150,237,0.15)',
     'In Development': 'rgba(219,0,29,0.18)',
 }
 
@@ -261,7 +261,7 @@ function CalendarPicker({
     const [year, setYear] = useState(selected.year)
 
     return (
-        <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)' }}>
+        <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)', flex: 1 }}>
             <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>
                     Browse by Month
@@ -332,12 +332,12 @@ function ActiveMissionsPanel({ hasAccess: _hasAccess }: { hasAccess: boolean }) 
         return () => clearInterval(interval)
     }, [])
 
-    const active   = missions.filter(m => m.status === 'Active')
+    const active = missions.filter(m => m.status === 'Active')
     const upcoming = missions.filter(m => m.status === 'Upcoming')
-    const sorted   = [...active, ...upcoming]
+    const sorted = [...active, ...upcoming]
 
     return (
-        <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)' }}>
+        <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)', flex: 1 }}>
             <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>
                     Active &amp; Upcoming
@@ -362,12 +362,12 @@ function ActiveMissionsPanel({ hasAccess: _hasAccess }: { hasAccess: boolean }) 
 function ActiveMissionCard({ mission }: { mission: Operation }) {
     const [hovered, setHovered] = useState(false)
     const isActive = mission.status === 'Active'
-    const theme    = mission.themeColor || '#db001d'
+    const theme = mission.themeColor || '#db001d'
 
     const borderOpacity = isActive ? (hovered ? 0.85 : 0.55) : (hovered ? 0.55 : 0.25)
-    const glowOpacity   = isActive ? (hovered ? 0.35 : 0.15) : (hovered ? 0.2 : 0)
-    const brightness    = isActive ? 1 : (hovered ? 0.65 : 0.55)
-    const height        = isActive ? 175 : 130
+    const glowOpacity = isActive ? (hovered ? 0.35 : 0.15) : (hovered ? 0.2 : 0)
+    const brightness = isActive ? 1 : (hovered ? 0.65 : 0.55)
+    const height = isActive ? 175 : 130
 
     return (
         <Link href={`/operations/${mission._id.toString()}`} style={{ textDecoration: 'none', display: 'block' }}>
@@ -465,7 +465,7 @@ function MonthlyMissionsPanel({
     }, [year, month])
 
     return (
-        <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)' }}>
+        <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)', flex: 1 }}>
             <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>
                     Operations
@@ -504,94 +504,136 @@ function MissionRow({ mission, hasAccess, onDeleted, onDuplicated }: { mission: 
 
     return (
         <>
-        <ConfirmDialog
-            open={confirmDelete}
-            title='Delete Mission'
-            message={`"${mission.title}" will be permanently deleted. This cannot be undone.`}
-            confirmLabel='Delete'
-            danger
-            onConfirm={handleDelete}
-            onCancel={() => setConfirmDelete(false)}
-        />
-        <div
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
-                borderBottom: '1px solid rgba(255,255,255,0.04)',
-                borderLeft: `2px solid ${hovered ? 'var(--red)' : 'rgba(219,0,29,0.15)'}`,
-                background: hovered ? 'rgba(255,255,255,0.015)' : 'transparent',
-                transition: 'border-color 0.2s, background 0.2s',
-            }}
-        >
-            {/* Cover thumbnail */}
-            {mission.coverImage && (
-                <div style={{ width: 52, height: 36, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)' }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={mission.coverImage} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                </div>
-            )}
-
-            {/* Info */}
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {mission.title}
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <StatusBadge status={mission.status} />
-                    {mission.department && (
-                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>
-                            {mission.department}
-                        </span>
-                    )}
-                    <span style={{ fontSize: '0.6rem', letterSpacing: '0.07em', color: 'rgba(237,237,237,0.28)', textTransform: 'uppercase' }}>
-                        {new Date(mission.date).toDateString()}
-                    </span>
-                </div>
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                {hasAccess && (
-                    <>
-                        <Link href={`/operations/edit?op=${mission._id.toString()}`} title='Edit'>
-                            <IconBtn><Edit style={{ fontSize: 14 }} /></IconBtn>
-                        </Link>
-                        <button
-                            title='Duplicate'
-                            onClick={() => fetch(`/api/operations/duplicate?id=${mission._id}`).then(r => r.json()).then(j => { if (j.error) alert(j.error); else onDuplicated?.() })}
-                            style={{ all: 'unset', cursor: 'pointer' }}
-                        >
-                            <IconBtn><ContentCopy style={{ fontSize: 14 }} /></IconBtn>
-                        </button>
-                        <button
-                            title='Delete'
-                            onClick={() => setConfirmDelete(true)}
-                            style={{ all: 'unset', cursor: 'pointer' }}
-                        >
-                            <IconBtn danger><Delete style={{ fontSize: 14 }} /></IconBtn>
-                        </button>
-                        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)', margin: '0 4px' }} />
-                    </>
-                )}
-                <Link href={`/operations/${mission._id.toString()}`} title='View Mission'>
-                    <div
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: 3,
-                            padding: '5px 10px',
-                            border: '1px solid rgba(219,0,29,0.25)',
-                            color: 'rgba(219,0,29,0.65)',
-                            fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                            transition: 'background 0.15s, color 0.15s, border-color 0.15s',
-                        }}
-                        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(219,0,29,0.08)'; el.style.color = 'rgba(219,0,29,1)'; el.style.borderColor = 'rgba(219,0,29,0.5)' }}
-                        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.color = 'rgba(219,0,29,0.65)'; el.style.borderColor = 'rgba(219,0,29,0.25)' }}
-                    >
-                        View <ArrowForward style={{ fontSize: 11 }} />
+            <ConfirmDialog
+                open={confirmDelete}
+                title='Delete Mission'
+                message={`"${mission.title}" will be permanently deleted. This cannot be undone.`}
+                confirmLabel='Delete'
+                danger
+                onConfirm={handleDelete}
+                onCancel={() => setConfirmDelete(false)}
+            />
+            <div
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
+                style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
+                    borderBottom: '1px solid rgba(255,255,255,0.04)',
+                    borderLeft: `2px solid ${hovered ? 'var(--red)' : 'rgba(219,0,29,0.15)'}`,
+                    background: hovered ? 'rgba(255,255,255,0.015)' : 'transparent',
+                    transition: 'border-color 0.2s, background 0.2s',
+                }}
+            >
+                {/* Cover thumbnail */}
+                {mission.coverImage && (
+                    <div style={{ width: 52, height: 36, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={mission.coverImage} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     </div>
-                </Link>
+                )}
+
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.88)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {mission.title}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <StatusBadge status={mission.status} />
+                        {mission.department && (
+                            <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>
+                                {mission.department}
+                            </span>
+                        )}
+                        <span style={{ fontSize: '0.6rem', letterSpacing: '0.07em', color: 'rgba(237,237,237,0.28)', textTransform: 'uppercase' }}>
+                            {new Date(mission.date).toDateString()}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    {hasAccess && (
+                        <>
+                            <button
+                                title='Delete'
+                                onClick={() => setConfirmDelete(true)}
+                                style={{ all: 'unset', cursor: 'pointer' }}
+                            >
+                                <div
+                                    style={{
+                                        display: 'flex', alignItems: 'center', lineHeight: 0,
+                                        padding: '5px 8px',
+                                        background: 'rgba(180,20,20,0.07)',
+                                        border: '1px solid rgba(180,20,20,0.35)',
+                                        color: 'rgba(220,60,60,0.75)',
+                                        cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+                                    }}
+                                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(180,20,20,0.18)'; el.style.color = 'rgba(240,80,80,1)'; el.style.borderColor = 'rgba(180,20,20,0.65)' }}
+                                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(180,20,20,0.07)'; el.style.color = 'rgba(220,60,60,0.75)'; el.style.borderColor = 'rgba(180,20,20,0.35)' }}
+                                >
+                                    <Delete style={{ fontSize: 13 }} />
+                                </div>
+                            </button>
+                            <button
+                                title='Duplicate'
+                                onClick={() => fetch(`/api/operations/duplicate?id=${mission._id}`).then(r => r.json()).then(j => { if (j.error) alert(j.error); else onDuplicated?.() })}
+                                style={{ all: 'unset', cursor: 'pointer' }}
+                            >
+                                <div
+                                    style={{
+                                        display: 'flex', alignItems: 'center', lineHeight: 0,
+                                        padding: '5px 8px',
+                                        background: 'rgba(219,160,0,0.07)',
+                                        border: '1px solid rgba(219,160,0,0.3)',
+                                        color: 'rgba(219,160,0,0.75)',
+                                        cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+                                    }}
+                                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(219,160,0,0.16)'; el.style.color = 'rgba(219,160,0,1)'; el.style.borderColor = 'rgba(219,160,0,0.6)' }}
+                                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(219,160,0,0.07)'; el.style.color = 'rgba(219,160,0,0.75)'; el.style.borderColor = 'rgba(219,160,0,0.3)' }}
+                                >
+                                    <ContentCopy style={{ fontSize: 13 }} />
+                                </div>
+                            </button>
+                            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)' }} />
+                            <Link href={`/operations/edit?op=${mission._id.toString()}`} title='Edit' style={{ textDecoration: 'none' }}>
+                                <div
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 4,
+                                        padding: '5px 10px',
+                                        background: 'rgba(100,150,237,0.07)',
+                                        border: '1px solid rgba(100,150,237,0.3)',
+                                        color: 'rgba(100,150,237,0.75)',
+                                        fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                                        cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+                                    }}
+                                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(100,150,237,0.16)'; el.style.color = 'rgba(100,150,237,1)'; el.style.borderColor = 'rgba(100,150,237,0.6)' }}
+                                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(100,150,237,0.07)'; el.style.color = 'rgba(100,150,237,0.75)'; el.style.borderColor = 'rgba(100,150,237,0.3)' }}
+                                >
+                                    <Edit style={{ fontSize: 11 }} /> Edit
+                                </div>
+                            </Link>
+                            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)' }} />
+                        </>
+                    )}
+                    <Link href={`/operations/${mission._id.toString()}`} title='View Mission' style={{ textDecoration: 'none' }}>
+                        <div
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 4,
+                                padding: '5px 10px',
+                                background: 'rgba(219,0,29,0.07)',
+                                border: '1px solid rgba(219,0,29,0.35)',
+                                color: 'rgba(219,0,29,0.8)',
+                                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                                cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+                            }}
+                            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(219,0,29,0.16)'; el.style.color = 'rgba(219,0,29,1)'; el.style.borderColor = 'rgba(219,0,29,0.65)' }}
+                            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(219,0,29,0.07)'; el.style.color = 'rgba(219,0,29,0.8)'; el.style.borderColor = 'rgba(219,0,29,0.35)' }}
+                        >
+                            View <ArrowForward style={{ fontSize: 11 }} />
+                        </div>
+                    </Link>
+                </div>
             </div>
-        </div>
         </>
     )
 }
@@ -604,17 +646,19 @@ export function OperationsBoard({ editAccess }: { editAccess: boolean }) {
     const [selected, setSelected] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
 
     return (
-        <div className='grid grid-cols-1 md:grid-cols-[280px_1fr_220px] gap-4 items-start'>
+        <div className='grid grid-cols-1 md:grid-cols-[420px_1fr_240px] gap-4 items-stretch'>
             {/* Col 1 on desktop / top on mobile */}
-            <ActiveMissionsPanel hasAccess={editAccess} />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <ActiveMissionsPanel hasAccess={editAccess} />
+            </div>
 
             {/* Col 2 on desktop / bottom on mobile (order-3) */}
-            <div className='order-3 md:order-2'>
+            <div className='order-3 md:order-2' style={{ display: 'flex', flexDirection: 'column' }}>
                 <MonthlyMissionsPanel year={selected.year} month={selected.month} hasAccess={editAccess} />
             </div>
 
             {/* Col 3 on desktop / middle on mobile (order-2) so user picks month before seeing list */}
-            <div className='order-2 md:order-3'>
+            <div className='order-2 md:order-3' style={{ display: 'flex', flexDirection: 'column' }}>
                 <CalendarPicker selected={selected} onChange={setSelected} />
             </div>
         </div>
