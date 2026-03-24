@@ -12,6 +12,7 @@ export default function TacticalLoader({ label = "LOADING" }: Props) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            paddingBottom: '80px',
             fontFamily: 'Montserrat, sans-serif',
             position: 'relative',
             overflow: 'hidden',
