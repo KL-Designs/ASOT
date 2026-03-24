@@ -58,7 +58,10 @@ export default function SectionNav({ sections, themeColor, pageTheme = 'modern',
     }, [activeId])
 
     function scrollTo(id: string) {
-        document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        const el = document.getElementById(`section-${id}`)
+        if (!el) return
+        const top = el.getBoundingClientRect().top + window.scrollY - 50
+        window.scrollTo({ top, behavior: 'smooth' })
     }
 
     if (sections.length < 2) return null
