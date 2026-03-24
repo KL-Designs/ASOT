@@ -364,15 +364,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
             {/* ── Section nav ───────────────────────────────────────────────── */}
             {operation.sections && operation.sections.length > 1 && (
-                <div className='print-hide'>
-                    <SectionNav
-                        themeColor={operation.themeColor || '#db001d'}
-                        pageTheme={pageTheme}
-                        sections={operation.sections
-                            .filter(s => isLoggedIn || s.isPublic)
-                            .map(s => ({ id: s.id, title: s.title }))}
-                    />
-                </div>
+                <SectionNav
+                    className='print-hide'
+                    themeColor={operation.themeColor || '#db001d'}
+                    pageTheme={pageTheme}
+                    sections={operation.sections
+                        .filter(s => isLoggedIn || s.isPublic)
+                        .map(s => ({ id: s.id, title: s.title }))}
+                />
             )}
 
             {/* ── Document sections ─────────────────────────────────────────── */}

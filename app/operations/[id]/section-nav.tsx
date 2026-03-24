@@ -16,7 +16,7 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default function SectionNav({ sections, themeColor, pageTheme = 'modern' }: { sections: NavSection[], themeColor: string, pageTheme?: 'modern' | 'oldfashioned' | 'scifi' }) {
+export default function SectionNav({ sections, themeColor, pageTheme = 'modern', className }: { sections: NavSection[], themeColor: string, pageTheme?: 'modern' | 'oldfashioned' | 'scifi', className?: string }) {
     const [activeId, setActiveId] = useState<string | null>(null)
     const navRef = useRef<HTMLDivElement>(null)
 
@@ -42,11 +42,19 @@ export default function SectionNav({ sections, themeColor, pageTheme = 'modern' 
         return () => observers.forEach(o => o.disconnect())
     }, [sections])
 
-    // Scroll the active nav item into view
+    // Scroll the active nav item into view (horizontal only — avoids page-level scroll)
     useEffect(() => {
         if (!activeId || !navRef.current) return
-        const btn = navRef.current.querySelector(`[data-id="${activeId}"]`) as HTMLElement
-        if (btn) btn.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+        const nav = navRef.current
+        const btn = nav.querySelector(`[data-id="${activeId}"]`) as HTMLElement
+        if (!btn) return
+        const btnLeft = btn.offsetLeft
+        const btnRight = btnLeft + btn.offsetWidth
+        if (btnLeft < nav.scrollLeft) {
+            nav.scrollLeft = btnLeft
+        } else if (btnRight > nav.scrollLeft + nav.offsetWidth) {
+            nav.scrollLeft = btnRight - nav.offsetWidth
+        }
     }, [activeId])
 
     function scrollTo(id: string) {
@@ -85,7 +93,7 @@ export default function SectionNav({ sections, themeColor, pageTheme = 'modern' 
     }
 
     return (
-        <div style={outerStyle}>
+        <div style={outerStyle} className={className}>
             <div
                 ref={navRef}
                 className='w-full max-w-[900px] mx-auto px-4 md:px-8'
