@@ -241,26 +241,6 @@ function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isB
                     </button>
                 )}
 
-                {/* Add mod button (edit mode only) */}
-                {editMode && (
-                    <button
-                        onClick={() => addingMod ? handleCancel() : setAddingMod(true)}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: 4,
-                            background: addingMod ? 'transparent' : 'rgba(219,0,29,0.08)',
-                            border: `1px solid ${addingMod ? 'rgba(255,255,255,0.1)' : 'rgba(219,0,29,0.3)'}`,
-                            color: addingMod ? 'rgba(237,237,237,0.4)' : 'rgba(219,0,29,0.8)',
-                            padding: '2px 8px',
-                            fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em',
-                            textTransform: 'uppercase', cursor: 'pointer',
-                            transition: 'all 0.2s',
-                        }}
-                    >
-                        {addingMod ? <Close style={{ fontSize: 11 }} /> : <Add style={{ fontSize: 11 }} />}
-                        {addingMod ? 'Cancel' : 'Add Mod'}
-                    </button>
-                )}
-
                 <span style={{
                     fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.06em',
                     color: 'rgba(219,0,29,0.7)', background: 'rgba(219,0,29,0.08)',
@@ -296,48 +276,79 @@ function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isB
                 }
             </div>
 
-            {/* Add mod form (edit mode only) */}
-            {editMode && addingMod && (
-                <div className='flex flex-col gap-2 px-3 py-3' style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(219,0,29,0.02)' }}>
-                    <Typography fontSize='0.68rem' fontWeight={700} letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>
-                        Add Mod to {title}
-                    </Typography>
-                    <input
-                        placeholder='Steam Workshop ID (numeric)'
-                        value={newId}
-                        onChange={e => setNewId(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleAddSubmit()}
-                        style={inputStyle}
-                    />
-                    <input
-                        placeholder='Mod name'
-                        value={newName}
-                        onChange={e => setNewName(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && handleAddSubmit()}
-                        style={inputStyle}
-                    />
-                    {addError && (
-                        <Typography fontSize='0.72rem' style={{ color: 'rgba(219,0,29,0.8)' }}>{addError}</Typography>
-                    )}
-                    <div className='flex gap-2'>
+            {/* Add mod (edit mode only) */}
+            {editMode && (
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    {addingMod ? (
+                        <div className='flex flex-col gap-2 px-3 py-3' style={{ background: 'rgba(219,0,29,0.02)' }}>
+                            <input
+                                placeholder='Steam Workshop ID (numeric)'
+                                value={newId}
+                                onChange={e => setNewId(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleAddSubmit()}
+                                style={inputStyle}
+                            />
+                            <input
+                                placeholder='Mod name'
+                                value={newName}
+                                onChange={e => setNewName(e.target.value)}
+                                onKeyDown={e => e.key === 'Enter' && handleAddSubmit()}
+                                style={inputStyle}
+                            />
+                            {addError && (
+                                <Typography fontSize='0.72rem' style={{ color: 'rgba(219,0,29,0.8)' }}>{addError}</Typography>
+                            )}
+                            <div className='flex gap-2'>
+                                <button
+                                    onClick={handleCancel}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                        background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+                                        color: 'rgba(237,237,237,0.4)', padding: '7px 14px',
+                                        fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.1em',
+                                        textTransform: 'uppercase', cursor: 'pointer',
+                                    }}
+                                >
+                                    <Close style={{ fontSize: 13 }} />
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleAddSubmit}
+                                    disabled={addLoading || !newId.trim() || !newName.trim()}
+                                    style={{
+                                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                        background: 'var(--red)', border: '1px solid var(--red)',
+                                        color: 'white', padding: '7px',
+                                        fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em',
+                                        textTransform: 'uppercase',
+                                        cursor: addLoading || !newId.trim() || !newName.trim() ? 'not-allowed' : 'pointer',
+                                        opacity: !newId.trim() || !newName.trim() ? 0.4 : 1,
+                                        transition: 'opacity 0.2s',
+                                    }}
+                                >
+                                    {addLoading ? <CircularProgress size={12} style={{ color: 'white' }} /> : <Add style={{ fontSize: 14 }} />}
+                                    Add Mod
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
                         <button
-                            onClick={handleAddSubmit}
-                            disabled={addLoading || !newId.trim() || !newName.trim()}
+                            onClick={() => setAddingMod(true)}
+                            className='w-full flex items-center justify-center gap-2'
                             style={{
-                                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                                background: 'var(--red)', border: '1px solid var(--red)',
-                                color: 'white', padding: '7px',
-                                fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em',
-                                textTransform: 'uppercase',
-                                cursor: addLoading || !newId.trim() || !newName.trim() ? 'not-allowed' : 'pointer',
-                                opacity: !newId.trim() || !newName.trim() ? 0.4 : 1,
-                                transition: 'opacity 0.2s',
+                                background: 'transparent', border: 'none',
+                                color: 'rgba(219,0,29,0.5)', padding: '10px',
+                                fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.08em',
+                                textTransform: 'uppercase', cursor: 'pointer',
+                                transition: 'color 0.15s',
                             }}
+                            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.85)')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.5)')}
                         >
-                            {addLoading ? <CircularProgress size={12} style={{ color: 'white' }} /> : <Add style={{ fontSize: 14 }} />}
+                            <Add style={{ fontSize: 14 }} />
                             Add Mod
                         </button>
-                    </div>
+                    )}
                 </div>
             )}
         </div>
