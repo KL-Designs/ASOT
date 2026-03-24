@@ -14,17 +14,19 @@ export async function POST(request: NextRequest) {
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (!client.hasRoles(me, PERMISSIONS.optionals.manage)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const { action, type, id, name } = await request.json() as {
-        action: 'add' | 'remove'
+    const { action, type, id, name, deps } = await request.json() as {
+        action: 'add' | 'remove' | 'set-deps'
         type: OptType
         id: string
         name?: string
+        deps?: string[]
     }
 
     if (!action || !type || !id) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     if (!VALID_TYPES.includes(type)) return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
-    if (action !== 'add' && action !== 'remove') return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    if (action !== 'add' && action !== 'remove' && action !== 'set-deps') return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     if (action === 'add' && !name) return NextResponse.json({ error: 'Missing name' }, { status: 400 })
+    if (action === 'set-deps' && !Array.isArray(deps)) return NextResponse.json({ error: 'deps must be an array' }, { status: 400 })
 
     try {
         if (action === 'add') {
@@ -35,6 +37,14 @@ export async function POST(request: NextRequest) {
             await Db.optionals.updateOne({ _id: type }, { $pull: { mods: { id } } })
             // Remove from all users' enabled lists so no orphaned entries remain
             await Db.users.updateMany({}, { $pull: { [`optionals.${type}`]: { id } } })
+        }
+
+        if (action === 'set-deps') {
+            await Db.optionals.updateOne(
+                { _id: type },
+                { $set: { 'mods.$[elem].deps': deps } },
+                { arrayFilters: [{ 'elem.id': id }] }
+            )
         }
 
         return NextResponse.json({ success: true }, { status: 200 })

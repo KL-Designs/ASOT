@@ -1,12 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { Typography, Switch, CircularProgress } from '@mui/material'
-import { WarningAmber, CheckCircleOutline, Launch, RestartAlt, Tune, Engineering, Videocam, FlashOn, Psychology, DoneAll, DeleteOutline, Add, Close, EditOutlined } from '@mui/icons-material'
+import { WarningAmber, CheckCircleOutline, Launch, RestartAlt, Tune, Engineering, Videocam, FlashOn, Psychology, DoneAll, DeleteOutline, Add, Close, EditOutlined, AccountTree } from '@mui/icons-material'
 
-type ModEntry = { id: string; name: string }
+type ModEntry = { id: string; name: string; deps?: string[] }
 type OptType = 'qol' | 'gfx' | 'zeus' | 'j2' | 'j5'
 
 const TYPES: OptType[] = ['qol', 'gfx', 'zeus', 'j2', 'j5']
@@ -17,16 +17,47 @@ const sortMods = (mods: ModEntry[]) => [...mods].sort((a, b) => a.name.localeCom
 
 // ─── Mod row ──────────────────────────────────────────────────────────────────
 
-function Mod({ details, enabled, loading, onToggle, editMode, onRemove }: {
+function Mod({ details, enabled, loading, onToggle, editMode, onRemove, allModsMap, onSetDeps }: {
     details: ModEntry
     enabled: boolean
     loading: boolean
     onToggle: (enabled: boolean) => void
     editMode: boolean
     onRemove: () => Promise<void>
+    allModsMap: Map<string, string>
+    onSetDeps: (deps: string[]) => Promise<void>
 }) {
     const [confirming, setConfirming] = useState(false)
     const [removing, setRemoving] = useState(false)
+    const [editingDeps, setEditingDeps] = useState(false)
+    const [draftDeps, setDraftDeps] = useState<string[]>([])
+    const [newDepInput, setNewDepInput] = useState('')
+    const [depsSaving, setDepsSaving] = useState(false)
+
+    function openDepsPanel() {
+        setDraftDeps(details.deps ?? [])
+        setNewDepInput('')
+        setEditingDeps(true)
+    }
+
+    function parseDepId(input: string): string {
+        const match = input.match(/[?&]id=(\d+)/)
+        if (match) return match[1]
+        return input.trim()
+    }
+
+    function addDep() {
+        const id = parseDepId(newDepInput)
+        if (!id || !/^\d+$/.test(id) || draftDeps.includes(id)) return
+        setDraftDeps(d => [...d, id])
+        setNewDepInput('')
+    }
+
+    async function saveDeps() {
+        setDepsSaving(true)
+        try { await onSetDeps(draftDeps) }
+        finally { setDepsSaving(false); setEditingDeps(false) }
+    }
 
     async function handleConfirm() {
         setRemoving(true)
@@ -73,75 +104,186 @@ function Mod({ details, enabled, loading, onToggle, editMode, onRemove }: {
     )
 
     return (
-        <div
-            className='flex flex-row items-center gap-2 px-3 py-[6px] rounded transition-colors group'
-            style={{
-                background: enabled ? 'rgba(219,0,29,0.05)' : 'transparent',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
-            }}
-        >
-            <Link
-                href={`https://steamcommunity.com/sharedfiles/filedetails/?id=${details.id}`}
-                target='_blank'
-                className='flex items-center gap-2 min-w-0 flex-1'
+        <>
+            <div
+                className='flex flex-row items-center gap-2 px-3 py-[6px] rounded transition-colors group'
+                style={{
+                    background: enabled ? 'rgba(219,0,29,0.05)' : 'transparent',
+                    borderBottom: editingDeps ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                }}
             >
-                <Typography
-                    fontSize='0.82rem'
-                    fontWeight={enabled ? 600 : 400}
-                    letterSpacing='0.02em'
-                    style={{
-                        color: enabled ? 'var(--foreground)' : 'rgba(237,237,237,0.55)',
-                        transition: 'color 0.15s',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                    }}
+                <Link
+                    href={`https://steamcommunity.com/sharedfiles/filedetails/?id=${details.id}`}
+                    target='_blank'
+                    className='flex items-center gap-2 min-w-0 flex-1'
                 >
-                    {details.name}
-                </Typography>
-                <Launch style={{ fontSize: 11, color: 'rgba(237,237,237,0.2)', flexShrink: 0 }} />
-            </Link>
-
-            {editMode
-                ? (
-                    <button
-                        onClick={() => setConfirming(true)}
-                        title='Remove mod from list'
+                    <Typography
+                        fontSize='0.82rem'
+                        fontWeight={enabled ? 600 : 400}
+                        letterSpacing='0.02em'
                         style={{
-                            display: 'flex', alignItems: 'center',
-                            background: 'transparent', border: 'none',
-                            color: 'rgba(219,0,29,0.35)', cursor: 'pointer',
-                            padding: '2px', flexShrink: 0,
+                            color: enabled ? 'var(--foreground)' : 'rgba(237,237,237,0.55)',
                             transition: 'color 0.15s',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
                         }}
-                        onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.8)')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.35)')}
                     >
-                        <DeleteOutline style={{ fontSize: 14 }} />
-                    </button>
-                ) : (
-                    loading
-                        ? <CircularProgress size={16} style={{ color: 'rgba(219,0,29,0.5)', flexShrink: 0 }} />
-                        : <Switch
-                            size='small'
-                            checked={enabled}
-                            onChange={e => onToggle(e.currentTarget.checked)}
-                            sx={{
-                                flexShrink: 0,
-                                '& .MuiSwitch-thumb': { background: enabled ? 'var(--red)' : 'rgba(237,237,237,0.3)' },
-                                '& .MuiSwitch-track': { background: enabled ? 'rgba(219,0,29,0.35) !important' : 'rgba(255,255,255,0.1) !important', opacity: '1 !important' },
+                        {details.name}
+                    </Typography>
+                    <Launch style={{ fontSize: 11, color: 'rgba(237,237,237,0.2)', flexShrink: 0 }} />
+                </Link>
+
+                {editMode
+                    ? (
+                        <div className='flex items-center gap-1' style={{ flexShrink: 0 }}>
+                            <button
+                                onClick={openDepsPanel}
+                                title='Edit dependencies'
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 3,
+                                    background: editingDeps ? 'rgba(255,255,255,0.06)' : 'transparent',
+                                    border: 'none',
+                                    color: editingDeps ? 'rgba(237,237,237,0.6)' : (details.deps?.length ? 'rgba(100,180,255,0.5)' : 'rgba(237,237,237,0.2)'),
+                                    cursor: 'pointer', padding: '2px 4px', flexShrink: 0,
+                                    transition: 'color 0.15s',
+                                    fontSize: '0.62rem', fontWeight: 600, letterSpacing: '0.06em',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.6)')}
+                                onMouseLeave={e => (e.currentTarget.style.color = editingDeps ? 'rgba(237,237,237,0.6)' : (details.deps?.length ? 'rgba(100,180,255,0.5)' : 'rgba(237,237,237,0.2)'))}
+                            >
+                                <AccountTree style={{ fontSize: 12 }} />
+                                {details.deps?.length ? details.deps.length : ''}
+                            </button>
+                            <button
+                                onClick={() => setConfirming(true)}
+                                title='Remove mod from list'
+                                style={{
+                                    display: 'flex', alignItems: 'center',
+                                    background: 'transparent', border: 'none',
+                                    color: 'rgba(219,0,29,0.35)', cursor: 'pointer',
+                                    padding: '2px', flexShrink: 0,
+                                    transition: 'color 0.15s',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.8)')}
+                                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.35)')}
+                            >
+                                <DeleteOutline style={{ fontSize: 14 }} />
+                            </button>
+                        </div>
+                    ) : (
+                        loading
+                            ? <CircularProgress size={16} style={{ color: 'rgba(219,0,29,0.5)', flexShrink: 0 }} />
+                            : <Switch
+                                size='small'
+                                checked={enabled}
+                                onChange={e => onToggle(e.currentTarget.checked)}
+                                sx={{
+                                    flexShrink: 0,
+                                    '& .MuiSwitch-thumb': { background: enabled ? 'var(--red)' : 'rgba(237,237,237,0.3)' },
+                                    '& .MuiSwitch-track': { background: enabled ? 'rgba(219,0,29,0.35) !important' : 'rgba(255,255,255,0.1) !important', opacity: '1 !important' },
+                                }}
+                            />
+                    )
+                }
+            </div>
+
+            {editingDeps && (
+                <div
+                    className='flex flex-col gap-2 px-3 py-2'
+                    style={{ background: 'rgba(100,180,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.05)', borderLeft: '2px solid rgba(100,180,255,0.2)' }}
+                >
+                    <Typography fontSize='0.68rem' fontWeight={600} letterSpacing='0.08em' style={{ color: 'rgba(100,180,255,0.5)', textTransform: 'uppercase' }}>
+                        Dependencies
+                    </Typography>
+
+                    {draftDeps.length === 0
+                        ? <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.25)' }}>No dependencies set</Typography>
+                        : draftDeps.map(depId => (
+                            <div key={depId} className='flex items-center gap-2'>
+                                <Typography fontSize='0.74rem' style={{ flex: 1, color: allModsMap.has(depId) ? 'rgba(237,237,237,0.7)' : 'rgba(237,237,237,0.35)' }}>
+                                    {allModsMap.get(depId) ?? depId}
+                                    {!allModsMap.has(depId) && <span style={{ color: 'rgba(255,160,0,0.5)', fontSize: '0.66rem', marginLeft: 4 }}>(not in lists)</span>}
+                                </Typography>
+                                <button
+                                    onClick={() => setDraftDeps(d => d.filter(d2 => d2 !== depId))}
+                                    style={{ background: 'transparent', border: 'none', color: 'rgba(219,0,29,0.4)', cursor: 'pointer', padding: 0, display: 'flex' }}
+                                    onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.8)')}
+                                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.4)')}
+                                >
+                                    <Close style={{ fontSize: 13 }} />
+                                </button>
+                            </div>
+                        ))
+                    }
+
+                    <div className='flex gap-2 mt-1'>
+                        <input
+                            placeholder='Workshop ID or Steam URL'
+                            value={newDepInput}
+                            onChange={e => setNewDepInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && addDep()}
+                            style={{
+                                flex: 1, background: 'rgba(255,255,255,0.04)',
+                                border: '1px solid rgba(255,255,255,0.1)', color: 'var(--foreground)',
+                                padding: '4px 8px', fontSize: '0.74rem', outline: 'none',
                             }}
                         />
-                )
-            }
-        </div>
+                        <button
+                            onClick={addDep}
+                            disabled={!newDepInput.trim()}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 3,
+                                background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'rgba(237,237,237,0.4)', padding: '4px 8px',
+                                fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.06em',
+                                textTransform: 'uppercase', cursor: 'pointer',
+                            }}
+                        >
+                            <Add style={{ fontSize: 12 }} />
+                            Add
+                        </button>
+                    </div>
+
+                    <div className='flex gap-2 mt-1'>
+                        <button
+                            onClick={() => setEditingDeps(false)}
+                            disabled={depsSaving}
+                            style={{
+                                background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'rgba(237,237,237,0.35)', padding: '4px 10px',
+                                fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
+                                textTransform: 'uppercase', cursor: 'pointer',
+                            }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={saveDeps}
+                            disabled={depsSaving}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 4,
+                                background: 'rgba(100,180,255,0.1)', border: '1px solid rgba(100,180,255,0.3)',
+                                color: 'rgba(100,180,255,0.8)', padding: '4px 10px',
+                                fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
+                                textTransform: 'uppercase', cursor: depsSaving ? 'not-allowed' : 'pointer',
+                                opacity: depsSaving ? 0.6 : 1,
+                            }}
+                        >
+                            {depsSaving ? <CircularProgress size={10} style={{ color: 'rgba(100,180,255,0.8)' }} /> : null}
+                            Save
+                        </button>
+                    </div>
+                </div>
+            )}
+        </>
     )
 }
 
 
 // ─── Mod category card ────────────────────────────────────────────────────────
 
-function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isBulkLoading, editMode, onToggle, onToggleAll, onAddMod, onRemoveMod }: {
+function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isBulkLoading, editMode, onToggle, onToggleAll, onAddMod, onRemoveMod, allModsMap, onSetDeps }: {
     title: string
     icon: React.ReactNode
     warning?: string
@@ -155,6 +297,8 @@ function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isB
     onToggleAll: (enable: boolean) => void
     onAddMod: (id: string, name: string) => Promise<void>
     onRemoveMod: (id: string) => Promise<void>
+    allModsMap: Map<string, string>
+    onSetDeps: (id: string, deps: string[]) => Promise<void>
 }) {
     const [addingMod, setAddingMod] = useState(false)
     const [newId, setNewId] = useState('')
@@ -271,6 +415,8 @@ function ModCard({ title, icon, warning, list, type, enabledIds, loadingIds, isB
                             onToggle={enabled => onToggle(mod.id, mod.name, enabled)}
                             editMode={editMode}
                             onRemove={() => onRemoveMod(mod.id)}
+                            allModsMap={allModsMap}
+                            onSetDeps={deps => onSetDeps(mod.id, deps)}
                         />
                     ))
                 }
@@ -447,6 +593,12 @@ export default function Page() {
     const [showGfxWarning, setShowGfxWarning] = useState(false)
     const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
 
+    const allModsMap = useMemo(() => {
+        const map = new Map<string, string>()
+        for (const type of TYPES) for (const mod of lists[type]) map.set(mod.id, mod.name)
+        return map
+    }, [lists])
+
     // Load all mod lists and user's enabled state in parallel
     useEffect(() => {
         Promise.all([
@@ -467,6 +619,19 @@ export default function Page() {
             setInitialLoading(false)
         })
     }, [])
+
+    function autoEnableDeps(type: OptType, id: string) {
+        const mod = lists[type].find(m => m.id === id)
+        for (const depId of mod?.deps ?? []) {
+            for (const depType of TYPES) {
+                const depMod = lists[depType].find(m => m.id === depId)
+                if (depMod && !enabledIds[depType].includes(depId)) {
+                    doToggle(depType, depId, depMod.name, true)
+                    break
+                }
+            }
+        }
+    }
 
     function doToggle(type: OptType, id: string, name: string, enable: boolean) {
         const prev = enabledIds[type]
@@ -509,8 +674,8 @@ export default function Page() {
     }
 
     function handleToggle(type: OptType, id: string, name: string, enable: boolean) {
-        if (type === 'gfx' && enable) withGfxCheck(() => doToggle(type, id, name, enable))
-        else doToggle(type, id, name, enable)
+        if (type === 'gfx' && enable) withGfxCheck(() => { doToggle(type, id, name, enable); autoEnableDeps(type, id) })
+        else { doToggle(type, id, name, enable); if (enable) autoEnableDeps(type, id) }
     }
 
     function handleToggleAll(type: OptType, enable: boolean) {
@@ -539,6 +704,17 @@ export default function Page() {
         const json = await res.json()
         if (json.error) throw new Error(json.error)
         setLists(cur => ({ ...cur, [type]: sortMods([...cur[type], { id, name }]) }))
+    }
+
+    async function handleSetDeps(type: OptType, id: string, deps: string[]) {
+        const res = await fetch('/optionals/manage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'set-deps', type, id, deps }),
+        })
+        const json = await res.json()
+        if (json.error) throw new Error(json.error)
+        setLists(cur => ({ ...cur, [type]: cur[type].map(m => m.id === id ? { ...m, deps } : m) }))
     }
 
     async function handleRemoveMod(type: OptType, id: string) {
@@ -572,6 +748,8 @@ export default function Page() {
         onToggleAll: (en: boolean) => handleToggleAll(type, en),
         onAddMod: (id: string, name: string) => handleAddMod(type, id, name),
         onRemoveMod: (id: string) => handleRemoveMod(type, id),
+        allModsMap,
+        onSetDeps: (id: string, deps: string[]) => handleSetDeps(type, id, deps),
     })
 
     return (

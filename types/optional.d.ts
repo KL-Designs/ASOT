@@ -10,6 +10,7 @@ declare global {
         mods: {
             id: string
             name: string
+            deps?: string[]
         }[]
     }
 
