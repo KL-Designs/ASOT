@@ -15,6 +15,7 @@ const DbInterface = {
     milpacs: client.db(process.env.MONGO_DB!).collection('milpacs') as MongoCollection<Milpac>,
     optionals: client.db(process.env.MONGO_DB!).collection('optionals') as MongoCollection<Optional>,
     operations: client.db(process.env.MONGO_DB!).collection('operations') as MongoCollection<Operation>,
+    operationActivity: client.db(process.env.MONGO_DB!).collection<OperationActivityLog>('operation_activity'),
     minigameScores: client.db(process.env.MONGO_DB!).collection('minigame_scores'),
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,

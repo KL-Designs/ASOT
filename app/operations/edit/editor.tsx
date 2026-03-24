@@ -410,53 +410,58 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
 
     return (
         <ThemeContext.Provider value={themeColor}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
 
-                {/* Presence avatars */}
-                {peers.length > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                        {peers.map(peer => (
-                            <PresenceAvatar key={peer.clientId} peer={peer} />
-                        ))}
-                    </div>
-                )}
+                {/* Main editor column */}
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-                {/* Section editors */}
-                {sectionIds.map((id, idx) => (
-                    <SectionEditor
-                        key={id}
-                        ydoc={ydoc}
-                        sectionId={id}
-                        provider={provider}
-                        user={user}
-                        onRemove={() => removeSection(id)}
-                        onMoveUp={() => moveSection(id, 'up')}
-                        onMoveDown={() => moveSection(id, 'down')}
-                        canMoveUp={idx > 0}
-                        canMoveDown={idx < sectionIds.length - 1}
-                        themeColor={themeColor}
-                        seedContent={id === seedSectionId ? initialContent : undefined}
-                    />
-                ))}
+                    {/* Presence avatars */}
+                    {peers.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                            {peers.map(peer => (
+                                <PresenceAvatar key={peer.clientId} peer={peer} />
+                            ))}
+                        </div>
+                    )}
 
-                {/* Add section button */}
-                <button
-                    type='button'
-                    onClick={addSection}
-                    style={{
-                        alignSelf: 'flex-start',
-                        padding: '7px 16px',
-                        background: 'transparent',
-                        border: `1px dashed ${c(0.3)}`,
-                        color: c(0.55),
-                        fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-                        cursor: 'pointer', transition: 'all 0.15s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = c(0.7); e.currentTarget.style.color = c(0.9) }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = c(0.3); e.currentTarget.style.color = c(0.55) }}
-                >
-                    + Add Section
-                </button>
+                    {/* Section editors */}
+                    {sectionIds.map((id, idx) => (
+                        <SectionEditor
+                            key={id}
+                            ydoc={ydoc}
+                            sectionId={id}
+                            provider={provider}
+                            user={user}
+                            onRemove={() => removeSection(id)}
+                            onMoveUp={() => moveSection(id, 'up')}
+                            onMoveDown={() => moveSection(id, 'down')}
+                            canMoveUp={idx > 0}
+                            canMoveDown={idx < sectionIds.length - 1}
+                            themeColor={themeColor}
+                            seedContent={id === seedSectionId ? initialContent : undefined}
+                        />
+                    ))}
+
+                    {/* Add section button */}
+                    <button
+                        type='button'
+                        onClick={addSection}
+                        style={{
+                            alignSelf: 'flex-start',
+                            padding: '7px 16px',
+                            background: 'transparent',
+                            border: `1px dashed ${c(0.3)}`,
+                            color: c(0.55),
+                            fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+                            cursor: 'pointer', transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = c(0.7); e.currentTarget.style.color = c(0.9) }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = c(0.3); e.currentTarget.style.color = c(0.55) }}
+                    >
+                        + Add Section
+                    </button>
+                </div>
+
             </div>
         </ThemeContext.Provider>
     )

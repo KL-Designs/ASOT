@@ -11,6 +11,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dynamic from 'next/dynamic'
 import PERMISSIONS from '@/lib/permissions'
 import { type MetaFields } from './editor'
+import ActivityLog from './activity-log'
 const OperationEditor = dynamic(() => import('./editor'), { ssr: false })
 
 function hexToRgb(hex: string) {
@@ -396,6 +397,21 @@ export default function Page() {
             )}
 
             </div>{/* end edit column */}
+
+            {/* Activity log panel — desktop only */}
+            {opID && !previewOpen && (
+                <div className='hidden xl:flex' style={{
+                    width: 280,
+                    flexShrink: 0,
+                    flexDirection: 'column',
+                    borderLeft: '1px solid rgba(255,255,255,0.07)',
+                    position: 'sticky',
+                    top: 0,
+                    height: '100vh',
+                }}>
+                    <ActivityLog operationId={opID} />
+                </div>
+            )}
 
             {/* Preview panel — desktop only */}
             {previewOpen && opID && (

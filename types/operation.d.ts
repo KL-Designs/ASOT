@@ -123,6 +123,19 @@ declare global {
         content?: PMDoc
     }
 
+    interface OperationActivityLog {
+        _id: ObjectId
+        operationId: ObjectId
+        sectionId: string
+        sectionTitle: string
+        userId: string | null
+        userName: string
+        userAvatar: string | null
+        timestamp: Date
+        before: string
+        after: string
+    }
+
     interface Operation {
         _id: ObjectId
 

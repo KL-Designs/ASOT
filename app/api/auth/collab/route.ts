@@ -9,7 +9,9 @@ export async function GET(request: NextRequest) {
         const me = await client.fetchMe(token)
         if (!me) return NextResponse.json({ authorized: false })
         const authorized = client.hasRoles(me, PERMISSIONS.auth.collab)
-        return NextResponse.json({ authorized })
+        const userName = me.guild?.displayName || me.globalName || me.username || 'Unknown'
+        const userAvatar = me.guild?.avatarURL || me.avatarURL || null
+        return NextResponse.json({ authorized, userId: me._id, userName, userAvatar })
     } catch {
         return NextResponse.json({ authorized: false })
     }

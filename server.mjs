@@ -37,7 +37,72 @@ console.log('[collab] MongoDB connected')
 
 const db = mongoClient.db(process.env.MONGO_DB || 'test')
 const operations = db.collection('operations')
+const activityLogs = db.collection('operation_activity')
 console.log(`[collab] MongoDB db=${db.databaseName} collection=operations`)
+
+// ── Activity tracking ─────────────────────────────────────────────────────────
+
+function extractPlainText(node) {
+    if (!node) return ''
+    if (node.type === 'text') return node.text || ''
+    if (!Array.isArray(node.content)) return ''
+    const blockTypes = new Set(['paragraph', 'heading', 'blockquote', 'codeBlock', 'bulletList', 'orderedList', 'listItem'])
+    const sep = blockTypes.has(node.type) ? '\n' : ''
+    return node.content.map(extractPlainText).join(sep)
+}
+
+function extractSectionTexts(document) {
+    const order = document.getArray('sectionOrder').toArray()
+    const result = new Map()
+    for (const sectionId of order) {
+        const smeta = document.getMap('smeta-' + sectionId)
+        const title = smeta.get('title') || sectionId
+        let text = ''
+        try {
+            const content = yDocToProsemirrorJSON(document, 'scontent-' + sectionId)
+            text = extractPlainText(content).trim()
+        } catch {}
+        result.set(sectionId, { title, text })
+    }
+    return result
+}
+
+// docName -> { lastFlushedText: Map, timer: Timeout|null, lastUser: object|null }
+const activityState = new Map()
+
+async function flushActivity(documentName, document) {
+    const state = activityState.get(documentName)
+    if (!state) return
+    state.timer = null
+    try {
+        const currentTexts = extractSectionTexts(document)
+        const entries = []
+        const opId = new ObjectId(documentName)
+        for (const [sectionId, { title, text }] of currentTexts) {
+            const before = state.lastFlushedText.get(sectionId)?.text ?? ''
+            if (before !== text) {
+                entries.push({
+                    operationId: opId,
+                    sectionId,
+                    sectionTitle: title,
+                    userId: state.lastUser?.userId || null,
+                    userName: state.lastUser?.userName || 'Unknown',
+                    userAvatar: state.lastUser?.userAvatar || null,
+                    timestamp: new Date(),
+                    before,
+                    after: text,
+                })
+            }
+        }
+        if (entries.length > 0) {
+            await activityLogs.insertMany(entries)
+            console.log(`[collab] activity flush doc=${documentName} sections=${entries.length}`)
+        }
+        state.lastFlushedText = currentTexts
+    } catch (e) {
+        console.error(`[collab] activity flush ERR doc=${documentName}`, e.message)
+    }
+}
 
 // ── Hocuspocus ────────────────────────────────────────────────────────────────
 // We don't call server.listen() — connections are fed in via the upgrade hook.
@@ -53,15 +118,46 @@ const collab = new Hocuspocus({
             console.log(`[collab] AUTH DENIED  token=${token?.slice(0, 8)}…`)
             throw new Error('Unauthorized')
         }
-        console.log(`[collab] AUTH OK      token=${token?.slice(0, 8)}…`)
+        console.log(`[collab] AUTH OK      token=${token?.slice(0, 8)}…  user=${json.userName}`)
+        return { userId: json.userId, userName: json.userName, userAvatar: json.userAvatar }
     },
 
     async onConnect({ documentName }) {
         console.log(`[collab] ++ connected   doc=${documentName}`)
     },
 
-    async onDisconnect({ documentName }) {
+    async onLoadDocument({ documentName, document }) {
+        console.log(`[collab] >> load        doc=${documentName}`)
+        const existing = activityState.get(documentName)
+        if (existing?.timer) {
+            clearTimeout(existing.timer)
+            await flushActivity(documentName, document)
+        }
+        activityState.set(documentName, {
+            lastFlushedText: extractSectionTexts(document),
+            timer: null,
+            lastUser: null,
+        })
+    },
+
+    async onChange({ documentName, document, context }) {
+        let state = activityState.get(documentName)
+        if (!state) {
+            state = { lastFlushedText: extractSectionTexts(document), timer: null, lastUser: null }
+            activityState.set(documentName, state)
+        }
+        if (context?.userName) state.lastUser = context
+        if (state.timer) clearTimeout(state.timer)
+        state.timer = setTimeout(() => flushActivity(documentName, document), 15_000)
+    },
+
+    async onDisconnect({ documentName, document }) {
         console.log(`[collab] -- disconnected doc=${documentName}`)
+        const state = activityState.get(documentName)
+        if (state) {
+            if (state.timer) clearTimeout(state.timer)
+            await flushActivity(documentName, document)
+        }
     },
 
     extensions: [
