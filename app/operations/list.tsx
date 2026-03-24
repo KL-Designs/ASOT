@@ -493,6 +493,8 @@ function MonthlyMissionsPanel({
 function MissionRow({ mission, hasAccess, onDeleted, onDuplicated }: { mission: Operation; hasAccess: boolean; onDeleted?: (id: string) => void; onDuplicated?: () => void }) {
     const [hovered, setHovered] = useState(false)
     const [confirmDelete, setConfirmDelete] = useState(false)
+    const router = useRouter()
+    const id = mission._id.toString()
 
     function handleDelete() {
         const id = mission._id.toString()
@@ -514,6 +516,7 @@ function MissionRow({ mission, hasAccess, onDeleted, onDuplicated }: { mission: 
                 onCancel={() => setConfirmDelete(false)}
             />
             <div
+                onClick={() => router.push(`/operations/${id}`)}
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
                 style={{
@@ -522,6 +525,7 @@ function MissionRow({ mission, hasAccess, onDeleted, onDuplicated }: { mission: 
                     borderLeft: `2px solid ${hovered ? 'var(--red)' : 'rgba(219,0,29,0.15)'}`,
                     background: hovered ? 'rgba(255,255,255,0.015)' : 'transparent',
                     transition: 'border-color 0.2s, background 0.2s',
+                    cursor: 'pointer',
                 }}
             >
                 {/* Cover thumbnail */}
@@ -551,7 +555,7 @@ function MissionRow({ mission, hasAccess, onDeleted, onDuplicated }: { mission: 
                 </div>
 
                 {/* Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     {hasAccess && (
                         <>
                             <button
