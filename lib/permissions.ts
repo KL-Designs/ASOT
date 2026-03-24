@@ -62,6 +62,13 @@ const PERMISSIONS = {
         manage: ['J4-Administration'],
     },
 
+    // ── Gallery ───────────────────────────────────────────────────────────────
+
+    gallery: {
+        /** /admin/gallery — manage gallery structure, upload and delete images */
+        manage: ['J5-Media'],
+    },
+
     // ── Auth / integrations ───────────────────────────────────────────────────
 
     auth: {
