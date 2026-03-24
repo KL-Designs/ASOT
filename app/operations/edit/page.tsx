@@ -137,16 +137,17 @@ export default function Page() {
     const statusLabel = saveStatus === 'saved' ? '● Saved' : saveStatus === 'saving' ? '● Saving…' : '● Unsaved'
 
     return (
-        <div className='w-full flex items-start'>
+        <div className='w-full' style={{
+            paddingRight: previewOpen ? 'clamp(360px, 40vw, 700px)' : activityOpen ? 'clamp(280px, 30vw, 460px)' : 0,
+            transition: 'padding-right 0.25s ease',
+        }}>
 
             {/* Edit column — natural flow, body scrolls */}
             <div style={{
-                width: previewOpen ? 480 : '100%',
-                minWidth: previewOpen ? 480 : undefined,
-                maxWidth: previewOpen ? 480 : 1000,
-                margin: previewOpen ? '0' : '0 auto',
+                width: '100%',
+                maxWidth: 1000,
+                margin: '0 auto',
                 flexShrink: 0,
-                transition: 'width 0.3s ease, max-width 0.3s ease',
                 padding: 'clamp(1.5rem, 2.5vw, 2.5rem)',
             }}>
 
@@ -434,16 +435,21 @@ export default function Page() {
                 </div>
             )}
 
-            {/* Preview panel — desktop only */}
-            {previewOpen && opID && (
-                <div className='hidden md:flex' style={{
-                    flex: 1,
-                    minWidth: 0,
-                    flexDirection: 'column',
-                    borderLeft: '1px solid rgba(255,255,255,0.07)',
-                    position: 'sticky',
+            {/* Preview drawer — fixed overlay from right */}
+            {opID && (
+                <div style={{
+                    position: 'fixed',
                     top: 0,
-                    height: '100vh',
+                    right: 0,
+                    bottom: 0,
+                    width: 'clamp(360px, 40vw, 700px)',
+                    transform: previewOpen ? 'translateX(0)' : 'translateX(100%)',
+                    transition: 'transform 0.25s ease',
+                    zIndex: 50,
+                    borderLeft: '1px solid rgba(255,255,255,0.09)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    background: 'rgba(8,8,8,0.97)',
                 }}>
                     {/* Panel header */}
                     <div style={{
