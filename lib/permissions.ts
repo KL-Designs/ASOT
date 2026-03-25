@@ -16,9 +16,9 @@ const PERMISSIONS = {
 
     pages: {
         /** /admin — departments that can access the admin panel */
-        admin:          ['J3-Training', 'J5-Media', 'J1-Recruiting'],
+        admin:          ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'HQ Staff'], // All departments + all staff + hq
         /** /members — who can view the member management list */
-        members:        ['J5-Media'],
+        members:        ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'HQ Staff'], // all departments + staff
         /** /operations/edit — who can access the mission editor */
         operationsEdit: ['HQ Staff', 'J2-Mission Making'],
     },
@@ -43,7 +43,7 @@ const PERMISSIONS = {
 
     members: {
         /** PUT /api/members/[username] — editing milpac records */
-        edit: ['J5-Media'],
+        edit: ['J5-Media', 'J5-Milpac Staff'],
     },
 
     // ── Admin panel features ──────────────────────────────────────────────────
@@ -52,7 +52,7 @@ const PERMISSIONS = {
         /** POST /api/admin/impersonate — impersonating another user */
         impersonate:   ['J4-Administration'],
         /** Show the User Management tile in the admin panel */
-        manageMembers: ['J5-Media'],
+        manageMembers: ['J5-Media', 'J5-Milpac Staff'],
     },
 
     // ── Optionals ─────────────────────────────────────────────────────────────
