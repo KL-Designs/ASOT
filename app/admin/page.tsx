@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { connection } from 'next/server'
 import Link from 'next/link'
 import { Typography } from '@mui/material'
-import { ManageAccounts, PhotoLibrary } from '@mui/icons-material'
+import { ManageAccounts, PhotoLibrary, AccountTree } from '@mui/icons-material'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 
@@ -17,6 +17,7 @@ export default async function Page() {
 
     const canManageMembers = client.hasRoles(me, PERMISSIONS.admin.manageMembers)
     const canManageGallery = client.hasRoles(me, PERMISSIONS.gallery.manage)
+    const canManageOrbat = client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
 
     return (
         <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[1000px] mx-auto'>
@@ -71,6 +72,20 @@ export default async function Page() {
                                 <PhotoLibrary sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
                                 <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
                                     Gallery<br />Management
+                                </Typography>
+                            </div>
+                        </Link>
+                    )}
+
+                    {canManageOrbat && (
+                        <Link href='/admin/orbat' className='flex-1 min-w-[160px] max-w-[220px]'>
+                            <div
+                                className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
+                                style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
+                            >
+                                <AccountTree sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
+                                <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
+                                    ORBAT<br />Management
                                 </Typography>
                             </div>
                         </Link>

@@ -53,6 +53,8 @@ const PERMISSIONS = {
         impersonate:   ['J4-Administration'],
         /** Show the User Management tile in the admin panel */
         manageMembers: ['J5-Media', 'J5-Milpac Staff'],
+        /** /admin/orbat — manage ORBAT structure and position assignments */
+        manageOrbat:   ['HQ Staff'],
     },
 
     // ── Optionals ─────────────────────────────────────────────────────────────

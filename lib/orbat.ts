@@ -1,5 +1,5 @@
-const SHEET_ID = '1rkzQSPimBYV3UDp-CFHUfQo59yww_xbj9UTPGWBzSL0'
-const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`
+import Db from '@/lib/mongo'
+
 
 export interface Member { role: string; name: string }
 export interface RawSection { title: string; members: Member[] }
@@ -18,27 +18,24 @@ export interface ORBATData {
 	gamemasters: Member[]
 }
 
-function parseRow(line: string): string[] {
-	const result: string[] = []
-	let current = ''
-	let inQuotes = false
-	for (const char of line) {
-		if (char === '"') {
-			inQuotes = !inQuotes
-		} else if (char === ',' && !inQuotes) {
-			result.push(current.trim())
-			current = ''
-		} else {
-			current += char
-		}
-	}
-	result.push(current.trim())
-	return result
+export interface OrbatEntry {
+	role: string
+	section: string
 }
 
-function parseORBAT(csv: string): ORBATData {
-	const rows = csv.split(/\r?\n/).map(parseRow)
-	const c = (row: string[], i: number) => (row[i] ?? '').trim()
+
+export async function fetchORBAT(): Promise<ORBATData> {
+	const [positions, users] = await Promise.all([
+		Db.orbatPositions.find({}).sort({ sectionOrder: 1, positionOrder: 1 }).toArray(),
+		Db.users.find({}).toArray(),
+	])
+
+	const nameById = new Map<string, string>()
+	for (const u of users) {
+		nameById.set(u._id, u.guild?.nickname || u.globalName || u.username || '')
+	}
+
+	const getName = (userId: string | null) => (userId ? (nameById.get(userId) ?? '') : '')
 
 	const data: ORBATData = {
 		companyHQ: { senior: { role: 'Commanding Officer', name: '' }, subTitle: '', members: [] },
@@ -50,115 +47,93 @@ function parseORBAT(csv: string): ORBATData {
 		gamemasters: [],
 	}
 
-	// State tracking per column group
-	let hqPhase: 'none' | 'senior' | 'sub' = 'none'
-	let rightState: 'none' | 'active' | 'inactive' | 'gm' = 'none'
+	// Group by category, preserving sort order
+	const byCategory = new Map<string, OrbatPosition[]>()
+	for (const pos of positions) {
+		const list = byCategory.get(pos.category) ?? []
+		list.push(pos)
+		byCategory.set(pos.category, list)
+	}
 
-	for (const row of rows) {
-		// ── Company HQ (cols 9 = role/header, 14 = name) ─────────────────────
-		if (c(row, 9) === '0-A INDIA COMPANY HEADQUARTERS') {
-			hqPhase = 'senior'
-		} else if (c(row, 9) === '1-0 INDIA COMPANY HEADQUARTERS') {
-			data.companyHQ.subTitle = c(row, 9)
-			hqPhase = 'sub'
-		} else if (hqPhase === 'senior' && c(row, 9) && c(row, 14)) {
-			data.companyHQ.senior = { role: c(row, 9), name: c(row, 14) }
-		} else if (hqPhase === 'sub' && c(row, 9) && c(row, 14)) {
-			data.companyHQ.members.push({ role: c(row, 9), name: c(row, 14) })
+	// Company HQ
+	for (const pos of byCategory.get('companyHQ') ?? []) {
+		const member: Member = { role: pos.role, name: getName(pos.userId) }
+		if (pos.isSenior) {
+			data.companyHQ.senior = member
+			if (pos.subTitle) data.companyHQ.subTitle = pos.subTitle
+		} else {
+			data.companyHQ.members.push(member)
 		}
+	}
 
-		// ── Platoon 1-1 (col 1 = section, col 2 = role, col 5 = name) ────────
-		if (/^1-1-/.test(c(row, 1))) {
-			data.platoon11.push({ title: c(row, 1), members: [] })
-		} else if (c(row, 2) && data.platoon11.length > 0) {
-			data.platoon11[data.platoon11.length - 1].members.push({ role: c(row, 2), name: c(row, 5) })
+	// Platoons + Support — build RawSection[] grouped by sectionTitle
+	for (const [cat, key] of [['platoon11', 'platoon11'], ['platoon12', 'platoon12'], ['support', 'support']] as const) {
+		const arr = data[key] as RawSection[]
+		const sectionMap = new Map<string, RawSection>()
+		for (const pos of byCategory.get(cat) ?? []) {
+			if (!sectionMap.has(pos.sectionTitle)) {
+				const section: RawSection = { title: pos.sectionTitle, members: [] }
+				sectionMap.set(pos.sectionTitle, section)
+				arr.push(section)
+			}
+			sectionMap.get(pos.sectionTitle)!.members.push({ role: pos.role, name: getName(pos.userId) })
 		}
+	}
 
-		// ── Platoon 1-2 (col 7 = section, col 8 = role, col 11 = name) ───────
-		if (/^1-2-/.test(c(row, 7))) {
-			data.platoon12.push({ title: c(row, 7), members: [] })
-		} else if (c(row, 8) && data.platoon12.length > 0) {
-			data.platoon12[data.platoon12.length - 1].members.push({ role: c(row, 8), name: c(row, 11) })
-		}
+	// Reservists
+	for (const pos of byCategory.get('activeReservist') ?? []) {
+		data.activeReservists.push(getName(pos.userId))
+	}
+	for (const pos of byCategory.get('inactiveReservist') ?? []) {
+		data.inactiveReservists.push(getName(pos.userId))
+	}
 
-		// ── Support 1-3 (col 15 = unit, col 16 = role, col 19 = name) ────────
-		// Match "1-3 ECHO", "1-3 GOLF", etc. — not "1-3 - Support Platoon"
-		if (/^1-3 [A-Z]/.test(c(row, 15))) {
-			data.support.push({ title: c(row, 15), members: [] })
-		} else if (c(row, 16) && data.support.length > 0) {
-			data.support[data.support.length - 1].members.push({ role: c(row, 16), name: c(row, 19) })
-		}
-
-		// ── Right column (col 21 = section header) ────────────────────────────
-		const col21 = c(row, 21)
-		if (col21 === 'COMPANY RESERVISTS (ACTIVE)') {
-			rightState = 'active'
-		} else if (col21 === 'COMPANY RESERVISTS (INACTIVE)') {
-			rightState = 'inactive'
-		} else if (col21.includes('GAMEMASTERS')) {
-			rightState = 'gm'
-		} else if (rightState === 'active' || rightState === 'inactive') {
-			const list = rightState === 'active' ? data.activeReservists : data.inactiveReservists
-			if (c(row, 22)) list.push(c(row, 22))
-			if (c(row, 24)) list.push(c(row, 24))
-		} else if (rightState === 'gm' && c(row, 22)) {
-			data.gamemasters.push({ role: c(row, 22), name: c(row, 25) })
-		}
+	// Gamemasters
+	for (const pos of byCategory.get('gamemaster') ?? []) {
+		data.gamemasters.push({ role: pos.role, name: getName(pos.userId) })
 	}
 
 	return data
 }
 
-export async function fetchORBAT(): Promise<ORBATData> {
-	const res = await fetch(CSV_URL)
-	if (!res.ok) throw new Error(`Failed to fetch ORBAT data: ${res.status}`)
-	return parseORBAT(await res.text())
+
+// Direct lookup by Discord ID — O(1), no fuzzy matching needed.
+export async function getOrbatEntryByUserId(userId: string): Promise<OrbatEntry | null> {
+	const pos = await Db.orbatPositions.findOne({ userId })
+	if (!pos) return null
+
+	const section =
+		pos.category === 'companyHQ' ? 'India Company HQ' :
+		pos.category === 'activeReservist' || pos.category === 'inactiveReservist' ? 'Company Reservists' :
+		pos.category === 'gamemaster' ? 'Gamemasters' :
+		pos.sectionTitle
+
+	return { role: pos.role, section }
 }
 
-export interface OrbatEntry {
-	role: string
-	section: string
-}
 
-export function findOrbatEntry(
-	orbat: ORBATData,
-	lookup: (name: string) => User | null,
-	targetId: string,
-): OrbatEntry | null {
-	const match = (m: Member, section: string): OrbatEntry | null => {
-		const user = lookup(m.name)
-		return user?.id === targetId ? { role: m.role, section } : null
+// Bulk lookup by Discord IDs — single query for the members page.
+export async function getOrbatEntriesForUsers(
+	userIds: string[]
+): Promise<Record<string, OrbatEntry | null>> {
+	if (userIds.length === 0) return {}
+
+	const positions = await Db.orbatPositions
+		.find({ userId: { $in: userIds } })
+		.toArray()
+
+	const result: Record<string, OrbatEntry | null> = {}
+	for (const id of userIds) result[id] = null
+
+	for (const pos of positions) {
+		if (!pos.userId) continue
+		const section =
+			pos.category === 'companyHQ' ? 'India Company HQ' :
+			pos.category === 'activeReservist' || pos.category === 'inactiveReservist' ? 'Company Reservists' :
+			pos.category === 'gamemaster' ? 'Gamemasters' :
+			pos.sectionTitle
+		result[pos.userId] = { role: pos.role, section }
 	}
 
-	// Company HQ
-	const hqResult =
-		match(orbat.companyHQ.senior, 'India Company HQ') ||
-		orbat.companyHQ.members.map(m => match(m, 'India Company HQ')).find(Boolean)
-	if (hqResult) return hqResult
-
-	// Platoons and Support
-	for (const group of [...orbat.platoon11, ...orbat.platoon12, ...orbat.support]) {
-		for (const m of group.members) {
-			const result = match(m, group.title)
-			if (result) return result
-		}
-	}
-
-	// Reservists (role-less, just names)
-	for (const name of orbat.activeReservists) {
-		const user = lookup(name)
-		if (user?.id === targetId) return { role: 'Active Reservist', section: 'Company Reservists' }
-	}
-	for (const name of orbat.inactiveReservists) {
-		const user = lookup(name)
-		if (user?.id === targetId) return { role: 'Inactive Reservist', section: 'Company Reservists' }
-	}
-
-	// Gamemasters
-	for (const m of orbat.gamemasters) {
-		const result = match(m, 'Gamemasters')
-		if (result) return result
-	}
-
-	return null
+	return result
 }

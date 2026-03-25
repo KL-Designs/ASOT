@@ -17,6 +17,8 @@ const DbInterface = {
     operations: client.db(process.env.MONGO_DB!).collection('operations') as MongoCollection<Operation>,
     operationActivity: client.db(process.env.MONGO_DB!).collection<OperationActivityLog>('operation_activity'),
     minigameScores: client.db(process.env.MONGO_DB!).collection('minigame_scores'),
+    orbatPositions: client.db(process.env.MONGO_DB!).collection('orbat_positions') as MongoCollection<OrbatPosition>,
+    orbatCategories: client.db(process.env.MONGO_DB!).collection('orbat_categories') as MongoCollection<OrbatCategory>,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,

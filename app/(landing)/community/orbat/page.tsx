@@ -1,8 +1,6 @@
 import { Metadata } from "next"
-import Link from 'next/link'
-import { Button } from '@mui/material'
 import {
-	OpenInNew, Shield, Engineering, GpsFixed, Flight,
+	Shield, Engineering, GpsFixed, Flight,
 	LocalHospital, DirectionsCar, Groups, SportsEsports,
 	AccountBalance, MilitaryTech, Stars,
 } from '@mui/icons-material'
@@ -234,20 +232,6 @@ export default async function Page() {
 			background={Banner}
 			sx={{ bannerHeight: 'sm', maxWidth: 'max-w-[1400px]', padding: '2rem', gap: 'gap-5' }}
 		>
-			{/* External link */}
-			<div className="flex justify-end">
-				<Link href='https://docs.google.com/spreadsheets/d/1rkzQSPimBYV3UDp-CFHUfQo59yww_xbj9UTPGWBzSL0/edit?usp=sharing' target="_blank">
-					<Button
-						variant="outlined"
-						size="small"
-						endIcon={<OpenInNew />}
-						style={{ borderColor: 'rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.7)', fontSize: '0.72rem' }}
-					>
-						Open Full ORBAT
-					</Button>
-				</Link>
-			</div>
-
 			{/* Company HQ */}
 			<div style={{ border: '1px solid rgba(219,0,29,0.3)', borderTop: '3px solid var(--red)', overflow: 'hidden' }}>
 
