@@ -207,7 +207,7 @@ const collab = new Hocuspocus({
                             return {
                                 id: pageId,
                                 isMain,
-                                title: pmeta.get('title') || (isMain ? 'Main' : 'Untitled'),
+                                title: pmeta.get('title') || (isMain ? '1-0 HQ Orders' : 'Untitled'),
                                 sections: readPageSections(pageId),
                             }
                         })

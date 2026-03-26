@@ -417,8 +417,28 @@ const [activityOpen, setActivityOpen] = useState(false)
                     onSaveStatusChange={setSaveStatus}
                 />
             ) : (
-                <div style={{ padding: '48px 0', textAlign: 'center', color: 'rgba(237,237,237,0.15)', fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                    Loading…
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <style>{`@keyframes op-pulse{0%,100%{opacity:.35}50%{opacity:.75}}.op-pulse{animation:op-pulse 1.8s ease-in-out infinite}`}</style>
+                    {[1, 0.6].map((opacity, i) => (
+                        <div key={i} style={{ border: `1px solid ${c(0.1)}`, borderTop: `2px solid ${c(0.25)}`, opacity }}>
+                            <div style={{ background: 'rgba(0,0,0,0.35)', padding: '9px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div className='op-pulse' style={{ width: 6, height: 6, background: c(0.35), flexShrink: 0 }} />
+                                    <div className='op-pulse' style={{ height: 7, width: 110 + i * 30, background: c(0.18), borderRadius: 2 }} />
+                                </div>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                    {[28, 28, 28, 28, 28].map((w, j) => (
+                                        <div key={j} className='op-pulse' style={{ width: w, height: 24, background: 'rgba(255,255,255,0.04)', borderRadius: 2 }} />
+                                    ))}
+                                </div>
+                            </div>
+                            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+                                {[88, 72, 80, 52].map((w, j) => (
+                                    <div key={j} className='op-pulse' style={{ height: 8, width: `${w}%`, background: 'rgba(237,237,237,0.055)', borderRadius: 2, animationDelay: `${j * 0.12}s` }} />
+                                ))}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
 

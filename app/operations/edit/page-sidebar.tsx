@@ -48,7 +48,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             const ids = pageOrder.length > 0 ? pageOrder.toArray() : ['main']
             setPages(ids.map(id => {
                 const pmeta = ydoc.getMap<string>('pmeta-' + id)
-                const fallback = id === 'main' ? 'Main' : 'Untitled'
+                const fallback = id === 'main' ? '1-0 HQ Orders' : 'Untitled'
                 return { id, title: pmeta.get('title') || fallback, isMain: id === 'main' }
             }))
         }
@@ -83,18 +83,21 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
 
     function addPage() {
         const id = Math.random().toString(36).slice(2, 10)
-        const defaultName = '1-0 HQ Orders'
+        const newPageName = 'New Document'
         ydoc.transact(() => {
             const pageOrder = ydoc.getArray<string>('pageOrder')
-            if (pageOrder.length === 0) pageOrder.push(['main'])
+            if (pageOrder.length === 0) {
+                pageOrder.push(['main'])
+                ydoc.getMap<string>('pmeta-main').set('title', '1-0 HQ Orders')
+            }
             pageOrder.push([id])
             const pmeta = ydoc.getMap<string>('pmeta-' + id)
-            pmeta.set('title', defaultName)
+            pmeta.set('title', newPageName)
             pmeta.set('isMain', 'false')
         })
         setTimeout(() => {
             onSelectPage(id)
-            setRenameValue(defaultName)
+            setRenameValue(newPageName)
             setRenamingId(id)
         }, 0)
     }
