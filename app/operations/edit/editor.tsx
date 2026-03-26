@@ -332,6 +332,14 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
     // ID of a newly-created default section that should receive initialContent
     const [seedSectionId, setSeedSectionId] = useState<string | null>(null)
     const [peers, setPeers] = useState<Peer[]>([])
+    const [isMobile, setIsMobile] = useState(false)
+
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth < 768)
+        check()
+        window.addEventListener('resize', check)
+        return () => window.removeEventListener('resize', check)
+    }, [])
 
     function getPageKeys(pageId: string) {
         if (pageId === 'main') return {
@@ -427,14 +435,15 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
 
     return (
         <ThemeContext.Provider value={themeColor}>
-            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 20, alignItems: 'flex-start' }}>
 
-                {/* Page sidebar */}
+                {/* Page sidebar / top strip */}
                 <PageSidebar
                     ydoc={ydoc}
                     activePage={activePage}
                     onSelectPage={setActivePage}
                     themeColor={themeColor}
+                    orientation={isMobile ? 'top' : 'sidebar'}
                 />
 
                 {/* Main editor column */}

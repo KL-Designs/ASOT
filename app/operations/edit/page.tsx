@@ -328,30 +328,29 @@ const [activityOpen, setActivityOpen] = useState(false)
                             <span style={{ fontSize: '0.75rem', letterSpacing: '0.06em', color: 'rgba(237,237,237,0.55)', whiteSpace: 'nowrap' }}>Theme Color</span>
                         </label>
                         {/* Page Theme */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid rgba(255,255,255,0.1)', padding: '4px 8px' }}>
-                            <span style={{ fontSize: '0.68rem', letterSpacing: '0.08em', color: 'rgba(237,237,237,0.4)', whiteSpace: 'nowrap', marginRight: 4 }}>Page Theme</span>
-                            {(['modern', 'oldfashioned', 'scifi'] as const).map(t => (
-                                <button
-                                    key={t}
-                                    onClick={() => { setPageTheme(t); scheduleSave({ pageTheme: t }) }}
-                                    style={{
-                                        padding: '4px 10px',
-                                        fontSize: '0.62rem',
-                                        fontWeight: 700,
-                                        letterSpacing: '0.08em',
-                                        textTransform: 'uppercase',
-                                        background: pageTheme === t ? c(0.12) : 'transparent',
-                                        border: `1px solid ${pageTheme === t ? c(0.55) : 'rgba(255,255,255,0.08)'}`,
-                                        color: pageTheme === t ? c(0.9) : 'rgba(237,237,237,0.35)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s',
-                                        whiteSpace: 'nowrap',
-                                    }}
-                                >
-                                    {t === 'modern' ? 'Modern' : t === 'oldfashioned' ? 'Old Fashioned' : 'Sci-Fi'}
-                                </button>
-                            ))}
-                        </div>
+                        <select
+                            value={pageTheme}
+                            onChange={e => { setPageTheme(e.target.value as typeof pageTheme); scheduleSave({ pageTheme: e.target.value }) }}
+                            style={{
+                                background: 'rgba(0,0,0,0.4)',
+                                border: `1px solid ${c(0.35)}`,
+                                color: c(0.8),
+                                fontSize: '0.8rem',
+                                letterSpacing: '0.06em',
+                                outline: 'none',
+                                padding: '8px 12px',
+                                minWidth: 150,
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                            }}
+                        >
+                            <option value='modern' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Modern</option>
+                            <option value='oldfashioned' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Old Fashioned</option>
+                            <option value='scifi' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Sci-Fi</option>
+                        </select>
+                    </div>
+                    {/* Dates row */}
+                    <div className='flex flex-wrap gap-4'>
                         <LocalizationProvider dateAdapter={AdapterDayjs}>
                             <DateTimePicker
                                 label='Operation Date'
