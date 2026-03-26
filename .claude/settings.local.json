@@ -19,7 +19,8 @@
       "Bash(grep -r optionals /f/Clients/ASOT-Website/app --include=*.ts --include=*.tsx)",
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(npx tsc:*)",
-      "Bash(grep -n \"pageTheme\" types/operation.d.ts app/api/operations/update/route.ts app/operations/edit/page.tsx app/operations/[id]/page.tsx app/operations/[id]/doc-body.tsx app/operations/[id]/section-nav.tsx)"
+      "Bash(grep -n \"pageTheme\" types/operation.d.ts app/api/operations/update/route.ts app/operations/edit/page.tsx app/operations/[id]/page.tsx app/operations/[id]/doc-body.tsx app/operations/[id]/section-nav.tsx)",
+      "Bash(ls /f/Clients/ASOT-Website/app/operations/[id]/)"
     ]
   }
 }

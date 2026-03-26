@@ -183,11 +183,49 @@ const collab = new Hocuspocus({
             store: async ({ documentName, state, document }) => {
                 console.log(`[collab] DB store     doc=${documentName}  (${state.length} bytes) — attempting…`)
                 try {
+                    const pageOrder = document.getArray('pageOrder').toArray()
                     const sectionOrder = document.getArray('sectionOrder').toArray()
                     let updateFields
 
-                    if (sectionOrder.length > 0) {
-                        // Multi-section document
+                    if (pageOrder.length > 0) {
+                        // Multi-page document
+                        function readPageSections(pageId) {
+                            const isMain = pageId === 'main'
+                            const orderKey = isMain ? 'sectionOrder' : `sectionOrder-${pageId}`
+                            return document.getArray(orderKey).toArray().map(sid => {
+                                const metaKey = isMain ? `smeta-${sid}` : `smeta-${pageId}-${sid}`
+                                const contentKey = isMain ? `scontent-${sid}` : `scontent-${pageId}-${sid}`
+                                const meta = document.getMap(metaKey)
+                                let content = null
+                                try { content = yDocToProsemirrorJSON(document, contentKey) } catch {}
+                                return { id: sid, title: meta.get('title') || '', isPublic: meta.get('isPublic') !== 'false', content }
+                            })
+                        }
+                        const pages = pageOrder.map(pageId => {
+                            const isMain = pageId === 'main'
+                            const pmeta = document.getMap('pmeta-' + pageId)
+                            return {
+                                id: pageId,
+                                isMain,
+                                title: pmeta.get('title') || (isMain ? '1-0 HQ Orders' : 'Untitled'),
+                                sections: readPageSections(pageId),
+                            }
+                        })
+                        const mainSections = pages.find(p => p.isMain)?.sections ?? []
+                        const extraPageSections = Object.fromEntries(
+                            pages.filter(p => !p.isMain).map(p => [p.id, p.sections])
+                        )
+                        updateFields = {
+                            yjsState: state,
+                            sections: mainSections,
+                            pages: pages.map(({ id, title, isMain }) => ({ id, title, isMain })),
+                            extraPageSections,
+                        }
+                        const text = mainSections.map(s => `[${s.title}] ${extractText(s.content)}`).join(' | ')
+                        console.log(`[collab] DB store     doc=${documentName}  pages=${pages.length}  main-sections=${mainSections.length}`)
+                        console.log(`[collab] content      ${text.slice(0, 300)}${text.length > 300 ? '…' : ''}`)
+                    } else if (sectionOrder.length > 0) {
+                        // Multi-section document (single page)
                         const sections = sectionOrder.map(sid => {
                             const meta = document.getMap('smeta-' + sid)
                             let content = null
@@ -291,6 +329,13 @@ async function cleanupOperationImages() {
             const srcs = new Set()
             collectImageSrcs(section.content, srcs)
             srcs.forEach(src => { const f = urlToFilename(src); if (f) referencedFiles.add(f) })
+        }
+        for (const pageSections of Object.values(op.extraPageSections ?? {})) {
+            for (const section of pageSections) {
+                const srcs = new Set()
+                collectImageSrcs(section.content, srcs)
+                srcs.forEach(src => { const f = urlToFilename(src); if (f) referencedFiles.add(f) })
+            }
         }
         if (op.content) {
             const srcs = new Set()

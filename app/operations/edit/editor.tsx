@@ -16,6 +16,7 @@ import * as Y from 'yjs'
 
 import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
+import PageSidebar from './page-sidebar'
 import {
     Undo, Redo,
     FormatBold, FormatItalic, FormatUnderlined, StrikethroughS,
@@ -132,9 +133,34 @@ export default function OperationEditor({ operationId, initialContent, initialMe
     }, [operationId, ydoc])
 
     if (!ready) {
+        const { r: sr, g: sg, b: sb } = hexToRgb(themeColor)
+        const sc = (a: number) => `rgba(${sr},${sg},${sb},${a})`
         return (
-            <div style={{ padding: '48px 0', textAlign: 'center', color: 'rgba(237,237,237,0.15)', fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                Connecting…
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <style>{`@keyframes op-pulse{0%,100%{opacity:.35}50%{opacity:.75}}.op-pulse{animation:op-pulse 1.8s ease-in-out infinite}`}</style>
+                <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: sc(0.28), textAlign: 'center', paddingBottom: 4 }}>
+                    Connecting to collaboration server…
+                </div>
+                {[1, 0.6].map((opacity, i) => (
+                    <div key={i} style={{ border: `1px solid ${sc(0.1)}`, borderTop: `2px solid ${sc(0.25)}`, opacity }}>
+                        <div style={{ background: 'rgba(0,0,0,0.35)', padding: '9px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div className='op-pulse' style={{ width: 6, height: 6, background: sc(0.35), flexShrink: 0 }} />
+                                <div className='op-pulse' style={{ height: 7, width: 110 + i * 30, background: sc(0.18), borderRadius: 2 }} />
+                            </div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                                {[28, 28, 28, 28, 28].map((w, j) => (
+                                    <div key={j} className='op-pulse' style={{ width: w, height: 24, background: 'rgba(255,255,255,0.04)', borderRadius: 2 }} />
+                                ))}
+                            </div>
+                        </div>
+                        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+                            {[88, 72, 80, 52].map((w, j) => (
+                                <div key={j} className='op-pulse' style={{ height: 8, width: `${w}%`, background: 'rgba(237,237,237,0.055)', borderRadius: 2, animationDelay: `${j * 0.12}s` }} />
+                            ))}
+                        </div>
+                    </div>
+                ))}
             </div>
         )
     }
@@ -326,21 +352,42 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
+    const [activePage, setActivePage] = useState<string>('main')
     const [sectionIds, setSectionIds] = useState<string[]>([])
     // ID of a newly-created default section that should receive initialContent
     const [seedSectionId, setSeedSectionId] = useState<string | null>(null)
     const [peers, setPeers] = useState<Peer[]>([])
+    const [isMobile, setIsMobile] = useState(false)
 
-    // Observe sectionOrder Y.Array
     useEffect(() => {
-        const order = ydoc.getArray<string>('sectionOrder')
+        const check = () => setIsMobile(window.innerWidth < 768)
+        check()
+        window.addEventListener('resize', check)
+        return () => window.removeEventListener('resize', check)
+    }, [])
+
+    function getPageKeys(pageId: string) {
+        if (pageId === 'main') return {
+            orderKey: 'sectionOrder',
+            metaPrefix: (id: string) => `smeta-${id}`,
+        }
+        return {
+            orderKey: `sectionOrder-${pageId}`,
+            metaPrefix: (id: string) => `smeta-${pageId}-${id}`,
+        }
+    }
+
+    // Observe sectionOrder for the active page
+    useEffect(() => {
+        const { orderKey } = getPageKeys(activePage)
+        const order = ydoc.getArray<string>(orderKey)
         const handler = () => setSectionIds([...order.toArray()])
         order.observe(handler)
         setSectionIds([...order.toArray()])
         return () => order.unobserve(handler)
-    }, [ydoc])
+    }, [ydoc, activePage])
 
-    // On first sync: if no sections exist yet, create a default "Orders" section
+    // On first sync: if no sections exist yet on the main page, create a default "Orders" section
     useEffect(() => {
         const onSynced = () => {
             const order = ydoc.getArray<string>('sectionOrder')
@@ -381,22 +428,25 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
 
     function addSection() {
         const id = Math.random().toString(36).slice(2, 10)
+        const { orderKey, metaPrefix } = getPageKeys(activePage)
         ydoc.transact(() => {
-            ydoc.getArray<string>('sectionOrder').push([id])
-            const smeta = ydoc.getMap<string>('smeta-' + id)
+            ydoc.getArray<string>(orderKey).push([id])
+            const smeta = ydoc.getMap<string>(metaPrefix(id))
             smeta.set('title', 'New Section')
             smeta.set('isPublic', 'true')
         })
     }
 
     function removeSection(id: string) {
-        const order = ydoc.getArray<string>('sectionOrder')
+        const { orderKey } = getPageKeys(activePage)
+        const order = ydoc.getArray<string>(orderKey)
         const idx = order.toArray().indexOf(id)
         if (idx !== -1) order.delete(idx, 1)
     }
 
     function moveSection(id: string, direction: 'up' | 'down') {
-        const order = ydoc.getArray<string>('sectionOrder')
+        const { orderKey } = getPageKeys(activePage)
+        const order = ydoc.getArray<string>(orderKey)
         const arr = order.toArray()
         const idx = arr.indexOf(id)
         if (idx === -1) return
@@ -410,7 +460,16 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
 
     return (
         <ThemeContext.Provider value={themeColor}>
-            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 20, alignItems: 'flex-start' }}>
+
+                {/* Page sidebar / top strip */}
+                <PageSidebar
+                    ydoc={ydoc}
+                    activePage={activePage}
+                    onSelectPage={setActivePage}
+                    themeColor={themeColor}
+                    orientation={isMobile ? 'top' : 'sidebar'}
+                />
 
                 {/* Main editor column */}
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -427,9 +486,10 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                     {/* Section editors */}
                     {sectionIds.map((id, idx) => (
                         <SectionEditor
-                            key={id}
+                            key={`${activePage}-${id}`}
                             ydoc={ydoc}
                             sectionId={id}
+                            pageId={activePage}
                             provider={provider}
                             user={user}
                             onRemove={() => removeSection(id)}
@@ -438,7 +498,7 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                             canMoveUp={idx > 0}
                             canMoveDown={idx < sectionIds.length - 1}
                             themeColor={themeColor}
-                            seedContent={id === seedSectionId ? initialContent : undefined}
+                            seedContent={activePage === 'main' && id === seedSectionId ? initialContent : undefined}
                         />
                     ))}
 
@@ -472,6 +532,7 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
 interface SectionEditorProps {
     ydoc: Y.Doc
     sectionId: string
+    pageId?: string  // 'main' or page slug; omit for legacy single-page behaviour
     provider: HocuspocusProvider
     user: PresenceUser
     onRemove: () => void
@@ -483,9 +544,13 @@ interface SectionEditorProps {
     seedContent?: any  // seed this section's content on first load
 }
 
-function SectionEditor({ ydoc, sectionId, provider, user, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, themeColor = '#db001d', seedContent }: SectionEditorProps) {
+function SectionEditor({ ydoc, sectionId, pageId, provider, user, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, themeColor = '#db001d', seedContent }: SectionEditorProps) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
+
+    const isNonMain = pageId && pageId !== 'main'
+    const metaKey = isNonMain ? `smeta-${pageId}-${sectionId}` : `smeta-${sectionId}`
+    const contentKey = isNonMain ? `scontent-${pageId}-${sectionId}` : `scontent-${sectionId}`
 
     const themeCSS = `
         .op-editor-${sectionId} h1 { border-left-color: ${c(0.75)}; background: ${c(0.045)}; }
@@ -513,7 +578,7 @@ function SectionEditor({ ydoc, sectionId, provider, user, onRemove, onMoveUp, on
 
     // Observe this section's metadata
     useEffect(() => {
-        const smeta = ydoc.getMap<string>('smeta-' + sectionId)
+        const smeta = ydoc.getMap<string>(metaKey)
         const handler = () => {
             setTitle(smeta.get('title') || '')
             setIsPublic(smeta.get('isPublic') !== 'false')
@@ -521,10 +586,10 @@ function SectionEditor({ ydoc, sectionId, provider, user, onRemove, onMoveUp, on
         smeta.observe(handler)
         handler()
         return () => smeta.unobserve(handler)
-    }, [ydoc, sectionId])
+    }, [ydoc, metaKey])
 
     function updateMeta(updates: { title?: string; isPublic?: boolean }) {
-        const smeta = ydoc.getMap<string>('smeta-' + sectionId)
+        const smeta = ydoc.getMap<string>(metaKey)
         ydoc.transact(() => {
             if (updates.title !== undefined) smeta.set('title', updates.title!)
             if (updates.isPublic !== undefined) smeta.set('isPublic', updates.isPublic ? 'true' : 'false')
@@ -542,7 +607,7 @@ function SectionEditor({ ydoc, sectionId, provider, user, onRemove, onMoveUp, on
             ResizableImage,
             Link.configure({ openOnClick: false, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
             GlobalDragHandle.configure({ dragHandleWidth: 20 }),
-            Collaboration.configure({ document: ydoc, field: 'scontent-' + sectionId }),
+            Collaboration.configure({ document: ydoc, field: contentKey }),
             buildCursorExtension(provider, user),
         ],
         editorProps: {
