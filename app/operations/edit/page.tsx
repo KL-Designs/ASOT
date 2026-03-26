@@ -153,7 +153,7 @@ const [activityOpen, setActivityOpen] = useState(false)
             {/* Edit column — natural flow, body scrolls */}
             <div style={{
                 width: '100%',
-                maxWidth: 1000,
+                maxWidth: 1220,
                 margin: '0 auto',
                 flexShrink: 0,
                 padding: 'clamp(1.5rem, 2.5vw, 2.5rem)',
