@@ -12,6 +12,7 @@ declare global {
         expected: Date
         acknowledged: string[] | true | null
         nextCheck: Date | null
+        chaseUpOffset: number | null
         repeat: number
 
         by: string
@@ -19,6 +20,7 @@ declare global {
 
         message: string
         channel: string
+        messageId: string | null
     }
 
 }

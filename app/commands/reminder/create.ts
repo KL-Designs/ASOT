@@ -104,6 +104,8 @@ export default {
             time: interaction.options.getString('time', true),
             date: interaction.options.getString('date', false) ?? '',
             repeat: interaction.options.getString('repeat', false),
+            chaseUpTime: null,
+            chaseUpDate: null,
             channel: interaction.channelId,
             userId: interaction.user.id,
             pingMe: true,
@@ -122,6 +124,12 @@ export default {
             .setEmoji('✅')
             .setStyle(Discord.ButtonStyle.Success)
 
+        const chaseUpButton = new Discord.ButtonBuilder()
+            .setCustomId(`reminder_setup.${sessionId}.chaseup`)
+            .setLabel('Set Chase Up')
+            .setEmoji('⏰')
+            .setStyle(Discord.ButtonStyle.Secondary)
+
         const confirmButton = new Discord.ButtonBuilder()
             .setCustomId(`reminder_setup.${sessionId}.confirm`)
             .setLabel('Create Reminder')
@@ -132,7 +140,7 @@ export default {
             .addComponents(selectMenu)
 
         const buttonRow = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
-            .addComponents(pingMeButton, confirmButton)
+            .addComponents(pingMeButton, chaseUpButton, confirmButton)
 
         interaction.reply({
             content: `**Reminder:** ${interaction.options.getString('reminder', true)}\nSelect who to remind, then confirm.`,

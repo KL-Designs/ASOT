@@ -1,7 +1,31 @@
 import Discord from 'discord.js'
 import Db from 'lib/mongo.ts'
 import { ObjectId } from 'mongodb'
-import { getSession, updateSession, deleteSession } from 'lib/reminderSessions.ts'
+import { getSession, updateSession, deleteSession, ReminderSession } from 'lib/reminderSessions.ts'
+
+
+function buildButtonRow(sessionId: string, session: ReminderSession) {
+    const pingMeButton = new Discord.ButtonBuilder()
+        .setCustomId(`reminder_setup.${sessionId}.pingme`)
+        .setLabel(session.pingMe ? 'Ping Me: Yes' : 'Ping Me: No')
+        .setEmoji(session.pingMe ? '✅' : '❌')
+        .setStyle(session.pingMe ? Discord.ButtonStyle.Success : Discord.ButtonStyle.Secondary)
+
+    const chaseUpButton = new Discord.ButtonBuilder()
+        .setCustomId(`reminder_setup.${sessionId}.chaseup`)
+        .setLabel(session.chaseUpTime ? 'Chase Up Set' : 'Set Chase Up')
+        .setEmoji('⏰')
+        .setStyle(session.chaseUpTime ? Discord.ButtonStyle.Primary : Discord.ButtonStyle.Secondary)
+
+    const confirmButton = new Discord.ButtonBuilder()
+        .setCustomId(`reminder_setup.${sessionId}.confirm`)
+        .setLabel('Create Reminder')
+        .setEmoji('🔔')
+        .setStyle(Discord.ButtonStyle.Primary)
+
+    return new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+        .addComponents(pingMeButton, chaseUpButton, confirmButton)
+}
 
 
 export default async function (interaction: Discord.ButtonInteraction, args: string[]) {
@@ -15,25 +39,38 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
         const newPingMe = !session.pingMe
         updateSession(sessionId, { pingMe: newPingMe })
 
-        const updatedPingMeButton = new Discord.ButtonBuilder()
-            .setCustomId(`reminder_setup.${sessionId}.pingme`)
-            .setLabel(newPingMe ? 'Ping Me: Yes' : 'Ping Me: No')
-            .setEmoji(newPingMe ? '✅' : '❌')
-            .setStyle(newPingMe ? Discord.ButtonStyle.Success : Discord.ButtonStyle.Secondary)
-
-        const confirmButton = new Discord.ButtonBuilder()
-            .setCustomId(`reminder_setup.${sessionId}.confirm`)
-            .setLabel('Create Reminder')
-            .setEmoji('🔔')
-            .setStyle(Discord.ButtonStyle.Primary)
-
-        const buttonRow = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
-            .addComponents(updatedPingMeButton, confirmButton)
-
+        const buttonRow = buildButtonRow(sessionId, { ...session, pingMe: newPingMe })
         const existingComponents = interaction.message.components
         const newComponents = [...existingComponents.slice(0, -1), buttonRow]
 
         return interaction.update({ components: newComponents })
+    }
+
+    if (action === 'chaseup') {
+        const modal = new Discord.ModalBuilder()
+            .setCustomId(`reminder_setup.${sessionId}.chaseup`)
+            .setTitle('Set Chase Up Time')
+            .addComponents(
+                new Discord.ActionRowBuilder<Discord.TextInputBuilder>().addComponents(
+                    new Discord.TextInputBuilder()
+                        .setCustomId('chaseup_time')
+                        .setLabel('Chase Up Time (HH:MM)')
+                        .setStyle(Discord.TextInputStyle.Short)
+                        .setRequired(true)
+                        .setPlaceholder('07:00')
+                        .setValue(session.chaseUpTime ?? '')
+                ),
+                new Discord.ActionRowBuilder<Discord.TextInputBuilder>().addComponents(
+                    new Discord.TextInputBuilder()
+                        .setCustomId('chaseup_date')
+                        .setLabel('Chase Up Date (DD/MM/YYYY, blank = same day)')
+                        .setStyle(Discord.TextInputStyle.Short)
+                        .setRequired(false)
+                        .setPlaceholder('DD/MM/YYYY')
+                        .setValue(session.chaseUpDate ?? '')
+                )
+            )
+        return interaction.showModal(modal)
     }
 
     if (action === 'confirm') {
@@ -82,24 +119,39 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
             })
         }
 
+        let chaseUpOffset: number | null = null
+        if (session.chaseUpTime !== null) {
+            const chaseUpDateStr = session.chaseUpDate || date
+            const [cd, cm, cy] = chaseUpDateStr.split('/').map(Number)
+            const [ch, cmin] = session.chaseUpTime.split(':').map(Number)
+            const chaseUpDate = new Date(cy, cm - 1, cd, ch, cmin, 0, 0)
+            chaseUpOffset = chaseUpDate.getTime() - finalDate.getTime()
+        }
+
         await Db.reminders.insertOne({
             _id: new ObjectId(),
             enabled: true,
             expected: finalDate,
             acknowledged: null,
             nextCheck: null,
+            chaseUpOffset: chaseUpOffset,
             repeat: repeat,
             by: session.userId,
             who: who,
             message: session.message,
-            channel: session.channel
+            channel: session.channel,
+            messageId: null
         })
 
         deleteSession(sessionId)
 
-        return interaction.update({
-            content: `✅ Reminder set for <t:${Math.floor(finalDate.getTime() / 1000)}:F>\n>>> ${session.message}`,
-            components: []
-        })
+        let confirmContent = `✅ Reminder set for <t:${Math.floor(finalDate.getTime() / 1000)}:F>`
+        if (chaseUpOffset !== null) {
+            const chaseUpTs = Math.floor((finalDate.getTime() + chaseUpOffset) / 1000)
+            confirmContent += `\n⏰ Chase up: <t:${chaseUpTs}:F>`
+        }
+        confirmContent += `\n>>> ${session.message}`
+
+        return interaction.update({ content: confirmContent, components: [] })
     }
 }

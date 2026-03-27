@@ -16,17 +16,35 @@ export default async function processReminders() {
 
 
         if (Array.isArray(reminder.acknowledged) && reminder.acknowledged.length > 0 && reminder.nextCheck && reminder.nextCheck.getTime() < today.getTime()) {
-            Db.reminders.updateOne({ _id: reminder._id }, {
-                $set: {
-                    nextCheck: new Date(new Date().getTime() + 1000 * 60 * 60 * 8)
-                }
-            })
+            await Db.reminders.updateOne({ _id: reminder._id }, { $set: { nextCheck: null } })
 
-            try {
-                channel.send(`${reminder.acknowledged.join(' ')} please acknowledge your reminder!`)
-                    .then(msg => setTimeout(() => msg.delete().catch(() => { }), 1000 * 60 * 60 * 8))
-            } catch {
-                console.error(`Failed to send acknowledgement reminder in "${reminder.channel}" (${reminder.message})`)
+            const channelPings: string[] = []
+            for (const mention of reminder.acknowledged) {
+                if (mention.startsWith('<@&')) {
+                    channelPings.push(mention)
+                } else {
+                    const member = App.user(mention.slice(2, -1))
+                    if (member) {
+                        const jumpLink = reminder.messageId
+                            ? `\nhttps://discord.com/channels/${App.guild().id}/${channel.id}/${reminder.messageId}`
+                            : ''
+                        try {
+                            await member.send(`You have an unacknowledged reminder: **${reminder.message}**${jumpLink}`)
+                        } catch {
+                            channelPings.push(mention)
+                        }
+                    } else {
+                        channelPings.push(mention)
+                    }
+                }
+            }
+
+            if (channelPings.length > 0) {
+                try {
+                    channel.send(`${channelPings.join(' ')} please acknowledge your reminder!`)
+                } catch {
+                    console.error(`Failed to send chase-up in "${reminder.channel}" (${reminder.message})`)
+                }
             }
             break
         }
@@ -58,7 +76,7 @@ export default async function processReminders() {
             }
 
             try {
-                channel.send({
+                const sent = await channel.send({
                     content: reminder.who.join(' '),
                     embeds: [
                         new Discord.EmbedBuilder()
@@ -75,8 +93,9 @@ export default async function processReminders() {
                 Db.reminders.updateOne({ _id: reminder._id }, {
                     $set: {
                         expected: new Date(reminder.expected.getTime() + reminder.repeat),
-                        nextCheck: new Date(new Date().getTime() + 1000 * 60 * 60 * 8),
-                        acknowledged: [...reminder.who]
+                        nextCheck: reminder.chaseUpOffset !== null ? new Date(reminder.expected.getTime() + reminder.chaseUpOffset) : null,
+                        acknowledged: [...reminder.who],
+                        messageId: sent.id
                     }
                 })
 

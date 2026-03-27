@@ -3,6 +3,8 @@ export interface ReminderSession {
     time: string
     date: string
     repeat: string | null
+    chaseUpTime: string | null
+    chaseUpDate: string | null
     channel: string
     userId: string
     pingMe: boolean
