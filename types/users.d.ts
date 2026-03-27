@@ -61,6 +61,11 @@ declare global {
                 startToEndDate: string
                 name: string
             }[]
+            qualifications?: {
+                date: string
+                qualification: string
+                trainer: string
+            }[]
         }
     }
 

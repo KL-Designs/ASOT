@@ -4,6 +4,7 @@ import { ChatCommands, UserContextCommands } from 'discord/commands'
 import Buttons from 'discord/buttons'
 import Modals from 'discord/modals'
 import StringSelectMenus from 'discord/stringSelectMenus'
+import MentionableSelectMenus from 'discord/mentionableSelectMenus'
 
 
 
@@ -133,5 +134,17 @@ export function StringSelectMenu(interaction: Discord.StringSelectMenuInteractio
         return StringSelectMenus[ext](interaction, args)
     } catch {
         return interaction.reply({ content: `No StringSelectMenu matching \`${ext}\` was found.`, ephemeral: true })
+    }
+}
+
+
+export function MentionableSelectMenu(interaction: Discord.MentionableSelectMenuInteraction) {
+    const ext = interaction.customId.split('.')[0]
+    const args = interaction.customId.split('.').slice(1)
+
+    try {
+        return MentionableSelectMenus[ext](interaction, args)
+    } catch {
+        return interaction.reply({ content: `No MentionableSelectMenu matching \`${ext}\` was found.`, ephemeral: true })
     }
 }

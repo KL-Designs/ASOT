@@ -3,6 +3,7 @@ import Db from 'lib/mongo.ts'
 import * as Discord from "discord.js"
 
 
+
 export default async function processReminders() {
     const reminders = await Db.reminders.find().toArray()
     const today = new Date()
@@ -14,16 +15,15 @@ export default async function processReminders() {
         const author = await App.user(reminder.by)
 
 
-        if (typeof reminder.acknowledged === 'number' && reminder.nextCheck.getTime() < today.getTime()) {
+        if (Array.isArray(reminder.acknowledged) && reminder.acknowledged.length > 0 && reminder.nextCheck && reminder.nextCheck.getTime() < today.getTime()) {
             Db.reminders.updateOne({ _id: reminder._id }, {
                 $set: {
-                    acknowledged: reminder.acknowledged > 0 ? reminder.acknowledged - 1 : true,
                     nextCheck: new Date(new Date().getTime() + 1000 * 60 * 60 * 8)
                 }
             })
 
             try {
-                channel.send(`${reminder.who.join(' ')} please acknowledge your reminder!`)
+                channel.send(`${reminder.acknowledged.join(' ')} please acknowledge your reminder!`)
                     .then(msg => setTimeout(() => msg.delete().catch(() => { }), 1000 * 60 * 60 * 8))
             } catch {
                 console.error(`Failed to send acknowledgement reminder in "${reminder.channel}" (${reminder.message})`)
@@ -33,21 +33,29 @@ export default async function processReminders() {
 
 
         if (reminder.acknowledged === null && reminder.expected.getTime() < today.getTime()) {
-            const acknowledgeButton = new Discord.ButtonBuilder()
-                .setCustomId(`reminder.${reminder._id.toString()}.ack`)
-                .setStyle(Discord.ButtonStyle.Success)
-                .setEmoji('👍')
-                .setLabel('Acknowledge')
+            const ackRow = new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>()
+                .addComponents(
+                    new Discord.ButtonBuilder()
+                        .setCustomId(`reminder.${reminder._id.toString()}.ack`)
+                        .setStyle(Discord.ButtonStyle.Success)
+                        .setEmoji('👍')
+                        .setLabel('Acknowledge')
+                )
 
-            const removeButton = new Discord.ButtonBuilder()
-                .setCustomId(`reminder.${reminder._id.toString()}.disable`)
-                .setStyle(Discord.ButtonStyle.Danger)
-                .setEmoji('🔌')
-                .setLabel('Disable Reminder')
+            const actionRows: Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>[] = [ackRow]
 
-            const actionRow = new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>()
-            if (reminder.repeat === 0) actionRow.addComponents(acknowledgeButton)
-            if (reminder.repeat > 0) actionRow.addComponents(acknowledgeButton, removeButton)
+            if (reminder.repeat > 0) {
+                actionRows.push(
+                    new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>()
+                        .addComponents(
+                            new Discord.ButtonBuilder()
+                                .setCustomId(`reminder.${reminder._id.toString()}.disable`)
+                                .setStyle(Discord.ButtonStyle.Danger)
+                                .setEmoji('🔌')
+                                .setLabel('Disable Reminder')
+                        )
+                )
+            }
 
             try {
                 channel.send({
@@ -59,15 +67,16 @@ export default async function processReminders() {
                             .setDescription(reminder.message)
                             .setColor(App.colors.warning)
                             .setTimestamp()
+                            .addFields({ name: '⏳ Pending', value: reminder.who.join('\n') })
                     ],
-                    components: [actionRow]
+                    components: actionRows
                 })
 
                 Db.reminders.updateOne({ _id: reminder._id }, {
                     $set: {
                         expected: new Date(reminder.expected.getTime() + reminder.repeat),
-                        nextCheck: reminder.repeat === 0 ? new Date(new Date().getTime() + 1000 * 60 * 60 * 8) : null,
-                        acknowledged: reminder.repeat === 0 && reminder.acknowledged === null ? 2 : null
+                        nextCheck: new Date(new Date().getTime() + 1000 * 60 * 60 * 8),
+                        acknowledged: [...reminder.who]
                     }
                 })
 
@@ -77,6 +86,7 @@ export default async function processReminders() {
             }
             break
         }
+
 
         if (reminder.repeat === 0 && reminder.acknowledged === true) { Db.reminders.deleteOne({ _id: reminder._id }), console.log(`Reminder ${reminder._id} has been removed`); break }
     }

@@ -10,7 +10,7 @@ declare global {
         enabled: boolean | null
 
         expected: Date
-        acknowledged: number | true | null
+        acknowledged: string[] | true | null
         nextCheck: Date | null
         repeat: number
 

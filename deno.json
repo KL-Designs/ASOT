@@ -39,6 +39,7 @@
         "discord/commands": "./app/commands/index.ts",
         "discord/buttons": "./app/interactions/buttons/index.ts",
         "discord/modals": "./app/interactions/modals/index.ts",
-        "discord/stringSelectMenus": "./app/interactions/stringSelectMenus/index.ts"
+        "discord/stringSelectMenus": "./app/interactions/stringSelectMenus/index.ts",
+        "discord/mentionableSelectMenus": "./app/interactions/mentionableSelectMenus/index.ts"
     }
 }

@@ -1,6 +1,5 @@
 import Discord, { ApplicationCommandOptionType } from 'discord.js'
-import Db from 'lib/mongo.ts'
-import { ObjectId } from 'mongodb'
+import { createSession } from 'lib/reminderSessions.ts'
 
 
 export default {
@@ -51,12 +50,10 @@ export default {
                 if (!/^\d{2}\/\d{2}\/\d{4}$/.test(search)) return interaction.respond([{ name: 'Invalid Date, Must match DD/MM/YYYY', value: 'invalid' }])
                 if (!isRealDate(search)) return interaction.respond([{ name: `${search} is not a real date, please check this date exists!`, value: 'invalid' }])
 
-
                 const date = new Date()
                 date.setDate(day)
                 date.setMonth(month - 1)
                 date.setFullYear(year)
-
 
                 interaction.respond([{ name: date.toDateString(), value: search }])
             }
@@ -93,93 +90,55 @@ export default {
             }
 
         } as AutocompleteOption,
-        {
-            name: 'who',
-            description: 'Who do you want to remind? (Leave blank to remind yourself)',
-            type: ApplicationCommandOptionType.Mentionable,
-            required: false
-        }
     ],
 
-    async execute(interaction) {
+    execute(interaction) {
         if (interaction.options.getString('date') === 'invalid') return interaction.reply({ content: 'Date is Invalid', ephemeral: true })
         if (interaction.options.getString('time') === 'invalid') return interaction.reply({ content: 'Time is Invalid', ephemeral: true })
         if (interaction.options.getString('repeat') === 'invalid') return interaction.reply({ content: 'Repeat is Invalid', ephemeral: true })
 
-        const who = []
-        const finalDate = new Date()
-        let repeat = 0
+        const sessionId = interaction.id
 
-        who.push(`<@${interaction.user.id}>`)
-
-        if (!interaction.options.getString('reminder', true)) return
-
-        if (interaction.options.getMentionable('who')) {
-            const mention = interaction.options.getMentionable('who') as Discord.GuildMember & Discord.Role
-            if (mention) {
-                if (mention.user) who.push(`<@${mention.user.id}>`)
-                else if (mention.id) who.push(`<@&${mention.id}>`)
-            }
-        }
-
-        const date = () => {
-            if (interaction.options.getString('date', false)) return interaction.options.getString('date')
-            const today = new Date()
-            const dd = String(today.getDate()).padStart(2, '0')
-            const mm = String(today.getMonth() + 1).padStart(2, '0')
-            const yyyy = today.getFullYear()
-            return `${dd}/${mm}/${yyyy}`
-        }
-
-        const [day, month, year] = date().split('/')
-        finalDate.setDate(parseInt(day))
-        finalDate.setMonth(parseInt(month) - 1)
-        finalDate.setFullYear(parseInt(year))
-
-        const [hour, minute] = interaction.options.getString('time', true).split(':')
-        finalDate.setHours(parseInt(hour))
-        finalDate.setMinutes(parseInt(minute))
-        finalDate.setSeconds(0)
-        finalDate.setMilliseconds(0)
-
-
-        if (interaction.options.getString('repeat', false) !== null) {
-            const rawRepeat = interaction.options.getString('repeat', false)
-
-            const times = rawRepeat.split('/')
-            repeat = 0
-
-            times.forEach((time, i) => {
-                const value = Number(time.slice(0, -1))
-                const type = time.slice(-1)
-
-                if (isNaN(value)) return interaction.reply({ content: 'Invalid Repeat Syntax', ephemeral: true })
-
-                switch (type) {
-                    case "m": repeat += 1000 * 60 * value; break
-                    case "h": repeat += 1000 * 60 * 60 * value; break
-                    case "d": repeat += 1000 * 60 * 60 * 24 * value; break
-                    case "w": repeat += 1000 * 60 * 60 * 24 * 7 * value; break
-                    default: return interaction.reply({ content: `Invalid Repeat Syntax Letter: "${type}"`, ephemeral: true }) //! THIS IS GONNA BREAK
-                }
-            })
-        }
-
-        Db.reminders.insertOne({
-            _id: new ObjectId(),
-            enabled: true,
-            expected: finalDate,
-            acknowledged: null,
-            nextCheck: null,
-            repeat: repeat,
-            by: interaction.user.id,
-            who: who,
-            message: interaction.options.getString('reminder'),
-            channel: interaction.channelId
+        createSession(sessionId, {
+            message: interaction.options.getString('reminder', true),
+            time: interaction.options.getString('time', true),
+            date: interaction.options.getString('date', false) ?? '',
+            repeat: interaction.options.getString('repeat', false),
+            channel: interaction.channelId,
+            userId: interaction.user.id,
+            pingMe: true,
+            who: [],
         })
 
-        interaction.reply({ content: `Reminder set for <t:${Math.floor(finalDate.getTime() / 1000)}:F>\n>>> ${interaction.options.getString('reminder')}`, ephemeral: true })
+        const selectMenu = new Discord.MentionableSelectMenuBuilder()
+            .setCustomId(`reminder_setup.${sessionId}.select`)
+            .setPlaceholder('Select who to remind... (leave empty for just yourself)')
+            .setMinValues(0)
+            .setMaxValues(20)
 
+        const pingMeButton = new Discord.ButtonBuilder()
+            .setCustomId(`reminder_setup.${sessionId}.pingme`)
+            .setLabel('Ping Me: Yes')
+            .setEmoji('✅')
+            .setStyle(Discord.ButtonStyle.Success)
+
+        const confirmButton = new Discord.ButtonBuilder()
+            .setCustomId(`reminder_setup.${sessionId}.confirm`)
+            .setLabel('Create Reminder')
+            .setEmoji('🔔')
+            .setStyle(Discord.ButtonStyle.Primary)
+
+        const selectRow = new Discord.ActionRowBuilder<Discord.MentionableSelectMenuBuilder>()
+            .addComponents(selectMenu)
+
+        const buttonRow = new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
+            .addComponents(pingMeButton, confirmButton)
+
+        interaction.reply({
+            content: `**Reminder:** ${interaction.options.getString('reminder', true)}\nSelect who to remind, then confirm.`,
+            components: [selectRow, buttonRow],
+            ephemeral: true
+        })
     }
 } as ChatSubcommand
 
