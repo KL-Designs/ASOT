@@ -8,16 +8,8 @@ import {
     TextField, IconButton, Avatar,
 } from '@mui/material'
 import { Edit, Close, AccountTree, Warning, ArrowUpward, ArrowDownward, Add, Delete } from '@mui/icons-material'
+import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat-constants'
 
-
-const STRUCTURAL = ['companyHQ', 'activeReservist', 'inactiveReservist', 'gamemaster']
-
-const STRUCTURAL_LABELS: Record<string, string> = {
-    companyHQ:        'India Company HQ',
-    activeReservist:  'Company Reservists (Active)',
-    inactiveReservist:'Company Reservists (Inactive)',
-    gamemaster:       'Gamemasters',
-}
 
 const tileStyle = {
     border: '1px solid rgba(219,0,29,0.15)',
@@ -83,7 +75,6 @@ function buildSections(positions: OrbatPositionWithUser[], cat: string): Section
 export default function OrbatManager({ initialUsers }: { initialUsers: PickerUser[] }) {
 
     const [positions, setPositions] = useState<OrbatPositionWithUser[]>([])
-    const [categories, setCategories] = useState<OrbatCategory[]>([])
     const [loading, setLoading] = useState(true)
     const allUsers = initialUsers
 
@@ -92,16 +83,12 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     const [editRoleVal, setEditRoleVal] = useState('')
     const [editSectionKey, setEditSectionKey] = useState<string | null>(null)  // `${cat}::${title}`
     const [editSectionVal, setEditSectionVal] = useState('')
-    const [editCatKey, setEditCatKey] = useState<string | null>(null)
-    const [editCatVal, setEditCatVal] = useState('')
 
     // Add state
     const [addSectionCat, setAddSectionCat] = useState<string | null>(null)
     const [addSectionVal, setAddSectionVal] = useState('')
     const [addRoleKey, setAddRoleKey] = useState<string | null>(null)  // `${cat}::${sectionTitle}`
     const [addRoleVal, setAddRoleVal] = useState('')
-    const [addingCat, setAddingCat] = useState(false)
-    const [addCatVal, setAddCatVal] = useState('')
 
     // User picker state
     const [pickerOpen, setPickerOpen] = useState<string | null>(null)
@@ -114,8 +101,11 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
 
     // Confirmation dialogs
     const [confirmDeleteSection, setConfirmDeleteSection] = useState<{ cat: string; sectionTitle: string } | null>(null)
-    const [confirmDeleteCat, setConfirmDeleteCat] = useState<string | null>(null)
     const [confirmDeletePos, setConfirmDeletePos] = useState<string | null>(null)
+
+    // Add-to-reservists picker
+    const [addReservistCat, setAddReservistCat] = useState<'activeReservist' | 'inactiveReservist' | null>(null)
+    const [addReservistSearch, setAddReservistSearch] = useState('')
 
     // Import dialog
     const [importOpen, setImportOpen] = useState(false)
@@ -128,12 +118,8 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
 
     const load = useCallback(async () => {
         setLoading(true)
-        const [posRes, catRes] = await Promise.all([
-            fetch('/api/admin/orbat'),
-            fetch('/api/admin/orbat/categories'),
-        ])
-        if (posRes.ok) setPositions(await posRes.json())
-        if (catRes.ok) setCategories(await catRes.json())
+        const res = await fetch('/api/admin/orbat')
+        if (res.ok) setPositions(await res.json())
         setLoading(false)
     }, [])
 
@@ -166,16 +152,32 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     async function resolveConflict() {
         if (!conflict) return
         setResolvingConflict(true)
-        await fetch(`/api/admin/orbat/${conflict.position._id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: null }),
-        })
+
+        const RESERVIST_IDS = RESERVIST_CATEGORIES.map(c => c._id) as string[]
+        const isFromReservist = RESERVIST_IDS.includes(conflict.position.category)
+
+        if (isFromReservist) {
+            // Remove user from reservist pool instead of unassigning (avoids orphan slot)
+            await fetch('/api/admin/orbat/reservists', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ positionId: conflict.position._id.toString() }),
+            })
+        } else {
+            // Unassign from old platoon role — skip auto-move since user is going to a new role
+            await fetch(`/api/admin/orbat/${conflict.position._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: null, skipAutoMove: true }),
+            })
+        }
+
         await fetch(`/api/admin/orbat/${conflict.pendingPositionId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: conflict.pendingUserId }),
         })
+
         setConflict(null)
         setResolvingConflict(false)
         await load()
@@ -296,44 +298,38 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     }
 
 
-    // ── Category CRUD ────────────────────────────────────────────────────────
+    // ── Reservist actions ────────────────────────────────────────────────────
 
-    async function saveCategory(key: string, label: string) {
-        if (!label.trim()) { setEditCatKey(null); return }
+    async function moveReservist(positionId: string, targetCategory: 'activeReservist' | 'inactiveReservist') {
         setBusy(true)
-        await fetch('/api/admin/orbat/categories', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key, label: label.trim() }),
-        })
-        setEditCatKey(null)
-        setBusy(false)
-        await load()
-    }
-
-    async function addCategory(label: string) {
-        if (!label.trim()) return
-        setBusy(true)
-        await fetch('/api/admin/orbat/categories', {
+        await fetch('/api/admin/orbat/reservists', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ label: label.trim() }),
+            body: JSON.stringify({ positionId, targetCategory }),
         })
-        setAddingCat(false)
-        setAddCatVal('')
         setBusy(false)
         await load()
     }
 
-    async function deleteCategory(key: string) {
+    async function removeReservist(positionId: string) {
         setBusy(true)
-        await fetch('/api/admin/orbat/categories', {
+        await fetch('/api/admin/orbat/reservists', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key }),
+            body: JSON.stringify({ positionId }),
         })
-        setConfirmDeleteCat(null)
         setBusy(false)
+        await load()
+    }
+
+    async function addToReservists(userId: string, category: 'activeReservist' | 'inactiveReservist') {
+        await fetch('/api/admin/orbat/reservists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, category }),
+        })
+        setAddReservistCat(null)
+        setAddReservistSearch('')
         await load()
     }
 
@@ -359,10 +355,15 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
 
     // ── Derived ──────────────────────────────────────────────────────────────
 
-    const platoonCats = categories.filter(c => !STRUCTURAL.includes(c._id))
     const pickerPosition = pickerOpen ? positions.find(p => p._id.toString() === pickerOpen) : null
     const filteredUsers = allUsers.filter(u =>
         u.displayName.toLowerCase().includes(userSearch.toLowerCase())
+    )
+
+    const assignedUserIds = new Set(positions.map(p => p.userId).filter(Boolean))
+    const unassignedUsers = allUsers.filter(u =>
+        !assignedUserIds.has(u.id) &&
+        u.displayName.toLowerCase().includes(addReservistSearch.toLowerCase())
     )
 
 
@@ -552,63 +553,33 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     }
 
 
-    function renderColumn(cat: OrbatCategory, sections: Section[], isStructural = false) {
-        // For structural categories with no data yet, ensure a default empty section exists
-        const effectiveSections = (isStructural && sections.length === 0)
+    function renderColumn(cat: { _id: string; label: string }, sections: Section[], canAddSection: boolean) {
+        const effectiveSections = sections.length === 0
             ? [{ title: '', sectionOrder: 0, positions: [] }]
             : sections
 
         return (
             <div key={cat._id} className='flex flex-col' style={tileStyle}>
 
-                {/* Column header */}
-                <div className='flex items-center gap-1 px-3 py-2' style={{ borderBottom: '1px solid rgba(219,0,29,0.12)' }}>
-                    <div className='flex-1 min-w-0'>
-                        {editCatKey === cat._id ? (
-                            <TextField
-                                size='small'
-                                value={editCatVal}
-                                onChange={e => setEditCatVal(e.target.value)}
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter') saveCategory(cat._id, editCatVal)
-                                    if (e.key === 'Escape') setEditCatKey(null)
-                                }}
-                                onBlur={() => saveCategory(cat._id, editCatVal)}
-                                autoFocus
-                                fullWidth
-                                inputProps={{ style: { fontSize: '0.7rem', padding: '2px 6px' } }}
-                                sx={{ '& .MuiOutlinedInput-root': { height: 24 } }}
-                            />
-                        ) : (
-                            <Typography
-                                fontSize='0.62rem'
-                                fontWeight={700}
-                                letterSpacing={2}
-                                noWrap
-                                style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.8)' }}
-                            >
-                                {cat.label}
-                            </Typography>
-                        )}
-                    </div>
-                    {!isStructural && (
-                        <>
-                            <IconButton size='small' onClick={() => { setEditCatKey(cat._id); setEditCatVal(cat.label) }} sx={{ ...ghostBtn, padding: '2px' }}>
-                                <Edit sx={{ fontSize: 12 }} />
-                            </IconButton>
-                            <IconButton size='small' onClick={() => setConfirmDeleteCat(cat._id)} sx={{ ...ghostBtn, padding: '2px', color: 'rgba(219,0,29,0.3)', '&:hover': { color: 'rgba(219,0,29,0.65)' } }}>
-                                <Delete sx={{ fontSize: 12 }} />
-                            </IconButton>
-                        </>
-                    )}
+                {/* Column header — read-only label */}
+                <div className='flex items-center px-3 py-2' style={{ borderBottom: '1px solid rgba(219,0,29,0.12)' }}>
+                    <Typography
+                        fontSize='0.62rem'
+                        fontWeight={700}
+                        letterSpacing={2}
+                        noWrap
+                        style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.8)' }}
+                    >
+                        {cat.label}
+                    </Typography>
                 </div>
 
                 {/* Sections + positions */}
                 <div className='flex flex-col flex-1 overflow-y-auto px-1 pb-2'>
                     {effectiveSections.map((sec, idx) => renderSection(sec, cat._id, effectiveSections, idx))}
 
-                    {/* Add Section (platoon columns only) */}
-                    {!isStructural && (
+                    {/* Add Section */}
+                    {canAddSection && (
                         addSectionCat === cat._id ? (
                             <div className='flex gap-1 px-1 py-1 mt-1'>
                                 <TextField
@@ -649,6 +620,95 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     }
 
 
+    function renderReservistPanel(cat: { _id: string; label: string }) {
+        const reservists = positions.filter(p => p.category === cat._id)
+        const isActive = cat._id === 'activeReservist'
+        const targetCat = isActive ? 'inactiveReservist' : 'activeReservist'
+        const moveLabel = isActive ? 'Move to Inactive' : 'Move to Active'
+
+        return (
+            <div key={cat._id} className='flex flex-col' style={tileStyle}>
+
+                {/* Header */}
+                <div className='px-3 py-2' style={{ borderBottom: '1px solid rgba(219,0,29,0.12)' }}>
+                    <Typography
+                        fontSize='0.62rem'
+                        fontWeight={700}
+                        letterSpacing={2}
+                        style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.8)' }}
+                    >
+                        {cat.label}
+                    </Typography>
+                    <Typography fontSize='0.6rem' style={{ color: 'rgba(237,237,237,0.2)', marginTop: 2 }}>
+                        {reservists.length} member{reservists.length !== 1 ? 's' : ''}
+                    </Typography>
+                </div>
+
+                {/* Reservist rows */}
+                <div className='flex flex-col flex-1 overflow-y-auto px-1 py-1'>
+                    {reservists.map(pos => {
+                        const posId = pos._id.toString()
+                        return (
+                            <div key={posId} className='flex items-center gap-2 px-2 py-1' style={rowStyle}>
+                                {pos.user ? (
+                                    <>
+                                        <Avatar src={pos.user.avatarURL} sx={{ width: 18, height: 18, fontSize: '0.5rem' }} />
+                                        <Typography fontSize='0.73rem' noWrap style={{ flex: 1, color: 'rgba(237,237,237,0.75)' }}>
+                                            {pos.user.displayName}
+                                        </Typography>
+                                    </>
+                                ) : (
+                                    <Typography fontSize='0.65rem' fontStyle='italic' style={{ flex: 1, color: 'rgba(237,237,237,0.15)' }}>
+                                        Unlinked slot
+                                    </Typography>
+                                )}
+                                <IconButton
+                                    size='small'
+                                    disabled={busy}
+                                    title={moveLabel}
+                                    onClick={() => moveReservist(posId, targetCat as 'activeReservist' | 'inactiveReservist')}
+                                    sx={{ ...ghostBtn, padding: '1px' }}
+                                >
+                                    {isActive
+                                        ? <ArrowDownward sx={{ fontSize: 11 }} />
+                                        : <ArrowUpward sx={{ fontSize: 11 }} />
+                                    }
+                                </IconButton>
+                                <IconButton
+                                    size='small'
+                                    disabled={busy}
+                                    title='Remove from pool'
+                                    onClick={() => removeReservist(posId)}
+                                    sx={{ ...ghostBtn, padding: '1px', color: 'rgba(219,0,29,0.3)', '&:hover': { color: 'rgba(219,0,29,0.65)' } }}
+                                >
+                                    <Delete sx={{ fontSize: 11 }} />
+                                </IconButton>
+                            </div>
+                        )
+                    })}
+                    {reservists.length === 0 && (
+                        <Typography fontSize='0.65rem' fontStyle='italic' style={{ color: 'rgba(237,237,237,0.15)', padding: '8px 8px' }}>
+                            None
+                        </Typography>
+                    )}
+                </div>
+
+                {/* Add Member */}
+                <div className='px-1 pb-2'>
+                    <Button
+                        size='small'
+                        sx={{ ...addBtn, color: 'rgba(237,237,237,0.15)', '&:hover': { color: 'rgba(237,237,237,0.4)', background: 'transparent' } }}
+                        startIcon={<Add sx={{ fontSize: '11px !important' }} />}
+                        onClick={() => { setAddReservistCat(cat._id as 'activeReservist' | 'inactiveReservist'); setAddReservistSearch('') }}
+                    >
+                        Add Member
+                    </Button>
+                </div>
+            </div>
+        )
+    }
+
+
     if (loading) {
         return (
             <div className='h-full w-full flex items-center justify-center'>
@@ -657,16 +717,8 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
         )
     }
 
-
-    const hqCat: OrbatCategory = categories.find(c => c._id === 'companyHQ')
-        ?? { _id: 'companyHQ', label: STRUCTURAL_LABELS.companyHQ, order: 0 }
-
-    const structuralBottom = (
-        ['activeReservist', 'inactiveReservist', 'gamemaster'] as const
-    ).map(id => ({
-        cat: categories.find(c => c._id === id) ?? { _id: id, label: STRUCTURAL_LABELS[id], order: 99 },
-        sections: buildSections(positions, id),
-    }))
+    const [hqCat, ...platoonCols] = PLATOON_CATEGORIES
+    const canAddSectionFor = (id: string) => !(SINGLE_SECTION_CATEGORIES as readonly string[]).includes(id)
 
 
     return (
@@ -721,53 +773,18 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
             {positions.length > 0 && (
                 <>
                     {/* Company HQ — full width */}
-                    {renderColumn(hqCat, buildSections(positions, 'companyHQ'), true)}
+                    {renderColumn(hqCat, buildSections(positions, hqCat._id), canAddSectionFor(hqCat._id))}
 
-                    {/* Platoon columns */}
-                    <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4'>
-                        {platoonCats.map(cat => renderColumn(cat, buildSections(positions, cat._id)))}
-
-                        {/* Add Platoon tile */}
-                        <div className='flex flex-col items-start justify-start p-3' style={{ ...tileStyle, borderStyle: 'dashed', borderTopStyle: 'solid' }}>
-                            {addingCat ? (
-                                <div className='flex gap-1 w-full'>
-                                    <TextField
-                                        size='small'
-                                        placeholder='Platoon name...'
-                                        value={addCatVal}
-                                        onChange={e => setAddCatVal(e.target.value)}
-                                        onKeyDown={e => {
-                                            if (e.key === 'Enter') addCategory(addCatVal)
-                                            if (e.key === 'Escape') { setAddingCat(false); setAddCatVal('') }
-                                        }}
-                                        autoFocus
-                                        fullWidth
-                                        inputProps={{ style: { fontSize: '0.72rem', padding: '3px 8px' } }}
-                                        sx={{ '& .MuiOutlinedInput-root': { height: 26 } }}
-                                    />
-                                    <IconButton size='small' onClick={() => addCategory(addCatVal)} disabled={!addCatVal.trim() || busy} sx={{ ...ghostBtn, padding: '2px' }}>
-                                        <Add sx={{ fontSize: 14 }} />
-                                    </IconButton>
-                                    <IconButton size='small' onClick={() => { setAddingCat(false); setAddCatVal('') }} sx={{ ...ghostBtn, padding: '2px' }}>
-                                        <Close sx={{ fontSize: 14 }} />
-                                    </IconButton>
-                                </div>
-                            ) : (
-                                <Button
-                                    size='small'
-                                    sx={{ ...addBtn, color: 'rgba(237,237,237,0.2)', '&:hover': { color: 'rgba(237,237,237,0.45)', background: 'transparent' } }}
-                                    startIcon={<Add sx={{ fontSize: '13px !important' }} />}
-                                    onClick={() => setAddingCat(true)}
-                                >
-                                    Add Platoon
-                                </Button>
-                            )}
-                        </div>
+                    {/* Platoon + Gamemaster columns */}
+                    <div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4'>
+                        {platoonCols.map(cat =>
+                            renderColumn(cat, buildSections(positions, cat._id), canAddSectionFor(cat._id))
+                        )}
                     </div>
 
-                    {/* Bottom structural — reservists + gamemasters */}
-                    <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                        {structuralBottom.map(({ cat, sections }) => renderColumn(cat, sections, true))}
+                    {/* Reservists */}
+                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                        {RESERVIST_CATEGORIES.map(cat => renderReservistPanel(cat))}
                     </div>
                 </>
             )}
@@ -860,12 +877,16 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                 </DialogTitle>
                 <DialogContent>
                     <Typography fontSize='0.82rem' style={{ color: 'rgba(237,237,237,0.7)' }}>
-                        This member is already assigned to{' '}
-                        <strong style={{ color: 'rgba(237,237,237,0.9)' }}>{conflict?.position.role}</strong>
-                        {conflict?.position.sectionTitle ? ` in ${conflict.position.sectionTitle}` : ''}.
+                        {conflict && (['activeReservist', 'inactiveReservist'] as string[]).includes(conflict.position.category)
+                            ? <>This member is currently in the <strong style={{ color: 'rgba(237,237,237,0.9)' }}>Reservists</strong> pool.</>
+                            : <>This member is already assigned to{' '}
+                                <strong style={{ color: 'rgba(237,237,237,0.9)' }}>{conflict?.position.role}</strong>
+                                {conflict?.position.sectionTitle ? ` in ${conflict.position.sectionTitle}` : ''}.
+                              </>
+                        }
                     </Typography>
                     <Typography fontSize='0.78rem' style={{ color: 'rgba(237,237,237,0.45)', marginTop: 8 }}>
-                        Would you like to unassign them from that position and assign them here instead?
+                        Would you like to move them to this position instead?
                     </Typography>
                 </DialogContent>
                 <DialogActions>
@@ -890,7 +911,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                 </DialogTitle>
                 <DialogContent>
                     <Typography fontSize='0.82rem' style={{ color: 'rgba(237,237,237,0.6)' }}>
-                        This will permanently delete this position and its user assignment.
+                        This will permanently delete this position. If someone is assigned, they will be moved to Active Reservists.
                     </Typography>
                 </DialogContent>
                 <DialogActions>
@@ -917,6 +938,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                     <Typography fontSize='0.82rem' style={{ color: 'rgba(237,237,237,0.6)' }}>
                         This will delete all positions in{' '}
                         <strong style={{ color: 'rgba(237,237,237,0.85)' }}>{confirmDeleteSection?.sectionTitle}</strong>.
+                        Assigned members will be moved to Active Reservists.
                     </Typography>
                 </DialogContent>
                 <DialogActions>
@@ -928,28 +950,64 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
             </Dialog>
 
 
-            {/* ── Confirm Delete Category ──────────────────────────────────────── */}
+            {/* ── Add to Reservists Dialog ─────────────────────────────────────── */}
             <Dialog
-                open={!!confirmDeleteCat}
-                onClose={() => setConfirmDeleteCat(null)}
+                open={!!addReservistCat}
+                onClose={() => { setAddReservistCat(null); setAddReservistSearch('') }}
                 maxWidth='xs'
                 fullWidth
                 PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.2)' } }}
             >
                 <DialogTitle style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>
-                    Delete Platoon
+                    Add Member
+                    <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.35)', marginTop: 2 }}>
+                        {addReservistCat === 'activeReservist' ? 'Company Reservists (Active)' : 'Company Reservists (Inactive)'}
+                    </Typography>
                 </DialogTitle>
                 <DialogContent>
-                    <Typography fontSize='0.82rem' style={{ color: 'rgba(237,237,237,0.6)' }}>
-                        This will permanently delete the platoon and{' '}
-                        <strong style={{ color: 'rgba(219,0,29,0.9)' }}>all positions within it</strong>.
-                    </Typography>
+                    <TextField
+                        autoFocus
+                        fullWidth
+                        size='small'
+                        placeholder='Search members...'
+                        value={addReservistSearch}
+                        onChange={e => setAddReservistSearch(e.target.value)}
+                        sx={{ mb: 1.5 }}
+                        inputProps={{ style: { fontSize: '0.82rem' } }}
+                    />
+                    <div className='flex flex-col gap-1' style={{ maxHeight: 320, overflowY: 'auto' }}>
+                        {unassignedUsers.map(u => (
+                            <button
+                                key={u.id}
+                                onClick={() => addReservistCat && addToReservists(u.id, addReservistCat)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 10,
+                                    padding: '6px 8px',
+                                    background: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.05)',
+                                    borderRadius: 4,
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    width: '100%',
+                                }}
+                            >
+                                <Avatar src={u.avatarURL} sx={{ width: 28, height: 28, fontSize: '0.7rem' }} />
+                                <Typography fontSize='0.78rem' style={{ color: 'rgba(237,237,237,0.8)' }}>
+                                    {u.displayName}
+                                </Typography>
+                            </button>
+                        ))}
+                        {unassignedUsers.length === 0 && (
+                            <Typography fontSize='0.75rem' style={{ color: 'rgba(237,237,237,0.25)', textAlign: 'center', padding: 16 }}>
+                                {addReservistSearch ? 'No members found' : 'All members are already on the orbat'}
+                            </Typography>
+                        )}
+                    </div>
                 </DialogContent>
                 <DialogActions>
-                    <Button sx={ghostBtn} onClick={() => setConfirmDeleteCat(null)}>Cancel</Button>
-                    <Button variant='outlined' sx={redBtn} disabled={busy} onClick={() => confirmDeleteCat && deleteCategory(confirmDeleteCat)}>
-                        {busy ? <CircularProgress size={14} sx={{ color: 'var(--red)' }} /> : 'Delete'}
-                    </Button>
+                    <Button sx={ghostBtn} onClick={() => { setAddReservistCat(null); setAddReservistSearch('') }}>Cancel</Button>
                 </DialogActions>
             </Dialog>
 

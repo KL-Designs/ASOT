@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
 
 
 async function auth() {
@@ -18,9 +19,12 @@ function parseId(positionId: string): ObjectId | null {
 
 
 // ── PATCH /api/admin/orbat/[positionId] ───────────────────────────────────────
-// Body: { userId: string | null }            — assign/unassign user
-//       { role: string }                     — rename role
-//       { positionOrder: number }            — reorder within section
+// Body: { userId: string | null, skipAutoMove?: boolean }  — assign/unassign user
+//       { role: string }                                   — rename role
+//       { positionOrder: number }                          — reorder within section
+//
+// When userId is set to null on a platoon position (and skipAutoMove is not true),
+// the evicted user is automatically placed into activeReservist.
 
 export async function PATCH(
     request: NextRequest,
@@ -39,13 +43,37 @@ export async function PATCH(
 
     // User assignment
     if ('userId' in body) {
-        const { userId } = body
-        if (userId) {
+        const { userId, skipAutoMove } = body
+        const isUnassign = !userId
+
+        if (!isUnassign) {
+            // Conflict check — prevent dual assignment
             const existing = await Db.orbatPositions.findOne({ userId, _id: { $ne: objectId } })
             if (existing) {
                 return NextResponse.json({ error: 'User already assigned', conflict: existing }, { status: 409 })
             }
         }
+
+        // Auto-move evicted user to activeReservist (unless suppressed or this IS a reservist position)
+        if (isUnassign && position.userId && !skipAutoMove && !RESERVIST_CATEGORY_IDS.includes(position.category)) {
+            const last = await Db.orbatPositions
+                .find({ category: 'activeReservist' })
+                .sort({ positionOrder: -1 })
+                .limit(1)
+                .toArray()
+            const positionOrder = (last[0]?.positionOrder ?? -1) + 1
+
+            await Db.orbatPositions.insertOne({
+                _id: new ObjectId(),
+                category: 'activeReservist',
+                sectionTitle: '',
+                role: 'Active Reservist',
+                userId: position.userId,
+                sectionOrder: 0,
+                positionOrder,
+            } as OrbatPosition)
+        }
+
         await Db.orbatPositions.updateOne({ _id: objectId }, { $set: { userId: userId ?? null } })
         return NextResponse.json({ success: true })
     }

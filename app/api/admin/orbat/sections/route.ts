@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { SINGLE_SECTION_CATEGORIES } from '@/lib/orbat-constants'
 
 
 async function auth(request: NextRequest) {
@@ -22,6 +23,10 @@ export async function POST(request: NextRequest) {
     const { category, sectionTitle } = await request.json()
     if (!category || !sectionTitle?.trim()) {
         return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+    }
+
+    if ((SINGLE_SECTION_CATEGORIES as readonly string[]).includes(category)) {
+        return NextResponse.json({ error: 'This category does not support multiple sections' }, { status: 400 })
     }
 
     // Assign sectionOrder after last section in this category

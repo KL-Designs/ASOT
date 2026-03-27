@@ -1,4 +1,5 @@
 import Db from '@/lib/mongo'
+import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
 
 
 export interface Member { role: string; name: string }
@@ -104,7 +105,7 @@ export async function getOrbatEntryByUserId(userId: string): Promise<OrbatEntry 
 
 	const section =
 		pos.category === 'companyHQ' ? 'India Company HQ' :
-		pos.category === 'activeReservist' || pos.category === 'inactiveReservist' ? 'Company Reservists' :
+		RESERVIST_CATEGORY_IDS.includes(pos.category) ? 'Company Reservists' :
 		pos.category === 'gamemaster' ? 'Gamemasters' :
 		pos.sectionTitle
 
@@ -129,7 +130,7 @@ export async function getOrbatEntriesForUsers(
 		if (!pos.userId) continue
 		const section =
 			pos.category === 'companyHQ' ? 'India Company HQ' :
-			pos.category === 'activeReservist' || pos.category === 'inactiveReservist' ? 'Company Reservists' :
+			RESERVIST_CATEGORY_IDS.includes(pos.category) ? 'Company Reservists' :
 			pos.category === 'gamemaster' ? 'Gamemasters' :
 			pos.sectionTitle
 		result[pos.userId] = { role: pos.role, section }
