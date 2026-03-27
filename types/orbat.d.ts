@@ -21,6 +21,7 @@ declare global {
     interface OrbatPositionWithUser extends OrbatPosition {
         user: {
             id: string
+            username: string
             displayName: string
             avatarURL: string
         } | null
@@ -37,6 +38,7 @@ declare global {
     interface ReservistPositionWithUser extends ReservistPosition {
         user: {
             id: string
+            username: string
             displayName: string
             avatarURL: string
         } | null

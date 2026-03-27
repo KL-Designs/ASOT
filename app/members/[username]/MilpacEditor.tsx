@@ -245,7 +245,7 @@ export default function MilpacEditor({ member }: { member: User }) {
     const parsedDisplayName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : fullDisplay
     const displayName = member.name || parsedDisplayName
 
-    const [memberName, setMemberName] = useState(member.name || '')
+    const [memberName, setMemberName] = useState(member.name || parsedDisplayName)
     const [bioRank, setBioRank] = useState(rankNameFromAbbr(member.milpac?.currentRank ?? member.bio?.rank ?? ''))
     const joinDateStr = member.guild?.joinedTimestamp
         ? new Date(member.guild.joinedTimestamp).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -451,52 +451,77 @@ export default function MilpacEditor({ member }: { member: User }) {
     // ── Render ─────────────────────────────────────────────────────────────────
 
     return (
-        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[900px] mx-auto'>
+        <div className='h-full w-full flex flex-col'>
             <style>{`@keyframes ilIn { from { opacity: 0; transform: scaleX(0.6) } to { opacity: 1; transform: scaleX(1) } }`}</style>
 
-            {/* Back nav */}
-            <div className='flex items-center justify-between'>
-                <div className='flex items-center gap-4'>
-                    <Link
-                        href='/members'
-                        style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', textDecoration: 'none' }}
-                    >
-                        ← All Members
-                    </Link>
-                    <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
-                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)' }}>
-                        {member.milpac?.currentRank && (
-                            <span style={{ color: 'rgba(219,0,29,0.5)', marginRight: '0.4em' }}>{member.milpac.currentRank}</span>
+            {/* Sticky header */}
+            <div style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 40,
+                background: 'rgb(13,13,13)',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+            }}>
+                <div className='flex items-center gap-4 px-6 md:px-10 py-3 max-w-[900px] mx-auto w-full'>
+                    {/* Avatar + name */}
+                    <div style={{ position: 'relative', width: 38, height: 38, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)' }}>
+                        <Avatar user={member} />
+                    </div>
+                    <div className='flex flex-col gap-0.5 flex-1 min-w-0'>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.2 }}>
+                            {member.milpac?.currentRank && (
+                                <span style={{ color: 'rgba(219,0,29,0.7)', marginRight: '0.35em', fontWeight: 400 }}>{member.milpac.currentRank}</span>
+                            )}
+                            {displayName}
+                        </span>
+                        <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.04em' }}>@{member.username}</span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className='flex items-center gap-2 shrink-0'>
+                        {error && (
+                            <span style={{ fontSize: '0.7rem', color: 'rgba(219,0,29,0.9)' }}>{error}</span>
                         )}
-                        {displayName}
-                    </span>
+                        {saved && !error && (
+                            <span style={{ fontSize: '0.7rem', color: 'rgba(80,200,80,0.75)' }}>Saved.</span>
+                        )}
+                        <Link
+                            href='/members'
+                            style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', textDecoration: 'none' }}
+                        >
+                            ← All Members
+                        </Link>
+                        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
+                        <Link
+                            href={`/milpacs/${member.username}`}
+                            style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', textDecoration: 'none', padding: '4px 10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}
+                        >
+                            View Profile ↗
+                        </Link>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            style={{
+                                background: saving ? 'rgba(219,0,29,0.3)' : 'var(--red)',
+                                border: '1px solid var(--red)',
+                                color: 'white',
+                                padding: '5px 18px',
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                letterSpacing: '0.12em',
+                                textTransform: 'uppercase',
+                                cursor: saving ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s',
+                                flexShrink: 0,
+                            }}
+                        >
+                            {saving ? 'Saving…' : 'Save Changes'}
+                        </button>
+                    </div>
                 </div>
-                <Link
-                    href={`/milpacs/${member.username}`}
-                    style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', textDecoration: 'none', padding: '5px 12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}
-                >
-                    View Profile ↗
-                </Link>
             </div>
 
-            {/* Member header */}
-            <div
-                className='flex items-center gap-4 p-5'
-                style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.02)' }}
-            >
-                <div style={{ position: 'relative', width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)' }}>
-                    <Avatar user={member} />
-                </div>
-                <div className='flex flex-col gap-1'>
-                    <span style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                        {member.milpac?.currentRank && (
-                            <span style={{ color: 'rgba(219,0,29,0.7)', marginRight: '0.35em', fontWeight: 400, letterSpacing: '0.12em' }}>{member.milpac.currentRank}</span>
-                        )}
-                        {displayName}
-                    </span>
-                    <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.04em' }}>@{member.username}</span>
-                </div>
-            </div>
+            <div className='p-6 md:p-10 flex flex-col gap-6 max-w-[900px] mx-auto w-full'>
 
             {/* Basic Info */}
             <SectionCard title='Basic Info'>
@@ -738,37 +763,7 @@ export default function MilpacEditor({ member }: { member: User }) {
                 </div>
             </SectionCard>
 
-            {/* Save bar */}
-            <div className='flex items-center justify-between gap-4 py-2'>
-                {error && (
-                    <span style={{ fontSize: '0.78rem', color: 'rgba(219,0,29,0.8)' }}>{error}</span>
-                )}
-                {saved && !error && (
-                    <span style={{ fontSize: '0.78rem', color: 'rgba(80,200,80,0.7)' }}>Saved successfully.</span>
-                )}
-                {!error && !saved && <span />}
-
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    style={{
-                        background: saving ? 'rgba(219,0,29,0.3)' : 'var(--red)',
-                        border: '1px solid var(--red)',
-                        color: 'white',
-                        padding: '10px 28px',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        letterSpacing: '0.12em',
-                        textTransform: 'uppercase',
-                        cursor: saving ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.2s',
-                        flexShrink: 0,
-                    }}
-                >
-                    {saving ? 'Saving…' : 'Save Changes'}
-                </button>
-            </div>
-
+        </div>
         </div>
     )
 }

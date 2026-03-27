@@ -59,7 +59,7 @@ const menuItemBtn = {
 }
 
 
-type PickerUser = { id: string; displayName: string; avatarURL: string }
+type PickerUser = { id: string; username: string; displayName: string; avatarURL: string }
 
 type Section = {
     title: string
@@ -150,7 +150,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     function lookupUser(userId: string | null): OrbatPositionWithUser['user'] {
         if (!userId) return null
         const u = allUsers.find(u => u.id === userId)
-        return u ? { id: u.id, displayName: u.displayName, avatarURL: u.avatarURL } : null
+        return u ? { id: u.id, username: u.username, displayName: u.displayName, avatarURL: u.avatarURL } : null
     }
 
     function applyPatch(id: string, updates: Partial<OrbatPositionWithUser>) {
@@ -510,9 +510,11 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                         ) : pos.user ? (
                             <>
                                 <Avatar src={pos.user.avatarURL} sx={{ width: 16, height: 16, fontSize: '0.5rem' }} />
-                                <Typography fontSize='0.68rem' noWrap style={{ color: 'rgba(237,237,237,0.75)', maxWidth: 90 }}>
-                                    {pos.user.displayName}
-                                </Typography>
+                                <Link href={`/members/${pos.user.username}`} target='_blank' style={{ textDecoration: 'none' }}>
+                                    <Typography fontSize='0.68rem' noWrap style={{ color: 'rgba(237,237,237,0.75)', maxWidth: 90 }}>
+                                        {pos.user.displayName}
+                                    </Typography>
+                                </Link>
                             </>
                         ) : (
                             <Button
@@ -803,9 +805,11 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                                 {pos.user ? (
                                     <>
                                         <Avatar src={pos.user.avatarURL} sx={{ width: 18, height: 18, fontSize: '0.5rem' }} />
-                                        <Typography fontSize='0.73rem' noWrap style={{ flex: 1, color: 'rgba(237,237,237,0.75)' }}>
-                                            {pos.user.displayName}
-                                        </Typography>
+                                        <Link href={`/members/${pos.user.username}`} target='_blank' style={{ textDecoration: 'none', flex: 1, minWidth: 0 }}>
+                                            <Typography fontSize='0.73rem' noWrap style={{ color: 'rgba(237,237,237,0.75)' }}>
+                                                {pos.user.displayName}
+                                            </Typography>
+                                        </Link>
                                     </>
                                 ) : (
                                     <Typography fontSize='0.65rem' fontStyle='italic' style={{ flex: 1, color: 'rgba(237,237,237,0.15)' }}>

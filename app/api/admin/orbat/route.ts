@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
             user: u
                 ? {
                       id: u._id,
+                      username: u.username,
                       displayName: u.guild?.nickname || u.globalName || u.username,
                       avatarURL: u.guild?.avatarURL || u.avatarURL,
                   }
