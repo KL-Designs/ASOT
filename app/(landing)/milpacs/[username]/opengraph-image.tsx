@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og'
 import client from '@/lib/discord'
-import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
+import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/milpac-profile'
 
 export const size = { width: 1300, height: 630 }
@@ -9,7 +9,7 @@ export const contentType = 'image/png'
 export default async function Image({ params }: { params: Promise<{ username: string }> }) {
     const { username } = await params
 
-    const [allMembers, orbat] = await Promise.all([client.fetchAllMembers(), fetchORBAT()])
+    const allMembers = await client.fetchAllMembers()
     const member = allMembers.find(m => m.username === username)
 
     if (!member) {
@@ -23,8 +23,7 @@ export default async function Image({ params }: { params: Promise<{ username: st
         )
     }
 
-    const lookup = client.buildOrbatLookup(allMembers)
-    const orbatEntry = findOrbatEntry(orbat, lookup, member.id)
+    const orbatEntry = await getOrbatEntryByUserId(member.id)
 
     const { accent, name, fullRank } = resolveMilpacProfile(member, orbatEntry)
 

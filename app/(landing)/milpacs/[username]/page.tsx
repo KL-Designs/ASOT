@@ -7,18 +7,17 @@ import Image from 'next/image'
 import Avatar from '@/components/member/avatar'
 import Banner from '@/public/images/home/Droneteam7.png'
 import client from '@/lib/discord'
-import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
+import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/milpac-profile'
 import { CoverUpload } from './cover-upload'
 import { BiographyEditor } from './bio-editor'
 
 
 async function resolveProfile(username: string) {
-	const [allMembers, orbat] = await Promise.all([client.fetchAllMembers(), fetchORBAT()])
+	const allMembers = await client.fetchAllMembers()
 	const member = allMembers.find(m => m.username === username) ?? null
 	if (!member) return null
-	const lookup = client.buildOrbatLookup(allMembers)
-	const orbatEntry = findOrbatEntry(orbat, lookup, member.id)
+	const orbatEntry = await getOrbatEntryByUserId(member.id)
 	return { member, ...resolveMilpacProfile(member, orbatEntry) }
 }
 
