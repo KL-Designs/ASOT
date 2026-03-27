@@ -55,6 +55,7 @@ export async function PATCH(
         }
 
         // Auto-move evicted user to activeReservist (unless suppressed or this IS a reservist position)
+        let reservistPosition: OrbatPosition | null = null
         if (isUnassign && position.userId && !skipAutoMove && !RESERVIST_CATEGORY_IDS.includes(position.category)) {
             const last = await Db.orbatPositions
                 .find({ category: 'activeReservist' })
@@ -63,7 +64,7 @@ export async function PATCH(
                 .toArray()
             const positionOrder = (last[0]?.positionOrder ?? -1) + 1
 
-            await Db.orbatPositions.insertOne({
+            reservistPosition = {
                 _id: new ObjectId(),
                 category: 'activeReservist',
                 sectionTitle: '',
@@ -71,11 +72,15 @@ export async function PATCH(
                 userId: position.userId,
                 sectionOrder: 0,
                 positionOrder,
-            } as OrbatPosition)
+            }
+            await Db.orbatPositions.insertOne(reservistPosition)
         }
 
         await Db.orbatPositions.updateOne({ _id: objectId }, { $set: { userId: userId ?? null } })
-        return NextResponse.json({ success: true })
+        return NextResponse.json({
+            success: true,
+            reservistPosition: reservistPosition ? JSON.parse(JSON.stringify(reservistPosition)) : null,
+        })
     }
 
     // Field updates (role rename, reorder)

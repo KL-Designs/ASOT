@@ -145,6 +145,27 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     useEffect(() => { load() }, [load])
 
 
+    // ── Local state helpers ──────────────────────────────────────────────────
+
+    function lookupUser(userId: string | null): OrbatPositionWithUser['user'] {
+        if (!userId) return null
+        const u = allUsers.find(u => u.id === userId)
+        return u ? { id: u.id, displayName: u.displayName, avatarURL: u.avatarURL } : null
+    }
+
+    function applyPatch(id: string, updates: Partial<OrbatPositionWithUser>) {
+        setPositions(prev => prev.map(p => p._id.toString() === id ? { ...p, ...updates } : p))
+    }
+
+    function applyRemove(id: string) {
+        setPositions(prev => prev.filter(p => p._id.toString() !== id))
+    }
+
+    function applyAppend(raw: OrbatPosition, user: OrbatPositionWithUser['user'] = null) {
+        setPositions(prev => [...prev, { ...raw, user } as OrbatPositionWithUser])
+    }
+
+
     // ── User assignment ──────────────────────────────────────────────────────
 
     async function assign(positionId: string, userId: string | null) {
@@ -164,7 +185,14 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
             setPickerOpen(null)
             return
         }
-        if (res.ok) { setPickerOpen(null); await load() }
+        if (res.ok) {
+            const data = await res.json()
+            setPickerOpen(null)
+            applyPatch(positionId, { userId: userId ?? null, user: lookupUser(userId) })
+            if (data.reservistPosition) {
+                applyAppend(data.reservistPosition, lookupUser(data.reservistPosition.userId))
+            }
+        }
         setSavingId(null)
     }
 
@@ -176,19 +204,19 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
         const isFromReservist = RESERVIST_IDS.includes(conflict.position.category)
 
         if (isFromReservist) {
-            // Remove user from reservist pool instead of unassigning (avoids orphan slot)
             await fetch('/api/admin/orbat/reservists', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ positionId: conflict.position._id.toString() }),
             })
+            applyRemove(conflict.position._id.toString())
         } else {
-            // Unassign from old platoon role — skip auto-move since user is going to a new role
             await fetch(`/api/admin/orbat/${conflict.position._id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId: null, skipAutoMove: true }),
             })
+            applyPatch(conflict.position._id.toString(), { userId: null, user: null })
         }
 
         await fetch(`/api/admin/orbat/${conflict.pendingPositionId}`, {
@@ -196,10 +224,13 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: conflict.pendingUserId }),
         })
+        applyPatch(conflict.pendingPositionId, {
+            userId: conflict.pendingUserId,
+            user: lookupUser(conflict.pendingUserId),
+        })
 
         setConflict(null)
         setResolvingConflict(false)
-        await load()
     }
 
 
@@ -207,37 +238,34 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
 
     async function saveRole(positionId: string, role: string) {
         if (!role.trim()) { setEditRoleId(null); return }
-        setBusy(true)
+        setEditRoleId(null)
+        applyPatch(positionId, { role: role.trim() })
         await fetch(`/api/admin/orbat/${positionId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ role: role.trim() }),
         })
-        setEditRoleId(null)
-        setBusy(false)
-        await load()
     }
 
     async function deletePosition(positionId: string) {
-        setBusy(true)
-        await fetch(`/api/admin/orbat/${positionId}`, { method: 'DELETE' })
+        applyRemove(positionId)
         setConfirmDeletePos(null)
-        setBusy(false)
-        await load()
+        await fetch(`/api/admin/orbat/${positionId}`, { method: 'DELETE' })
     }
 
     async function addRole(cat: string, sectionTitle: string, role: string) {
         if (!role.trim()) return
-        setBusy(true)
-        await fetch('/api/admin/orbat/positions', {
+        setAddRoleKey(null)
+        setAddRoleVal('')
+        const res = await fetch('/api/admin/orbat/positions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ category: cat, sectionTitle, role: role.trim() }),
         })
-        setAddRoleKey(null)
-        setAddRoleVal('')
-        setBusy(false)
-        await load()
+        if (res.ok) {
+            const data = await res.json()
+            applyAppend(data.position, null)
+        }
     }
 
     async function dropPosition(sec: Section, fromId: string, toId: string) {
@@ -250,7 +278,15 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
         const [item] = reordered.splice(fromIdx, 1)
         reordered.splice(toIdx, 0, item)
 
-        setBusy(true)
+        // Optimistic reorder
+        const orderMap = new Map(reordered.map((p, idx) => [p._id.toString(), idx]))
+        setPositions(prev => prev.map(p => {
+            const newOrder = orderMap.get(p._id.toString())
+            return newOrder !== undefined ? { ...p, positionOrder: newOrder } : p
+        }))
+        setDraggedPosId(null)
+        setDragOverPosId(null)
+
         await Promise.all(
             reordered.map((p, idx) =>
                 fetch(`/api/admin/orbat/${p._id}`, {
@@ -260,10 +296,6 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                 })
             )
         )
-        setBusy(false)
-        setDraggedPosId(null)
-        setDragOverPosId(null)
-        await load()
     }
 
 
@@ -271,44 +303,56 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
 
     async function saveSection(cat: string, oldTitle: string, newTitle: string) {
         if (!newTitle.trim()) { setEditSectionKey(null); return }
-        setBusy(true)
+        setEditSectionKey(null)
+        setPositions(prev => prev.map(p =>
+            p.category === cat && p.sectionTitle === oldTitle ? { ...p, sectionTitle: newTitle.trim() } : p
+        ))
         await fetch('/api/admin/orbat/sections', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ category: cat, oldTitle, newTitle: newTitle.trim() }),
         })
-        setEditSectionKey(null)
-        setBusy(false)
-        await load()
     }
 
     async function addSection(cat: string, sectionTitle: string) {
         if (!sectionTitle.trim()) return
-        setBusy(true)
-        await fetch('/api/admin/orbat/sections', {
+        setAddSectionCat(null)
+        setAddSectionVal('')
+        const res = await fetch('/api/admin/orbat/sections', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ category: cat, sectionTitle: sectionTitle.trim() }),
         })
-        setAddSectionCat(null)
-        setAddSectionVal('')
-        setBusy(false)
-        await load()
+        if (res.ok) {
+            const data = await res.json()
+            applyAppend(data.position, null)
+        }
     }
 
     async function deleteSection(cat: string, sectionTitle: string) {
-        setBusy(true)
+        setPositions(prev => prev.filter(p => !(p.category === cat && p.sectionTitle === sectionTitle)))
+        setConfirmDeleteSection(null)
         await fetch('/api/admin/orbat/sections', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ category: cat, sectionTitle }),
         })
-        setConfirmDeleteSection(null)
-        setBusy(false)
-        await load()
     }
 
     async function moveSection(cat: string, sectionTitle: string, dir: 'up' | 'down') {
+        const sections = buildSections(positions, cat)
+        const idx = sections.findIndex(s => s.title === sectionTitle)
+        const swapIdx = dir === 'up' ? idx - 1 : idx + 1
+        if (idx < 0 || swapIdx < 0 || swapIdx >= sections.length) return
+
+        const curr = sections[idx]
+        const swap = sections[swapIdx]
+        setPositions(prev => prev.map(p => {
+            if (p.category === cat && p.sectionTitle === curr.title) return { ...p, sectionOrder: swap.sectionOrder }
+            if (p.category === cat && p.sectionTitle === swap.title) return { ...p, sectionOrder: curr.sectionOrder }
+            return p
+        }))
+
         setBusy(true)
         await fetch('/api/admin/orbat/sections', {
             method: 'PATCH',
@@ -316,32 +360,27 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
             body: JSON.stringify({ category: cat, sectionTitle, direction: dir }),
         })
         setBusy(false)
-        await load()
     }
 
 
     // ── Reservist actions ────────────────────────────────────────────────────
 
     async function moveReservist(positionId: string, targetCategory: 'activeReservist' | 'inactiveReservist') {
-        setBusy(true)
+        applyPatch(positionId, { category: targetCategory })
         await fetch('/api/admin/orbat/reservists', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ positionId, targetCategory }),
         })
-        setBusy(false)
-        await load()
     }
 
     async function removeReservist(positionId: string) {
-        setBusy(true)
+        applyRemove(positionId)
         await fetch('/api/admin/orbat/reservists', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ positionId }),
         })
-        setBusy(false)
-        await load()
     }
 
     async function addToReservists(userId: string, category: 'activeReservist' | 'inactiveReservist') {
@@ -350,20 +389,13 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, category }),
         })
-        if (res.status === 409) {
+        if (res.status === 409) return  // already on orbat somewhere
+        if (res.ok) {
             const data = await res.json()
-            const conflictPos = positions.find(p => p._id.toString() === data.conflict._id.toString())
-            if (conflictPos && userId) {
-                setAddReservistCat(null)
-                setAddReservistSearch('')
-                // Reuse conflict dialog — target is the reservist pool, not a specific position
-                // For now just reload; user is already somewhere on orbat
-            }
-            return
+            setAddReservistCat(null)
+            setAddReservistSearch('')
+            applyAppend(data.position, lookupUser(userId))
         }
-        setAddReservistCat(null)
-        setAddReservistSearch('')
-        await load()
     }
 
 
@@ -378,7 +410,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
         })
         if (res.ok) {
             setImportResult(await res.json())
-            await load()
+            await load()  // Full reload needed after import since it replaces all data
         }
         setImporting(false)
         setImportOpen(false)

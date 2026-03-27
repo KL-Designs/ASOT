@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
             .toArray()
         const positionOrder = (last[0]?.positionOrder ?? -1) + 1
 
-        await Db.orbatPositions.insertOne({
+        const newPosition: OrbatPosition = {
             _id: new ObjectId(),
             category,
             sectionTitle: '',
@@ -53,9 +53,10 @@ export async function POST(request: NextRequest) {
             userId,
             sectionOrder: 0,
             positionOrder,
-        } as OrbatPosition)
+        }
+        await Db.orbatPositions.insertOne(newPosition)
 
-        return NextResponse.json({ success: true })
+        return NextResponse.json({ position: JSON.parse(JSON.stringify(newPosition)) })
     }
 
     // Move an existing reservist between active and inactive

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
         .toArray()
     const sectionOrder = (last[0]?.sectionOrder ?? -1) + 1
 
-    await Db.orbatPositions.insertOne({
+    const newPosition: OrbatPosition = {
         _id: new ObjectId(),
         category,
         sectionTitle: sectionTitle.trim(),
@@ -45,9 +45,10 @@ export async function POST(request: NextRequest) {
         userId: null,
         sectionOrder,
         positionOrder: 0,
-    } as OrbatPosition)
+    }
+    await Db.orbatPositions.insertOne(newPosition)
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ position: JSON.parse(JSON.stringify(newPosition)) })
 }
 
 
