@@ -9,7 +9,15 @@ import { ensureVisible } from '@/lib/discord/color'
 export default function Card({ member, role }: { member: User; role?: string }) {
 
 	const accent = ensureVisible(member.hexAccentColor || '#db001d')
-	const name = member.guild.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName || 'Unknown'
+
+	// Prefer explicit name; fall back to parsing the Discord nickname
+	const strippedNick = member.guild.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
+	const nickParts = (strippedNick || member.globalName || member.username || '').split(' ')
+	const parsedName = nickParts.length > 1 ? nickParts.slice(1).join(' ') : (strippedNick || member.globalName || 'Unknown')
+	const name = member.name || parsedName
+
+	// Prefer DB rank; fall back to first word of Discord nickname
+	const rankAbbr = member.milpac?.currentRank || member.bio?.rank || (nickParts.length > 1 ? nickParts[0] : null)
 	const cardRef = useRef<HTMLDivElement>(null)
 	const [tilt, setTilt] = useState({ x: 0, y: 0 })
 	const [hovered, setHovered] = useState(false)
@@ -95,18 +103,31 @@ export default function Card({ member, role }: { member: User; role?: string }) 
 						</div>
 					</div>
 
-					<p style={{
-						margin: 0,
-						fontSize: '0.8rem',
-						fontWeight: 700,
-						letterSpacing: '0.1em',
-						textTransform: 'uppercase',
-						textAlign: 'center',
-						color: 'rgba(237,237,237,0.92)',
-						lineHeight: 1.3,
-					}}>
-						{name}
-					</p>
+					<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+						{rankAbbr && (
+							<span style={{
+								fontSize: '0.6rem',
+								fontWeight: 700,
+								letterSpacing: '0.18em',
+								textTransform: 'uppercase',
+								color: `${accent}cc`,
+							}}>
+								{rankAbbr}
+							</span>
+						)}
+						<p style={{
+							margin: 0,
+							fontSize: '0.8rem',
+							fontWeight: 700,
+							letterSpacing: '0.1em',
+							textTransform: 'uppercase',
+							textAlign: 'center',
+							color: 'rgba(237,237,237,0.92)',
+							lineHeight: 1.3,
+						}}>
+							{name}
+						</p>
+					</div>
 				</div>
 
 				{/* Divider + role pinned to bottom */}

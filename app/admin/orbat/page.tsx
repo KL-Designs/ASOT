@@ -16,7 +16,7 @@ export default async function Page() {
 
     const allUsers = (await Db.users.find({}).toArray()).map(u => ({
         id: u._id,
-        displayName: u.guild?.nickname || u.globalName || u.username,
+        displayName: u.name || u.guild?.nickname || u.globalName || u.username,
         avatarURL: u.guild?.avatarURL || u.avatarURL || '',
     }))
 

@@ -92,7 +92,7 @@ export class Client implements IClient {
         const byName = new Map<string, User>()
         for (const member of members) {
             const nick = member.guild?.nickname ? stripDecorations(member.guild.nickname) : null
-            const key = (nick || member.globalName || '').toLowerCase()
+            const key = (member.name || nick || member.globalName || '').toLowerCase()
             if (key) byName.set(key, member)
         }
 

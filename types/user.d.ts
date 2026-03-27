@@ -18,6 +18,8 @@ declare global {
         id: string
         token?: string
 
+        name?: string
+
         hexAccentColor: string
         accentColor: number
         avatar: string

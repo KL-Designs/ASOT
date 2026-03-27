@@ -33,7 +33,7 @@ export async function fetchORBAT(): Promise<ORBATData> {
 
 	const nameById = new Map<string, string>()
 	for (const u of users) {
-		nameById.set(u._id, u.guild?.nickname || u.globalName || u.username || '')
+		nameById.set(u._id, u.name || u.guild?.nickname || u.globalName || u.username || '')
 	}
 
 	const getName = (userId: string | null) => (userId ? (nameById.get(userId) ?? '') : '')

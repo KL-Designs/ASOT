@@ -9,7 +9,8 @@ export function resolveMilpacProfile(member: User, orbatEntry: OrbatEntry | null
     const displayName = strippedNickname || member.globalName || member.username
 
     const parts = (strippedNickname || displayName).split(' ')
-    const name = parts.length > 1 ? parts.slice(1).join(' ') : displayName
+    const parsedName = parts.length > 1 ? parts.slice(1).join(' ') : displayName
+    const name = member.name || parsedName
     const rankAbbr = parts.length > 1 ? parts[0] : null
 
     const promotions = member.milpac?.promotions

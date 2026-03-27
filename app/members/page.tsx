@@ -17,8 +17,8 @@ export default async function Page() {
     const allMembers = await client.fetchAllMembers()
 
     const sorted = [...allMembers].sort((a, b) => {
-        const nameA = a.guild?.nickname || a.globalName || a.username
-        const nameB = b.guild?.nickname || b.globalName || b.username
+        const nameA = a.name || a.guild?.nickname || a.globalName || a.username
+        const nameB = b.name || b.guild?.nickname || b.globalName || b.username
         return nameA.localeCompare(nameB)
     })
 

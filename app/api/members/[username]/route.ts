@@ -12,7 +12,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { username } = await params
     const body = await request.json()
 
-    const { bioRank, enlistedDate, promotions, awards, operations, qualifications } = body
+    const { bioRank, enlistedDate, promotions, awards, operations, qualifications, name } = body
+
+    // Uniqueness check for name
+    if (name !== undefined) {
+        if (name && typeof name === 'string') {
+            const taken = await Db.users.findOne({ name, username: { $ne: username } })
+            if (taken) return NextResponse.json({ error: 'Name already taken' }, { status: 409 })
+        }
+    }
 
     const update: Record<string, any> = {
         'milpac.enlistedDate': enlistedDate ?? '',
@@ -24,6 +32,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (bioRank !== undefined) {
         update['milpac.currentRank'] = bioRank
         update['bio.rank'] = bioRank
+    }
+    if (name !== undefined) {
+        update['name'] = name || null
     }
 
     const result = await Db.users.updateOne({ username }, { $set: update })

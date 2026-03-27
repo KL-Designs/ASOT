@@ -242,8 +242,10 @@ export default function MilpacEditor({ member }: { member: User }) {
     const strippedNickname = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
     const fullDisplay = strippedNickname || member.globalName || member.username
     const nameParts = fullDisplay.split(' ')
-    const displayName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : fullDisplay
+    const parsedDisplayName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : fullDisplay
+    const displayName = member.name || parsedDisplayName
 
+    const [memberName, setMemberName] = useState(member.name || '')
     const [bioRank, setBioRank] = useState(rankNameFromAbbr(member.milpac?.currentRank ?? member.bio?.rank ?? ''))
     const joinDateStr = member.guild?.joinedTimestamp
         ? new Date(member.guild.joinedTimestamp).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -379,6 +381,7 @@ export default function MilpacEditor({ member }: { member: User }) {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    name: memberName.trim() || null,
                     bioRank: rankAbbrFromName(bioRank), enlistedDate,
                     promotions: promotions.map(({ _key, ...rest }) => rest),
                     awards: awards.map(({ _key, ...rest }) => rest),
@@ -497,6 +500,18 @@ export default function MilpacEditor({ member }: { member: User }) {
 
             {/* Basic Info */}
             <SectionCard title='Basic Info'>
+                <div className='flex flex-col gap-2'>
+                    <Label>Name</Label>
+                    <input
+                        value={memberName}
+                        onChange={e => setMemberName(e.target.value)}
+                        placeholder={parsedDisplayName}
+                        style={inputStyle}
+                    />
+                    <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.25)', letterSpacing: '0.04em' }}>
+                        Clean display name used across milpacs, orbat, and the roster. Must be unique. Leave blank to use Discord nickname.
+                    </span>
+                </div>
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                     <div className='flex flex-col gap-2'>
                         <Label>Current Rank</Label>
