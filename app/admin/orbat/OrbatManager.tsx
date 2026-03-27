@@ -7,7 +7,10 @@ import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     TextField, IconButton, Avatar,
 } from '@mui/material'
-import { Edit, Close, AccountTree, Warning, ArrowUpward, ArrowDownward, Add, Delete } from '@mui/icons-material'
+import {
+    Edit, Close, AccountTree, Warning, ArrowUpward, ArrowDownward,
+    Add, Delete, MoreVert, DragIndicator,
+} from '@mui/icons-material'
 import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat-constants'
 
 
@@ -44,6 +47,15 @@ const addBtn = {
     padding: '2px 6px',
     minWidth: 0,
     justifyContent: 'flex-start',
+}
+
+const menuItemBtn = {
+    fontSize: '0.67rem',
+    color: 'rgba(237,237,237,0.45)',
+    padding: '1px 8px',
+    minWidth: 0,
+    textTransform: 'none' as const,
+    '&:hover': { color: 'rgba(237,237,237,0.8)', background: 'rgba(255,255,255,0.05)' },
 }
 
 
@@ -89,6 +101,13 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     const [addSectionVal, setAddSectionVal] = useState('')
     const [addRoleKey, setAddRoleKey] = useState<string | null>(null)  // `${cat}::${sectionTitle}`
     const [addRoleVal, setAddRoleVal] = useState('')
+
+    // Expanded row (...) menu
+    const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
+
+    // Drag state (within a section)
+    const [draggedPosId, setDraggedPosId] = useState<string | null>(null)
+    const [dragOverPosId, setDragOverPosId] = useState<string | null>(null)
 
     // User picker state
     const [pickerOpen, setPickerOpen] = useState<string | null>(null)
@@ -221,26 +240,29 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
         await load()
     }
 
-    async function movePosition(sec: Section, positionId: string, dir: 'up' | 'down') {
-        const idx = sec.positions.findIndex(p => p._id.toString() === positionId)
-        const swapIdx = dir === 'up' ? idx - 1 : idx + 1
-        if (idx < 0 || swapIdx < 0 || swapIdx >= sec.positions.length) return
-        const curr = sec.positions[idx]
-        const swap = sec.positions[swapIdx]
+    async function dropPosition(sec: Section, fromId: string, toId: string) {
+        if (fromId === toId) return
+        const fromIdx = sec.positions.findIndex(p => p._id.toString() === fromId)
+        const toIdx = sec.positions.findIndex(p => p._id.toString() === toId)
+        if (fromIdx < 0 || toIdx < 0) return
+
+        const reordered = [...sec.positions]
+        const [item] = reordered.splice(fromIdx, 1)
+        reordered.splice(toIdx, 0, item)
+
         setBusy(true)
-        await Promise.all([
-            fetch(`/api/admin/orbat/${curr._id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ positionOrder: swap.positionOrder }),
-            }),
-            fetch(`/api/admin/orbat/${swap._id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ positionOrder: curr.positionOrder }),
-            }),
-        ])
+        await Promise.all(
+            reordered.map((p, idx) =>
+                fetch(`/api/admin/orbat/${p._id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ positionOrder: idx }),
+                })
+            )
+        )
         setBusy(false)
+        setDraggedPosId(null)
+        setDragOverPosId(null)
         await load()
     }
 
@@ -323,11 +345,22 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     }
 
     async function addToReservists(userId: string, category: 'activeReservist' | 'inactiveReservist') {
-        await fetch('/api/admin/orbat/reservists', {
+        const res = await fetch('/api/admin/orbat/reservists', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, category }),
         })
+        if (res.status === 409) {
+            const data = await res.json()
+            const conflictPos = positions.find(p => p._id.toString() === data.conflict._id.toString())
+            if (conflictPos && userId) {
+                setAddReservistCat(null)
+                setAddReservistSearch('')
+                // Reuse conflict dialog — target is the reservist pool, not a specific position
+                // For now just reload; user is already somewhere on orbat
+            }
+            return
+        }
         setAddReservistCat(null)
         setAddReservistSearch('')
         await load()
@@ -359,100 +392,185 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     const filteredUsers = allUsers.filter(u =>
         u.displayName.toLowerCase().includes(userSearch.toLowerCase())
     )
-
-    const assignedUserIds = new Set(positions.map(p => p.userId).filter(Boolean))
-    const unassignedUsers = allUsers.filter(u =>
-        !assignedUserIds.has(u.id) &&
+    const filteredReservistUsers = allUsers.filter(u =>
         u.displayName.toLowerCase().includes(addReservistSearch.toLowerCase())
     )
 
 
     // ── Sub-renders ──────────────────────────────────────────────────────────
 
-    function renderPositionRow(pos: OrbatPositionWithUser, sec: Section, posIdx: number) {
+    function renderPositionRow(pos: OrbatPositionWithUser, sec: Section) {
         const posId = pos._id.toString()
         const isSaving = savingId === posId
+        const isExpanded = expandedRowId === posId
         const isEditing = editRoleId === posId
+        const isDragging = draggedPosId === posId
+        const isDragOver = dragOverPosId === posId
 
         return (
-            <div key={posId} className='flex items-center gap-1.5 px-2 py-1' style={rowStyle}>
+            <div
+                key={posId}
+                draggable
+                onDragStart={e => {
+                    setDraggedPosId(posId)
+                    e.dataTransfer.effectAllowed = 'move'
+                }}
+                onDragOver={e => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                    if (draggedPosId && draggedPosId !== posId) setDragOverPosId(posId)
+                }}
+                onDragLeave={() => setDragOverPosId(null)}
+                onDrop={e => {
+                    e.preventDefault()
+                    if (draggedPosId) dropPosition(sec, draggedPosId, posId)
+                }}
+                onDragEnd={() => { setDraggedPosId(null); setDragOverPosId(null) }}
+                style={{
+                    opacity: isDragging ? 0.35 : 1,
+                    transition: 'opacity 0.1s',
+                    borderTop: isDragOver ? '2px solid rgba(219,0,29,0.5)' : undefined,
+                }}
+            >
+                {/* Main row */}
+                <div className='flex items-center gap-1.5 px-2 py-1' style={rowStyle}>
 
-                {/* Role name */}
-                <div className='flex-1 min-w-0'>
-                    {isEditing ? (
-                        <TextField
+                    {/* Drag handle */}
+                    <DragIndicator
+                        sx={{ fontSize: 12, color: 'rgba(255,255,255,0.12)', cursor: 'grab', flexShrink: 0 }}
+                    />
+
+                    {/* Role name */}
+                    <div className='flex-1 min-w-0'>
+                        {isEditing ? (
+                            <TextField
+                                size='small'
+                                value={editRoleVal}
+                                onChange={e => setEditRoleVal(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') saveRole(posId, editRoleVal)
+                                    if (e.key === 'Escape') setEditRoleId(null)
+                                }}
+                                onBlur={() => saveRole(posId, editRoleVal)}
+                                autoFocus
+                                fullWidth
+                                inputProps={{ style: { fontSize: '0.73rem', padding: '2px 6px' } }}
+                                sx={{ '& .MuiOutlinedInput-root': { height: 24 } }}
+                            />
+                        ) : (
+                            <Typography
+                                fontSize='0.73rem'
+                                noWrap
+                                style={{
+                                    color: pos.isSenior ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.62)',
+                                    fontWeight: pos.isSenior ? 700 : 400,
+                                }}
+                            >
+                                {pos.role}
+                            </Typography>
+                        )}
+                    </div>
+
+                    {/* Assigned user or Assign button */}
+                    <div className='flex items-center gap-1 shrink-0'>
+                        {isSaving ? (
+                            <CircularProgress size={12} sx={{ color: 'var(--red)', opacity: 0.6 }} />
+                        ) : pos.user ? (
+                            <>
+                                <Avatar src={pos.user.avatarURL} sx={{ width: 16, height: 16, fontSize: '0.5rem' }} />
+                                <Typography fontSize='0.68rem' noWrap style={{ color: 'rgba(237,237,237,0.75)', maxWidth: 90 }}>
+                                    {pos.user.displayName}
+                                </Typography>
+                            </>
+                        ) : (
+                            <Button
+                                size='small'
+                                onClick={() => { setPickerOpen(posId); setUserSearch('') }}
+                                sx={{
+                                    fontSize: '0.63rem',
+                                    color: 'rgba(237,237,237,0.22)',
+                                    border: '1px dashed rgba(237,237,237,0.12)',
+                                    borderRadius: '3px',
+                                    padding: '0px 7px',
+                                    minWidth: 0,
+                                    lineHeight: '18px',
+                                    textTransform: 'none',
+                                    '&:hover': {
+                                        color: 'rgba(237,237,237,0.6)',
+                                        borderColor: 'rgba(237,237,237,0.3)',
+                                        background: 'transparent',
+                                    },
+                                }}
+                            >
+                                Assign
+                            </Button>
+                        )}
+                    </div>
+
+                    {/* More menu toggle */}
+                    {!isEditing && (
+                        <IconButton
                             size='small'
-                            value={editRoleVal}
-                            onChange={e => setEditRoleVal(e.target.value)}
-                            onKeyDown={e => {
-                                if (e.key === 'Enter') saveRole(posId, editRoleVal)
-                                if (e.key === 'Escape') setEditRoleId(null)
-                            }}
-                            onBlur={() => saveRole(posId, editRoleVal)}
-                            autoFocus
-                            fullWidth
-                            inputProps={{ style: { fontSize: '0.73rem', padding: '2px 6px' } }}
-                            sx={{ '& .MuiOutlinedInput-root': { height: 24 } }}
-                        />
-                    ) : (
-                        <Typography
-                            fontSize='0.73rem'
-                            noWrap
-                            style={{
-                                color: pos.isSenior ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.62)',
-                                fontWeight: pos.isSenior ? 700 : 400,
+                            onClick={() => setExpandedRowId(isExpanded ? null : posId)}
+                            sx={{ ...ghostBtn, padding: '1px', color: isExpanded ? 'rgba(237,237,237,0.6)' : 'rgba(237,237,237,0.2)' }}
+                        >
+                            <MoreVert sx={{ fontSize: 13 }} />
+                        </IconButton>
+                    )}
+                </div>
+
+                {/* Expanded options panel */}
+                {isExpanded && (
+                    <div
+                        className='flex flex-wrap items-center gap-x-0.5 gap-y-0.5 px-2 py-1'
+                        style={{ background: 'rgba(0,0,0,0.18)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                    >
+                        <Button
+                            size='small'
+                            sx={menuItemBtn}
+                            onClick={() => {
+                                setEditRoleId(posId)
+                                setEditRoleVal(pos.role)
+                                setExpandedRowId(null)
                             }}
                         >
-                            {pos.role}
-                        </Typography>
-                    )}
-                </div>
-
-                {/* Assigned user */}
-                <div className='flex items-center gap-1 shrink-0'>
-                    {pos.user ? (
-                        <>
-                            <Avatar src={pos.user.avatarURL} sx={{ width: 16, height: 16, fontSize: '0.5rem' }} />
-                            <Typography fontSize='0.68rem' noWrap style={{ color: 'rgba(237,237,237,0.75)', maxWidth: 90 }}>
-                                {pos.user.displayName}
-                            </Typography>
-                        </>
-                    ) : (
-                        <Typography fontSize='0.65rem' fontStyle='italic' style={{ color: 'rgba(237,237,237,0.15)' }}>
-                            Vacant
-                        </Typography>
-                    )}
-                </div>
-
-                {/* Actions */}
-                <div className='flex items-center shrink-0'>
-                    {isSaving ? (
-                        <CircularProgress size={12} sx={{ color: 'var(--red)', opacity: 0.6 }} />
-                    ) : (
-                        <>
-                            <IconButton size='small' disabled={posIdx === 0 || busy} onClick={() => movePosition(sec, posId, 'up')} sx={{ ...ghostBtn, padding: '1px' }}>
-                                <ArrowUpward sx={{ fontSize: 11 }} />
-                            </IconButton>
-                            <IconButton size='small' disabled={posIdx === sec.positions.length - 1 || busy} onClick={() => movePosition(sec, posId, 'down')} sx={{ ...ghostBtn, padding: '1px' }}>
-                                <ArrowDownward sx={{ fontSize: 11 }} />
-                            </IconButton>
-                            <IconButton size='small' onClick={() => { setEditRoleId(posId); setEditRoleVal(pos.role) }} sx={{ ...ghostBtn, padding: '1px' }}>
-                                <Edit sx={{ fontSize: 11 }} />
-                            </IconButton>
-                            <IconButton size='small' onClick={() => { setPickerOpen(posId); setUserSearch('') }} sx={{ ...ghostBtn, padding: '1px' }}>
-                                <AccountTree sx={{ fontSize: 11 }} />
-                            </IconButton>
-                            {pos.user && (
-                                <IconButton size='small' onClick={() => assign(posId, null)} sx={{ ...ghostBtn, padding: '1px' }}>
-                                    <Close sx={{ fontSize: 11 }} />
-                                </IconButton>
-                            )}
-                            <IconButton size='small' onClick={() => setConfirmDeletePos(posId)} sx={{ ...ghostBtn, padding: '1px', color: 'rgba(219,0,29,0.3)', '&:hover': { color: 'rgba(219,0,29,0.65)' } }}>
-                                <Delete sx={{ fontSize: 11 }} />
-                            </IconButton>
-                        </>
-                    )}
-                </div>
+                            Edit Name
+                        </Button>
+                        <Button
+                            size='small'
+                            sx={menuItemBtn}
+                            onClick={() => {
+                                setPickerOpen(posId)
+                                setUserSearch('')
+                                setExpandedRowId(null)
+                            }}
+                        >
+                            {pos.user ? 'Change User' : 'Assign User'}
+                        </Button>
+                        {pos.user && (
+                            <Button
+                                size='small'
+                                sx={menuItemBtn}
+                                onClick={() => {
+                                    assign(posId, null)
+                                    setExpandedRowId(null)
+                                }}
+                            >
+                                Remove User
+                            </Button>
+                        )}
+                        <Button
+                            size='small'
+                            sx={{ ...menuItemBtn, color: 'rgba(219,0,29,0.45)', '&:hover': { color: 'rgba(219,0,29,0.85)', background: 'rgba(219,0,29,0.06)' } }}
+                            onClick={() => {
+                                setConfirmDeletePos(posId)
+                                setExpandedRowId(null)
+                            }}
+                        >
+                            Delete Role
+                        </Button>
+                    </div>
+                )}
             </div>
         )
     }
@@ -511,7 +629,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
 
                 {/* Positions */}
                 <div className='flex flex-col gap-0.5 py-0.5'>
-                    {sec.positions.map((pos, idx) => renderPositionRow(pos, sec, idx))}
+                    {sec.positions.map(pos => renderPositionRow(pos, sec))}
                 </div>
 
                 {/* Add Role */}
@@ -976,7 +1094,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                         inputProps={{ style: { fontSize: '0.82rem' } }}
                     />
                     <div className='flex flex-col gap-1' style={{ maxHeight: 320, overflowY: 'auto' }}>
-                        {unassignedUsers.map(u => (
+                        {filteredReservistUsers.map(u => (
                             <button
                                 key={u.id}
                                 onClick={() => addReservistCat && addToReservists(u.id, addReservistCat)}
@@ -999,9 +1117,9 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                                 </Typography>
                             </button>
                         ))}
-                        {unassignedUsers.length === 0 && (
+                        {filteredReservistUsers.length === 0 && (
                             <Typography fontSize='0.75rem' style={{ color: 'rgba(237,237,237,0.25)', textAlign: 'center', padding: 16 }}>
-                                {addReservistSearch ? 'No members found' : 'All members are already on the orbat'}
+                                No members found
                             </Typography>
                         )}
                     </div>
