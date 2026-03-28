@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useRef, useEffect, Fragment } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
 import { RANK_GROUPS, RANKS_FLAT, rankAbbrFromName, rankNameFromAbbr } from '@/lib/ranks'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 
 let _keyCount = 0
@@ -212,25 +215,36 @@ function RankSelect({ value, onChange, placeholder = '— None —' }: { value: 
 }
 
 
-// ── Insertion line ─────────────────────────────────────────────────────────────
+// ── Drag handle ────────────────────────────────────────────────────────────────
 
-function InsertionLine() {
+function DragHandle({ listeners }: { listeners?: Record<string, unknown> }) {
     return (
-        <div style={{ height: 2, background: 'rgba(219,0,29,0.7)', borderRadius: 1, animation: 'ilIn 0.12s ease' }} />
+        <div
+            {...(listeners ?? {})}
+            style={{
+                alignSelf: 'stretch', display: 'flex', alignItems: 'center',
+                cursor: 'grab', padding: '0 4px', color: 'rgba(255,255,255,0.2)',
+                fontSize: '0.9rem', lineHeight: 1, flexShrink: 0, userSelect: 'none',
+                touchAction: 'none',
+            }}
+        >
+            ⠿
+        </div>
     )
 }
 
 
-// ── Drag handle ────────────────────────────────────────────────────────────────
+// ── Sortable item wrapper ──────────────────────────────────────────────────────
 
-function DragHandle() {
+function SortableItem({ id, children }: { id: string; children: (listeners: Record<string, unknown> | undefined) => React.ReactNode }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
     return (
-        <div style={{
-            alignSelf: 'stretch', display: 'flex', alignItems: 'center',
-            cursor: 'grab', padding: '0 4px', color: 'rgba(255,255,255,0.2)',
-            fontSize: '0.9rem', lineHeight: 1, flexShrink: 0, userSelect: 'none',
-        }}>
-            ⠿
+        <div
+            ref={setNodeRef}
+            {...attributes}
+            style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0 : 1 }}
+        >
+            {children(listeners)}
         </div>
     )
 }
@@ -339,38 +353,8 @@ export default function MilpacEditor({ member }: { member: User }) {
 
     // ── Drag state ─────────────────────────────────────────────────────────────
 
-    const dragSrc = useRef<{ list: string; index: number } | null>(null)
-    const [dragging, setDragging] = useState<{ list: string; index: number } | null>(null)
-    const [dragOver, setDragOver] = useState<{ list: string; index: number } | null>(null)
-    // Show insertion line above item i when dragging down toward it (src < i),
-    // or below when dragging up toward it (src > i)
-    function showLine(list: string, i: number, pos: 'above' | 'below') {
-        if (!dragging || !dragOver) return false
-        if (dragOver.list !== list || dragOver.index !== i) return false
-        if (dragging.list !== list || dragging.index === i) return false
-        return pos === 'above' ? dragging.index > i : dragging.index < i
-    }
-
-    function dragProps<T>(list: string, items: T[], setItems: React.Dispatch<React.SetStateAction<T[]>>, i: number) {
-        return {
-            draggable: true as const,
-            onDragStart: () => { dragSrc.current = { list, index: i }; setDragging({ list, index: i }) },
-            onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDragOver({ list, index: i }) },
-            onDragLeave: () => setDragOver(null),
-            onDrop: (e: React.DragEvent) => {
-                e.preventDefault()
-                setDragOver(null)
-                const src = dragSrc.current
-                if (!src || src.list !== list || src.index === i) return
-                const next = [...items]
-                const [moved] = next.splice(src.index, 1)
-                next.splice(i, 0, moved)
-                setItems(next)
-                dragSrc.current = null
-            },
-            onDragEnd: () => { dragSrc.current = null; setDragging(null); setDragOver(null) },
-        }
-    }
+    const [activeDragKey, setActiveDragKey] = useState<string | null>(null)
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
     async function handleSave() {
         setSaving(true)
@@ -452,7 +436,6 @@ export default function MilpacEditor({ member }: { member: User }) {
 
     return (
         <div className='h-full w-full flex flex-col'>
-            <style>{`@keyframes ilIn { from { opacity: 0; transform: scaleX(0.6) } to { opacity: 1; transform: scaleX(1) } }`}</style>
 
             {/* Sticky header */}
             <div style={{
@@ -559,28 +542,62 @@ export default function MilpacEditor({ member }: { member: User }) {
                 {promotions.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No promotions on record.</span>
                 ) : (
-                    promotions.map((p, i) => (
-                        <Fragment key={p._key}>
-                            {showLine('promotions', i, 'above') && <InsertionLine />}
-                            <div className='flex gap-2 items-end' {...dragProps('promotions', promotions, setPromotions, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragging?.list === 'promotions' && dragging.index === i ? 0.3 : 1, transition: 'opacity 0.15s' }}>
-                                <DragHandle />
-                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
-                                    <Label>Date</Label>
-                                    <input value={p.date} onChange={e => updatePromotion(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Rank</Label>
-                                    <RankSelect value={p.rank} onChange={v => updatePromotion(i, 'rank', v)} placeholder='— Select Rank —' />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Role</Label>
-                                    <input value={p.role} onChange={e => updatePromotion(i, 'role', e.target.value)} placeholder='Rifleman' style={inputStyle} />
-                                </div>
-                                <DeleteBtn onClick={() => removePromotion(i)} />
+                    <DndContext sensors={sensors} collisionDetection={closestCenter}
+                        onDragStart={(e: DragStartEvent) => setActiveDragKey(e.active.id as string)}
+                        onDragEnd={(e: DragEndEvent) => {
+                            setActiveDragKey(null)
+                            const { active, over } = e
+                            if (over && active.id !== over.id) {
+                                setPromotions(prev => {
+                                    const oldIdx = prev.findIndex(p => p._key === active.id)
+                                    const newIdx = prev.findIndex(p => p._key === over.id)
+                                    return arrayMove(prev, oldIdx, newIdx)
+                                })
+                            }
+                        }}
+                    >
+                        <SortableContext items={promotions.map(p => p._key)} strategy={verticalListSortingStrategy}>
+                            <div className='flex flex-col gap-3'>
+                                {promotions.map((p, i) => (
+                                    <SortableItem key={p._key} id={p._key}>
+                                        {(listeners) => (
+                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <DragHandle listeners={listeners} />
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                                    <Label>Date</Label>
+                                                    <input value={p.date} onChange={e => updatePromotion(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Rank</Label>
+                                                    <RankSelect value={p.rank} onChange={v => updatePromotion(i, 'rank', v)} placeholder='— Select Rank —' />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Role</Label>
+                                                    <input value={p.role} onChange={e => updatePromotion(i, 'role', e.target.value)} placeholder='Rifleman' style={inputStyle} />
+                                                </div>
+                                                <DeleteBtn onClick={() => removePromotion(i)} />
+                                            </div>
+                                        )}
+                                    </SortableItem>
+                                ))}
                             </div>
-                            {showLine('promotions', i, 'below') && <InsertionLine />}
-                        </Fragment>
-                    ))
+                        </SortableContext>
+                        <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                            {activeDragKey ? (() => {
+                                const p = promotions.find(x => x._key === activeDragKey)
+                                if (!p) return null
+                                return (
+                                    <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(14,14,14,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', opacity: 0.95 }}>
+                                        <DragHandle />
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}><Label>Date</Label><input value={p.date} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Rank</Label><input value={p.rank} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Role</Label><input value={p.role} readOnly style={inputStyle} /></div>
+                                        <DeleteBtn onClick={() => {}} />
+                                    </div>
+                                )
+                            })() : null}
+                        </DragOverlay>
+                    </DndContext>
                 )}
             </SectionCard>
 
@@ -589,28 +606,62 @@ export default function MilpacEditor({ member }: { member: User }) {
                 {qualifications.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No qualifications on record.</span>
                 ) : (
-                    qualifications.map((q, i) => (
-                        <Fragment key={q._key}>
-                            {showLine('qualifications', i, 'above') && <InsertionLine />}
-                            <div className='flex gap-2 items-end' {...dragProps('qualifications', qualifications, setQualifications, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragging?.list === 'qualifications' && dragging.index === i ? 0.3 : 1, transition: 'opacity 0.15s' }}>
-                                <DragHandle />
-                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
-                                    <Label>Date</Label>
-                                    <input value={q.date} onChange={e => updateQualification(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Qualification</Label>
-                                    <input value={q.qualification} onChange={e => updateQualification(i, 'qualification', e.target.value)} placeholder='Basic Rifleman Course' style={inputStyle} />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Trainer</Label>
-                                    <input value={q.trainer} onChange={e => updateQualification(i, 'trainer', e.target.value)} placeholder='SGT Smith' style={inputStyle} />
-                                </div>
-                                <DeleteBtn onClick={() => removeQualification(i)} />
+                    <DndContext sensors={sensors} collisionDetection={closestCenter}
+                        onDragStart={(e: DragStartEvent) => setActiveDragKey(e.active.id as string)}
+                        onDragEnd={(e: DragEndEvent) => {
+                            setActiveDragKey(null)
+                            const { active, over } = e
+                            if (over && active.id !== over.id) {
+                                setQualifications(prev => {
+                                    const oldIdx = prev.findIndex(q => q._key === active.id)
+                                    const newIdx = prev.findIndex(q => q._key === over.id)
+                                    return arrayMove(prev, oldIdx, newIdx)
+                                })
+                            }
+                        }}
+                    >
+                        <SortableContext items={qualifications.map(q => q._key)} strategy={verticalListSortingStrategy}>
+                            <div className='flex flex-col gap-3'>
+                                {qualifications.map((q, i) => (
+                                    <SortableItem key={q._key} id={q._key}>
+                                        {(listeners) => (
+                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <DragHandle listeners={listeners} />
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                                    <Label>Date</Label>
+                                                    <input value={q.date} onChange={e => updateQualification(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Qualification</Label>
+                                                    <input value={q.qualification} onChange={e => updateQualification(i, 'qualification', e.target.value)} placeholder='Basic Rifleman Course' style={inputStyle} />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Trainer</Label>
+                                                    <input value={q.trainer} onChange={e => updateQualification(i, 'trainer', e.target.value)} placeholder='SGT Smith' style={inputStyle} />
+                                                </div>
+                                                <DeleteBtn onClick={() => removeQualification(i)} />
+                                            </div>
+                                        )}
+                                    </SortableItem>
+                                ))}
                             </div>
-                            {showLine('qualifications', i, 'below') && <InsertionLine />}
-                        </Fragment>
-                    ))
+                        </SortableContext>
+                        <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                            {activeDragKey ? (() => {
+                                const q = qualifications.find(x => x._key === activeDragKey)
+                                if (!q) return null
+                                return (
+                                    <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(14,14,14,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', opacity: 0.95 }}>
+                                        <DragHandle />
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}><Label>Date</Label><input value={q.date} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Qualification</Label><input value={q.qualification} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Trainer</Label><input value={q.trainer} readOnly style={inputStyle} /></div>
+                                        <DeleteBtn onClick={() => {}} />
+                                    </div>
+                                )
+                            })() : null}
+                        </DragOverlay>
+                    </DndContext>
                 )}
             </SectionCard>
 
@@ -619,30 +670,64 @@ export default function MilpacEditor({ member }: { member: User }) {
                 {awards.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No awards on record.</span>
                 ) : (
-                    awards.map((a, i) => (
-                        <Fragment key={a._key}>
-                            {showLine('awards', i, 'above') && <InsertionLine />}
-                            <div className='flex gap-2 items-end' {...dragProps('awards', awards, setAwards, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragging?.list === 'awards' && dragging.index === i ? 0.3 : 1, transition: 'opacity 0.15s' }}>
-                                <DragHandle />
-                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
-                                    <Label>Date</Label>
-                                    <input value={a.date} onChange={e => updateAward(i, 'date', e.target.value)} placeholder='05 Feb 2022' style={inputStyle} />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Name</Label>
-                                    <input value={a.name} onChange={e => updateAward(i, 'name', e.target.value)} placeholder='Broken Lance Award' style={inputStyle} />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Type</Label>
-                                    <select value={a.type} onChange={e => updateAward(i, 'type', e.target.value)} style={selectStyle}>
-                                        {AWARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
-                                </div>
-                                <DeleteBtn onClick={() => removeAward(i)} />
+                    <DndContext sensors={sensors} collisionDetection={closestCenter}
+                        onDragStart={(e: DragStartEvent) => setActiveDragKey(e.active.id as string)}
+                        onDragEnd={(e: DragEndEvent) => {
+                            setActiveDragKey(null)
+                            const { active, over } = e
+                            if (over && active.id !== over.id) {
+                                setAwards(prev => {
+                                    const oldIdx = prev.findIndex(a => a._key === active.id)
+                                    const newIdx = prev.findIndex(a => a._key === over.id)
+                                    return arrayMove(prev, oldIdx, newIdx)
+                                })
+                            }
+                        }}
+                    >
+                        <SortableContext items={awards.map(a => a._key)} strategy={verticalListSortingStrategy}>
+                            <div className='flex flex-col gap-3'>
+                                {awards.map((a, i) => (
+                                    <SortableItem key={a._key} id={a._key}>
+                                        {(listeners) => (
+                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <DragHandle listeners={listeners} />
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                                    <Label>Date</Label>
+                                                    <input value={a.date} onChange={e => updateAward(i, 'date', e.target.value)} placeholder='05 Feb 2022' style={inputStyle} />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Name</Label>
+                                                    <input value={a.name} onChange={e => updateAward(i, 'name', e.target.value)} placeholder='Broken Lance Award' style={inputStyle} />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Type</Label>
+                                                    <select value={a.type} onChange={e => updateAward(i, 'type', e.target.value)} style={selectStyle}>
+                                                        {AWARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                                    </select>
+                                                </div>
+                                                <DeleteBtn onClick={() => removeAward(i)} />
+                                            </div>
+                                        )}
+                                    </SortableItem>
+                                ))}
                             </div>
-                            {showLine('awards', i, 'below') && <InsertionLine />}
-                        </Fragment>
-                    ))
+                        </SortableContext>
+                        <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                            {activeDragKey ? (() => {
+                                const a = awards.find(x => x._key === activeDragKey)
+                                if (!a) return null
+                                return (
+                                    <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(14,14,14,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', opacity: 0.95 }}>
+                                        <DragHandle />
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}><Label>Date</Label><input value={a.date} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Name</Label><input value={a.name} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Type</Label><input value={a.type} readOnly style={inputStyle} /></div>
+                                        <DeleteBtn onClick={() => {}} />
+                                    </div>
+                                )
+                            })() : null}
+                        </DragOverlay>
+                    </DndContext>
                 )}
             </SectionCard>
 
@@ -651,24 +736,57 @@ export default function MilpacEditor({ member }: { member: User }) {
                 {operations.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No operations on record.</span>
                 ) : (
-                    operations.map((op, i) => (
-                        <Fragment key={op._key}>
-                            {showLine('operations', i, 'above') && <InsertionLine />}
-                            <div className='flex gap-2 items-end' {...dragProps('operations', operations, setOperations, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragging?.list === 'operations' && dragging.index === i ? 0.3 : 1, transition: 'opacity 0.15s' }}>
-                                <DragHandle />
-                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 160, maxWidth: 220 }}>
-                                    <Label>Date Range</Label>
-                                    <input value={op.startToEndDate} onChange={e => updateOperation(i, 'startToEndDate', e.target.value)} placeholder='13 Sep 2020 - 12 Oct 2020' style={inputStyle} />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Operation Name</Label>
-                                    <input value={op.name} onChange={e => updateOperation(i, 'name', e.target.value)} placeholder='Operation Promulgate' style={inputStyle} />
-                                </div>
-                                <DeleteBtn onClick={() => removeOperation(i)} />
+                    <DndContext sensors={sensors} collisionDetection={closestCenter}
+                        onDragStart={(e: DragStartEvent) => setActiveDragKey(e.active.id as string)}
+                        onDragEnd={(e: DragEndEvent) => {
+                            setActiveDragKey(null)
+                            const { active, over } = e
+                            if (over && active.id !== over.id) {
+                                setOperations(prev => {
+                                    const oldIdx = prev.findIndex(o => o._key === active.id)
+                                    const newIdx = prev.findIndex(o => o._key === over.id)
+                                    return arrayMove(prev, oldIdx, newIdx)
+                                })
+                            }
+                        }}
+                    >
+                        <SortableContext items={operations.map(o => o._key)} strategy={verticalListSortingStrategy}>
+                            <div className='flex flex-col gap-3'>
+                                {operations.map((op, i) => (
+                                    <SortableItem key={op._key} id={op._key}>
+                                        {(listeners) => (
+                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <DragHandle listeners={listeners} />
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 160, maxWidth: 220 }}>
+                                                    <Label>Date Range</Label>
+                                                    <input value={op.startToEndDate} onChange={e => updateOperation(i, 'startToEndDate', e.target.value)} placeholder='13 Sep 2020 - 12 Oct 2020' style={inputStyle} />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Operation Name</Label>
+                                                    <input value={op.name} onChange={e => updateOperation(i, 'name', e.target.value)} placeholder='Operation Promulgate' style={inputStyle} />
+                                                </div>
+                                                <DeleteBtn onClick={() => removeOperation(i)} />
+                                            </div>
+                                        )}
+                                    </SortableItem>
+                                ))}
                             </div>
-                            {showLine('operations', i, 'below') && <InsertionLine />}
-                        </Fragment>
-                    ))
+                        </SortableContext>
+                        <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                            {activeDragKey ? (() => {
+                                const op = operations.find(x => x._key === activeDragKey)
+                                if (!op) return null
+                                return (
+                                    <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(14,14,14,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', opacity: 0.95 }}>
+                                        <DragHandle />
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 160, maxWidth: 220 }}><Label>Date Range</Label><input value={op.startToEndDate} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Operation Name</Label><input value={op.name} readOnly style={inputStyle} /></div>
+                                        <DeleteBtn onClick={() => {}} />
+                                    </div>
+                                )
+                            })() : null}
+                        </DragOverlay>
+                    </DndContext>
                 )}
             </SectionCard>
 
