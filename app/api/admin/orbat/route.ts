@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
                 ? {
                       id: u._id,
                       username: u.username,
-                      displayName: u.guild?.nickname || u.globalName || u.username,
+                      displayName: (u.milpac?.currentRank ? u.milpac.currentRank + ' ' : '') + (u.name || u.guild.nickname || u.globalName || u.username),
                       avatarURL: u.guild?.avatarURL || u.avatarURL,
                   }
                 : null,
