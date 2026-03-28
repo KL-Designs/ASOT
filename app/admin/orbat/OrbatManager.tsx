@@ -146,8 +146,25 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     // Milpac popout
     const [milpacUser, setMilpacUser] = useState<User | null>(null)
     const [milpacLoading, setMilpacLoading] = useState(false)
+    const [milpacDirty, setMilpacDirty] = useState(false)
+    const [milpacConfirmClose, setMilpacConfirmClose] = useState(false)
+
+    function requestCloseMilpac() {
+        if (milpacDirty) {
+            setMilpacConfirmClose(true)
+        } else {
+            setMilpacUser(null)
+        }
+    }
+
+    function confirmCloseMilpac() {
+        setMilpacConfirmClose(false)
+        setMilpacDirty(false)
+        setMilpacUser(null)
+    }
 
     async function openMilpac(username: string) {
+        setMilpacDirty(false)
         setMilpacLoading(true)
         const res = await fetch(`/api/members/${username}`)
         if (res.ok) setMilpacUser(await res.json())
@@ -1223,7 +1240,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
             {/* ── Milpac Popout ───────────────────────────────────────────────── */}
             <Dialog
                 open={!!milpacUser || milpacLoading}
-                onClose={() => setMilpacUser(null)}
+                onClose={requestCloseMilpac}
                 maxWidth='md'
                 fullWidth
                 PaperProps={{
@@ -1237,8 +1254,9 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                 <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                     <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
                         {milpacUser ? `Milpac — ${milpacUser.name || milpacUser.username}` : 'Loading…'}
+                        {milpacDirty && <span style={{ marginLeft: 8, color: 'rgba(219,0,29,0.7)', fontSize: '0.65rem' }}>● Unsaved changes</span>}
                     </span>
-                    <IconButton size='small' onClick={() => setMilpacUser(null)} sx={ghostBtn}>
+                    <IconButton size='small' onClick={requestCloseMilpac} sx={ghostBtn}>
                         <Close fontSize='small' />
                     </IconButton>
                 </DialogTitle>
@@ -1250,10 +1268,34 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                     )}
                     {milpacUser && !milpacLoading && (
                         <div style={{ padding: '20px 24px' }}>
-                            <MilpacEditor member={milpacUser} />
+                            <MilpacEditor member={milpacUser} onDirtyChange={setMilpacDirty} />
                         </div>
                     )}
                 </DialogContent>
+            </Dialog>
+
+            {/* ── Milpac Unsaved Changes Confirm ──────────────────────────────── */}
+            <Dialog
+                open={milpacConfirmClose}
+                onClose={() => setMilpacConfirmClose(false)}
+                PaperProps={{ style: { background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.2)' } }}
+            >
+                <DialogTitle style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+                    Unsaved Changes
+                </DialogTitle>
+                <DialogContent>
+                    <span style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.6)' }}>
+                        You have unsaved changes. Close anyway and discard them?
+                    </span>
+                </DialogContent>
+                <DialogActions style={{ padding: '8px 16px 16px' }}>
+                    <button onClick={() => setMilpacConfirmClose(false)} style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.5)', padding: '6px 16px', cursor: 'pointer' }}>
+                        Keep Editing
+                    </button>
+                    <button onClick={confirmCloseMilpac} style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'rgba(219,0,29,0.15)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.9)', padding: '6px 16px', cursor: 'pointer' }}>
+                        Discard & Close
+                    </button>
+                </DialogActions>
             </Dialog>
 
 

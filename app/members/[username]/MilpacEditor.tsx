@@ -252,7 +252,7 @@ function SortableItem({ id, children }: { id: string; children: (listeners: Reco
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function MilpacEditor({ member }: { member: User }) {
+export default function MilpacEditor({ member, onDirtyChange }: { member: User; onDirtyChange?: (dirty: boolean) => void }) {
     const strippedNickname = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
     const fullDisplay = strippedNickname || member.globalName || member.username
     const nameParts = fullDisplay.split(' ')
@@ -273,6 +273,21 @@ export default function MilpacEditor({ member }: { member: User }) {
         (member.milpac?.operations ?? []).map(o => ({ _key: String(_keyCount++), ...o })))
     const [qualifications, setQualifications] = useState<Qualification[]>(() =>
         (member.milpac?.qualifications ?? []).map(q => ({ _key: String(_keyCount++), ...q })))
+
+    const [dirty, setDirty] = useState(false)
+    const dirtyRef = useRef(false)
+    function markDirty() {
+        if (!dirtyRef.current) {
+            dirtyRef.current = true
+            setDirty(true)
+            onDirtyChange?.(true)
+        }
+    }
+    function markClean() {
+        dirtyRef.current = false
+        setDirty(false)
+        onDirtyChange?.(false)
+    }
 
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
@@ -376,6 +391,7 @@ export default function MilpacEditor({ member }: { member: User }) {
             const json = await res.json()
             if (!res.ok) throw new Error(json.error || 'Save failed')
             setSaved(true)
+            markClean()
             setTimeout(() => setSaved(false), 3000)
         } catch (e: any) {
             setError(e.message)
@@ -387,48 +403,60 @@ export default function MilpacEditor({ member }: { member: User }) {
     // ── Promotion helpers ──────────────────────────────────────────────────────
 
     function addPromotion() {
+        markDirty()
         setPromotions(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), rank: RANKS_FLAT[0].name, role: '' }])
     }
     function updatePromotion(i: number, field: keyof Promotion, value: string) {
+        markDirty()
         setPromotions(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p))
     }
     function removePromotion(i: number) {
+        markDirty()
         setPromotions(prev => prev.filter((_, idx) => idx !== i))
     }
 
     // ── Award helpers ──────────────────────────────────────────────────────────
 
     function addAward() {
+        markDirty()
         setAwards(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), name: '', type: AWARD_TYPES[0] }])
     }
     function updateAward(i: number, field: keyof Award, value: string) {
+        markDirty()
         setAwards(prev => prev.map((a, idx) => idx === i ? { ...a, [field]: value } : a))
     }
     function removeAward(i: number) {
+        markDirty()
         setAwards(prev => prev.filter((_, idx) => idx !== i))
     }
 
     // ── Qualification helpers ──────────────────────────────────────────────────
 
     function addQualification() {
+        markDirty()
         setQualifications(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), qualification: '', trainer: '' }])
     }
     function updateQualification(i: number, field: keyof Qualification, value: string) {
+        markDirty()
         setQualifications(prev => prev.map((q, idx) => idx === i ? { ...q, [field]: value } : q))
     }
     function removeQualification(i: number) {
+        markDirty()
         setQualifications(prev => prev.filter((_, idx) => idx !== i))
     }
 
     // ── Operation helpers ──────────────────────────────────────────────────────
 
     function addOperation() {
+        markDirty()
         setOperations(prev => [...prev, { _key: String(_keyCount++), startToEndDate: `${todayStr()} - ${todayStr()}`, name: '' }])
     }
     function updateOperation(i: number, field: keyof Operation, value: string) {
+        markDirty()
         setOperations(prev => prev.map((o, idx) => idx === i ? { ...o, [field]: value } : o))
     }
     function removeOperation(i: number) {
+        markDirty()
         setOperations(prev => prev.filter((_, idx) => idx !== i))
     }
 
@@ -512,7 +540,7 @@ export default function MilpacEditor({ member }: { member: User }) {
                     <Label>Name</Label>
                     <input
                         value={memberName}
-                        onChange={e => setMemberName(e.target.value)}
+                        onChange={e => { markDirty(); setMemberName(e.target.value) }}
                         placeholder={parsedDisplayName}
                         style={inputStyle}
                     />
@@ -523,13 +551,13 @@ export default function MilpacEditor({ member }: { member: User }) {
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                     <div className='flex flex-col gap-2'>
                         <Label>Current Rank</Label>
-                        <RankSelect value={bioRank} onChange={setBioRank} />
+                        <RankSelect value={bioRank} onChange={v => { markDirty(); setBioRank(v) }} />
                     </div>
                     <div className='flex flex-col gap-2'>
                         <Label>Enlisted Date</Label>
                         <input
                             value={enlistedDate}
-                            onChange={e => setEnlistedDate(e.target.value)}
+                            onChange={e => { markDirty(); setEnlistedDate(e.target.value) }}
                             placeholder='e.g. 15 August 2020'
                             style={inputStyle}
                         />
@@ -548,6 +576,7 @@ export default function MilpacEditor({ member }: { member: User }) {
                             setActiveDragKey(null)
                             const { active, over } = e
                             if (over && active.id !== over.id) {
+                                markDirty()
                                 setPromotions(prev => {
                                     const oldIdx = prev.findIndex(p => p._key === active.id)
                                     const newIdx = prev.findIndex(p => p._key === over.id)
@@ -612,6 +641,7 @@ export default function MilpacEditor({ member }: { member: User }) {
                             setActiveDragKey(null)
                             const { active, over } = e
                             if (over && active.id !== over.id) {
+                                markDirty()
                                 setQualifications(prev => {
                                     const oldIdx = prev.findIndex(q => q._key === active.id)
                                     const newIdx = prev.findIndex(q => q._key === over.id)
@@ -676,6 +706,7 @@ export default function MilpacEditor({ member }: { member: User }) {
                             setActiveDragKey(null)
                             const { active, over } = e
                             if (over && active.id !== over.id) {
+                                markDirty()
                                 setAwards(prev => {
                                     const oldIdx = prev.findIndex(a => a._key === active.id)
                                     const newIdx = prev.findIndex(a => a._key === over.id)
@@ -742,6 +773,7 @@ export default function MilpacEditor({ member }: { member: User }) {
                             setActiveDragKey(null)
                             const { active, over } = e
                             if (over && active.id !== over.id) {
+                                markDirty()
                                 setOperations(prev => {
                                     const oldIdx = prev.findIndex(o => o._key === active.id)
                                     const newIdx = prev.findIndex(o => o._key === over.id)
