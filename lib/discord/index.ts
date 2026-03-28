@@ -108,7 +108,7 @@ export class Client implements IClient {
             if (orbatSuffix) {
                 for (const [discordKey, member] of byName) {
                     const discordSuffix = discordKey.includes(' ') ? discordKey.slice(discordKey.indexOf(' ') + 1) : ''
-                    if (discordSuffix === orbatSuffix || discordSuffix.startsWith(orbatSuffix + ' ')) return member
+                    if (discordKey === orbatSuffix || discordSuffix === orbatSuffix || discordSuffix.startsWith(orbatSuffix + ' ')) return member
                 }
             }
             return null

@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { RANKS_FLAT } from '@/lib/ranks'
 
 const SHEET_ID = '1rkzQSPimBYV3UDp-CFHUfQo59yww_xbj9UTPGWBzSL0'
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`
@@ -73,6 +74,34 @@ export async function POST(request: NextRequest) {
     const allMembers = await Db.users.find({}).toArray()
     const lookup = client.buildOrbatLookup(allMembers)
 
+    const KNOWN_RANKS = new Set(RANKS_FLAT.map(r => r.abbr))
+    const nameUpdates = new Map<string, { name: string; rank?: string }>() // userId → parsed data
+    const lookupAndTrack = (rawName: string) => {
+        rawName = rawName.replace(/\s+/g, ' ').trim()
+        const user = lookup(rawName)
+        if (!rawName) return user
+        if (!user) {
+            console.log(`[ORBAT] no match for: "${rawName}"`)
+            return null
+        }
+        const spaceIdx = rawName.indexOf(' ')
+        if (spaceIdx !== -1) {
+            const prefix = rawName.slice(0, spaceIdx)
+            const rest = rawName.slice(spaceIdx + 1).trim()
+            if (KNOWN_RANKS.has(prefix) && rest) {
+                console.log(`[ORBAT] matched "${rawName}" → userId=${user._id} name="${rest}" rank="${prefix}"`)
+                nameUpdates.set(user._id, { name: rest, rank: prefix })
+            } else {
+                console.log(`[ORBAT] matched "${rawName}" → userId=${user._id} name="${rawName.trim()}" (no rank prefix)`)
+                nameUpdates.set(user._id, { name: rawName.trim() })
+            }
+        } else {
+            console.log(`[ORBAT] matched "${rawName}" → userId=${user._id} name="${rawName.trim()}" (no space)`)
+            nameUpdates.set(user._id, { name: rawName.trim() })
+        }
+        return user
+    }
+
     const positions: Omit<OrbatPosition, '_id'>[] = []
     let sectionOrder = 0
 
@@ -83,7 +112,7 @@ export async function POST(request: NextRequest) {
             category: 'companyHQ',
             sectionTitle: 'India Company HQ',
             role: sec.senior.role,
-            userId: lookup(sec.senior.name)?._id ?? null,
+            userId: lookupAndTrack(sec.senior.name)?._id ?? null,
             sectionOrder,
             positionOrder: 0,
             isSenior: true,
@@ -94,7 +123,7 @@ export async function POST(request: NextRequest) {
                 category: 'companyHQ',
                 sectionTitle: 'India Company HQ',
                 role: m.role,
-                userId: lookup(m.name)?._id ?? null,
+                userId: lookupAndTrack(m.name)?._id ?? null,
                 sectionOrder,
                 positionOrder: i + 1,
             })
@@ -109,7 +138,7 @@ export async function POST(request: NextRequest) {
                 category: 'platoon11',
                 sectionTitle: section.title,
                 role: m.role,
-                userId: lookup(m.name)?._id ?? null,
+                userId: lookupAndTrack(m.name)?._id ?? null,
                 sectionOrder,
                 positionOrder: i,
             })
@@ -124,7 +153,7 @@ export async function POST(request: NextRequest) {
                 category: 'platoon12',
                 sectionTitle: section.title,
                 role: m.role,
-                userId: lookup(m.name)?._id ?? null,
+                userId: lookupAndTrack(m.name)?._id ?? null,
                 sectionOrder,
                 positionOrder: i,
             })
@@ -139,7 +168,7 @@ export async function POST(request: NextRequest) {
                 category: 'support',
                 sectionTitle: section.title,
                 role: m.role,
-                userId: lookup(m.name)?._id ?? null,
+                userId: lookupAndTrack(m.name)?._id ?? null,
                 sectionOrder,
                 positionOrder: i,
             })
@@ -153,7 +182,7 @@ export async function POST(request: NextRequest) {
             category: 'activeReservist',
             sectionTitle: '',
             role: 'Active Reservist',
-            userId: lookup(name)?._id ?? null,
+            userId: lookupAndTrack(name)?._id ?? null,
             sectionOrder,
             positionOrder: i,
         })
@@ -166,7 +195,7 @@ export async function POST(request: NextRequest) {
             category: 'inactiveReservist',
             sectionTitle: '',
             role: 'Inactive Reservist',
-            userId: lookup(name)?._id ?? null,
+            userId: lookupAndTrack(name)?._id ?? null,
             sectionOrder,
             positionOrder: i,
         })
@@ -179,28 +208,55 @@ export async function POST(request: NextRequest) {
             category: 'gamemaster',
             sectionTitle: 'Gamemasters',
             role: m.role,
-            userId: lookup(m.name)?._id ?? null,
+            userId: lookupAndTrack(m.name)?._id ?? null,
             sectionOrder,
             positionOrder: i,
         })
     })
 
+    // Deduplicate positions — sheet sometimes lists the same person in multiple sections
+    const seenUserIds = new Set<string>()
+    const dedupedPositions = positions.filter(p => {
+        if (!p.userId) return true
+        if (seenUserIds.has(p.userId)) {
+            console.log(`[ORBAT] duplicate userId=${p.userId} in positions, keeping first occurrence`)
+            return false
+        }
+        seenUserIds.add(p.userId)
+        return true
+    })
+
     // Wipe and reinsert
+    await Db.orbatPositions.dropIndexes()
     await Db.orbatPositions.deleteMany({})
-    if (positions.length > 0) {
+    if (dedupedPositions.length > 0) {
         await Db.orbatPositions.insertMany(
-            positions.map(p => ({ ...p, _id: new ObjectId() })) as OrbatPosition[]
+            dedupedPositions.map(p => ({ ...p, _id: new ObjectId() })) as OrbatPosition[]
         )
     }
 
+    // Update user names and ranks before index creation so a failure there doesn't block this
+    if (nameUpdates.size > 0) {
+        console.log(`[ORBAT] running bulkWrite for ${nameUpdates.size} users`)
+        const bulkResult = await Db.users.bulkWrite(
+            Array.from(nameUpdates.entries()).map(([userId, { name, rank }]) => ({
+                updateOne: {
+                    filter: { _id: userId } as any,
+                    update: { $set: { name, ...(rank ? { 'milpac.currentRank': rank } : {}) } },
+                },
+            }))
+        )
+        console.log(`[ORBAT] bulkWrite result: matchedCount=${bulkResult.matchedCount} modifiedCount=${bulkResult.modifiedCount}`)
+    }
+
     // Ensure indexes
-    await Db.orbatPositions.createIndex({ userId: 1 } as any, { unique: true, sparse: true })
+    await Db.orbatPositions.createIndex({ userId: 1 } as any, { unique: true, partialFilterExpression: { userId: { $type: 'string' } } } as any)
     await Db.orbatPositions.createIndex(
         { category: 1, sectionOrder: 1, positionOrder: 1 } as any
     )
 
     const matched = positions.filter(p => p.userId !== null).length
-    return NextResponse.json({ inserted: positions.length, matched })
+    return NextResponse.json({ inserted: positions.length, matched, namesUpdated: nameUpdates.size })
 }
 
 
