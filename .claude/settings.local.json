@@ -21,7 +21,8 @@
       "Bash(npx tsc:*)",
       "Bash(grep -n \"pageTheme\" types/operation.d.ts app/api/operations/update/route.ts app/operations/edit/page.tsx app/operations/[id]/page.tsx app/operations/[id]/doc-body.tsx app/operations/[id]/section-nav.tsx)",
       "Bash(grep -r prisma f:/Clients/ASOT-Website --include=*.json --include=*.ts)",
-      "Bash(grep -r 'interface OrbatPosition' f:/Clients/ASOT-Website --include=*.ts)"
+      "Bash(grep -r 'interface OrbatPosition' f:/Clients/ASOT-Website --include=*.ts)",
+      "Bash(npm install:*)"
     ]
   }
 }

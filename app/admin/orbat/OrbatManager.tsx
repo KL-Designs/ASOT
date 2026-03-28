@@ -12,6 +12,23 @@ import {
     Add, Delete, MoreVert, DragIndicator,
 } from '@mui/icons-material'
 import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat-constants'
+import MilpacEditor from '@/app/members/[username]/MilpacEditor'
+import {
+    DndContext,
+    DragOverlay,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    closestCenter,
+    type DragEndEvent,
+    type DragStartEvent,
+} from '@dnd-kit/core'
+import {
+    SortableContext,
+    useSortable,
+    verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 
 const tileStyle = {
@@ -106,8 +123,8 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
 
     // Drag state (within a section)
-    const [draggedPosId, setDraggedPosId] = useState<string | null>(null)
-    const [dragOverPosId, setDragOverPosId] = useState<string | null>(null)
+    const [activeDragId, setActiveDragId] = useState<string | null>(null)
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
     // User picker state
     const [pickerOpen, setPickerOpen] = useState<string | null>(null)
@@ -125,6 +142,17 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     // Add-to-reservists picker
     const [addReservistCat, setAddReservistCat] = useState<'activeReservist' | 'inactiveReservist' | null>(null)
     const [addReservistSearch, setAddReservistSearch] = useState('')
+
+    // Milpac popout
+    const [milpacUser, setMilpacUser] = useState<User | null>(null)
+    const [milpacLoading, setMilpacLoading] = useState(false)
+
+    async function openMilpac(username: string) {
+        setMilpacLoading(true)
+        const res = await fetch(`/api/members/${username}`)
+        if (res.ok) setMilpacUser(await res.json())
+        setMilpacLoading(false)
+    }
 
     // Import dialog
     const [importOpen, setImportOpen] = useState(false)
@@ -284,8 +312,6 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
             const newOrder = orderMap.get(p._id.toString())
             return newOrder !== undefined ? { ...p, positionOrder: newOrder } : p
         }))
-        setDraggedPosId(null)
-        setDragOverPosId(null)
 
         await Promise.all(
             reordered.map((p, idx) =>
@@ -431,50 +457,26 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
 
     // ── Sub-renders ──────────────────────────────────────────────────────────
 
-    function renderPositionRow(pos: OrbatPositionWithUser, sec: Section) {
+    function renderPositionRowContent(pos: OrbatPositionWithUser, opts: { isDragOverlay?: boolean; dragListeners?: ReturnType<typeof useSortable>['listeners'] } = {}) {
         const posId = pos._id.toString()
         const isSaving = savingId === posId
         const isExpanded = expandedRowId === posId
         const isEditing = editRoleId === posId
-        const isDragging = draggedPosId === posId
-        const isDragOver = dragOverPosId === posId
 
         return (
-            <div
-                key={posId}
-                draggable
-                onDragStart={e => {
-                    setDraggedPosId(posId)
-                    e.dataTransfer.effectAllowed = 'move'
-                }}
-                onDragOver={e => {
-                    e.preventDefault()
-                    e.dataTransfer.dropEffect = 'move'
-                    if (draggedPosId && draggedPosId !== posId) setDragOverPosId(posId)
-                }}
-                onDragLeave={() => setDragOverPosId(null)}
-                onDrop={e => {
-                    e.preventDefault()
-                    if (draggedPosId) dropPosition(sec, draggedPosId, posId)
-                }}
-                onDragEnd={() => { setDraggedPosId(null); setDragOverPosId(null) }}
-                style={{
-                    opacity: isDragging ? 0.35 : 1,
-                    transition: 'opacity 0.1s',
-                    borderTop: isDragOver ? '2px solid rgba(219,0,29,0.5)' : undefined,
-                }}
-            >
+            <>
                 {/* Main row */}
                 <div className='flex items-center gap-1.5 px-2 py-1' style={rowStyle}>
 
                     {/* Drag handle */}
                     <DragIndicator
-                        sx={{ fontSize: 12, color: 'rgba(255,255,255,0.12)', cursor: 'grab', flexShrink: 0 }}
+                        {...(opts.dragListeners ?? {})}
+                        sx={{ fontSize: 12, color: opts.isDragOverlay ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.12)', cursor: 'grab', flexShrink: 0, touchAction: 'none' }}
                     />
 
                     {/* Role name */}
                     <div className='flex-1 min-w-0'>
-                        {isEditing ? (
+                        {isEditing && !opts.isDragOverlay ? (
                             <TextField
                                 size='small'
                                 value={editRoleVal}
@@ -510,11 +512,14 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                         ) : pos.user ? (
                             <>
                                 <Avatar src={pos.user.avatarURL} sx={{ width: 16, height: 16, fontSize: '0.5rem' }} />
-                                <Link href={`/members/${pos.user.username}`} target='_blank' style={{ textDecoration: 'none' }}>
+                                <button
+                                    onClick={() => pos.user && openMilpac(pos.user.username)}
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                                >
                                     <Typography fontSize='0.68rem' noWrap style={{ color: 'rgba(237,237,237,0.75)', maxWidth: 90 }}>
                                         {pos.user.displayName}
                                     </Typography>
-                                </Link>
+                                </button>
                             </>
                         ) : (
                             <Button
@@ -542,7 +547,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                     </div>
 
                     {/* More menu toggle */}
-                    {!isEditing && (
+                    {!isEditing && !opts.isDragOverlay && (
                         <IconButton
                             size='small'
                             onClick={() => setExpandedRowId(isExpanded ? null : posId)}
@@ -554,7 +559,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                 </div>
 
                 {/* Expanded options panel */}
-                {isExpanded && (
+                {isExpanded && !opts.isDragOverlay && (
                     <div
                         className='flex flex-wrap items-center gap-x-0.5 gap-y-0.5 px-2 py-1'
                         style={{ background: 'rgba(0,0,0,0.18)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
@@ -605,6 +610,25 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                         </Button>
                     </div>
                 )}
+            </>
+        )
+    }
+
+
+    function SortablePositionRow({ pos, sec }: { pos: OrbatPositionWithUser; sec: Section }) {
+        const posId = pos._id.toString()
+        const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: posId })
+        return (
+            <div
+                ref={setNodeRef}
+                {...attributes}
+                style={{
+                    transform: CSS.Transform.toString(transform),
+                    transition,
+                    opacity: isDragging ? 0 : 1,
+                }}
+            >
+                {renderPositionRowContent(pos, { dragListeners: listeners })}
             </div>
         )
     }
@@ -662,9 +686,36 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                 )}
 
                 {/* Positions */}
-                <div className='flex flex-col gap-0.5 py-0.5'>
-                    {sec.positions.map(pos => renderPositionRow(pos, sec))}
-                </div>
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={(e: DragStartEvent) => setActiveDragId(e.active.id as string)}
+                    onDragEnd={(e: DragEndEvent) => {
+                        setActiveDragId(null)
+                        const { active, over } = e
+                        if (over && active.id !== over.id) {
+                            dropPosition(sec, active.id as string, over.id as string)
+                        }
+                    }}
+                >
+                    <SortableContext items={sec.positions.map(p => p._id.toString())} strategy={verticalListSortingStrategy}>
+                        <div className='flex flex-col gap-0.5 py-0.5'>
+                            {sec.positions.map(pos => (
+                                <SortablePositionRow key={pos._id.toString()} pos={pos} sec={sec} />
+                            ))}
+                        </div>
+                    </SortableContext>
+                    <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                        {activeDragId ? (() => {
+                            const dragPos = sec.positions.find(p => p._id.toString() === activeDragId)
+                            return dragPos ? (
+                                <div style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.5)', borderRadius: 2, opacity: 0.95 }}>
+                                    {renderPositionRowContent(dragPos, { isDragOverlay: true })}
+                                </div>
+                            ) : null
+                        })() : null}
+                    </DragOverlay>
+                </DndContext>
 
                 {/* Add Role */}
                 {addRoleKey === sectionKey ? (
@@ -805,11 +856,14 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                                 {pos.user ? (
                                     <>
                                         <Avatar src={pos.user.avatarURL} sx={{ width: 18, height: 18, fontSize: '0.5rem' }} />
-                                        <Link href={`/members/${pos.user.username}`} target='_blank' style={{ textDecoration: 'none', flex: 1, minWidth: 0 }}>
+                                        <button
+                                            onClick={() => pos.user && openMilpac(pos.user.username)}
+                                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', flex: 1, minWidth: 0 }}
+                                        >
                                             <Typography fontSize='0.73rem' noWrap style={{ color: 'rgba(237,237,237,0.75)' }}>
                                                 {pos.user.displayName}
                                             </Typography>
-                                        </Link>
+                                        </button>
                                     </>
                                 ) : (
                                     <Typography fontSize='0.65rem' fontStyle='italic' style={{ flex: 1, color: 'rgba(237,237,237,0.15)' }}>
@@ -1163,6 +1217,43 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                 <DialogActions>
                     <Button sx={ghostBtn} onClick={() => { setAddReservistCat(null); setAddReservistSearch('') }}>Cancel</Button>
                 </DialogActions>
+            </Dialog>
+
+
+            {/* ── Milpac Popout ───────────────────────────────────────────────── */}
+            <Dialog
+                open={!!milpacUser || milpacLoading}
+                onClose={() => setMilpacUser(null)}
+                maxWidth='md'
+                fullWidth
+                PaperProps={{
+                    style: {
+                        background: '#0e0e0e',
+                        border: '1px solid rgba(219,0,29,0.2)',
+                        maxHeight: '90vh',
+                    },
+                }}
+            >
+                <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
+                        {milpacUser ? `Milpac — ${milpacUser.name || milpacUser.username}` : 'Loading…'}
+                    </span>
+                    <IconButton size='small' onClick={() => setMilpacUser(null)} sx={ghostBtn}>
+                        <Close fontSize='small' />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent style={{ padding: 0, overflowY: 'auto' }}>
+                    {milpacLoading && (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+                            <CircularProgress size={28} sx={{ color: 'var(--red)' }} />
+                        </div>
+                    )}
+                    {milpacUser && !milpacLoading && (
+                        <div style={{ padding: '20px 24px' }}>
+                            <MilpacEditor member={milpacUser} />
+                        </div>
+                    )}
+                </DialogContent>
             </Dialog>
 
 

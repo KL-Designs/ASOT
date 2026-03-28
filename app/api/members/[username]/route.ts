@@ -4,6 +4,19 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 
 
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
+    const me = await client.fetchMe().catch(() => null)
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!client.hasRoles(me, PERMISSIONS.members.edit)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+
+    const { username } = await params
+    const member = await Db.users.findOne({ username })
+    if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+
+    return NextResponse.json(member)
+}
+
+
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
