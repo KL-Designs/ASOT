@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 
-// GET — top 10 scores (public)
-export async function GET() {
-    const scores = await Db.minigameScores
-        .find({})
-        .sort({ total: -1 })
-        .limit(10)
-        .toArray()
+// GET — top 10 scores (public), or all scores with ?all=true
+export async function GET(request: NextRequest) {
+    const all = request.nextUrl.searchParams.get('all') === 'true'
+    const query = Db.minigameScores.find({}).sort({ total: -1 })
+    const scores = await (all ? query : query.limit(10)).toArray()
 
     return NextResponse.json(scores, { status: 200 })
 }
