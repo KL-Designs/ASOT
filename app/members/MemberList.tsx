@@ -168,7 +168,7 @@ export default function MemberList({
                 ) : (
                     filtered.map(member => {
                         const displayName = member.name || member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName || member.username
-                        const rank = member.bio?.rank ? rankNameFromAbbr(member.bio.rank) : null
+                        const rank = member.milpac?.currentRank ? rankNameFromAbbr(member.milpac.currentRank) : null
                         const orbatEntry = orbatMap[member.id] ?? null
 
                         return (

@@ -30,9 +30,9 @@ export default async function Page() {
     const nameParts = fullDisplay.split(' ')
     const parsedDisplayName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : fullDisplay
     const bioDisplayName = me.name || parsedDisplayName
-    const bioRankAbbr = me.milpac?.currentRank || me.bio?.rank || null
+    const bioRankAbbr = me.milpac?.currentRank || null
     const bioRank = bioRankAbbr ? rankNameFromAbbr(bioRankAbbr) : null
-    const bioCallsign = me.bio?.callsign || null
+    const bioCallsign = me.milpac?.callsign || null
     const bioRole = orbatEntry?.role || null
 
     return (

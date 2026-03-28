@@ -31,7 +31,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
     if (bioRank !== undefined) {
         update['milpac.currentRank'] = bioRank
-        update['bio.rank'] = bioRank
     }
     if (name !== undefined) {
         update['name'] = name || null

@@ -246,7 +246,7 @@ export default function MilpacEditor({ member }: { member: User }) {
     const displayName = member.name || parsedDisplayName
 
     const [memberName, setMemberName] = useState(member.name || parsedDisplayName)
-    const [bioRank, setBioRank] = useState(rankNameFromAbbr(member.milpac?.currentRank ?? member.bio?.rank ?? ''))
+    const [bioRank, setBioRank] = useState(rankNameFromAbbr(member.milpac?.currentRank ?? ''))
     const joinDateStr = member.guild?.joinedTimestamp
         ? new Date(member.guild.joinedTimestamp).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
         : ''

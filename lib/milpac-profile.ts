@@ -20,7 +20,7 @@ export function resolveMilpacProfile(member: User, orbatEntry: OrbatEntry | null
 
     const rankAbbrResolved = member.milpac?.currentRank || rankAbbr
 
-    const callsign = member.bio?.callsign || null
+    const callsign = orbatEntry?.section || null
 
     return { accent, displayName, name, rankAbbr: rankAbbrResolved, fullRank, callsign, orbatEntry }
 }

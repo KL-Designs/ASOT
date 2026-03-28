@@ -50,9 +50,6 @@ declare global {
 
         bio?: {
             content: string
-            name: string
-            rank: string
-            callsign: string
         }
 
         milpac?: {

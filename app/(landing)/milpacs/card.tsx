@@ -17,7 +17,7 @@ export default function Card({ member, role }: { member: User; role?: string }) 
 	const name = member.name || parsedName
 
 	// Prefer DB rank; fall back to first word of Discord nickname
-	const rankAbbr = member.milpac?.currentRank || member.bio?.rank || (nickParts.length > 1 ? nickParts[0] : null)
+	const rankAbbr = member.milpac?.currentRank || (nickParts.length > 1 ? nickParts[0] : null)
 	const cardRef = useRef<HTMLDivElement>(null)
 	const [tilt, setTilt] = useState({ x: 0, y: 0 })
 	const [hovered, setHovered] = useState(false)
