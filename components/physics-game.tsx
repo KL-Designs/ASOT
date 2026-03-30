@@ -736,8 +736,11 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 					}
 
 					// ── Combine seek + repulsion → velocity ──────────
-					const seekForce = (targetY - shipCY) * 0.055
-					state.vy = state.vy * 0.65 + (seekForce + forceY) * 0.35 * dt
+					const diff      = targetY - shipCY
+					// Ramp up gain when close so the ship doesn't drift past targets
+					const gain      = Math.abs(diff) < 50 ? 0.18 : 0.09
+					const seekForce = diff * gain
+					state.vy = state.vy * 0.40 + (seekForce + forceY) * 0.60 * dt
 				} else {
 					state.vy += GRAVITY * dt
 					if (state.thrusting) state.vy -= (THRUST + GRAVITY) * dt
