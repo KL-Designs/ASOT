@@ -255,6 +255,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			state.y         = Math.max(0, Math.min(canvas.height - TRI, state.y))
 			state.dead      = true
 			state.deadTimer = 80
+			new Audio('/audio/death.mp3').play().catch(() => {})
 			if (!state.deathReported) {
 				state.deathReported = true
 				onGameOverRef.current?.(state.score, state.collectScore)
