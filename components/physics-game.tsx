@@ -656,9 +656,56 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 				// ── Physics ──────────────────────────────────────────
 				const autopilotActive = state.autopilotEnd > now
 				if (autopilotActive) {
-					const target = canvas.height / 2 - TRI / 2
-					const diff   = target - state.y
-					state.vy     = diff * 0.08 * dt
+					const shipCX   = state.x + TRI / 2
+					const shipCY   = state.y + TRI / 2
+					const LOOKAHEAD = 340
+
+					// ── Obstacle repulsion ──────────────────────────
+					let forceY = 0
+					const applyRepulsion = (ox: number, oy: number, radius: number, weight: number) => {
+						const rdx = ox - shipCX
+						if (rdx < -(radius + 20) || rdx > LOOKAHEAD) return
+						const rdy   = oy - shipCY
+						const dist  = Math.max(1, Math.hypot(rdx, rdy))
+						const clear = radius + TRI + 40
+						if (dist < clear * 2.0) {
+							const urgency   = Math.pow(Math.max(0, 1 - dist / (clear * 2.0)), 1.4)
+							const xProx     = Math.max(0, 1 - Math.max(0, rdx) / LOOKAHEAD)
+							forceY -= (rdy / dist) * urgency * xProx * weight
+						}
+					}
+					for (const ast of state.asteroids) applyRepulsion(ast.x, ast.y, ast.radius, 18)
+					for (const deb of state.debris)    applyRepulsion(deb.x, deb.y, deb.radius, 12)
+
+					// ── Edge avoidance ──────────────────────────────
+					const edgeBuf = 90
+					if (shipCY < edgeBuf)                      forceY += (1 - shipCY / edgeBuf) * 9
+					if (shipCY > canvas.height - edgeBuf)      forceY -= (1 - (canvas.height - shipCY) / edgeBuf) * 9
+
+					// ── Seek nearest valuable target ─────────────────
+					let targetY     = canvas.height / 2
+					let bestPri     = 0
+					for (const g of state.gems) {
+						if (g.x < shipCX - 40) continue
+						const gdx  = g.x - shipCX
+						const gdy  = g.y - shipCY
+						const dist = Math.hypot(gdx, gdy) + gdx * 0.4 + 1
+						const val  = g.rainbow ? 100 : g.superRare ? 50 : g.rare ? 10 : 1
+						const pri  = (val * 60) / dist
+						if (pri > bestPri) { bestPri = pri; targetY = g.y }
+					}
+					for (const p of state.powerups) {
+						if (p.x < shipCX - 40) continue
+						const pdx  = p.x - shipCX
+						const pdy  = p.y - shipCY
+						const dist = Math.hypot(pdx, pdy) + pdx * 0.4 + 1
+						const pri  = 250 / dist
+						if (pri > bestPri) { bestPri = pri; targetY = p.y }
+					}
+
+					// ── Combine seek + repulsion → velocity ──────────
+					const seekForce = (targetY - shipCY) * 0.055
+					state.vy = state.vy * 0.65 + (seekForce + forceY) * 0.35 * dt
 				} else {
 					state.vy += GRAVITY * dt
 					if (state.thrusting) state.vy -= (THRUST + GRAVITY) * dt
