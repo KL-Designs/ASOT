@@ -21,7 +21,8 @@
       "Bash(npx tsc:*)",
       "Bash(grep -n \"pageTheme\" types/operation.d.ts app/api/operations/update/route.ts app/operations/edit/page.tsx app/operations/[id]/page.tsx app/operations/[id]/doc-body.tsx app/operations/[id]/section-nav.tsx)",
       "Bash(ls /f/Clients/ASOT-Website/app/operations/[id]/)",
-      "Bash(ls -la \"f:\\\\Clients\\\\ASOT-Website\\\\app\\\\api\\\\minigame\"\" 2>/dev/null || echo \"Directory check \")"
+      "Bash(ls -la \"f:\\\\Clients\\\\ASOT-Website\\\\app\\\\api\\\\minigame\"\" 2>/dev/null || echo \"Directory check \")",
+      "Bash(find /f/Clients/ASOT-Website/lib -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx \\\\\\))"
     ]
   }
 }

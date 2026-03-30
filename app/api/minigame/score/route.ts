@@ -25,14 +25,23 @@ export async function POST(request: NextRequest) {
     const displayName = me.guild?.nickname || me.globalName || me.username
 
     const existing = await Db.minigameScores.findOne({ userId: me.id })
-    if (!existing || total > (existing.total as number)) {
+    const isPersonalBest = !existing || total > (existing.total as number)
+
+    if (isPersonalBest) {
         await Db.minigameScores.updateOne(
             { userId: me.id },
-            { $set: { userId: me.id, displayName, score, collectScore, total, date: new Date() } },
+            {
+                $set: { userId: me.id, displayName, score, collectScore, total, date: new Date() },
+                $inc: { totalGems: collectScore },
+            },
             { upsert: true }
         )
-        return NextResponse.json({ saved: true, personal_best: true }, { status: 200 })
+    } else {
+        await Db.minigameScores.updateOne(
+            { userId: me.id },
+            { $inc: { totalGems: collectScore }, $set: { displayName } }
+        )
     }
 
-    return NextResponse.json({ saved: false, personal_best: false }, { status: 200 })
+    return NextResponse.json({ saved: isPersonalBest, personal_best: isPersonalBest }, { status: 200 })
 }

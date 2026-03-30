@@ -9,6 +9,7 @@ interface ScoreEntry {
 	score: number
 	collectScore: number
 	total: number
+	totalGems: number
 }
 
 export default function MinigameScoreboard({
@@ -124,6 +125,7 @@ export default function MinigameScoreboard({
 						<span style={{ ...styles.colLabel, width: 52, textAlign: 'right' }}>Dodged</span>
 						<span style={{ ...styles.colLabel, width: 40, textAlign: 'right', color: 'rgba(255,210,0,0.45)' }}>◆</span>
 						<span style={{ ...styles.colLabel, width: 44, textAlign: 'right' }}>Total</span>
+						<span style={{ ...styles.colLabel, width: 56, textAlign: 'right', color: 'rgba(255,210,0,0.45)' }}>◆ All Time</span>
 					</div>
 
 					<div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '6px 0 4px' }} />
@@ -159,6 +161,9 @@ export default function MinigameScoreboard({
 								</span>
 								<span style={{ ...styles.cell, width: 44, textAlign: 'right', color: isMe ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.55)', fontWeight: isMe ? 700 : 400 }}>
 									{entry.total}
+								</span>
+								<span style={{ ...styles.cell, width: 56, textAlign: 'right', color: 'rgba(255,210,0,0.85)' }}>
+									{entry.totalGems ?? 0}
 								</span>
 							</div>
 						)
@@ -254,6 +259,7 @@ export default function MinigameScoreboard({
 								<span style={{ ...styles.colLabel, width: 52, textAlign: 'right' }}>Dodged</span>
 								<span style={{ ...styles.colLabel, width: 40, textAlign: 'right', color: 'rgba(255,210,0,0.45)' }}>◆</span>
 								<span style={{ ...styles.colLabel, width: 52, textAlign: 'right' }}>Total</span>
+								<span style={{ ...styles.colLabel, width: 56, textAlign: 'right', color: 'rgba(255,210,0,0.45)' }}>◆ All Time</span>
 							</div>
 							<div style={{ height: 1, background: 'rgba(255,255,255,0.06)', marginTop: 6 }} />
 						</div>
@@ -294,6 +300,9 @@ export default function MinigameScoreboard({
 											</span>
 											<span style={{ ...styles.cell, width: 52, textAlign: 'right', color: isMe ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.55)', fontWeight: isMe ? 700 : 400 }}>
 												{entry.total}
+											</span>
+											<span style={{ ...styles.cell, width: 56, textAlign: 'right', color: 'rgba(255,210,0,0.85)' }}>
+												{entry.totalGems ?? 0}
 											</span>
 										</div>
 									)
