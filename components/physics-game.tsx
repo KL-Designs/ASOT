@@ -682,11 +682,41 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 					if (shipCY < edgeBuf)                      forceY += (1 - shipCY / edgeBuf) * 9
 					if (shipCY > canvas.height - edgeBuf)      forceY -= (1 - (canvas.height - shipCY) / edgeBuf) * 9
 
-					// ── Seek nearest valuable target ─────────────────
+					// ── Path-clearance check (line-segment vs circle) ────
+					const pathBlocked = (tx: number, ty: number): boolean => {
+						const dx   = tx - shipCX
+						const dy   = ty - shipCY
+						const len2 = dx * dx + dy * dy
+						if (len2 === 0) return false
+						const safeR = TRI / 2 + 14   // ship radius + small buffer
+						const checkCircle = (ox: number, oy: number, r: number): boolean => {
+							const fx    = shipCX - ox
+							const fy    = shipCY - oy
+							const total = r + safeR
+							const b     = 2 * (fx * dx + fy * dy)
+							const c     = fx * fx + fy * fy - total * total
+							const disc  = b * b - 4 * len2 * c
+							if (disc < 0) return false
+							const sq = Math.sqrt(disc)
+							const t1 = (-b - sq) / (2 * len2)
+							const t2 = (-b + sq) / (2 * len2)
+							return t2 >= 0 && t1 <= 1
+						}
+						for (const ast of state.asteroids) {
+							if (ast.x > shipCX - ast.radius && checkCircle(ast.x, ast.y, ast.radius)) return true
+						}
+						for (const deb of state.debris) {
+							if (deb.x > shipCX - deb.radius && checkCircle(deb.x, deb.y, deb.radius)) return true
+						}
+						return false
+					}
+
+					// ── Seek nearest clear valuable target ────────────
 					let targetY     = canvas.height / 2
 					let bestPri     = 0
 					for (const g of state.gems) {
 						if (g.x < shipCX - 40) continue
+						if (pathBlocked(g.x, g.y)) continue
 						const gdx  = g.x - shipCX
 						const gdy  = g.y - shipCY
 						const dist = Math.hypot(gdx, gdy) + gdx * 0.4 + 1
@@ -696,6 +726,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 					}
 					for (const p of state.powerups) {
 						if (p.x < shipCX - 40) continue
+						if (pathBlocked(p.x, p.y)) continue
 						const pdx  = p.x - shipCX
 						const pdy  = p.y - shipCY
 						const dist = Math.hypot(pdx, pdy) + pdx * 0.4 + 1
