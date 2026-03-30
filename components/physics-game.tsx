@@ -93,7 +93,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			verts: { a: number; r: number }[]
 			rotation: number; rotSpeed: number; speed: number
 		}
-		interface Gem    { x: number; y: number; size: number; speed: number; rare: boolean }
+		interface Gem    { x: number; y: number; size: number; speed: number; rare: boolean; superRare: boolean }
 		interface Powerup { x: number; y: number; type: 'magnet' | 'slowtime' | 'shield'; speed: number }
 		interface Debris  { x: number; y: number; verts: [number,number][]; rotation: number; rotSpeed: number; speed: number; scale: number; radius: number }
 
@@ -581,12 +581,16 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 				// ── Gems ──────────────────────────────────────────────
 				state.gemTimer -= dt
 				if (state.gemTimer <= 0) {
+					const rng = Math.random()
+					const isSuperRare = rng < 0.15
+					const isRare      = !isSuperRare && rng < 0.30
 					state.gems.push({
-						x:     canvas.width + 10,
-						y:     canvas.height * (0.12 + Math.random() * 0.76),
-						size:  Math.random() < 0.15 ? 16 : 13,
-						speed: state.obsSpeed * 0.85,
-						rare:  Math.random() < 0.15,
+						x:         canvas.width + 10,
+						y:         canvas.height * (0.12 + Math.random() * 0.76),
+						size:      isSuperRare ? 18 : isRare ? 16 : 13,
+						speed:     state.obsSpeed * 0.85,
+						rare:      isRare,
+						superRare: isSuperRare,
 					})
 					state.gemTimer = 130 * (0.5 + Math.random() * 1.0)
 				}
@@ -670,7 +674,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 				for (let i = state.gems.length - 1; i >= 0; i--) {
 					const g = state.gems[i]
 					if (Math.hypot(cx - g.x, cy - g.y) < g.size + TRI / 2.5) {
-						state.collectScore += g.rare ? 10 : 1
+						state.collectScore += g.superRare ? 50 : g.rare ? 10 : 1
 						state.gems.splice(i, 1)
 					}
 				}
@@ -721,7 +725,21 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 					ctx.save()
 					ctx.translate(g.x, g.y)
 					ctx.rotate(Math.PI / 4 + frame * 0.022)
-					if (g.rare) {
+					if (g.superRare) {
+						const pulse = 0.7 + Math.sin(frame * 0.13) * 0.3
+						ctx.shadowColor = `rgba(255,40,40,${pulse})`
+						ctx.shadowBlur  = 24
+						ctx.strokeStyle = 'rgba(255,60,60,0.95)'; ctx.lineWidth = 2.5
+						ctx.strokeRect(-g.size, -g.size, g.size * 2, g.size * 2)
+						ctx.fillStyle = 'rgba(255,40,40,0.18)'
+						ctx.fillRect(-g.size, -g.size, g.size * 2, g.size * 2)
+						const h = g.size * 0.50
+						ctx.beginPath()
+						ctx.moveTo(0,-h); ctx.lineTo(h,0); ctx.lineTo(0,h); ctx.lineTo(-h,0)
+						ctx.closePath()
+						ctx.fillStyle = 'rgba(255,80,80,0.45)'; ctx.fill()
+						ctx.strokeStyle = 'rgba(255,120,120,0.9)'; ctx.lineWidth = 1.5; ctx.stroke()
+					} else if (g.rare) {
 						const pulse = 0.7 + Math.sin(frame * 0.10) * 0.3
 						ctx.shadowColor = `rgba(0,255,120,${pulse})`
 						ctx.shadowBlur  = 18
