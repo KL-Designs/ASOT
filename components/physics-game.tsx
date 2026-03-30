@@ -838,7 +838,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 
 				// ── Collisions ────────────────────────────────────────
 				const shipR = TRI / 3.8
-				if (!shieldActive) {
+				if (!shieldActive && !autopilotActive) {
 					for (const ast of state.asteroids) {
 						if (Math.hypot(cx - ast.x, cy - ast.y) < shipR + ast.radius * 0.70) die()
 					}
