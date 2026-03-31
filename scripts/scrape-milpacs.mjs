@@ -106,12 +106,17 @@ console.log(`Connected to MongoDB: ${mongoDb}`)
 // ── Load names ────────────────────────────────────────────────────────────────
 
 if (scrapeAll) {
-    const allUsers = await users.find({}, { projection: { 'guild.nickname': 1, username: 1, name: 1 } }).toArray()
+    const allUsers = await users.find({}, { projection: { name: 1, username: 1 } }).toArray()
+    let skipped = 0
     for (const u of allUsers) {
-        const n = u.guild?.nickname || u.name || u.username
-        if (n) names.push(n)
+        if (u.name) {
+            names.push(u.name)
+        } else {
+            console.warn(`  Skipping user ${u.username ?? u._id} — no name set`)
+            skipped++
+        }
     }
-    console.log(`Loaded ${names.length} names from database`)
+    console.log(`Loaded ${names.length} names from database (${skipped} skipped — no name)`)
 }
 
 if (inputFile) {
