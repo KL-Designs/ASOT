@@ -74,6 +74,8 @@ declare global {
                 qualification: string
                 trainer: string
             }[]
+            promotionPoints?: number
+            j4Points?: number
         }
     }
 
