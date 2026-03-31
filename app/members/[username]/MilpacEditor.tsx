@@ -7,6 +7,8 @@ import { RANK_GROUPS, RANKS_FLAT, rankAbbrFromName, rankNameFromAbbr } from '@/l
 import { QUALIFICATIONS } from '@/lib/qualifications'
 import { AWARDS } from '@/lib/awards'
 import { CERTIFICATIONS } from '@/lib/certifications'
+import { OP_POINTS, DEPT_POINTS } from '@/lib/points'
+import { getSuggestedRank } from '@/lib/promotionRequirements'
 import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/points'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
@@ -60,25 +62,28 @@ function Label({ children }: { children: React.ReactNode }) {
     )
 }
 
-function SectionCard({ title, children, onAdd, addLabel }: { title: string; children: React.ReactNode; onAdd?: () => void; addLabel?: string }) {
+function SectionCard({ title, children, onAdd, addLabel, badge }: { title: string; children: React.ReactNode; onAdd?: () => void; addLabel?: string; badge?: React.ReactNode }) {
     return (
         <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.02)' }}>
             <div className='flex items-center justify-between px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
                     {title}
                 </span>
-                {onAdd && (
-                    <button
-                        onClick={onAdd}
-                        style={{
-                            fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-                            color: 'rgba(219,0,29,0.8)', background: 'rgba(219,0,29,0.08)',
-                            border: '1px solid rgba(219,0,29,0.25)', padding: '3px 10px', cursor: 'pointer',
-                        }}
-                    >
-                        + {addLabel ?? 'Add'}
-                    </button>
-                )}
+                <div className='flex items-center gap-3'>
+                    {badge}
+                    {onAdd && (
+                        <button
+                            onClick={onAdd}
+                            style={{
+                                fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                                color: 'rgba(219,0,29,0.8)', background: 'rgba(219,0,29,0.08)',
+                                border: '1px solid rgba(219,0,29,0.25)', padding: '3px 10px', cursor: 'pointer',
+                            }}
+                        >
+                            + {addLabel ?? 'Add'}
+                        </button>
+                    )}
+                </div>
             </div>
             <div className='p-4 flex flex-col gap-3'>
                 {children}
@@ -744,124 +749,139 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                 }
                 const total = calculatePromotionPoints(counts)
 
-                function countInput(field: keyof typeof billetCounts, label: string, hint?: string) {
-                    return (
-                        <div className='flex flex-col gap-1'>
-                            <Label>{label}</Label>
-                            {hint && <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.03em' }}>{hint}</span>}
-                            <input
-                                type='number'
-                                min={0}
-                                value={billetCounts[field]}
-                                onChange={e => {
-                                    markDirty()
-                                    setBilletCounts(prev => ({ ...prev, [field]: Math.max(0, parseInt(e.target.value) || 0) }))
-                                }}
-                                style={{ ...inputStyle, width: '100%' }}
-                            />
-                        </div>
-                    )
+                // Per-field point contributions
+                const contrib = {
+                    primaryNightOps:    billetCounts.primaryNightOps   * OP_POINTS.standardOp1st,
+                    secondaryNightOps:  billetCounts.secondaryNightOps * OP_POINTS.standardOp2nd,
+                    primaryNightFTX:    billetCounts.primaryNightFTX   * OP_POINTS.ftxOp1st,
+                    secondaryNightFTX:  billetCounts.secondaryNightFTX * OP_POINTS.ftxOp2nd,
+                    platoonTraining:    billetCounts.platoonTraining    * OP_POINTS.platoonTraining,
+                    sectionTraining:    billetCounts.sectionTraining    * OP_POINTS.sectionTraining,
+                    meetings:           billetCounts.meetings           * OP_POINTS.meeting,
+                    j1Interviews:       Math.floor(billetCounts.j1Interviews / 3) * DEPT_POINTS.j1Per3Interviews,
+                    j1InterviewBonus:   billetCounts.j1InterviewBonus  * DEPT_POINTS.j1InterviewBonus,
+                    j2MissionsRun:      billetCounts.j2MissionsRun     * DEPT_POINTS.j2PerMission,
+                    j3Bct12:            billetCounts.j3Bct12           * DEPT_POINTS.j3Bct12,
+                    j3OtherTrainings:   billetCounts.j3OtherTrainings  * DEPT_POINTS.j3OtherTraining,
+                    j5ContentCreated:   billetCounts.j5ContentCreated  * DEPT_POINTS.j5ContentCreated,
+                    j5MilpacsGenerated: Math.floor(billetCounts.j5MilpacsGenerated / 5) * DEPT_POINTS.j5Per5Milpacs,
+                    j5OfficialPR:       Math.floor(billetCounts.j5OfficialPR / 5)       * DEPT_POINTS.j5Per5PRPosts,
                 }
 
-                // Award points breakdown
+                // Award & qualification breakdowns
                 const awardPointMap = new Map(AWARDS.map(a => [a.label, a.points]))
                 const awardBreakdown = counts.awards
                     .map(a => ({ name: a.name, pts: awardPointMap.get(a.name) ?? 0 }))
                     .filter(a => a.pts > 0)
-
-                // Qualification points breakdown
                 const certPointMap = new Map(CERTIFICATIONS.map(c => [c.label, c.points]))
                 const qualBreakdown = counts.qualifications
                     .map(q => ({ name: q.qualification, pts: certPointMap.get(q.qualification) ?? 0 }))
                     .filter(q => q.pts > 0)
 
-                return (
-                    <SectionCard title='Billet Points'>
-                        {/* Calculated total */}
-                        <div className='flex items-center justify-between' style={{ padding: '8px 12px', background: 'rgba(219,0,29,0.06)', border: '1px solid rgba(219,0,29,0.2)' }}>
-                            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
-                                Calculated Promotion Points
+                // Suggested rank
+                const currentRankAbbr = rankAbbrFromName(bioRank)
+                const suggested = getSuggestedRank(currentRankAbbr, total)
+                const suggestedName = suggested ? rankNameFromAbbr(suggested) : null
+                const isCorrectRank = suggested === currentRankAbbr
+
+                const rowStyle: React.CSSProperties = {
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                }
+                const compactInput: React.CSSProperties = {
+                    ...inputStyle, width: 52, textAlign: 'center' as const, padding: '3px 6px',
+                }
+
+                function countRow(field: keyof typeof billetCounts, label: string) {
+                    const pts = contrib[field as keyof typeof contrib] ?? 0
+                    return (
+                        <div key={field} style={rowStyle}>
+                            <span style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>{label}</span>
+                            <input
+                                type='number' min={0}
+                                value={billetCounts[field]}
+                                onChange={e => { markDirty(); setBilletCounts(prev => ({ ...prev, [field]: Math.max(0, parseInt(e.target.value) || 0) })) }}
+                                style={compactInput}
+                            />
+                            <span style={{ width: 34, fontSize: '0.65rem', textAlign: 'right', color: pts > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.18)', flexShrink: 0 }}>
+                                {pts > 0 ? `+${pts}` : '—'}
                             </span>
-                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'rgba(219,0,29,0.9)', letterSpacing: '0.04em' }}>
-                                {total}
+                        </div>
+                    )
+                }
+
+                const badge = (
+                    <div className='flex items-center gap-3'>
+                        <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)' }}>
+                            Total: <span style={{ color: 'rgba(219,0,29,0.9)', fontWeight: 700 }}>{total}</span>
+                        </span>
+                        {suggestedName && (
+                            <span style={{
+                                fontSize: '0.68rem', fontWeight: 600, padding: '2px 8px',
+                                background: isCorrectRank ? 'rgba(34,197,94,0.08)' : 'rgba(234,179,8,0.08)',
+                                border: `1px solid ${isCorrectRank ? 'rgba(34,197,94,0.25)' : 'rgba(234,179,8,0.3)'}`,
+                                color: isCorrectRank ? 'rgba(34,197,94,0.85)' : 'rgba(234,179,8,0.9)',
+                            }}>
+                                {isCorrectRank ? '✓ ' : '→ '}{suggestedName}
                             </span>
-                        </div>
-
-                        {/* Operations group */}
-                        <div>
-                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 8 }}>
-                                Operations
-                            </div>
-                            <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
-                                {countInput('primaryNightOps',   'Primary Ops',    '2 pts each')}
-                                {countInput('secondaryNightOps', 'Secondary Ops',  '1 pt each')}
-                                {countInput('primaryNightFTX',   'Primary FTX',    '3 pts each')}
-                                {countInput('secondaryNightFTX', 'Secondary FTX',  '2 pts each')}
-                                {countInput('platoonTraining',   'Plt Training',   '1 pt each')}
-                                {countInput('sectionTraining',   'Sec Training',   '1 pt each')}
-                                {countInput('meetings',          'Meetings',       '1 pt each')}
-                                {countInput('campaignMedals',    'Campaign Medals','2 pts each')}
-                            </div>
-                        </div>
-
-                        {/* Departments group */}
-                        <div>
-                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 8 }}>
-                                Department Actions
-                            </div>
-                            <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
-                                {countInput('j1Interviews',       'J1 Interviews',     'floor(n/3) pts')}
-                                {countInput('j1InterviewBonus',   'J1 Bonus',          '1 pt each')}
-                                {countInput('j2MissionsRun',      'J2 Missions',       '2 pts each')}
-                                {countInput('j3Bct12',            'J3 BCT 1/2',        '1 pt each')}
-                                {countInput('j3OtherTrainings',   'J3 Other Training', '2 pts each')}
-                                {countInput('j5ContentCreated',   'J5 Content',        '1 pt each')}
-                                {countInput('j5MilpacsGenerated', 'J5 Milpacs',        'floor(n/5) pts')}
-                                {countInput('j5OfficialPR',       'J5 PR Posts',       'floor(n/5) pts')}
-                            </div>
-                        </div>
-
-                        {/* J4 manual adjustment */}
-                        <div>
-                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 8 }}>
-                                Manual Adjustment
-                            </div>
-                            <div style={{ maxWidth: 160 }}>
-                                <div className='flex flex-col gap-1'>
-                                    <Label>J4 Points</Label>
-                                    <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.03em' }}>Can be negative</span>
-                                    <input
-                                        type='number'
-                                        value={j4Points}
-                                        onChange={e => { markDirty(); setJ4Points(parseInt(e.target.value) || 0) }}
-                                        style={{ ...inputStyle, width: '100%' }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Awards & qualifications breakdown */}
-                        {(awardBreakdown.length > 0 || qualBreakdown.length > 0) && (
-                            <div>
-                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 8 }}>
-                                    From Awards &amp; Qualifications
-                                </div>
-                                <div className='flex flex-col gap-1'>
-                                    {awardBreakdown.map(a => (
-                                        <div key={a.name} className='flex justify-between' style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.55)' }}>
-                                            <span>{a.name}</span>
-                                            <span style={{ color: 'rgba(219,0,29,0.7)', fontWeight: 600 }}>+{a.pts}</span>
-                                        </div>
-                                    ))}
-                                    {qualBreakdown.map(q => (
-                                        <div key={q.name} className='flex justify-between' style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.55)' }}>
-                                            <span>{q.name}</span>
-                                            <span style={{ color: 'rgba(219,0,29,0.7)', fontWeight: 600 }}>+{q.pts}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
                         )}
+                    </div>
+                )
+
+                return (
+                    <SectionCard title='Billet Points' badge={badge}>
+                        {/* Two-column grid: Operations | Department Actions */}
+                        <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-6'>
+                            <div>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)', marginBottom: 4 }}>Operations</div>
+                                {countRow('primaryNightOps',   'Primary Ops')}
+                                {countRow('secondaryNightOps', 'Secondary Ops')}
+                                {countRow('primaryNightFTX',   'Primary FTX')}
+                                {countRow('secondaryNightFTX', 'Secondary FTX')}
+                                {countRow('platoonTraining',   'Plt Training')}
+                                {countRow('sectionTraining',   'Sec Training')}
+                                {countRow('meetings',          'Meetings')}
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)', marginBottom: 4 }}>Department Actions</div>
+                                {countRow('j1Interviews',       'J1 Interviews')}
+                                {countRow('j1InterviewBonus',   'J1 Bonus')}
+                                {countRow('j2MissionsRun',      'J2 Missions')}
+                                {countRow('j3Bct12',            'J3 BCT 1/2')}
+                                {countRow('j3OtherTrainings',   'J3 Other Training')}
+                                {countRow('j5ContentCreated',   'J5 Content')}
+                                {countRow('j5MilpacsGenerated', 'J5 Milpacs')}
+                                {countRow('j5OfficialPR',       'J5 PR Posts')}
+                            </div>
+                        </div>
+
+                        {/* J4 + awards/quals breakdown */}
+                        <div className='flex flex-wrap gap-x-6 gap-y-2 items-start' style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 8 }}>
+                            <div style={rowStyle}>
+                                <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>J4 Adjustment</span>
+                                <input
+                                    type='number'
+                                    value={j4Points}
+                                    onChange={e => { markDirty(); setJ4Points(parseInt(e.target.value) || 0) }}
+                                    style={{ ...compactInput, width: 60 }}
+                                />
+                                {j4Points !== 0 && (
+                                    <span style={{ fontSize: '0.65rem', color: j4Points > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(234,179,8,0.8)' }}>
+                                        {j4Points > 0 ? `+${j4Points}` : j4Points}
+                                    </span>
+                                )}
+                            </div>
+
+                            {(awardBreakdown.length > 0 || qualBreakdown.length > 0) && (
+                                <div className='flex flex-wrap gap-x-4 gap-y-1 flex-1'>
+                                    {[...awardBreakdown, ...qualBreakdown].map((item, i) => (
+                                        <span key={`${item.name}-${i}`} style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)' }}>
+                                            {item.name} <span style={{ color: 'rgba(219,0,29,0.7)', fontWeight: 600 }}>+{item.pts}</span>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </SectionCard>
                 )
             })()}
