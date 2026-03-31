@@ -769,11 +769,11 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                 }
 
                 // Award & qualification breakdowns
-                const awardPointMap = new Map(AWARDS.map(a => [a.label, a.points]))
+                const awardPointMap = new Map<string, number>(AWARDS.map(a => [a.label, a.points]))
                 const awardBreakdown = counts.awards
                     .map(a => ({ name: a.name, pts: awardPointMap.get(a.name) ?? 0 }))
                     .filter(a => a.pts > 0)
-                const certPointMap = new Map(CERTIFICATIONS.map(c => [c.label, c.points]))
+                const certPointMap = new Map<string, number>(CERTIFICATIONS.map(c => [c.label, c.points]))
                 const qualBreakdown = counts.qualifications
                     .map(q => ({ name: q.qualification, pts: certPointMap.get(q.qualification) ?? 0 }))
                     .filter(q => q.pts > 0)

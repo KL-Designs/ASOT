@@ -54,6 +54,7 @@ declare global {
 
         milpac?: {
             currentRank?: string
+            callsign?: string
             enlistedDate?: string
             promotions?: {
                 date: string

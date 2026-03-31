@@ -13,7 +13,7 @@ type MemberRow = {
     name?: string | null
     globalName?: string | null
     guild?: { nickname?: string | null } | null
-    bio?: { rank?: string | null } | null
+    milpac?: { currentRank?: string | null } | null
     avatar?: string | null
     avatarDecoration?: string | null
     hexAccentColor?: string | null
