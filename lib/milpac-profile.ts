@@ -9,7 +9,8 @@ export function resolveMilpacProfile(member: User, orbatEntry: OrbatEntry | null
     const displayName = strippedNickname || member.globalName || member.username
 
     const parts = (strippedNickname || displayName).split(' ')
-    const name = parts.length > 1 ? parts.slice(1).join(' ') : displayName
+    const parsedName = parts.length > 1 ? parts.slice(1).join(' ') : displayName
+    const name = member.name || parsedName
     const rankAbbr = parts.length > 1 ? parts[0] : null
 
     const promotions = member.milpac?.promotions
@@ -19,7 +20,7 @@ export function resolveMilpacProfile(member: User, orbatEntry: OrbatEntry | null
 
     const rankAbbrResolved = member.milpac?.currentRank || rankAbbr
 
-    const callsign = member.bio?.callsign || null
+    const callsign = orbatEntry?.section || null
 
     return { accent, displayName, name, rankAbbr: rankAbbrResolved, fullRank, callsign, orbatEntry }
 }

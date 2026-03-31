@@ -1,14 +1,16 @@
 import { Metadata } from "next"
-import Link from 'next/link'
-import { Button } from '@mui/material'
 import {
-	OpenInNew, Shield, Engineering, GpsFixed, Flight,
+	Shield, Engineering, GpsFixed, Flight,
 	LocalHospital, DirectionsCar, Groups, SportsEsports,
 	AccountBalance, MilitaryTech, Stars,
 } from '@mui/icons-material'
+import Link from 'next/link'
+import { connection } from 'next/server'
 import Container from "@/components/container"
 import Banner from '@/public/images/home/3DMA_Final2.png'
 import { fetchORBAT, type Member, type RawSection } from '@/lib/orbat'
+import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 
 export const metadata: Metadata = {
 	title: "ORBAT | Australian Special Operations Taskforce"
@@ -225,7 +227,12 @@ function GamemastersCard({ members }: { members: Member[] }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default async function Page() {
-	const orbat = await fetchORBAT()
+	await connection()
+	const [orbat, me] = await Promise.all([
+		fetchORBAT(),
+		client.fetchMe().catch(() => null),
+	])
+	const canManageOrbat = !!me && client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
 	const support: UnitSection[] = orbat.support.map(s => ({ ...s, icon: getSupportIcon(s.title) }))
 	return (
 		<Container
@@ -234,19 +241,18 @@ export default async function Page() {
 			background={Banner}
 			sx={{ bannerHeight: 'sm', maxWidth: 'max-w-[1400px]', padding: '2rem', gap: 'gap-5' }}
 		>
-			{/* External link */}
-			<div className="flex justify-end">
-				<Link href='https://docs.google.com/spreadsheets/d/1rkzQSPimBYV3UDp-CFHUfQo59yww_xbj9UTPGWBzSL0/edit?usp=sharing' target="_blank">
-					<Button
-						variant="outlined"
-						size="small"
-						endIcon={<OpenInNew />}
-						style={{ borderColor: 'rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.7)', fontSize: '0.72rem' }}
-					>
-						Open Full ORBAT
-					</Button>
-				</Link>
-			</div>
+			{canManageOrbat && (
+				<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+					<Link href='/admin/orbat' style={{
+						fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+						color: 'rgba(219,0,29,0.85)', background: 'rgba(219,0,29,0.08)',
+						border: '1px solid rgba(219,0,29,0.3)', padding: '6px 16px', textDecoration: 'none',
+						display: 'inline-flex', alignItems: 'center', gap: 6,
+					}}>
+						⚙ Manage ORBAT
+					</Link>
+				</div>
+			)}
 
 			{/* Company HQ */}
 			<div style={{ border: '1px solid rgba(219,0,29,0.3)', borderTop: '3px solid var(--red)', overflow: 'hidden' }}>

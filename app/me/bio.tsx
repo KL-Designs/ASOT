@@ -10,7 +10,6 @@ import Image from 'next/image'
 function useBioData() {
     const [id, setId] = useState<string | null>(null)
     const [bio, setBio] = useState<string | null>(null)
-    const [callsign, setCallsign] = useState<string | null>(null)
 
     useEffect(() => {
         fetch('/api/me')
@@ -20,7 +19,6 @@ function useBioData() {
                 const user = json as User
                 setId(user.id)
                 setBio(user.bio?.content || '')
-                setCallsign(user.bio?.callsign || '')
             })
     }, [])
 
@@ -32,7 +30,7 @@ function useBioData() {
         })
     }
 
-    return { id, bio, setBio, callsign, setCallsign, save }
+    return { id, bio, setBio, save }
 }
 
 
@@ -49,7 +47,7 @@ const headerStyle = {
 
 
 export function BioSections({ canUploadImage, isHQ }: { canUploadImage?: boolean; isHQ?: boolean }) {
-    const { id, bio, setBio, callsign, setCallsign, save } = useBioData()
+    const { id, bio, setBio, save } = useBioData()
 
     const upload = async (file: File) => {
         const formData = new FormData()
@@ -71,30 +69,6 @@ export function BioSections({ canUploadImage, isHQ }: { canUploadImage?: boolean
             </div>
 
             <div className='flex flex-col'>
-                {/* Callsign — HQ only */}
-                {isHQ && (
-                    <div className='px-5 py-4' style={headerStyle}>
-                        <Typography fontSize='0.7rem' fontWeight={600} letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 8 }}>
-                            Callsign
-                        </Typography>
-                        <TextField
-                            placeholder='Enter your callsign…'
-                            value={callsign || ''}
-                            onChange={(e) => setCallsign(e.currentTarget.value)}
-                            onBlur={() => callsign !== null && save({ callsign })}
-                            sx={{
-                                width: 240,
-                                '& .MuiOutlinedInput-root': {
-                                    borderRadius: 0,
-                                    fontSize: '0.85rem',
-                                    '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
-                                    '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.3)' },
-                                    '&.Mui-focused fieldset': { borderColor: 'rgba(219,0,29,0.5)', borderWidth: 1 },
-                                },
-                            }}
-                        />
-                    </div>
-                )}
                 {/* Bio */}
                 <div className='flex items-start gap-5 px-5 py-4' style={headerStyle}>
                     <TextField

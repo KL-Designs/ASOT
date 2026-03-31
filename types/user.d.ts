@@ -18,6 +18,8 @@ declare global {
         id: string
         token?: string
 
+        name?: string
+
         hexAccentColor: string
         accentColor: number
         avatar: string
@@ -48,9 +50,6 @@ declare global {
 
         bio?: {
             content: string
-            name: string
-            rank: string
-            callsign: string
         }
 
         milpac?: {
@@ -73,8 +72,27 @@ declare global {
             qualifications?: {
                 date: string
                 qualification: string
-                trainer: string
             }[]
+            promotionPoints?: number
+            j4Points?: number
+            billetCounts?: {
+                primaryNightOps: number
+                secondaryNightOps: number
+                primaryNightFTX: number
+                secondaryNightFTX: number
+                platoonTraining: number
+                sectionTraining: number
+                meetings: number
+                campaignMedals: number
+                j1Interviews: number
+                j1InterviewBonus: number
+                j2MissionsRun: number
+                j3Bct12: number
+                j3OtherTrainings: number
+                j5ContentCreated: number
+                j5MilpacsGenerated: number
+                j5OfficialPR: number
+            }
         }
     }
 

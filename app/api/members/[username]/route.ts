@@ -4,6 +4,19 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 
 
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
+    const me = await client.fetchMe().catch(() => null)
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!client.hasRoles(me, PERMISSIONS.members.edit)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+
+    const { username } = await params
+    const member = await Db.users.findOne({ username })
+    if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+
+    return NextResponse.json(member)
+}
+
+
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -12,7 +25,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { username } = await params
     const body = await request.json()
 
-    const { bioRank, enlistedDate, promotions, awards, operations, qualifications } = body
+    const { bioRank, enlistedDate, promotions, awards, operations, qualifications, name, billetCounts, j4Points } = body
+
+    // Uniqueness check for name
+    if (name !== undefined) {
+        if (name && typeof name === 'string') {
+            const taken = await Db.users.findOne({ name, username: { $ne: username } })
+            if (taken) return NextResponse.json({ error: 'Name already taken' }, { status: 409 })
+        }
+    }
 
     const update: Record<string, any> = {
         'milpac.enlistedDate': enlistedDate ?? '',
@@ -23,7 +44,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
     if (bioRank !== undefined) {
         update['milpac.currentRank'] = bioRank
-        update['bio.rank'] = bioRank
+    }
+    if (name !== undefined) {
+        update['name'] = name || null
+    }
+    if (billetCounts !== undefined) {
+        update['milpac.billetCounts'] = billetCounts
+    }
+    if (j4Points !== undefined) {
+        update['milpac.j4Points'] = j4Points
     }
 
     const result = await Db.users.updateOne({ username }, { $set: update })

@@ -336,8 +336,8 @@ function ProfileDropdown({ user }: { user: User }) {
     const strippedNickname = user.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
     const displayName = strippedNickname || user.globalName || user.username
     const parts = displayName.split(' ')
-    const name = parts.length > 1 ? parts.slice(1).join(' ') : displayName
-    const rankAbbr = user.milpac?.currentRank || user.bio?.rank
+    const name = user.name || (parts.length > 1 ? parts.slice(1).join(' ') : displayName)
+    const rankAbbr = user.milpac?.currentRank || null
     const rank = rankAbbr ? rankNameFromAbbr(rankAbbr) : null
 
     function handleOpen(e: React.MouseEvent<HTMLElement>) {

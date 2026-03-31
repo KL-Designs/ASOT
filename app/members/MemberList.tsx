@@ -10,6 +10,7 @@ type OrbatEntry = { role: string; section: string } | null
 type MemberRow = {
     id: string
     username: string
+    name?: string | null
     globalName?: string | null
     guild?: { nickname?: string | null } | null
     bio?: { rank?: string | null } | null
@@ -75,7 +76,7 @@ export default function MemberList({
         }
         if (!query.trim()) return true
         const nick = m.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || ''
-        const display = nick || m.globalName || m.username
+        const display = m.name || nick || m.globalName || m.username
         const q = query.trim().toLowerCase()
         return display.toLowerCase().includes(q) || m.username.toLowerCase().includes(q)
     })
@@ -166,8 +167,8 @@ export default function MemberList({
                     </div>
                 ) : (
                     filtered.map(member => {
-                        const displayName = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName || member.username
-                        const rank = member.bio?.rank ? rankNameFromAbbr(member.bio.rank) : null
+                        const displayName = member.name || member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() || member.globalName || member.username
+                        const rank = member.milpac?.currentRank ? rankNameFromAbbr(member.milpac.currentRank) : null
                         const orbatEntry = orbatMap[member.id] ?? null
 
                         return (

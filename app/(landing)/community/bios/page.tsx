@@ -1,4 +1,3 @@
-import client from '@/lib/discord'
 import { connection } from 'next/server'
 import Db from '@/lib/mongo'
 
@@ -6,7 +5,7 @@ import Image from 'next/image'
 
 import Container from '@/components/container'
 import BannerImg from '@/public/images/home/VicPose2.png'
-import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
+import { getOrbatEntriesForUsers } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/milpac-profile'
 
 
@@ -14,12 +13,8 @@ export default async function Page() {
 
     await connection()
 
-    const [users, allMembers, orbat] = await Promise.all([
-        Db.users.find({ "guild.roles": { $in: ["745793767185055744", "1387622241654673498"] } }).toArray(),
-        client.fetchAllMembers(),
-        fetchORBAT(),
-    ])
-    const lookup = client.buildOrbatLookup(allMembers)
+    const users = await Db.users.find({ "guild.roles": { $in: ["745793767185055744", "1387622241654673498"] } }).toArray()
+    const orbatEntries = await getOrbatEntriesForUsers(users.map(u => u._id))
 
     return (
         <Container
@@ -32,11 +27,8 @@ export default async function Page() {
 
                 if (!user.bio?.content) return null
 
-                const member = allMembers.find(m => m.id === user.id)
-                if (!member) return null
-
-                const orbatEntry = findOrbatEntry(orbat, lookup, member.id)
-                const { name, fullRank, callsign } = resolveMilpacProfile(member, orbatEntry)
+                const orbatEntry = orbatEntries[user._id] ?? null
+                const { name, fullRank, callsign } = resolveMilpacProfile(user as unknown as User, orbatEntry)
 
                 return (
                     <div key={user.id} className='flex overflow-hidden' style={{
@@ -99,7 +91,7 @@ export default async function Page() {
                         <div className='relative hidden md:block' style={{ minWidth: 220, borderLeft: '1px solid rgba(219,0,29,0.15)' }}>
                             <Image
                                 src={`/api/uploads/bio?id=${user.id}&time=${new Date().getTime()}`}
-                                alt={user.bio?.name || user.username}
+                                alt={name}
                                 fill
                                 className='object-cover object-top'
                             />

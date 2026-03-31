@@ -1,9 +1,18 @@
 'use client'
 
-import { useState, useRef, useEffect, Fragment } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
 import { RANK_GROUPS, RANKS_FLAT, rankAbbrFromName, rankNameFromAbbr } from '@/lib/ranks'
+import { QUALIFICATIONS } from '@/lib/qualifications'
+import { AWARDS } from '@/lib/awards'
+import { CERTIFICATIONS } from '@/lib/certifications'
+import { OP_POINTS, DEPT_POINTS } from '@/lib/points'
+import { getSuggestedRank } from '@/lib/promotionRequirements'
+import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/points'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 
 let _keyCount = 0
@@ -23,7 +32,7 @@ function todayStr() {
 type Promotion = { _key: string; date: string; rank: string; role: string }
 type Award = { _key: string; date: string; name: string; type: string }
 type Operation = { _key: string; startToEndDate: string; name: string }
-type Qualification = { _key: string; date: string; qualification: string; trainer: string }
+type Qualification = { _key: string; date: string; qualification: string }
 
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -53,25 +62,28 @@ function Label({ children }: { children: React.ReactNode }) {
     )
 }
 
-function SectionCard({ title, children, onAdd, addLabel }: { title: string; children: React.ReactNode; onAdd?: () => void; addLabel?: string }) {
+function SectionCard({ title, children, onAdd, addLabel, badge }: { title: string; children: React.ReactNode; onAdd?: () => void; addLabel?: string; badge?: React.ReactNode }) {
     return (
         <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.02)' }}>
             <div className='flex items-center justify-between px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
                     {title}
                 </span>
-                {onAdd && (
-                    <button
-                        onClick={onAdd}
-                        style={{
-                            fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-                            color: 'rgba(219,0,29,0.8)', background: 'rgba(219,0,29,0.08)',
-                            border: '1px solid rgba(219,0,29,0.25)', padding: '3px 10px', cursor: 'pointer',
-                        }}
-                    >
-                        + {addLabel ?? 'Add'}
-                    </button>
-                )}
+                <div className='flex items-center gap-3'>
+                    {badge}
+                    {onAdd && (
+                        <button
+                            onClick={onAdd}
+                            style={{
+                                fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                                color: 'rgba(219,0,29,0.8)', background: 'rgba(219,0,29,0.08)',
+                                border: '1px solid rgba(219,0,29,0.25)', padding: '3px 10px', cursor: 'pointer',
+                            }}
+                        >
+                            + {addLabel ?? 'Add'}
+                        </button>
+                    )}
+                </div>
             </div>
             <div className='p-4 flex flex-col gap-3'>
                 {children}
@@ -94,6 +106,77 @@ function DeleteBtn({ onClick }: { onClick: () => void }) {
         >
             ✕
         </button>
+    )
+}
+
+
+// ── Award name combobox ────────────────────────────────────────────────────────
+
+function AwardNameInput({ value, onChange, onSelect }: {
+    value: string
+    onChange: (name: string) => void
+    onSelect: (name: string, type: string) => void
+}) {
+    const [open, setOpen] = useState(false)
+    const [query, setQuery] = useState(value)
+    const ref = useRef<HTMLDivElement>(null)
+
+    useEffect(() => { setQuery(value) }, [value])
+
+    useEffect(() => {
+        if (!open) return
+        function onDown(e: MouseEvent) {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', onDown)
+        return () => document.removeEventListener('mousedown', onDown)
+    }, [open])
+
+    const isKnown = !value || AWARDS.some(a => a.label === value)
+    const filtered = query.trim()
+        ? AWARDS.filter(a => a.label.toLowerCase().includes(query.toLowerCase()))
+        : [...AWARDS]
+
+    return (
+        <div ref={ref} style={{ position: 'relative' }}>
+            <input
+                value={query}
+                onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
+                onFocus={() => setOpen(true)}
+                placeholder='Broken Lance Award'
+                style={{ ...inputStyle, borderColor: isKnown ? 'rgba(255,255,255,0.1)' : 'rgba(234,179,8,0.5)' }}
+            />
+            {!isKnown && (
+                <span style={{ fontSize: '0.6rem', color: 'rgba(234,179,8,0.7)', marginTop: 2, display: 'block' }}>
+                    Unrecognized award
+                </span>
+            )}
+            {open && filtered.length > 0 && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                    background: 'rgb(18,18,18)', border: '1px solid rgba(255,255,255,0.15)',
+                    maxHeight: 200, overflowY: 'auto',
+                }}>
+                    {filtered.map(award => (
+                        <div
+                            key={award.label}
+                            onMouseDown={e => {
+                                e.preventDefault()
+                                setQuery(award.label)
+                                onSelect(award.label, award.type)
+                                setOpen(false)
+                            }}
+                            style={{ padding: '6px 10px', fontSize: '0.8rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(219,0,29,0.15)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                            <div style={{ color: 'rgba(237,237,237,0.85)' }}>{award.label}</div>
+                            <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)' }}>{award.type}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
     )
 }
 
@@ -212,25 +295,117 @@ function RankSelect({ value, onChange, placeholder = '— None —' }: { value: 
 }
 
 
-// ── Insertion line ─────────────────────────────────────────────────────────────
+// ── Qualification search select ───────────────────────────────────────────────
 
-function InsertionLine() {
+function QualificationSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+    const [open, setOpen] = useState(false)
+    const [query, setQuery] = useState('')
+    const ref = useRef<HTMLDivElement>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        if (!open) return
+        inputRef.current?.focus()
+        function onDown(e: MouseEvent) {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', onDown)
+        return () => document.removeEventListener('mousedown', onDown)
+    }, [open])
+
+    const q = query.toLowerCase()
+    const filtered = QUALIFICATIONS.filter(ql => ql.toLowerCase().includes(q))
+
     return (
-        <div style={{ height: 2, background: 'rgba(219,0,29,0.7)', borderRadius: 1, animation: 'ilIn 0.12s ease' }} />
+        <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+            <button
+                type='button'
+                onClick={() => { setOpen(o => !o); setQuery('') }}
+                style={{
+                    ...selectStyle,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+                    textAlign: 'left', width: '100%',
+                    color: value ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)',
+                }}
+            >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value || '— Select qualification —'}</span>
+                <span style={{ fontSize: '0.6rem', opacity: 0.4, flexShrink: 0 }}>▼</span>
+            </button>
+
+            {open && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                    background: 'rgb(18,18,18)', border: '1px solid rgba(255,255,255,0.12)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column',
+                    maxHeight: 280,
+                }}>
+                    <div style={{ padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+                        <input
+                            ref={inputRef}
+                            value={query}
+                            onChange={e => setQuery(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Escape') setOpen(false) }}
+                            placeholder='Search qualification…'
+                            style={{ ...inputStyle, fontSize: '0.78rem', padding: '5px 8px' }}
+                        />
+                    </div>
+                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                        {filtered.map(ql => (
+                            <div
+                                key={ql}
+                                onMouseDown={() => { onChange(ql); setOpen(false) }}
+                                style={{
+                                    padding: '7px 12px', fontSize: '0.82rem', cursor: 'pointer',
+                                    color: ql === value ? 'rgba(237,237,237,1)' : 'rgba(237,237,237,0.75)',
+                                    background: ql === value ? 'rgba(255,255,255,0.07)' : 'transparent',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = ql === value ? 'rgba(255,255,255,0.07)' : 'transparent')}
+                            >
+                                {ql}
+                            </div>
+                        ))}
+                        {filtered.length === 0 && (
+                            <div style={{ padding: '7px 12px', fontSize: '0.78rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>No results</div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
     )
 }
 
 
 // ── Drag handle ────────────────────────────────────────────────────────────────
 
-function DragHandle() {
+function DragHandle({ listeners }: { listeners?: Record<string, unknown> }) {
     return (
-        <div style={{
-            alignSelf: 'stretch', display: 'flex', alignItems: 'center',
-            cursor: 'grab', padding: '0 4px', color: 'rgba(255,255,255,0.2)',
-            fontSize: '0.9rem', lineHeight: 1, flexShrink: 0, userSelect: 'none',
-        }}>
+        <div
+            {...(listeners ?? {})}
+            style={{
+                alignSelf: 'stretch', display: 'flex', alignItems: 'center',
+                cursor: 'grab', padding: '0 4px', color: 'rgba(255,255,255,0.2)',
+                fontSize: '0.9rem', lineHeight: 1, flexShrink: 0, userSelect: 'none',
+                touchAction: 'none',
+            }}
+        >
             ⠿
+        </div>
+    )
+}
+
+
+// ── Sortable item wrapper ──────────────────────────────────────────────────────
+
+function SortableItem({ id, children }: { id: string; children: (listeners: Record<string, unknown> | undefined) => React.ReactNode }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+    return (
+        <div
+            ref={setNodeRef}
+            {...attributes}
+            style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0 : 1 }}
+        >
+            {children(listeners)}
         </div>
     )
 }
@@ -238,13 +413,15 @@ function DragHandle() {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function MilpacEditor({ member }: { member: User }) {
+export default function MilpacEditor({ member, onDirtyChange }: { member: User; onDirtyChange?: (dirty: boolean) => void }) {
     const strippedNickname = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
     const fullDisplay = strippedNickname || member.globalName || member.username
     const nameParts = fullDisplay.split(' ')
-    const displayName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : fullDisplay
+    const parsedDisplayName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : fullDisplay
+    const displayName = member.name || parsedDisplayName
 
-    const [bioRank, setBioRank] = useState(rankNameFromAbbr(member.milpac?.currentRank ?? member.bio?.rank ?? ''))
+    const [memberName, setMemberName] = useState(member.name || parsedDisplayName)
+    const [bioRank, setBioRank] = useState(rankNameFromAbbr(member.milpac?.currentRank ?? ''))
     const joinDateStr = member.guild?.joinedTimestamp
         ? new Date(member.guild.joinedTimestamp).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
         : ''
@@ -257,6 +434,32 @@ export default function MilpacEditor({ member }: { member: User }) {
         (member.milpac?.operations ?? []).map(o => ({ _key: String(_keyCount++), ...o })))
     const [qualifications, setQualifications] = useState<Qualification[]>(() =>
         (member.milpac?.qualifications ?? []).map(q => ({ _key: String(_keyCount++), ...q })))
+
+    const defaultBilletCounts = {
+        primaryNightOps: 0, secondaryNightOps: 0,
+        primaryNightFTX: 0, secondaryNightFTX: 0,
+        platoonTraining: 0, sectionTraining: 0, meetings: 0, campaignMedals: 0,
+        j1Interviews: 0, j1InterviewBonus: 0, j2MissionsRun: 0,
+        j3Bct12: 0, j3OtherTrainings: 0,
+        j5ContentCreated: 0, j5MilpacsGenerated: 0, j5OfficialPR: 0,
+    }
+    const [billetCounts, setBilletCounts] = useState({ ...defaultBilletCounts, ...(member.milpac?.billetCounts ?? {}) })
+    const [j4Points, setJ4Points] = useState(member.milpac?.j4Points ?? 0)
+
+    const [dirty, setDirty] = useState(false)
+    const dirtyRef = useRef(false)
+    function markDirty() {
+        if (!dirtyRef.current) {
+            dirtyRef.current = true
+            setDirty(true)
+            onDirtyChange?.(true)
+        }
+    }
+    function markClean() {
+        dirtyRef.current = false
+        setDirty(false)
+        onDirtyChange?.(false)
+    }
 
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
@@ -337,38 +540,8 @@ export default function MilpacEditor({ member }: { member: User }) {
 
     // ── Drag state ─────────────────────────────────────────────────────────────
 
-    const dragSrc = useRef<{ list: string; index: number } | null>(null)
-    const [dragging, setDragging] = useState<{ list: string; index: number } | null>(null)
-    const [dragOver, setDragOver] = useState<{ list: string; index: number } | null>(null)
-    // Show insertion line above item i when dragging down toward it (src < i),
-    // or below when dragging up toward it (src > i)
-    function showLine(list: string, i: number, pos: 'above' | 'below') {
-        if (!dragging || !dragOver) return false
-        if (dragOver.list !== list || dragOver.index !== i) return false
-        if (dragging.list !== list || dragging.index === i) return false
-        return pos === 'above' ? dragging.index > i : dragging.index < i
-    }
-
-    function dragProps<T>(list: string, items: T[], setItems: React.Dispatch<React.SetStateAction<T[]>>, i: number) {
-        return {
-            draggable: true as const,
-            onDragStart: () => { dragSrc.current = { list, index: i }; setDragging({ list, index: i }) },
-            onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDragOver({ list, index: i }) },
-            onDragLeave: () => setDragOver(null),
-            onDrop: (e: React.DragEvent) => {
-                e.preventDefault()
-                setDragOver(null)
-                const src = dragSrc.current
-                if (!src || src.list !== list || src.index === i) return
-                const next = [...items]
-                const [moved] = next.splice(src.index, 1)
-                next.splice(i, 0, moved)
-                setItems(next)
-                dragSrc.current = null
-            },
-            onDragEnd: () => { dragSrc.current = null; setDragging(null); setDragOver(null) },
-        }
-    }
+    const [activeDragKey, setActiveDragKey] = useState<string | null>(null)
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
     async function handleSave() {
         setSaving(true)
@@ -379,16 +552,20 @@ export default function MilpacEditor({ member }: { member: User }) {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    name: memberName.trim() || null,
                     bioRank: rankAbbrFromName(bioRank), enlistedDate,
                     promotions: promotions.map(({ _key, ...rest }) => rest),
                     awards: awards.map(({ _key, ...rest }) => rest),
                     operations: operations.map(({ _key, ...rest }) => rest),
                     qualifications: qualifications.map(({ _key, ...rest }) => rest),
+                    billetCounts,
+                    j4Points,
                 }),
             })
             const json = await res.json()
             if (!res.ok) throw new Error(json.error || 'Save failed')
             setSaved(true)
+            markClean()
             setTimeout(() => setSaved(false), 3000)
         } catch (e: any) {
             setError(e.message)
@@ -400,113 +577,161 @@ export default function MilpacEditor({ member }: { member: User }) {
     // ── Promotion helpers ──────────────────────────────────────────────────────
 
     function addPromotion() {
+        markDirty()
         setPromotions(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), rank: RANKS_FLAT[0].name, role: '' }])
     }
     function updatePromotion(i: number, field: keyof Promotion, value: string) {
+        markDirty()
         setPromotions(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p))
     }
     function removePromotion(i: number) {
+        markDirty()
         setPromotions(prev => prev.filter((_, idx) => idx !== i))
     }
 
     // ── Award helpers ──────────────────────────────────────────────────────────
 
     function addAward() {
+        markDirty()
         setAwards(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), name: '', type: AWARD_TYPES[0] }])
     }
     function updateAward(i: number, field: keyof Award, value: string) {
+        markDirty()
         setAwards(prev => prev.map((a, idx) => idx === i ? { ...a, [field]: value } : a))
     }
     function removeAward(i: number) {
+        markDirty()
         setAwards(prev => prev.filter((_, idx) => idx !== i))
     }
 
     // ── Qualification helpers ──────────────────────────────────────────────────
 
     function addQualification() {
-        setQualifications(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), qualification: '', trainer: '' }])
+        markDirty()
+        setQualifications(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), qualification: '' }])
     }
     function updateQualification(i: number, field: keyof Qualification, value: string) {
+        markDirty()
         setQualifications(prev => prev.map((q, idx) => idx === i ? { ...q, [field]: value } : q))
     }
     function removeQualification(i: number) {
+        markDirty()
         setQualifications(prev => prev.filter((_, idx) => idx !== i))
     }
 
     // ── Operation helpers ──────────────────────────────────────────────────────
 
     function addOperation() {
+        markDirty()
         setOperations(prev => [...prev, { _key: String(_keyCount++), startToEndDate: `${todayStr()} - ${todayStr()}`, name: '' }])
     }
     function updateOperation(i: number, field: keyof Operation, value: string) {
+        markDirty()
         setOperations(prev => prev.map((o, idx) => idx === i ? { ...o, [field]: value } : o))
     }
     function removeOperation(i: number) {
+        markDirty()
         setOperations(prev => prev.filter((_, idx) => idx !== i))
     }
 
     // ── Render ─────────────────────────────────────────────────────────────────
 
     return (
-        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[900px] mx-auto'>
-            <style>{`@keyframes ilIn { from { opacity: 0; transform: scaleX(0.6) } to { opacity: 1; transform: scaleX(1) } }`}</style>
+        <div className='h-full w-full flex flex-col'>
 
-            {/* Back nav */}
-            <div className='flex items-center justify-between'>
-                <div className='flex items-center gap-4'>
-                    <Link
-                        href='/members'
-                        style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', textDecoration: 'none' }}
-                    >
-                        ← All Members
-                    </Link>
-                    <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.1)' }} />
-                    <span style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)' }}>
-                        {member.milpac?.currentRank && (
-                            <span style={{ color: 'rgba(219,0,29,0.5)', marginRight: '0.4em' }}>{member.milpac.currentRank}</span>
+            {/* Sticky header */}
+            <div style={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 40,
+                background: 'rgb(13,13,13)',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+            }}>
+                <div className='flex items-center gap-4 px-6 md:px-10 py-3 max-w-[900px] mx-auto w-full'>
+                    {/* Avatar + name */}
+                    <div style={{ position: 'relative', width: 38, height: 38, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)' }}>
+                        <Avatar user={member} />
+                    </div>
+                    <div className='flex flex-col gap-0.5 flex-1 min-w-0'>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.2 }}>
+                            {member.milpac?.currentRank && (
+                                <span style={{ color: 'rgba(219,0,29,0.7)', marginRight: '0.35em', fontWeight: 400 }}>{member.milpac.currentRank}</span>
+                            )}
+                            {displayName}
+                        </span>
+                        <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.04em' }}>@{member.username}</span>
+                    </div>
+
+                    {/* Actions */}
+                    <div className='flex items-center gap-2 shrink-0'>
+                        {error && (
+                            <span style={{ fontSize: '0.7rem', color: 'rgba(219,0,29,0.9)' }}>{error}</span>
                         )}
-                        {displayName}
-                    </span>
+                        {saved && !error && (
+                            <span style={{ fontSize: '0.7rem', color: 'rgba(80,200,80,0.75)' }}>Saved.</span>
+                        )}
+                        <Link
+                            href='/members'
+                            style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', textDecoration: 'none' }}
+                        >
+                            ← All Members
+                        </Link>
+                        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
+                        <Link
+                            href={`/milpacs/${member.username}`}
+                            style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', textDecoration: 'none', padding: '4px 10px', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}
+                        >
+                            View Profile ↗
+                        </Link>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            style={{
+                                background: saving ? 'rgba(219,0,29,0.3)' : 'var(--red)',
+                                border: '1px solid var(--red)',
+                                color: 'white',
+                                padding: '5px 18px',
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                letterSpacing: '0.12em',
+                                textTransform: 'uppercase',
+                                cursor: saving ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s',
+                                flexShrink: 0,
+                            }}
+                        >
+                            {saving ? 'Saving…' : 'Save Changes'}
+                        </button>
+                    </div>
                 </div>
-                <Link
-                    href={`/milpacs/${member.username}`}
-                    style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', textDecoration: 'none', padding: '5px 12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)' }}
-                >
-                    View Profile ↗
-                </Link>
             </div>
 
-            {/* Member header */}
-            <div
-                className='flex items-center gap-4 p-5'
-                style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.02)' }}
-            >
-                <div style={{ position: 'relative', width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)' }}>
-                    <Avatar user={member} />
-                </div>
-                <div className='flex flex-col gap-1'>
-                    <span style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                        {member.milpac?.currentRank && (
-                            <span style={{ color: 'rgba(219,0,29,0.7)', marginRight: '0.35em', fontWeight: 400, letterSpacing: '0.12em' }}>{member.milpac.currentRank}</span>
-                        )}
-                        {displayName}
-                    </span>
-                    <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.04em' }}>@{member.username}</span>
-                </div>
-            </div>
+            <div className='p-6 md:p-10 flex flex-col gap-6 max-w-[900px] mx-auto w-full'>
 
             {/* Basic Info */}
             <SectionCard title='Basic Info'>
+                <div className='flex flex-col gap-2'>
+                    <Label>Name</Label>
+                    <input
+                        value={memberName}
+                        onChange={e => { markDirty(); setMemberName(e.target.value) }}
+                        placeholder={parsedDisplayName}
+                        style={inputStyle}
+                    />
+                    <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.25)', letterSpacing: '0.04em' }}>
+                        Clean display name used across milpacs, orbat, and the roster. Must be unique. Leave blank to use Discord nickname.
+                    </span>
+                </div>
                 <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
                     <div className='flex flex-col gap-2'>
                         <Label>Current Rank</Label>
-                        <RankSelect value={bioRank} onChange={setBioRank} />
+                        <RankSelect value={bioRank} onChange={v => { markDirty(); setBioRank(v) }} />
                     </div>
                     <div className='flex flex-col gap-2'>
                         <Label>Enlisted Date</Label>
                         <input
                             value={enlistedDate}
-                            onChange={e => setEnlistedDate(e.target.value)}
+                            onChange={e => { markDirty(); setEnlistedDate(e.target.value) }}
                             placeholder='e.g. 15 August 2020'
                             style={inputStyle}
                         />
@@ -514,33 +739,215 @@ export default function MilpacEditor({ member }: { member: User }) {
                 </div>
             </SectionCard>
 
+            {/* Billet Points */}
+            {(() => {
+                const counts: MilpacImportCounts = {
+                    ...billetCounts,
+                    awards: awards.map(a => ({ name: a.name })),
+                    qualifications: qualifications.map(q => ({ qualification: q.qualification })),
+                    j4Points,
+                }
+                const total = calculatePromotionPoints(counts)
+
+                // Per-field point contributions
+                const contrib = {
+                    primaryNightOps:    billetCounts.primaryNightOps   * OP_POINTS.standardOp1st,
+                    secondaryNightOps:  billetCounts.secondaryNightOps * OP_POINTS.standardOp2nd,
+                    primaryNightFTX:    billetCounts.primaryNightFTX   * OP_POINTS.ftxOp1st,
+                    secondaryNightFTX:  billetCounts.secondaryNightFTX * OP_POINTS.ftxOp2nd,
+                    platoonTraining:    billetCounts.platoonTraining    * OP_POINTS.platoonTraining,
+                    sectionTraining:    billetCounts.sectionTraining    * OP_POINTS.sectionTraining,
+                    meetings:           billetCounts.meetings           * OP_POINTS.meeting,
+                    j1Interviews:       Math.floor(billetCounts.j1Interviews / 3) * DEPT_POINTS.j1Per3Interviews,
+                    j1InterviewBonus:   billetCounts.j1InterviewBonus  * DEPT_POINTS.j1InterviewBonus,
+                    j2MissionsRun:      billetCounts.j2MissionsRun     * DEPT_POINTS.j2PerMission,
+                    j3Bct12:            billetCounts.j3Bct12           * DEPT_POINTS.j3Bct12,
+                    j3OtherTrainings:   billetCounts.j3OtherTrainings  * DEPT_POINTS.j3OtherTraining,
+                    j5ContentCreated:   billetCounts.j5ContentCreated  * DEPT_POINTS.j5ContentCreated,
+                    j5MilpacsGenerated: Math.floor(billetCounts.j5MilpacsGenerated / 5) * DEPT_POINTS.j5Per5Milpacs,
+                    j5OfficialPR:       Math.floor(billetCounts.j5OfficialPR / 5)       * DEPT_POINTS.j5Per5PRPosts,
+                }
+
+                // Award & qualification breakdowns
+                const awardPointMap = new Map(AWARDS.map(a => [a.label, a.points]))
+                const awardBreakdown = counts.awards
+                    .map(a => ({ name: a.name, pts: awardPointMap.get(a.name) ?? 0 }))
+                    .filter(a => a.pts > 0)
+                const certPointMap = new Map(CERTIFICATIONS.map(c => [c.label, c.points]))
+                const qualBreakdown = counts.qualifications
+                    .map(q => ({ name: q.qualification, pts: certPointMap.get(q.qualification) ?? 0 }))
+                    .filter(q => q.pts > 0)
+
+                // Suggested rank
+                const currentRankAbbr = rankAbbrFromName(bioRank)
+                const suggested = getSuggestedRank(currentRankAbbr, total)
+                const suggestedName = suggested ? rankNameFromAbbr(suggested) : null
+                const isCorrectRank = suggested === currentRankAbbr
+
+                const rowStyle: React.CSSProperties = {
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                }
+                const compactInput: React.CSSProperties = {
+                    ...inputStyle, width: 52, textAlign: 'center' as const, padding: '3px 6px',
+                }
+
+                function countRow(field: keyof typeof billetCounts, label: string) {
+                    const pts = contrib[field as keyof typeof contrib] ?? 0
+                    return (
+                        <div key={field} style={rowStyle}>
+                            <span style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>{label}</span>
+                            <input
+                                type='number' min={0}
+                                value={billetCounts[field]}
+                                onChange={e => { markDirty(); setBilletCounts(prev => ({ ...prev, [field]: Math.max(0, parseInt(e.target.value) || 0) })) }}
+                                style={compactInput}
+                            />
+                            <span style={{ width: 34, fontSize: '0.65rem', textAlign: 'right', color: pts > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.18)', flexShrink: 0 }}>
+                                {pts > 0 ? `+${pts}` : '—'}
+                            </span>
+                        </div>
+                    )
+                }
+
+                const badge = (
+                    <div className='flex items-center gap-3'>
+                        <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)' }}>
+                            Total: <span style={{ color: 'rgba(219,0,29,0.9)', fontWeight: 700 }}>{total}</span>
+                        </span>
+                        {suggestedName && (
+                            <span style={{
+                                fontSize: '0.68rem', fontWeight: 600, padding: '2px 8px',
+                                background: isCorrectRank ? 'rgba(34,197,94,0.08)' : 'rgba(234,179,8,0.08)',
+                                border: `1px solid ${isCorrectRank ? 'rgba(34,197,94,0.25)' : 'rgba(234,179,8,0.3)'}`,
+                                color: isCorrectRank ? 'rgba(34,197,94,0.85)' : 'rgba(234,179,8,0.9)',
+                            }}>
+                                {isCorrectRank ? '✓ ' : '→ '}{suggestedName}
+                            </span>
+                        )}
+                    </div>
+                )
+
+                return (
+                    <SectionCard title='Billet Points' badge={badge}>
+                        {/* Two-column grid: Operations | Department Actions */}
+                        <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-6'>
+                            <div>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)', marginBottom: 4 }}>Operations</div>
+                                {countRow('primaryNightOps',   'Primary Ops')}
+                                {countRow('secondaryNightOps', 'Secondary Ops')}
+                                {countRow('primaryNightFTX',   'Primary FTX')}
+                                {countRow('secondaryNightFTX', 'Secondary FTX')}
+                                {countRow('platoonTraining',   'Plt Training')}
+                                {countRow('sectionTraining',   'Sec Training')}
+                                {countRow('meetings',          'Meetings')}
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)', marginBottom: 4 }}>Department Actions</div>
+                                {countRow('j1Interviews',       'J1 Interviews')}
+                                {countRow('j1InterviewBonus',   'J1 Bonus')}
+                                {countRow('j2MissionsRun',      'J2 Missions')}
+                                {countRow('j3Bct12',            'J3 BCT 1/2')}
+                                {countRow('j3OtherTrainings',   'J3 Other Training')}
+                                {countRow('j5ContentCreated',   'J5 Content')}
+                                {countRow('j5MilpacsGenerated', 'J5 Milpacs')}
+                                {countRow('j5OfficialPR',       'J5 PR Posts')}
+                            </div>
+                        </div>
+
+                        {/* J4 + awards/quals breakdown */}
+                        <div className='flex flex-wrap gap-x-6 gap-y-2 items-start' style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 8 }}>
+                            <div style={rowStyle}>
+                                <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>J4 Adjustment</span>
+                                <input
+                                    type='number'
+                                    value={j4Points}
+                                    onChange={e => { markDirty(); setJ4Points(parseInt(e.target.value) || 0) }}
+                                    style={{ ...compactInput, width: 60 }}
+                                />
+                                {j4Points !== 0 && (
+                                    <span style={{ fontSize: '0.65rem', color: j4Points > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(234,179,8,0.8)' }}>
+                                        {j4Points > 0 ? `+${j4Points}` : j4Points}
+                                    </span>
+                                )}
+                            </div>
+
+                            {(awardBreakdown.length > 0 || qualBreakdown.length > 0) && (
+                                <div className='flex flex-wrap gap-x-4 gap-y-1 flex-1'>
+                                    {[...awardBreakdown, ...qualBreakdown].map((item, i) => (
+                                        <span key={`${item.name}-${i}`} style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)' }}>
+                                            {item.name} <span style={{ color: 'rgba(219,0,29,0.7)', fontWeight: 600 }}>+{item.pts}</span>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </SectionCard>
+                )
+            })()}
+
             {/* Promotions */}
             <SectionCard title='Promotion History' onAdd={addPromotion} addLabel='Promotion'>
                 {promotions.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No promotions on record.</span>
                 ) : (
-                    promotions.map((p, i) => (
-                        <Fragment key={p._key}>
-                            {showLine('promotions', i, 'above') && <InsertionLine />}
-                            <div className='flex gap-2 items-end' {...dragProps('promotions', promotions, setPromotions, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragging?.list === 'promotions' && dragging.index === i ? 0.3 : 1, transition: 'opacity 0.15s' }}>
-                                <DragHandle />
-                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
-                                    <Label>Date</Label>
-                                    <input value={p.date} onChange={e => updatePromotion(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Rank</Label>
-                                    <RankSelect value={p.rank} onChange={v => updatePromotion(i, 'rank', v)} placeholder='— Select Rank —' />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Role</Label>
-                                    <input value={p.role} onChange={e => updatePromotion(i, 'role', e.target.value)} placeholder='Rifleman' style={inputStyle} />
-                                </div>
-                                <DeleteBtn onClick={() => removePromotion(i)} />
+                    <DndContext sensors={sensors} collisionDetection={closestCenter}
+                        onDragStart={(e: DragStartEvent) => setActiveDragKey(e.active.id as string)}
+                        onDragEnd={(e: DragEndEvent) => {
+                            setActiveDragKey(null)
+                            const { active, over } = e
+                            if (over && active.id !== over.id) {
+                                markDirty()
+                                setPromotions(prev => {
+                                    const oldIdx = prev.findIndex(p => p._key === active.id)
+                                    const newIdx = prev.findIndex(p => p._key === over.id)
+                                    return arrayMove(prev, oldIdx, newIdx)
+                                })
+                            }
+                        }}
+                    >
+                        <SortableContext items={promotions.map(p => p._key)} strategy={verticalListSortingStrategy}>
+                            <div className='flex flex-col gap-3'>
+                                {promotions.map((p, i) => (
+                                    <SortableItem key={p._key} id={p._key}>
+                                        {(listeners) => (
+                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <DragHandle listeners={listeners} />
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                                    <Label>Date</Label>
+                                                    <input value={p.date} onChange={e => updatePromotion(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Rank</Label>
+                                                    <RankSelect value={p.rank} onChange={v => updatePromotion(i, 'rank', v)} placeholder='— Select Rank —' />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Role</Label>
+                                                    <input value={p.role} onChange={e => updatePromotion(i, 'role', e.target.value)} placeholder='Rifleman' style={inputStyle} />
+                                                </div>
+                                                <DeleteBtn onClick={() => removePromotion(i)} />
+                                            </div>
+                                        )}
+                                    </SortableItem>
+                                ))}
                             </div>
-                            {showLine('promotions', i, 'below') && <InsertionLine />}
-                        </Fragment>
-                    ))
+                        </SortableContext>
+                        <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                            {activeDragKey ? (() => {
+                                const p = promotions.find(x => x._key === activeDragKey)
+                                if (!p) return null
+                                return (
+                                    <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(14,14,14,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', opacity: 0.95 }}>
+                                        <DragHandle />
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}><Label>Date</Label><input value={p.date} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Rank</Label><input value={p.rank} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Role</Label><input value={p.role} readOnly style={inputStyle} /></div>
+                                        <DeleteBtn onClick={() => {}} />
+                                    </div>
+                                )
+                            })() : null}
+                        </DragOverlay>
+                    </DndContext>
                 )}
             </SectionCard>
 
@@ -549,28 +956,58 @@ export default function MilpacEditor({ member }: { member: User }) {
                 {qualifications.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No qualifications on record.</span>
                 ) : (
-                    qualifications.map((q, i) => (
-                        <Fragment key={q._key}>
-                            {showLine('qualifications', i, 'above') && <InsertionLine />}
-                            <div className='flex gap-2 items-end' {...dragProps('qualifications', qualifications, setQualifications, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragging?.list === 'qualifications' && dragging.index === i ? 0.3 : 1, transition: 'opacity 0.15s' }}>
-                                <DragHandle />
-                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
-                                    <Label>Date</Label>
-                                    <input value={q.date} onChange={e => updateQualification(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Qualification</Label>
-                                    <input value={q.qualification} onChange={e => updateQualification(i, 'qualification', e.target.value)} placeholder='Basic Rifleman Course' style={inputStyle} />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Trainer</Label>
-                                    <input value={q.trainer} onChange={e => updateQualification(i, 'trainer', e.target.value)} placeholder='SGT Smith' style={inputStyle} />
-                                </div>
-                                <DeleteBtn onClick={() => removeQualification(i)} />
+                    <DndContext sensors={sensors} collisionDetection={closestCenter}
+                        onDragStart={(e: DragStartEvent) => setActiveDragKey(e.active.id as string)}
+                        onDragEnd={(e: DragEndEvent) => {
+                            setActiveDragKey(null)
+                            const { active, over } = e
+                            if (over && active.id !== over.id) {
+                                markDirty()
+                                setQualifications(prev => {
+                                    const oldIdx = prev.findIndex(q => q._key === active.id)
+                                    const newIdx = prev.findIndex(q => q._key === over.id)
+                                    return arrayMove(prev, oldIdx, newIdx)
+                                })
+                            }
+                        }}
+                    >
+                        <SortableContext items={qualifications.map(q => q._key)} strategy={verticalListSortingStrategy}>
+                            <div className='flex flex-col gap-3'>
+                                {qualifications.map((q, i) => (
+                                    <SortableItem key={q._key} id={q._key}>
+                                        {(listeners) => (
+                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <DragHandle listeners={listeners} />
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                                    <Label>Date</Label>
+                                                    <input value={q.date} onChange={e => updateQualification(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Qualification</Label>
+                                                    <QualificationSelect value={q.qualification} onChange={v => updateQualification(i, 'qualification', v)} />
+                                                </div>
+                                                <DeleteBtn onClick={() => removeQualification(i)} />
+                                            </div>
+                                        )}
+                                    </SortableItem>
+                                ))}
                             </div>
-                            {showLine('qualifications', i, 'below') && <InsertionLine />}
-                        </Fragment>
-                    ))
+                        </SortableContext>
+                        <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                            {activeDragKey ? (() => {
+                                const q = qualifications.find(x => x._key === activeDragKey)
+                                if (!q) return null
+                                return (
+                                    <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(14,14,14,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', opacity: 0.95 }}>
+                                        <DragHandle />
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}><Label>Date</Label><input value={q.date} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Qualification</Label><div style={{ ...inputStyle, color: q.qualification ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)' }}>{q.qualification || '— Select qualification —'}</div></div>
+                                        <DeleteBtn onClick={() => {}} />
+                                    </div>
+                                )
+                            })() : null}
+                        </DragOverlay>
+                    </DndContext>
                 )}
             </SectionCard>
 
@@ -579,30 +1016,72 @@ export default function MilpacEditor({ member }: { member: User }) {
                 {awards.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No awards on record.</span>
                 ) : (
-                    awards.map((a, i) => (
-                        <Fragment key={a._key}>
-                            {showLine('awards', i, 'above') && <InsertionLine />}
-                            <div className='flex gap-2 items-end' {...dragProps('awards', awards, setAwards, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragging?.list === 'awards' && dragging.index === i ? 0.3 : 1, transition: 'opacity 0.15s' }}>
-                                <DragHandle />
-                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
-                                    <Label>Date</Label>
-                                    <input value={a.date} onChange={e => updateAward(i, 'date', e.target.value)} placeholder='05 Feb 2022' style={inputStyle} />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Name</Label>
-                                    <input value={a.name} onChange={e => updateAward(i, 'name', e.target.value)} placeholder='Broken Lance Award' style={inputStyle} />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Type</Label>
-                                    <select value={a.type} onChange={e => updateAward(i, 'type', e.target.value)} style={selectStyle}>
-                                        {AWARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
-                                </div>
-                                <DeleteBtn onClick={() => removeAward(i)} />
+                    <DndContext sensors={sensors} collisionDetection={closestCenter}
+                        onDragStart={(e: DragStartEvent) => setActiveDragKey(e.active.id as string)}
+                        onDragEnd={(e: DragEndEvent) => {
+                            setActiveDragKey(null)
+                            const { active, over } = e
+                            if (over && active.id !== over.id) {
+                                markDirty()
+                                setAwards(prev => {
+                                    const oldIdx = prev.findIndex(a => a._key === active.id)
+                                    const newIdx = prev.findIndex(a => a._key === over.id)
+                                    return arrayMove(prev, oldIdx, newIdx)
+                                })
+                            }
+                        }}
+                    >
+                        <SortableContext items={awards.map(a => a._key)} strategy={verticalListSortingStrategy}>
+                            <div className='flex flex-col gap-3'>
+                                {awards.map((a, i) => (
+                                    <SortableItem key={a._key} id={a._key}>
+                                        {(listeners) => (
+                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <DragHandle listeners={listeners} />
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                                    <Label>Date</Label>
+                                                    <input value={a.date} onChange={e => updateAward(i, 'date', e.target.value)} placeholder='05 Feb 2022' style={inputStyle} />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Name</Label>
+                                                    <AwardNameInput
+                                                        value={a.name}
+                                                        onChange={name => updateAward(i, 'name', name)}
+                                                        onSelect={(name, type) => {
+                                                            markDirty()
+                                                            setAwards(prev => prev.map((x, idx) => idx === i ? { ...x, name, type } : x))
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Type</Label>
+                                                    <select value={a.type} onChange={e => updateAward(i, 'type', e.target.value)} style={selectStyle}>
+                                                        {AWARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                                    </select>
+                                                </div>
+                                                <DeleteBtn onClick={() => removeAward(i)} />
+                                            </div>
+                                        )}
+                                    </SortableItem>
+                                ))}
                             </div>
-                            {showLine('awards', i, 'below') && <InsertionLine />}
-                        </Fragment>
-                    ))
+                        </SortableContext>
+                        <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                            {activeDragKey ? (() => {
+                                const a = awards.find(x => x._key === activeDragKey)
+                                if (!a) return null
+                                return (
+                                    <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(14,14,14,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', opacity: 0.95 }}>
+                                        <DragHandle />
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}><Label>Date</Label><input value={a.date} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Name</Label><input value={a.name} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Type</Label><input value={a.type} readOnly style={inputStyle} /></div>
+                                        <DeleteBtn onClick={() => {}} />
+                                    </div>
+                                )
+                            })() : null}
+                        </DragOverlay>
+                    </DndContext>
                 )}
             </SectionCard>
 
@@ -611,24 +1090,58 @@ export default function MilpacEditor({ member }: { member: User }) {
                 {operations.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No operations on record.</span>
                 ) : (
-                    operations.map((op, i) => (
-                        <Fragment key={op._key}>
-                            {showLine('operations', i, 'above') && <InsertionLine />}
-                            <div className='flex gap-2 items-end' {...dragProps('operations', operations, setOperations, i)} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', opacity: dragging?.list === 'operations' && dragging.index === i ? 0.3 : 1, transition: 'opacity 0.15s' }}>
-                                <DragHandle />
-                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 160, maxWidth: 220 }}>
-                                    <Label>Date Range</Label>
-                                    <input value={op.startToEndDate} onChange={e => updateOperation(i, 'startToEndDate', e.target.value)} placeholder='13 Sep 2020 - 12 Oct 2020' style={inputStyle} />
-                                </div>
-                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                    <Label>Operation Name</Label>
-                                    <input value={op.name} onChange={e => updateOperation(i, 'name', e.target.value)} placeholder='Operation Promulgate' style={inputStyle} />
-                                </div>
-                                <DeleteBtn onClick={() => removeOperation(i)} />
+                    <DndContext sensors={sensors} collisionDetection={closestCenter}
+                        onDragStart={(e: DragStartEvent) => setActiveDragKey(e.active.id as string)}
+                        onDragEnd={(e: DragEndEvent) => {
+                            setActiveDragKey(null)
+                            const { active, over } = e
+                            if (over && active.id !== over.id) {
+                                markDirty()
+                                setOperations(prev => {
+                                    const oldIdx = prev.findIndex(o => o._key === active.id)
+                                    const newIdx = prev.findIndex(o => o._key === over.id)
+                                    return arrayMove(prev, oldIdx, newIdx)
+                                })
+                            }
+                        }}
+                    >
+                        <SortableContext items={operations.map(o => o._key)} strategy={verticalListSortingStrategy}>
+                            <div className='flex flex-col gap-3'>
+                                {operations.map((op, i) => (
+                                    <SortableItem key={op._key} id={op._key}>
+                                        {(listeners) => (
+                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <DragHandle listeners={listeners} />
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 160, maxWidth: 220 }}>
+                                                    <Label>Date Range</Label>
+                                                    <input value={op.startToEndDate} onChange={e => updateOperation(i, 'startToEndDate', e.target.value)} placeholder='13 Sep 2020 - 12 Oct 2020' style={inputStyle} />
+                                                </div>
+                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                    <Label>Operation Name</Label>
+                                                    <input value={op.name} onChange={e => updateOperation(i, 'name', e.target.value)} placeholder='Operation Promulgate' style={inputStyle} />
+                                                </div>
+                                                <DeleteBtn onClick={() => removeOperation(i)} />
+                                            </div>
+                                        )}
+                                    </SortableItem>
+                                ))}
                             </div>
-                            {showLine('operations', i, 'below') && <InsertionLine />}
-                        </Fragment>
-                    ))
+                        </SortableContext>
+                        <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                            {activeDragKey ? (() => {
+                                const op = operations.find(x => x._key === activeDragKey)
+                                if (!op) return null
+                                return (
+                                    <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(14,14,14,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', opacity: 0.95 }}>
+                                        <DragHandle />
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 160, maxWidth: 220 }}><Label>Date Range</Label><input value={op.startToEndDate} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Operation Name</Label><input value={op.name} readOnly style={inputStyle} /></div>
+                                        <DeleteBtn onClick={() => {}} />
+                                    </div>
+                                )
+                            })() : null}
+                        </DragOverlay>
+                    </DndContext>
                 )}
             </SectionCard>
 
@@ -723,37 +1236,7 @@ export default function MilpacEditor({ member }: { member: User }) {
                 </div>
             </SectionCard>
 
-            {/* Save bar */}
-            <div className='flex items-center justify-between gap-4 py-2'>
-                {error && (
-                    <span style={{ fontSize: '0.78rem', color: 'rgba(219,0,29,0.8)' }}>{error}</span>
-                )}
-                {saved && !error && (
-                    <span style={{ fontSize: '0.78rem', color: 'rgba(80,200,80,0.7)' }}>Saved successfully.</span>
-                )}
-                {!error && !saved && <span />}
-
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    style={{
-                        background: saving ? 'rgba(219,0,29,0.3)' : 'var(--red)',
-                        border: '1px solid var(--red)',
-                        color: 'white',
-                        padding: '10px 28px',
-                        fontSize: '0.78rem',
-                        fontWeight: 700,
-                        letterSpacing: '0.12em',
-                        textTransform: 'uppercase',
-                        cursor: saving ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.2s',
-                        flexShrink: 0,
-                    }}
-                >
-                    {saving ? 'Saving…' : 'Save Changes'}
-                </button>
-            </div>
-
+        </div>
         </div>
     )
 }

@@ -6,7 +6,7 @@ import { Typography } from '@mui/material'
 import { Api, Tune, CalendarToday, ManageAccounts } from '@mui/icons-material'
 
 import ConvertColor from '@/lib/discord/color'
-import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
+import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { rankNameFromAbbr } from '@/lib/ranks'
 import { BioSections } from './bio'
 import Avatar from '@/components/member/avatar'
@@ -23,17 +23,16 @@ export default async function Page() {
     const isHQ = client.hasRoles(me, ['HQ Staff'])
     const isJ5 = client.hasRoles(me, ['J5-Media'])
 
-    const [allMembers, orbat] = await Promise.all([client.fetchAllMembers(), fetchORBAT()])
-    const lookup = client.buildOrbatLookup(allMembers)
-    const orbatEntry = findOrbatEntry(orbat, lookup, me.id)
+    const orbatEntry = await getOrbatEntryByUserId(me.id)
 
     const strippedNickname = me.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
     const fullDisplay = strippedNickname || me.globalName || me.username
     const nameParts = fullDisplay.split(' ')
-    const bioDisplayName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : fullDisplay
-    const bioRankAbbr = me.milpac?.currentRank || me.bio?.rank || null
+    const parsedDisplayName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : fullDisplay
+    const bioDisplayName = me.name || parsedDisplayName
+    const bioRankAbbr = me.milpac?.currentRank || null
     const bioRank = bioRankAbbr ? rankNameFromAbbr(bioRankAbbr) : null
-    const bioCallsign = me.bio?.callsign || null
+    const bioCallsign = me.milpac?.callsign || null
     const bioRole = orbatEntry?.role || null
 
     return (

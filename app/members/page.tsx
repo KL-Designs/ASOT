@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { connection } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
+import { getOrbatEntriesForUsers } from '@/lib/orbat'
 import MemberList from './MemberList'
 
 
@@ -14,20 +14,15 @@ export default async function Page() {
     if (!me) redirect('/login')
     if (!client.hasRoles(me, PERMISSIONS.pages.members)) redirect('/me')
 
-    const [allMembers, orbat] = await Promise.all([client.fetchAllMembers(), fetchORBAT()])
-    const lookup = client.buildOrbatLookup(allMembers)
+    const allMembers = await client.fetchAllMembers()
 
     const sorted = [...allMembers].sort((a, b) => {
-        const nameA = a.guild?.nickname || a.globalName || a.username
-        const nameB = b.guild?.nickname || b.globalName || b.username
+        const nameA = a.name || a.guild?.nickname || a.globalName || a.username
+        const nameB = b.name || b.guild?.nickname || b.globalName || b.username
         return nameA.localeCompare(nameB)
     })
 
-    // Pre-compute orbat entries so the client component doesn't need the full orbat/lookup
-    const orbatMap: Record<string, { role: string; section: string } | null> = {}
-    for (const member of sorted) {
-        orbatMap[member.id] = findOrbatEntry(orbat, lookup, member.id)
-    }
+    const orbatMap = await getOrbatEntriesForUsers(sorted.map(m => m.id))
 
     const isAdmin = client.hasRoles(me, PERMISSIONS.admin.impersonate)
 

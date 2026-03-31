@@ -1,9 +1,11 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { connection } from 'next/server'
 import Banner from '@/public/images/home/Droneteam7.png'
 
 import { fetchORBAT } from '@/lib/orbat'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 
 import Card from './card'
 import MilpacsNav from './nav'
@@ -18,10 +20,12 @@ export default async function Page() {
 
 	await connection()
 
-	const [orbat, allMembers] = await Promise.all([
+	const [orbat, allMembers, me] = await Promise.all([
 		fetchORBAT(),
 		client.fetchAllMembers(),
+		client.fetchMe().catch(() => null),
 	])
+	const canManageOrbat = !!me && client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
 
 	const lookup = client.buildOrbatLookup(allMembers)
 
@@ -68,6 +72,16 @@ export default async function Page() {
 						<div style={{ flex: 1, height: 1, background: 'rgba(219,0,29,0.2)' }} />
 					</div>
 					<p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.8, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.8)' }}>Military Personnel Accounting Centre</p>
+					{canManageOrbat && (
+						<Link href='/admin/orbat' style={{
+							fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+							color: 'rgba(219,0,29,0.85)', background: 'rgba(0,0,0,0.45)',
+							border: '1px solid rgba(219,0,29,0.35)', padding: '6px 16px', textDecoration: 'none',
+							display: 'inline-flex', alignItems: 'center', gap: 6, backdropFilter: 'blur(4px)',
+						}}>
+							⚙ Manage ORBAT
+						</Link>
+					)}
 				</div>
 			</div>
 

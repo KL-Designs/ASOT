@@ -7,18 +7,17 @@ import Image from 'next/image'
 import Avatar from '@/components/member/avatar'
 import Banner from '@/public/images/home/Droneteam7.png'
 import client from '@/lib/discord'
-import { fetchORBAT, findOrbatEntry } from '@/lib/orbat'
+import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/milpac-profile'
 import { CoverUpload } from './cover-upload'
 import { BiographyEditor } from './bio-editor'
 
 
 async function resolveProfile(username: string) {
-	const [allMembers, orbat] = await Promise.all([client.fetchAllMembers(), fetchORBAT()])
+	const allMembers = await client.fetchAllMembers()
 	const member = allMembers.find(m => m.username === username) ?? null
 	if (!member) return null
-	const lookup = client.buildOrbatLookup(allMembers)
-	const orbatEntry = findOrbatEntry(orbat, lookup, member.id)
+	const orbatEntry = await getOrbatEntryByUserId(member.id)
 	return { member, ...resolveMilpacProfile(member, orbatEntry) }
 }
 
@@ -299,7 +298,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 								<tr>
 									<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Date</th>
 									<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Qualification</th>
-									<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Trainer</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -307,7 +305,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 									<tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
 										<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem', width: 130 }}>{q.date}</td>
 										<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{q.qualification}</td>
-										<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.5)' }}>{q.trainer}</td>
 									</tr>
 								))}
 							</tbody>
