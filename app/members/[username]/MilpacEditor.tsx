@@ -25,6 +25,53 @@ const AWARD_TYPES = [
     'Period of Service Citation'
 ]
 
+const DUPE_COLORS = [
+    'rgba(251,191,36,0.75)',  // amber
+    'rgba(249,115,22,0.75)',  // orange
+    'rgba(236,72,153,0.75)',  // pink
+    'rgba(167,139,250,0.75)', // violet
+    'rgba(34,211,238,0.75)',  // cyan
+    'rgba(163,230,53,0.75)',  // lime
+]
+
+function groupByDuplicates<T>(items: T[], key: (item: T) => string): T[] {
+    const counts = new Map<string, number>()
+    for (const item of items) counts.set(key(item), (counts.get(key(item)) ?? 0) + 1)
+    const result: T[] = []
+    const emitted = new Set<string>()
+    const dupeGroups = new Map<string, T[]>()
+    for (const item of items) {
+        const k = key(item)
+        if (counts.get(k)! > 1) {
+            if (!dupeGroups.has(k)) dupeGroups.set(k, [])
+            dupeGroups.get(k)!.push(item)
+        }
+    }
+    for (const item of items) {
+        const k = key(item)
+        if (counts.get(k)! > 1) {
+            if (!emitted.has(k)) {
+                emitted.add(k)
+                result.push(...dupeGroups.get(k)!)
+            }
+        } else {
+            result.push(item)
+        }
+    }
+    return result
+}
+
+function buildDupeColorMap(names: string[]): Map<string, string> {
+    const counts = new Map<string, number>()
+    for (const n of names) counts.set(n, (counts.get(n) ?? 0) + 1)
+    const colorMap = new Map<string, string>()
+    let ci = 0
+    for (const [name, count] of counts) {
+        if (count > 1) colorMap.set(name, DUPE_COLORS[ci++ % DUPE_COLORS.length])
+    }
+    return colorMap
+}
+
 function todayStr() {
     return new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
 }
@@ -708,6 +755,42 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
 
             <div className='p-6 md:p-10 flex flex-col gap-6 max-w-[900px] mx-auto w-full'>
 
+            {/* Data integrity warnings */}
+            {(() => {
+                const awardLabels = new Set(AWARDS.map(a => a.label))
+                const awardNames = awards.map(a => a.name).filter(Boolean)
+                const dupAwardNames = new Set(awardNames.filter((n, _, arr) => arr.filter(x => x === n).length > 1))
+                const dupAwardCount = awards.filter(a => a.name && dupAwardNames.has(a.name)).length
+                const unrecognizedCount = awards.filter(a => a.name && !awardLabels.has(a.name)).length
+
+                const qualNames = qualifications.map(q => q.qualification).filter(Boolean)
+                const dupQualNames = new Set(qualNames.filter((n, _, arr) => arr.filter(x => x === n).length > 1))
+                const dupQualCount = qualifications.filter(q => q.qualification && dupQualNames.has(q.qualification)).length
+
+                const issues: string[] = []
+                if (dupAwardCount > 0)    issues.push(`${dupAwardCount} duplicate award${dupAwardCount !== 1 ? 's' : ''}`)
+                if (unrecognizedCount > 0) issues.push(`${unrecognizedCount} unrecognized award${unrecognizedCount !== 1 ? 's' : ''}`)
+                if (dupQualCount > 0)     issues.push(`${dupQualCount} duplicate qualification${dupQualCount !== 1 ? 's' : ''}`)
+
+                if (issues.length === 0) return null
+                return (
+                    <div style={{
+                        background: 'rgba(234,179,8,0.08)',
+                        border: '1px solid rgba(234,179,8,0.3)',
+                        borderRadius: 6,
+                        padding: '8px 14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                    }}>
+                        <span style={{ fontSize: '0.75rem', color: 'rgba(234,179,8,0.85)', fontWeight: 600 }}>⚠</span>
+                        <span style={{ fontSize: '0.72rem', color: 'rgba(234,179,8,0.75)' }}>
+                            {issues.join(' · ')}
+                        </span>
+                    </div>
+                )
+            })()}
+
             {/* Basic Info */}
             <SectionCard title='Basic Info'>
                 <div className='flex flex-col gap-2'>
@@ -956,6 +1039,19 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                 {qualifications.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No qualifications on record.</span>
                 ) : (
+                    <>
+                    {qualifications.some((q, _, arr) => q.qualification && arr.filter(x => x.qualification === q.qualification).length > 1) && (
+                        <div style={{ display: 'flex', gap: 6, marginBottom: '0.5rem' }}>
+                            <button onClick={() => { markDirty(); setQualifications(prev => groupByDuplicates(prev, q => q.qualification)) }}
+                                style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(234,179,8,0.7)', background: 'none', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}>
+                                Group duplicates
+                            </button>
+                            <button onClick={() => { markDirty(); setQualifications(prev => { const seen = new Set<string>(); return prev.filter(q => { if (!q.qualification || !seen.has(q.qualification)) { seen.add(q.qualification); return true } return false }) }) }}
+                                style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', background: 'none', border: '1px solid rgba(219,0,29,0.3)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}>
+                                Remove duplicates
+                            </button>
+                        </div>
+                    )}
                     <DndContext sensors={sensors} collisionDetection={closestCenter}
                         onDragStart={(e: DragStartEvent) => setActiveDragKey(e.active.id as string)}
                         onDragEnd={(e: DragEndEvent) => {
@@ -972,11 +1068,16 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                         }}
                     >
                         <SortableContext items={qualifications.map(q => q._key)} strategy={verticalListSortingStrategy}>
+                            {(() => {
+                                const dupQuals = buildDupeColorMap(qualifications.map(q => q.qualification).filter(Boolean))
+                                return (
                             <div className='flex flex-col gap-3'>
-                                {qualifications.map((q, i) => (
+                                {qualifications.map((q, i) => {
+                                    const dupeColor = q.qualification ? dupQuals.get(q.qualification) : undefined
+                                    return (
                                     <SortableItem key={q._key} id={q._key}>
                                         {(listeners) => (
-                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', ...(dupeColor ? { borderLeft: `3px solid ${dupeColor}`, paddingLeft: '0.5rem' } : {}) }}>
                                                 <DragHandle listeners={listeners} />
                                                 <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
                                                     <Label>Date</Label>
@@ -985,13 +1086,19 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                                                 <div className='flex flex-col gap-2 flex-1 min-w-0'>
                                                     <Label>Qualification</Label>
                                                     <QualificationSelect value={q.qualification} onChange={v => updateQualification(i, 'qualification', v)} />
+                                                    {dupeColor && (
+                                                        <span style={{ fontSize: '0.6rem', color: dupeColor, marginTop: 2, display: 'block' }}>Duplicate entry</span>
+                                                    )}
                                                 </div>
                                                 <DeleteBtn onClick={() => removeQualification(i)} />
                                             </div>
                                         )}
                                     </SortableItem>
-                                ))}
+                                    )
+                                })}
                             </div>
+                                )
+                            })()}
                         </SortableContext>
                         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
                             {activeDragKey ? (() => {
@@ -1008,6 +1115,7 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                             })() : null}
                         </DragOverlay>
                     </DndContext>
+                    </>
                 )}
             </SectionCard>
 
@@ -1016,6 +1124,19 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                 {awards.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No awards on record.</span>
                 ) : (
+                    <>
+                    {awards.some((a, _, arr) => a.name && arr.filter(x => x.name === a.name).length > 1) && (
+                        <div style={{ display: 'flex', gap: 6, marginBottom: '0.5rem' }}>
+                            <button onClick={() => { markDirty(); setAwards(prev => groupByDuplicates(prev, a => a.name)) }}
+                                style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(234,179,8,0.7)', background: 'none', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}>
+                                Group duplicates
+                            </button>
+                            <button onClick={() => { markDirty(); setAwards(prev => { const seen = new Set<string>(); return prev.filter(a => { if (!a.name || !seen.has(a.name)) { seen.add(a.name); return true } return false }) }) }}
+                                style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', background: 'none', border: '1px solid rgba(219,0,29,0.3)', borderRadius: 4, padding: '3px 8px', cursor: 'pointer' }}>
+                                Remove duplicates
+                            </button>
+                        </div>
+                    )}
                     <DndContext sensors={sensors} collisionDetection={closestCenter}
                         onDragStart={(e: DragStartEvent) => setActiveDragKey(e.active.id as string)}
                         onDragEnd={(e: DragEndEvent) => {
@@ -1032,11 +1153,16 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                         }}
                     >
                         <SortableContext items={awards.map(a => a._key)} strategy={verticalListSortingStrategy}>
+                            {(() => {
+                                const dupAwards = buildDupeColorMap(awards.map(a => a.name).filter(Boolean))
+                                return (
                             <div className='flex flex-col gap-3'>
-                                {awards.map((a, i) => (
+                                {awards.map((a, i) => {
+                                    const dupeColor = a.name ? dupAwards.get(a.name) : undefined
+                                    return (
                                     <SortableItem key={a._key} id={a._key}>
                                         {(listeners) => (
-                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', ...(dupeColor ? { borderLeft: `3px solid ${dupeColor}`, paddingLeft: '0.5rem' } : {}) }}>
                                                 <DragHandle listeners={listeners} />
                                                 <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
                                                     <Label>Date</Label>
@@ -1052,6 +1178,9 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                                                             setAwards(prev => prev.map((x, idx) => idx === i ? { ...x, name, type } : x))
                                                         }}
                                                     />
+                                                    {dupeColor && (
+                                                        <span style={{ fontSize: '0.6rem', color: dupeColor, marginTop: 2, display: 'block' }}>Duplicate entry</span>
+                                                    )}
                                                 </div>
                                                 <div className='flex flex-col gap-2 flex-1 min-w-0'>
                                                     <Label>Type</Label>
@@ -1063,8 +1192,11 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                                             </div>
                                         )}
                                     </SortableItem>
-                                ))}
+                                    )
+                                })}
                             </div>
+                                )
+                            })()}
                         </SortableContext>
                         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
                             {activeDragKey ? (() => {
@@ -1082,6 +1214,7 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                             })() : null}
                         </DragOverlay>
                     </DndContext>
+                    </>
                 )}
             </SectionCard>
 

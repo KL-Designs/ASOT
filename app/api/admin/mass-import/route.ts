@@ -327,6 +327,7 @@ export async function POST(request: NextRequest) {
         enlistedDate?: string
         promotionPoints: number
         j4Points: number
+        qualifications: { date: string; qualification: string }[]
         billetCounts: Omit<MilpacImportCounts, 'awards' | 'qualifications' | 'j4Points'>
     }>()
 
@@ -367,6 +368,7 @@ export async function POST(request: NextRequest) {
             enlistedDate:   row.dateJoined || undefined,
             promotionPoints: calculatePromotionPoints(counts),
             j4Points:       row.j4Points,
+            qualifications: row.qualifications,
             billetCounts: {
                 primaryNightOps:    row.primaryNightOps,
                 secondaryNightOps:  row.secondaryNightOps,
@@ -411,6 +413,7 @@ export async function POST(request: NextRequest) {
                             ...(data.enlistedDate ? { 'milpac.enlistedDate':   data.enlistedDate } : {}),
                             'milpac.promotionPoints':  data.promotionPoints,
                             'milpac.j4Points':         data.j4Points,
+                            'milpac.qualifications':   data.qualifications,
                             'milpac.billetCounts':     data.billetCounts,
                         },
                     },
