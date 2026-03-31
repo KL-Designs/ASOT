@@ -35,7 +35,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 // ── Load .env.local ───────────────────────────────────────────────────────────
 
 function loadEnv() {
-    const envPath = join(__dirname, '..', '.env.local')
+    const envPath = join(__dirname, '..', '.env')
     if (!existsSync(envPath)) return
     const lines = readFileSync(envPath, 'utf-8').split(/\r?\n/)
     for (const line of lines) {
@@ -57,7 +57,7 @@ const args = process.argv.slice(2)
 const names = []
 let inputFile   = null
 let outputFile  = 'milpacs-scraped.json'
-let model       = 'llama3.2'
+let model       = 'llama3.2:3b'
 let ollamaUrl   = 'http://localhost:11434'
 let delay       = 500
 let concurrency = 1
