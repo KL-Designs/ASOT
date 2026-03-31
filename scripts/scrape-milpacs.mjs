@@ -2,33 +2,41 @@
 /**
  * scrape-milpacs.mjs
  *
- * Fetches each member's ASOT profile page, uses a local Ollama instance to
- * extract Awards & Citations, Promotions & Roles, and Campaigns, then writes
- * the results directly into the MongoDB users collection.
+ * Uses Playwright to render each member's ASOT profile page in a headless
+ * browser, takes a full-page screenshot, then passes that image to a local
+ * Ollama vision model to extract Awards, Promotions, and Campaigns.
+ * Writes results directly into the MongoDB users collection.
  *
  * Usage:
  *   node scripts/scrape-milpacs.mjs [names...]
  *   node scripts/scrape-milpacs.mjs --input "Billet Mastersheet.csv"
  *   node scripts/scrape-milpacs.mjs --all
- *   node scripts/scrape-milpacs.mjs Koda Thomas --model llama3.2
+ *   node scripts/scrape-milpacs.mjs Koda Thomas --model minicpm-v
  *
  * Options:
  *   --input  <file>   CSV file to read names from (col 0, skips header rows)
  *   --all             Scrape every user currently in the database
  *   --output <file>   Also write JSON snapshot (default: milpacs-scraped.json, use 'none' to skip)
- *   --model  <name>   Ollama model (default: llama3.2)
+ *   --model  <name>   Ollama vision model (default: minicpm-v)
  *   --ollama <url>    Ollama base URL (default: http://localhost:11434)
  *   --delay  <ms>     Delay between requests in ms (default: 500)
  *   --concurrency <n> Parallel requests (default: 1)
  *   --mongo-uri <uri> MongoDB URI (overrides .env.local)
  *   --mongo-db  <db>  MongoDB database name (overrides .env.local)
+ *   --timeout  <s>    Ollama response timeout in seconds (default: 600)
  *   --dry-run         Fetch and extract but do not write to the database
+ *   --debug-page      Save screenshot to debug-<name>.png then exit
+ *
+ * Requires:
+ *   npm install playwright
+ *   npx playwright install chromium
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { resolve, join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { MongoClient } from 'mongodb'
+import { chromium } from 'playwright'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -55,31 +63,33 @@ loadEnv()
 
 const args = process.argv.slice(2)
 const names = []
-let inputFile   = null
-let outputFile  = 'milpacs-scraped.json'
-let model       = 'huihui_ai/qwen3-abliterated:30b'
-let ollamaUrl   = 'http://localhost:11434'
-let delay       = 500
-let concurrency = 1
-let mongoUri    = process.env.MONGO_URI  ?? null
-let mongoDb     = process.env.MONGO_DB   ?? null
-let scrapeAll   = false
-let dryRun      = false
+let inputFile    = null
+let outputFile   = 'milpacs-scraped.json'
+let model        = 'huihui_ai/qwen3-abliterated:30b'
+let ollamaUrl    = 'http://localhost:11434'
+let delay        = 500
+let concurrency  = 1
+let mongoUri     = process.env.MONGO_URI  ?? null
+let mongoDb      = process.env.MONGO_DB   ?? null
+let scrapeAll    = false
+let dryRun       = false
+let debugPage    = false
 let ollamaTimeout = 600000
 
 for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-        case '--input':       inputFile   = args[++i]; break
-        case '--output':      outputFile  = args[++i]; break
-        case '--model':       model       = args[++i]; break
-        case '--ollama':      ollamaUrl   = args[++i]; break
-        case '--delay':       delay       = parseInt(args[++i], 10); break
-        case '--concurrency': concurrency = parseInt(args[++i], 10); break
-        case '--mongo-uri':   mongoUri    = args[++i]; break
-        case '--mongo-db':    mongoDb     = args[++i]; break
+        case '--input':       inputFile    = args[++i]; break
+        case '--output':      outputFile   = args[++i]; break
+        case '--model':       model        = args[++i]; break
+        case '--ollama':      ollamaUrl    = args[++i]; break
+        case '--delay':       delay        = parseInt(args[++i], 10); break
+        case '--concurrency': concurrency  = parseInt(args[++i], 10); break
+        case '--mongo-uri':   mongoUri     = args[++i]; break
+        case '--mongo-db':    mongoDb      = args[++i]; break
         case '--timeout':     ollamaTimeout = parseInt(args[++i], 10) * 1000; break
-        case '--all':         scrapeAll   = true; break
-        case '--dry-run':     dryRun      = true; break
+        case '--all':         scrapeAll    = true; break
+        case '--dry-run':     dryRun       = true; break
+        case '--debug-page':  debugPage    = true; break
         default:
             if (!args[i].startsWith('--')) names.push(args[i])
     }
@@ -96,10 +106,10 @@ if (!mongoDb) {
 
 // ── Connect to MongoDB ────────────────────────────────────────────────────────
 
-const mongo  = new MongoClient(mongoUri)
+const mongo = new MongoClient(mongoUri)
 await mongo.connect()
-const db     = mongo.db(mongoDb)
-const users  = db.collection('users')
+const db    = mongo.db(mongoDb)
+const users = db.collection('users')
 
 console.log(`Connected to MongoDB: ${mongoDb}`)
 
@@ -143,87 +153,146 @@ if (names.length === 0) {
 console.log(`Scraping ${names.length} members using model "${model}" at ${ollamaUrl}`)
 if (dryRun) console.log('DRY RUN — no database writes will occur')
 
-// ── HTML → readable text (preserves table structure) ─────────────────────────
+// ── Browser management ────────────────────────────────────────────────────────
 
-function htmlToText(html) {
-    return html
-        // Remove script/style blocks entirely
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        // Table rows become newlines
-        .replace(/<\/tr\s*>/gi, '\n')
-        // Table cells become pipe-separated columns
-        .replace(/<\/t[dh]\s*>/gi, ' | ')
-        // Section/block elements get newlines
-        .replace(/<\/?(div|section|article|header|footer|h[1-6]|p|li|ul|ol|br)[^>]*>/gi, '\n')
-        // Strip all remaining tags
-        .replace(/<[^>]+>/g, '')
-        // Decode common entities
-        .replace(/&amp;/g, '&')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&mdash;/g, '—')
-        .replace(/&ndash;/g, '–')
-        .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-        // Collapse multiple spaces on each line, but keep newlines
-        .split('\n')
-        .map(line => line.replace(/\s{2,}/g, ' ').trim())
-        .filter(line => line.length > 0)
-        .join('\n')
+let _browser = null
+
+async function getBrowser() {
+    if (!_browser) {
+        _browser = await chromium.launch({ headless: true })
+    }
+    return _browser
 }
 
-// ── Fetch profile page ────────────────────────────────────────────────────────
+// ── Fetch profile — visual position text extraction via Playwright ────────────
+//
+// The DOM order on Squarespace pages is completely scrambled — each table cell
+// is an isolated block and their DOM ordering does not match the visual layout.
+// The only reliable approach is to read every text node's actual on-screen
+// position via getBoundingClientRect(), sort by Y then X, and group into rows.
 
 async function fetchProfile(name) {
     const slug = name.toLowerCase().replace(/\s+/g, '')
     const url  = `https://www.australianspecialoperationstaskforce.com/${slug}`
-    const res  = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        signal: AbortSignal.timeout(15000),
+
+    const browser = await getBrowser()
+    const context = await browser.newContext({
+        viewport: { width: 1280, height: 4000 },
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`)
-    return htmlToText(await res.text())
+    const page = await context.newPage()
+
+    try {
+        const response = await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 })
+        if (!response.ok()) throw new Error(`HTTP ${response.status()} for ${url}`)
+
+        const result = await page.evaluate(() => {
+            const SKIP = new Set(['STYLE', 'SCRIPT', 'NOSCRIPT', 'SVG'])
+            const items = []
+
+            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+                acceptNode(n) {
+                    for (let p = n.parentElement; p; p = p.parentElement) {
+                        if (SKIP.has(p.tagName)) return NodeFilter.FILTER_REJECT
+                        const s = getComputedStyle(p)
+                        if (s.display === 'none' || s.visibility === 'hidden') return NodeFilter.FILTER_REJECT
+                    }
+                    return NodeFilter.FILTER_ACCEPT
+                }
+            })
+
+            let node
+            while ((node = walker.nextNode())) {
+                const t = node.textContent.trim()
+                if (!t) continue
+                const range = document.createRange()
+                range.selectNodeContents(node)
+                const rect = range.getBoundingClientRect()
+                if (rect.height === 0) continue
+                items.push({ t, x: Math.round(rect.left), y: Math.round(rect.top) })
+            }
+
+            // Sort by Y position (top-to-bottom), then X (left-to-right within a row)
+            items.sort((a, b) => a.y - b.y || a.x - b.x)
+
+            // Group items that appear on the same visual row (within Y_TOL pixels)
+            const Y_TOL = 10
+            const rows = []
+            for (const item of items) {
+                const last = rows[rows.length - 1]
+                if (!last || item.y - last[0].y > Y_TOL) {
+                    rows.push([item])
+                } else {
+                    last.push(item)
+                }
+            }
+
+            const text  = rows.map(r => r.map(i => i.t).join(' | ')).join('\n')
+            const debug = rows.map(r =>
+                `y=${String(r[0].y).padStart(4)}: ` +
+                r.map(i => `[x=${String(i.x).padStart(4)}] ${i.t}`).join('   ')
+            ).join('\n')
+
+            return { text, debug }
+        })
+
+        return result
+    } finally {
+        await context.close()
+    }
 }
 
-// ── Ollama extraction ─────────────────────────────────────────────────────────
+// ── Ollama text extraction ────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a data extraction assistant. Extract structured military records from a personnel profile page.
+const SYSTEM_PROMPT = `You are a data extraction assistant. Extract structured military records from an ASOT (Australian Special Operations Taskforce) personnel profile page.
 
-Return ONLY a single valid JSON object with exactly these three keys:
+The text below was extracted from the rendered page in visual reading order. Each line is one visual row; columns within a row are separated by " | ".
 
-"awards": array of { "name": string, "date": string, "type": string }
-  - name: the exact award or citation name (e.g. "ASOT Service Citation", "Campaign Medallion")
-  - date: in "DD Mon YYYY" format, or "" if unknown
-  - type: one of "Service Citation", "Non-Operational Award", "Operational Service Citation"
+The page contains three tables to extract:
 
-"promotions": array of { "date": string, "rank": string, "role": string }
-  - date: in "DD Mon YYYY" format, or "" if unknown
-  - rank: the military rank (e.g. "Private", "Corporal", "Sergeant") — each entry should reflect the rank at that point in time
-  - role: the position or role title at that promotion
+1. AWARDS AND CITATIONS
+   - Columns: Date | Award Name | Type
+   - Type is one of: "Operational Service Citation", "Service Citation", "Non-Operational Award"
+   - If type column is missing, infer it: "X Year Service Citation" → "Service Citation", anything with "Campaign Medallion" → "Operational Service Citation", all others → "Non-Operational Award"
+   - Skip the header row (Date / Award / Type)
 
-"campaigns": array of { "name": string, "from": string, "to": string }
-  - name: the operation name (e.g. "Operation Grey Fields")
-  - from/to: dates in "DD Mon YYYY" format, or "" if unknown
+2. PROMOTIONS AND ROLES
+   - Columns: Date | Rank | Role
+   - Rank examples: Recruit, Private, Private Proficient, Leading Private, Senior Private, Corporal, Sergeant, Lieutenant, etc.
+   - Role examples: Reservist, Rifleman (CFA), Section Medic, Fireteam Leader, Section Commander, Medical Officer, etc.
+   - IMPORTANT: Due to layout quirks, the Rank and Role values may sometimes appear swapped in the extracted text. Use your knowledge of the distinction to correct this before outputting: Rank is a military grade (Private, Corporal, Sergeant…), Role is a position or specialty (Rifleman, Section Medic, Reservist…). If the extracted "rank" looks like a role and vice versa, swap them.
+   - Skip the header row (Date / Rank / Role)
 
-Rules:
-- Use empty arrays [] if no data is found for a section
-- Do not guess or invent data — only extract what is explicitly present on the page
-- Do not include any text, explanation, or markdown outside the JSON object`
+3. CAMPAIGNS
+   - Columns: Date Range | Operation Name
+   - Date ranges look like "28 Sep 2024 - 20 Oct 2024" — split on " - " for from/to fields
+   - Skip the header row (Date / Campaign)
+
+Return ONLY a single valid JSON object:
+{
+  "awards":     [{ "name": string, "date": string, "type": string }],
+  "promotions": [{ "date": string, "rank": string, "role": string }],
+  "campaigns":  [{ "name": string, "from": string, "to": string }]
+}
+
+RULES:
+- Use [] for any section with no data
+- Do not invent data — only extract what is present on the page
+- No markdown or text outside the JSON`
 
 async function extractWithOllama(pageText, name) {
-    const userMessage = `Extract the military records for ${name} from this profile page:\n\n${pageText.slice(0, 16000)}`
+    const prompt = `Extract the military records for ${name} from this profile page:\n\n${pageText.slice(0, 16000)}`
 
     const res = await fetch(`${ollamaUrl}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             model,
-            prompt: userMessage,
+            prompt,
             system: SYSTEM_PROMPT,
             stream: true,
             format: 'json',
-            options: { temperature: 0.1, num_predict: 2048 },
+            options: { temperature: 0.1, num_predict: 4096 },
         }),
         signal: AbortSignal.timeout(ollamaTimeout),
     })
@@ -239,16 +308,20 @@ async function extractWithOllama(pageText, name) {
         for (const line of lines) {
             try {
                 const obj = JSON.parse(line)
-                if (obj.response) {
-                    raw += obj.response
-                    process.stdout.write(obj.response)
+                const token = obj.message?.content ?? obj.response ?? ''
+                if (token) {
+                    raw += token
+                    process.stdout.write(token)
                 }
             } catch { /* ignore malformed chunks */ }
         }
     }
     console.log('\n')
 
-    const jsonMatch = raw.match(/\{[\s\S]*\}/)
+    // Strip any thinking blocks (e.g. <think>...</think> from reasoning models)
+    const stripped = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim()
+
+    const jsonMatch = stripped.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error(`No JSON found in Ollama response for ${name}`)
 
     const parsed = JSON.parse(jsonMatch[0])
@@ -320,8 +393,20 @@ async function processName(name) {
     const start = Date.now()
     process.stdout.write(`  ${name}... `)
     try {
-        const pageText = await fetchProfile(name)
-        const result   = await extractWithOllama(pageText, name)
+        const { text: pageText, debug: pageDebug } = await fetchProfile(name)
+
+        if (debugPage) {
+            console.log('\n─── VISUAL POSITIONS (y / x / text) ─────────────────────\n')
+            console.log(pageDebug.slice(0, 8000))
+            console.log('\n─── PAGE TEXT (row-grouped) ──────────────────────────────\n')
+            console.log(pageText.slice(0, 8000))
+            console.log('\n──────────────────────────────────────────────────────────\n')
+            if (_browser) await _browser.close()
+            await mongo.close()
+            process.exit(0)
+        }
+
+        const result = await extractWithOllama(pageText, name)
 
         let dbStatus = 'skipped (dry-run)'
         if (!dryRun) {
@@ -396,4 +481,5 @@ if (outputFile !== 'none') {
 
 console.log(`\nDone. ${succeeded} succeeded, ${failed} failed.`)
 
+if (_browser) await _browser.close()
 await mongo.close()
