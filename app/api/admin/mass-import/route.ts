@@ -325,10 +325,9 @@ export async function POST(request: NextRequest) {
     const milpacUpdates = new Map<string, {
         currentRank?: string
         enlistedDate?: string
-        qualifications: { date: string; qualification: string }[]
-        awards: { date: string; name: string; type: string }[]
         promotionPoints: number
         j4Points: number
+        billetCounts: Omit<MilpacImportCounts, 'awards' | 'qualifications' | 'j4Points'>
     }>()
 
     let mastersheetMatched = 0
@@ -366,10 +365,26 @@ export async function POST(request: NextRequest) {
         milpacUpdates.set(user._id, {
             currentRank:    row.currentRank || undefined,
             enlistedDate:   row.dateJoined || undefined,
-            qualifications: row.qualifications,
-            awards:         row.awards,
             promotionPoints: calculatePromotionPoints(counts),
             j4Points:       row.j4Points,
+            billetCounts: {
+                primaryNightOps:    row.primaryNightOps,
+                secondaryNightOps:  row.secondaryNightOps,
+                primaryNightFTX:    row.primaryNightFTX,
+                secondaryNightFTX:  row.secondaryNightFTX,
+                platoonTraining:    row.platoonTraining,
+                sectionTraining:    row.sectionTraining,
+                meetings:           row.meetings,
+                campaignMedals:     0,
+                j1Interviews:       row.j1Interviews,
+                j1InterviewBonus:   row.j1InterviewBonus,
+                j2MissionsRun:      row.j2MissionsRun,
+                j3Bct12:            row.j3Bct12,
+                j3OtherTrainings:   row.j3OtherTrainings,
+                j5ContentCreated:   row.j5ContentCreated,
+                j5MilpacsGenerated: row.j5MilpacsGenerated,
+                j5OfficialPR:       row.j5OfficialPR,
+            },
         })
     }
 
@@ -394,10 +409,9 @@ export async function POST(request: NextRequest) {
                         $set: {
                             ...(data.currentRank  ? { 'milpac.currentRank':    data.currentRank  } : {}),
                             ...(data.enlistedDate ? { 'milpac.enlistedDate':   data.enlistedDate } : {}),
-                            'milpac.qualifications':  data.qualifications,
-                            'milpac.awards':           data.awards,
                             'milpac.promotionPoints':  data.promotionPoints,
                             'milpac.j4Points':         data.j4Points,
+                            'milpac.billetCounts':     data.billetCounts,
                         },
                     },
                 },
