@@ -33,7 +33,7 @@ interface MastersheetRow {
     j5MilpacsGenerated: number
     j5OfficialPR: number
     // Mapped qualifications and awards
-    qualifications: { date: string; qualification: string; trainer: string }[]
+    qualifications: { date: string; qualification: string }[]
     awards: { date: string; name: string; type: string }[]
 }
 
@@ -153,7 +153,7 @@ function parseMastersheet(csv: string): MastersheetRow[] {
 
         for (const [col, cert] of certColMap) {
             if (isTruthy(row[col] ?? '')) {
-                qualifications.push({ date: '', qualification: cert.label, trainer: 'Mastersheet' })
+                qualifications.push({ date: '', qualification: cert.label })
             }
         }
         for (const [col, award] of awardColMap) {
@@ -325,7 +325,7 @@ export async function POST(request: NextRequest) {
     const milpacUpdates = new Map<string, {
         currentRank?: string
         enlistedDate?: string
-        qualifications: { date: string; qualification: string; trainer: string }[]
+        qualifications: { date: string; qualification: string }[]
         awards: { date: string; name: string; type: string }[]
         promotionPoints: number
         j4Points: number

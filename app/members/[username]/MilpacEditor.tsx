@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
 import { RANK_GROUPS, RANKS_FLAT, rankAbbrFromName, rankNameFromAbbr } from '@/lib/ranks'
+import { QUALIFICATIONS } from '@/lib/qualifications'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -26,7 +27,7 @@ function todayStr() {
 type Promotion = { _key: string; date: string; rank: string; role: string }
 type Award = { _key: string; date: string; name: string; type: string }
 type Operation = { _key: string; startToEndDate: string; name: string }
-type Qualification = { _key: string; date: string; qualification: string; trainer: string }
+type Qualification = { _key: string; date: string; qualification: string }
 
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -206,6 +207,87 @@ function RankSelect({ value, onChange, placeholder = '— None —' }: { value: 
                             <div style={{ padding: '10px 12px', fontSize: '0.78rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>
                                 No ranks match "{query}"
                             </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
+
+// ── Qualification search select ───────────────────────────────────────────────
+
+function QualificationSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+    const [open, setOpen] = useState(false)
+    const [query, setQuery] = useState('')
+    const ref = useRef<HTMLDivElement>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        if (!open) return
+        inputRef.current?.focus()
+        function onDown(e: MouseEvent) {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', onDown)
+        return () => document.removeEventListener('mousedown', onDown)
+    }, [open])
+
+    const q = query.toLowerCase()
+    const filtered = QUALIFICATIONS.filter(ql => ql.toLowerCase().includes(q))
+
+    return (
+        <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+            <button
+                type='button'
+                onClick={() => { setOpen(o => !o); setQuery('') }}
+                style={{
+                    ...selectStyle,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+                    textAlign: 'left', width: '100%',
+                    color: value ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)',
+                }}
+            >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value || '— Select qualification —'}</span>
+                <span style={{ fontSize: '0.6rem', opacity: 0.4, flexShrink: 0 }}>▼</span>
+            </button>
+
+            {open && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                    background: 'rgb(18,18,18)', border: '1px solid rgba(255,255,255,0.12)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column',
+                    maxHeight: 280,
+                }}>
+                    <div style={{ padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+                        <input
+                            ref={inputRef}
+                            value={query}
+                            onChange={e => setQuery(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Escape') setOpen(false) }}
+                            placeholder='Search qualification…'
+                            style={{ ...inputStyle, fontSize: '0.78rem', padding: '5px 8px' }}
+                        />
+                    </div>
+                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                        {filtered.map(ql => (
+                            <div
+                                key={ql}
+                                onMouseDown={() => { onChange(ql); setOpen(false) }}
+                                style={{
+                                    padding: '7px 12px', fontSize: '0.82rem', cursor: 'pointer',
+                                    color: ql === value ? 'rgba(237,237,237,1)' : 'rgba(237,237,237,0.75)',
+                                    background: ql === value ? 'rgba(255,255,255,0.07)' : 'transparent',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = ql === value ? 'rgba(255,255,255,0.07)' : 'transparent')}
+                            >
+                                {ql}
+                            </div>
+                        ))}
+                        {filtered.length === 0 && (
+                            <div style={{ padding: '7px 12px', fontSize: '0.78rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>No results</div>
                         )}
                     </div>
                 </div>
@@ -434,7 +516,7 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
 
     function addQualification() {
         markDirty()
-        setQualifications(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), qualification: '', trainer: '' }])
+        setQualifications(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), qualification: '' }])
     }
     function updateQualification(i: number, field: keyof Qualification, value: string) {
         markDirty()
@@ -663,11 +745,7 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                                                 </div>
                                                 <div className='flex flex-col gap-2 flex-1 min-w-0'>
                                                     <Label>Qualification</Label>
-                                                    <input value={q.qualification} onChange={e => updateQualification(i, 'qualification', e.target.value)} placeholder='Basic Rifleman Course' style={inputStyle} />
-                                                </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Trainer</Label>
-                                                    <input value={q.trainer} onChange={e => updateQualification(i, 'trainer', e.target.value)} placeholder='SGT Smith' style={inputStyle} />
+                                                    <QualificationSelect value={q.qualification} onChange={v => updateQualification(i, 'qualification', v)} />
                                                 </div>
                                                 <DeleteBtn onClick={() => removeQualification(i)} />
                                             </div>
@@ -684,8 +762,7 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                                     <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(14,14,14,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', opacity: 0.95 }}>
                                         <DragHandle />
                                         <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}><Label>Date</Label><input value={q.date} readOnly style={inputStyle} /></div>
-                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Qualification</Label><input value={q.qualification} readOnly style={inputStyle} /></div>
-                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Trainer</Label><input value={q.trainer} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Qualification</Label><div style={{ ...inputStyle, color: q.qualification ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)' }}>{q.qualification || '— Select qualification —'}</div></div>
                                         <DeleteBtn onClick={() => {}} />
                                     </div>
                                 )

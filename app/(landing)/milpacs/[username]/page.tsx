@@ -298,7 +298,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 								<tr>
 									<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Date</th>
 									<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Qualification</th>
-									<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Trainer</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -306,7 +305,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 									<tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
 										<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem', width: 130 }}>{q.date}</td>
 										<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{q.qualification}</td>
-										<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.5)' }}>{q.trainer}</td>
 									</tr>
 								))}
 							</tbody>

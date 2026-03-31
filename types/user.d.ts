@@ -72,7 +72,6 @@ declare global {
             qualifications?: {
                 date: string
                 qualification: string
-                trainer: string
             }[]
             promotionPoints?: number
             j4Points?: number

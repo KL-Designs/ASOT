@@ -57,7 +57,7 @@ const args = process.argv.slice(2)
 const names = []
 let inputFile   = null
 let outputFile  = 'milpacs-scraped.json'
-let model       = 'llama3.2:3b'
+let model       = 'huihui_ai/qwen3-abliterated:30b'
 let ollamaUrl   = 'http://localhost:11434'
 let delay       = 500
 let concurrency = 1
@@ -65,6 +65,7 @@ let mongoUri    = process.env.MONGO_URI  ?? null
 let mongoDb     = process.env.MONGO_DB   ?? null
 let scrapeAll   = false
 let dryRun      = false
+let ollamaTimeout = 600000
 
 for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -76,6 +77,7 @@ for (let i = 0; i < args.length; i++) {
         case '--concurrency': concurrency = parseInt(args[++i], 10); break
         case '--mongo-uri':   mongoUri    = args[++i]; break
         case '--mongo-db':    mongoDb     = args[++i]; break
+        case '--timeout':     ollamaTimeout = parseInt(args[++i], 10) * 1000; break
         case '--all':         scrapeAll   = true; break
         case '--dry-run':     dryRun      = true; break
         default:
@@ -136,21 +138,34 @@ if (names.length === 0) {
 console.log(`Scraping ${names.length} members using model "${model}" at ${ollamaUrl}`)
 if (dryRun) console.log('DRY RUN — no database writes will occur')
 
-// ── HTML stripping ────────────────────────────────────────────────────────────
+// ── HTML → readable text (preserves table structure) ─────────────────────────
 
-function stripHtml(html) {
+function htmlToText(html) {
     return html
-        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-        .replace(/<[^>]+>/g, ' ')
+        // Remove script/style blocks entirely
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        // Table rows become newlines
+        .replace(/<\/tr\s*>/gi, '\n')
+        // Table cells become pipe-separated columns
+        .replace(/<\/t[dh]\s*>/gi, ' | ')
+        // Section/block elements get newlines
+        .replace(/<\/?(div|section|article|header|footer|h[1-6]|p|li|ul|ol|br)[^>]*>/gi, '\n')
+        // Strip all remaining tags
+        .replace(/<[^>]+>/g, '')
+        // Decode common entities
         .replace(/&amp;/g, '&')
         .replace(/&nbsp;/g, ' ')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&mdash;/g, '—')
         .replace(/&ndash;/g, '–')
-        .replace(/\s+/g, ' ')
-        .trim()
+        .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+        // Collapse multiple spaces on each line, but keep newlines
+        .split('\n')
+        .map(line => line.replace(/\s{2,}/g, ' ').trim())
+        .filter(line => line.length > 0)
+        .join('\n')
 }
 
 // ── Fetch profile page ────────────────────────────────────────────────────────
@@ -163,24 +178,36 @@ async function fetchProfile(name) {
         signal: AbortSignal.timeout(15000),
     })
     if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`)
-    return stripHtml(await res.text())
+    return htmlToText(await res.text())
 }
 
 // ── Ollama extraction ─────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a data extraction assistant. Given the text of a military personnel profile page, extract:
-1. Awards and Citations: array of { name, date, type } where type is one of "Service Citation", "Non-Operational Award", "Operational Service Citation"
-2. Promotions and Roles: array of { date, rank, role }
-3. Campaigns/Operations: array of { name, from, to }
+const SYSTEM_PROMPT = `You are a data extraction assistant. Extract structured military records from a personnel profile page.
+
+Return ONLY a single valid JSON object with exactly these three keys:
+
+"awards": array of { "name": string, "date": string, "type": string }
+  - name: the exact award or citation name (e.g. "ASOT Service Citation", "Campaign Medallion")
+  - date: in "DD Mon YYYY" format, or "" if unknown
+  - type: one of "Service Citation", "Non-Operational Award", "Operational Service Citation"
+
+"promotions": array of { "date": string, "rank": string, "role": string }
+  - date: in "DD Mon YYYY" format, or "" if unknown
+  - rank: the military rank (e.g. "Private", "Corporal", "Sergeant") — each entry should reflect the rank at that point in time
+  - role: the position or role title at that promotion
+
+"campaigns": array of { "name": string, "from": string, "to": string }
+  - name: the operation name (e.g. "Operation Grey Fields")
+  - from/to: dates in "DD Mon YYYY" format, or "" if unknown
 
 Rules:
-- Return ONLY a single valid JSON object with keys: awards, promotions, campaigns
-- Use empty arrays if no data found for a section
-- Dates should be in "DD Mon YYYY" format where available, or empty string if unknown
-- Do not include any explanation or text outside the JSON`
+- Use empty arrays [] if no data is found for a section
+- Do not guess or invent data — only extract what is explicitly present on the page
+- Do not include any text, explanation, or markdown outside the JSON object`
 
 async function extractWithOllama(pageText, name) {
-    const userMessage = `Extract the military records from this profile page for ${name}:\n\n${pageText.slice(0, 8000)}`
+    const userMessage = `Extract the military records for ${name} from this profile page:\n\n${pageText.slice(0, 16000)}`
 
     const res = await fetch(`${ollamaUrl}/api/generate`, {
         method: 'POST',
@@ -189,16 +216,32 @@ async function extractWithOllama(pageText, name) {
             model,
             prompt: userMessage,
             system: SYSTEM_PROMPT,
-            stream: false,
+            stream: true,
             format: 'json',
             options: { temperature: 0.1, num_predict: 2048 },
         }),
-        signal: AbortSignal.timeout(120000),
+        signal: AbortSignal.timeout(ollamaTimeout),
     })
 
     if (!res.ok) throw new Error(`Ollama error: ${res.status}`)
-    const data = await res.json()
-    const raw  = data.response?.trim() ?? ''
+
+    // Stream and print the response live
+    console.log('')
+    let raw = ''
+    const decoder = new TextDecoder()
+    for await (const chunk of res.body) {
+        const lines = decoder.decode(chunk).split('\n').filter(l => l.trim())
+        for (const line of lines) {
+            try {
+                const obj = JSON.parse(line)
+                if (obj.response) {
+                    raw += obj.response
+                    process.stdout.write(obj.response)
+                }
+            } catch { /* ignore malformed chunks */ }
+        }
+    }
+    console.log('\n')
 
     const jsonMatch = raw.match(/\{[\s\S]*\}/)
     if (!jsonMatch) throw new Error(`No JSON found in Ollama response for ${name}`)
@@ -246,9 +289,30 @@ async function writeToDb(name, data) {
     return { matched: true, userId: user._id }
 }
 
+// ── ETA tracking ─────────────────────────────────────────────────────────────
+
+const etaTimes = []
+let etaCompleted = 0
+
+function formatDuration(ms) {
+    if (ms < 60000) return `${Math.round(ms / 1000)}s`
+    const m = Math.floor(ms / 60000)
+    const s = Math.round((ms % 60000) / 1000)
+    return s > 0 ? `${m}m ${s}s` : `${m}m`
+}
+
+function etaLine() {
+    if (etaTimes.length === 0 || etaCompleted >= names.length) return ''
+    const avg = etaTimes.reduce((a, b) => a + b, 0) / etaTimes.length
+    const remaining = names.length - etaCompleted
+    const eta = avg * remaining
+    return ` | avg ${formatDuration(avg)} each, ~${formatDuration(eta)} remaining (${etaCompleted}/${names.length})`
+}
+
 // ── Process a single name ─────────────────────────────────────────────────────
 
 async function processName(name) {
+    const start = Date.now()
     process.stdout.write(`  ${name}... `)
     try {
         const pageText = await fetchProfile(name)
@@ -260,11 +324,18 @@ async function processName(name) {
             dbStatus = matched ? 'saved to DB' : 'no DB match'
         }
 
+        const elapsed = Date.now() - start
+        etaTimes.push(elapsed)
+        etaCompleted++
+
         const counts = `${result.awards.length} awards, ${result.promotions.length} promotions, ${result.campaigns.length} campaigns`
-        console.log(`✓ (${counts}) [${dbStatus}]`)
+        console.log(`✓ (${counts}) [${dbStatus}] ${formatDuration(elapsed)}${etaLine()}`)
         return { name, data: result, error: null }
     } catch (err) {
-        console.log(`✗ ${err.message}`)
+        const elapsed = Date.now() - start
+        etaTimes.push(elapsed)
+        etaCompleted++
+        console.log(`✗ ${err.message} ${formatDuration(elapsed)}${etaLine()}`)
         return { name, data: null, error: err.message }
     }
 }
