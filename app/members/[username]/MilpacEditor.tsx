@@ -757,7 +757,7 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
 
             {/* Data integrity warnings */}
             {(() => {
-                const awardLabels = new Set(AWARDS.map(a => a.label))
+                const awardLabels = new Set<string>(AWARDS.map(a => a.label))
                 const awardNames = awards.map(a => a.name).filter(Boolean)
                 const dupAwardNames = new Set(awardNames.filter((n, _, arr) => arr.filter(x => x === n).length > 1))
                 const dupAwardCount = awards.filter(a => a.name && dupAwardNames.has(a.name)).length
