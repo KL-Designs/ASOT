@@ -5,6 +5,8 @@ import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
 import { RANK_GROUPS, RANKS_FLAT, rankAbbrFromName, rankNameFromAbbr } from '@/lib/ranks'
 import { QUALIFICATIONS } from '@/lib/qualifications'
+import { AWARDS } from '@/lib/awards'
+import { CERTIFICATIONS } from '@/lib/certifications'
 import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/points'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
@@ -99,6 +101,77 @@ function DeleteBtn({ onClick }: { onClick: () => void }) {
         >
             ✕
         </button>
+    )
+}
+
+
+// ── Award name combobox ────────────────────────────────────────────────────────
+
+function AwardNameInput({ value, onChange, onSelect }: {
+    value: string
+    onChange: (name: string) => void
+    onSelect: (name: string, type: string) => void
+}) {
+    const [open, setOpen] = useState(false)
+    const [query, setQuery] = useState(value)
+    const ref = useRef<HTMLDivElement>(null)
+
+    useEffect(() => { setQuery(value) }, [value])
+
+    useEffect(() => {
+        if (!open) return
+        function onDown(e: MouseEvent) {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', onDown)
+        return () => document.removeEventListener('mousedown', onDown)
+    }, [open])
+
+    const isKnown = !value || AWARDS.some(a => a.label === value)
+    const filtered = query.trim()
+        ? AWARDS.filter(a => a.label.toLowerCase().includes(query.toLowerCase()))
+        : [...AWARDS]
+
+    return (
+        <div ref={ref} style={{ position: 'relative' }}>
+            <input
+                value={query}
+                onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
+                onFocus={() => setOpen(true)}
+                placeholder='Broken Lance Award'
+                style={{ ...inputStyle, borderColor: isKnown ? 'rgba(255,255,255,0.1)' : 'rgba(234,179,8,0.5)' }}
+            />
+            {!isKnown && (
+                <span style={{ fontSize: '0.6rem', color: 'rgba(234,179,8,0.7)', marginTop: 2, display: 'block' }}>
+                    Unrecognized award
+                </span>
+            )}
+            {open && filtered.length > 0 && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                    background: 'rgb(18,18,18)', border: '1px solid rgba(255,255,255,0.15)',
+                    maxHeight: 200, overflowY: 'auto',
+                }}>
+                    {filtered.map(award => (
+                        <div
+                            key={award.label}
+                            onMouseDown={e => {
+                                e.preventDefault()
+                                setQuery(award.label)
+                                onSelect(award.label, award.type)
+                                setOpen(false)
+                            }}
+                            style={{ padding: '6px 10px', fontSize: '0.8rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(219,0,29,0.15)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                            <div style={{ color: 'rgba(237,237,237,0.85)' }}>{award.label}</div>
+                            <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)' }}>{award.type}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
     )
 }
 
@@ -661,6 +734,138 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                 </div>
             </SectionCard>
 
+            {/* Billet Points */}
+            {(() => {
+                const counts: MilpacImportCounts = {
+                    ...billetCounts,
+                    awards: awards.map(a => ({ name: a.name })),
+                    qualifications: qualifications.map(q => ({ qualification: q.qualification })),
+                    j4Points,
+                }
+                const total = calculatePromotionPoints(counts)
+
+                function countInput(field: keyof typeof billetCounts, label: string, hint?: string) {
+                    return (
+                        <div className='flex flex-col gap-1'>
+                            <Label>{label}</Label>
+                            {hint && <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.03em' }}>{hint}</span>}
+                            <input
+                                type='number'
+                                min={0}
+                                value={billetCounts[field]}
+                                onChange={e => {
+                                    markDirty()
+                                    setBilletCounts(prev => ({ ...prev, [field]: Math.max(0, parseInt(e.target.value) || 0) }))
+                                }}
+                                style={{ ...inputStyle, width: '100%' }}
+                            />
+                        </div>
+                    )
+                }
+
+                // Award points breakdown
+                const awardPointMap = new Map(AWARDS.map(a => [a.label, a.points]))
+                const awardBreakdown = counts.awards
+                    .map(a => ({ name: a.name, pts: awardPointMap.get(a.name) ?? 0 }))
+                    .filter(a => a.pts > 0)
+
+                // Qualification points breakdown
+                const certPointMap = new Map(CERTIFICATIONS.map(c => [c.label, c.points]))
+                const qualBreakdown = counts.qualifications
+                    .map(q => ({ name: q.qualification, pts: certPointMap.get(q.qualification) ?? 0 }))
+                    .filter(q => q.pts > 0)
+
+                return (
+                    <SectionCard title='Billet Points'>
+                        {/* Calculated total */}
+                        <div className='flex items-center justify-between' style={{ padding: '8px 12px', background: 'rgba(219,0,29,0.06)', border: '1px solid rgba(219,0,29,0.2)' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
+                                Calculated Promotion Points
+                            </span>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'rgba(219,0,29,0.9)', letterSpacing: '0.04em' }}>
+                                {total}
+                            </span>
+                        </div>
+
+                        {/* Operations group */}
+                        <div>
+                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 8 }}>
+                                Operations
+                            </div>
+                            <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
+                                {countInput('primaryNightOps',   'Primary Ops',    '2 pts each')}
+                                {countInput('secondaryNightOps', 'Secondary Ops',  '1 pt each')}
+                                {countInput('primaryNightFTX',   'Primary FTX',    '3 pts each')}
+                                {countInput('secondaryNightFTX', 'Secondary FTX',  '2 pts each')}
+                                {countInput('platoonTraining',   'Plt Training',   '1 pt each')}
+                                {countInput('sectionTraining',   'Sec Training',   '1 pt each')}
+                                {countInput('meetings',          'Meetings',       '1 pt each')}
+                                {countInput('campaignMedals',    'Campaign Medals','2 pts each')}
+                            </div>
+                        </div>
+
+                        {/* Departments group */}
+                        <div>
+                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 8 }}>
+                                Department Actions
+                            </div>
+                            <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
+                                {countInput('j1Interviews',       'J1 Interviews',     'floor(n/3) pts')}
+                                {countInput('j1InterviewBonus',   'J1 Bonus',          '1 pt each')}
+                                {countInput('j2MissionsRun',      'J2 Missions',       '2 pts each')}
+                                {countInput('j3Bct12',            'J3 BCT 1/2',        '1 pt each')}
+                                {countInput('j3OtherTrainings',   'J3 Other Training', '2 pts each')}
+                                {countInput('j5ContentCreated',   'J5 Content',        '1 pt each')}
+                                {countInput('j5MilpacsGenerated', 'J5 Milpacs',        'floor(n/5) pts')}
+                                {countInput('j5OfficialPR',       'J5 PR Posts',       'floor(n/5) pts')}
+                            </div>
+                        </div>
+
+                        {/* J4 manual adjustment */}
+                        <div>
+                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 8 }}>
+                                Manual Adjustment
+                            </div>
+                            <div style={{ maxWidth: 160 }}>
+                                <div className='flex flex-col gap-1'>
+                                    <Label>J4 Points</Label>
+                                    <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.03em' }}>Can be negative</span>
+                                    <input
+                                        type='number'
+                                        value={j4Points}
+                                        onChange={e => { markDirty(); setJ4Points(parseInt(e.target.value) || 0) }}
+                                        style={{ ...inputStyle, width: '100%' }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Awards & qualifications breakdown */}
+                        {(awardBreakdown.length > 0 || qualBreakdown.length > 0) && (
+                            <div>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 8 }}>
+                                    From Awards &amp; Qualifications
+                                </div>
+                                <div className='flex flex-col gap-1'>
+                                    {awardBreakdown.map(a => (
+                                        <div key={a.name} className='flex justify-between' style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.55)' }}>
+                                            <span>{a.name}</span>
+                                            <span style={{ color: 'rgba(219,0,29,0.7)', fontWeight: 600 }}>+{a.pts}</span>
+                                        </div>
+                                    ))}
+                                    {qualBreakdown.map(q => (
+                                        <div key={q.name} className='flex justify-between' style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.55)' }}>
+                                            <span>{q.name}</span>
+                                            <span style={{ color: 'rgba(219,0,29,0.7)', fontWeight: 600 }}>+{q.pts}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </SectionCard>
+                )
+            })()}
+
             {/* Promotions */}
             <SectionCard title='Promotion History' onAdd={addPromotion} addLabel='Promotion'>
                 {promotions.length === 0 ? (
@@ -819,7 +1024,14 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                                                 </div>
                                                 <div className='flex flex-col gap-2 flex-1 min-w-0'>
                                                     <Label>Name</Label>
-                                                    <input value={a.name} onChange={e => updateAward(i, 'name', e.target.value)} placeholder='Broken Lance Award' style={inputStyle} />
+                                                    <AwardNameInput
+                                                        value={a.name}
+                                                        onChange={name => updateAward(i, 'name', name)}
+                                                        onSelect={(name, type) => {
+                                                            markDirty()
+                                                            setAwards(prev => prev.map((x, idx) => idx === i ? { ...x, name, type } : x))
+                                                        }}
+                                                    />
                                                 </div>
                                                 <div className='flex flex-col gap-2 flex-1 min-w-0'>
                                                     <Label>Type</Label>
@@ -852,107 +1064,6 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                     </DndContext>
                 )}
             </SectionCard>
-
-            {/* Billet Points */}
-            {(() => {
-                const counts: MilpacImportCounts = {
-                    ...billetCounts,
-                    awards: awards.map(a => ({ name: a.name })),
-                    qualifications: qualifications.map(q => ({ qualification: q.qualification })),
-                    j4Points,
-                }
-                const total = calculatePromotionPoints(counts)
-
-                function countInput(field: keyof typeof billetCounts, label: string, hint?: string) {
-                    return (
-                        <div className='flex flex-col gap-1'>
-                            <Label>{label}</Label>
-                            {hint && <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.03em' }}>{hint}</span>}
-                            <input
-                                type='number'
-                                min={0}
-                                value={billetCounts[field]}
-                                onChange={e => {
-                                    markDirty()
-                                    setBilletCounts(prev => ({ ...prev, [field]: Math.max(0, parseInt(e.target.value) || 0) }))
-                                }}
-                                style={{ ...inputStyle, width: '100%' }}
-                            />
-                        </div>
-                    )
-                }
-
-                return (
-                    <SectionCard title='Billet Points'>
-                        {/* Calculated total */}
-                        <div className='flex items-center justify-between' style={{ padding: '8px 12px', background: 'rgba(219,0,29,0.06)', border: '1px solid rgba(219,0,29,0.2)' }}>
-                            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
-                                Calculated Promotion Points
-                            </span>
-                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'rgba(219,0,29,0.9)', letterSpacing: '0.04em' }}>
-                                {total}
-                            </span>
-                        </div>
-
-                        {/* Operations group */}
-                        <div>
-                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 8 }}>
-                                Operations
-                            </div>
-                            <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
-                                {countInput('primaryNightOps',   'Primary Ops',    '2 pts each')}
-                                {countInput('secondaryNightOps', 'Secondary Ops',  '1 pt each')}
-                                {countInput('primaryNightFTX',   'Primary FTX',    '3 pts each')}
-                                {countInput('secondaryNightFTX', 'Secondary FTX',  '2 pts each')}
-                                {countInput('platoonTraining',   'Plt Training',   '1 pt each')}
-                                {countInput('sectionTraining',   'Sec Training',   '1 pt each')}
-                                {countInput('meetings',          'Meetings',       '1 pt each')}
-                                {countInput('campaignMedals',    'Campaign Medals','2 pts each')}
-                            </div>
-                        </div>
-
-                        {/* Departments group */}
-                        <div>
-                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 8 }}>
-                                Department Actions
-                            </div>
-                            <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
-                                {countInput('j1Interviews',       'J1 Interviews',     'floor(n/3) pts')}
-                                {countInput('j1InterviewBonus',   'J1 Bonus',          '1 pt each')}
-                                {countInput('j2MissionsRun',      'J2 Missions',       '2 pts each')}
-                                {countInput('j3Bct12',            'J3 BCT 1/2',        '1 pt each')}
-                                {countInput('j3OtherTrainings',   'J3 Other Training', '2 pts each')}
-                                {countInput('j5ContentCreated',   'J5 Content',        '1 pt each')}
-                                {countInput('j5MilpacsGenerated', 'J5 Milpacs',        'floor(n/5) pts')}
-                                {countInput('j5OfficialPR',       'J5 PR Posts',       'floor(n/5) pts')}
-                            </div>
-                        </div>
-
-                        {/* J4 manual adjustment */}
-                        <div>
-                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 8 }}>
-                                Manual Adjustment
-                            </div>
-                            <div style={{ maxWidth: 160 }}>
-                                <div className='flex flex-col gap-1'>
-                                    <Label>J4 Points</Label>
-                                    <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.03em' }}>Can be negative</span>
-                                    <input
-                                        type='number'
-                                        value={j4Points}
-                                        onChange={e => { markDirty(); setJ4Points(parseInt(e.target.value) || 0) }}
-                                        style={{ ...inputStyle, width: '100%' }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>
-                            Points from awards and qualifications are included in the total above.
-                        </span>
-                    </SectionCard>
-                )
-            })()}
 
             {/* Operations */}
             <SectionCard title='Operation History' onAdd={addOperation} addLabel='Operation'>

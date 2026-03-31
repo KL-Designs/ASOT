@@ -357,8 +357,8 @@ export async function POST(request: NextRequest) {
             j5ContentCreated:   row.j5ContentCreated,
             j5MilpacsGenerated: row.j5MilpacsGenerated,
             j5OfficialPR:       row.j5OfficialPR,
-            awards:             row.awards,
-            qualifications:     row.qualifications,
+            awards:             [],
+            qualifications:     [],
             j4Points:           row.j4Points,
         }
 
