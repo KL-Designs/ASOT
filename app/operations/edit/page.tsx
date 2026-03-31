@@ -153,7 +153,7 @@ const [activityOpen, setActivityOpen] = useState(false)
             {/* Edit column — natural flow, body scrolls */}
             <div style={{
                 width: '100%',
-                maxWidth: 1000,
+                maxWidth: 1220,
                 margin: '0 auto',
                 flexShrink: 0,
                 padding: 'clamp(1.5rem, 2.5vw, 2.5rem)',
@@ -328,30 +328,29 @@ const [activityOpen, setActivityOpen] = useState(false)
                             <span style={{ fontSize: '0.75rem', letterSpacing: '0.06em', color: 'rgba(237,237,237,0.55)', whiteSpace: 'nowrap' }}>Theme Color</span>
                         </label>
                         {/* Page Theme */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid rgba(255,255,255,0.1)', padding: '4px 8px' }}>
-                            <span style={{ fontSize: '0.68rem', letterSpacing: '0.08em', color: 'rgba(237,237,237,0.4)', whiteSpace: 'nowrap', marginRight: 4 }}>Page Theme</span>
-                            {(['modern', 'oldfashioned', 'scifi'] as const).map(t => (
-                                <button
-                                    key={t}
-                                    onClick={() => { setPageTheme(t); scheduleSave({ pageTheme: t }) }}
-                                    style={{
-                                        padding: '4px 10px',
-                                        fontSize: '0.62rem',
-                                        fontWeight: 700,
-                                        letterSpacing: '0.08em',
-                                        textTransform: 'uppercase',
-                                        background: pageTheme === t ? c(0.12) : 'transparent',
-                                        border: `1px solid ${pageTheme === t ? c(0.55) : 'rgba(255,255,255,0.08)'}`,
-                                        color: pageTheme === t ? c(0.9) : 'rgba(237,237,237,0.35)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s',
-                                        whiteSpace: 'nowrap',
-                                    }}
-                                >
-                                    {t === 'modern' ? 'Modern' : t === 'oldfashioned' ? 'Old Fashioned' : 'Sci-Fi'}
-                                </button>
-                            ))}
-                        </div>
+                        <select
+                            value={pageTheme}
+                            onChange={e => { setPageTheme(e.target.value as typeof pageTheme); scheduleSave({ pageTheme: e.target.value }) }}
+                            style={{
+                                background: 'rgba(0,0,0,0.4)',
+                                border: `1px solid ${c(0.35)}`,
+                                color: c(0.8),
+                                fontSize: '0.8rem',
+                                letterSpacing: '0.06em',
+                                outline: 'none',
+                                padding: '8px 12px',
+                                minWidth: 150,
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                            }}
+                        >
+                            <option value='modern' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Modern</option>
+                            <option value='oldfashioned' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Old Fashioned</option>
+                            <option value='scifi' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Sci-Fi</option>
+                        </select>
+                    </div>
+                    {/* Dates row */}
+                    <div className='flex flex-wrap gap-4'>
                         <LocalizationProvider dateAdapter={AdapterDayjs}>
                             <DateTimePicker
                                 label='Operation Date'
@@ -418,8 +417,28 @@ const [activityOpen, setActivityOpen] = useState(false)
                     onSaveStatusChange={setSaveStatus}
                 />
             ) : (
-                <div style={{ padding: '48px 0', textAlign: 'center', color: 'rgba(237,237,237,0.15)', fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                    Loading…
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <style>{`@keyframes op-pulse{0%,100%{opacity:.35}50%{opacity:.75}}.op-pulse{animation:op-pulse 1.8s ease-in-out infinite}`}</style>
+                    {[1, 0.6].map((opacity, i) => (
+                        <div key={i} style={{ border: `1px solid ${c(0.1)}`, borderTop: `2px solid ${c(0.25)}`, opacity }}>
+                            <div style={{ background: 'rgba(0,0,0,0.35)', padding: '9px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div className='op-pulse' style={{ width: 6, height: 6, background: c(0.35), flexShrink: 0 }} />
+                                    <div className='op-pulse' style={{ height: 7, width: 110 + i * 30, background: c(0.18), borderRadius: 2 }} />
+                                </div>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                    {[28, 28, 28, 28, 28].map((w, j) => (
+                                        <div key={j} className='op-pulse' style={{ width: w, height: 24, background: 'rgba(255,255,255,0.04)', borderRadius: 2 }} />
+                                    ))}
+                                </div>
+                            </div>
+                            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 11 }}>
+                                {[88, 72, 80, 52].map((w, j) => (
+                                    <div key={j} className='op-pulse' style={{ height: 8, width: `${w}%`, background: 'rgba(237,237,237,0.055)', borderRadius: 2, animationDelay: `${j * 0.12}s` }} />
+                                ))}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
 

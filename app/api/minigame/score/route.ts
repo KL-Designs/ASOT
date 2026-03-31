@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 
-// GET — top 10 scores (public)
-export async function GET() {
-    const scores = await Db.minigameScores
-        .find({})
-        .sort({ total: -1 })
-        .limit(10)
-        .toArray()
+// GET — top 10 scores (public), or all scores with ?all=true
+export async function GET(request: NextRequest) {
+    const all = request.nextUrl.searchParams.get('all') === 'true'
+    const query = Db.minigameScores.find({}).sort({ total: -1 })
+    const scores = await (all ? query : query.limit(10)).toArray()
 
     return NextResponse.json(scores, { status: 200 })
 }
@@ -27,14 +25,23 @@ export async function POST(request: NextRequest) {
     const displayName = me.guild?.nickname || me.globalName || me.username
 
     const existing = await Db.minigameScores.findOne({ userId: me.id })
-    if (!existing || total > (existing.total as number)) {
+    const isPersonalBest = !existing || total > (existing.total as number)
+
+    if (isPersonalBest) {
         await Db.minigameScores.updateOne(
             { userId: me.id },
-            { $set: { userId: me.id, displayName, score, collectScore, total, date: new Date() } },
+            {
+                $set: { userId: me.id, displayName, score, collectScore, total, date: new Date() },
+                $inc: { totalGems: collectScore },
+            },
             { upsert: true }
         )
-        return NextResponse.json({ saved: true, personal_best: true }, { status: 200 })
+    } else {
+        await Db.minigameScores.updateOne(
+            { userId: me.id },
+            { $inc: { totalGems: collectScore }, $set: { displayName } }
+        )
     }
 
-    return NextResponse.json({ saved: false, personal_best: false }, { status: 200 })
+    return NextResponse.json({ saved: isPersonalBest, personal_best: isPersonalBest }, { status: 200 })
 }

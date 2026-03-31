@@ -123,6 +123,12 @@ declare global {
         content?: PMDoc
     }
 
+    interface OperationPage {
+        id: string       // 'main' or random slug
+        title: string
+        isMain: boolean
+    }
+
     interface OperationActivityLog {
         _id: ObjectId
         operationId: ObjectId
@@ -147,6 +153,8 @@ declare global {
 
         sections?: OperationSection[]
         content?: any  // legacy single-body (pre-sections) — kept for backwards compatibility
+        pages?: OperationPage[]
+        extraPageSections?: Record<string, OperationSection[]>
 
         themeColor?: string
         pageTheme?: 'modern' | 'oldfashioned' | 'scifi'
