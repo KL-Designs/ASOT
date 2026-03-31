@@ -55,6 +55,8 @@ const PERMISSIONS = {
         manageMembers: ['J5-Media', 'J5-Milpac Staff'],
         /** /admin/orbat — manage ORBAT structure and position assignments */
         manageOrbat:   ['HQ Staff'],
+        /** Mass Import — wipe and replace all milpac/ORBAT data from CSVs */
+        massImport:    ['J4-Administration'],
     },
 
     // ── Optionals ─────────────────────────────────────────────────────────────

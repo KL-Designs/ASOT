@@ -25,7 +25,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { username } = await params
     const body = await request.json()
 
-    const { bioRank, enlistedDate, promotions, awards, operations, qualifications, name } = body
+    const { bioRank, enlistedDate, promotions, awards, operations, qualifications, name, billetCounts, j4Points } = body
 
     // Uniqueness check for name
     if (name !== undefined) {
@@ -47,6 +47,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
     if (name !== undefined) {
         update['name'] = name || null
+    }
+    if (billetCounts !== undefined) {
+        update['milpac.billetCounts'] = billetCounts
+    }
+    if (j4Points !== undefined) {
+        update['milpac.j4Points'] = j4Points
     }
 
     const result = await Db.users.updateOne({ username }, { $set: update })

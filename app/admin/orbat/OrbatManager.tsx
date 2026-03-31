@@ -172,10 +172,6 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     }
 
     // Import dialog
-    const [importOpen, setImportOpen] = useState(false)
-    const [importConfirm, setImportConfirm] = useState('')
-    const [importing, setImporting] = useState(false)
-    const [importResult, setImportResult] = useState<{ inserted: number; matched: number } | null>(null)
 
     const [busy, setBusy] = useState(false)
 
@@ -443,23 +439,6 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
 
 
     // ── Import ───────────────────────────────────────────────────────────────
-
-    async function runImport() {
-        setImporting(true)
-        const res = await fetch('/api/admin/orbat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ confirm: true }),
-        })
-        if (res.ok) {
-            setImportResult(await res.json())
-            await load()  // Full reload needed after import since it replaces all data
-        }
-        setImporting(false)
-        setImportOpen(false)
-        setImportConfirm('')
-    }
-
 
     // ── Derived ──────────────────────────────────────────────────────────────
 
@@ -970,18 +949,6 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                 </span>
             </div>
 
-            {/* Import result banner */}
-            {importResult && (
-                <div className='flex items-center justify-between px-4 py-3' style={tileStyle}>
-                    <Typography fontSize='0.78rem' style={{ color: 'rgba(237,237,237,0.7)' }}>
-                        Import complete — {importResult.inserted} positions loaded, {importResult.matched} users auto-matched.
-                    </Typography>
-                    <IconButton size='small' onClick={() => setImportResult(null)} sx={ghostBtn}>
-                        <Close fontSize='small' />
-                    </IconButton>
-                </div>
-            )}
-
             {/* Empty state */}
             {positions.length === 0 && (
                 <div className='flex flex-col items-center gap-4 py-16' style={tileStyle}>
@@ -989,9 +956,6 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                     <Typography fontSize='0.85rem' style={{ color: 'rgba(237,237,237,0.4)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                         No positions loaded
                     </Typography>
-                    <Button variant='outlined' sx={redBtn} onClick={() => setImportOpen(true)}>
-                        Import from Google Sheet
-                    </Button>
                 </div>
             )}
 
@@ -1013,16 +977,6 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                     </div>
                 </>
             )}
-
-            {/* Re-import */}
-            {positions.length > 0 && (
-                <div className='flex justify-end'>
-                    <Button variant='outlined' size='small' sx={ghostBtn} onClick={() => setImportOpen(true)}>
-                        Re-import from Google Sheet
-                    </Button>
-                </div>
-            )}
-
 
             {/* ── User Picker Dialog ──────────────────────────────────────────── */}
             <Dialog
@@ -1298,42 +1252,6 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                 </DialogActions>
             </Dialog>
 
-
-            {/* ── Import Dialog ────────────────────────────────────────────────── */}
-            <Dialog
-                open={importOpen}
-                onClose={() => { setImportOpen(false); setImportConfirm('') }}
-                maxWidth='xs'
-                fullWidth
-                PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.2)' } }}
-            >
-                <DialogTitle style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>
-                    Import from Google Sheet
-                </DialogTitle>
-                <DialogContent>
-                    <Typography fontSize='0.82rem' style={{ color: 'rgba(237,237,237,0.6)', marginBottom: 12 }}>
-                        This will <strong style={{ color: 'rgba(219,0,29,0.9)' }}>delete all current positions</strong> and
-                        re-import from the Google Sheet, attempting to auto-match users by Discord nickname.
-                        Any manual assignments made since the last import will be lost.
-                    </Typography>
-                    <Typography fontSize='0.75rem' style={{ color: 'rgba(237,237,237,0.35)', marginBottom: 8 }}>
-                        Type <strong>IMPORT</strong> to confirm:
-                    </Typography>
-                    <TextField
-                        fullWidth
-                        size='small'
-                        value={importConfirm}
-                        onChange={e => setImportConfirm(e.target.value)}
-                        inputProps={{ style: { fontSize: '0.82rem' } }}
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button sx={ghostBtn} onClick={() => { setImportOpen(false); setImportConfirm('') }}>Cancel</Button>
-                    <Button variant='outlined' sx={redBtn} disabled={importConfirm !== 'IMPORT' || importing} onClick={runImport}>
-                        {importing ? <CircularProgress size={14} sx={{ color: 'var(--red)' }} /> : 'Import'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
 
         </div>
     )

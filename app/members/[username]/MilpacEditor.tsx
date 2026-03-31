@@ -4,6 +4,12 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
 import { RANK_GROUPS, RANKS_FLAT, rankAbbrFromName, rankNameFromAbbr } from '@/lib/ranks'
+import { QUALIFICATIONS } from '@/lib/qualifications'
+import { AWARDS } from '@/lib/awards'
+import { CERTIFICATIONS } from '@/lib/certifications'
+import { OP_POINTS, DEPT_POINTS } from '@/lib/points'
+import { getSuggestedRank } from '@/lib/promotionRequirements'
+import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/points'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -26,7 +32,7 @@ function todayStr() {
 type Promotion = { _key: string; date: string; rank: string; role: string }
 type Award = { _key: string; date: string; name: string; type: string }
 type Operation = { _key: string; startToEndDate: string; name: string }
-type Qualification = { _key: string; date: string; qualification: string; trainer: string }
+type Qualification = { _key: string; date: string; qualification: string }
 
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -56,25 +62,28 @@ function Label({ children }: { children: React.ReactNode }) {
     )
 }
 
-function SectionCard({ title, children, onAdd, addLabel }: { title: string; children: React.ReactNode; onAdd?: () => void; addLabel?: string }) {
+function SectionCard({ title, children, onAdd, addLabel, badge }: { title: string; children: React.ReactNode; onAdd?: () => void; addLabel?: string; badge?: React.ReactNode }) {
     return (
         <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.02)' }}>
             <div className='flex items-center justify-between px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
                     {title}
                 </span>
-                {onAdd && (
-                    <button
-                        onClick={onAdd}
-                        style={{
-                            fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-                            color: 'rgba(219,0,29,0.8)', background: 'rgba(219,0,29,0.08)',
-                            border: '1px solid rgba(219,0,29,0.25)', padding: '3px 10px', cursor: 'pointer',
-                        }}
-                    >
-                        + {addLabel ?? 'Add'}
-                    </button>
-                )}
+                <div className='flex items-center gap-3'>
+                    {badge}
+                    {onAdd && (
+                        <button
+                            onClick={onAdd}
+                            style={{
+                                fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                                color: 'rgba(219,0,29,0.8)', background: 'rgba(219,0,29,0.08)',
+                                border: '1px solid rgba(219,0,29,0.25)', padding: '3px 10px', cursor: 'pointer',
+                            }}
+                        >
+                            + {addLabel ?? 'Add'}
+                        </button>
+                    )}
+                </div>
             </div>
             <div className='p-4 flex flex-col gap-3'>
                 {children}
@@ -97,6 +106,77 @@ function DeleteBtn({ onClick }: { onClick: () => void }) {
         >
             ✕
         </button>
+    )
+}
+
+
+// ── Award name combobox ────────────────────────────────────────────────────────
+
+function AwardNameInput({ value, onChange, onSelect }: {
+    value: string
+    onChange: (name: string) => void
+    onSelect: (name: string, type: string) => void
+}) {
+    const [open, setOpen] = useState(false)
+    const [query, setQuery] = useState(value)
+    const ref = useRef<HTMLDivElement>(null)
+
+    useEffect(() => { setQuery(value) }, [value])
+
+    useEffect(() => {
+        if (!open) return
+        function onDown(e: MouseEvent) {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', onDown)
+        return () => document.removeEventListener('mousedown', onDown)
+    }, [open])
+
+    const isKnown = !value || AWARDS.some(a => a.label === value)
+    const filtered = query.trim()
+        ? AWARDS.filter(a => a.label.toLowerCase().includes(query.toLowerCase()))
+        : [...AWARDS]
+
+    return (
+        <div ref={ref} style={{ position: 'relative' }}>
+            <input
+                value={query}
+                onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
+                onFocus={() => setOpen(true)}
+                placeholder='Broken Lance Award'
+                style={{ ...inputStyle, borderColor: isKnown ? 'rgba(255,255,255,0.1)' : 'rgba(234,179,8,0.5)' }}
+            />
+            {!isKnown && (
+                <span style={{ fontSize: '0.6rem', color: 'rgba(234,179,8,0.7)', marginTop: 2, display: 'block' }}>
+                    Unrecognized award
+                </span>
+            )}
+            {open && filtered.length > 0 && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                    background: 'rgb(18,18,18)', border: '1px solid rgba(255,255,255,0.15)',
+                    maxHeight: 200, overflowY: 'auto',
+                }}>
+                    {filtered.map(award => (
+                        <div
+                            key={award.label}
+                            onMouseDown={e => {
+                                e.preventDefault()
+                                setQuery(award.label)
+                                onSelect(award.label, award.type)
+                                setOpen(false)
+                            }}
+                            style={{ padding: '6px 10px', fontSize: '0.8rem', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(219,0,29,0.15)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                            <div style={{ color: 'rgba(237,237,237,0.85)' }}>{award.label}</div>
+                            <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)' }}>{award.type}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
     )
 }
 
@@ -215,6 +295,87 @@ function RankSelect({ value, onChange, placeholder = '— None —' }: { value: 
 }
 
 
+// ── Qualification search select ───────────────────────────────────────────────
+
+function QualificationSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+    const [open, setOpen] = useState(false)
+    const [query, setQuery] = useState('')
+    const ref = useRef<HTMLDivElement>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        if (!open) return
+        inputRef.current?.focus()
+        function onDown(e: MouseEvent) {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', onDown)
+        return () => document.removeEventListener('mousedown', onDown)
+    }, [open])
+
+    const q = query.toLowerCase()
+    const filtered = QUALIFICATIONS.filter(ql => ql.toLowerCase().includes(q))
+
+    return (
+        <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+            <button
+                type='button'
+                onClick={() => { setOpen(o => !o); setQuery('') }}
+                style={{
+                    ...selectStyle,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+                    textAlign: 'left', width: '100%',
+                    color: value ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)',
+                }}
+            >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value || '— Select qualification —'}</span>
+                <span style={{ fontSize: '0.6rem', opacity: 0.4, flexShrink: 0 }}>▼</span>
+            </button>
+
+            {open && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                    background: 'rgb(18,18,18)', border: '1px solid rgba(255,255,255,0.12)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column',
+                    maxHeight: 280,
+                }}>
+                    <div style={{ padding: '6px 8px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+                        <input
+                            ref={inputRef}
+                            value={query}
+                            onChange={e => setQuery(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Escape') setOpen(false) }}
+                            placeholder='Search qualification…'
+                            style={{ ...inputStyle, fontSize: '0.78rem', padding: '5px 8px' }}
+                        />
+                    </div>
+                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                        {filtered.map(ql => (
+                            <div
+                                key={ql}
+                                onMouseDown={() => { onChange(ql); setOpen(false) }}
+                                style={{
+                                    padding: '7px 12px', fontSize: '0.82rem', cursor: 'pointer',
+                                    color: ql === value ? 'rgba(237,237,237,1)' : 'rgba(237,237,237,0.75)',
+                                    background: ql === value ? 'rgba(255,255,255,0.07)' : 'transparent',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = ql === value ? 'rgba(255,255,255,0.07)' : 'transparent')}
+                            >
+                                {ql}
+                            </div>
+                        ))}
+                        {filtered.length === 0 && (
+                            <div style={{ padding: '7px 12px', fontSize: '0.78rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>No results</div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
+
 // ── Drag handle ────────────────────────────────────────────────────────────────
 
 function DragHandle({ listeners }: { listeners?: Record<string, unknown> }) {
@@ -273,6 +434,17 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
         (member.milpac?.operations ?? []).map(o => ({ _key: String(_keyCount++), ...o })))
     const [qualifications, setQualifications] = useState<Qualification[]>(() =>
         (member.milpac?.qualifications ?? []).map(q => ({ _key: String(_keyCount++), ...q })))
+
+    const defaultBilletCounts = {
+        primaryNightOps: 0, secondaryNightOps: 0,
+        primaryNightFTX: 0, secondaryNightFTX: 0,
+        platoonTraining: 0, sectionTraining: 0, meetings: 0, campaignMedals: 0,
+        j1Interviews: 0, j1InterviewBonus: 0, j2MissionsRun: 0,
+        j3Bct12: 0, j3OtherTrainings: 0,
+        j5ContentCreated: 0, j5MilpacsGenerated: 0, j5OfficialPR: 0,
+    }
+    const [billetCounts, setBilletCounts] = useState({ ...defaultBilletCounts, ...(member.milpac?.billetCounts ?? {}) })
+    const [j4Points, setJ4Points] = useState(member.milpac?.j4Points ?? 0)
 
     const [dirty, setDirty] = useState(false)
     const dirtyRef = useRef(false)
@@ -386,6 +558,8 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                     awards: awards.map(({ _key, ...rest }) => rest),
                     operations: operations.map(({ _key, ...rest }) => rest),
                     qualifications: qualifications.map(({ _key, ...rest }) => rest),
+                    billetCounts,
+                    j4Points,
                 }),
             })
             const json = await res.json()
@@ -434,7 +608,7 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
 
     function addQualification() {
         markDirty()
-        setQualifications(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), qualification: '', trainer: '' }])
+        setQualifications(prev => [...prev, { _key: String(_keyCount++), date: todayStr(), qualification: '' }])
     }
     function updateQualification(i: number, field: keyof Qualification, value: string) {
         markDirty()
@@ -565,6 +739,153 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                 </div>
             </SectionCard>
 
+            {/* Billet Points */}
+            {(() => {
+                const counts: MilpacImportCounts = {
+                    ...billetCounts,
+                    awards: awards.map(a => ({ name: a.name })),
+                    qualifications: qualifications.map(q => ({ qualification: q.qualification })),
+                    j4Points,
+                }
+                const total = calculatePromotionPoints(counts)
+
+                // Per-field point contributions
+                const contrib = {
+                    primaryNightOps:    billetCounts.primaryNightOps   * OP_POINTS.standardOp1st,
+                    secondaryNightOps:  billetCounts.secondaryNightOps * OP_POINTS.standardOp2nd,
+                    primaryNightFTX:    billetCounts.primaryNightFTX   * OP_POINTS.ftxOp1st,
+                    secondaryNightFTX:  billetCounts.secondaryNightFTX * OP_POINTS.ftxOp2nd,
+                    platoonTraining:    billetCounts.platoonTraining    * OP_POINTS.platoonTraining,
+                    sectionTraining:    billetCounts.sectionTraining    * OP_POINTS.sectionTraining,
+                    meetings:           billetCounts.meetings           * OP_POINTS.meeting,
+                    j1Interviews:       Math.floor(billetCounts.j1Interviews / 3) * DEPT_POINTS.j1Per3Interviews,
+                    j1InterviewBonus:   billetCounts.j1InterviewBonus  * DEPT_POINTS.j1InterviewBonus,
+                    j2MissionsRun:      billetCounts.j2MissionsRun     * DEPT_POINTS.j2PerMission,
+                    j3Bct12:            billetCounts.j3Bct12           * DEPT_POINTS.j3Bct12,
+                    j3OtherTrainings:   billetCounts.j3OtherTrainings  * DEPT_POINTS.j3OtherTraining,
+                    j5ContentCreated:   billetCounts.j5ContentCreated  * DEPT_POINTS.j5ContentCreated,
+                    j5MilpacsGenerated: Math.floor(billetCounts.j5MilpacsGenerated / 5) * DEPT_POINTS.j5Per5Milpacs,
+                    j5OfficialPR:       Math.floor(billetCounts.j5OfficialPR / 5)       * DEPT_POINTS.j5Per5PRPosts,
+                }
+
+                // Award & qualification breakdowns
+                const awardPointMap = new Map(AWARDS.map(a => [a.label, a.points]))
+                const awardBreakdown = counts.awards
+                    .map(a => ({ name: a.name, pts: awardPointMap.get(a.name) ?? 0 }))
+                    .filter(a => a.pts > 0)
+                const certPointMap = new Map(CERTIFICATIONS.map(c => [c.label, c.points]))
+                const qualBreakdown = counts.qualifications
+                    .map(q => ({ name: q.qualification, pts: certPointMap.get(q.qualification) ?? 0 }))
+                    .filter(q => q.pts > 0)
+
+                // Suggested rank
+                const currentRankAbbr = rankAbbrFromName(bioRank)
+                const suggested = getSuggestedRank(currentRankAbbr, total)
+                const suggestedName = suggested ? rankNameFromAbbr(suggested) : null
+                const isCorrectRank = suggested === currentRankAbbr
+
+                const rowStyle: React.CSSProperties = {
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                }
+                const compactInput: React.CSSProperties = {
+                    ...inputStyle, width: 52, textAlign: 'center' as const, padding: '3px 6px',
+                }
+
+                function countRow(field: keyof typeof billetCounts, label: string) {
+                    const pts = contrib[field as keyof typeof contrib] ?? 0
+                    return (
+                        <div key={field} style={rowStyle}>
+                            <span style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>{label}</span>
+                            <input
+                                type='number' min={0}
+                                value={billetCounts[field]}
+                                onChange={e => { markDirty(); setBilletCounts(prev => ({ ...prev, [field]: Math.max(0, parseInt(e.target.value) || 0) })) }}
+                                style={compactInput}
+                            />
+                            <span style={{ width: 34, fontSize: '0.65rem', textAlign: 'right', color: pts > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.18)', flexShrink: 0 }}>
+                                {pts > 0 ? `+${pts}` : '—'}
+                            </span>
+                        </div>
+                    )
+                }
+
+                const badge = (
+                    <div className='flex items-center gap-3'>
+                        <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)' }}>
+                            Total: <span style={{ color: 'rgba(219,0,29,0.9)', fontWeight: 700 }}>{total}</span>
+                        </span>
+                        {suggestedName && (
+                            <span style={{
+                                fontSize: '0.68rem', fontWeight: 600, padding: '2px 8px',
+                                background: isCorrectRank ? 'rgba(34,197,94,0.08)' : 'rgba(234,179,8,0.08)',
+                                border: `1px solid ${isCorrectRank ? 'rgba(34,197,94,0.25)' : 'rgba(234,179,8,0.3)'}`,
+                                color: isCorrectRank ? 'rgba(34,197,94,0.85)' : 'rgba(234,179,8,0.9)',
+                            }}>
+                                {isCorrectRank ? '✓ ' : '→ '}{suggestedName}
+                            </span>
+                        )}
+                    </div>
+                )
+
+                return (
+                    <SectionCard title='Billet Points' badge={badge}>
+                        {/* Two-column grid: Operations | Department Actions */}
+                        <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-6'>
+                            <div>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)', marginBottom: 4 }}>Operations</div>
+                                {countRow('primaryNightOps',   'Primary Ops')}
+                                {countRow('secondaryNightOps', 'Secondary Ops')}
+                                {countRow('primaryNightFTX',   'Primary FTX')}
+                                {countRow('secondaryNightFTX', 'Secondary FTX')}
+                                {countRow('platoonTraining',   'Plt Training')}
+                                {countRow('sectionTraining',   'Sec Training')}
+                                {countRow('meetings',          'Meetings')}
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)', marginBottom: 4 }}>Department Actions</div>
+                                {countRow('j1Interviews',       'J1 Interviews')}
+                                {countRow('j1InterviewBonus',   'J1 Bonus')}
+                                {countRow('j2MissionsRun',      'J2 Missions')}
+                                {countRow('j3Bct12',            'J3 BCT 1/2')}
+                                {countRow('j3OtherTrainings',   'J3 Other Training')}
+                                {countRow('j5ContentCreated',   'J5 Content')}
+                                {countRow('j5MilpacsGenerated', 'J5 Milpacs')}
+                                {countRow('j5OfficialPR',       'J5 PR Posts')}
+                            </div>
+                        </div>
+
+                        {/* J4 + awards/quals breakdown */}
+                        <div className='flex flex-wrap gap-x-6 gap-y-2 items-start' style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 8 }}>
+                            <div style={rowStyle}>
+                                <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>J4 Adjustment</span>
+                                <input
+                                    type='number'
+                                    value={j4Points}
+                                    onChange={e => { markDirty(); setJ4Points(parseInt(e.target.value) || 0) }}
+                                    style={{ ...compactInput, width: 60 }}
+                                />
+                                {j4Points !== 0 && (
+                                    <span style={{ fontSize: '0.65rem', color: j4Points > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(234,179,8,0.8)' }}>
+                                        {j4Points > 0 ? `+${j4Points}` : j4Points}
+                                    </span>
+                                )}
+                            </div>
+
+                            {(awardBreakdown.length > 0 || qualBreakdown.length > 0) && (
+                                <div className='flex flex-wrap gap-x-4 gap-y-1 flex-1'>
+                                    {[...awardBreakdown, ...qualBreakdown].map((item, i) => (
+                                        <span key={`${item.name}-${i}`} style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)' }}>
+                                            {item.name} <span style={{ color: 'rgba(219,0,29,0.7)', fontWeight: 600 }}>+{item.pts}</span>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </SectionCard>
+                )
+            })()}
+
             {/* Promotions */}
             <SectionCard title='Promotion History' onAdd={addPromotion} addLabel='Promotion'>
                 {promotions.length === 0 ? (
@@ -663,11 +984,7 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                                                 </div>
                                                 <div className='flex flex-col gap-2 flex-1 min-w-0'>
                                                     <Label>Qualification</Label>
-                                                    <input value={q.qualification} onChange={e => updateQualification(i, 'qualification', e.target.value)} placeholder='Basic Rifleman Course' style={inputStyle} />
-                                                </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Trainer</Label>
-                                                    <input value={q.trainer} onChange={e => updateQualification(i, 'trainer', e.target.value)} placeholder='SGT Smith' style={inputStyle} />
+                                                    <QualificationSelect value={q.qualification} onChange={v => updateQualification(i, 'qualification', v)} />
                                                 </div>
                                                 <DeleteBtn onClick={() => removeQualification(i)} />
                                             </div>
@@ -684,8 +1001,7 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                                     <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(14,14,14,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', opacity: 0.95 }}>
                                         <DragHandle />
                                         <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}><Label>Date</Label><input value={q.date} readOnly style={inputStyle} /></div>
-                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Qualification</Label><input value={q.qualification} readOnly style={inputStyle} /></div>
-                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Trainer</Label><input value={q.trainer} readOnly style={inputStyle} /></div>
+                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Qualification</Label><div style={{ ...inputStyle, color: q.qualification ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)' }}>{q.qualification || '— Select qualification —'}</div></div>
                                         <DeleteBtn onClick={() => {}} />
                                     </div>
                                 )
@@ -728,7 +1044,14 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                                                 </div>
                                                 <div className='flex flex-col gap-2 flex-1 min-w-0'>
                                                     <Label>Name</Label>
-                                                    <input value={a.name} onChange={e => updateAward(i, 'name', e.target.value)} placeholder='Broken Lance Award' style={inputStyle} />
+                                                    <AwardNameInput
+                                                        value={a.name}
+                                                        onChange={name => updateAward(i, 'name', name)}
+                                                        onSelect={(name, type) => {
+                                                            markDirty()
+                                                            setAwards(prev => prev.map((x, idx) => idx === i ? { ...x, name, type } : x))
+                                                        }}
+                                                    />
                                                 </div>
                                                 <div className='flex flex-col gap-2 flex-1 min-w-0'>
                                                     <Label>Type</Label>
