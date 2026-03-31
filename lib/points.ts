@@ -82,13 +82,13 @@ export function calculatePromotionPoints(counts: MilpacImportCounts): number {
     total += Math.floor(counts.j5OfficialPR      / 5) * DEPT_POINTS.j5Per5PRPosts
 
     // Awards — look up point value from AWARDS definition
-    const awardPointMap = new Map(AWARDS.map(a => [a.label, a.points]))
+    const awardPointMap = new Map<string, number>(AWARDS.map(a => [a.label, a.points]))
     for (const award of counts.awards) {
         total += awardPointMap.get(award.name) ?? 0
     }
 
     // Certifications — look up point value from CERTIFICATIONS definition
-    const certPointMap = new Map(CERTIFICATIONS.map(c => [c.label, c.points]))
+    const certPointMap = new Map<string, number>(CERTIFICATIONS.map(c => [c.label, c.points]))
     for (const qual of counts.qualifications) {
         total += certPointMap.get(qual.qualification) ?? 0
     }
