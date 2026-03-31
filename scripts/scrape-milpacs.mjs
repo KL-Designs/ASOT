@@ -26,6 +26,7 @@
  *   --timeout  <s>    Ollama response timeout in seconds (default: 600)
  *   --dry-run         Fetch and extract but do not write to the database
  *   --debug-page      Save screenshot to debug-<name>.png then exit
+ *   --list-users      Print all user names in the database then exit
  *
  * Requires:
  *   npm install playwright
@@ -74,6 +75,7 @@ let mongoDb      = process.env.MONGO_DB   ?? null
 let scrapeAll    = false
 let dryRun       = false
 let debugPage    = false
+let listUsers    = false
 let ollamaTimeout = 600000
 
 for (let i = 0; i < args.length; i++) {
@@ -90,6 +92,7 @@ for (let i = 0; i < args.length; i++) {
         case '--all':         scrapeAll    = true; break
         case '--dry-run':     dryRun       = true; break
         case '--debug-page':  debugPage    = true; break
+        case '--list-users':  listUsers    = true; break
         default:
             if (!args[i].startsWith('--')) names.push(args[i])
     }
@@ -112,6 +115,18 @@ const db    = mongo.db(mongoDb)
 const users = db.collection('users')
 
 console.log(`Connected to MongoDB: ${mongoDb}`)
+
+// ── List users and exit ───────────────────────────────────────────────────────
+
+if (listUsers) {
+    const allUsers = await users.find({}, { projection: { name: 1 } }).toArray()
+    const nameList = allUsers.map(u => u.name).filter(Boolean).sort()
+    console.log(`\n${nameList.length} users in database:\n`)
+    for (const n of nameList) console.log(`  ${n}`)
+    console.log('')
+    await mongo.close()
+    process.exit(0)
+}
 
 // ── Load names ────────────────────────────────────────────────────────────────
 
