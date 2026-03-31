@@ -5,6 +5,7 @@ import { connection } from 'next/server'
 import { ObjectId } from 'mongodb'
 import DocBody from './doc-body'
 import SectionNav from './section-nav'
+import PagedView from './paged-view'
 import LocalDate from './local-date'
 import PrintButton from './print-button'
 import client from '@/lib/discord'
@@ -40,7 +41,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     const { r, g, b } = hexToRgb(operation.themeColor || '#db001d')
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
     const hasCover = !!operation.coverImage
-    const hasHiddenSections = !isLoggedIn && (operation.sections?.some(s => !s.isPublic) ?? false)
+    const hasHiddenSections = !isLoggedIn && (
+        (operation.sections?.some(s => !s.isPublic) ?? false) ||
+        Object.values(operation.extraPageSections ?? {}).some(secs => secs.some(s => !s.isPublic))
+    )
 
     const pageTheme = (operation.pageTheme || 'modern') as 'modern' | 'oldfashioned' | 'scifi'
     const isOF = pageTheme === 'oldfashioned'
@@ -362,8 +366,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, background: isOF ? 'linear-gradient(to bottom, transparent, #140f07)' : isSF ? 'linear-gradient(to bottom, transparent, #01050a)' : 'linear-gradient(to bottom, transparent, var(--background))', zIndex: 5, pointerEvents: 'none' }} />
             </div>
 
-            {/* ── Section nav ───────────────────────────────────────────────── */}
-            {operation.sections && operation.sections.length > 1 && (
+            {/* ── Section nav (single-page only) ────────────────────────────── */}
+            {(!operation.pages || operation.pages.length <= 1) && operation.sections && operation.sections.length > 1 && (
                 <SectionNav
                     className='print-hide'
                     themeColor={operation.themeColor || '#db001d'}
@@ -374,7 +378,20 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 />
             )}
 
-            {/* ── Document sections ─────────────────────────────────────────── */}
+            {/* ── Multi-page view ───────────────────────────────────────────── */}
+            {operation.pages && operation.pages.length > 1 && (
+                <PagedView
+                    pages={operation.pages}
+                    sectionsByPage={{ main: operation.sections ?? [], ...(operation.extraPageSections ?? {}) }}
+                    operationTitle={operation.title}
+                    themeColor={operation.themeColor || '#db001d'}
+                    pageTheme={pageTheme}
+                    isLoggedIn={isLoggedIn}
+                />
+            )}
+
+            {/* ── Document sections (single-page) ───────────────────────────── */}
+            {(!operation.pages || operation.pages.length <= 1) && (
             <div className='w-full max-w-[900px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {operation.sections && operation.sections.length > 0 ? (
                     operation.sections
@@ -594,6 +611,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     </div>
                 )}
             </div>
+            )}
 
             {/* Classified banner — shown to logged-out users when sections are hidden */}
             {hasHiddenSections && (
