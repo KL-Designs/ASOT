@@ -2,15 +2,27 @@ import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 
-const STALE_MS = 8000
+const STALE_MS    = 8000
+const DEAD_TTL_MS = 10_000
 
-// GET — players active within last 8 seconds (public)
+// GET — active players (seen < 8s) + recently dead players (died < 10s)
 export async function GET() {
     try {
-        const cutoff = new Date(Date.now() - STALE_MS)
+        const now        = Date.now()
+        const cutoffLive = new Date(now - STALE_MS)
+        const cutoffDead = new Date(now - DEAD_TTL_MS)
+
         const players = await Db.minigameLive
-            .find({ lastSeen: { $gte: cutoff } }, { maxTimeMS: 3000 })
-            .sort({ total: -1 })
+            .find(
+                {
+                    $or: [
+                        { dead: { $ne: true }, lastSeen: { $gte: cutoffLive } },
+                        { dead: true,          diedAt:   { $gte: cutoffDead } },
+                    ],
+                },
+                { maxTimeMS: 3000 }
+            )
+            .sort({ dead: 1, total: -1 })
             .toArray()
         return NextResponse.json(players, { status: 200 })
     } catch {
@@ -18,25 +30,33 @@ export async function GET() {
     }
 }
 
-// POST — heartbeat: upsert current score (auth required)
+// POST — heartbeat (alive) or death notification (dead: true)
 export async function POST(request: NextRequest) {
     try {
         const me = await client.fetchMe().catch(() => null)
         if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-        const { score, collectScore, accentColor } = await request.json()
+        const { score, collectScore, accentColor, dead } = await request.json()
         if (typeof score !== 'number' || typeof collectScore !== 'number') {
             return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
         }
 
         const displayName = me.guild?.nickname || me.globalName || me.username
-        const total = score + collectScore
+        const total       = score + collectScore
 
-        await Db.minigameLive.updateOne(
-            { userId: me.id },
-            { $set: { userId: me.id, displayName, accentColor: accentColor || null, score, collectScore, total, lastSeen: new Date() } },
-            { upsert: true }
-        )
+        if (dead) {
+            await Db.minigameLive.updateOne(
+                { userId: me.id },
+                { $set: { userId: me.id, displayName, accentColor: accentColor || null, score, collectScore, total, dead: true, diedAt: new Date() } },
+                { upsert: true }
+            )
+        } else {
+            await Db.minigameLive.updateOne(
+                { userId: me.id },
+                { $set: { userId: me.id, displayName, accentColor: accentColor || null, score, collectScore, total, dead: false, lastSeen: new Date() } },
+                { upsert: true }
+            )
+        }
 
         return NextResponse.json({ ok: true }, { status: 200 })
     } catch {
@@ -44,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// DELETE — remove player from live list on death/exit (auth required)
+// DELETE — remove player immediately (page close / unmount)
 export async function DELETE() {
     try {
         const me = await client.fetchMe().catch(() => null)

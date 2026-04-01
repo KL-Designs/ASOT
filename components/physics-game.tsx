@@ -20,7 +20,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 	const liveUserIdRef      = useRef(liveUserId)
 	const liveAccentColorRef = useRef(liveAccentColor)
 	const currentScoreRef    = useRef({ score: 0, collectScore: 0 })
-	const livePlayersRef     = useRef<{ userId: string; displayName: string; accentColor?: string; score: number; collectScore: number }[]>([])
+	const livePlayersRef     = useRef<{ userId: string; displayName: string; accentColor?: string; score: number; collectScore: number; dead?: boolean }[]>([])
 	const onGameOverRef    = useRef(onGameOver)
 	const onRestartRef     = useRef(onRestart)
 	const personalBestRef  = useRef(personalBest)
@@ -34,6 +34,41 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 	useEffect(() => { globalBestNameRef.current = globalBestName }, [globalBestName])
 	useEffect(() => { liveUserIdRef.current      = liveUserId      }, [liveUserId])
 	useEffect(() => { liveAccentColorRef.current = liveAccentColor }, [liveAccentColor])
+
+	const playPickupTone = (rare: boolean, superRare: boolean, rainbow: boolean) => {
+		if (mutedRef.current) return
+		try {
+			const audioCtx = new AudioContext()
+			const t        = audioCtx.currentTime
+			if (rainbow) {
+				// Ascending 4-note arpeggio — C5 E5 G5 C6
+				;[523, 659, 784, 1047].forEach((freq, i) => {
+					const osc  = audioCtx.createOscillator()
+					const gain = audioCtx.createGain()
+					osc.connect(gain); gain.connect(audioCtx.destination)
+					osc.type = 'sine'
+					osc.frequency.value = freq
+					const st = t + i * 0.055
+					gain.gain.setValueAtTime(0, st)
+					gain.gain.linearRampToValueAtTime(0.18, st + 0.012)
+					gain.gain.exponentialRampToValueAtTime(0.001, st + 0.18)
+					osc.start(st); osc.stop(st + 0.2)
+				})
+			} else {
+				// A5 (normal) → C6 (rare) → E6 (super rare)
+				const freq = superRare ? 1319 : rare ? 1047 : 880
+				const osc  = audioCtx.createOscillator()
+				const gain = audioCtx.createGain()
+				osc.connect(gain); gain.connect(audioCtx.destination)
+				osc.type = 'sine'
+				osc.frequency.value = freq
+				gain.gain.setValueAtTime(0, t)
+				gain.gain.linearRampToValueAtTime(0.18, t + 0.012)
+				gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
+				osc.start(t); osc.stop(t + 0.2)
+			}
+		} catch { /* ignore */ }
+	}
 
 	useEffect(() => {
 		const canvas = canvasRef.current
@@ -283,9 +318,25 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 
 		const stopHeartbeat = () => {
 			if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null }
-			if (liveUserIdRef.current) {
-				fetch('/api/minigame/live', { method: 'DELETE' }).catch(() => {})
-			}
+		}
+
+		const notifyDeath = () => {
+			if (!liveUserIdRef.current) return
+			fetch('/api/minigame/live', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					score:        currentScoreRef.current.score,
+					collectScore: currentScoreRef.current.collectScore,
+					accentColor:  liveAccentColorRef.current || null,
+					dead:         true,
+				}),
+			}).catch(() => {})
+		}
+
+		const removeLive = () => {
+			if (!liveUserIdRef.current) return
+			fetch('/api/minigame/live', { method: 'DELETE' }).catch(() => {})
 		}
 
 		const startHeartbeat = () => {
@@ -322,6 +373,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			bgMusic.pause()
 			bgMusic.currentTime = 0
 			stopHeartbeat()
+			notifyDeath()
 			if (!mutedRef.current) new Audio('/audio/death.wav').play().catch(() => {})
 			if (!state.deathReported) {
 				state.deathReported = true
@@ -755,29 +807,62 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			// Player rows
 			ctx.font = '500 11px monospace'
 			for (let i = 0; i < players.length; i++) {
-				const p   = players[i]
-				const ry  = py + headerH + i * rowH + rowH / 2
-				const col = p.accentColor || '#9999bb'
+				const p    = players[i]
+				const ry   = py + headerH + i * rowH + rowH / 2
+				const col  = p.accentColor || '#9999bb'
 				const isMe = p.userId === liveUserIdRef.current
+				const dead = !!p.dead
 
-				// Accent dot
-				ctx.fillStyle = col
-				ctx.beginPath()
-				ctx.arc(px + 14, ry, 4, 0, Math.PI * 2)
-				ctx.fill()
+				if (dead) {
+					// Skull icon instead of accent dot
+					ctx.fillStyle    = 'rgba(200,60,60,0.75)'
+					ctx.font         = '10px monospace'
+					ctx.textAlign    = 'center'
+					ctx.textBaseline = 'middle'
+					ctx.fillText('☠', px + 14, ry)
+					ctx.font = '500 11px monospace'
 
-				// Name
-				const raw  = isMe ? 'YOU' : p.displayName
-				const name = raw.length > 11 ? raw.slice(0, 11) + '…' : raw
-				ctx.fillStyle = isMe ? col : 'rgba(237,237,237,0.80)'
-				ctx.textAlign = 'left'
-				ctx.fillText(name, px + 24, ry)
+					// Dimmed name
+					const raw  = isMe ? 'YOU' : p.displayName
+					const name = raw.length > 11 ? raw.slice(0, 11) + '…' : raw
+					ctx.fillStyle = 'rgba(180,180,180,0.35)'
+					ctx.textAlign = 'left'
+					ctx.fillText(name, px + 24, ry)
 
-				// Score
-				const total = (p.score ?? 0) + (p.collectScore ?? 0)
-				ctx.fillStyle = 'rgba(237,237,237,0.45)'
-				ctx.textAlign = 'right'
-				ctx.fillText(String(total), px + panelW - 8, ry)
+					// Strikethrough line
+					const tw = ctx.measureText(name).width
+					ctx.beginPath()
+					ctx.moveTo(px + 24, ry)
+					ctx.lineTo(px + 24 + tw, ry)
+					ctx.strokeStyle = 'rgba(200,60,60,0.55)'
+					ctx.lineWidth   = 1
+					ctx.stroke()
+
+					// Score dimmed
+					const total = (p.score ?? 0) + (p.collectScore ?? 0)
+					ctx.fillStyle = 'rgba(180,180,180,0.25)'
+					ctx.textAlign = 'right'
+					ctx.fillText(String(total), px + panelW - 8, ry)
+				} else {
+					// Accent dot
+					ctx.fillStyle = col
+					ctx.beginPath()
+					ctx.arc(px + 14, ry, 4, 0, Math.PI * 2)
+					ctx.fill()
+
+					// Name
+					const raw  = isMe ? 'YOU' : p.displayName
+					const name = raw.length > 11 ? raw.slice(0, 11) + '…' : raw
+					ctx.fillStyle = isMe ? col : 'rgba(237,237,237,0.80)'
+					ctx.textAlign = 'left'
+					ctx.fillText(name, px + 24, ry)
+
+					// Score
+					const total = (p.score ?? 0) + (p.collectScore ?? 0)
+					ctx.fillStyle = 'rgba(237,237,237,0.45)'
+					ctx.textAlign = 'right'
+					ctx.fillText(String(total), px + panelW - 8, ry)
+				}
 			}
 
 			ctx.restore()
@@ -1273,11 +1358,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 					if (Math.hypot(cx - g.x, cy - g.y) < g.size + TRI / 2.5) {
 						state.collectScore += g.rainbow ? 100 : g.superRare ? 50 : g.rare ? 10 : 1
 						state.gems.splice(i, 1)
-						if (!mutedRef.current) {
-							const snd = new Audio('/audio/pickup.wav')
-							snd.playbackRate = g.rainbow ? 2.0 : g.superRare ? 1.6 : g.rare ? 1.25 : 1.0
-							snd.play().catch(() => {})
-						}
+						playPickupTone(g.rare, g.superRare, g.rainbow)
 					}
 				}
 
@@ -1507,6 +1588,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			window.removeEventListener('resize',  resize)
 			clearInterval(livePollingInterval)
 			stopHeartbeat()
+			removeLive()
 			bgMusic.pause()
 		}
 	}, []) // eslint-disable-line react-hooks/exhaustive-deps
