@@ -769,9 +769,9 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			const players = livePlayersRef.current
 			if (!players.length) return
 
-			const panelW  = 172
-			const rowH    = 21
-			const headerH = 24
+			const panelW  = 210
+			const rowH    = 26
+			const headerH = 28
 			const padB    = 6
 			const panelH  = headerH + players.length * rowH + padB
 			const px      = canvas.width - panelW - 10
@@ -790,7 +790,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 
 			// "● LIVE" header
 			const pulse = Math.sin(frame * 0.07) * 0.5 + 0.5
-			ctx.font         = '700 10px monospace'
+			ctx.font         = '700 12px monospace'
 			ctx.textAlign    = 'left'
 			ctx.textBaseline = 'middle'
 			ctx.fillStyle    = `rgba(219,0,29,${0.7 + pulse * 0.3})`
@@ -805,7 +805,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			ctx.stroke()
 
 			// Player rows
-			ctx.font = '500 11px monospace'
+			ctx.font = '500 13px monospace'
 			for (let i = 0; i < players.length; i++) {
 				const p    = players[i]
 				const ry   = py + headerH + i * rowH + rowH / 2
@@ -816,15 +816,15 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 				if (dead) {
 					// Skull icon instead of accent dot
 					ctx.fillStyle    = 'rgba(200,60,60,0.75)'
-					ctx.font         = '10px monospace'
+					ctx.font         = '12px monospace'
 					ctx.textAlign    = 'center'
 					ctx.textBaseline = 'middle'
 					ctx.fillText('☠', px + 14, ry)
-					ctx.font = '500 11px monospace'
+					ctx.font = '500 13px monospace'
 
 					// Dimmed name
 					const raw  = isMe ? 'YOU' : p.displayName
-					const name = raw.length > 11 ? raw.slice(0, 11) + '…' : raw
+					const name = raw.length > 13 ? raw.slice(0, 13) + '…' : raw
 					ctx.fillStyle = 'rgba(180,180,180,0.35)'
 					ctx.textAlign = 'left'
 					ctx.fillText(name, px + 24, ry)
@@ -852,7 +852,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 
 					// Name
 					const raw  = isMe ? 'YOU' : p.displayName
-					const name = raw.length > 11 ? raw.slice(0, 11) + '…' : raw
+					const name = raw.length > 13 ? raw.slice(0, 13) + '…' : raw
 					ctx.fillStyle = isMe ? col : 'rgba(237,237,237,0.80)'
 					ctx.textAlign = 'left'
 					ctx.fillText(name, px + 24, ry)
