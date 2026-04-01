@@ -1397,8 +1397,10 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 	const handleFSClick = () => {
 		const c = canvasRef.current
 		if (!c) return
+		const container = c.parentElement
+		if (!container) return
 		if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
-		else c.requestFullscreen().catch(() => {})
+		else container.requestFullscreen().catch(() => {})
 	}
 
 	const btnBase: React.CSSProperties = {
