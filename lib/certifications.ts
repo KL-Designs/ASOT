@@ -22,6 +22,7 @@ export const CERTIFICATIONS = [
     { csvHeader: 'Armoured Crew - Driver Basics',   label: 'Driver Basics Course',                      points: 5  },
     { csvHeader: "Armoured Crewman -  F&T's",       label: 'Driver Formations and Tactics Course',      points: 5  },
     { csvHeader: 'VCP',                            label: 'VCP',                                       points: 5  },
+    { csvHeader: 'BCT 1',                          label: 'BCT 1',                                     points: 5  },
     { csvHeader: 'BCT 2',                          label: 'BCT 2',                                     points: 5  },
     { csvHeader: 'Rifle Proficiency',               label: 'Rifleman Proficiency',                      points: 5  },
     { csvHeader: 'MG Proficiency',                  label: 'Machine Gunner Proficiency',                points: 5  },

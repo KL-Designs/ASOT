@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
 import { RANK_GROUPS, RANKS_FLAT, rankAbbrFromName, rankNameFromAbbr } from '@/lib/ranks'
-import { QUALIFICATIONS } from '@/lib/qualifications'
 import { AWARDS } from '@/lib/awards'
 import { CERTIFICATIONS } from '@/lib/certifications'
 import { OP_POINTS, DEPT_POINTS } from '@/lib/points'
@@ -361,7 +360,7 @@ function QualificationSelect({ value, onChange }: { value: string; onChange: (v:
     }, [open])
 
     const q = query.toLowerCase()
-    const filtered = QUALIFICATIONS.filter(ql => ql.toLowerCase().includes(q))
+    const filtered = CERTIFICATIONS.map(c => c.label).filter(ql => ql.toLowerCase().includes(q))
 
     return (
         <div ref={ref} style={{ position: 'relative', width: '100%' }}>

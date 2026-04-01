@@ -76,6 +76,9 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 		}
 		initStars()
 
+		const bgMusic = new Audio('/audio/dream.mp3')
+		bgMusic.loop = true
+
 		const spawnShootingStar = () => {
 			const speed = 11 + Math.random() * 9
 			const angle = 0.06 + Math.random() * 0.12
@@ -235,8 +238,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
 				e.preventDefault()
-				if (!state.active) { state.active = true; reset(); onActivate(); return }
-				if (state.dead && state.deadTimer <= 0) { reset(); onRestartRef.current?.(); return }
+				if (!state.active) { state.active = true; reset(); bgMusic.currentTime = 0; bgMusic.play().catch(() => {}); onActivate(); return }
+				if (state.dead && state.deadTimer <= 0) { reset(); bgMusic.currentTime = 0; bgMusic.play().catch(() => {}); onRestartRef.current?.(); return }
 				if (state.countdown < 0) state.thrusting = true
 			}
 		}
@@ -255,6 +258,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			state.y         = Math.max(0, Math.min(canvas.height - TRI, state.y))
 			state.dead      = true
 			state.deadTimer = 80
+			bgMusic.pause()
+			bgMusic.currentTime = 0
 			new Audio('/audio/death.mp3').play().catch(() => {})
 			if (!state.deathReported) {
 				state.deathReported = true
@@ -1083,6 +1088,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			window.removeEventListener('keydown', onKeyDown)
 			window.removeEventListener('keyup',   onKeyUp)
 			window.removeEventListener('resize',  resize)
+			bgMusic.pause()
 		}
 	}, []) // eslint-disable-line react-hooks/exhaustive-deps
 

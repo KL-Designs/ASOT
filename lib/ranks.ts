@@ -159,6 +159,7 @@ export const RANK_GROUPS: RankGroup[] = [
     {
         group: 'HOTEL — Pilot',
         ranks: [
+            { name: 'Officer Cadet',                    abbr: 'OFFCDT'     },
             { name: 'Pilot Officer',                    abbr: 'POF'     },
             { name: 'Flying Officer',                   abbr: 'FOF'     },
             { name: 'Flight Lieutenant',                abbr: 'FLT'     },
