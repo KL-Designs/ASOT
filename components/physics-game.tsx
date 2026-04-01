@@ -137,6 +137,92 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 		bgMusic.muted = mutedRef.current
 		bgMusicRef.current = bgMusic
 
+		// ── Synthesized SFX ───────────────────────────────────────────
+		const sfx = {
+			thrust: () => {
+				if (mutedRef.current) return
+				try {
+					const ac = new AudioContext(); const t = ac.currentTime
+					const o = ac.createOscillator(); const g = ac.createGain()
+					o.connect(g); g.connect(ac.destination)
+					o.type = 'sine'
+					o.frequency.setValueAtTime(180, t)
+					o.frequency.exponentialRampToValueAtTime(260, t + 0.06)
+					g.gain.setValueAtTime(0.06, t)
+					g.gain.exponentialRampToValueAtTime(0.001, t + 0.09)
+					o.start(t); o.stop(t + 0.1)
+				} catch {}
+			},
+
+			powerup: (type: 'magnet' | 'slowtime' | 'shield' | 'gemshower' | 'nuke' | 'autopilot') => {
+				if (mutedRef.current) return
+				try {
+					const ac = new AudioContext(); const t = ac.currentTime
+					const play = (freq: number, endFreq: number, dur: number, wave: OscillatorType, vol: number, delay = 0) => {
+						const o = ac.createOscillator(); const g = ac.createGain()
+						o.connect(g); g.connect(ac.destination)
+						o.type = wave
+						o.frequency.setValueAtTime(freq, t + delay)
+						if (endFreq !== freq) o.frequency.exponentialRampToValueAtTime(endFreq, t + delay + dur * 0.8)
+						g.gain.setValueAtTime(0, t + delay)
+						g.gain.linearRampToValueAtTime(vol, t + delay + 0.015)
+						g.gain.exponentialRampToValueAtTime(0.001, t + delay + dur)
+						o.start(t + delay); o.stop(t + delay + dur + 0.02)
+					}
+					if (type === 'magnet') {
+						// Cyan zap — high-to-low sweep
+						play(1200, 400, 0.22, 'sawtooth', 0.18)
+					} else if (type === 'slowtime') {
+						// Purple dreamy wobble — descending with two harmonics
+						play(600, 280, 0.38, 'sine', 0.16)
+						play(900, 420, 0.38, 'sine', 0.06)
+					} else if (type === 'shield') {
+						// Green rising clunk — low thud then rising ping
+						play(120, 120, 0.12, 'sawtooth', 0.20)
+						play(440, 880, 0.28, 'sine',     0.14, 0.08)
+					} else if (type === 'gemshower') {
+						// Orange sparkle cascade — rapid ascending arpeggio
+						;[392, 523, 659, 784, 1047].forEach((f, i) => play(f, f, 0.14, 'sine', 0.20, i * 0.048))
+					} else if (type === 'autopilot') {
+						// Teal techy double-beep
+						play(660, 660, 0.10, 'square', 0.10)
+						play(880, 880, 0.10, 'square', 0.10, 0.14)
+					}
+					// nuke uses explosion.wav already
+				} catch {}
+			},
+
+			warn: (type: 'magnet' | 'slowtime' | 'shield' | 'autopilot') => {
+				if (mutedRef.current) return
+				try {
+					const ac = new AudioContext(); const t = ac.currentTime
+					const freqs: Record<string, [number, number]> = {
+						magnet:    [880, 660],
+						slowtime:  [520, 390],
+						shield:    [740, 740],
+						autopilot: [1047, 784],
+					}
+					const [f1, f2] = freqs[type]
+					;[0, 0.14].forEach((delay, i) => {
+						const o = ac.createOscillator(); const g = ac.createGain()
+						o.connect(g); g.connect(ac.destination)
+						o.type = 'square'
+						o.frequency.value = i === 0 ? f1 : f2
+						g.gain.setValueAtTime(0, t + delay)
+						g.gain.linearRampToValueAtTime(0.07, t + delay + 0.01)
+						g.gain.exponentialRampToValueAtTime(0.001, t + delay + 0.09)
+						o.start(t + delay); o.stop(t + delay + 0.11)
+					})
+				} catch {}
+			},
+		}
+
+		// Warning-played flags (reset when powerup is re-collected)
+		let magnetWarned    = false
+		let slowTimeWarned  = false
+		let shieldWarned    = false
+		let autopilotWarned = false
+
 		const spawnShootingStar = () => {
 			const speed = 11 + Math.random() * 9
 			const angle = 0.06 + Math.random() * 0.12
@@ -299,6 +385,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 				e.preventDefault()
 				if (!state.active) { state.active = true; reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current; bgMusic.play().catch(() => {}); onActivate(); startHeartbeat(); return }
 				if (state.dead && state.deadTimer <= 0) { reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current; bgMusic.play().catch(() => {}); onRestartRef.current?.(); startHeartbeat(); return }
+				if (state.countdown < 0 && !e.repeat && !state.thrusting) sfx.thrust()
 				if (state.countdown < 0) state.thrusting = true
 			}
 		}
@@ -1088,6 +1175,13 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			const autopilotRemainingMs = Math.max(0, state.autopilotEnd - now)
 			const speedMult          = slowTimeActive ? 0.35 : 1.0
 
+			// ── Powerup expiry warnings ───────────────────────────────
+			const WARN_MS = 3000
+			if (magnetActive    && !magnetWarned    && magnetRemainingMs    < WARN_MS) { magnetWarned    = true; sfx.warn('magnet') }
+			if (slowTimeActive  && !slowTimeWarned  && slowRemainingMs      < WARN_MS) { slowTimeWarned  = true; sfx.warn('slowtime') }
+			if (shieldActive    && !shieldWarned    && shieldRemainingMs    < WARN_MS) { shieldWarned    = true; sfx.warn('shield') }
+			if (autopilotRemainingMs > 0 && !autopilotWarned && autopilotRemainingMs < WARN_MS) { autopilotWarned = true; sfx.warn('autopilot') }
+
 			// Shooting-star spawn timer (dt-based)
 			shootingStarTimer -= dt
 			if (shootingStarTimer <= 0) {
@@ -1320,10 +1414,10 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 					const p = state.powerups[i]
 					if (Math.hypot(cx - p.x, cy - p.y) < POWERUP_R + TRI / 2) {
 						const now2 = performance.now()
-						if      (p.type === 'magnet')   state.magnetEnd    = now2 + MAGNET_MS
-						else if (p.type === 'slowtime') state.slowTimeEnd  = now2 + SLOW_MS
-						else if (p.type === 'shield')   state.shieldEnd    = now2 + SHIELD_MS
-						else if (p.type === 'autopilot') state.autopilotEnd = now2 + AUTOPILOT_MS
+						if      (p.type === 'magnet')    { state.magnetEnd    = now2 + MAGNET_MS;    magnetWarned    = false; sfx.powerup('magnet') }
+						else if (p.type === 'slowtime')  { state.slowTimeEnd  = now2 + SLOW_MS;      slowTimeWarned  = false; sfx.powerup('slowtime') }
+						else if (p.type === 'shield')    { state.shieldEnd    = now2 + SHIELD_MS;    shieldWarned    = false; sfx.powerup('shield') }
+						else if (p.type === 'autopilot') { state.autopilotEnd = now2 + AUTOPILOT_MS; autopilotWarned = false; sfx.powerup('autopilot') }
 						else if (p.type === 'nuke') {
 							state.score += state.asteroids.length + state.debris.length
 							state.asteroids = []
@@ -1332,6 +1426,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 						}
 						else if (p.type === 'gemshower') {
 							state.gemShowerEnd = now2 + 6_000
+							sfx.powerup('gemshower')
 							for (let g = 0; g < 20; g++) {
 								const rng2    = Math.random()
 								const isRB    = rng2 < 0.04
