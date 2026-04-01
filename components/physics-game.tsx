@@ -1273,7 +1273,11 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 					if (Math.hypot(cx - g.x, cy - g.y) < g.size + TRI / 2.5) {
 						state.collectScore += g.rainbow ? 100 : g.superRare ? 50 : g.rare ? 10 : 1
 						state.gems.splice(i, 1)
-						if (!mutedRef.current) new Audio('/audio/pickup.wav').play().catch(() => {})
+						if (!mutedRef.current) {
+							const snd = new Audio('/audio/pickup.wav')
+							snd.playbackRate = g.rainbow ? 2.0 : g.superRare ? 1.6 : g.rare ? 1.25 : 1.0
+							snd.play().catch(() => {})
+						}
 					}
 				}
 
