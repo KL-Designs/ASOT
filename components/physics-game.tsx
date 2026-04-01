@@ -2,7 +2,7 @@
 
 import { useRef, useEffect, useState } from 'react'
 
-export default function PhysicsGame({ onActivate, onGameOver, onRestart, active, personalBest, globalBest, globalBestName }: {
+export default function PhysicsGame({ onActivate, onGameOver, onRestart, active, personalBest, globalBest, globalBestName, liveUserId, liveAccentColor }: {
 	onActivate: () => void
 	onGameOver?: (score: number, collectScore: number) => void
 	onRestart?: () => void
@@ -10,11 +10,17 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 	personalBest?: number
 	globalBest?: number
 	globalBestName?: string
+	liveUserId?: string
+	liveAccentColor?: string
 }) {
 	const canvasRef      = useRef<HTMLCanvasElement>(null)
 	const mutedRef       = useRef(typeof window !== 'undefined' && localStorage.getItem('minigame_muted') === 'true')
 	const bgMusicRef     = useRef<HTMLAudioElement | null>(null)
 	const [isMuted, setIsMuted] = useState(mutedRef.current)
+	const liveUserIdRef      = useRef(liveUserId)
+	const liveAccentColorRef = useRef(liveAccentColor)
+	const currentScoreRef    = useRef({ score: 0, collectScore: 0 })
+	const livePlayersRef     = useRef<{ userId: string; displayName: string; accentColor?: string; score: number; collectScore: number }[]>([])
 	const onGameOverRef    = useRef(onGameOver)
 	const onRestartRef     = useRef(onRestart)
 	const personalBestRef  = useRef(personalBest)
@@ -26,6 +32,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 	useEffect(() => { personalBestRef.current   = personalBest  }, [personalBest])
 	useEffect(() => { globalBestRef.current     = globalBest    }, [globalBest])
 	useEffect(() => { globalBestNameRef.current = globalBestName }, [globalBestName])
+	useEffect(() => { liveUserIdRef.current      = liveUserId      }, [liveUserId])
+	useEffect(() => { liveAccentColorRef.current = liveAccentColor }, [liveAccentColor])
 
 	useEffect(() => {
 		const canvas = canvasRef.current
@@ -254,8 +262,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
 				e.preventDefault()
-				if (!state.active) { state.active = true; reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current; bgMusic.play().catch(() => {}); onActivate(); return }
-				if (state.dead && state.deadTimer <= 0) { reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current; bgMusic.play().catch(() => {}); onRestartRef.current?.(); return }
+				if (!state.active) { state.active = true; reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current; bgMusic.play().catch(() => {}); onActivate(); startHeartbeat(); return }
+				if (state.dead && state.deadTimer <= 0) { reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current; bgMusic.play().catch(() => {}); onRestartRef.current?.(); startHeartbeat(); return }
 				if (state.countdown < 0) state.thrusting = true
 			}
 		}
@@ -270,6 +278,42 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 		let frame   = 0
 		let lastTime = 0   // rAF timestamp of previous frame
 
+		// ── Live presence ─────────────────────────────────────────────
+		let heartbeatInterval: ReturnType<typeof setInterval> | null = null
+
+		const stopHeartbeat = () => {
+			if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null }
+			if (liveUserIdRef.current) {
+				fetch('/api/minigame/live', { method: 'DELETE' }).catch(() => {})
+			}
+		}
+
+		const startHeartbeat = () => {
+			if (!liveUserIdRef.current) return
+			stopHeartbeat()
+			heartbeatInterval = setInterval(() => {
+				if (!state.active || state.dead) return
+				fetch('/api/minigame/live', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						score:        currentScoreRef.current.score,
+						collectScore: currentScoreRef.current.collectScore,
+						accentColor:  liveAccentColorRef.current || null,
+					}),
+				}).catch(() => {})
+			}, 2500)
+		}
+
+		const fetchLive = () => {
+			fetch('/api/minigame/live')
+				.then(r => r.json())
+				.then(data => { if (Array.isArray(data)) livePlayersRef.current = data })
+				.catch(() => {})
+		}
+		fetchLive()
+		const livePollingInterval = setInterval(fetchLive, 3000)
+
 		const die = () => {
 			if (state.dead) return
 			state.y         = Math.max(0, Math.min(canvas.height - TRI, state.y))
@@ -277,6 +321,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			state.deadTimer = 80
 			bgMusic.pause()
 			bgMusic.currentTime = 0
+			stopHeartbeat()
 			if (!mutedRef.current) new Audio('/audio/death.wav').play().catch(() => {})
 			if (!state.deathReported) {
 				state.deathReported = true
@@ -667,6 +712,77 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			})
 		}
 
+		// ── Live players panel ───────────────────────────────────────
+		const drawLivePlayers = () => {
+			const players = livePlayersRef.current
+			if (!players.length) return
+
+			const panelW  = 172
+			const rowH    = 21
+			const headerH = 24
+			const padB    = 6
+			const panelH  = headerH + players.length * rowH + padB
+			const px      = canvas.width - panelW - 10
+			const py      = 10
+
+			ctx.save()
+
+			// Panel background
+			ctx.fillStyle = 'rgba(0,0,0,0.58)'
+			rRect(px, py, panelW, panelH, 6)
+			ctx.fill()
+			ctx.strokeStyle = 'rgba(255,255,255,0.07)'
+			ctx.lineWidth   = 1
+			rRect(px, py, panelW, panelH, 6)
+			ctx.stroke()
+
+			// "● LIVE" header
+			const pulse = Math.sin(frame * 0.07) * 0.5 + 0.5
+			ctx.font         = '700 10px monospace'
+			ctx.textAlign    = 'left'
+			ctx.textBaseline = 'middle'
+			ctx.fillStyle    = `rgba(219,0,29,${0.7 + pulse * 0.3})`
+			ctx.fillText('● LIVE', px + 10, py + headerH / 2)
+
+			// Divider
+			ctx.strokeStyle = 'rgba(255,255,255,0.07)'
+			ctx.lineWidth   = 1
+			ctx.beginPath()
+			ctx.moveTo(px + 6, py + headerH)
+			ctx.lineTo(px + panelW - 6, py + headerH)
+			ctx.stroke()
+
+			// Player rows
+			ctx.font = '500 11px monospace'
+			for (let i = 0; i < players.length; i++) {
+				const p   = players[i]
+				const ry  = py + headerH + i * rowH + rowH / 2
+				const col = p.accentColor || '#9999bb'
+				const isMe = p.userId === liveUserIdRef.current
+
+				// Accent dot
+				ctx.fillStyle = col
+				ctx.beginPath()
+				ctx.arc(px + 14, ry, 4, 0, Math.PI * 2)
+				ctx.fill()
+
+				// Name
+				const raw  = isMe ? 'YOU' : p.displayName
+				const name = raw.length > 11 ? raw.slice(0, 11) + '…' : raw
+				ctx.fillStyle = isMe ? col : 'rgba(237,237,237,0.80)'
+				ctx.textAlign = 'left'
+				ctx.fillText(name, px + 24, ry)
+
+				// Score
+				const total = (p.score ?? 0) + (p.collectScore ?? 0)
+				ctx.fillStyle = 'rgba(237,237,237,0.45)'
+				ctx.textAlign = 'right'
+				ctx.fillText(String(total), px + panelW - 8, ry)
+			}
+
+			ctx.restore()
+		}
+
 		// ── How to Play guide ────────────────────────────────────────
 		const POWERUP_INFO = [
 			{ type: 'magnet'    as const, name: 'MAGNET',    desc: 'Pulls gems toward you',   dur: `${MAGNET_MS    / 1000}s` },
@@ -915,6 +1031,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 
 				drawTri(cx, cy, TRI, 0, 'rgba(237,237,237,0.88)', 'rgba(237,237,237,0.08)')
 				drawHowToPlay(state.countdown, 1)
+				drawLivePlayers()
 				drawMuteButton()
 				animId = requestAnimationFrame(animate); return
 			}
@@ -1372,6 +1489,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 				if (guideAlpha > 0) drawHowToPlay(-1, guideAlpha)
 			}
 
+			currentScoreRef.current = { score: state.score, collectScore: state.collectScore }
+			drawLivePlayers()
 			drawMuteButton()
 			animId = requestAnimationFrame(animate)
 		}
@@ -1382,7 +1501,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			window.removeEventListener('keydown', onKeyDown)
 			window.removeEventListener('keyup',   onKeyUp)
 			window.removeEventListener('resize',  resize)
-
+			clearInterval(livePollingInterval)
+			stopHeartbeat()
 			bgMusic.pause()
 		}
 	}, []) // eslint-disable-line react-hooks/exhaustive-deps
