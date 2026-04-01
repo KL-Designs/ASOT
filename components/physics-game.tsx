@@ -14,9 +14,11 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 	liveAccentColor?: string
 }) {
 	const canvasRef      = useRef<HTMLCanvasElement>(null)
-	const mutedRef       = useRef(typeof window !== 'undefined' && localStorage.getItem('minigame_muted') === 'true')
-	const bgMusicRef     = useRef<HTMLAudioElement | null>(null)
-	const [isMuted, setIsMuted] = useState(mutedRef.current)
+	const mutedRef          = useRef(typeof window !== 'undefined' && localStorage.getItem('minigame_muted') === 'true')
+	const bgMusicMutedRef   = useRef(typeof window !== 'undefined' && localStorage.getItem('minigame_bgmusic_muted') === 'true')
+	const bgMusicRef        = useRef<HTMLAudioElement | null>(null)
+	const [isMuted, setIsMuted]               = useState(mutedRef.current)
+	const [isBgMusicMuted, setIsBgMusicMuted] = useState(bgMusicMutedRef.current)
 	const liveUserIdRef      = useRef(liveUserId)
 	const liveAccentColorRef = useRef(liveAccentColor)
 	const currentScoreRef    = useRef({ score: 0, collectScore: 0 })
@@ -134,7 +136,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 
 		const bgMusic = new Audio('/audio/dream.mp3')
 		bgMusic.loop  = true
-		bgMusic.muted = mutedRef.current
+		bgMusic.muted = mutedRef.current || bgMusicMutedRef.current
 		bgMusicRef.current = bgMusic
 
 		// ── Synthesized SFX ───────────────────────────────────────────
@@ -383,8 +385,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
 				e.preventDefault()
-				if (!state.active) { state.active = true; reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current; bgMusic.play().catch(() => {}); onActivate(); startHeartbeat(); return }
-				if (state.dead && state.deadTimer <= 0) { reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current; bgMusic.play().catch(() => {}); onRestartRef.current?.(); startHeartbeat(); return }
+				if (!state.active) { state.active = true; reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current || bgMusicMutedRef.current; bgMusic.play().catch(() => {}); onActivate(); startHeartbeat(); return }
+				if (state.dead && state.deadTimer <= 0) { reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current || bgMusicMutedRef.current; bgMusic.play().catch(() => {}); onRestartRef.current?.(); startHeartbeat(); return }
 				if (state.countdown < 0 && !e.repeat && !state.thrusting) sfx.thrust()
 				if (state.countdown < 0) state.thrusting = true
 			}
@@ -793,10 +795,11 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 		}
 
 		// ── Game buttons (bottom-right corner) ────────────────────────
-		const BTN_R  = 16
-		const BTN_Y  = () => canvas.height - 38
-		const MUTE_X = () => canvas.width  - 38
-		const FS_X   = () => canvas.width  - 84
+		const BTN_R   = 16
+		const BTN_Y   = () => canvas.height - 38
+		const MUTE_X  = () => canvas.width  - 38
+		const FS_X    = () => canvas.width  - 84
+		const MUSIC_X = () => canvas.width  - 130
 
 		const drawBtn = (bx: number, by: number, active: boolean, accentColor: string, drawIcon: () => void) => {
 			ctx.save()
@@ -824,6 +827,25 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 					ctx.lineWidth = 2
 					ctx.beginPath(); ctx.moveTo(6,-6); ctx.lineTo(11, 0); ctx.stroke()
 					ctx.beginPath(); ctx.moveTo(11,-6); ctx.lineTo(6,  0); ctx.stroke()
+				}
+			})
+
+			// BG Music button — musical note icon
+			drawBtn(MUSIC_X(), BTN_Y(), bgMusicMutedRef.current, 'rgba(219,0,29,0.65)', () => {
+				const ic = bgMusicMutedRef.current ? 'rgba(219,0,29,0.90)' : 'rgba(237,237,237,0.70)'
+				ctx.fillStyle = ic; ctx.strokeStyle = ic; ctx.lineWidth = 1.5; ctx.lineCap = 'round'
+				// Stem
+				ctx.beginPath(); ctx.moveTo(3, -7); ctx.lineTo(3, 3); ctx.stroke()
+				// Note head (filled ellipse)
+				ctx.save(); ctx.translate(-1, 4); ctx.scale(1, 0.65)
+				ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill()
+				ctx.restore()
+				// Flag
+				ctx.beginPath(); ctx.moveTo(3, -7); ctx.quadraticCurveTo(10, -4, 7, 0); ctx.stroke()
+				if (bgMusicMutedRef.current) {
+					ctx.lineWidth = 2
+					ctx.beginPath(); ctx.moveTo(6, -6); ctx.lineTo(11, 0); ctx.stroke()
+					ctx.beginPath(); ctx.moveTo(11, -6); ctx.lineTo(6,  0); ctx.stroke()
 				}
 			})
 
@@ -1691,8 +1713,15 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 	const handleMuteClick = () => {
 		mutedRef.current = !mutedRef.current
 		localStorage.setItem('minigame_muted', String(mutedRef.current))
-		if (bgMusicRef.current) bgMusicRef.current.muted = mutedRef.current
+		if (bgMusicRef.current) bgMusicRef.current.muted = mutedRef.current || bgMusicMutedRef.current
 		setIsMuted(mutedRef.current)
+	}
+
+	const handleBgMusicMuteClick = () => {
+		bgMusicMutedRef.current = !bgMusicMutedRef.current
+		localStorage.setItem('minigame_bgmusic_muted', String(bgMusicMutedRef.current))
+		if (bgMusicRef.current) bgMusicRef.current.muted = mutedRef.current || bgMusicMutedRef.current
+		setIsBgMusicMuted(bgMusicMutedRef.current)
 	}
 
 	const handleFSClick = () => {
@@ -1732,8 +1761,9 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			/>
 			{active && (
 				<>
-					<button aria-label={isMuted ? 'Unmute' : 'Mute'} onClick={handleMuteClick} style={{ ...btnBase, right: 22 }} />
-					<button aria-label="Toggle fullscreen"            onClick={handleFSClick}   style={{ ...btnBase, right: 68 }} />
+					<button aria-label={isMuted ? 'Unmute' : 'Mute'}                      onClick={handleMuteClick}        style={{ ...btnBase, right: 22  }} />
+					<button aria-label="Toggle fullscreen"                                onClick={handleFSClick}          style={{ ...btnBase, right: 68  }} />
+					<button aria-label={isBgMusicMuted ? 'Unmute music' : 'Mute music'} onClick={handleBgMusicMuteClick} style={{ ...btnBase, right: 114 }} />
 				</>
 			)}
 		</>
