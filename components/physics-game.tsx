@@ -1,18 +1,31 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 
-export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
+export default function PhysicsGame({ onActivate, onGameOver, onRestart, active, personalBest, globalBest, globalBestName }: {
 	onActivate: () => void
 	onGameOver?: (score: number, collectScore: number) => void
 	onRestart?: () => void
+	active?: boolean
+	personalBest?: number
+	globalBest?: number
+	globalBestName?: string
 }) {
-	const canvasRef = useRef<HTMLCanvasElement>(null)
-	const onGameOverRef = useRef(onGameOver)
-	const onRestartRef  = useRef(onRestart)
+	const canvasRef      = useRef<HTMLCanvasElement>(null)
+	const mutedRef       = useRef(typeof window !== 'undefined' && localStorage.getItem('minigame_muted') === 'true')
+	const bgMusicRef     = useRef<HTMLAudioElement | null>(null)
+	const [isMuted, setIsMuted] = useState(mutedRef.current)
+	const onGameOverRef    = useRef(onGameOver)
+	const onRestartRef     = useRef(onRestart)
+	const personalBestRef  = useRef(personalBest)
+	const globalBestRef    = useRef(globalBest)
+	const globalBestNameRef = useRef(globalBestName)
 
-	useEffect(() => { onGameOverRef.current = onGameOver }, [onGameOver])
-	useEffect(() => { onRestartRef.current  = onRestart  }, [onRestart])
+	useEffect(() => { onGameOverRef.current     = onGameOver    }, [onGameOver])
+	useEffect(() => { onRestartRef.current      = onRestart     }, [onRestart])
+	useEffect(() => { personalBestRef.current   = personalBest  }, [personalBest])
+	useEffect(() => { globalBestRef.current     = globalBest    }, [globalBest])
+	useEffect(() => { globalBestNameRef.current = globalBestName }, [globalBestName])
 
 	useEffect(() => {
 		const canvas = canvasRef.current
@@ -77,7 +90,9 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 		initStars()
 
 		const bgMusic = new Audio('/audio/dream.mp3')
-		bgMusic.loop = true
+		bgMusic.loop  = true
+		bgMusic.muted = mutedRef.current
+		bgMusicRef.current = bgMusic
 
 		const spawnShootingStar = () => {
 			const speed = 11 + Math.random() * 9
@@ -122,7 +137,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			dead: false, deadTimer: 0, deathReported: false,
 			x: 0, y: 0, vy: 0, thrusting: false,
 			hintTimer: 0,
-			countdown: -1, countdownTimer: 0,
+			countdown: -1, countdownTimer: 0, guideTimer: 0,
 			asteroids:     [] as Asteroid[],
 			spawnTimer:    60, spawnInterval: 100, obsSpeed: 1.6,
 			score: 0, collectScore: 0,
@@ -225,6 +240,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			state.hintTimer     = 230
 			state.countdown     = 3
 			state.countdownTimer = 45
+			state.guideTimer    = 0
 		}
 
 		const resize = () => {
@@ -238,14 +254,15 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
 				e.preventDefault()
-				if (!state.active) { state.active = true; reset(); bgMusic.currentTime = 0; bgMusic.play().catch(() => {}); onActivate(); return }
-				if (state.dead && state.deadTimer <= 0) { reset(); bgMusic.currentTime = 0; bgMusic.play().catch(() => {}); onRestartRef.current?.(); return }
+				if (!state.active) { state.active = true; reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current; bgMusic.play().catch(() => {}); onActivate(); return }
+				if (state.dead && state.deadTimer <= 0) { reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current; bgMusic.play().catch(() => {}); onRestartRef.current?.(); return }
 				if (state.countdown < 0) state.thrusting = true
 			}
 		}
 		const onKeyUp = (e: KeyboardEvent) => {
 			if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') state.thrusting = false
 		}
+
 		window.addEventListener('keydown', onKeyDown)
 		window.addEventListener('keyup',   onKeyUp)
 
@@ -260,7 +277,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			state.deadTimer = 80
 			bgMusic.pause()
 			bgMusic.currentTime = 0
-			new Audio('/audio/death.mp3').play().catch(() => {})
+			if (!mutedRef.current) new Audio('/audio/death.wav').play().catch(() => {})
 			if (!state.deathReported) {
 				state.deathReported = true
 				onGameOverRef.current?.(state.score, state.collectScore)
@@ -591,6 +608,263 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			ctx.restore()
 		}
 
+		// ── Game buttons (bottom-right corner) ────────────────────────
+		const BTN_R  = 16
+		const BTN_Y  = () => canvas.height - 38
+		const MUTE_X = () => canvas.width  - 38
+		const FS_X   = () => canvas.width  - 84
+
+		const drawBtn = (bx: number, by: number, active: boolean, accentColor: string, drawIcon: () => void) => {
+			ctx.save()
+			ctx.translate(bx, by)
+			ctx.beginPath(); ctx.arc(0, 0, BTN_R, 0, Math.PI * 2)
+			ctx.fillStyle = 'rgba(0,0,0,0.50)'; ctx.fill()
+			ctx.strokeStyle = active ? accentColor : 'rgba(237,237,237,0.28)'
+			ctx.lineWidth = 1; ctx.stroke()
+			drawIcon()
+			ctx.restore()
+		}
+
+		const drawMuteButton = () => {
+			drawBtn(MUTE_X(), BTN_Y(), mutedRef.current, 'rgba(219,0,29,0.65)', () => {
+				const ic = mutedRef.current ? 'rgba(219,0,29,0.90)' : 'rgba(237,237,237,0.70)'
+				ctx.fillStyle = ic; ctx.strokeStyle = ic
+				ctx.lineWidth = 1.5; ctx.lineCap = 'round'
+				ctx.beginPath()
+				ctx.moveTo(-6,-3); ctx.lineTo(-2,-3); ctx.lineTo(3,-7); ctx.lineTo(3,7); ctx.lineTo(-2,3); ctx.lineTo(-6,3)
+				ctx.closePath(); ctx.fill()
+				if (!mutedRef.current) {
+					ctx.beginPath(); ctx.arc(1, 0,  7, -Math.PI*0.40, Math.PI*0.40); ctx.stroke()
+					ctx.beginPath(); ctx.arc(1, 0, 11, -Math.PI*0.35, Math.PI*0.35); ctx.stroke()
+				} else {
+					ctx.lineWidth = 2
+					ctx.beginPath(); ctx.moveTo(6,-6); ctx.lineTo(11, 0); ctx.stroke()
+					ctx.beginPath(); ctx.moveTo(11,-6); ctx.lineTo(6,  0); ctx.stroke()
+				}
+			})
+
+			// Fullscreen button
+			const isFS = !!document.fullscreenElement
+			drawBtn(FS_X(), BTN_Y(), isFS, 'rgba(237,237,237,0.50)', () => {
+				ctx.strokeStyle = 'rgba(237,237,237,0.70)'
+				ctx.lineWidth = 1.8; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+				const a = 5.5, g = 3.5
+				ctx.beginPath()
+				if (!isFS) {
+					// Expand: outward corner arrows
+					ctx.moveTo(-g-a,-g); ctx.lineTo(-g,-g); ctx.lineTo(-g,-g-a)
+					ctx.moveTo( g+a,-g); ctx.lineTo( g,-g); ctx.lineTo( g,-g-a)
+					ctx.moveTo(-g-a, g); ctx.lineTo(-g, g); ctx.lineTo(-g, g+a)
+					ctx.moveTo( g+a, g); ctx.lineTo( g, g); ctx.lineTo( g, g+a)
+				} else {
+					// Compress: inward corner arrows
+					ctx.moveTo(-g,  -g-a); ctx.lineTo(-g,-g); ctx.lineTo(-g-a,-g)
+					ctx.moveTo( g,  -g-a); ctx.lineTo( g,-g); ctx.lineTo( g+a,-g)
+					ctx.moveTo(-g,   g+a); ctx.lineTo(-g, g); ctx.lineTo(-g-a, g)
+					ctx.moveTo( g,   g+a); ctx.lineTo( g, g); ctx.lineTo( g+a, g)
+				}
+				ctx.stroke()
+			})
+		}
+
+		// ── How to Play guide ────────────────────────────────────────
+		const POWERUP_INFO = [
+			{ type: 'magnet'    as const, name: 'MAGNET',    desc: 'Pulls gems toward you',   dur: `${MAGNET_MS    / 1000}s` },
+			{ type: 'slowtime'  as const, name: 'SLOW TIME', desc: 'Halves obstacle speed',   dur: `${SLOW_MS      / 1000}s` },
+			{ type: 'shield'    as const, name: 'SHIELD',    desc: 'Absorbs one fatal hit',   dur: `${SHIELD_MS    / 1000}s` },
+			{ type: 'gemshower' as const, name: 'GEM RAIN',  desc: 'Floods field with gems',  dur: 'instant'                 },
+			{ type: 'nuke'      as const, name: 'NUKE',      desc: 'Clears all obstacles',    dur: 'instant'                 },
+			{ type: 'autopilot' as const, name: 'AUTOPILOT', desc: 'AI pilots your ship',     dur: `${AUTOPILOT_MS / 1000}s` },
+		]
+
+		const drawHowToPlay = (countdown: number, alpha: number) => {
+			const W  = canvas.width, H  = canvas.height
+			const CX = W / 2,        CY = H / 2
+
+			const PW       = Math.min(700, W * 0.94)
+			const PH       = Math.min(440, H * 0.88)
+			const px       = CX - PW / 2
+			const py       = CY - PH / 2
+			const headerH  = 28
+			const ctrlH    = 90
+			const puLabelH = 20
+			const scoreH   = 46
+			const gridPad  = 8
+			const gridH    = PH - headerH - ctrlH - puLabelH - scoreH - gridPad * 3 - 2
+			const cellW    = PW / 3
+			const cellH    = gridH / 2
+			const iconR    = Math.max(14, Math.min(26, cellH * 0.25, cellW * 0.14))
+
+			ctx.save()
+			ctx.globalAlpha = alpha
+
+			// ── Panel background ──────────────────────────────────────
+			ctx.fillStyle = 'rgba(4,4,12,0.93)'
+			rRect(px, py, PW, PH, 6); ctx.fill()
+			ctx.strokeStyle = 'rgba(237,237,237,0.07)'
+			ctx.lineWidth = 1
+			rRect(px, py, PW, PH, 6); ctx.stroke()
+
+			// Red accent bar on left edge
+			ctx.fillStyle = 'rgba(219,0,29,0.75)'
+			ctx.fillRect(px + 4, py + 10, 3, headerH - 18)
+
+			// ── Header ────────────────────────────────────────────────
+			ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
+			ctx.font      = '700 9px monospace'
+			ctx.fillStyle = 'rgba(237,237,237,0.30)'
+			ctx.fillText('HOW TO PLAY', px + 16, py + headerH / 2)
+
+			ctx.fillStyle = 'rgba(237,237,237,0.05)'
+			ctx.fillRect(px + 16, py + headerH, PW - 32, 1)
+
+			// ── Controls + Countdown row ──────────────────────────────
+			const ctrlTop      = py + headerH + gridPad
+			const ctrlContentW = PW * 0.63
+			const badgeCX      = px + ctrlContentW + (PW - ctrlContentW) / 2
+			const badgeCY      = ctrlTop + ctrlH / 2
+			const badgeR       = Math.min(28, ctrlH / 2 - 6)
+
+			// "CONTROLS" label
+			ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+			ctx.font      = '700 8px monospace'
+			ctx.fillStyle = 'rgba(237,237,237,0.25)'
+			ctx.fillText('CONTROLS', px + 16, ctrlTop + 2)
+
+			// Control lines
+			const ctrlLines = [
+				'\u25b8  Hold SPACE / W / \u2191  \u2014  thrust upward',
+				'\u25b8  Release  \u2014  fall with gravity',
+				'\u25b8  AVOID \u25cf red asteroids & debris',
+				'\u25b8  COLLECT \u25c6 yellow gems for score',
+			]
+			ctx.font      = '500 9px monospace'
+			ctx.fillStyle = 'rgba(237,237,237,0.55)'
+			ctrlLines.forEach((line, i) => ctx.fillText(line, px + 16, ctrlTop + 18 + i * 17))
+
+			// Vertical divider between controls and badge
+			ctx.fillStyle = 'rgba(237,237,237,0.05)'
+			ctx.fillRect(px + ctrlContentW + 8, ctrlTop + 8, 1, ctrlH - 16)
+
+			// Countdown badge
+			if (countdown > 0) {
+				const cdStep = countdown === 0 ? 32 : 45
+				const cdProg = Math.max(0, Math.min(1, state.countdownTimer / cdStep))
+				// Track ring
+				ctx.strokeStyle = 'rgba(237,237,237,0.12)'; ctx.lineWidth = 2
+				ctx.beginPath(); ctx.arc(badgeCX, badgeCY, badgeR, 0, Math.PI * 2); ctx.stroke()
+				// Progress arc
+				ctx.strokeStyle = 'rgba(237,237,237,0.55)'; ctx.lineWidth = 2.5
+				ctx.beginPath(); ctx.arc(badgeCX, badgeCY, badgeR, -Math.PI / 2, -Math.PI / 2 + cdProg * Math.PI * 2); ctx.stroke()
+				// Number
+				ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+				ctx.font      = `700 ${Math.min(42, badgeR * 1.5)}px monospace`
+				ctx.fillStyle = 'rgba(237,237,237,0.90)'
+				ctx.fillText(String(countdown), badgeCX, badgeCY - 5)
+				// Label
+				ctx.font      = '600 7px monospace'
+				ctx.fillStyle = 'rgba(237,237,237,0.30)'
+				ctx.fillText('STARTS IN', badgeCX, badgeCY + badgeR * 0.72)
+			} else if (countdown === 0) {
+				// GO!
+				const pulse = 0.75 + Math.sin(frame * 0.30) * 0.25
+				ctx.textAlign    = 'center'; ctx.textBaseline = 'middle'
+				ctx.font         = `700 ${Math.min(44, badgeR * 1.6)}px monospace`
+				ctx.fillStyle    = `rgba(100,255,120,${pulse})`
+				ctx.fillText('GO!', badgeCX, badgeCY)
+			}
+
+			// Separator under controls row
+			ctx.fillStyle = 'rgba(237,237,237,0.05)'
+			ctx.fillRect(px + 16, ctrlTop + ctrlH + gridPad, PW - 32, 1)
+
+			// ── POWER-UPS label ───────────────────────────────────────
+			const puY = ctrlTop + ctrlH + gridPad * 2 + 1
+			ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
+			ctx.font      = '700 8px monospace'
+			ctx.fillStyle = 'rgba(237,237,237,0.22)'
+			ctx.fillText('POWER-UPS', px + 16, puY + puLabelH / 2)
+
+			// ── Powerup cells ─────────────────────────────────────────
+			const gridTop = puY + puLabelH
+			for (let i = 0; i < 6; i++) {
+				const col  = i % 3
+				const row  = Math.floor(i / 3)
+				const info = POWERUP_INFO[i]
+				const icx  = px + cellW * (col + 0.5)
+				const icy  = gridTop + row * cellH + iconR + gridPad
+
+				const scale = iconR / POWERUP_R
+				ctx.save()
+				ctx.translate(icx, icy)
+				ctx.scale(scale, scale)
+				drawPowerup({ x: 0, y: 0, type: info.type, speed: 0 })
+				ctx.restore()
+
+				ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+				ctx.font      = '700 9px monospace'
+				ctx.fillStyle = 'rgba(237,237,237,0.82)'
+				ctx.fillText(info.name, icx, icy + iconR + 6)
+
+				ctx.font      = '400 8px monospace'
+				ctx.fillStyle = 'rgba(237,237,237,0.38)'
+				ctx.fillText(info.desc, icx, icy + iconR + 19)
+
+				ctx.font      = '600 7px monospace'
+				ctx.fillStyle = 'rgba(237,237,237,0.20)'
+				ctx.fillText(info.dur, icx, icy + iconR + 30)
+
+				if (col < 2) {
+					ctx.fillStyle = 'rgba(237,237,237,0.04)'
+					ctx.fillRect(px + cellW * (col + 1) - 0.5, gridTop + 2, 1, gridH - 4)
+				}
+			}
+
+			// Horizontal divider between rows
+			ctx.fillStyle = 'rgba(237,237,237,0.04)'
+			ctx.fillRect(px + 16, gridTop + cellH - 1, PW - 32, 1)
+
+			// ── Score footer ──────────────────────────────────────────
+			ctx.fillStyle = 'rgba(237,237,237,0.05)'
+			ctx.fillRect(px + 16, py + PH - scoreH - 1, PW - 32, 1)
+
+			const scoreY = py + PH - scoreH / 2
+			const pbest  = personalBestRef.current
+			const gbest  = globalBestRef.current
+			const gname  = globalBestNameRef.current
+
+			ctx.textBaseline = 'middle'
+			if (pbest !== undefined && gbest !== undefined) {
+				const lx = px + PW * 0.27, rx = px + PW * 0.73
+				ctx.textAlign = 'center'
+				ctx.font = '600 8px monospace'; ctx.fillStyle = 'rgba(237,237,237,0.25)'
+				ctx.fillText('YOUR BEST', lx, scoreY - 9)
+				ctx.font = '700 14px monospace'; ctx.fillStyle = 'rgba(237,237,237,0.80)'
+				ctx.fillText(String(pbest), lx, scoreY + 5)
+				ctx.fillStyle = 'rgba(237,237,237,0.06)'
+				ctx.fillRect(CX - 0.5, scoreY - 17, 1, 34)
+				ctx.textAlign = 'center'
+				ctx.font = '600 8px monospace'; ctx.fillStyle = 'rgba(237,237,237,0.25)'
+				ctx.fillText('SERVER RECORD', rx, scoreY - 9)
+				ctx.font = '700 14px monospace'; ctx.fillStyle = 'rgba(255,210,0,0.85)'
+				ctx.fillText(String(gbest), rx, scoreY + 5)
+				if (gname) { ctx.font = '500 7px monospace'; ctx.fillStyle = 'rgba(237,237,237,0.22)'; ctx.fillText(gname, rx, scoreY + 18) }
+			} else if (gbest !== undefined) {
+				ctx.textAlign = 'center'
+				ctx.font = '600 8px monospace'; ctx.fillStyle = 'rgba(237,237,237,0.25)'
+				ctx.fillText('SERVER RECORD', CX, scoreY - 9)
+				ctx.font = '700 14px monospace'; ctx.fillStyle = 'rgba(255,210,0,0.85)'
+				ctx.fillText(String(gbest), CX, scoreY + 5)
+				if (gname) { ctx.font = '500 7px monospace'; ctx.fillStyle = 'rgba(237,237,237,0.22)'; ctx.fillText(gname, CX, scoreY + 18) }
+			} else {
+				ctx.textAlign = 'center'
+				ctx.font = '600 8px monospace'; ctx.fillStyle = 'rgba(237,237,237,0.18)'
+				ctx.fillText('LOG IN TO TRACK YOUR SCORE', CX, scoreY)
+			}
+
+			ctx.restore()
+		}
+
 		const animate = (now: number) => {
 			// Delta time normalised to 60 fps — capped at 3 to survive tab-switch spikes
 			const dt = lastTime > 0 ? Math.min((now - lastTime) / (1000 / 60), 3) : 1
@@ -631,7 +905,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 				state.countdownTimer -= dt
 				if (state.countdownTimer <= 0) {
 					if (state.countdown === 0) {
-						state.countdown = -1
+						state.countdown  = -1
+						state.guideTimer = 200   // 6 s at 60 fps — guide fades after GO!
 					} else {
 						state.countdown--
 						state.countdownTimer = state.countdown === 0 ? 32 : 45
@@ -639,22 +914,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 				}
 
 				drawTri(cx, cy, TRI, 0, 'rgba(237,237,237,0.88)', 'rgba(237,237,237,0.08)')
-
-				const stepFrames = state.countdown === 0 ? 32 : 45
-				const progress   = state.countdownTimer / stepFrames
-				const fontSize   = Math.round((state.countdown === 0 ? 62 : 80) * (1.0 + progress * 0.28))
-				const label      = state.countdown > 0 ? String(state.countdown) : 'GO!'
-				const fadeAlpha  = state.countdown === 0 ? Math.min(1, state.countdownTimer / 9) : 1
-
-				ctx.save()
-				ctx.globalAlpha  = fadeAlpha
-				ctx.fillStyle    = state.countdown === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(237,237,237,0.88)'
-				ctx.font         = `700 ${fontSize}px monospace`
-				ctx.textAlign    = 'center'
-				ctx.textBaseline = 'middle'
-				ctx.fillText(label, canvas.width / 2, canvas.height / 2)
-				ctx.restore()
-
+				drawHowToPlay(state.countdown, 1)
+				drawMuteButton()
 				animId = requestAnimationFrame(animate); return
 			}
 
@@ -865,6 +1126,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 							state.score += state.asteroids.length + state.debris.length
 							state.asteroids = []
 							state.debris    = []
+							if (!mutedRef.current) new Audio('/audio/explosion.wav').play().catch(() => {})
 						}
 						else if (p.type === 'gemshower') {
 							state.gemShowerEnd = now2 + 6_000
@@ -894,6 +1156,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 					if (Math.hypot(cx - g.x, cy - g.y) < g.size + TRI / 2.5) {
 						state.collectScore += g.rainbow ? 100 : g.superRare ? 50 : g.rare ? 10 : 1
 						state.gems.splice(i, 1)
+						if (!mutedRef.current) new Audio('/audio/pickup.wav').play().catch(() => {})
 					}
 				}
 
@@ -1018,8 +1281,31 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 					ctx.restore()
 				}
 
-				// ── Draw player ───────────────────────────────────────
-				drawTri(cx, cy, TRI, tilt, 'rgba(237,237,237,0.88)', 'rgba(237,237,237,0.08)')
+				// ── Draw player (with expiry-warning flash) ──────────
+				const WARN_THRESH = 3000
+				type WarnEntry = { ms: number; rgb: string }
+				const warnEntries: WarnEntry[] = [
+					{ ms: magnetRemainingMs,    rgb: '0,220,255'   },
+					{ ms: slowRemainingMs,      rgb: '180,60,255'  },
+					{ ms: shieldRemainingMs,    rgb: '0,255,160'   },
+					{ ms: autopilotRemainingMs, rgb: '0,230,220'   },
+				].filter(e => e.ms > 0 && e.ms < WARN_THRESH)
+				const warnEntry = warnEntries.sort((a, b) => a.ms - b.ms)[0]
+
+				if (warnEntry) {
+					const wFlash = Math.sin(frame * 0.40) * 0.5 + 0.5
+					const rgb = warnEntry.rgb
+					// Screen-edge vignette
+					const vig = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.height * 0.35, canvas.width / 2, canvas.height / 2, canvas.height * 0.82)
+					vig.addColorStop(0, `rgba(${rgb},0)`)
+					vig.addColorStop(1, `rgba(${rgb},${wFlash * 0.28})`)
+					ctx.fillStyle = vig
+					ctx.fillRect(0, 0, canvas.width, canvas.height)
+					// Flashing player
+					drawTri(cx, cy, TRI, tilt, `rgba(${rgb},${0.5 + wFlash * 0.5})`, `rgba(${rgb},${wFlash * 0.18})`)
+				} else {
+					drawTri(cx, cy, TRI, tilt, 'rgba(237,237,237,0.88)', 'rgba(237,237,237,0.08)')
+				}
 
 				// ── Shield bubble ────────────────────────────────────
 				if (shieldActive) {
@@ -1079,6 +1365,14 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 				}
 			}
 
+			// ── How-to-Play guide fade-out (after GO!) ───────────────
+			if (state.guideTimer > 0) {
+				state.guideTimer = Math.max(0, state.guideTimer - dt)
+				const guideAlpha = Math.min(1, state.guideTimer / 60)   // fade last 60 frames
+				if (guideAlpha > 0) drawHowToPlay(-1, guideAlpha)
+			}
+
+			drawMuteButton()
 			animId = requestAnimationFrame(animate)
 		}
 		animId = requestAnimationFrame(animate)
@@ -1088,21 +1382,57 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart }: {
 			window.removeEventListener('keydown', onKeyDown)
 			window.removeEventListener('keyup',   onKeyUp)
 			window.removeEventListener('resize',  resize)
+
 			bgMusic.pause()
 		}
 	}, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+	const handleMuteClick = () => {
+		mutedRef.current = !mutedRef.current
+		localStorage.setItem('minigame_muted', String(mutedRef.current))
+		if (bgMusicRef.current) bgMusicRef.current.muted = mutedRef.current
+		setIsMuted(mutedRef.current)
+	}
+
+	const handleFSClick = () => {
+		const c = canvasRef.current
+		if (!c) return
+		if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
+		else c.requestFullscreen().catch(() => {})
+	}
+
+	const btnBase: React.CSSProperties = {
+		position:    'absolute',
+		bottom:      22,
+		width:       32,
+		height:      32,
+		borderRadius:'50%',
+		background:  'transparent',
+		border:      'none',
+		cursor:      'pointer',
+		zIndex:      20,
+		padding:     0,
+	}
+
 	return (
-		<canvas
-			ref={canvasRef}
-			style={{
-				position:      'absolute',
-				inset:         0,
-				width:         '100%',
-				height:        '100%',
-				pointerEvents: 'none',
-				zIndex:        2,
-			}}
-		/>
+		<>
+			<canvas
+				ref={canvasRef}
+				style={{
+					position:      'absolute',
+					inset:         0,
+					width:         '100%',
+					height:        '100%',
+					pointerEvents: active ? 'auto' : 'none',
+					zIndex:        2,
+				}}
+			/>
+			{active && (
+				<>
+					<button aria-label={isMuted ? 'Unmute' : 'Mute'} onClick={handleMuteClick} style={{ ...btnBase, right: 22 }} />
+					<button aria-label="Toggle fullscreen"            onClick={handleFSClick}   style={{ ...btnBase, right: 68 }} />
+				</>
+			)}
+		</>
 	)
 }

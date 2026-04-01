@@ -37,6 +37,9 @@ export default function Page() {
 	const [scoreboardKey, setScoreboardKey] = useState(0)
 	const [gameDead, setGameDead] = useState(false)
 	const [lastScore, setLastScore] = useState<{ score: number; collectScore: number } | undefined>(undefined)
+	const [globalBest, setGlobalBest]       = useState<number | undefined>(undefined)
+	const [globalBestName, setGlobalBestName] = useState<string | undefined>(undefined)
+	const [personalBest, setPersonalBest]   = useState<number | undefined>(undefined)
 
 	useEffect(() => {
 		if (ref.current) ref.current.focus({ preventScroll: true })
@@ -52,6 +55,24 @@ export default function Page() {
 			if (!data.error) setCurrentUser(data)
 		}).catch(() => {})
 	}, [])
+
+	useEffect(() => {
+		fetch('/api/minigame/score')
+			.then(r => r.json())
+			.then((scores: { userId: string; displayName: string; total: number }[]) => {
+				if (scores.length > 0) { setGlobalBest(scores[0].total); setGlobalBestName(scores[0].displayName) }
+			}).catch(() => {})
+	}, [scoreboardKey])
+
+	useEffect(() => {
+		if (!currentUser) return
+		fetch('/api/minigame/score?all=true')
+			.then(r => r.json())
+			.then((scores: { userId: string; total: number }[]) => {
+				const mine = scores.find(s => s.userId === currentUser.id)
+				setPersonalBest(mine?.total)
+			}).catch(() => {})
+	}, [currentUser, scoreboardKey])
 
 	function handleGameOver(score: number, collectScore: number) {
 		setLastScore({ score, collectScore })
@@ -84,7 +105,7 @@ export default function Page() {
 				<div className='absolute inset-0' style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.1) 50%, rgba(10,10,10,0.95) 100%)' }} />
 				<div className='absolute inset-0' style={{ background: 'rgba(0,0,0,0.45)', opacity: gameActive ? 1 : 0, transition: 'opacity 0.7s ease', pointerEvents: 'none', zIndex: 1 }} />
 				<FireEmbers />
-				<PhysicsGame onActivate={() => setGameActive(true)} onGameOver={handleGameOver} onRestart={() => setGameDead(false)} />
+				<PhysicsGame onActivate={() => setGameActive(true)} onGameOver={handleGameOver} onRestart={() => setGameDead(false)} active={gameActive} personalBest={personalBest} globalBest={globalBest} globalBestName={globalBestName} />
 				<MinigameScoreboard visible={gameDead} currentUserId={currentUser?.id} refreshKey={scoreboardKey} lastScore={lastScore} />
 
 				<div className='h-full flex flex-col items-center justify-center gap-6 px-6 relative' style={{ opacity: gameActive ? 0 : 1, transition: 'opacity 0.6s ease', pointerEvents: gameActive ? 'none' : 'auto' }}>
