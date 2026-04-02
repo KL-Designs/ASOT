@@ -41,9 +41,14 @@ export default function Page() {
     const [loaded, setLoaded] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
+    const [assignedPlatoons, setAssignedPlatoons] = useState<string[]>([])
+    const [rsvpOpen, setRsvpOpen] = useState(false)
+    const [confirmationOpen, setConfirmationOpen] = useState(false)
+    const [attendanceSaving, setAttendanceSaving] = useState(false)
+
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [previewOpen, setPreviewOpen] = useState(false)
-const [activityOpen, setActivityOpen] = useState(false)
+    const [activityOpen, setActivityOpen] = useState(false)
     const router = useRouter()
 
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -77,6 +82,15 @@ const [activityOpen, setActivityOpen] = useState(false)
                 setCoverImage(op.coverImage || null)
                 setInitialContent(op.content ?? null)
                 setLoaded(true)
+            })
+
+        fetch(`/api/operations/${id}/attendance`)
+            .then(r => r.json())
+            .then(json => {
+                if (json.error) return
+                setAssignedPlatoons(json.assignedPlatoons ?? [])
+                setRsvpOpen(json.rsvpOpen ?? false)
+                setConfirmationOpen(json.confirmationOpen ?? false)
             })
     }, [])
 
@@ -129,6 +143,31 @@ const [activityOpen, setActivityOpen] = useState(false)
         const id = params.get('op') || ''
         await fetch(`/api/operations/update?id=${id}&coverImage=`)
     }
+
+    async function saveAttendanceSettings(updates: { assignedPlatoons?: string[]; rsvpOpen?: boolean; confirmationOpen?: boolean }) {
+        setAttendanceSaving(true)
+        try {
+            await fetch(`/api/operations/${opID}/attendance/platoons`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    assignedPlatoons: updates.assignedPlatoons ?? assignedPlatoons,
+                    reservistAssignments: [],
+                    rsvpOpen: updates.rsvpOpen ?? rsvpOpen,
+                    confirmationOpen: updates.confirmationOpen ?? confirmationOpen,
+                }),
+            })
+        } finally {
+            setAttendanceSaving(false)
+        }
+    }
+
+    const PLATOON_OPTS = [
+        { id: 'companyHQ', label: '1-0 HQ' },
+        { id: 'platoon11', label: '1-1 Platoon' },
+        { id: 'platoon12', label: '1-2 Platoon' },
+        { id: 'support',   label: '1-3 Support Platoon' },
+    ]
 
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
@@ -399,6 +438,107 @@ const [activityOpen, setActivityOpen] = useState(false)
                     </div>
                 </div>
             </div>
+
+            {/* Attendance settings — HQ only */}
+            {isHQ && opID && (
+                <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(0.5)}`, background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
+                    <div className='flex items-center justify-between px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
+                            Attendance Settings
+                        </span>
+                        {attendanceSaving && (
+                            <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>
+                                Saving…
+                            </span>
+                        )}
+                    </div>
+                    <div className='flex flex-col gap-4 p-4'>
+                        {/* Platoon checkboxes */}
+                        <div>
+                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10 }}>
+                                Assigned Platoons
+                            </div>
+                            <div className='flex flex-wrap gap-3'>
+                                {PLATOON_OPTS.map(opt => {
+                                    const checked = assignedPlatoons.includes(opt.id)
+                                    return (
+                                        <label
+                                            key={opt.id}
+                                            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
+                                        >
+                                            <input
+                                                type='checkbox'
+                                                checked={checked}
+                                                onChange={() => {
+                                                    const updated = checked
+                                                        ? assignedPlatoons.filter(p => p !== opt.id)
+                                                        : [...assignedPlatoons, opt.id]
+                                                    setAssignedPlatoons(updated)
+                                                    saveAttendanceSettings({ assignedPlatoons: updated })
+                                                }}
+                                                style={{ accentColor: c(1), width: 14, height: 14, cursor: 'pointer' }}
+                                            />
+                                            <span style={{ fontSize: '0.78rem', letterSpacing: '0.06em', color: checked ? c(0.9) : 'rgba(237,237,237,0.45)' }}>
+                                                {opt.label}
+                                            </span>
+                                        </label>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* RSVP / Confirmation toggles */}
+                        <div className='flex flex-wrap gap-6'>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+                                <div
+                                    onClick={() => {
+                                        setRsvpOpen(o => {
+                                            saveAttendanceSettings({ rsvpOpen: !o })
+                                            return !o
+                                        })
+                                    }}
+                                    style={{
+                                        width: 36, height: 20, borderRadius: 10, position: 'relative', cursor: 'pointer', flexShrink: 0,
+                                        background: rsvpOpen ? c(0.75) : 'rgba(255,255,255,0.1)',
+                                        transition: 'background 0.2s',
+                                    }}
+                                >
+                                    <div style={{
+                                        position: 'absolute', top: 3, left: rsvpOpen ? 18 : 3, width: 14, height: 14,
+                                        borderRadius: '50%', background: 'white', transition: 'left 0.2s',
+                                    }} />
+                                </div>
+                                <span style={{ fontSize: '0.78rem', letterSpacing: '0.06em', color: rsvpOpen ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.4)' }}>
+                                    RSVP Open
+                                </span>
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+                                <div
+                                    onClick={() => {
+                                        setConfirmationOpen(o => {
+                                            saveAttendanceSettings({ confirmationOpen: !o })
+                                            return !o
+                                        })
+                                    }}
+                                    style={{
+                                        width: 36, height: 20, borderRadius: 10, position: 'relative', cursor: 'pointer', flexShrink: 0,
+                                        background: confirmationOpen ? c(0.75) : 'rgba(255,255,255,0.1)',
+                                        transition: 'background 0.2s',
+                                    }}
+                                >
+                                    <div style={{
+                                        position: 'absolute', top: 3, left: confirmationOpen ? 18 : 3, width: 14, height: 14,
+                                        borderRadius: '50%', background: 'white', transition: 'left 0.2s',
+                                    }} />
+                                </div>
+                                <span style={{ fontSize: '0.78rem', letterSpacing: '0.06em', color: confirmationOpen ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.4)' }}>
+                                    Confirmation Open
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Document sections */}
             {loaded ? (

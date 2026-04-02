@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Typography } from '@mui/material'
 import { ManageAccounts, PhotoLibrary, AccountTree, CloudUpload } from '@mui/icons-material'
-import MassImportModal from './MassImportModal'
+import ImportPanel from './ImportPanel'
 
 interface Props {
     canManageMembers: boolean
@@ -101,7 +101,7 @@ export default function AdminTiles({ canManageMembers, canManageGallery, canMana
                             >
                                 <CloudUpload sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
                                 <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                    Mass<br />Import
+                                    Import<br />Panel
                                 </Typography>
                             </div>
                         </button>
@@ -110,7 +110,7 @@ export default function AdminTiles({ canManageMembers, canManageGallery, canMana
                 </div>
             </div>
 
-            <MassImportModal open={importOpen} onClose={() => setImportOpen(false)} />
+            <ImportPanel open={importOpen} onClose={() => setImportOpen(false)} />
         </div>
     )
 }

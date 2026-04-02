@@ -50,13 +50,19 @@ export async function GET(request: NextRequest) {
             query.title = { $regex: search, $options: 'i' }
         }
 
-        // Optional month + year filter
-        if (month && year) {
-            const m = parseInt(month) - 1  // JS months are 0-indexed
+        // Optional month + year filter (or year-only)
+        if (year) {
             const y = parseInt(year)
-            const start = new Date(y, m, 1)
-            const end = new Date(y, m + 1, 1)
-            query.date = { $gte: start, $lt: end }
+            if (month) {
+                const m = parseInt(month) - 1  // JS months are 0-indexed
+                const start = new Date(y, m, 1)
+                const end = new Date(y, m + 1, 1)
+                query.date = { $gte: start, $lt: end }
+            } else {
+                const start = new Date(y, 0, 1)
+                const end = new Date(y + 1, 0, 1)
+                query.date = { $gte: start, $lt: end }
+            }
         }
 
         const missions = await Db.operations.find(query).sort({ date: -1 }).toArray()

@@ -1,25 +1,22 @@
-import { notFound, redirect } from 'next/navigation'
-import { connection } from 'next/server'
-import client from '@/lib/discord'
+import { NextRequest, NextResponse } from 'next/server'
+import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
-import MilpacEditor from './MilpacEditor'
+import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 
-
-export default async function Page({ params }: { params: Promise<{ username: string }> }) {
-    await connection()
-
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
     const me = await client.fetchMe().catch(() => null)
-    if (!me) redirect('/login')
-    if (!client.hasRoles(me, ['J4-Administration'])) redirect('/me')
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!client.hasRoles(me, PERMISSIONS.members.edit)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
     const { username } = await params
-    const allMembers = await client.fetchAllMembers()
-    const member = allMembers.find(m => m.username === username)
-    if (!member) notFound()
+    const member = await Db.users.findOne({ username })
+    if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
 
-    // Fetch confirmed attendance records for this member
+    const userId = member.id ?? String(member._id)
+
     const attendanceDocs = await Db.operationAttendance.find({
-        records: { $elemMatch: { userId: member.id, confirmed: true } },
+        records: { $elemMatch: { userId, confirmed: true } },
     }).toArray()
 
     const operationIds = attendanceDocs.map(d => d.operationId)
@@ -33,7 +30,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
         const opId = String(doc.operationId)
         if (seenOpIds.has(opId)) return []  // skip duplicate attendance docs for same op
         seenOpIds.add(opId)
-        const rec = doc.records.find(r => r.userId === member.id && r.confirmed)
+        const rec = doc.records.find(r => r.userId === userId && r.confirmed)
         if (!rec) return []
         const op = opMap.get(opId)
         return [{
@@ -44,5 +41,5 @@ export default async function Page({ params }: { params: Promise<{ username: str
         }]
     })
 
-    return <MilpacEditor member={member} confirmedOps={confirmedOps} />
+    return NextResponse.json(confirmedOps)
 }

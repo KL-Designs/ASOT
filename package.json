@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev-collab": "node --env-file=.env server.mjs",
+    "dev": "node --max-old-space-size=4096 node_modules/.bin/next dev",
+    "dev-collab": "node --max-old-space-size=4096 --env-file=.env server.mjs",
     "build": "next build",
     "start": "node --env-file=.env server.mjs",
     "lint": "next lint"

@@ -75,6 +75,13 @@ const PERMISSIONS = {
 
     // ── Auth / integrations ───────────────────────────────────────────────────
 
+    // ── Attendance ────────────────────────────────────────────────────────────
+
+    attendance: {
+        /** POST /api/operations/[id]/attendance/confirm — confirm member attendance post-op */
+        confirm: ['All Staff', 'HQ Staff'],
+    },
+
     auth: {
         /** GET /api/auth/collab — collaborative editor authorization */
         collab: ['HQ Staff', 'J2-Mission Making'],

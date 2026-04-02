@@ -26,6 +26,42 @@ export const DEPT_POINTS = {
     j5Per5PRPosts:     1,  // per 5 official public promotion posts
 } as const
 
+// ── Op points from confirmed attendance ───────────────────────────────────────
+
+/**
+ * Calculate operation points from a list of confirmed attendance records.
+ * Grouping rule: per ISO week, 1 op = 2 pts, 2 or more ops = 3 pts (cap).
+ */
+export function calculateOpPoints(ops: { date?: Date | string | null; confirmedAt: Date | string | null }[]): number {
+    function isoWeekKey(d: Date): string {
+        const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+        utc.setUTCDate(utc.getUTCDate() + 4 - (utc.getUTCDay() || 7))
+        const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1))
+        const week = Math.ceil(((utc.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+        return `${utc.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
+    }
+
+    // Ops with a known date are grouped by ISO week (cap: 2pts first, 1pt second, max 3/week)
+    // Ops without a date each get 2pts independently — we can't group them without a reference date
+    const weekCounts = new Map<string, number>()
+    let undatedPts = 0
+
+    for (const op of ops) {
+        if (op.date) {
+            const key = isoWeekKey(new Date(op.date))
+            weekCounts.set(key, (weekCounts.get(key) ?? 0) + 1)
+        } else {
+            undatedPts += 2
+        }
+    }
+
+    let total = undatedPts
+    for (const count of weekCounts.values()) {
+        total += count >= 2 ? 3 : 2
+    }
+    return total
+}
+
 // ── Input shape for point calculation ────────────────────────────────────────
 
 export interface MilpacImportCounts {
