@@ -255,10 +255,11 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 function CalendarPicker({
     selected, onChange,
 }: {
-    selected: { year: number; month: number }
-    onChange: (v: { year: number; month: number }) => void
+    selected: { year: number; month: number | null }
+    onChange: (v: { year: number; month: number | null }) => void
 }) {
     const [year, setYear] = useState(selected.year)
+    const yearSelected = selected.year === year && selected.month === null
 
     return (
         <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)', flex: 1 }}>
@@ -276,9 +277,23 @@ function CalendarPicker({
                 >
                     <ChevronLeft style={{ fontSize: 18 }} />
                 </button>
-                <span style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(237,237,237,0.75)' }}>
+                <button
+                    onClick={() => onChange({ year, month: null })}
+                    title='View all operations this year'
+                    style={{
+                        all: 'unset', cursor: 'pointer',
+                        fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.12em',
+                        color: yearSelected ? 'rgba(219,0,29,0.9)' : 'rgba(237,237,237,0.75)',
+                        padding: '2px 10px',
+                        background: yearSelected ? 'rgba(219,0,29,0.1)' : 'transparent',
+                        border: yearSelected ? '1px solid rgba(219,0,29,0.35)' : '1px solid transparent',
+                        transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={e => { if (!yearSelected) { (e.currentTarget as HTMLElement).style.color = 'rgba(219,0,29,0.75)' } }}
+                    onMouseLeave={e => { if (!yearSelected) { (e.currentTarget as HTMLElement).style.color = 'rgba(237,237,237,0.75)' } }}
+                >
                     {year}
-                </span>
+                </button>
                 <button
                     onClick={() => setYear(y => y + 1)}
                     style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', display: 'flex', alignItems: 'center' }}
@@ -448,13 +463,18 @@ function ActiveMissionCard({ mission }: { mission: Operation }) {
 function MonthlyMissionsPanel({
     year, month, hasAccess,
 }: {
-    year: number; month: number; hasAccess: boolean
+    year: number; month: number | null; hasAccess: boolean
 }) {
     const [missions, setMissions] = useState<Operation[]>([])
-    const monthName = new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' })
+    const label = month === null
+        ? String(year)
+        : `${new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' })} ${year}`
 
     function load() {
-        fetch(`/api/operations?month=${month}&year=${year}`)
+        const url = month === null
+            ? `/api/operations?year=${year}`
+            : `/api/operations?month=${month}&year=${year}`
+        fetch(url)
             .then(r => r.json())
             .then(json => { if (json.missions) setMissions(json.missions) })
     }
@@ -471,13 +491,13 @@ function MonthlyMissionsPanel({
                     Operations
                 </span>
                 <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>
-                    {monthName} {year}
+                    {label}
                 </span>
             </div>
 
             {missions.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(237,237,237,0.12)', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', fontStyle: 'italic' }}>
-                    No operations this month
+                    {month === null ? 'No operations this year' : 'No operations this month'}
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -647,7 +667,7 @@ function MissionRow({ mission, hasAccess, onDeleted, onDuplicated }: { mission: 
 
 export function OperationsBoard({ editAccess }: { editAccess: boolean }) {
     const now = new Date()
-    const [selected, setSelected] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
+    const [selected, setSelected] = useState<{ year: number; month: number | null }>({ year: now.getFullYear(), month: now.getMonth() + 1 })
 
     return (
         <div className='grid grid-cols-1 md:grid-cols-[420px_1fr_240px] gap-4 items-stretch'>
