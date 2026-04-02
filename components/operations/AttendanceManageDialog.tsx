@@ -57,7 +57,7 @@ function DraggableMember({ record, onRemove, c }: { record: MemberRecord; onRemo
                 background: isDragging ? 'rgba(20,20,24,0.97)' : 'rgba(255,255,255,0.03)',
                 border: isDragging ? `1px solid ${c(0.4)}` : '1px solid transparent',
                 boxShadow: isDragging ? `0 8px 24px rgba(0,0,0,0.6)` : 'none',
-                transform: CSS.Transform.toString(transform),
+                transform: CSS.Translate.toString(transform),
                 zIndex: isDragging ? 9999 : undefined,
                 cursor: isDragging ? 'grabbing' : 'default',
                 '&:hover': { background: isDragging ? undefined : 'rgba(255,255,255,0.05)' },

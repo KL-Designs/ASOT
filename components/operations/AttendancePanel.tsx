@@ -614,7 +614,7 @@ export default function AttendancePanel({
 
                                                 {/* Name + role */}
                                                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                    <Typography fontSize='0.75rem' noWrap sx={{ lineHeight: 1.2 }}>
+                                                    <Typography component='div' fontSize='0.75rem' noWrap sx={{ lineHeight: 1.2 }}>
                                                         {record.orbatRole && <span style={{ color: 'rgba(237,237,237,0.35)', marginRight: 4 }}>{record.orbatRole}</span>}
                                                         {record.user?.displayName ?? record.userId}
                                                         {record.reservistSection && (
