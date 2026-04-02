@@ -1,8 +1,10 @@
 import modlist from './modlist/index.ts'
+import reminder_admin from './reminder_admin/index.ts'
 
 
 const menus: { [key: string]: any } = {
-    modlist
+    modlist,
+    reminder_admin,
 }
 
 

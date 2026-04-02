@@ -1,11 +1,11 @@
-import Discord, { ApplicationCommandOptionType } from 'discord.js'
+import { ApplicationCommandOptionType } from 'discord.js'
 import Db from 'lib/mongo.ts'
 import { ObjectId } from "mongodb"
 
 
 export default {
     name: 'disable',
-    description: 'Disable a reminder',
+    description: 'Disable an active reminder',
     type: ApplicationCommandOptionType.Subcommand,
     options: [
         {
@@ -16,26 +16,27 @@ export default {
             autocomplete: true,
 
             async response(interaction) {
-                const search = interaction.options.getString('repeat') || ''
+                const search = interaction.options.getString('reminder') || ''
 
-                const reminders = await Db.reminders.find({ by: interaction.user.id, message: { $regex: search, $options: 'i' } }).limit(25).toArray()
+                const reminders = await Db.reminders.find({ by: interaction.user.id, enabled: { $ne: false }, message: { $regex: search, $options: 'i' } }).limit(25).toArray()
 
-                interaction.respond(reminders.map(r => {
-                    return {
-                        name: (r.message.length > 50 ? `${r.message.slice(0, 50)}... | ` : r.message + ' | ') + new Date(r.expected).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }),
-                        value: r._id.toString()
-                    }
-                }))
+                interaction.respond(reminders.map(r => ({
+                    name: `${r.message.length > 45 ? r.message.slice(0, 45) + '...' : r.message} | ${new Date(r.expected).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}`,
+                    value: r._id.toString()
+                })))
             }
 
         } as AutocompleteOption,
     ],
 
     async execute(interaction) {
-        const reminder = interaction.options.getString('reminder')
+        const reminderId = interaction.options.getString('reminder', true)
+        const reminder = await Db.reminders.findOne({ _id: new ObjectId(reminderId) })
 
-        await Db.reminders.updateOne({ _id: new ObjectId(reminder) }, { $set: { enabled: false } })
+        if (!reminder) return interaction.reply({ content: 'Reminder not found.', ephemeral: true })
 
-        interaction.reply({ content: `Reminder "${reminder}" has been disabled.`, ephemeral: true })
+        await Db.reminders.updateOne({ _id: reminder._id }, { $set: { enabled: false } })
+
+        interaction.reply({ content: `🔌 Reminder disabled: **${reminder.message}**`, ephemeral: true })
     }
 } as ChatSubcommand

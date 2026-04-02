@@ -1,4 +1,4 @@
-import Discord, { ApplicationCommandType, ApplicationCommandOptionType } from 'discord.js'
+import { ApplicationCommandType } from 'discord.js'
 
 import help from './help.ts'
 import create from './create.ts'
@@ -6,6 +6,7 @@ import edit from './edit.ts'
 import remove from "./remove.ts"
 import enable from "./enable.ts"
 import disable from "./disable.ts"
+import admin from "./admin.ts"
 
 
 export default {
@@ -19,6 +20,7 @@ export default {
         edit,
         remove,
         enable,
-        disable
+        disable,
+        admin,
     ]
 } as ChatCommand
