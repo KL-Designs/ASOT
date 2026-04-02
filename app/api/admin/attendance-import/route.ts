@@ -19,6 +19,12 @@ function parseDMY(dmy: string): Date | null {
     return new Date(Date.UTC(y, m - 1, d))
 }
 
+// Excel epoch-zero appears when a date cell is empty — not a real Sunday date
+const EPOCH_ZERO = '30/12/1899'
+function isRealDate(d: string): boolean {
+    return !!d && d !== EPOCH_ZERO && d !== '0'
+}
+
 export async function POST(req: NextRequest) {
     await client.updateRoles()
 
@@ -55,31 +61,52 @@ export async function POST(req: NextRequest) {
     const allOps = collectOperations(sections)
 
     // --- Match / create operations in DB ---
+    // Each CSV weekend produces UP TO TWO operation docs: one for Saturday, one for Sunday.
+    // Key format:  "${op.name}|${op.satDate}|sat"  and  "${op.name}|${op.satDate}|sun"
     const existingOps = await Db.operations.find({}).toArray()
-
-    // key: "normalised name|satDate" → ObjectId
     const opIdMap = new Map<string, ObjectId>()
 
     for (const op of allOps) {
         const normName = normaliseOpName(op.name)
         const satDate = parseDMY(op.satDate)
 
-        // Try to find a match by normalised name
-        const dbMatch = existingOps.find(dbOp => normaliseOpName(dbOp.title) === normName)
-
-        if (dbMatch) {
-            opIdMap.set(`${op.name}|${op.satDate}`, dbMatch._id)
+        // --- Saturday operation ---
+        const satMatch = existingOps.find(dbOp =>
+            normaliseOpName(dbOp.title) === normName
+        )
+        if (satMatch) {
+            opIdMap.set(`${op.name}|${op.satDate}|sat`, satMatch._id)
         } else {
-            // Create a minimal completed operation record
-            const newOp: Omit<Operation, '_id'> = {
+            const result = await Db.operations.insertOne({
                 title: op.name,
                 department: '1-0',
                 date: satDate ?? new Date(),
                 loreDate: satDate ?? new Date(),
                 status: 'Completed',
+            } as Operation)
+            opIdMap.set(`${op.name}|${op.satDate}|sat`, result.insertedId)
+        }
+
+        // --- Sunday operation (only when a real Sunday date exists) ---
+        if (isRealDate(op.sunDate)) {
+            const sunDate = parseDMY(op.sunDate)
+            const sunTitle = `${op.name} — Night 2`
+            const sunNormName = normaliseOpName(sunTitle)
+            const sunMatch = existingOps.find(dbOp =>
+                normaliseOpName(dbOp.title) === sunNormName
+            )
+            if (sunMatch) {
+                opIdMap.set(`${op.name}|${op.satDate}|sun`, sunMatch._id)
+            } else {
+                const result = await Db.operations.insertOne({
+                    title: sunTitle,
+                    department: '1-0',
+                    date: sunDate ?? new Date(),
+                    loreDate: sunDate ?? new Date(),
+                    status: 'Completed',
+                } as Operation)
+                opIdMap.set(`${op.name}|${op.satDate}|sun`, result.insertedId)
             }
-            const result = await Db.operations.insertOne(newOp as Operation)
-            opIdMap.set(`${op.name}|${op.satDate}`, result.insertedId)
         }
     }
 
@@ -108,53 +135,69 @@ export async function POST(req: NextRequest) {
         }
     }
 
-    // --- Build OperationAttendance docs per operation ---
-    // Use nested Maps to deduplicate: opId → userId → record (one record per user per op)
+    // --- Build OperationAttendance docs — one per operation (sat and sun separately) ---
+    // opId → userId → record
     const attendanceByOp = new Map<string, Map<string, OperationAttendanceRecord>>()
+
+    function upsertRecord(
+        opId: ObjectId,
+        effectiveUserId: string,
+        unit: string,
+        rank: string,
+        attended: boolean,
+        importedStatus: string,
+    ) {
+        const opIdStr = opId.toString()
+        if (!attendanceByOp.has(opIdStr)) attendanceByOp.set(opIdStr, new Map())
+        const byUser = attendanceByOp.get(opIdStr)!
+        const existing = byUser.get(effectiveUserId)
+        if (existing) {
+            if (attended) {
+                existing.confirmed = true
+                existing.confirmedAt = new Date()
+                existing.importedStatus = 'ATTENDED'
+            }
+        } else {
+            byUser.set(effectiveUserId, {
+                userId: effectiveUserId,
+                unit,
+                orbatSection: unit,
+                orbatRole: rank,
+                rsvp: null,
+                confirmed: attended,
+                confirmedBy: null,
+                confirmedAt: attended ? new Date() : null,
+                importedStatus,
+            })
+        }
+    }
 
     for (const section of sections) {
         for (const member of section.members) {
             const memberKey = `${section.unit}|${member.name}`
             const userId = memberUserIdMap.get(memberKey)
-            // Unmatched members use their name as a placeholder userId.
-            // The resolve step will swap this out for a real userId or skeleton account ID.
             const effectiveUserId = userId ?? member.name
 
             for (const att of member.attendance) {
                 const op = section.operations[att.opIndex]
-                const opKey = `${op.name}|${op.satDate}`
-                const opId = opIdMap.get(opKey)
-                if (!opId) continue
+                const baseKey = `${op.name}|${op.satDate}`
 
-                const opIdStr = opId.toString()
-                if (!attendanceByOp.has(opIdStr)) attendanceByOp.set(opIdStr, new Map())
-
-                const byUser = attendanceByOp.get(opIdStr)!
-
-                // Merge sat/sun into one record per user — attended either night = ATTENDED
-                const attended = att.sat === 'ATTENDED' || att.sun === 'ATTENDED'
-                const importedStatus = attended ? 'ATTENDED' : (att.sat || att.sun || '')
-
-                const existing = byUser.get(effectiveUserId)
-                if (existing) {
-                    // Keep the most positive status if this user appears in multiple sections
-                    if (attended) {
-                        existing.confirmed = true
-                        existing.confirmedAt = new Date()
-                        existing.importedStatus = 'ATTENDED'
+                // Saturday
+                if (att.sat) {
+                    const satOpId = opIdMap.get(`${baseKey}|sat`)
+                    if (satOpId) {
+                        upsertRecord(satOpId, effectiveUserId, section.unit, member.rank,
+                            att.sat === 'ATTENDED', att.sat)
                     }
-                } else {
-                    byUser.set(effectiveUserId, {
-                        userId: effectiveUserId,
-                        unit: section.unit,
-                        orbatSection: section.unit,
-                        orbatRole: member.rank,
-                        rsvp: null,
-                        confirmed: attended,
-                        confirmedBy: null,
-                        confirmedAt: attended ? new Date() : null,
-                        importedStatus,
-                    })
+                }
+
+                // Sunday
+                if (att.sun) {
+                    const sunOpId = opIdMap.get(`${baseKey}|sun`)
+                    if (sunOpId) {
+                        upsertRecord(sunOpId, effectiveUserId, section.unit, member.rank,
+                            att.sun === 'ATTENDED', att.sun)
+                    }
                 }
             }
         }

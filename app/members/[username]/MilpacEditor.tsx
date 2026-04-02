@@ -604,7 +604,7 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
                     qualifications: qualifications.map(({ _key, ...rest }) => rest),
                     billetCounts: {
                         ...billetCounts,
-                        // Op attendance is now sourced from operation_attendance — clear legacy counts
+                        // Both primary and secondary op counts are sourced from operation_attendance
                         primaryNightOps: 0,
                         secondaryNightOps: 0,
                     },
@@ -812,12 +812,44 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
 
             {/* Billet Points */}
             {(() => {
-                // Op points are now derived from confirmed attendance records
-                const opPts = calculateOpPoints(confirmedOps)
+                // Split confirmed ops into Saturday (primary) and Sunday (secondary — "Night 2" suffix)
+                const primaryOps  = confirmedOps.filter(op => !op.name.includes('— Night 2'))
+                const secondaryOps = confirmedOps.filter(op =>  op.name.includes('— Night 2'))
+
+                // ISO week key helper (matches lib/points.ts logic)
+                function isoWeekKey(d: Date): string {
+                    const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
+                    utc.setUTCDate(utc.getUTCDate() + 4 - (utc.getUTCDay() || 7))
+                    const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1))
+                    const week = Math.ceil(((utc.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+                    return `${utc.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
+                }
+
+                // Build week sets for each group
+                const primaryWeeks = new Set<string>()
+                let primaryUndatedPts = 0
+                for (const op of primaryOps) {
+                    if (op.date) primaryWeeks.add(isoWeekKey(new Date(op.date)))
+                    else primaryUndatedPts += 2
+                }
+                const secondaryWeeks = new Set<string>()
+                let secondaryUndatedPts = 0
+                for (const op of secondaryOps) {
+                    if (op.date) secondaryWeeks.add(isoWeekKey(new Date(op.date)))
+                    else secondaryUndatedPts += 1  // second op of week = 1pt
+                }
+
+                // Primary: 2pts per week
+                const primaryPts = primaryWeeks.size * 2 + primaryUndatedPts
+                // Secondary: +1pt if primary also attended that week, else 2pts (only night that week)
+                let secondaryPts = secondaryUndatedPts
+                for (const week of secondaryWeeks) {
+                    secondaryPts += primaryWeeks.has(week) ? 1 : 2
+                }
+                const opPts = primaryPts + secondaryPts
 
                 const counts: MilpacImportCounts = {
                     ...billetCounts,
-                    // Zero these out — op points come from attendance now
                     primaryNightOps: 0,
                     secondaryNightOps: 0,
                     awards: awards.map(a => ({ name: a.name })),
@@ -867,17 +899,23 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
                     ...inputStyle, width: 52, textAlign: 'center' as const, padding: '3px 6px',
                 }
 
-                function countRow(field: keyof typeof billetCounts, label: string) {
+                function countRow(field: keyof typeof billetCounts, label: string, readOnly = false) {
                     const pts = contrib[field as keyof typeof contrib] ?? 0
                     return (
                         <div key={field} style={rowStyle}>
                             <span style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>{label}</span>
-                            <input
-                                type='number' min={0}
-                                value={billetCounts[field]}
-                                onChange={e => { markDirty(); setBilletCounts(prev => ({ ...prev, [field]: Math.max(0, parseInt(e.target.value) || 0) })) }}
-                                style={compactInput}
-                            />
+                            {readOnly ? (
+                                <span style={{ ...compactInput, display: 'inline-block', lineHeight: '1.6', color: 'rgba(237,237,237,0.4)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 4, cursor: 'default' }}>
+                                    {billetCounts[field]}
+                                </span>
+                            ) : (
+                                <input
+                                    type='number' min={0}
+                                    value={billetCounts[field]}
+                                    onChange={e => { markDirty(); setBilletCounts(prev => ({ ...prev, [field]: Math.max(0, parseInt(e.target.value) || 0) })) }}
+                                    style={compactInput}
+                                />
+                            )}
                             <span style={{ width: 34, fontSize: '0.65rem', textAlign: 'right', color: pts > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.18)', flexShrink: 0 }}>
                                 {pts > 0 ? `+${pts}` : '—'}
                             </span>
@@ -912,10 +950,18 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
                                 {/* Ops points derived from attendance — read-only */}
                                 <div style={rowStyle}>
                                     <span style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>
-                                        Ops Attended ({confirmedOps.length})
+                                        Primary Ops ({primaryOps.length})
                                     </span>
-                                    <span style={{ width: 34, fontSize: '0.65rem', textAlign: 'right', color: opPts > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.18)', flexShrink: 0 }}>
-                                        {opPts > 0 ? `+${opPts}` : '—'}
+                                    <span style={{ width: 34, fontSize: '0.65rem', textAlign: 'right', color: primaryPts > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.18)', flexShrink: 0 }}>
+                                        {primaryPts > 0 ? `+${primaryPts}` : '—'}
+                                    </span>
+                                </div>
+                                <div style={rowStyle}>
+                                    <span style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>
+                                        Secondary Ops ({secondaryOps.length})
+                                    </span>
+                                    <span style={{ width: 34, fontSize: '0.65rem', textAlign: 'right', color: secondaryPts > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.18)', flexShrink: 0 }}>
+                                        {secondaryPts > 0 ? `+${secondaryPts}` : '—'}
                                     </span>
                                 </div>
                                 {countRow('primaryNightFTX',   'Primary FTX')}
