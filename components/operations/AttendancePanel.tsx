@@ -77,9 +77,18 @@ function groupByCategoryAndSection(records: AttendanceRecord[]): Map<string, { t
     const result = new Map<string, { title: string; isSubSection: boolean; records: AttendanceRecord[] }[]>()
     const firstSectionByCategory = new Map<string, string>()
 
+    // Map section title → category so reservists can be placed in the right platoon group
+    const sectionCategoryMap = new Map<string, string>()
     for (const r of records) {
-        const cat = r.category ?? 'other'
+        const sec = r.orbatSection || r.unit
+        if (sec && r.category) sectionCategoryMap.set(sec, r.category)
+    }
+
+    for (const r of records) {
         const sectionKey = r.reservistSection || r.orbatSection || r.unit || 'Unknown'
+        const cat = (r.reservistSection && sectionCategoryMap.get(r.reservistSection))
+            ? sectionCategoryMap.get(r.reservistSection)!
+            : (r.category ?? 'other')
 
         if (!result.has(cat)) result.set(cat, [])
         const catSections = result.get(cat)!
@@ -92,6 +101,18 @@ function groupByCategoryAndSection(records: AttendanceRecord[]): Map<string, { t
             catSections.push(entry)
         }
         entry.records.push(r)
+    }
+
+    // Within each section, sort reservists (those with reservistSection set) to the bottom
+    for (const catSections of result.values()) {
+        for (const section of catSections) {
+            section.records.sort((a, b) => {
+                const aRes = !!a.reservistSection
+                const bRes = !!b.reservistSection
+                if (aRes !== bRes) return aRes ? 1 : -1
+                return 0
+            })
+        }
     }
 
     return result
@@ -110,6 +131,7 @@ export default function AttendancePanel({
     const [confirming, setConfirming]   = useState<Record<string, boolean>>({})
     const [confirmingDirty, setConfirmingDirty] = useState(false)
     const [manageOpen, setManageOpen]   = useState(false)
+    const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
 
     const r = parseInt(themeColor.replace('#', '').substring(0, 2), 16)
     const g = parseInt(themeColor.replace('#', '').substring(2, 4), 16)
@@ -134,6 +156,16 @@ export default function AttendancePanel({
             for (const r of d.recordsWithUsers) init[r.userId] = r.confirmed
             setConfirming(init)
         }
+        // Initialize expanded state once (don't override user-toggled sections on subsequent polls)
+        setExpandedSections(prev => {
+            if (Object.keys(prev).length > 0) return prev
+            const sections = new Set(d.recordsWithUsers.map(r => r.reservistSection || r.orbatSection || r.unit || 'Unknown'))
+            const init: Record<string, boolean> = {}
+            for (const sec of sections) {
+                init[sec] = myUserId ? d.recordsWithUsers.some(r => (r.reservistSection || r.orbatSection || r.unit) === sec && r.userId === myUserId) : true
+            }
+            return init
+        })
     }, [myUserId])
 
     // Initial load — shows skeleton
@@ -513,7 +545,8 @@ export default function AttendancePanel({
                         return (
                             <Box key={section} sx={isSubSection ? { ml: 2, borderLeft: '2px solid rgba(255,255,255,0.06)' } : {}}>
                                 <Accordion
-                                    defaultExpanded={isMySection}
+                                    expanded={expandedSections[section] ?? true}
+                                    onChange={(_, expanded) => setExpandedSections(prev => ({ ...prev, [section]: expanded }))}
                                     sx={{
                                         background: isSubSection ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.02)',
                                         border: '1px solid rgba(255,255,255,0.06)',
