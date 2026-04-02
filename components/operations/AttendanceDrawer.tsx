@@ -84,7 +84,7 @@ export default function AttendanceDrawer({ operationId, operationStatus, myUserI
             <div
                 className='hidden lg:block print-hide'
                 style={{
-                    width: 260,
+                    width: 500,
                     flexShrink: 0,
                     position: 'sticky',
                     top: 16,
