@@ -19,8 +19,8 @@ function buildButtonRow(sessionId: string, session: ReminderSession) {
 
     const confirmButton = new Discord.ButtonBuilder()
         .setCustomId(`reminder_setup.${sessionId}.confirm`)
-        .setLabel('Create Reminder')
-        .setEmoji('🔔')
+        .setLabel(session.editId ? 'Save Changes' : 'Create Reminder')
+        .setEmoji(session.editId ? '💾' : '🔔')
         .setStyle(Discord.ButtonStyle.Primary)
 
     return new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
@@ -128,24 +128,41 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
             chaseUpOffset = chaseUpDate.getTime() - finalDate.getTime()
         }
 
-        await Db.reminders.insertOne({
-            _id: new ObjectId(),
-            enabled: true,
-            expected: finalDate,
-            acknowledged: null,
-            nextCheck: null,
-            chaseUpOffset: chaseUpOffset,
-            repeat: repeat,
-            by: session.userId,
-            who: who,
-            message: session.message,
-            channel: session.channel,
-            messageId: null
-        })
+        if (session.editId) {
+            await Db.reminders.updateOne({ _id: new ObjectId(session.editId) }, {
+                $set: {
+                    expected: finalDate,
+                    repeat: repeat,
+                    repeatRaw: session.repeat,
+                    who: who,
+                    chaseUpOffset: chaseUpOffset,
+                    acknowledged: null,
+                    nextCheck: null,
+                    messageId: null,
+                }
+            })
+        } else {
+            await Db.reminders.insertOne({
+                _id: new ObjectId(),
+                enabled: true,
+                expected: finalDate,
+                acknowledged: null,
+                nextCheck: null,
+                chaseUpOffset: chaseUpOffset,
+                repeat: repeat,
+                repeatRaw: session.repeat,
+                by: session.userId,
+                who: who,
+                message: session.message,
+                channel: session.channel,
+                messageId: null,
+            })
+        }
 
         deleteSession(sessionId)
 
-        let confirmContent = `✅ Reminder set for <t:${Math.floor(finalDate.getTime() / 1000)}:F>`
+        const verb = session.editId ? '✅ Reminder updated for' : '✅ Reminder set for'
+        let confirmContent = `${verb} <t:${Math.floor(finalDate.getTime() / 1000)}:F>`
         if (chaseUpOffset !== null) {
             const chaseUpTs = Math.floor((finalDate.getTime() + chaseUpOffset) / 1000)
             confirmContent += `\n⏰ Chase up: <t:${chaseUpTs}:F>`

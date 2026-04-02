@@ -100,6 +100,7 @@ export default {
         const sessionId = interaction.id
 
         createSession(sessionId, {
+            editId: null,
             message: interaction.options.getString('reminder', true),
             time: interaction.options.getString('time', true),
             date: interaction.options.getString('date', false) ?? '',

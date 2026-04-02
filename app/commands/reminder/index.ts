@@ -2,6 +2,7 @@ import Discord, { ApplicationCommandType, ApplicationCommandOptionType } from 'd
 
 import help from './help.ts'
 import create from './create.ts'
+import edit from './edit.ts'
 import remove from "./remove.ts"
 import enable from "./enable.ts"
 import disable from "./disable.ts"
@@ -15,6 +16,7 @@ export default {
     options: [
         help,
         create,
+        edit,
         remove,
         enable,
         disable

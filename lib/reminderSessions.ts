@@ -1,4 +1,5 @@
 export interface ReminderSession {
+    editId: string | null
     message: string
     time: string
     date: string

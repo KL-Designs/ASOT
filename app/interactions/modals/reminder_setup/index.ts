@@ -17,8 +17,8 @@ function buildButtonRow(sessionId: string, session: ReminderSession) {
 
     const confirmButton = new Discord.ButtonBuilder()
         .setCustomId(`reminder_setup.${sessionId}.confirm`)
-        .setLabel('Create Reminder')
-        .setEmoji('🔔')
+        .setLabel(session.editId ? 'Save Changes' : 'Create Reminder')
+        .setEmoji(session.editId ? '💾' : '🔔')
         .setStyle(Discord.ButtonStyle.Primary)
 
     return new Discord.ActionRowBuilder<Discord.ButtonBuilder>()
@@ -73,11 +73,14 @@ export default async function (interaction: Discord.ModalSubmitInteraction, args
         const updatedSession = { ...session, chaseUpTime: timeInput, chaseUpDate: chaseUpDateStr }
 
         const buttonRow = buildButtonRow(sessionId, updatedSession)
-        const existingComponents = interaction.message!.components
-        const newComponents = [...existingComponents.slice(0, -1), buttonRow]
 
         const chaseUpTs = Math.floor(chaseUpDatetime.getTime() / 1000)
-        const baseContent = interaction.message!.content.split('\n⏰')[0]
+
+        if (!interaction.isFromMessage()) return interaction.reply({ content: 'Chase up time set.', ephemeral: true })
+
+        const existingComponents = interaction.message.components
+        const newComponents = [...existingComponents.slice(0, -1), buttonRow]
+        const baseContent = interaction.message.content.split('\n⏰')[0]
 
         return interaction.update({
             content: `${baseContent}\n⏰ **Chase Up:** <t:${chaseUpTs}:F>`,
