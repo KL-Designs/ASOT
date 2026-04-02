@@ -109,8 +109,8 @@ export async function POST(req: NextRequest) {
     }
 
     // --- Build OperationAttendance docs per operation ---
-    // Group all attendance entries by operationId
-    const attendanceByOp = new Map<string, OperationAttendanceRecord[]>()
+    // Use nested Maps to deduplicate: opId → userId → record (one record per user per op)
+    const attendanceByOp = new Map<string, Map<string, OperationAttendanceRecord>>()
 
     for (const section of sections) {
         for (const member of section.members) {
@@ -127,37 +127,33 @@ export async function POST(req: NextRequest) {
                 if (!opId) continue
 
                 const opIdStr = opId.toString()
-                if (!attendanceByOp.has(opIdStr)) attendanceByOp.set(opIdStr, [])
+                if (!attendanceByOp.has(opIdStr)) attendanceByOp.set(opIdStr, new Map())
 
-                const records = attendanceByOp.get(opIdStr)!
+                const byUser = attendanceByOp.get(opIdStr)!
 
-                // Add Saturday record if status present
-                if (att.sat) {
-                    records.push({
+                // Merge sat/sun into one record per user — attended either night = ATTENDED
+                const attended = att.sat === 'ATTENDED' || att.sun === 'ATTENDED'
+                const importedStatus = attended ? 'ATTENDED' : (att.sat || att.sun || '')
+
+                const existing = byUser.get(effectiveUserId)
+                if (existing) {
+                    // Keep the most positive status if this user appears in multiple sections
+                    if (attended) {
+                        existing.confirmed = true
+                        existing.confirmedAt = new Date()
+                        existing.importedStatus = 'ATTENDED'
+                    }
+                } else {
+                    byUser.set(effectiveUserId, {
                         userId: effectiveUserId,
                         unit: section.unit,
                         orbatSection: section.unit,
                         orbatRole: member.rank,
                         rsvp: null,
-                        confirmed: att.sat === 'ATTENDED',
+                        confirmed: attended,
                         confirmedBy: null,
-                        confirmedAt: att.sat === 'ATTENDED' ? new Date() : null,
-                        importedStatus: att.sat,
-                    })
-                }
-
-                // Add Sunday record if status present and different night
-                if (att.sun && att.sun !== att.sat) {
-                    records.push({
-                        userId: effectiveUserId,
-                        unit: section.unit,
-                        orbatSection: section.unit,
-                        orbatRole: member.rank,
-                        rsvp: null,
-                        confirmed: att.sun === 'ATTENDED',
-                        confirmedBy: null,
-                        confirmedAt: att.sun === 'ATTENDED' ? new Date() : null,
-                        importedStatus: att.sun,
+                        confirmedAt: attended ? new Date() : null,
+                        importedStatus,
                     })
                 }
             }
@@ -166,8 +162,9 @@ export async function POST(req: NextRequest) {
 
     // --- Upsert OperationAttendance documents ---
     let operationsProcessed = 0
-    for (const [opIdStr, records] of attendanceByOp) {
+    for (const [opIdStr, byUser] of attendanceByOp) {
         const operationId = new ObjectId(opIdStr)
+        const records = Array.from(byUser.values())
         await Db.operationAttendance.updateOne(
             { operationId },
             {
