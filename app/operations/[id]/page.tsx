@@ -10,7 +10,7 @@ import LocalDate from './local-date'
 import PrintButton from './print-button'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import AttendancePanel from '@/components/operations/AttendancePanel'
+import AttendanceDrawer from '@/components/operations/AttendanceDrawer'
 
 
 function hexToRgb(hex: string) {
@@ -384,7 +384,13 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 />
             )}
 
-            {/* ── Multi-page view ───────────────────────────────────────────── */}
+            {/* ── Content + attendance sidebar ──────────────────────────────── */}
+            <div className='w-full max-w-[1800px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+
+            {/* Left: document content */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+
+            {/* Multi-page view */}
             {operation.pages && operation.pages.length > 1 && (
                 <PagedView
                     pages={operation.pages}
@@ -396,43 +402,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 />
             )}
 
-            {/* ── Attendance panel ────────────────────────────────────────── */}
-            {(operation.status === 'Upcoming' || operation.status === 'Active' || operation.status === 'Completed') && (
-                <div className='w-full max-w-[900px] mx-auto px-4 md:px-8 print-hide' style={{ marginTop: 32 }}>
-                    <div style={{
-                        border: `1px solid ${c(0.15)}`,
-                        borderTop: `2px solid ${c(0.6)}`,
-                        background: 'rgba(0,0,0,0.25)',
-                        overflow: 'hidden',
-                    }}>
-                        <div style={{
-                            padding: '7px 14px',
-                            borderBottom: '1px solid rgba(255,255,255,0.05)',
-                            background: 'rgba(0,0,0,0.3)',
-                            display: 'flex', alignItems: 'center', gap: 8,
-                        }}>
-                            <div style={{ width: 3, height: 10, background: c(0.8), flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.8) }}>
-                                Attendance
-                            </span>
-                        </div>
-                        <div style={{ padding: 12 }}>
-                            <AttendancePanel
-                                operationId={id}
-                                operationStatus={operation.status ?? ''}
-                                myUserId={me?.id ?? null}
-                                isHQ={isHQ}
-                                isSectionLeader={isSectionLeader}
-                                themeColor={operation.themeColor || '#db001d'}
-                            />
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ── Document sections (single-page) ───────────────────────────── */}
+            {/* Single-page sections */}
             {(!operation.pages || operation.pages.length <= 1) && (
-            <div className='w-full max-w-[900px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
                 {operation.sections && operation.sections.length > 0 ? (
                     operation.sections
                         .filter(s => isLoggedIn || s.isPublic)
@@ -650,9 +623,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         </div>
                     </div>
                 )}
-            </div>
-            )}
-
             {/* Classified banner — shown to logged-out users when sections are hidden */}
             {hasHiddenSections && (
                 <a href={`/login?returnTo=/operations/${id}`} className='print-hide' style={{ textDecoration: 'none', display: 'block', marginBottom: 64 }}>
@@ -686,7 +656,20 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     </div>
                 </a>
             )}
+            </div>
+            )}
+            </div>
 
+            {/* Right: attendance sidebar / mobile drawer */}
+            <AttendanceDrawer
+                operationId={id}
+                operationStatus={operation.status ?? ''}
+                myUserId={me?.id ?? null}
+                isHQ={isHQ}
+                isSectionLeader={isSectionLeader}
+                themeColor={operation.themeColor || '#db001d'}
+            />
+            </div>
 
         </div>
     )

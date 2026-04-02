@@ -163,6 +163,7 @@ export default function Page() {
     }
 
     const PLATOON_OPTS = [
+        { id: 'companyHQ', label: '1-0 HQ' },
         { id: 'platoon11', label: '1-1 Platoon' },
         { id: 'platoon12', label: '1-2 Platoon' },
         { id: 'support',   label: '1-3 Support Platoon' },

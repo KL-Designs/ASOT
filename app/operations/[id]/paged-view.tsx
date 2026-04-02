@@ -175,7 +175,13 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                                 background: isActive
                                     ? isOF ? 'rgba(160,120,50,0.1)' : c(0.1)
                                     : 'transparent',
-                                border: isActive
+                                borderTop: isActive
+                                    ? isOF ? '1px solid rgba(160,120,50,0.35)' : isSF ? `1px solid ${c(0.35)}` : `1px solid ${c(0.25)}`
+                                    : '1px solid transparent',
+                                borderRight: isActive
+                                    ? isOF ? '1px solid rgba(160,120,50,0.35)' : isSF ? `1px solid ${c(0.35)}` : `1px solid ${c(0.25)}`
+                                    : '1px solid transparent',
+                                borderBottom: isActive
                                     ? isOF ? '1px solid rgba(160,120,50,0.35)' : isSF ? `1px solid ${c(0.35)}` : `1px solid ${c(0.25)}`
                                     : '1px solid transparent',
                                 borderLeft: isActive
@@ -212,8 +218,8 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                 })}
             </div>
 
-            {/* Right content area — paddingRight balances the sidebar so mx-auto centers relative to full viewport */}
-            <div style={{ flex: 1, minWidth: 0, paddingRight: 180 }}>
+            {/* Right content area */}
+            <div style={{ flex: 1, minWidth: 0 }}>
 
                 {activeSections.length > 1 && (
                     <SectionNav
@@ -224,7 +230,7 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                     />
                 )}
 
-                <div className='w-full max-w-[900px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
                     {activeSections.map(s => (
                         <SectionCard
                             key={s.id}
