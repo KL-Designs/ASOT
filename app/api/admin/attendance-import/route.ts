@@ -33,20 +33,23 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    let csvText: string
+    let allSections: ReturnType<typeof parseAttendanceCSV> = []
     try {
         const formData = await req.formData()
-        const file = formData.get('attendance') as File | null
-        if (!file) return NextResponse.json({ error: 'No attendance file provided' }, { status: 400 })
-        csvText = await file.text()
+        const files = formData.getAll('attendance') as File[]
+        if (files.length === 0) return NextResponse.json({ error: 'No attendance files provided' }, { status: 400 })
+        for (const file of files) {
+            const csvText = await file.text()
+            const parsed = parseAttendanceCSV(csvText)
+            allSections = allSections.concat(parsed)
+        }
     } catch {
-        return NextResponse.json({ error: 'Failed to read file' }, { status: 400 })
+        return NextResponse.json({ error: 'Failed to read file(s)' }, { status: 400 })
     }
 
-    // --- Parse CSV ---
-    const sections = parseAttendanceCSV(csvText)
+    const sections = allSections
     if (sections.length === 0) {
-        return NextResponse.json({ error: 'No sections found in CSV' }, { status: 400 })
+        return NextResponse.json({ error: 'No sections found in uploaded CSV(s)' }, { status: 400 })
     }
 
     const allOps = collectOperations(sections)

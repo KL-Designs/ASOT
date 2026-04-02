@@ -197,7 +197,7 @@ interface ResolveAction { csvName: string; csvRank: string; unit: string; action
 
 function AttendanceImportTab() {
     const [step, setStep]                   = useState<AttStep>('upload')
-    const [attFile, setAttFile]             = useState<File | null>(null)
+    const [attFiles, setAttFiles]           = useState<File[]>([])
     const [importResult, setImportResult]   = useState<AttImportResult | null>(null)
     const [resolveMap, setResolveMap]       = useState<Record<string, ResolveAction>>({})
     const [finalResult, setFinalResult]     = useState<{ matched: number; skeletonsCreated: number } | null>(null)
@@ -222,11 +222,11 @@ function AttendanceImportTab() {
     }
 
     const handleImport = async () => {
-        if (!attFile) return
+        if (attFiles.length === 0) return
         setStep('loading'); setError(null)
         try {
             const fd = new FormData()
-            fd.append('attendance', attFile)
+            for (const f of attFiles) fd.append('attendance', f)
             const res  = await fetch('/api/admin/attendance-import', { method: 'POST', body: fd })
             const data = await res.json()
             if (!res.ok) { setError(data.error ?? `Server error ${res.status}`); setStep('result'); return }
@@ -270,7 +270,7 @@ function AttendanceImportTab() {
     }
 
     const reset = () => {
-        setStep('upload'); setAttFile(null); setImportResult(null)
+        setStep('upload'); setAttFiles([]); setImportResult(null)
         setResolveMap({}); setFinalResult(null); setError(null)
     }
 
@@ -279,18 +279,44 @@ function AttendanceImportTab() {
             {step === 'upload' && (
                 <>
                     <Typography fontSize='0.78rem' sx={{ color: 'rgba(237,237,237,0.5)', letterSpacing: '0.04em' }}>
-                        Upload the Attendance Tracker CSV exported from the spreadsheet.
+                        Upload one or more Attendance Tracker CSVs (2024, 2025, 2026 formats all supported).
                         Operations will be matched to existing records, and members matched to Discord accounts.
                         Any unmatched members can be linked or given skeleton accounts.
                     </Typography>
                     <Box>
-                        <Typography sx={label}>Attendance Tracker CSV</Typography>
-                        <input ref={attRef} type='file' accept='.csv' style={{ display: 'none' }} onChange={e => setAttFile(e.target.files?.[0] ?? null)} />
-                        <Button variant='outlined' startIcon={<CloudUpload />} onClick={() => attRef.current?.click()} fullWidth sx={fileBtn(!!attFile)}>
-                            {attFile ? attFile.name : 'Choose Attendance 2026.csv…'}
+                        <Typography sx={label}>Attendance Tracker CSV(s)</Typography>
+                        <input
+                            ref={attRef}
+                            type='file'
+                            accept='.csv'
+                            multiple
+                            style={{ display: 'none' }}
+                            onChange={e => setAttFiles(Array.from(e.target.files ?? []))}
+                        />
+                        <Button
+                            variant='outlined'
+                            startIcon={<CloudUpload />}
+                            onClick={() => attRef.current?.click()}
+                            fullWidth
+                            sx={fileBtn(attFiles.length > 0)}
+                        >
+                            {attFiles.length === 0
+                                ? 'Choose CSV file(s)…'
+                                : attFiles.length === 1
+                                    ? attFiles[0].name
+                                    : `${attFiles.length} files selected`}
                         </Button>
+                        {attFiles.length > 1 && (
+                            <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                {attFiles.map(f => (
+                                    <Typography key={f.name} fontSize='0.7rem' sx={{ color: 'rgba(237,237,237,0.4)', pl: 0.5 }}>
+                                        · {f.name}
+                                    </Typography>
+                                ))}
+                            </Box>
+                        )}
                     </Box>
-                    <Button variant='contained' disabled={!attFile} onClick={handleImport} sx={redBtn}>
+                    <Button variant='contained' disabled={attFiles.length === 0} onClick={handleImport} sx={redBtn}>
                         Import
                     </Button>
                 </>
