@@ -25,6 +25,7 @@ interface AttendanceRecord {
     confirmedAt: string | null
     importedStatus?: string
     reservistSection?: string
+    category?: string
     user: {
         id: string
         displayName: string
@@ -68,15 +69,31 @@ function rsvpIcon(rsvp: 'attending' | 'not_attending' | null) {
     return <HelpOutline sx={{ fontSize: 14, color: 'rgba(237,237,237,0.2)' }} />
 }
 
-function groupBySection(records: AttendanceRecord[]): Map<string, AttendanceRecord[]> {
-    const map = new Map<string, AttendanceRecord[]>()
+// category → [ { sectionTitle, isSubSection, records[] } ]
+// The first section in each multi-section category is the "platoon HQ" level;
+// subsequent sections within the same category are indented sub-sections.
+function groupByCategoryAndSection(records: AttendanceRecord[]): Map<string, { title: string; isSubSection: boolean; records: AttendanceRecord[] }[]> {
+    const result = new Map<string, { title: string; isSubSection: boolean; records: AttendanceRecord[] }[]>()
+    const firstSectionByCategory = new Map<string, string>()
+
     for (const r of records) {
-        const key = r.reservistSection || r.orbatSection || r.unit || 'Unknown'
-        const list = map.get(key) ?? []
-        list.push(r)
-        map.set(key, list)
+        const cat = r.category ?? 'other'
+        const sectionKey = r.reservistSection || r.orbatSection || r.unit || 'Unknown'
+
+        if (!result.has(cat)) result.set(cat, [])
+        const catSections = result.get(cat)!
+
+        let entry = catSections.find(s => s.title === sectionKey)
+        if (!entry) {
+            const isSubSection = firstSectionByCategory.has(cat) && cat !== 'companyHQ' && cat !== 'other'
+            if (!firstSectionByCategory.has(cat)) firstSectionByCategory.set(cat, sectionKey)
+            entry = { title: sectionKey, isSubSection, records: [] }
+            catSections.push(entry)
+        }
+        entry.records.push(r)
     }
-    return map
+
+    return result
 }
 
 // ── AttendancePanel ───────────────────────────────────────────────────────────
@@ -235,8 +252,8 @@ export default function AttendancePanel({
         )
     }
 
-    const records   = data?.recordsWithUsers ?? []
-    const bySection = groupBySection(records)
+    const records      = data?.recordsWithUsers ?? []
+    const byCategory   = groupByCategoryAndSection(records)
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -393,115 +410,123 @@ export default function AttendancePanel({
                     </Typography>
                 </Box>
             ) : (
-                Array.from(bySection.entries()).map(([section, sectionRecords]) => {
-                    const attending    = sectionRecords.filter(r => r.rsvp === 'attending' || r.importedStatus === 'ATTENDED').length
-                    const confirmedCnt = sectionRecords.filter(r => r.confirmed).length
-                    const canConfirm   = isCompleted && (isSectionLeader || isHQ) && (data?.confirmationOpen ?? false)
-                    const isMySection  = sectionRecords.some(r => r.userId === myUserId)
+                Array.from(byCategory.values()).map(sections =>
+                    sections.map(({ title: section, isSubSection, records: sectionRecords }) => {
+                        const attending    = sectionRecords.filter(r => r.rsvp === 'attending' || r.importedStatus === 'ATTENDED').length
+                        const confirmedCnt = sectionRecords.filter(r => r.confirmed).length
+                        const canConfirm   = isCompleted && (isSectionLeader || isHQ) && (data?.confirmationOpen ?? false)
+                        const isMySection  = sectionRecords.some(r => r.userId === myUserId)
 
-                    return (
-                        <Accordion
-                            key={section}
-                            defaultExpanded={isMySection}
-                            sx={{
-                                background: 'rgba(255,255,255,0.02)',
-                                border: '1px solid rgba(255,255,255,0.06)',
-                                borderTop: `2px solid ${c(isMySection ? 0.6 : 0.2)}`,
-                                boxShadow: 'none',
-                                '&:before': { display: 'none' },
-                            }}
-                        >
-                            <AccordionSummary expandIcon={<ExpandMore sx={{ color: 'rgba(237,237,237,0.4)' }} />} sx={{ px: 2, py: 0.5, minHeight: 44 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, mr: 1 }}>
-                                    <Typography fontSize='0.72rem' fontWeight={700} letterSpacing={2} sx={{ textTransform: 'uppercase', flex: 1 }}>
-                                        {section}
-                                    </Typography>
-                                    <Typography fontSize='0.65rem' sx={{ color: 'rgba(237,237,237,0.35)', letterSpacing: 1 }}>
-                                        {isCompleted ? `${confirmedCnt}/${sectionRecords.length} confirmed` : `${attending}/${sectionRecords.length} attending`}
-                                    </Typography>
-                                </Box>
-                            </AccordionSummary>
-
-                            <AccordionDetails sx={{ px: 2, pt: 0, pb: 2 }}>
-                                <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)', mb: 1.5 }} />
-
-                                {sectionRecords.map(record => (
-                                    <Box
-                                        key={record.userId}
-                                        sx={{
-                                            display: 'flex', alignItems: 'center', gap: 1.5, py: 0.75,
-                                            borderBottom: '1px solid rgba(255,255,255,0.03)',
-                                            background: record.userId === myUserId ? `${c(0.04)}` : 'transparent',
-                                            px: 0.5,
-                                        }}
-                                    >
-                                        {/* Confirm checkbox (section leader / HQ only) */}
-                                        {canConfirm && (
-                                            <Checkbox
-                                                size='small'
-                                                checked={confirming[record.userId] ?? false}
-                                                onChange={e => setConfirming(prev => ({ ...prev, [record.userId]: e.target.checked }))}
-                                                sx={{ p: 0.25, color: c(0.4), '&.Mui-checked': { color: c(0.9) } }}
-                                            />
-                                        )}
-
-                                        {/* Avatar */}
-                                        <Avatar
-                                            src={record.user?.avatarURL}
-                                            sx={{ width: 22, height: 22, fontSize: '0.6rem', background: c(0.3) }}
-                                        >
-                                            {record.user?.displayName?.charAt(0) ?? '?'}
-                                        </Avatar>
-
-                                        {/* Name + role */}
-                                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                                            <Typography fontSize='0.75rem' noWrap sx={{ lineHeight: 1.2 }}>
-                                                {record.orbatRole && <span style={{ color: 'rgba(237,237,237,0.35)', marginRight: 4 }}>{record.orbatRole}</span>}
-                                                {record.user?.displayName ?? record.userId}
-                                                {record.reservistSection && (
-                                                    <Chip label='Reservist' size='small' sx={{ ml: 0.5, fontSize: '0.55rem', height: 14, background: 'rgba(100,150,237,0.15)', color: 'rgba(100,150,237,0.9)' }} />
-                                                )}
-                                                {record.user?.isSkeletonAccount && (
-                                                    <Chip label='Pending' size='small' sx={{ ml: 0.5, fontSize: '0.55rem', height: 14, background: 'rgba(255,152,0,0.15)', color: '#ff9800' }} />
-                                                )}
+                        return (
+                            <Box key={section} sx={isSubSection ? { ml: 2, borderLeft: '2px solid rgba(255,255,255,0.06)' } : {}}>
+                                <Accordion
+                                    defaultExpanded={isMySection}
+                                    sx={{
+                                        background: isSubSection ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.02)',
+                                        border: '1px solid rgba(255,255,255,0.06)',
+                                        borderTop: `2px solid ${c(isMySection ? 0.6 : isSubSection ? 0.1 : 0.2)}`,
+                                        boxShadow: 'none',
+                                        '&:before': { display: 'none' },
+                                    }}
+                                >
+                                    <AccordionSummary expandIcon={<ExpandMore sx={{ color: 'rgba(237,237,237,0.4)' }} />} sx={{ px: 2, py: 0.5, minHeight: 40 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, mr: 1 }}>
+                                            <Typography
+                                                fontSize={isSubSection ? '0.65rem' : '0.72rem'}
+                                                fontWeight={700}
+                                                letterSpacing={isSubSection ? 1.5 : 2}
+                                                sx={{ textTransform: 'uppercase', flex: 1, color: isSubSection ? 'rgba(237,237,237,0.6)' : 'rgba(237,237,237,0.9)' }}
+                                            >
+                                                {section}
+                                            </Typography>
+                                            <Typography fontSize='0.65rem' sx={{ color: 'rgba(237,237,237,0.35)', letterSpacing: 1 }}>
+                                                {isCompleted ? `${confirmedCnt}/${sectionRecords.length}` : `${attending}/${sectionRecords.length}`}
                                             </Typography>
                                         </Box>
+                                    </AccordionSummary>
 
-                                        {/* RSVP / status indicator */}
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                            {isCompleted && record.confirmed && (
-                                                <Chip label='Confirmed' size='small' sx={{ fontSize: '0.55rem', height: 16, background: 'rgba(76,175,80,0.15)', color: '#4caf50' }} />
-                                            )}
-                                            {record.importedStatus ? (
-                                                <Typography fontSize='0.6rem' letterSpacing={1} sx={{ textTransform: 'uppercase', color: record.importedStatus === 'ATTENDED' ? 'rgba(76,175,80,0.7)' : 'rgba(237,237,237,0.2)' }}>
-                                                    {record.importedStatus}
-                                                </Typography>
-                                            ) : (
-                                                rsvpIcon(record.rsvp)
-                                            )}
-                                        </Box>
-                                    </Box>
-                                ))}
+                                    <AccordionDetails sx={{ px: 2, pt: 0, pb: 2 }}>
+                                        <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)', mb: 1.5 }} />
 
-                                {/* Confirm submit button */}
-                                {canConfirm && (isHQ || isMySection) && (
-                                    <Button
-                                        size='small'
-                                        variant='contained'
-                                        disabled={saving}
-                                        onClick={() => handleConfirmSubmit(section)}
-                                        sx={{
-                                            mt: 1.5, fontSize: '0.65rem', letterSpacing: 2, textTransform: 'uppercase',
-                                            background: c(0.7), '&:hover': { background: c(0.9) },
-                                        }}
-                                    >
-                                        Confirm Section Attendance
-                                    </Button>
-                                )}
-                            </AccordionDetails>
-                        </Accordion>
-                    )
-                })
+                                        {sectionRecords.map(record => (
+                                            <Box
+                                                key={record.userId}
+                                                sx={{
+                                                    display: 'flex', alignItems: 'center', gap: 1.5, py: 0.75,
+                                                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                                    background: record.userId === myUserId ? `${c(0.04)}` : 'transparent',
+                                                    px: 0.5,
+                                                }}
+                                            >
+                                                {/* Confirm checkbox (section leader / HQ only) */}
+                                                {canConfirm && (
+                                                    <Checkbox
+                                                        size='small'
+                                                        checked={confirming[record.userId] ?? false}
+                                                        onChange={e => setConfirming(prev => ({ ...prev, [record.userId]: e.target.checked }))}
+                                                        sx={{ p: 0.25, color: c(0.4), '&.Mui-checked': { color: c(0.9) } }}
+                                                    />
+                                                )}
+
+                                                {/* Avatar */}
+                                                <Avatar
+                                                    src={record.user?.avatarURL}
+                                                    sx={{ width: 22, height: 22, fontSize: '0.6rem', background: c(0.3) }}
+                                                >
+                                                    {record.user?.displayName?.charAt(0) ?? '?'}
+                                                </Avatar>
+
+                                                {/* Name + role */}
+                                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                    <Typography fontSize='0.75rem' noWrap sx={{ lineHeight: 1.2 }}>
+                                                        {record.orbatRole && <span style={{ color: 'rgba(237,237,237,0.35)', marginRight: 4 }}>{record.orbatRole}</span>}
+                                                        {record.user?.displayName ?? record.userId}
+                                                        {record.reservistSection && (
+                                                            <Chip label='Reservist' size='small' sx={{ ml: 0.5, fontSize: '0.55rem', height: 14, background: 'rgba(100,150,237,0.15)', color: 'rgba(100,150,237,0.9)' }} />
+                                                        )}
+                                                        {record.user?.isSkeletonAccount && (
+                                                            <Chip label='Pending' size='small' sx={{ ml: 0.5, fontSize: '0.55rem', height: 14, background: 'rgba(255,152,0,0.15)', color: '#ff9800' }} />
+                                                        )}
+                                                    </Typography>
+                                                </Box>
+
+                                                {/* RSVP / status indicator */}
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    {isCompleted && record.confirmed && (
+                                                        <Chip label='Confirmed' size='small' sx={{ fontSize: '0.55rem', height: 16, background: 'rgba(76,175,80,0.15)', color: '#4caf50' }} />
+                                                    )}
+                                                    {record.importedStatus ? (
+                                                        <Typography fontSize='0.6rem' letterSpacing={1} sx={{ textTransform: 'uppercase', color: record.importedStatus === 'ATTENDED' ? 'rgba(76,175,80,0.7)' : 'rgba(237,237,237,0.2)' }}>
+                                                            {record.importedStatus}
+                                                        </Typography>
+                                                    ) : (
+                                                        rsvpIcon(record.rsvp)
+                                                    )}
+                                                </Box>
+                                            </Box>
+                                        ))}
+
+                                        {/* Confirm submit button */}
+                                        {canConfirm && (isHQ || isMySection) && (
+                                            <Button
+                                                size='small'
+                                                variant='contained'
+                                                disabled={saving}
+                                                onClick={() => handleConfirmSubmit(section)}
+                                                sx={{
+                                                    mt: 1.5, fontSize: '0.65rem', letterSpacing: 2, textTransform: 'uppercase',
+                                                    background: c(0.7), '&:hover': { background: c(0.9) },
+                                                }}
+                                            >
+                                                Confirm Section Attendance
+                                            </Button>
+                                        )}
+                                    </AccordionDetails>
+                                </Accordion>
+                            </Box>
+                        )
+                    })
+                )
             )}
 
             {saving && (

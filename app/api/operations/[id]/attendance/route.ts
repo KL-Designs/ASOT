@@ -22,32 +22,61 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const recordByUserId = new Map<string, OperationAttendanceRecord>()
     for (const r of existingRecords) recordByUserId.set(r.userId, r)
 
-    // If platoons are assigned, fetch ORBAT positions and inject pending records
-    // for any member not already in the records array.
+    // category priority order — determines display order in the UI
+    const CATEGORY_ORDER = ['companyHQ', 'platoon11', 'platoon12', 'support', 'gamemaster']
+
+    // Build the ordered record list from ORBAT positions (preserves sectionOrder).
+    // Each entry gets a `category` field so the UI can group and nest correctly.
+    type RecordWithCategory = OperationAttendanceRecord & { category: string }
+    const orderedRecords: RecordWithCategory[] = []
+    const coveredUserIds = new Set<string>()
+
     if (assignedPlatoons.length > 0) {
+        const categoriesToFetch = CATEGORY_ORDER.filter(c => assignedPlatoons.includes(c))
         const positions = await Db.orbatPositions
-            .find({ category: { $in: assignedPlatoons }, userId: { $ne: null } })
+            .find({ category: { $in: categoriesToFetch }, userId: { $ne: null } })
             .sort({ sectionOrder: 1, positionOrder: 1 })
             .toArray()
 
+        // Sort positions by our preferred category order, preserving sectionOrder within each category
+        positions.sort((a, b) => {
+            const ai = CATEGORY_ORDER.indexOf(a.category)
+            const bi = CATEGORY_ORDER.indexOf(b.category)
+            if (ai !== bi) return ai - bi
+            if (a.sectionOrder !== b.sectionOrder) return a.sectionOrder - b.sectionOrder
+            return a.positionOrder - b.positionOrder
+        })
+
         for (const pos of positions) {
-            if (!pos.userId || recordByUserId.has(pos.userId)) continue
-            recordByUserId.set(pos.userId, {
-                userId: pos.userId,
-                unit: pos.sectionTitle,
+            if (!pos.userId) continue
+            const existing = recordByUserId.get(pos.userId)
+            orderedRecords.push({
+                ...(existing ?? {
+                    userId: pos.userId,
+                    unit: pos.sectionTitle,
+                    orbatSection: pos.sectionTitle,
+                    orbatRole: pos.role,
+                    rsvp: null,
+                    confirmed: false,
+                    confirmedBy: null,
+                    confirmedAt: null,
+                }),
                 orbatSection: pos.sectionTitle,
-                orbatRole: pos.role,
-                rsvp: null,
-                confirmed: false,
-                confirmedBy: null,
-                confirmedAt: null,
+                orbatRole: existing?.orbatRole ?? pos.role,
+                category: pos.category,
             })
+            coveredUserIds.add(pos.userId)
         }
     }
 
-    // Collect all userIds (existing records + ORBAT fill-in)
-    const allRecords = Array.from(recordByUserId.values())
-    const userIds = [...new Set(allRecords.map(r => r.userId))]
+    // Append any existing records not covered by the ORBAT (e.g. unmatched CSV imports)
+    for (const r of existingRecords) {
+        if (!coveredUserIds.has(r.userId)) {
+            orderedRecords.push({ ...r, category: 'other' })
+        }
+    }
+
+    const userIds = [...new Set(orderedRecords.map(r => r.userId))]
     const users = await Db.users.find({ $or: [{ _id: { $in: userIds } }, { id: { $in: userIds } }] }).toArray()
     const userMap = new Map<string, User>()
     for (const u of users) {
@@ -55,7 +84,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         userMap.set(u._id, u)
     }
 
-    const recordsWithUsers = allRecords.map(record => ({
+    const recordsWithUsers = orderedRecords.map(record => ({
         ...record,
         user: userMap.get(record.userId)
             ? {
