@@ -271,6 +271,23 @@ export default function AttendancePanel({
         }
     }
 
+    // Clears reservistSection so the member returns to their own ORBAT section
+    const handleRejoinSection = async () => {
+        if (!data?.rsvpOpen) return
+        setMyReservistSection('')
+        setSaving(true)
+        try {
+            await fetch(`/api/operations/${operationId}/attendance/rsvp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: myRsvp ?? 'attending' }),
+            })
+            await fetchData()
+        } finally {
+            setSaving(false)
+        }
+    }
+
     // ── Section leader: confirm ────────────────────────────────────────────────
 
     const handleConfirmSubmit = async (sectionTitle: string) => {
@@ -301,8 +318,9 @@ export default function AttendancePanel({
         )
     }
 
-    const records      = data?.recordsWithUsers ?? []
-    const byCategory   = groupByCategoryAndSection(records)
+    const records        = data?.recordsWithUsers ?? []
+    const byCategory     = groupByCategoryAndSection(records)
+    const myOrbatSection = myUserId ? records.find(r => r.userId === myUserId)?.orbatSection : undefined
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -504,22 +522,39 @@ export default function AttendancePanel({
                                             </Box>
                                         ))}
 
-                                        {/* Join as Reservist */}
+                                        {/* Join as Reservist / Rejoin your squad */}
                                         {isUpcomingOrActive && data?.rsvpOpen && myUserId && !sectionRecords.some(r => r.userId === myUserId) && (
-                                            <Button
-                                                size='small'
-                                                variant='text'
-                                                disabled={saving}
-                                                onClick={() => handleJoinAsReservist(section)}
-                                                startIcon={<PersonAdd sx={{ fontSize: 12 }} />}
-                                                sx={{
-                                                    mt: 0.5, fontSize: '0.6rem', letterSpacing: 2, textTransform: 'uppercase',
-                                                    color: myReservistSection === section ? c(0.7) : 'rgba(237,237,237,0.15)',
-                                                    '&:hover': { color: myReservistSection === section ? c(0.9) : 'rgba(237,237,237,0.4)', background: 'rgba(255,255,255,0.03)' },
-                                                }}
-                                            >
-                                                {myReservistSection === section ? 'Leave Reservist' : 'Join as Reservist'}
-                                            </Button>
+                                            myOrbatSection === section && myReservistSection ? (
+                                                <Button
+                                                    size='small'
+                                                    variant='text'
+                                                    disabled={saving}
+                                                    onClick={handleRejoinSection}
+                                                    startIcon={<PersonAdd sx={{ fontSize: 12 }} />}
+                                                    sx={{
+                                                        mt: 0.5, fontSize: '0.6rem', letterSpacing: 2, textTransform: 'uppercase',
+                                                        color: c(0.6),
+                                                        '&:hover': { color: c(0.9), background: 'rgba(255,255,255,0.03)' },
+                                                    }}
+                                                >
+                                                    Rejoin your squad
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    size='small'
+                                                    variant='text'
+                                                    disabled={saving}
+                                                    onClick={() => handleJoinAsReservist(section)}
+                                                    startIcon={<PersonAdd sx={{ fontSize: 12 }} />}
+                                                    sx={{
+                                                        mt: 0.5, fontSize: '0.6rem', letterSpacing: 2, textTransform: 'uppercase',
+                                                        color: myReservistSection === section ? c(0.7) : 'rgba(237,237,237,0.15)',
+                                                        '&:hover': { color: myReservistSection === section ? c(0.9) : 'rgba(237,237,237,0.4)', background: 'rgba(255,255,255,0.03)' },
+                                                    }}
+                                                >
+                                                    {myReservistSection === section ? 'Leave Reservist' : 'Join as Reservist'}
+                                                </Button>
+                                            )
                                         )}
 
                                         {/* Confirm submit button */}
