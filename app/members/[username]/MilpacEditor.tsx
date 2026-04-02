@@ -6,9 +6,11 @@ import Avatar from '@/components/member/avatar'
 import { RANK_GROUPS, RANKS_FLAT, rankAbbrFromName, rankNameFromAbbr } from '@/lib/ranks'
 import { AWARDS } from '@/lib/awards'
 import { CERTIFICATIONS } from '@/lib/certifications'
-import { OP_POINTS, DEPT_POINTS } from '@/lib/points'
+import { OP_POINTS, DEPT_POINTS, calculateOpPoints } from '@/lib/points'
 import { getSuggestedRank } from '@/lib/promotionRequirements'
 import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/points'
+
+type ConfirmedOp = { operationId: string; name: string; date?: string | null; confirmedAt: string | null }
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -77,7 +79,6 @@ function todayStr() {
 
 type Promotion = { _key: string; date: string; rank: string; role: string }
 type Award = { _key: string; date: string; name: string; type: string }
-type Operation = { _key: string; startToEndDate: string; name: string }
 type Qualification = { _key: string; date: string; qualification: string }
 
 
@@ -459,7 +460,7 @@ function SortableItem({ id, children }: { id: string; children: (listeners: Reco
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function MilpacEditor({ member, onDirtyChange }: { member: User; onDirtyChange?: (dirty: boolean) => void }) {
+export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange }: { member: User; confirmedOps?: ConfirmedOp[]; onDirtyChange?: (dirty: boolean) => void }) {
     const strippedNickname = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
     const fullDisplay = strippedNickname || member.globalName || member.username
     const nameParts = fullDisplay.split(' ')
@@ -476,8 +477,6 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
         (member.milpac?.promotions ?? []).map(p => ({ _key: String(_keyCount++), ...p })))
     const [awards, setAwards] = useState<Award[]>(() =>
         (member.milpac?.awards ?? []).map(a => ({ _key: String(_keyCount++), ...a })))
-    const [operations, setOperations] = useState<Operation[]>(() =>
-        (member.milpac?.operations ?? []).map(o => ({ _key: String(_keyCount++), ...o })))
     const [qualifications, setQualifications] = useState<Qualification[]>(() =>
         (member.milpac?.qualifications ?? []).map(q => ({ _key: String(_keyCount++), ...q })))
 
@@ -602,9 +601,13 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                     bioRank: rankAbbrFromName(bioRank), enlistedDate,
                     promotions: promotions.map(({ _key, ...rest }) => rest),
                     awards: awards.map(({ _key, ...rest }) => rest),
-                    operations: operations.map(({ _key, ...rest }) => rest),
                     qualifications: qualifications.map(({ _key, ...rest }) => rest),
-                    billetCounts,
+                    billetCounts: {
+                        ...billetCounts,
+                        // Op attendance is now sourced from operation_attendance — clear legacy counts
+                        primaryNightOps: 0,
+                        secondaryNightOps: 0,
+                    },
                     j4Points,
                 }),
             })
@@ -665,20 +668,6 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
         setQualifications(prev => prev.filter((_, idx) => idx !== i))
     }
 
-    // ── Operation helpers ──────────────────────────────────────────────────────
-
-    function addOperation() {
-        markDirty()
-        setOperations(prev => [...prev, { _key: String(_keyCount++), startToEndDate: `${todayStr()} - ${todayStr()}`, name: '' }])
-    }
-    function updateOperation(i: number, field: keyof Operation, value: string) {
-        markDirty()
-        setOperations(prev => prev.map((o, idx) => idx === i ? { ...o, [field]: value } : o))
-    }
-    function removeOperation(i: number) {
-        markDirty()
-        setOperations(prev => prev.filter((_, idx) => idx !== i))
-    }
 
     // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -823,18 +812,22 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
 
             {/* Billet Points */}
             {(() => {
+                // Op points are now derived from confirmed attendance records
+                const opPts = calculateOpPoints(confirmedOps)
+
                 const counts: MilpacImportCounts = {
                     ...billetCounts,
+                    // Zero these out — op points come from attendance now
+                    primaryNightOps: 0,
+                    secondaryNightOps: 0,
                     awards: awards.map(a => ({ name: a.name })),
                     qualifications: qualifications.map(q => ({ qualification: q.qualification })),
                     j4Points,
                 }
-                const total = calculatePromotionPoints(counts)
+                const total = calculatePromotionPoints(counts) + opPts
 
                 // Per-field point contributions
                 const contrib = {
-                    primaryNightOps:    billetCounts.primaryNightOps   * OP_POINTS.standardOp1st,
-                    secondaryNightOps:  billetCounts.secondaryNightOps * OP_POINTS.standardOp2nd,
                     primaryNightFTX:    billetCounts.primaryNightFTX   * OP_POINTS.ftxOp1st,
                     secondaryNightFTX:  billetCounts.secondaryNightFTX * OP_POINTS.ftxOp2nd,
                     platoonTraining:    billetCounts.platoonTraining    * OP_POINTS.platoonTraining,
@@ -916,8 +909,15 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                         <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-6'>
                             <div>
                                 <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)', marginBottom: 4 }}>Operations</div>
-                                {countRow('primaryNightOps',   'Primary Ops')}
-                                {countRow('secondaryNightOps', 'Secondary Ops')}
+                                {/* Ops points derived from attendance — read-only */}
+                                <div style={rowStyle}>
+                                    <span style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>
+                                        Ops Attended ({confirmedOps.length})
+                                    </span>
+                                    <span style={{ width: 34, fontSize: '0.65rem', textAlign: 'right', color: opPts > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.18)', flexShrink: 0 }}>
+                                        {opPts > 0 ? `+${opPts}` : '—'}
+                                    </span>
+                                </div>
                                 {countRow('primaryNightFTX',   'Primary FTX')}
                                 {countRow('secondaryNightFTX', 'Secondary FTX')}
                                 {countRow('platoonTraining',   'Plt Training')}
@@ -1217,65 +1217,68 @@ export default function MilpacEditor({ member, onDirtyChange }: { member: User; 
                 )}
             </SectionCard>
 
-            {/* Operations */}
-            <SectionCard title='Operation History' onAdd={addOperation} addLabel='Operation'>
-                {operations.length === 0 ? (
-                    <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No operations on record.</span>
-                ) : (
-                    <DndContext sensors={sensors} collisionDetection={closestCenter}
-                        onDragStart={(e: DragStartEvent) => setActiveDragKey(e.active.id as string)}
-                        onDragEnd={(e: DragEndEvent) => {
-                            setActiveDragKey(null)
-                            const { active, over } = e
-                            if (over && active.id !== over.id) {
-                                markDirty()
-                                setOperations(prev => {
-                                    const oldIdx = prev.findIndex(o => o._key === active.id)
-                                    const newIdx = prev.findIndex(o => o._key === over.id)
-                                    return arrayMove(prev, oldIdx, newIdx)
-                                })
-                            }
-                        }}
-                    >
-                        <SortableContext items={operations.map(o => o._key)} strategy={verticalListSortingStrategy}>
-                            <div className='flex flex-col gap-3'>
-                                {operations.map((op, i) => (
-                                    <SortableItem key={op._key} id={op._key}>
-                                        {(listeners) => (
-                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                <DragHandle listeners={listeners} />
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 160, maxWidth: 220 }}>
-                                                    <Label>Date Range</Label>
-                                                    <input value={op.startToEndDate} onChange={e => updateOperation(i, 'startToEndDate', e.target.value)} placeholder='13 Sep 2020 - 12 Oct 2020' style={inputStyle} />
-                                                </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Operation Name</Label>
-                                                    <input value={op.name} onChange={e => updateOperation(i, 'name', e.target.value)} placeholder='Operation Promulgate' style={inputStyle} />
-                                                </div>
-                                                <DeleteBtn onClick={() => removeOperation(i)} />
-                                            </div>
-                                        )}
-                                    </SortableItem>
-                                ))}
+            {/* Operations — derived from confirmed attendance */}
+            {(() => {
+                // Strip trailing "Night X", "Day X", "Part X", " 1", " 2" etc. to get the campaign base name
+                function baseName(name: string): string {
+                    return name
+                        .replace(/\s*[-–]\s*(night|day|part|session)\s*\d+\s*$/gi, '')
+                        .replace(/\s+(night|day|part|session)\s*\d+\s*$/gi, '')
+                        .replace(/\s+\d+\s*$/g, '')
+                        .trim()
+                }
+
+                const groups = new Map<string, { dates: Date[]; count: number }>()
+                for (const op of confirmedOps) {
+                    const key = baseName(op.name)
+                    if (!groups.has(key)) groups.set(key, { dates: [], count: 0 })
+                    const g = groups.get(key)!
+                    if (op.confirmedAt) g.dates.push(new Date(op.confirmedAt))
+                    g.count++
+                }
+
+                const grouped = Array.from(groups.entries())
+                    .map(([name, g]) => ({ name, ...g }))
+                    .sort((a, b) => {
+                        const aMax = a.dates.length ? Math.max(...a.dates.map(d => d.getTime())) : 0
+                        const bMax = b.dates.length ? Math.max(...b.dates.map(d => d.getTime())) : 0
+                        return bMax - aMax  // newest first
+                    })
+
+                function fmtDate(d: Date) {
+                    return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
+                }
+
+                const badge = <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)' }}>{confirmedOps.length} op{confirmedOps.length !== 1 ? 's' : ''}</span>
+
+                return (
+                    <SectionCard title='Operation History' badge={badge}>
+                        {grouped.length === 0 ? (
+                            <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No confirmed operations on record.</span>
+                        ) : (
+                            <div className='flex flex-col' style={{ gap: 0 }}>
+                                {grouped.map(g => {
+                                    const sorted = [...g.dates].sort((a, b) => a.getTime() - b.getTime())
+                                    const dateRange = sorted.length === 0 ? '—'
+                                        : sorted.length === 1 ? fmtDate(sorted[0])
+                                        : `${fmtDate(sorted[0])} – ${fmtDate(sorted[sorted.length - 1])}`
+                                    return (
+                                        <div key={g.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                            <span style={{ flex: 1, fontSize: '0.78rem', color: 'rgba(237,237,237,0.75)' }}>{g.name}</span>
+                                            <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', whiteSpace: 'nowrap' }}>{dateRange}</span>
+                                            {g.count > 1 && (
+                                                <span style={{ fontSize: '0.6rem', fontWeight: 700, padding: '1px 5px', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.2)', color: 'rgba(219,0,29,0.7)', borderRadius: 3, flexShrink: 0 }}>
+                                                    ×{g.count}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )
+                                })}
                             </div>
-                        </SortableContext>
-                        <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
-                            {activeDragKey ? (() => {
-                                const op = operations.find(x => x._key === activeDragKey)
-                                if (!op) return null
-                                return (
-                                    <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(14,14,14,0.95)', boxShadow: '0 4px 20px rgba(0,0,0,0.5)', opacity: 0.95 }}>
-                                        <DragHandle />
-                                        <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 160, maxWidth: 220 }}><Label>Date Range</Label><input value={op.startToEndDate} readOnly style={inputStyle} /></div>
-                                        <div className='flex flex-col gap-2 flex-1 min-w-0'><Label>Operation Name</Label><input value={op.name} readOnly style={inputStyle} /></div>
-                                        <DeleteBtn onClick={() => {}} />
-                                    </div>
-                                )
-                            })() : null}
-                        </DragOverlay>
-                    </DndContext>
-                )}
-            </SectionCard>
+                        )}
+                    </SectionCard>
+                )
+            })()}
 
             {/* Uniform */}
             <SectionCard title='Uniform'>

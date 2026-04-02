@@ -145,6 +145,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
 
     // Milpac popout
     const [milpacUser, setMilpacUser] = useState<User | null>(null)
+    const [milpacConfirmedOps, setMilpacConfirmedOps] = useState<{ operationId: string; name: string; confirmedAt: string | null }[]>([])
     const [milpacLoading, setMilpacLoading] = useState(false)
     const [milpacDirty, setMilpacDirty] = useState(false)
     const [milpacConfirmClose, setMilpacConfirmClose] = useState(false)
@@ -166,8 +167,13 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     async function openMilpac(username: string) {
         setMilpacDirty(false)
         setMilpacLoading(true)
-        const res = await fetch(`/api/members/${username}`)
-        if (res.ok) setMilpacUser(await res.json())
+        const [memberRes, opsRes] = await Promise.all([
+            fetch(`/api/members/${username}`),
+            fetch(`/api/members/${username}/confirmed-ops`),
+        ])
+        if (memberRes.ok) setMilpacUser(await memberRes.json())
+        if (opsRes.ok) setMilpacConfirmedOps(await opsRes.json())
+        else setMilpacConfirmedOps([])
         setMilpacLoading(false)
     }
 
@@ -1222,7 +1228,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                     )}
                     {milpacUser && !milpacLoading && (
                         <div style={{ padding: '20px 24px' }}>
-                            <MilpacEditor member={milpacUser} onDirtyChange={setMilpacDirty} />
+                            <MilpacEditor member={milpacUser} confirmedOps={milpacConfirmedOps} onDirtyChange={setMilpacDirty} />
                         </div>
                     )}
                 </DialogContent>
