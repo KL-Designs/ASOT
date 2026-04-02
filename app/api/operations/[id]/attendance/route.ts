@@ -84,18 +84,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         userMap.set(u._id, u)
     }
 
-    const recordsWithUsers = orderedRecords.map(record => ({
-        ...record,
-        user: userMap.get(record.userId)
-            ? {
-                id: userMap.get(record.userId)!.id,
-                displayName: userMap.get(record.userId)!.guild?.displayName || userMap.get(record.userId)!.globalName || record.userId,
-                avatarURL: userMap.get(record.userId)!.guild?.avatarURL || userMap.get(record.userId)!.avatarURL || '',
-                isSkeletonAccount: userMap.get(record.userId)!.isSkeletonAccount,
-                csvName: userMap.get(record.userId)!.csvName,
-            }
-            : null,
-    }))
+    const recordsWithUsers = orderedRecords.map(record => {
+        const u = userMap.get(record.userId)
+        if (!u) return { ...record, user: null }
+
+        const rankAbbr = u.milpac?.currentRank
+        const memberName = u.name
+        const displayName = rankAbbr && memberName
+            ? `${rankAbbr} ${memberName}`
+            : u.guild?.displayName || u.globalName || u.username || record.userId
+
+        return {
+            ...record,
+            user: {
+                id: u.id,
+                displayName,
+                avatarURL: u.guild?.avatarURL || u.avatarURL || '',
+                isSkeletonAccount: u.isSkeletonAccount,
+                csvName: u.csvName,
+            },
+        }
+    })
 
     if (!attendance) {
         return NextResponse.json({
