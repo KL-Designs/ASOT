@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -21,11 +22,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: 'Invalid operation ID' }, { status: 400 })
     }
 
-    // Verify caller is a section leader (isSenior in their ORBAT position) or HQ
+    // Verify caller is a section leader, HQ, or All Staff
     const orbatPos = await Db.orbatPositions.findOne({ userId: me.id })
     const isHQ = client.hasRoles(me, ['HQ Staff'])
-    if (!orbatPos?.isSenior && !isHQ) {
-        return NextResponse.json({ error: 'Only section leaders can confirm attendance' }, { status: 403 })
+    const isAllStaff = client.hasRoles(me, PERMISSIONS.attendance.confirm)
+    if (!orbatPos?.isSenior && !isAllStaff) {
+        return NextResponse.json({ error: 'Only section leaders or staff can confirm attendance' }, { status: 403 })
     }
 
     const attendance = await Db.operationAttendance.findOne({ operationId })
@@ -36,20 +38,43 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: 'Confirmation is not open for this operation' }, { status: 403 })
     }
 
-    const { confirmedUserIds }: { confirmedUserIds: string[] } = await req.json()
+    const { confirmedUserIds, sectionTitle: bodySectionTitle }: { confirmedUserIds: string[]; sectionTitle?: string } = await req.json()
     if (!Array.isArray(confirmedUserIds)) {
         return NextResponse.json({ error: 'confirmedUserIds must be an array' }, { status: 400 })
     }
 
-    const sectionTitle = orbatPos?.sectionTitle ?? null
     const now = new Date()
 
-    // For section leaders: only confirm records in their own section
-    // For HQ: can confirm any section
-    const sectionFilter = isHQ ? null : sectionTitle
+    // Section leaders are scoped to their own ORBAT section.
+    // HQ/All Staff are scoped to the section they submitted for (from the request body),
+    // so confirming one section at a time doesn't wipe confirmations for other sections.
+    const sectionFilter = orbatPos?.isSenior && !isHQ ? (orbatPos.sectionTitle ?? null) : (bodySectionTitle ?? null)
+
+    // Ensure every confirmed userId has a record in attendance.records.
+    // ORBAT members who never RSVPed won't have a record yet — look them up and create minimal ones.
+    const records: OperationAttendanceRecord[] = [...(attendance.records ?? [])]
+    const existingIds = new Set(records.map(r => r.userId))
+    const missingIds = confirmedUserIds.filter(uid => !existingIds.has(uid))
+    if (missingIds.length > 0) {
+        const positions = await Db.orbatPositions.find({ userId: { $in: missingIds } }).toArray()
+        const posMap = new Map(positions.map(p => [p.userId as string, p]))
+        for (const uid of missingIds) {
+            const pos = posMap.get(uid)
+            records.push({
+                userId: uid,
+                unit: pos?.sectionTitle ?? sectionFilter ?? '',
+                orbatSection: pos?.sectionTitle ?? sectionFilter ?? '',
+                orbatRole: pos?.role ?? '',
+                rsvp: null,
+                confirmed: false,
+                confirmedBy: null,
+                confirmedAt: null,
+            })
+        }
+    }
 
     // Mark confirmed/unconfirmed for the caller's section
-    const updatedRecords = attendance.records.map(record => {
+    const updatedRecords = records.map(record => {
         // Only touch records in this section leader's section (or all if HQ)
         if (sectionFilter && record.orbatSection !== sectionFilter) return record
 

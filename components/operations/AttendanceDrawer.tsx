@@ -18,10 +18,11 @@ interface Props {
     myUserId: string | null
     isHQ: boolean
     isSectionLeader: boolean
+    isAllStaff: boolean
     themeColor: string
 }
 
-export default function AttendanceDrawer({ operationId, operationStatus, myUserId, isHQ, isSectionLeader, themeColor }: Props) {
+export default function AttendanceDrawer({ operationId, operationStatus, myUserId, isHQ, isSectionLeader, isAllStaff, themeColor }: Props) {
     const [drawerOpen, setDrawerOpen] = useState(false)
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
@@ -73,6 +74,7 @@ export default function AttendanceDrawer({ operationId, operationStatus, myUserI
                 myUserId={myUserId}
                 isHQ={isHQ}
                 isSectionLeader={isSectionLeader}
+                isAllStaff={isAllStaff}
                 themeColor={themeColor}
             />
         </div>

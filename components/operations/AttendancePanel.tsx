@@ -52,6 +52,7 @@ interface Props {
     myUserId: string | null
     isHQ: boolean
     isSectionLeader: boolean
+    isAllStaff: boolean
     themeColor: string
 }
 
@@ -121,7 +122,7 @@ function groupByCategoryAndSection(records: AttendanceRecord[]): Map<string, { t
 // ── AttendancePanel ───────────────────────────────────────────────────────────
 
 export default function AttendancePanel({
-    operationId, operationStatus, myUserId, isHQ, isSectionLeader, themeColor,
+    operationId, operationStatus, myUserId, isHQ, isSectionLeader, isAllStaff, themeColor,
 }: Props) {
     const [data, setData]               = useState<AttendanceData | null>(null)
     const [loading, setLoading]         = useState(true)
@@ -322,14 +323,14 @@ export default function AttendancePanel({
 
     const handleConfirmSubmit = async (sectionTitle: string) => {
         if (!data?.confirmationOpen) return
-        const sectionRecords = (data.recordsWithUsers).filter(r => r.orbatSection === sectionTitle)
+        const sectionRecords = (data.recordsWithUsers).filter(r => (r.reservistSection || r.orbatSection) === sectionTitle || r.orbatSection === sectionTitle)
         const confirmedIds   = sectionRecords.filter(r => confirming[r.userId]).map(r => r.userId)
         setSaving(true)
         try {
             await fetch(`/api/operations/${operationId}/attendance/confirm`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ confirmedUserIds: confirmedIds }),
+                body: JSON.stringify({ confirmedUserIds: confirmedIds, sectionTitle }),
             })
             setConfirmingDirty(false)
             await refreshData()
@@ -539,7 +540,7 @@ export default function AttendancePanel({
                     sections.map(({ title: section, isSubSection, records: sectionRecords }) => {
                         const attending    = sectionRecords.filter(r => r.rsvp === 'attending' || r.importedStatus === 'ATTENDED').length
                         const confirmedCnt = sectionRecords.filter(r => r.confirmed).length
-                        const canConfirm   = isCompleted && (isSectionLeader || isHQ) && (data?.confirmationOpen ?? false)
+                        const canConfirm   = isCompleted && (isSectionLeader || isHQ || isAllStaff) && (data?.confirmationOpen ?? false)
                         const isMySection  = sectionRecords.some(r => r.userId === myUserId)
 
                         return (
@@ -711,7 +712,7 @@ export default function AttendancePanel({
                                         )}
 
                                         {/* Confirm submit button */}
-                                        {canConfirm && (isHQ || isMySection) && (
+                                        {canConfirm && (isHQ || isAllStaff || isMySection) && (
                                             <Button
                                                 size='small'
                                                 variant='contained'

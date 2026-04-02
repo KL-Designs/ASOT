@@ -32,6 +32,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     ])
     const isLoggedIn = !!me
     const isHQ = me ? client.hasRoles(me, PERMISSIONS.pages.operationsEdit) : false
+    const isAllStaff = me ? client.hasRoles(me, PERMISSIONS.attendance.confirm) : false
 
     // Check if the logged-in user is a section leader (isSenior on their ORBAT position)
     const isSectionLeader = me
@@ -667,6 +668,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 myUserId={me?.id ?? null}
                 isHQ={isHQ}
                 isSectionLeader={isSectionLeader}
+                isAllStaff={isAllStaff}
                 themeColor={operation.themeColor || '#db001d'}
             />
             </div>
