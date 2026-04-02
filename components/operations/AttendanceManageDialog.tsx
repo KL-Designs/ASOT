@@ -426,7 +426,7 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
 
                 {/* ── Drag-and-drop sections ──────────────────────────────── */}
                 <DndContext sensors={sensors} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
-                    <Box sx={{ columns: { xs: 1, sm: 2 }, columnGap: 2 }}>
+                    <Box sx={{ columns: { xs: 1, sm: 2, md: 3 }, columnGap: 2 }}>
                         {allSections.map(sec => (
                             <Box key={sec} sx={{ breakInside: 'avoid', mb: 0 }}>
                                 <DroppableSection
