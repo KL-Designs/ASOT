@@ -8,10 +8,11 @@ import {
 } from '@mui/material'
 import { Close, Delete, Add, DragIndicator } from '@mui/icons-material'
 import {
-    DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
-    type DragStartEvent, type DragEndEvent, type DragOverEvent,
+    DndContext, PointerSensor, useSensor, useSensors,
+    type DragEndEvent, type DragOverEvent,
 } from '@dnd-kit/core'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -43,14 +44,7 @@ interface Props {
 
 // ── Draggable member row ───────────────────────────────────────────────────────
 
-function DraggableMember({
-    record, onRemove, c, isDragOverlay = false,
-}: {
-    record: MemberRecord
-    onRemove: (userId: string) => void
-    c: (a: number) => string
-    isDragOverlay?: boolean
-}) {
+function DraggableMember({ record, onRemove, c }: { record: MemberRecord; onRemove: (userId: string) => void; c: (a: number) => string }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: record.userId })
 
     return (
@@ -60,10 +54,12 @@ function DraggableMember({
             sx={{
                 display: 'flex', alignItems: 'center', gap: 1, py: 0.6, px: 1,
                 borderRadius: 1,
-                background: isDragging ? 'rgba(255,255,255,0.0)' : isDragOverlay ? 'rgba(20,20,24,0.97)' : 'rgba(255,255,255,0.03)',
-                border: isDragOverlay ? `1px solid ${c(0.4)}` : '1px solid transparent',
-                opacity: isDragging ? 0.3 : 1,
-                cursor: isDragOverlay ? 'grabbing' : 'default',
+                background: isDragging ? 'rgba(20,20,24,0.97)' : 'rgba(255,255,255,0.03)',
+                border: isDragging ? `1px solid ${c(0.4)}` : '1px solid transparent',
+                boxShadow: isDragging ? `0 8px 24px rgba(0,0,0,0.6)` : 'none',
+                transform: CSS.Transform.toString(transform),
+                zIndex: isDragging ? 9999 : undefined,
+                cursor: isDragging ? 'grabbing' : 'default',
                 '&:hover': { background: isDragging ? undefined : 'rgba(255,255,255,0.05)' },
             }}
         >
@@ -159,8 +155,7 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
 
     // Local working copy: section → members
     const [sectionMap, setSectionMap] = useState<Map<string, MemberRecord[]>>(new Map())
-    const [activeDrag, setActiveDrag] = useState<MemberRecord | null>(null)
-    const [overSection, setOverSection]   = useState<string | null>(null)
+    const [overSection, setOverSection] = useState<string | null>(null)
     const [saving, setSaving] = useState(false)
     const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -214,19 +209,11 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
         return null
     }
 
-    const onDragStart = ({ active }: DragStartEvent) => {
-        for (const members of sectionMap.values()) {
-            const found = members.find(m => m.userId === active.id)
-            if (found) { setActiveDrag(found); break }
-        }
-    }
-
     const onDragOver = ({ over }: DragOverEvent) => {
         setOverSection(over ? String(over.id) : null)
     }
 
     const onDragEnd = ({ active, over }: DragEndEvent) => {
-        setActiveDrag(null)
         setOverSection(null)
         if (!over) return
         const fromSec = findSection(String(active.id))
@@ -425,7 +412,7 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
                 </Box>
 
                 {/* ── Drag-and-drop sections ──────────────────────────────── */}
-                <DndContext sensors={sensors} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
+                <DndContext sensors={sensors} onDragOver={onDragOver} onDragEnd={onDragEnd}>
                     <Box sx={{ columns: { xs: 1, sm: 2, md: 3 }, columnGap: 2 }}>
                         {allSections.map(sec => (
                             <Box key={sec} sx={{ breakInside: 'avoid', mb: 0 }}>
@@ -440,11 +427,6 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
                         ))}
                     </Box>
 
-                    <DragOverlay dropAnimation={null}>
-                        {activeDrag && (
-                            <DraggableMember record={activeDrag} onRemove={() => {}} c={c} isDragOverlay />
-                        )}
-                    </DragOverlay>
                 </DndContext>
             </DialogContent>
 
