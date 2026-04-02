@@ -3,14 +3,15 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
     Box, Typography, Button, Chip, Divider, CircularProgress,
-    Checkbox, FormControlLabel, FormGroup, Skeleton,
+    Checkbox, FormControlLabel, FormGroup, Skeleton, IconButton,
     Accordion, AccordionSummary, AccordionDetails, Avatar,
     Switch, Tooltip,
 } from '@mui/material'
 import {
     ExpandMore, CheckCircle, Cancel, HelpOutline,
-    Lock, LockOpen, PersonAdd,
+    Lock, LockOpen, PersonAdd, Tune,
 } from '@mui/icons-material'
+import AttendanceManageDialog from '@/components/operations/AttendanceManageDialog'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -108,6 +109,7 @@ export default function AttendancePanel({
     const [myReservistSection, setMyReservistSection] = useState<string>('')
     const [confirming, setConfirming]   = useState<Record<string, boolean>>({})
     const [confirmingDirty, setConfirmingDirty] = useState(false)
+    const [manageOpen, setManageOpen]   = useState(false)
 
     const r = parseInt(themeColor.replace('#', '').substring(0, 2), 16)
     const g = parseInt(themeColor.replace('#', '').substring(2, 4), 16)
@@ -158,10 +160,10 @@ export default function AttendancePanel({
     // ── Live polling ───────────────────────────────────────────────────────────
     useEffect(() => {
         const interval = setInterval(() => {
-            if (!saving) refreshData(!confirmingDirty)
+            if (!saving && !manageOpen) refreshData(!confirmingDirty)
         }, 15000)
         return () => clearInterval(interval)
-    }, [saving, refreshData, confirmingDirty])
+    }, [saving, manageOpen, refreshData, confirmingDirty])
 
     // ── RSVP ───────────────────────────────────────────────────────────────────
 
@@ -392,6 +394,23 @@ export default function AttendancePanel({
                         />
                     )}
                 </Box>
+
+                {/* HQ manage button */}
+                {isHQ && (
+                    <Button
+                        size='small'
+                        variant='outlined'
+                        startIcon={<Tune sx={{ fontSize: 14 }} />}
+                        onClick={() => setManageOpen(true)}
+                        sx={{
+                            fontSize: '0.6rem', letterSpacing: 1.5, textTransform: 'uppercase',
+                            borderColor: 'rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.45)',
+                            '&:hover': { borderColor: 'rgba(255,255,255,0.25)', color: 'rgba(237,237,237,0.8)', background: 'rgba(255,255,255,0.04)' },
+                        }}
+                    >
+                        Manage Attendance
+                    </Button>
+                )}
 
                 {/* Login prompt */}
                 {!myUserId && (
@@ -685,6 +704,35 @@ export default function AttendancePanel({
                 <Box sx={{ position: 'fixed', bottom: 16, right: 16 }}>
                     <CircularProgress size={20} sx={{ color: c(0.8) }} />
                 </Box>
+            )}
+
+            {/* ── HQ manage dialog ───────────────────────────────────────── */}
+            {isHQ && (
+                <AttendanceManageDialog
+                    open={manageOpen}
+                    onClose={() => setManageOpen(false)}
+                    operationId={operationId}
+                    sections={Array.from(new Map(
+                        records.map(r => [r.category ?? 'other', r])
+                    ).keys()).flatMap(cat =>
+                        [...new Set(
+                            records.filter(r => (r.category ?? 'other') === cat)
+                                   .map(r => r.reservistSection || r.orbatSection || r.unit)
+                        )]
+                    )}
+                    records={records.map(r => ({
+                        userId: r.userId,
+                        displayName: r.user?.displayName ?? r.userId,
+                        avatarURL: r.user?.avatarURL ?? '',
+                        orbatRole: r.orbatRole ?? '',
+                        orbatSection: r.orbatSection ?? r.unit ?? '',
+                        currentSection: r.reservistSection || r.orbatSection || r.unit || '',
+                        rsvp: r.rsvp,
+                        confirmed: r.confirmed,
+                    }))}
+                    themeColor={themeColor}
+                    onSaved={refreshData}
+                />
             )}
         </Box>
     )
