@@ -455,6 +455,49 @@ export default function AttendancePanel({
                                             >
                                                 {section}
                                             </Typography>
+
+                                            {/* Avatar stack — members who are attending */}
+                                            {(() => {
+                                                const attendingRecords = sectionRecords.filter(r =>
+                                                    r.rsvp === 'attending' || r.importedStatus === 'ATTENDED' || r.confirmed
+                                                )
+                                                const MAX = 8
+                                                const visible = attendingRecords.slice(0, MAX)
+                                                const overflow = attendingRecords.length - MAX
+                                                if (visible.length === 0) return null
+                                                return (
+                                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                        {visible.map((r, i) => (
+                                                            <Tooltip key={r.userId} title={r.user?.displayName ?? r.userId} placement='top'>
+                                                                <Avatar
+                                                                    src={r.user?.avatarURL}
+                                                                    sx={{
+                                                                        width: 20, height: 20, fontSize: '0.5rem',
+                                                                        background: c(0.4),
+                                                                        border: '1.5px solid rgba(18,18,18,0.9)',
+                                                                        ml: i === 0 ? 0 : '-6px',
+                                                                        zIndex: visible.length - i,
+                                                                    }}
+                                                                >
+                                                                    {r.user?.displayName?.charAt(0) ?? '?'}
+                                                                </Avatar>
+                                                            </Tooltip>
+                                                        ))}
+                                                        {overflow > 0 && (
+                                                            <Box sx={{
+                                                                width: 20, height: 20, borderRadius: '50%', ml: '-6px',
+                                                                background: 'rgba(255,255,255,0.08)',
+                                                                border: '1.5px solid rgba(18,18,18,0.9)',
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                fontSize: '0.45rem', color: 'rgba(237,237,237,0.5)', zIndex: 0,
+                                                            }}>
+                                                                +{overflow}
+                                                            </Box>
+                                                        )}
+                                                    </Box>
+                                                )
+                                            })()}
+
                                             <Typography fontSize='0.65rem' sx={{ color: 'rgba(237,237,237,0.35)', letterSpacing: 1 }}>
                                                 {isCompleted ? `${confirmedCnt}/${sectionRecords.length}` : `${attending}/${sectionRecords.length}`}
                                             </Typography>
