@@ -10,6 +10,7 @@ import LocalDate from './local-date'
 import PrintButton from './print-button'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import AttendancePanel from '@/components/operations/AttendancePanel'
 
 
 function hexToRgb(hex: string) {
@@ -31,6 +32,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     ])
     const isLoggedIn = !!me
     const isHQ = me ? client.hasRoles(me, PERMISSIONS.pages.operationsEdit) : false
+
+    // Check if the logged-in user is a section leader (isSenior on their ORBAT position)
+    const isSectionLeader = me
+        ? !!(await Db.orbatPositions.findOne({ userId: me.id, isSenior: true }))
+        : false
 
     if (!operation) return (
         <div className='flex items-center justify-center h-full' style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
@@ -392,7 +398,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
             {/* ── Document sections (single-page) ───────────────────────────── */}
             {(!operation.pages || operation.pages.length <= 1) && (
-            <div className='w-full max-w-[900px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className='w-full mx-auto px-4 md:px-8 pb-16 flex flex-col lg:flex-row' style={{ maxWidth: 1160, marginTop: 32, gap: 24, alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {operation.sections && operation.sections.length > 0 ? (
                     operation.sections
                         .filter(s => isLoggedIn || s.isPublic)
@@ -610,6 +617,42 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         </div>
                     </div>
                 )}
+            </div>{/* end docs column */}
+
+            {/* ── Attendance sidebar ─────────────────────────────────────── */}
+            {(operation.status === 'Upcoming' || operation.status === 'Active' || operation.status === 'Completed') && (
+                <div className='print-hide w-full lg:w-auto' style={{ width: 'clamp(200px, 240px, 100%)', flexShrink: 0, position: 'sticky', top: 80 }}>
+                    <div style={{
+                        border: `1px solid ${c(0.15)}`,
+                        borderTop: `2px solid ${c(0.6)}`,
+                        background: 'rgba(0,0,0,0.25)',
+                        overflow: 'hidden',
+                    }}>
+                        <div style={{
+                            padding: '7px 14px',
+                            borderBottom: '1px solid rgba(255,255,255,0.05)',
+                            background: 'rgba(0,0,0,0.3)',
+                            display: 'flex', alignItems: 'center', gap: 8,
+                        }}>
+                            <div style={{ width: 3, height: 10, background: c(0.8), flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.8) }}>
+                                Attendance
+                            </span>
+                        </div>
+                        <div style={{ padding: 12 }}>
+                            <AttendancePanel
+                                operationId={id}
+                                operationStatus={operation.status ?? ''}
+                                myUserId={me?.id ?? null}
+                                isHQ={isHQ}
+                                isSectionLeader={isSectionLeader}
+                                themeColor={operation.themeColor || '#db001d'}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             </div>
             )}
 
@@ -645,6 +688,34 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         </div>
                     </div>
                 </a>
+            )}
+
+            {/* ── Attendance panel ────────────────────────────────────────── */}
+            {(operation.status === 'Upcoming' || operation.status === 'Active' || operation.status === 'Completed') && (
+                <div className='w-full max-w-[900px] mx-auto px-4 md:px-8 pb-16 print-hide' style={{ marginTop: 32 }}>
+                    <div style={{
+                        padding: '8px 20px',
+                        borderBottom: '1px solid rgba(255,255,255,0.06)',
+                        marginBottom: 16,
+                        display: 'flex', alignItems: 'center', gap: 8,
+                    }}>
+                        <div style={{ width: 3, height: 12, background: c(0.8), flexShrink: 0 }} />
+                        <span style={{
+                            fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.3em',
+                            textTransform: 'uppercase', color: c(0.8),
+                        }}>
+                            Attendance
+                        </span>
+                    </div>
+                    <AttendancePanel
+                        operationId={id}
+                        operationStatus={operation.status ?? ''}
+                        myUserId={me?.id ?? null}
+                        isHQ={isHQ}
+                        isSectionLeader={isSectionLeader}
+                        themeColor={operation.themeColor || '#db001d'}
+                    />
+                </div>
             )}
 
         </div>

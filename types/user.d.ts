@@ -20,6 +20,11 @@ declare global {
 
         name?: string
 
+        // Skeleton accounts are created for CSV-imported users not yet matched to Discord
+        isSkeletonAccount?: true
+        csvName?: string   // name as it appeared in the CSV
+        csvRank?: string
+
         hexAccentColor: string
         accentColor: number
         avatar: string

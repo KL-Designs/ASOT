@@ -159,6 +159,9 @@ declare global {
         themeColor?: string
         pageTheme?: 'modern' | 'oldfashioned' | 'scifi'
         coverImage?: string
+
+        // Convenience mirror of OperationAttendance.assignedPlatoons
+        assignedPlatoons?: string[]
     }
 
 }
