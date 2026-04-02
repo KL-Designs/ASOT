@@ -1219,12 +1219,13 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
 
             {/* Operations — derived from confirmed attendance */}
             {(() => {
-                // Strip trailing "Night X", "Day X", "Part X", " 1", " 2" etc. to get the campaign base name
+                // Strip trailing suffixes to get the campaign base name for grouping
                 function baseName(name: string): string {
                     return name
                         .replace(/\s*[-–]\s*(night|day|part|session)\s*\d+\s*$/gi, '')
                         .replace(/\s+(night|day|part|session)\s*\d+\s*$/gi, '')
                         .replace(/\s+\d+\s*$/g, '')
+                        .replace(/\s+[IVXLC]+\s*$/i, '')  // Roman numerals (I–XCIX)
                         .trim()
                 }
 
@@ -1233,7 +1234,8 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
                     const key = baseName(op.name)
                     if (!groups.has(key)) groups.set(key, { dates: [], count: 0 })
                     const g = groups.get(key)!
-                    if (op.confirmedAt) g.dates.push(new Date(op.confirmedAt))
+                    const rawDate = op.date ?? op.confirmedAt
+                    if (rawDate) g.dates.push(new Date(rawDate))
                     g.count++
                 }
 
