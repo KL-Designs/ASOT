@@ -812,9 +812,10 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
 
             {/* Billet Points */}
             {(() => {
-                // Split confirmed ops into Saturday (primary) and Sunday (secondary — "Night 2" suffix)
-                const primaryOps  = confirmedOps.filter(op => !op.name.includes('— Night 2'))
-                const secondaryOps = confirmedOps.filter(op =>  op.name.includes('— Night 2'))
+                // Split confirmed ops into Saturday (primary) and Sunday (secondary)
+                const isSecondary = (name: string) => name.includes('— Sun') || name.includes('— Night 2')
+                const primaryOps  = confirmedOps.filter(op => !isSecondary(op.name))
+                const secondaryOps = confirmedOps.filter(op =>  isSecondary(op.name))
 
                 // ISO week key helper (matches lib/points.ts logic)
                 function isoWeekKey(d: Date): string {
@@ -1268,10 +1269,11 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
                 // Strip trailing suffixes to get the campaign base name for grouping
                 function baseName(name: string): string {
                     return name
-                        .replace(/\s*[-–]\s*(night|day|part|session)\s*\d+\s*$/gi, '')
-                        .replace(/\s+(night|day|part|session)\s*\d+\s*$/gi, '')
+                        .replace(/\s*[-–—]\s*(sat|sun|night|day|part|session)(\s*\d+)?\s*$/gi, '')  // "— Sun", "— Sat", "— Night 2"
+                        .replace(/\s+(sat|sun|night|day|part|session)(\s*\d+)?\s*$/gi, '')
                         .replace(/\s+\d+\s*$/g, '')
                         .replace(/\s+[IVXLC]+\s*$/i, '')  // Roman numerals (I–XCIX)
+                        .replace(/\s*[-–—]\s*$/g, '')      // trailing dash artifacts
                         .trim()
                 }
 

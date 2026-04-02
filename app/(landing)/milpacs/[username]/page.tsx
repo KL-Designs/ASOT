@@ -7,6 +7,7 @@ import Image from 'next/image'
 import Avatar from '@/components/member/avatar'
 import Banner from '@/public/images/home/Droneteam7.png'
 import client from '@/lib/discord'
+import Db from '@/lib/mongo'
 import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/milpac-profile'
 import { CoverUpload } from './cover-upload'
@@ -71,6 +72,29 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const canEdit = me ? client.hasRoles(me, ['J5-Media']) : false
 	const isOwn = me?.id === member.id
 	const hasCover = existsSync(join(process.cwd(), 'uploads', 'cover', `${member.id}.png`))
+
+	// Fetch confirmed attendance records for operation history
+	const attendanceDocs = await Db.operationAttendance.find({
+		records: { $elemMatch: { userId: member.id, confirmed: true } },
+	}).toArray()
+	const operationIds = attendanceDocs.map(d => d.operationId)
+	const operationsData = operationIds.length > 0
+		? await Db.operations.find({ _id: { $in: operationIds } }).toArray()
+		: []
+	const opMap = new Map(operationsData.map(o => [String(o._id), o]))
+	const seenOpIds = new Set<string>()
+	const confirmedOps = attendanceDocs.flatMap(doc => {
+		const opId = String(doc.operationId)
+		if (seenOpIds.has(opId)) return []
+		seenOpIds.add(opId)
+		const rec = doc.records.find(r => r.userId === member.id && r.confirmed)
+		if (!rec) return []
+		const op = opMap.get(opId)
+		return [{
+			name: op?.title ?? 'Unknown Operation',
+			date: op?.date ? new Date(op.date) : null,
+		}]
+	})
 
 	return (
 		<div style={{ background: 'rgb(10,10,10)', color: 'rgba(237,237,237,0.9)' }}>
@@ -338,28 +362,64 @@ export default async function Page({ params }: { params: Promise<{ username: str
 				</Section>
 
 				{/* ── Operation History ─────────────────────────────────── */}
-				<Section accent={accent} title='Operation History'>
-					{member.milpac?.operations && member.milpac.operations.length > 0 ? (
-						<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-							<thead>
-								<tr>
-									<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Operation</th>
-									<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Date</th>
-								</tr>
-							</thead>
-							<tbody>
-								{member.milpac.operations.map((op, i) => (
-									<tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-										<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{op.name}</td>
-										<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem' }}>{op.startToEndDate}</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					) : (
-						<Placeholder text='No operations on record.' />
-					)}
-				</Section>
+				{(() => {
+					function baseName(name: string): string {
+						return name
+							.replace(/\s*[-–—]\s*(sat|sun|night|day|part|session)(\s*\d+)?\s*$/gi, '')  // "— Sun", "— Sat", "— Night 2"
+							.replace(/\s+(sat|sun|night|day|part|session)(\s*\d+)?\s*$/gi, '')
+							.replace(/\s+\d+\s*$/g, '')
+							.replace(/\s+[IVXLC]+\s*$/i, '')  // Roman numerals
+							.replace(/\s*[-–—]\s*$/g, '')      // trailing dash artifacts
+							.trim()
+					}
+					function fmtDate(d: Date) {
+						return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
+					}
+
+					const groups = new Map<string, { dates: Date[]; count: number }>()
+					for (const op of confirmedOps) {
+						const key = baseName(op.name)
+						if (!groups.has(key)) groups.set(key, { dates: [], count: 0 })
+						const g = groups.get(key)!
+						if (op.date) g.dates.push(op.date)
+						g.count++
+					}
+					const grouped = Array.from(groups.entries())
+						.map(([name, g]) => ({ name, ...g }))
+						.sort((a, b) => {
+							const aMax = a.dates.length ? Math.max(...a.dates.map(d => d.getTime())) : 0
+							const bMax = b.dates.length ? Math.max(...b.dates.map(d => d.getTime())) : 0
+							return bMax - aMax
+						})
+
+					return (
+						<Section accent={accent} title={`Operation History (${confirmedOps.length})`}>
+							{grouped.length === 0 ? (
+								<Placeholder text='No operations on record.' />
+							) : (
+								<div style={{ display: 'flex', flexDirection: 'column' }}>
+									{grouped.map(g => {
+										const sorted = [...g.dates].sort((a, b) => a.getTime() - b.getTime())
+										const dateRange = sorted.length === 0 ? '—'
+											: sorted.length === 1 ? fmtDate(sorted[0])
+											: `${fmtDate(sorted[0])} – ${fmtDate(sorted[sorted.length - 1])}`
+										return (
+											<div key={g.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+												<span style={{ flex: 1, fontSize: '0.8rem', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{g.name}</span>
+												<span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>{dateRange}</span>
+												{g.count > 1 && (
+													<span style={{ fontSize: '0.62rem', fontWeight: 700, padding: '1px 5px', background: `${accent}18`, border: `1px solid ${accent}35`, color: `${accent}cc`, borderRadius: 3, flexShrink: 0 }}>
+														×{g.count}
+													</span>
+												)}
+											</div>
+										)
+									})}
+								</div>
+							)}
+						</Section>
+					)
+				})()}
 
 			</div>
 		</div>

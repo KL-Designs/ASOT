@@ -71,14 +71,16 @@ export async function POST(req: NextRequest) {
         const satDate = parseDMY(op.satDate)
 
         // --- Saturday operation ---
+        const satTitle = `${op.name} — Sat`
+        const satNormName = normaliseOpName(satTitle)
         const satMatch = existingOps.find(dbOp =>
-            normaliseOpName(dbOp.title) === normName
+            normaliseOpName(dbOp.title) === satNormName || normaliseOpName(dbOp.title) === normName
         )
         if (satMatch) {
             opIdMap.set(`${op.name}|${op.satDate}|sat`, satMatch._id)
         } else {
             const result = await Db.operations.insertOne({
-                title: op.name,
+                title: satTitle,
                 department: '1-0',
                 date: satDate ?? new Date(),
                 loreDate: satDate ?? new Date(),
@@ -90,7 +92,7 @@ export async function POST(req: NextRequest) {
         // --- Sunday operation (only when a real Sunday date exists) ---
         if (isRealDate(op.sunDate)) {
             const sunDate = parseDMY(op.sunDate)
-            const sunTitle = `${op.name} — Night 2`
+            const sunTitle = `${op.name} — Sun`
             const sunNormName = normaliseOpName(sunTitle)
             const sunMatch = existingOps.find(dbOp =>
                 normaliseOpName(dbOp.title) === sunNormName

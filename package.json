@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node --max-old-space-size=4096 node_modules/.bin/next dev",
     "dev-collab": "node --max-old-space-size=4096 --env-file=.env server.mjs",
-    "build": "node --max-old-space-size=4096 node_modules/.bin/next build",
+    "build": "next build",
     "start": "node --env-file=.env server.mjs",
     "lint": "next lint"
   },
