@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
     Box, Typography, Button, Chip, Divider, CircularProgress,
-    Checkbox, FormControlLabel, FormGroup,
+    Checkbox, FormControlLabel, FormGroup, Skeleton,
     Accordion, AccordionSummary, AccordionDetails, Avatar,
     Switch, Tooltip,
 } from '@mui/material'
@@ -119,53 +119,49 @@ export default function AttendancePanel({
 
     // ── Fetch ──────────────────────────────────────────────────────────────────
 
+    // Shared logic for applying fetched data — used by both initial load and silent refresh
+    const applyData = useCallback((d: AttendanceData, resetConfirming = true) => {
+        setData(d)
+        if (myUserId) {
+            const mine = d.recordsWithUsers.find(r => r.userId === myUserId)
+            setMyRsvp(mine?.rsvp ?? null)
+            setMyReservistSection(mine?.reservistSection ?? '')
+        }
+        if (resetConfirming) {
+            const init: Record<string, boolean> = {}
+            for (const r of d.recordsWithUsers) init[r.userId] = r.confirmed
+            setConfirming(init)
+        }
+    }, [myUserId])
+
+    // Initial load — shows skeleton
     const fetchData = useCallback(async () => {
         setLoading(true)
         try {
             const res = await fetch(`/api/operations/${operationId}/attendance`)
-            if (res.ok) {
-                const d: AttendanceData = await res.json()
-                setData(d)
-                if (myUserId) {
-                    const mine = d.recordsWithUsers.find(r => r.userId === myUserId)
-                    setMyRsvp(mine?.rsvp ?? null)
-                    setMyReservistSection(mine?.reservistSection ?? '')
-                }
-                // Pre-populate confirmation state from existing data
-                const init: Record<string, boolean> = {}
-                for (const r of d.recordsWithUsers) init[r.userId] = r.confirmed
-                setConfirming(init)
-            }
+            if (res.ok) applyData(await res.json())
         } finally {
             setLoading(false)
         }
-    }, [operationId, myUserId])
+    }, [operationId, applyData])
+
+    // Silent refresh — no skeleton flash, used after mutations and polling
+    const refreshData = useCallback(async (resetConfirming = true) => {
+        try {
+            const res = await fetch(`/api/operations/${operationId}/attendance`)
+            if (res.ok) applyData(await res.json(), resetConfirming)
+        } catch { }
+    }, [operationId, applyData])
 
     useEffect(() => { fetchData() }, [fetchData])
 
     // ── Live polling ───────────────────────────────────────────────────────────
     useEffect(() => {
-        const interval = setInterval(async () => {
-            if (saving) return
-            try {
-                const res = await fetch(`/api/operations/${operationId}/attendance`)
-                if (!res.ok) return
-                const d: AttendanceData = await res.json()
-                setData(d)
-                if (myUserId) {
-                    const mine = d.recordsWithUsers.find(r => r.userId === myUserId)
-                    setMyRsvp(mine?.rsvp ?? null)
-                    setMyReservistSection(mine?.reservistSection ?? '')
-                }
-                if (!confirmingDirty) {
-                    const init: Record<string, boolean> = {}
-                    for (const r of d.recordsWithUsers) init[r.userId] = r.confirmed
-                    setConfirming(init)
-                }
-            } catch { }
+        const interval = setInterval(() => {
+            if (!saving) refreshData(!confirmingDirty)
         }, 15000)
         return () => clearInterval(interval)
-    }, [operationId, myUserId, saving, confirmingDirty])
+    }, [saving, refreshData, confirmingDirty])
 
     // ── RSVP ───────────────────────────────────────────────────────────────────
 
@@ -183,7 +179,7 @@ export default function AttendancePanel({
                     ...(myReservistSection ? { reservistSection: myReservistSection } : {}),
                 }),
             })
-            await fetchData()
+            await refreshData()
         } finally {
             setSaving(false)
         }
@@ -204,7 +200,7 @@ export default function AttendancePanel({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ assignedPlatoons: updated, reservistAssignments: data.reservistAssignments }),
             })
-            await fetchData()
+            await refreshData()
         } finally {
             setSaving(false)
         }
@@ -223,7 +219,7 @@ export default function AttendancePanel({
                     rsvpOpen: open,
                 }),
             })
-            await fetchData()
+            await refreshData()
         } finally {
             setSaving(false)
         }
@@ -242,7 +238,7 @@ export default function AttendancePanel({
                     confirmationOpen: open,
                 }),
             })
-            await fetchData()
+            await refreshData()
         } finally {
             setSaving(false)
         }
@@ -265,7 +261,7 @@ export default function AttendancePanel({
                     ...(newSection ? { reservistSection: newSection } : {}),
                 }),
             })
-            await fetchData()
+            await refreshData()
         } finally {
             setSaving(false)
         }
@@ -282,7 +278,7 @@ export default function AttendancePanel({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: myRsvp ?? 'attending' }),
             })
-            await fetchData()
+            await refreshData()
         } finally {
             setSaving(false)
         }
@@ -302,7 +298,7 @@ export default function AttendancePanel({
                 body: JSON.stringify({ confirmedUserIds: confirmedIds }),
             })
             setConfirmingDirty(false)
-            await fetchData()
+            await refreshData()
         } finally {
             setSaving(false)
         }
@@ -311,9 +307,54 @@ export default function AttendancePanel({
     // ── Render ─────────────────────────────────────────────────────────────────
 
     if (loading) {
+        // Skeleton sections — widths vary to feel natural
+        const skeletonSections = [
+            { titleW: '20%', rows: 4, sub: false },
+            { titleW: '18%', rows: 6, sub: false },
+            { titleW: '24%', rows: 5, sub: true  },
+            { titleW: '22%', rows: 4, sub: true  },
+            { titleW: '16%', rows: 3, sub: false },
+        ]
         return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-                <CircularProgress sx={{ color: c(0.8) }} size={28} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {/* Status chip skeletons */}
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Skeleton variant='rounded' width={90} height={22} sx={{ borderRadius: 4, bgcolor: 'rgba(255,255,255,0.05)' }} />
+                    <Skeleton variant='rounded' width={80} height={22} sx={{ borderRadius: 4, bgcolor: 'rgba(255,255,255,0.05)' }} />
+                </Box>
+
+                {skeletonSections.map((s, i) => (
+                    <Box key={i} sx={s.sub ? { ml: 2, borderLeft: '2px solid rgba(255,255,255,0.06)' } : {}}>
+                        <Box sx={{
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            borderTop: `2px solid rgba(255,255,255,${s.sub ? 0.04 : 0.08})`,
+                            background: s.sub ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.02)',
+                        }}>
+                            {/* Section header */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1, minHeight: 40 }}>
+                                <Skeleton variant='text' width={s.titleW} height={14} sx={{ bgcolor: 'rgba(255,255,255,0.07)', flex: 'none' }} />
+                                {/* Avatar stack skeleton */}
+                                <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                                    {Array.from({ length: Math.min(s.rows, 5) }).map((_, j) => (
+                                        <Skeleton key={j} variant='circular' width={20} height={20} sx={{ ml: j === 0 ? 0 : '-6px', bgcolor: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
+                                    ))}
+                                </Box>
+                                <Skeleton variant='text' width={28} height={14} sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
+                            </Box>
+
+                            <Divider sx={{ borderColor: 'rgba(255,255,255,0.04)' }} />
+
+                            {/* Member rows */}
+                            {Array.from({ length: s.rows }).map((_, j) => (
+                                <Box key={j} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 0.75, borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <Skeleton variant='circular' width={22} height={22} sx={{ bgcolor: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
+                                    <Skeleton variant='text' width={`${40 + (j * 13) % 30}%`} height={14} sx={{ bgcolor: 'rgba(255,255,255,0.05)' }} />
+                                    <Skeleton variant='circular' width={14} height={14} sx={{ bgcolor: 'rgba(255,255,255,0.04)', ml: 'auto', flexShrink: 0 }} />
+                                </Box>
+                            ))}
+                        </Box>
+                    </Box>
+                ))}
             </Box>
         )
     }
@@ -351,6 +392,23 @@ export default function AttendancePanel({
                         />
                     )}
                 </Box>
+
+                {/* Login prompt */}
+                {!myUserId && (
+                    <Button
+                        component='a'
+                        href={`/login?returnTo=/operations/${operationId}`}
+                        size='small'
+                        variant='outlined'
+                        sx={{
+                            fontSize: '0.6rem', letterSpacing: 2, textTransform: 'uppercase',
+                            borderColor: c(0.35), color: c(0.8),
+                            '&:hover': { borderColor: c(0.7), background: c(0.08) },
+                        }}
+                    >
+                        Log in to RSVP
+                    </Button>
+                )}
 
                 {/* HQ controls */}
                 {isHQ && (

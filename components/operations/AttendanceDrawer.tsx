@@ -66,7 +66,7 @@ export default function AttendanceDrawer({ operationId, operationStatus, myUserI
     )
 
     const panel = (
-        <div style={{ padding: 12 }}>
+        <div style={{ padding: 14 }}>
             <AttendancePanel
                 operationId={operationId}
                 operationStatus={operationStatus}
@@ -148,8 +148,8 @@ export default function AttendanceDrawer({ operationId, operationStatus, myUserI
                     {/* Slide-in panel */}
                     <div style={{
                         position: 'relative',
-                        width: '85vw',
-                        maxWidth: 340,
+                        width: '95vw',
+                        maxWidth: 520,
                         height: '100%',
                         overflowY: 'auto',
                         borderLeft: `2px solid ${c(0.6)}`,
