@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
     Box, Typography, Button, Chip, Divider, CircularProgress,
-    Checkbox, FormControlLabel, FormGroup, Select, MenuItem,
+    Checkbox, FormControlLabel, FormGroup,
     Accordion, AccordionSummary, AccordionDetails, Avatar,
-    Switch, FormControl, InputLabel, Tooltip,
+    Switch, Tooltip,
 } from '@mui/material'
 import {
     ExpandMore, CheckCircle, Cancel, HelpOutline,
@@ -107,6 +107,7 @@ export default function AttendancePanel({
     const [myRsvp, setMyRsvp]           = useState<'attending' | 'not_attending' | null>(null)
     const [myReservistSection, setMyReservistSection] = useState<string>('')
     const [confirming, setConfirming]   = useState<Record<string, boolean>>({})
+    const [confirmingDirty, setConfirmingDirty] = useState(false)
 
     const r = parseInt(themeColor.replace('#', '').substring(0, 2), 16)
     const g = parseInt(themeColor.replace('#', '').substring(2, 4), 16)
@@ -141,6 +142,30 @@ export default function AttendancePanel({
     }, [operationId, myUserId])
 
     useEffect(() => { fetchData() }, [fetchData])
+
+    // ── Live polling ───────────────────────────────────────────────────────────
+    useEffect(() => {
+        const interval = setInterval(async () => {
+            if (saving) return
+            try {
+                const res = await fetch(`/api/operations/${operationId}/attendance`)
+                if (!res.ok) return
+                const d: AttendanceData = await res.json()
+                setData(d)
+                if (myUserId) {
+                    const mine = d.recordsWithUsers.find(r => r.userId === myUserId)
+                    setMyRsvp(mine?.rsvp ?? null)
+                    setMyReservistSection(mine?.reservistSection ?? '')
+                }
+                if (!confirmingDirty) {
+                    const init: Record<string, boolean> = {}
+                    for (const r of d.recordsWithUsers) init[r.userId] = r.confirmed
+                    setConfirming(init)
+                }
+            } catch { }
+        }, 15000)
+        return () => clearInterval(interval)
+    }, [operationId, myUserId, saving, confirmingDirty])
 
     // ── RSVP ───────────────────────────────────────────────────────────────────
 
@@ -223,6 +248,29 @@ export default function AttendancePanel({
         }
     }
 
+    // ── Reservist: join a section ──────────────────────────────────────────────
+
+    const handleJoinAsReservist = async (sectionTitle: string) => {
+        if (!data?.rsvpOpen) return
+        const isLeaving = myReservistSection === sectionTitle
+        const newSection = isLeaving ? '' : sectionTitle
+        setMyReservistSection(newSection)
+        setSaving(true)
+        try {
+            await fetch(`/api/operations/${operationId}/attendance/rsvp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: myRsvp ?? 'attending',
+                    ...(newSection ? { reservistSection: newSection } : {}),
+                }),
+            })
+            await fetchData()
+        } finally {
+            setSaving(false)
+        }
+    }
+
     // ── Section leader: confirm ────────────────────────────────────────────────
 
     const handleConfirmSubmit = async (sectionTitle: string) => {
@@ -236,6 +284,7 @@ export default function AttendancePanel({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ confirmedUserIds: confirmedIds }),
             })
+            setConfirmingDirty(false)
             await fetchData()
         } finally {
             setSaving(false)
@@ -348,57 +397,6 @@ export default function AttendancePanel({
                         </Box>
                     </Box>
 
-                    {/* Reservist section picker */}
-                    {(() => {
-                        const availableSections = Array.from(
-                            new Set(records.map(r => r.orbatSection).filter(Boolean))
-                        )
-                        if (availableSections.length === 0) return null
-                        return (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Typography fontSize='0.62rem' letterSpacing={2} sx={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', whiteSpace: 'nowrap' }}>
-                                    Attending as reservist in
-                                </Typography>
-                                <FormControl size='small' sx={{ minWidth: 160 }}>
-                                    <Select
-                                        displayEmpty
-                                        value={myReservistSection}
-                                        onChange={async e => {
-                                            const val = e.target.value as string
-                                            setMyReservistSection(val)
-                                            if (myRsvp) {
-                                                setSaving(true)
-                                                try {
-                                                    await fetch(`/api/operations/${operationId}/attendance/rsvp`, {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({
-                                                            status: myRsvp,
-                                                            ...(val ? { reservistSection: val } : {}),
-                                                        }),
-                                                    })
-                                                    await fetchData()
-                                                } finally {
-                                                    setSaving(false)
-                                                }
-                                            }
-                                        }}
-                                        sx={{
-                                            fontSize: '0.72rem',
-                                            background: 'rgba(0,0,0,0.3)',
-                                            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' },
-                                            '& .MuiSvgIcon-root': { color: 'rgba(237,237,237,0.3)' },
-                                        }}
-                                    >
-                                        <MenuItem value=''><em style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)' }}>My own section</em></MenuItem>
-                                        {availableSections.map(s => (
-                                            <MenuItem key={s} value={s} sx={{ fontSize: '0.72rem' }}>{s}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                            </Box>
-                        )
-                    })()}
                 </Box>
             )}
 
@@ -463,7 +461,7 @@ export default function AttendancePanel({
                                                     <Checkbox
                                                         size='small'
                                                         checked={confirming[record.userId] ?? false}
-                                                        onChange={e => setConfirming(prev => ({ ...prev, [record.userId]: e.target.checked }))}
+                                                        onChange={e => { setConfirming(prev => ({ ...prev, [record.userId]: e.target.checked })); setConfirmingDirty(true) }}
                                                         sx={{ p: 0.25, color: c(0.4), '&.Mui-checked': { color: c(0.9) } }}
                                                     />
                                                 )}
@@ -505,6 +503,24 @@ export default function AttendancePanel({
                                                 </Box>
                                             </Box>
                                         ))}
+
+                                        {/* Join as Reservist */}
+                                        {isUpcomingOrActive && data?.rsvpOpen && myUserId && !sectionRecords.some(r => r.userId === myUserId) && (
+                                            <Button
+                                                size='small'
+                                                variant='text'
+                                                disabled={saving}
+                                                onClick={() => handleJoinAsReservist(section)}
+                                                startIcon={<PersonAdd sx={{ fontSize: 12 }} />}
+                                                sx={{
+                                                    mt: 0.5, fontSize: '0.6rem', letterSpacing: 2, textTransform: 'uppercase',
+                                                    color: myReservistSection === section ? c(0.7) : 'rgba(237,237,237,0.15)',
+                                                    '&:hover': { color: myReservistSection === section ? c(0.9) : 'rgba(237,237,237,0.4)', background: 'rgba(255,255,255,0.03)' },
+                                                }}
+                                            >
+                                                {myReservistSection === section ? 'Leave Reservist' : 'Join as Reservist'}
+                                            </Button>
+                                        )}
 
                                         {/* Confirm submit button */}
                                         {canConfirm && (isHQ || isMySection) && (
