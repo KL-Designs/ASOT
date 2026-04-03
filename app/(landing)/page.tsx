@@ -121,15 +121,43 @@ export default function Page() {
 						<div style={{ height: 2, width: 48, background: 'var(--red)' }} />
 					</div>
 
-					<div className='flex flex-wrap gap-3 justify-center'>
+					<div className='flex flex-wrap gap-6 justify-center'>
 						<Link href='https://discord.gg/asot' target='_blank'>
-							<Button variant='contained' color='primary' size='large' startIcon={<FontAwesomeIcon icon={faDiscord} />}>
+							<Button variant='contained' size='large' startIcon={<FontAwesomeIcon icon={faDiscord} />}
+								sx={{
+									background: '#5865F2',
+									fontWeight: 700,
+									letterSpacing: '0.1em',
+									'&:hover': { background: '#4752c4' },
+								}}
+							>
 								JOIN DISCORD
 							</Button>
 						</Link>
-						<Link href='/about'>
-							<Button variant='outlined' color='light' size='large'>
-								LEARN MORE
+						<Link href='/join'>
+							<Button
+								variant='contained'
+								size='large'
+								endIcon={<ChevronRight />}
+								sx={{
+									'@keyframes enlistPulse': {
+										'0%': { boxShadow: '0 0 0 0 rgba(219,0,29,0.7), 0 0 12px rgba(219,0,29,0.4)' },
+										'70%': { boxShadow: '0 0 0 12px rgba(219,0,29,0), 0 0 18px rgba(219,0,29,0.15)' },
+										'100%': { boxShadow: '0 0 0 0 rgba(219,0,29,0), 0 0 12px rgba(219,0,29,0.4)' },
+									},
+									background: 'var(--red)',
+									fontWeight: 800,
+									letterSpacing: '0.15em',
+									animation: 'enlistPulse 2s ease-in-out infinite',
+									'&:hover': {
+										background: 'rgba(219,0,29,0.85)',
+										transform: 'translateY(-1px)',
+										boxShadow: '0 0 24px rgba(219,0,29,0.6)',
+									},
+									transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+								}}
+							>
+								ENLIST NOW
 							</Button>
 						</Link>
 					</div>
