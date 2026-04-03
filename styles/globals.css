@@ -33,6 +33,8 @@ body {
 
 @media (pointer: fine) {
 	html, body, * { cursor: none !important; }
+	body.suppress-custom-cursor,
+	body.suppress-custom-cursor * { cursor: auto !important; }
 }
 
 @layer utilities {

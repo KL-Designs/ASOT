@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     Box, Typography, Button, Avatar, IconButton,
@@ -44,7 +44,7 @@ interface Props {
 
 // ── Draggable member row ───────────────────────────────────────────────────────
 
-function DraggableMember({ record, onRemove, onRoleChange, c }: { record: MemberRecord; onRemove: (userId: string) => void; onRoleChange: (userId: string, role: string) => void; c: (a: number) => string }) {
+const DraggableMember = memo(function DraggableMember({ record, onRemove, onRoleChange, c }: { record: MemberRecord; onRemove: (userId: string) => void; onRoleChange: (userId: string, role: string) => void; c: (a: number) => string }) {
     const [localRole, setLocalRole] = useState(record.orbatRole)
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: record.userId })
 
@@ -100,7 +100,7 @@ function DraggableMember({ record, onRemove, onRoleChange, c }: { record: Member
             </IconButton>
         </Box>
     )
-}
+})
 
 // ── Droppable section ──────────────────────────────────────────────────────────
 
@@ -155,12 +155,19 @@ function DroppableSection({
 // ── Main dialog ────────────────────────────────────────────────────────────────
 
 export default function AttendanceManageDialog({ open, onClose, operationId, sections, records, themeColor, onSaved }: Props) {
-    const [r_, g_, b_] = [
+    const [r_, g_, b_] = useMemo(() => [
         parseInt(themeColor.replace('#', '').substring(0, 2), 16),
         parseInt(themeColor.replace('#', '').substring(2, 4), 16),
         parseInt(themeColor.replace('#', '').substring(4, 6), 16),
-    ]
-    const c = (a: number) => `rgba(${r_},${g_},${b_},${a})`
+    ], [themeColor])
+    const c = useMemo(() => (a: number) => `rgba(${r_},${g_},${b_},${a})`, [r_, g_, b_])
+
+    // Suppress custom cursor while dialog is open (cursor causes jank over many member rows)
+    useEffect(() => {
+        if (open) document.body.classList.add('suppress-custom-cursor')
+        else document.body.classList.remove('suppress-custom-cursor')
+        return () => document.body.classList.remove('suppress-custom-cursor')
+    }, [open])
 
     // Local working copy: section → members
     const [sectionMap, setSectionMap] = useState<Map<string, MemberRecord[]>>(new Map())
@@ -180,6 +187,7 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
     useEffect(() => {
         if (open && !prevOpenRef.current) {
             snapshotRef.current = records.map(r => ({ ...r }))
+            roleChangesRef.current = new Map()
             const map = new Map<string, MemberRecord[]>()
             for (const s of sections) map.set(s, [])
             for (const r of records) {
@@ -240,7 +248,7 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
 
     // ── Remove ───────────────────────────────────────────────────────────────────
 
-    const handleRemove = (userId: string) => {
+    const handleRemove = useCallback((userId: string) => {
         setSectionMap(prev => {
             const next = new Map(prev)
             for (const [sec, members] of next) {
@@ -248,23 +256,12 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
             }
             return next
         })
-    }
+    }, [])
 
-    const handleRoleChange = (userId: string, role: string) => {
-        setSectionMap(prev => {
-            const next = new Map(prev)
-            for (const [sec, members] of next) {
-                const idx = members.findIndex(m => m.userId === userId)
-                if (idx !== -1) {
-                    const updated = [...members]
-                    updated[idx] = { ...updated[idx], orbatRole: role }
-                    next.set(sec, updated)
-                    break
-                }
-            }
-            return next
-        })
-    }
+    const handleRoleChange = useCallback((userId: string, role: string) => {
+        // Store in ref — no state update, so no re-render on every keystroke
+        roleChangesRef.current.set(userId, role)
+    }, [])
 
     // ── Add member ───────────────────────────────────────────────────────────────
 
@@ -295,6 +292,8 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
 
     // Snapshot of records taken when the dialog opened (stable reference for diff)
     const snapshotRef = useRef<MemberRecord[]>([])
+    // Accumulates role edits without triggering re-renders on every keystroke
+    const roleChangesRef = useRef<Map<string, string>>(new Map())
 
     const handleSave = async () => {
         setSaving(true)
@@ -323,9 +322,9 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
                 .filter(m => !originalMap.has(m.userId))
                 .map(m => ({ userId: m.userId, sectionTitle: m.currentSection, orbatRole: m.orbatRole }))
 
-            const roleChanges = newFlat
-                .filter(m => { const orig = originalMap.get(m.userId); return orig && m.orbatRole !== orig.orbatRole })
-                .map(m => ({ userId: m.userId, orbatRole: m.orbatRole }))
+            const roleChanges = [...roleChangesRef.current.entries()]
+                .filter(([userId, role]) => { const orig = originalMap.get(userId); return orig && role !== orig.orbatRole })
+                .map(([userId, orbatRole]) => ({ userId, orbatRole }))
 
             const res = await fetch(`/api/operations/${operationId}/attendance/manage`, {
                 method: 'POST',
@@ -361,7 +360,7 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
                     background: 'rgba(12,12,16,0.98)',
                     border: `1px solid ${c(0.25)}`,
                     borderTop: `3px solid ${c(0.7)}`,
-                    backdropFilter: 'blur(20px)',
+
                     maxHeight: '90vh',
                 },
             }}
