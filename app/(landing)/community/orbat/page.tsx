@@ -11,6 +11,7 @@ import Banner from '@/public/images/home/3DMA_Final2.png'
 import { fetchORBAT, type Member, type RawSection } from '@/lib/orbat'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import Db from '@/lib/mongo'
 
 export const metadata: Metadata = {
 	title: "ORBAT | Australian Special Operations Taskforce"
@@ -34,17 +35,25 @@ function getSupportIcon(title: string): React.ReactNode {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function SectionHeader({ children }: { children: React.ReactNode }) {
+function SectionHeader({ children, color, patchUrl }: { children: React.ReactNode; color?: string; patchUrl?: string }) {
+	const bgStyle = color
+		? { background: color }
+		: { background: 'linear-gradient(90deg, rgba(219,0,29,0.9) 0%, rgba(160,0,20,0.85) 100%)' }
 	return (
 		<div style={{
-			background: 'linear-gradient(90deg, rgba(219,0,29,0.9) 0%, rgba(160,0,20,0.85) 100%)',
+			...bgStyle,
 			padding: '5px 10px',
 			fontSize: '0.68rem',
 			fontWeight: 700,
 			letterSpacing: '0.1em',
 			textTransform: 'uppercase',
 			color: '#fff',
+			display: 'flex',
+			alignItems: 'center',
+			gap: 6,
 		}}>
+			{/* eslint-disable-next-line @next/next/no-img-element */}
+			{patchUrl && <img src={patchUrl} alt='' style={{ width: 16, height: 16, objectFit: 'contain', flexShrink: 0 }} />}
 			{children}
 		</div>
 	)
@@ -93,14 +102,14 @@ const iconStrip = (icon: React.ReactNode) => (
 	</div>
 )
 
-function UnitCard({ section }: { section: UnitSection }) {
+function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: string; patchUrl?: string } }) {
 	return (
 		<div style={{ border: '1px solid rgba(219,0,29,0.15)', overflow: 'hidden', marginBottom: 6 }}>
-			{section.icon ? (
+			{section.icon && !meta?.patchUrl ? (
 				<div className='flex items-stretch'>
 					{iconStrip(section.icon)}
 					<div className='flex-1 min-w-0'>
-						<SectionHeader>{section.title}</SectionHeader>
+						<SectionHeader color={meta?.color} patchUrl={meta?.patchUrl}>{section.title}</SectionHeader>
 						{section.members.map((m, i) => (
 							<MemberRow key={i} role={m.role} name={m.name} index={i} />
 						))}
@@ -108,7 +117,7 @@ function UnitCard({ section }: { section: UnitSection }) {
 				</div>
 			) : (
 				<>
-					<SectionHeader>{section.title}</SectionHeader>
+					<SectionHeader color={meta?.color} patchUrl={meta?.patchUrl}>{section.title}</SectionHeader>
 					{section.members.map((m, i) => (
 						<MemberRow key={i} role={m.role} name={m.name} index={i} />
 					))}
@@ -118,21 +127,32 @@ function UnitCard({ section }: { section: UnitSection }) {
 	)
 }
 
-function PlatoonColumn({ name, icon, sections }: { name: string; icon: React.ReactNode; sections: UnitSection[] }) {
+function PlatoonColumn({ name, icon, sections, category, metaMap }: {
+	name: string
+	icon: React.ReactNode
+	sections: UnitSection[]
+	category: string
+	metaMap: Map<string, OrbatSectionMeta>
+}) {
+	const catMeta = metaMap.get(`${category}:`)
+	const catColor = catMeta?.color ?? 'var(--red)'
+	const catColorFaint = catMeta?.color ? `${catMeta.color}14` : 'rgba(219,0,29,0.08)'
+	const catColorBorder = catMeta?.color ? `${catMeta.color}33` : 'rgba(219,0,29,0.2)'
+
 	return (
 		<div className='flex flex-col'>
 			<div style={{
-				background: 'rgba(219,0,29,0.08)',
-				borderTop: '2px solid var(--red)',
-				border: '1px solid rgba(219,0,29,0.2)',
+				background: catColorFaint,
+				borderTop: `2px solid ${catColor}`,
+				border: `1px solid ${catColorBorder}`,
 				borderTopWidth: 2,
-				borderTopColor: 'var(--red)',
+				borderTopColor: catColor,
 				marginBottom: 6,
 				display: 'flex',
 				alignItems: 'center',
 				gap: 10,
 				padding: '7px 10px',
-				color: 'rgba(219,0,29,0.85)',
+				color: catColor,
 			}}>
 				{icon}
 				<span style={{
@@ -140,14 +160,18 @@ function PlatoonColumn({ name, icon, sections }: { name: string; icon: React.Rea
 					fontWeight: 700,
 					letterSpacing: '0.1em',
 					textTransform: 'uppercase',
-					color: 'rgba(219,0,29,0.9)',
+					color: catColor,
 				}}>
 					{name}
 				</span>
 			</div>
-			{sections.map((s, i) => (
-				<UnitCard key={i} section={s} />
-			))}
+			{sections.map((s, i) => {
+				const secMeta = metaMap.get(`${category}:${s.title}`)
+				const patchUrl = secMeta?.patch
+					? `/api/orbat/patch?category=${category}&section=${encodeURIComponent(s.title)}`
+					: undefined
+				return <UnitCard key={i} section={s} meta={{ color: secMeta?.color, patchUrl }} />
+			})}
 		</div>
 	)
 }
@@ -228,12 +252,16 @@ function GamemastersCard({ members }: { members: Member[] }) {
 
 export default async function Page() {
 	await connection()
-	const [orbat, me] = await Promise.all([
+	const [orbat, me, metaDocs] = await Promise.all([
 		fetchORBAT(),
 		client.fetchMe().catch(() => null),
+		Db.orbatSectionMeta.find({}).toArray(),
 	])
 	const canManageOrbat = !!me && client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
 	const support: UnitSection[] = orbat.support.map(s => ({ ...s, icon: getSupportIcon(s.title) }))
+
+	// Build lookup: `${category}:${sectionTitle ?? ''}` → meta doc
+	const metaMap = new Map(metaDocs.map(m => [`${m.category}:${m.sectionTitle ?? ''}`, m]))
 	return (
 		<Container
 			title="OUR ORBAT"
@@ -392,9 +420,9 @@ export default async function Page() {
 
 			{/* Main 4-column layout */}
 			<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start'>
-				<PlatoonColumn name='1-1 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={orbat.platoon11} />
-				<PlatoonColumn name='1-2 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={orbat.platoon12} />
-				<PlatoonColumn name='1-3 Support Platoon'  icon={<MilitaryTech sx={{ fontSize: 20 }} />} sections={support} />
+				<PlatoonColumn name='1-1 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={orbat.platoon11} category='platoon11' metaMap={metaMap} />
+				<PlatoonColumn name='1-2 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={orbat.platoon12} category='platoon12' metaMap={metaMap} />
+				<PlatoonColumn name='1-3 Support Platoon'  icon={<MilitaryTech sx={{ fontSize: 20 }} />} sections={support} category='support' metaMap={metaMap} />
 				<div>
 					<GamemastersCard members={orbat.gamemasters} />
 					<ReservistsCard names={orbat.activeReservists} />

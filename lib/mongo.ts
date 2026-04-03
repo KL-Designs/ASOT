@@ -19,6 +19,7 @@ const DbInterface = {
     minigameScores: client.db(process.env.MONGO_DB!).collection('minigame_scores'),
     minigameLive:   client.db(process.env.MONGO_DB!).collection('minigame_live'),
     orbatPositions: client.db(process.env.MONGO_DB!).collection('orbat_positions') as MongoCollection<OrbatPosition>,
+    orbatSectionMeta: client.db(process.env.MONGO_DB!).collection('orbat_section_meta') as MongoCollection<OrbatSectionMeta>,
     operationAttendance: client.db(process.env.MONGO_DB!).collection('operation_attendance') as MongoCollection<OperationAttendance>,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,

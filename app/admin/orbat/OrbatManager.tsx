@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import {
     Typography, Button, CircularProgress,
@@ -183,6 +183,13 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         setMilpacLoading(false)
     }
 
+    // Section metadata (patch images + theme colors)
+    const [sectionMeta, setSectionMeta] = useState<OrbatSectionMeta[]>([])
+    const metaTargetRef = useRef<{ category: string; sectionTitle: string | null } | null>(null)
+    const colorInputRef = useRef<HTMLInputElement>(null)
+    const patchInputRef = useRef<HTMLInputElement>(null)
+    const colorSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
     // Import dialog
 
     const [busy, setBusy] = useState(false)
@@ -190,12 +197,64 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
     const load = useCallback(async () => {
         setLoading(true)
-        const res = await fetch('/api/admin/orbat')
-        if (res.ok) setPositions(await res.json())
+        const [posRes, metaRes] = await Promise.all([
+            fetch('/api/admin/orbat'),
+            fetch('/api/admin/orbat/meta'),
+        ])
+        if (posRes.ok) setPositions(await posRes.json())
+        if (metaRes.ok) setSectionMeta(await metaRes.json())
         setLoading(false)
     }, [])
 
     useEffect(() => { load() }, [load])
+
+
+    // ── Section metadata helpers ─────────────────────────────────────────────
+
+    function getMeta(category: string, sectionTitle: string | null): OrbatSectionMeta | null {
+        return sectionMeta.find(m => m.category === category && m.sectionTitle === sectionTitle) ?? null
+    }
+
+    function updateMetaLocal(category: string, sectionTitle: string | null, patch: Partial<Pick<OrbatSectionMeta, 'color' | 'patch'>>) {
+        setSectionMeta(prev => {
+            const idx = prev.findIndex(m => m.category === category && m.sectionTitle === sectionTitle)
+            if (idx >= 0) {
+                const next = [...prev]
+                next[idx] = { ...next[idx], ...patch }
+                return next
+            }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return [...prev, { _id: {} as any, category, sectionTitle, ...patch } as OrbatSectionMeta]
+        })
+    }
+
+    function handleColorInput(color: string) {
+        const target = metaTargetRef.current
+        if (!target) return
+        updateMetaLocal(target.category, target.sectionTitle, { color })
+        if (colorSaveTimer.current) clearTimeout(colorSaveTimer.current)
+        colorSaveTimer.current = setTimeout(() => {
+            fetch('/api/admin/orbat/meta', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category: target.category, sectionTitle: target.sectionTitle ?? '', color }),
+            })
+        }, 350)
+    }
+
+    async function handlePatchUpload(file: File) {
+        const target = metaTargetRef.current
+        if (!target) return
+        const form = new FormData()
+        form.set('category', target.category)
+        form.set('sectionTitle', target.sectionTitle ?? '')
+        form.set('file', file)
+        const res = await fetch('/api/admin/orbat/meta/patch', { method: 'POST', body: form })
+        if (res.ok) {
+            const data = await res.json()
+            updateMetaLocal(target.category, target.sectionTitle, { patch: data.filename })
+        }
+    }
 
 
     // ── Local state helpers ──────────────────────────────────────────────────
@@ -652,12 +711,45 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
     function renderSection(sec: Section, cat: string, sections: Section[], secIdx: number) {
         const sectionKey = `${cat}::${sec.title}`
+        const secMeta = getMeta(cat, sec.title)
+        const secAccent = secMeta?.color ?? 'rgba(219,0,29,0.1)'
+        const secPatchUrl = secMeta?.patch
+            ? `/api/orbat/patch?category=${cat}&section=${encodeURIComponent(sec.title)}&v=${secMeta.patch}`
+            : null
 
         return (
             <div key={sectionKey}>
                 {/* Section header */}
                 {sec.title && (
-                    <div className='flex items-center gap-0.5 px-2 py-1 mt-2' style={{ borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
+                    <div className='flex items-center gap-0.5 px-2 py-1 mt-2' style={{ borderBottom: `1px solid ${secAccent}` }}>
+
+                        {/* Patch thumbnail — structure managers only */}
+                        {canManageStructure && (
+                            <button
+                                title='Upload section patch'
+                                onClick={() => { metaTargetRef.current = { category: cat, sectionTitle: sec.title }; patchInputRef.current?.click() }}
+                                style={{ background: 'none', border: secPatchUrl ? 'none' : '1px dashed rgba(255,255,255,0.1)', borderRadius: 3, padding: 1, cursor: 'pointer', flexShrink: 0, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 2 }}
+                            >
+                                {secPatchUrl
+                                    ? <img src={secPatchUrl} alt='' style={{ width: 18, height: 18, objectFit: 'contain' }} />
+                                    : <span style={{ fontSize: 7, color: 'rgba(255,255,255,0.18)', letterSpacing: 0 }}>IMG</span>
+                                }
+                            </button>
+                        )}
+
+                        {/* Color swatch — structure managers only */}
+                        {canManageStructure && (
+                            <button
+                                title='Set section color'
+                                onClick={() => {
+                                    metaTargetRef.current = { category: cat, sectionTitle: sec.title }
+                                    if (colorInputRef.current) colorInputRef.current.value = secMeta?.color ?? '#db001d'
+                                    colorInputRef.current?.click()
+                                }}
+                                style={{ background: secMeta?.color ?? 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50%', width: 11, height: 11, cursor: 'pointer', flexShrink: 0, padding: 0, marginRight: 3 }}
+                            />
+                        )}
+
                         <div className='flex-1 min-w-0'>
                             {editSectionKey === sectionKey ? (
                                 <TextField
@@ -779,21 +871,39 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
 
     function renderColumn(cat: { _id: string; label: string }, sections: Section[], canAddSection: boolean) {
+        const catMeta = getMeta(cat._id, null)
+        const catColor = catMeta?.color ?? 'var(--red)'
+        const catColorAlpha = catMeta?.color ? `${catMeta.color}26` : 'rgba(219,0,29,0.12)'
+
         const effectiveSections = sections.length === 0
             ? [{ title: '', sectionOrder: 0, positions: [] }]
             : sections
 
         return (
-            <div key={cat._id} className='flex flex-col' style={tileStyle}>
+            <div key={cat._id} className='flex flex-col' style={{ ...tileStyle, borderTop: `2px solid ${catColor}` }}>
 
-                {/* Column header — read-only label */}
-                <div className='flex items-center px-3 py-2' style={{ borderBottom: '1px solid rgba(219,0,29,0.12)' }}>
+                {/* Column header */}
+                <div className='flex items-center gap-2 px-3 py-2' style={{ borderBottom: `1px solid ${catColorAlpha}` }}>
+
+                    {/* Category color swatch — structure managers only */}
+                    {canManageStructure && (
+                        <button
+                            title='Set platoon color'
+                            onClick={() => {
+                                metaTargetRef.current = { category: cat._id, sectionTitle: null }
+                                if (colorInputRef.current) colorInputRef.current.value = catMeta?.color ?? '#db001d'
+                                colorInputRef.current?.click()
+                            }}
+                            style={{ background: catColor, border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: 11, height: 11, cursor: 'pointer', flexShrink: 0, padding: 0 }}
+                        />
+                    )}
+
                     <Typography
                         fontSize='0.62rem'
                         fontWeight={700}
                         letterSpacing={2}
                         noWrap
-                        style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.8)' }}
+                        style={{ textTransform: 'uppercase', color: catColor }}
                     >
                         {cat.label}
                     </Typography>
@@ -959,6 +1069,29 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
     return (
         <div className='h-full w-full p-6 md:p-8 flex flex-col gap-5 max-w-[1600px] mx-auto'>
+
+            {/* Hidden inputs for color picker + patch upload (J4-Admin only) */}
+            {canManageStructure && (
+                <>
+                    <input
+                        ref={colorInputRef}
+                        type='color'
+                        style={{ position: 'fixed', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+                        onChange={e => handleColorInput(e.target.value)}
+                    />
+                    <input
+                        ref={patchInputRef}
+                        type='file'
+                        accept='image/*'
+                        style={{ position: 'fixed', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+                        onChange={e => {
+                            const file = e.target.files?.[0]
+                            if (file) handlePatchUpload(file)
+                            e.target.value = ''
+                        }}
+                    />
+                </>
+            )}
 
             {/* Header */}
             <div className='flex items-center gap-4'>

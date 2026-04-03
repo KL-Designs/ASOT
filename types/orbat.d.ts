@@ -44,4 +44,13 @@ declare global {
         } | null
     }
 
+    // Per-section (and per-category) metadata: patch image + theme color
+    interface OrbatSectionMeta {
+        _id: ObjectId
+        category: string           // e.g., 'platoon11'
+        sectionTitle: string | null // null = category/platoon-level metadata
+        patch?: string             // stored filename in ./uploads/orbat/
+        color?: string             // hex string e.g., '#c0392b'
+    }
+
 }
