@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: 'Invalid operation ID' }, { status: 400 })
     }
 
-    const { status, reservistSection }: { status: 'attending' | 'not_attending'; reservistSection?: string } = await req.json()
+    const { status, reservistSection, reservistRole }: { status: 'attending' | 'not_attending'; reservistSection?: string; reservistRole?: string } = await req.json()
     if (status !== 'attending' && status !== 'not_attending') {
         return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
@@ -43,7 +43,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // Update existing record's RSVP and reservist section
         await Db.operationAttendance.updateOne(
             { operationId, 'records.userId': me.id },
-            { $set: { 'records.$.rsvp': status, 'records.$.reservistSection': reservistSection ?? null } }
+            { $set: { 'records.$.rsvp': status, 'records.$.reservistSection': (status === 'not_attending' ? null : reservistSection ?? null), ...(reservistSection && status !== 'not_attending'
+            ? (reservistRole !== undefined ? { 'records.$.orbatRole': reservistRole } : {})
+            : (orbatPos?.role !== undefined ? { 'records.$.orbatRole': orbatPos.role } : {})) } }
         )
     } else {
         // Insert new record
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             userId: me.id,
             unit: orbatPos?.category ?? 'unknown',
             orbatSection: orbatPos?.sectionTitle ?? '',
-            orbatRole: orbatPos?.role ?? '',
+            orbatRole: reservistRole ?? orbatPos?.role ?? '',
             rsvp: status,
             confirmed: false,
             confirmedBy: null,

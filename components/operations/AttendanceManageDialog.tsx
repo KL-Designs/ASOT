@@ -44,7 +44,8 @@ interface Props {
 
 // ── Draggable member row ───────────────────────────────────────────────────────
 
-function DraggableMember({ record, onRemove, c }: { record: MemberRecord; onRemove: (userId: string) => void; c: (a: number) => string }) {
+function DraggableMember({ record, onRemove, onRoleChange, c }: { record: MemberRecord; onRemove: (userId: string) => void; onRoleChange: (userId: string, role: string) => void; c: (a: number) => string }) {
+    const [localRole, setLocalRole] = useState(record.orbatRole)
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: record.userId })
 
     return (
@@ -74,11 +75,18 @@ function DraggableMember({ record, onRemove, c }: { record: MemberRecord; onRemo
             </Avatar>
             <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography fontSize='0.72rem' noWrap>
-                    {record.orbatRole && (
-                        <span style={{ color: 'rgba(237,237,237,0.3)', marginRight: 4, fontSize: '0.65rem' }}>{record.orbatRole}</span>
-                    )}
                     {record.displayName}
                 </Typography>
+                <TextField
+                    value={localRole}
+                    onChange={e => { setLocalRole(e.target.value); onRoleChange(record.userId, e.target.value) }}
+                    variant='standard'
+                    size='small'
+                    placeholder='Role...'
+                    inputProps={{ style: { fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)', padding: 0 } }}
+                    onClick={e => e.stopPropagation()}
+                    sx={{ width: '100%', '& .MuiInput-underline:before': { borderBottomColor: 'rgba(255,255,255,0.08)' }, '& .MuiInput-underline:hover:not(.Mui-disabled):before': { borderBottomColor: 'rgba(255,255,255,0.2)' } }}
+                />
             </Box>
             {record.rsvp === 'attending' && (
                 <Chip label='RSVP' size='small' sx={{ fontSize: '0.5rem', height: 14, background: 'rgba(76,175,80,0.15)', color: '#4caf50', flexShrink: 0 }} />
@@ -97,11 +105,12 @@ function DraggableMember({ record, onRemove, c }: { record: MemberRecord; onRemo
 // ── Droppable section ──────────────────────────────────────────────────────────
 
 function DroppableSection({
-    title, members, onRemove, c, isOver,
+    title, members, onRemove, onRoleChange, c, isOver,
 }: {
     title: string
     members: MemberRecord[]
     onRemove: (userId: string) => void
+    onRoleChange: (userId: string, role: string) => void
     c: (a: number) => string
     isOver: boolean
 }) {
@@ -136,7 +145,7 @@ function DroppableSection({
                     </Typography>
                 )}
                 {members.map(r => (
-                    <DraggableMember key={r.userId} record={r} onRemove={onRemove} c={c} />
+                    <DraggableMember key={r.userId} record={r} onRemove={onRemove} onRoleChange={onRoleChange} c={c} />
                 ))}
             </Box>
         </Box>
@@ -241,6 +250,22 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
         })
     }
 
+    const handleRoleChange = (userId: string, role: string) => {
+        setSectionMap(prev => {
+            const next = new Map(prev)
+            for (const [sec, members] of next) {
+                const idx = members.findIndex(m => m.userId === userId)
+                if (idx !== -1) {
+                    const updated = [...members]
+                    updated[idx] = { ...updated[idx], orbatRole: role }
+                    next.set(sec, updated)
+                    break
+                }
+            }
+            return next
+        })
+    }
+
     // ── Add member ───────────────────────────────────────────────────────────────
 
     const handleAdd = () => {
@@ -298,10 +323,14 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
                 .filter(m => !originalMap.has(m.userId))
                 .map(m => ({ userId: m.userId, sectionTitle: m.currentSection, orbatRole: m.orbatRole }))
 
+            const roleChanges = newFlat
+                .filter(m => { const orig = originalMap.get(m.userId); return orig && m.orbatRole !== orig.orbatRole })
+                .map(m => ({ userId: m.userId, orbatRole: m.orbatRole }))
+
             const res = await fetch(`/api/operations/${operationId}/attendance/manage`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ moves, removals, additions }),
+                body: JSON.stringify({ moves, removals, additions, roleChanges }),
             })
 
             if (!res.ok) {
@@ -420,6 +449,7 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
                                     title={sec}
                                     members={sectionMap.get(sec) ?? []}
                                     onRemove={handleRemove}
+                                    onRoleChange={handleRoleChange}
                                     c={c}
                                     isOver={overSection === sec}
                                 />

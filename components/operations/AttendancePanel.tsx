@@ -45,6 +45,7 @@ interface AttendanceData {
     reservistAssignments: { userId: string; sectionTitle: string }[]
     rsvpOpen: boolean
     confirmationOpen: boolean
+    sectionRolesMap: Record<string, { role: string; userId: string | null }[]>
 }
 
 interface Props {
@@ -147,6 +148,7 @@ export default function AttendancePanel({
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
     const [sectionMeta, setSectionMeta] = useState<OrbatSectionMeta[]>([])
     const [typeAnchor, setTypeAnchor] = useState<{ el: HTMLElement; userId: string } | null>(null)
+    const [joinRoleAnchor, setJoinRoleAnchor] = useState<{ el: HTMLElement; sectionTitle: string } | null>(null)
 
     const r = parseInt(themeColor.replace('#', '').substring(0, 2), 16)
     const g = parseInt(themeColor.replace('#', '').substring(2, 4), 16)
@@ -221,15 +223,17 @@ export default function AttendancePanel({
     const handleRsvp = async (status: 'attending' | 'not_attending') => {
         if (!data?.rsvpOpen) return
         const next = myRsvp === status ? null : status
+        const effectiveStatus = next ?? 'not_attending'
         setMyRsvp(next)
+        if (effectiveStatus === 'not_attending') setMyReservistSection('')
         setSaving(true)
         try {
             await fetch(`/api/operations/${operationId}/attendance/rsvp`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    status: next ?? 'not_attending',
-                    ...(myReservistSection ? { reservistSection: myReservistSection } : {}),
+                    status: effectiveStatus,
+                    ...(myReservistSection && effectiveStatus !== 'not_attending' ? { reservistSection: myReservistSection } : {}),
                 }),
             })
             await refreshData()
@@ -299,7 +303,7 @@ export default function AttendancePanel({
 
     // ── Reservist: join a section ──────────────────────────────────────────────
 
-    const handleJoinAsReservist = async (sectionTitle: string) => {
+    const handleJoinAsReservist = async (sectionTitle: string, role?: string) => {
         if (!data?.rsvpOpen) return
         const isLeaving = myReservistSection === sectionTitle
         const newSection = isLeaving ? '' : sectionTitle
@@ -312,6 +316,7 @@ export default function AttendancePanel({
                 body: JSON.stringify({
                     status: myRsvp ?? 'attending',
                     ...(newSection ? { reservistSection: newSection } : {}),
+                    ...(role ? { reservistRole: role } : {}),
                 }),
             })
             await refreshData()
@@ -668,79 +673,106 @@ export default function AttendancePanel({
                                     <AccordionDetails sx={{ px: 2, pt: 0, pb: 2 }}>
                                         <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)', mb: 1.5 }} />
 
-                                        {sectionRecords.map(record => (
-                                            <Box
-                                                key={record.userId}
-                                                sx={{
-                                                    display: 'flex', alignItems: 'center', gap: 1.5, py: 0.75,
-                                                    borderBottom: '1px solid rgba(255,255,255,0.03)',
-                                                    background: record.userId === myUserId ? `${c(0.04)}` : 'transparent',
-                                                    px: 0.5,
-                                                }}
-                                            >
-                                                {/* Confirm checkbox (section leader / HQ only) */}
-                                                {canConfirm && (
-                                                    <Checkbox
-                                                        size='small'
-                                                        checked={confirming[record.userId] ?? false}
-                                                        onChange={e => { setConfirming(prev => ({ ...prev, [record.userId]: e.target.checked })); setConfirmingDirty(true) }}
-                                                        sx={{ p: 0.25, color: c(0.4), '&.Mui-checked': { color: c(0.9) } }}
-                                                    />
-                                                )}
-
-                                                {/* Avatar */}
-                                                <Avatar
-                                                    src={record.user?.avatarURL}
-                                                    sx={{ width: 22, height: 22, fontSize: '0.6rem', background: c(0.3) }}
-                                                >
-                                                    {record.user?.displayName?.charAt(0) ?? '?'}
-                                                </Avatar>
-
-                                                {/* Name + role */}
-                                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                    <Typography component='div' fontSize='0.75rem' noWrap sx={{ lineHeight: 1.2 }}>
-                                                        {record.orbatRole && <span style={{ color: 'rgba(237,237,237,0.35)', marginRight: 4 }}>{record.orbatRole}</span>}
-                                                        {record.user?.displayName ?? record.userId}
-                                                        {record.reservistSection && (
-                                                            <Chip label='Reservist' size='small' sx={{ ml: 0.5, fontSize: '0.55rem', height: 14, background: 'rgba(100,150,237,0.15)', color: 'rgba(100,150,237,0.9)' }} />
+                                        {(() => {
+                                            return sectionRecords.flatMap((record, recordIdx) => {
+                                                const isReservist = !!record.reservistSection
+                                                const prevIsReservist = recordIdx > 0 ? !!sectionRecords[recordIdx - 1].reservistSection : false
+                                                const showDivider = isReservist && !prevIsReservist && isUpcomingOrActive && (data?.rsvpOpen ?? false)
+                                                return [
+                                                    showDivider ? (
+                                                        <Box key={`divider-${record.userId}`} sx={{ my: 1 }}>
+                                                            <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+                                                                <Typography fontSize='0.58rem' sx={{ color: 'rgba(237,237,237,0.25)', letterSpacing: 1.5, textTransform: 'uppercase', px: 1 }}>
+                                                                    Reservists
+                                                                </Typography>
+                                                            </Divider>
+                                                        </Box>
+                                                    ) : null,
+                                                    <Box
+                                                        key={record.userId}
+                                                        sx={{
+                                                            display: 'flex', alignItems: 'center', gap: 1.5, py: 0.75,
+                                                            borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                                            background: record.userId === myUserId ? `${c(0.04)}` : 'transparent',
+                                                            px: 0.5,
+                                                            opacity: (data?.rsvpOpen && !record.reservistSection && record.rsvp === null) ? 0.4 : 1,
+                                                            transition: 'opacity 0.2s',
+                                                        }}
+                                                    >
+                                                        {/* Confirm checkbox (section leader / HQ only) */}
+                                                        {canConfirm && (
+                                                            <Checkbox
+                                                                size='small'
+                                                                checked={confirming[record.userId] ?? false}
+                                                                onChange={e => { setConfirming(prev => ({ ...prev, [record.userId]: e.target.checked })); setConfirmingDirty(true) }}
+                                                                sx={{ p: 0.25, color: c(0.4), '&.Mui-checked': { color: c(0.9) } }}
+                                                            />
                                                         )}
-                                                        {record.user?.isSkeletonAccount && (
-                                                            <Chip label='Pending' size='small' sx={{ ml: 0.5, fontSize: '0.55rem', height: 14, background: 'rgba(255,152,0,0.15)', color: '#ff9800' }} />
-                                                        )}
-                                                    </Typography>
-                                                </Box>
 
-                                                {/* Attendance type + RSVP indicator */}
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                    {isCompleted && record.confirmed && (
-                                                        <Chip label='Confirmed' size='small' sx={{ fontSize: '0.55rem', height: 16, background: 'rgba(76,175,80,0.15)', color: '#4caf50' }} />
-                                                    )}
-                                                    {(() => {
-                                                        const effectiveType = record.attendanceType ?? record.importedStatus ?? null
-                                                        const typeDef = ATTENDANCE_TYPES.find(t => t.value === effectiveType)
-                                                        const canSetType = isHQ || isAllStaff || isSectionLeader
-                                                        if (typeDef) {
-                                                            return (
-                                                                <Chip
-                                                                    label={typeDef.label}
-                                                                    size='small'
-                                                                    onClick={canSetType ? (e) => setTypeAnchor({ el: e.currentTarget as HTMLElement, userId: record.userId }) : undefined}
-                                                                    sx={{ fontSize: '0.55rem', height: 16, background: `${typeDef.color}22`, color: typeDef.color, border: `1px solid ${typeDef.color}44`, cursor: canSetType ? 'pointer' : 'default' }}
-                                                                />
-                                                            )
-                                                        }
-                                                        if (canSetType) {
-                                                            return (
-                                                                <IconButton size='small' onClick={(e) => setTypeAnchor({ el: e.currentTarget, userId: record.userId })} sx={{ p: 0.25, color: 'rgba(237,237,237,0.12)', '&:hover': { color: 'rgba(237,237,237,0.4)' } }}>
-                                                                    <Add sx={{ fontSize: 12 }} />
-                                                                </IconButton>
-                                                            )
-                                                        }
-                                                        return rsvpIcon(record.rsvp)
-                                                    })()}
-                                                </Box>
-                                            </Box>
-                                        ))}
+                                                        {/* Avatar */}
+                                                        <Avatar
+                                                            src={record.user?.avatarURL}
+                                                            sx={{ width: 22, height: 22, fontSize: '0.6rem', background: c(0.3) }}
+                                                        >
+                                                            {record.user?.displayName?.charAt(0) ?? '?'}
+                                                        </Avatar>
+
+                                                        {/* Name + role */}
+                                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                            <Typography component='div' fontSize='0.75rem' noWrap sx={{ lineHeight: 1.2 }}>
+                                                                {record.orbatRole && <span style={{ color: 'rgba(237,237,237,0.35)', marginRight: 4 }}>{record.orbatRole}</span>}
+                                                                {record.user?.displayName ?? record.userId}
+                                                                {record.reservistSection && (
+                                                                    <Chip label='Reservist' size='small' sx={{ ml: 0.5, fontSize: '0.55rem', height: 14, background: 'rgba(100,150,237,0.15)', color: 'rgba(100,150,237,0.9)' }} />
+                                                                )}
+                                                                {record.user?.isSkeletonAccount && (
+                                                                    <Chip label='Pending' size='small' sx={{ ml: 0.5, fontSize: '0.55rem', height: 14, background: 'rgba(255,152,0,0.15)', color: '#ff9800' }} />
+                                                                )}
+                                                            </Typography>
+                                                        </Box>
+
+                                                        {/* RSVP / confirmation status */}
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                            {(isCompleted || (data?.confirmationOpen ?? false)) && record.confirmed && (
+                                                                <Chip label='Confirmed' size='small' sx={{ fontSize: '0.55rem', height: 16, background: 'rgba(76,175,80,0.15)', color: '#4caf50' }} />
+                                                            )}
+                                                            {(() => {
+                                                                const inConfirmStage = isCompleted || (data?.confirmationOpen ?? false)
+                                                                const canSetType = (isHQ || isAllStaff || isSectionLeader) && inConfirmStage
+                                                                if (inConfirmStage) {
+                                                                    const effectiveType = record.attendanceType ?? record.importedStatus ?? null
+                                                                    const typeDef = ATTENDANCE_TYPES.find(t => t.value === effectiveType)
+                                                                    if (typeDef) {
+                                                                        return (
+                                                                            <Chip
+                                                                                label={typeDef.label}
+                                                                                size='small'
+                                                                                onClick={canSetType ? (e) => setTypeAnchor({ el: e.currentTarget as HTMLElement, userId: record.userId }) : undefined}
+                                                                                sx={{ fontSize: '0.55rem', height: 16, background: `${typeDef.color}22`, color: typeDef.color, border: `1px solid ${typeDef.color}44`, cursor: canSetType ? 'pointer' : 'default' }}
+                                                                            />
+                                                                        )
+                                                                    }
+                                                                    if (canSetType) {
+                                                                        return (
+                                                                            <IconButton size='small' onClick={(e) => setTypeAnchor({ el: e.currentTarget, userId: record.userId })} sx={{ p: 0.25, color: 'rgba(237,237,237,0.12)', '&:hover': { color: 'rgba(237,237,237,0.4)' } }}>
+                                                                                <Add sx={{ fontSize: 12 }} />
+                                                                            </IconButton>
+                                                                        )
+                                                                    }
+                                                                    return null
+                                                                }
+                                                                if (data?.rsvpOpen) {
+                                                                    if (record.rsvp === 'attending') return <CheckCircle sx={{ fontSize: 14, color: '#4caf50' }} />
+                                                                    if (record.rsvp === 'not_attending') return <Cancel sx={{ fontSize: 14, color: 'rgba(219,0,29,0.9)' }} />
+                                                                    return null
+                                                                }
+                                                                return rsvpIcon(record.rsvp)
+                                                            })()}
+                                                        </Box>
+                                                    </Box>,
+                                                ]
+                                            })
+                                        })()}
 
                                         {/* Join as Reservist / Rejoin your squad */}
                                         {isUpcomingOrActive && data?.rsvpOpen && myUserId && !sectionRecords.some(r => r.userId === myUserId) && (
@@ -764,7 +796,17 @@ export default function AttendancePanel({
                                                     size='small'
                                                     variant='text'
                                                     disabled={saving}
-                                                    onClick={() => handleJoinAsReservist(section)}
+                                                    onClick={myReservistSection === section
+                                                    ? () => handleJoinAsReservist(section)
+                                                    : (e) => {
+                                                        const roles = data?.sectionRolesMap?.[section] ?? []
+                                                        if (roles.length > 0) {
+                                                            setJoinRoleAnchor({ el: e.currentTarget as HTMLElement, sectionTitle: section })
+                                                        } else {
+                                                            handleJoinAsReservist(section)
+                                                        }
+                                                    }
+                                                }
                                                     startIcon={<PersonAdd sx={{ fontSize: 12 }} />}
                                                     sx={{
                                                         mt: 0.5, fontSize: '0.6rem', letterSpacing: 2, textTransform: 'uppercase',
@@ -830,6 +872,57 @@ export default function AttendancePanel({
                     </Button>
                 </Box>
             </Popover>
+
+            {/* ── Join as reservist: role picker popup ──────────────────────────── */}
+            {joinRoleAnchor && (() => {
+                const joinRoles = data?.sectionRolesMap?.[joinRoleAnchor.sectionTitle] ?? []
+                const joinOccupied = new Set(
+                    (data?.recordsWithUsers ?? [])
+                        .filter(r => !r.reservistSection && r.rsvp === 'attending' && (r.orbatSection || r.unit) === joinRoleAnchor.sectionTitle)
+                        .map(r => r.orbatRole)
+                        .filter(Boolean)
+                )
+                return (
+                    <Popover
+                        open
+                        anchorEl={joinRoleAnchor.el}
+                        onClose={() => setJoinRoleAnchor(null)}
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                        transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+                        PaperProps={{ sx: { background: 'rgba(22,22,26,0.98)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' } }}
+                    >
+                        <Box sx={{ p: 0.75, display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 180 }}>
+                            <Typography fontSize='0.58rem' sx={{ letterSpacing: 1.5, textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', px: 1, pt: 0.25, pb: 0.5 }}>
+                                Select a role
+                            </Typography>
+                            {joinRoles.map(({ role }, roleIdx) => {
+                                const isOccupied = joinOccupied.has(role)
+                                return (
+                                    <Button
+                                        key={`${roleIdx}-${role}`}
+                                        size='small'
+                                        onClick={() => { setJoinRoleAnchor(null); handleJoinAsReservist(joinRoleAnchor.sectionTitle, role) }}
+                                        sx={{ justifyContent: 'space-between', fontSize: '0.65rem', color: 'rgba(237,237,237,0.7)', py: 0.5, px: 1, letterSpacing: 0.5, '&:hover': { background: 'rgba(255,255,255,0.06)' } }}
+                                    >
+                                        <span>{role}</span>
+                                        {isOccupied && (
+                                            <Chip label='In use' size='small' sx={{ fontSize: '0.5rem', height: 14, background: 'rgba(255,152,0,0.15)', color: '#ff9800', ml: 1 }} />
+                                        )}
+                                    </Button>
+                                )
+                            })}
+                            <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)', my: 0.25 }} />
+                            <Button
+                                size='small'
+                                onClick={() => { setJoinRoleAnchor(null); handleJoinAsReservist(joinRoleAnchor.sectionTitle) }}
+                                sx={{ justifyContent: 'flex-start', fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', py: 0.5, px: 1, '&:hover': { background: 'rgba(255,255,255,0.04)' } }}
+                            >
+                                Join without a role
+                            </Button>
+                        </Box>
+                    </Popover>
+                )
+            })()}
 
             {saving && (
                 <Box sx={{ position: 'fixed', bottom: 16, right: 16 }}>

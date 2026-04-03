@@ -35,6 +35,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         removals: string[]
         // Add new records for users not yet in this operation
         additions: { userId: string; sectionTitle: string; orbatRole: string }[]
+        // Update orbatRole for existing records
+        roleChanges: { userId: string; orbatRole: string }[]
     } = await req.json()
 
     const attendance = await Db.operationAttendance.findOne({ operationId })
@@ -71,6 +73,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             confirmedAt: null,
         })
     }
+
+    // Apply role changes
+    const roleChangeMap = new Map((body.roleChanges ?? []).map(rc => [rc.userId, rc.orbatRole]))
+    records = records.map(r => {
+        if (!roleChangeMap.has(r.userId)) return r
+        return { ...r, orbatRole: roleChangeMap.get(r.userId)! }
+    })
 
     await Db.operationAttendance.updateOne({ operationId }, { $set: { records } })
 

@@ -31,6 +31,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const orderedRecords: RecordWithCategory[] = []
     const coveredUserIds = new Set<string>()
 
+    let sectionRolesMap: Record<string, { role: string; userId: string | null }[]> = {}
+
     if (true) {
         const categoriesToFetch = [...new Set([
             ...CATEGORY_ORDER.filter(c => assignedPlatoons.includes(c)),
@@ -69,6 +71,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 category: pos.category,
             })
             coveredUserIds.add(pos.userId)
+        }
+
+        // All positions (including vacant) for role dropdowns
+        const allSectionPositions = await Db.orbatPositions
+            .find({ category: { $in: categoriesToFetch } })
+            .sort({ sectionOrder: 1, positionOrder: 1 })
+            .toArray()
+        for (const pos of allSectionPositions) {
+            const key = pos.sectionTitle
+            if (!sectionRolesMap[key]) sectionRolesMap[key] = []
+            sectionRolesMap[key].push({ role: pos.role, userId: pos.userId })
         }
     }
 
@@ -139,10 +152,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             rsvpOpen: false,
             confirmationOpen: false,
             recordsWithUsers,
+            sectionRolesMap,
         })
     }
 
-    return NextResponse.json({ ...attendance, recordsWithUsers })
+    return NextResponse.json({ ...attendance, recordsWithUsers, sectionRolesMap })
 }
 
 // POST /api/operations/[id]/attendance — initialise an attendance doc for an operation
