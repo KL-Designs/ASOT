@@ -133,6 +133,7 @@ export default function AttendancePanel({
     const [confirmingDirty, setConfirmingDirty] = useState(false)
     const [manageOpen, setManageOpen]   = useState(false)
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+    const [sectionMeta, setSectionMeta] = useState<OrbatSectionMeta[]>([])
 
     const r = parseInt(themeColor.replace('#', '').substring(0, 2), 16)
     const g = parseInt(themeColor.replace('#', '').substring(2, 4), 16)
@@ -173,8 +174,12 @@ export default function AttendancePanel({
     const fetchData = useCallback(async () => {
         setLoading(true)
         try {
-            const res = await fetch(`/api/operations/${operationId}/attendance`)
+            const [res, metaRes] = await Promise.all([
+                fetch(`/api/operations/${operationId}/attendance`),
+                fetch('/api/admin/orbat/meta'),
+            ])
             if (res.ok) applyData(await res.json())
+            if (metaRes.ok) setSectionMeta(await metaRes.json())
         } finally {
             setLoading(false)
         }
@@ -398,6 +403,15 @@ export default function AttendancePanel({
     const byCategory     = groupByCategoryAndSection(records)
     const myOrbatSection = myUserId ? records.find(r => r.userId === myUserId)?.orbatSection : undefined
 
+    function getSectionMeta(category: string, sectionTitle: string | null) {
+        return sectionMeta.find(m => m.category === category && m.sectionTitle === sectionTitle) ?? null
+    }
+    function getSectionPatchUrl(category: string, sectionTitle: string): string | null {
+        const meta = getSectionMeta(category, sectionTitle)
+        if (!meta?.patch) return null
+        return `/api/orbat/patch?category=${category}&section=${encodeURIComponent(sectionTitle)}&v=${meta.patch}`
+    }
+
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
 
@@ -542,6 +556,11 @@ export default function AttendancePanel({
                         const confirmedCnt = sectionRecords.filter(r => r.confirmed).length
                         const canConfirm   = isCompleted && (isSectionLeader || isHQ || isAllStaff) && (data?.confirmationOpen ?? false)
                         const isMySection  = sectionRecords.some(r => r.userId === myUserId)
+                        const category     = sectionRecords[0]?.category ?? ''
+                        const patchUrl     = isSubSection ? getSectionPatchUrl(category, section) : null
+                        const secColor     = isSubSection
+                            ? (getSectionMeta(category, section)?.color ?? null)
+                            : (getSectionMeta(category, null)?.color ?? null)
 
                         return (
                             <Box key={section} sx={isSubSection ? { ml: 2, borderLeft: '2px solid rgba(255,255,255,0.06)' } : {}}>
@@ -551,13 +570,17 @@ export default function AttendancePanel({
                                     sx={{
                                         background: isSubSection ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.02)',
                                         border: '1px solid rgba(255,255,255,0.06)',
-                                        borderTop: `2px solid ${c(isMySection ? 0.6 : isSubSection ? 0.1 : 0.2)}`,
+                                        borderTop: secColor
+                                            ? `2px solid ${secColor}${isMySection ? '' : 'aa'}`
+                                            : `2px solid ${c(isMySection ? 0.6 : isSubSection ? 0.1 : 0.2)}`,
                                         boxShadow: 'none',
                                         '&:before': { display: 'none' },
                                     }}
                                 >
                                     <AccordionSummary expandIcon={<ExpandMore sx={{ color: 'rgba(237,237,237,0.4)' }} />} sx={{ px: 2, py: 0.5, minHeight: 40 }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, mr: 1 }}>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            {patchUrl && <img src={patchUrl} alt='' style={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0, opacity: 0.9 }} />}
                                             <Typography
                                                 fontSize={isSubSection ? '0.65rem' : '0.72rem'}
                                                 fontWeight={700}

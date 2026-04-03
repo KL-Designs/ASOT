@@ -960,23 +960,56 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         const isActive = cat._id === 'activeReservist'
         const targetCat = isActive ? 'inactiveReservist' : 'activeReservist'
         const moveLabel = isActive ? 'Move to Inactive' : 'Move to Active'
+        const catMeta = getMeta(cat._id, null)
+        const catColor = catMeta?.color ?? 'rgba(219,0,29,0.8)'
+        const catPatchUrl = catMeta?.patch ? `/api/orbat/patch?category=${cat._id}&v=${catMeta.patch}` : null
 
         return (
             <div key={cat._id} className='flex flex-col' style={tileStyle}>
 
                 {/* Header */}
-                <div className='px-3 py-2' style={{ borderBottom: '1px solid rgba(219,0,29,0.12)' }}>
-                    <Typography
-                        fontSize='0.62rem'
-                        fontWeight={700}
-                        letterSpacing={2}
-                        style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.8)' }}
-                    >
-                        {cat.label}
-                    </Typography>
-                    <Typography fontSize='0.6rem' style={{ color: 'rgba(237,237,237,0.2)', marginTop: 2 }}>
-                        {reservists.length} member{reservists.length !== 1 ? 's' : ''}
-                    </Typography>
+                <div className='px-3 py-2 flex items-center gap-2' style={{ borderBottom: `1px solid ${catMeta?.color ? `${catMeta.color}33` : 'rgba(219,0,29,0.12)'}` }}>
+
+                    {/* Patch thumbnail */}
+                    {canManageStructure && (
+                        <button
+                            title='Upload reservist patch'
+                            onClick={() => { metaTargetRef.current = { category: cat._id, sectionTitle: null }; patchInputRef.current?.click() }}
+                            style={{ background: 'none', border: catPatchUrl ? 'none' : '1px dashed rgba(255,255,255,0.1)', borderRadius: 3, padding: 1, cursor: 'pointer', flexShrink: 0, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                            {catPatchUrl
+                                ? <img src={catPatchUrl} alt='' style={{ width: 18, height: 18, objectFit: 'contain' }} />
+                                : <span style={{ fontSize: 7, color: 'rgba(255,255,255,0.18)', letterSpacing: 0 }}>IMG</span>
+                            }
+                        </button>
+                    )}
+
+                    {/* Color swatch */}
+                    {canManageStructure && (
+                        <button
+                            title='Set reservist color'
+                            onClick={() => {
+                                metaTargetRef.current = { category: cat._id, sectionTitle: null }
+                                if (colorInputRef.current) colorInputRef.current.value = catMeta?.color ?? '#db001d'
+                                colorInputRef.current?.click()
+                            }}
+                            style={{ background: catMeta?.color ?? 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50%', width: 11, height: 11, cursor: 'pointer', flexShrink: 0, padding: 0 }}
+                        />
+                    )}
+
+                    <div className='flex-1 min-w-0'>
+                        <Typography
+                            fontSize='0.62rem'
+                            fontWeight={700}
+                            letterSpacing={2}
+                            style={{ textTransform: 'uppercase', color: catColor }}
+                        >
+                            {cat.label}
+                        </Typography>
+                        <Typography fontSize='0.6rem' style={{ color: 'rgba(237,237,237,0.2)', marginTop: 2 }}>
+                            {reservists.length} member{reservists.length !== 1 ? 's' : ''}
+                        </Typography>
+                    </div>
                 </div>
 
                 {/* Reservist rows */}

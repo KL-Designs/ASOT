@@ -117,7 +117,7 @@ export default async function Page() {
 						const secMeta = metaMap.get(`platoon11:${section.title}`)
 						const patchUrl = secMeta?.patch ? `/api/orbat/patch?category=platoon11&section=${encodeURIComponent(section.title)}` : undefined
 						return (
-							<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='173, 114, 4' hexColor={secMeta?.color} patchUrl={patchUrl}>
+							<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='173, 114, 4' hexColor={secMeta?.color ?? metaMap.get('platoon11:')?.color} patchUrl={patchUrl}>
 								<div className='flex flex-wrap gap-4 justify-center'>
 									{section.members.map(m => {
 										const member = lookup(m.name)
@@ -135,7 +135,7 @@ export default async function Page() {
 						const secMeta = metaMap.get(`platoon12:${section.title}`)
 						const patchUrl = secMeta?.patch ? `/api/orbat/patch?category=platoon12&section=${encodeURIComponent(section.title)}` : undefined
 						return (
-							<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='29, 116, 85' hexColor={secMeta?.color} patchUrl={patchUrl}>
+							<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='29, 116, 85' hexColor={secMeta?.color ?? metaMap.get('platoon12:')?.color} patchUrl={patchUrl}>
 								<div className='flex flex-wrap gap-4 justify-center'>
 									{section.members.map(m => {
 										const member = lookup(m.name)
@@ -153,7 +153,7 @@ export default async function Page() {
 						const secMeta = metaMap.get(`support:${section.title}`)
 						const patchUrl = secMeta?.patch ? `/api/orbat/patch?category=support&section=${encodeURIComponent(section.title)}` : undefined
 						return (
-							<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='32, 102, 148' hexColor={secMeta?.color} patchUrl={patchUrl}>
+							<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='32, 102, 148' hexColor={secMeta?.color ?? metaMap.get('support:')?.color} patchUrl={patchUrl}>
 								<div className='flex flex-wrap gap-4 justify-center'>
 									{section.members.map(m => {
 										const member = lookup(m.name)

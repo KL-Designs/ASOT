@@ -103,13 +103,40 @@ const iconStrip = (icon: React.ReactNode) => (
 )
 
 function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: string; patchUrl?: string } }) {
+	const patchUrl = meta?.patchUrl
+	const borderColor = meta?.color ? `${meta.color}33` : 'rgba(219,0,29,0.15)'
 	return (
-		<div style={{ border: '1px solid rgba(219,0,29,0.15)', overflow: 'hidden', marginBottom: 6 }}>
-			{section.icon && !meta?.patchUrl ? (
+		<div style={{ border: `1px solid ${borderColor}`, overflow: 'hidden', marginBottom: 6 }}>
+			{patchUrl ? (
+				<>
+					<SectionHeader color={meta?.color}>{section.title}</SectionHeader>
+					<div className='flex items-stretch'>
+						{/* eslint-disable-next-line @next/next/no-img-element */}
+						<div style={{
+							width: 64,
+							flexShrink: 0,
+							display: 'flex',
+							alignItems: 'center',
+							justifyContent: 'center',
+							background: 'rgba(0,0,0,0.25)',
+							borderRight: `1px solid ${borderColor}`,
+							padding: 6,
+						}}>
+							{/* eslint-disable-next-line @next/next/no-img-element */}
+							<img src={patchUrl} alt='' style={{ width: 52, height: 52, objectFit: 'contain' }} />
+						</div>
+						<div className='flex-1 min-w-0'>
+							{section.members.map((m, i) => (
+								<MemberRow key={i} role={m.role} name={m.name} index={i} />
+							))}
+						</div>
+					</div>
+				</>
+			) : section.icon ? (
 				<div className='flex items-stretch'>
 					{iconStrip(section.icon)}
 					<div className='flex-1 min-w-0'>
-						<SectionHeader color={meta?.color} patchUrl={meta?.patchUrl}>{section.title}</SectionHeader>
+						<SectionHeader color={meta?.color}>{section.title}</SectionHeader>
 						{section.members.map((m, i) => (
 							<MemberRow key={i} role={m.role} name={m.name} index={i} />
 						))}
@@ -117,7 +144,7 @@ function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: st
 				</div>
 			) : (
 				<>
-					<SectionHeader color={meta?.color} patchUrl={meta?.patchUrl}>{section.title}</SectionHeader>
+					<SectionHeader color={meta?.color}>{section.title}</SectionHeader>
 					{section.members.map((m, i) => (
 						<MemberRow key={i} role={m.role} name={m.name} index={i} />
 					))}
