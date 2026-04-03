@@ -584,8 +584,12 @@ export default function AttendancePanel({
             ) : (
                 Array.from(byCategory.values()).map(sections =>
                     sections.map(({ title: section, isSubSection, records: sectionRecords }) => {
-                        const attending    = sectionRecords.filter(r => r.rsvp === 'attending' || r.importedStatus === 'ATTENDED').length
-                        const confirmedCnt = sectionRecords.filter(r => r.confirmed).length
+                        const permRecords   = sectionRecords.filter(r => !r.reservistSection)
+                        const resRecords    = sectionRecords.filter(r => !!r.reservistSection)
+                        const attending    = permRecords.filter(r => r.rsvp === 'attending' || r.importedStatus === 'ATTENDED').length
+                        const resAttending = resRecords.filter(r => r.rsvp === 'attending' || r.importedStatus === 'ATTENDED').length
+                        const confirmedCnt = permRecords.filter(r => r.confirmed).length
+                        const resConfirmed = resRecords.filter(r => r.confirmed).length
                         const canConfirm   = isCompleted && (isSectionLeader || isHQ || isAllStaff) && (data?.confirmationOpen ?? false)
                         const isMySection  = sectionRecords.some(r => r.userId === myUserId)
                         const category     = sectionRecords[0]?.category ?? ''
@@ -664,9 +668,17 @@ export default function AttendancePanel({
                                                 )
                                             })()}
 
-                                            <Typography fontSize='0.65rem' sx={{ color: 'rgba(237,237,237,0.35)', letterSpacing: 1 }}>
-                                                {isCompleted ? `${confirmedCnt}/${sectionRecords.length}` : `${attending}/${sectionRecords.length}`}
-                                            </Typography>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                                <Typography fontSize='0.65rem' sx={{ color: 'rgba(237,237,237,0.35)', letterSpacing: 1, whiteSpace: 'nowrap' }}>
+                                                    {isCompleted ? `${confirmedCnt}/${permRecords.length}` : `${attending}/${permRecords.length}`}
+                                                </Typography>
+                                                {(isCompleted ? resConfirmed : resAttending) > 0 && <>
+                                                    <Box sx={{ width: 14, height: '1px', background: 'rgba(255,255,255,0.12)' }} />
+                                                    <Typography fontSize='0.65rem' sx={{ color: 'rgba(219,0,29,0.75)', letterSpacing: 1, whiteSpace: 'nowrap' }}>
+                                                        +{isCompleted ? resConfirmed : resAttending}
+                                                    </Typography>
+                                                </>}
+                                            </Box>
                                         </Box>
                                     </AccordionSummary>
 
