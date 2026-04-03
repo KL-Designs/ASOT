@@ -59,8 +59,17 @@ function SectionHeader({ children, color, patchUrl }: { children: React.ReactNod
 	)
 }
 
-function MemberRow({ role, name, index }: { role: string; name: string; index: number }) {
+function MemberRow({ role, name, rankAbbr, username, index }: { role: string; name: string; rankAbbr?: string; username?: string; index: number }) {
 	const isVacant = !name
+	const nameEl = isVacant ? '— Vacant —' : (
+		<>
+			{rankAbbr && <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.45)', marginRight: 3 }}>{rankAbbr}</span>}
+			{username
+				? <Link href={`/milpacs/${username}`} style={{ fontSize: '0.67rem', color: 'inherit', textDecoration: 'none' }}>{name}</Link>
+				: <span style={{ fontSize: '0.67rem' }}>{name}</span>
+			}
+		</>
+	)
 	return (
 		<div style={{
 			display: 'grid',
@@ -81,7 +90,7 @@ function MemberRow({ role, name, index }: { role: string; name: string; index: n
 				fontStyle: isVacant ? 'italic' : 'normal',
 				letterSpacing: '0.02em',
 			}}>
-				{isVacant ? '— Vacant —' : name}
+				{nameEl}
 			</span>
 		</div>
 	)
@@ -127,7 +136,7 @@ function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: st
 						</div>
 						<div className='flex-1 min-w-0'>
 							{section.members.map((m, i) => (
-								<MemberRow key={i} role={m.role} name={m.name} index={i} />
+								<MemberRow key={i} role={m.role} name={m.name} rankAbbr={m.rankAbbr} username={m.username} index={i} />
 							))}
 						</div>
 					</div>
@@ -138,7 +147,7 @@ function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: st
 					<div className='flex-1 min-w-0'>
 						<SectionHeader color={meta?.color}>{section.title}</SectionHeader>
 						{section.members.map((m, i) => (
-							<MemberRow key={i} role={m.role} name={m.name} index={i} />
+							<MemberRow key={i} role={m.role} name={m.name} rankAbbr={m.rankAbbr} username={m.username} index={i} />
 						))}
 					</div>
 				</div>
@@ -146,7 +155,7 @@ function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: st
 				<>
 					<SectionHeader color={meta?.color}>{section.title}</SectionHeader>
 					{section.members.map((m, i) => (
-						<MemberRow key={i} role={m.role} name={m.name} index={i} />
+						<MemberRow key={i} role={m.role} name={m.name} rankAbbr={m.rankAbbr} username={m.username} index={i} />
 					))}
 				</>
 			)}
@@ -203,74 +212,122 @@ function PlatoonColumn({ name, icon, sections, category, metaMap }: {
 	)
 }
 
-function ReservistsCard({ names }: { names: string[] }) {
+function ReservistsCard({ names, meta }: { names: string[]; meta?: { color?: string; patchUrl?: string } }) {
 	const rows: string[][] = []
 	for (let i = 0; i < names.length; i += 2) {
 		rows.push([names[i], names[i + 1] ?? ''])
 	}
-	return (
-		<div style={{ border: '1px solid rgba(219,0,29,0.15)', overflow: 'hidden', marginBottom: 6 }}>
-			<div className='flex items-stretch'>
-				{iconStrip(<Groups sx={{ fontSize: 18 }} />)}
-				<div className='flex-1 min-w-0'>
-					<SectionHeader>Company Reservists (Active)</SectionHeader>
-					{rows.map(([a, b], i) => (
-						<div key={i} style={{
-							display: 'grid',
-							gridTemplateColumns: '1fr 1fr',
-							background: i % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.18)',
-							borderBottom: '1px solid rgba(219,0,29,0.06)',
-						}}>
-							{[a, b].map((name, j) => (
-								<span key={j} style={{
-									padding: '3px 8px',
-									fontSize: '0.66rem',
-									color: name ? 'rgba(237,237,237,0.82)' : 'transparent',
-									borderLeft: j === 1 ? '1px solid rgba(219,0,29,0.08)' : 'none',
-								}}>
-									{name || '.'}
-								</span>
-							))}
-						</div>
-					))}
-				</div>
-			</div>
-		</div>
-	)
-}
-
-function InactiveReservistsCard({ names }: { names: string[] }) {
-	return (
-		<div style={{ border: '1px solid rgba(219,0,29,0.15)', overflow: 'hidden', marginBottom: 6 }}>
-			<SectionHeader>Company Reservists (Inactive)</SectionHeader>
-			{names.map((name, i) => (
-				<div key={i} style={{
+	const borderColor = meta?.color ? `${meta.color}33` : 'rgba(219,0,29,0.15)'
+	const rowBorder = meta?.color ? `${meta.color}0f` : 'rgba(219,0,29,0.06)'
+	const content = rows.map(([a, b], i) => (
+		<div key={i} style={{
+			display: 'grid',
+			gridTemplateColumns: '1fr 1fr',
+			background: i % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.18)',
+			borderBottom: `1px solid ${rowBorder}`,
+		}}>
+			{[a, b].map((name, j) => (
+				<span key={j} style={{
 					padding: '3px 8px',
-					fontSize: '0.67rem',
-					color: 'rgba(237,237,237,0.4)',
-					fontStyle: 'italic',
-					background: i % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.18)',
-					borderBottom: '1px solid rgba(219,0,29,0.06)',
+					fontSize: '0.66rem',
+					color: name ? 'rgba(237,237,237,0.82)' : 'transparent',
+					borderLeft: j === 1 ? `1px solid ${rowBorder}` : 'none',
 				}}>
-					{name}
-				</div>
+					{name || '.'}
+				</span>
 			))}
 		</div>
+	))
+	return (
+		<div style={{ border: `1px solid ${borderColor}`, overflow: 'hidden', marginBottom: 6 }}>
+			{meta?.patchUrl ? (
+				<>
+					<SectionHeader color={meta?.color}>Company Reservists (Active)</SectionHeader>
+					<div className='flex items-stretch'>
+						<div style={{ width: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)', borderRight: `1px solid ${borderColor}`, padding: 6 }}>
+							{/* eslint-disable-next-line @next/next/no-img-element */}
+							<img src={meta.patchUrl} alt='' style={{ width: 52, height: 52, objectFit: 'contain' }} />
+						</div>
+						<div className='flex-1 min-w-0'>{content}</div>
+					</div>
+				</>
+			) : (
+				<div className='flex items-stretch'>
+					{iconStrip(<Groups sx={{ fontSize: 18 }} />)}
+					<div className='flex-1 min-w-0'>
+						<SectionHeader color={meta?.color}>Company Reservists (Active)</SectionHeader>
+						{content}
+					</div>
+				</div>
+			)}
+		</div>
 	)
 }
 
-function GamemastersCard({ members }: { members: Member[] }) {
+function InactiveReservistsCard({ names, meta }: { names: string[]; meta?: { color?: string; patchUrl?: string } }) {
+	const borderColor = meta?.color ? `${meta.color}33` : 'rgba(219,0,29,0.15)'
+	const rowBorder = meta?.color ? `${meta.color}0f` : 'rgba(219,0,29,0.06)'
+	const content = names.map((name, i) => (
+		<div key={i} style={{
+			padding: '3px 8px',
+			fontSize: '0.67rem',
+			color: 'rgba(237,237,237,0.4)',
+			fontStyle: 'italic',
+			background: i % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.18)',
+			borderBottom: `1px solid ${rowBorder}`,
+		}}>
+			{name}
+		</div>
+	))
 	return (
-		<div style={{ border: '1px solid rgba(219,0,29,0.15)', overflow: 'hidden', marginBottom: 6 }}>
-			<div className='flex items-stretch'>
-				{iconStrip(<SportsEsports sx={{ fontSize: 18 }} />)}
-				<div className='flex-1 min-w-0'>
-					<SectionHeader>1-0 Zulu — Gamemasters</SectionHeader>
-					{members.map((m, i) => (
-						<MemberRow key={i} role={m.role} name={m.name} index={i} />
-					))}
+		<div style={{ border: `1px solid ${borderColor}`, overflow: 'hidden', marginBottom: 6 }}>
+			{meta?.patchUrl ? (
+				<>
+					<SectionHeader color={meta?.color}>Company Reservists (Inactive)</SectionHeader>
+					<div className='flex items-stretch'>
+						<div style={{ width: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)', borderRight: `1px solid ${borderColor}`, padding: 6 }}>
+							{/* eslint-disable-next-line @next/next/no-img-element */}
+							<img src={meta.patchUrl} alt='' style={{ width: 52, height: 52, objectFit: 'contain' }} />
+						</div>
+						<div className='flex-1 min-w-0'>{content}</div>
+					</div>
+				</>
+			) : (
+				<>
+					<SectionHeader color={meta?.color}>Company Reservists (Inactive)</SectionHeader>
+					{content}
+				</>
+			)}
+		</div>
+	)
+}
+
+function GamemastersCard({ members, meta }: { members: Member[]; meta?: { color?: string; patchUrl?: string } }) {
+	const borderColor = meta?.color ? `${meta.color}33` : 'rgba(219,0,29,0.15)'
+	return (
+		<div style={{ border: `1px solid ${borderColor}`, overflow: 'hidden', marginBottom: 6 }}>
+			{meta?.patchUrl ? (
+				<>
+					<SectionHeader color={meta?.color}>1-0 Zulu — Gamemasters</SectionHeader>
+					<div className='flex items-stretch'>
+						<div style={{ width: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)', borderRight: `1px solid ${borderColor}`, padding: 6 }}>
+							{/* eslint-disable-next-line @next/next/no-img-element */}
+							<img src={meta.patchUrl} alt='' style={{ width: 52, height: 52, objectFit: 'contain' }} />
+						</div>
+						<div className='flex-1 min-w-0'>
+							{members.map((m, i) => <MemberRow key={i} role={m.role} name={m.name} rankAbbr={m.rankAbbr} username={m.username} index={i} />)}
+						</div>
+					</div>
+				</>
+			) : (
+				<div className='flex items-stretch'>
+					{iconStrip(<SportsEsports sx={{ fontSize: 18 }} />)}
+					<div className='flex-1 min-w-0'>
+						<SectionHeader color={meta?.color}>1-0 Zulu — Gamemasters</SectionHeader>
+						{members.map((m, i) => <MemberRow key={i} role={m.role} name={m.name} rankAbbr={m.rankAbbr} username={m.username} index={i} />)}
+					</div>
 				</div>
-			</div>
+			)}
 		</div>
 	)
 }
@@ -310,7 +367,12 @@ export default async function Page() {
 			)}
 
 			{/* Company HQ */}
-			<div style={{ border: '1px solid rgba(219,0,29,0.3)', borderTop: '3px solid var(--red)', overflow: 'hidden' }}>
+			{(() => {
+				const hqMeta = metaMap.get('companyHQ:')
+				const hqPatchUrl = metaDocs.some(m => m.category === 'companyHQ' && m.patch) ? `/api/orbat/patch?category=companyHQ` : null
+				const hqColor = hqMeta?.color ?? '#db001d'
+				return (
+			<div style={{ border: `1px solid ${hqColor}4d`, borderTop: `3px solid ${hqColor}`, overflow: 'hidden' }}>
 
 				{/* Banner */}
 				<div style={{
@@ -365,15 +427,19 @@ export default async function Page() {
 						width: 72,
 						height: 72,
 						borderRadius: '50%',
-						border: '2px solid rgba(219,0,29,0.45)',
-						background: 'radial-gradient(circle, rgba(219,0,29,0.15) 0%, rgba(0,0,0,0.3) 100%)',
+						border: `2px solid ${hqColor}73`,
+						background: 'radial-gradient(circle, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.3) 100%)',
 						display: 'flex',
 						alignItems: 'center',
 						justifyContent: 'center',
 						flexShrink: 0,
-						boxShadow: '0 0 24px rgba(219,0,29,0.15)',
+						boxShadow: `0 0 24px ${hqColor}26`,
+						overflow: 'hidden',
 					}}>
-						<Stars style={{ fontSize: 36, color: 'rgba(219,0,29,0.85)' }} />
+						{hqPatchUrl
+							? /* eslint-disable-next-line @next/next/no-img-element */ <img src={hqPatchUrl} alt='' style={{ width: 60, height: 60, objectFit: 'contain' }} />
+							: <Stars style={{ fontSize: 36, color: `${hqColor}d9` }} />
+						}
 					</div>
 
 					{/* Name block */}
@@ -389,7 +455,7 @@ export default async function Page() {
 							{orbat.companyHQ.senior.role}
 						</div>
 						<div style={{
-							fontSize: '2rem',
+							fontSize: '1.5rem',
 							fontWeight: 800,
 							letterSpacing: '0.06em',
 							color: '#fff',
@@ -397,7 +463,15 @@ export default async function Page() {
 							lineHeight: 1,
 							textShadow: '0 2px 20px rgba(219,0,29,0.3)',
 						}}>
-							{orbat.companyHQ.senior.name}
+							{orbat.companyHQ.senior.rankAbbr && (
+								<span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'rgba(255,255,255,0.5)', marginRight: 8 }}>
+									{orbat.companyHQ.senior.rankAbbr}
+								</span>
+							)}
+							{orbat.companyHQ.senior.username
+								? <Link href={`/milpacs/${orbat.companyHQ.senior.username}`} style={{ color: 'inherit', textDecoration: 'none' }}>{orbat.companyHQ.senior.name}</Link>
+								: orbat.companyHQ.senior.name
+							}
 						</div>
 						<div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
 							<div style={{ height: 2, width: 40, background: 'var(--red)' }} />
@@ -438,12 +512,18 @@ export default async function Page() {
 								{m.role}
 							</div>
 							<div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'rgba(237,237,237,0.92)' }}>
-								{m.name}
+								{m.rankAbbr && <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'rgba(237,237,237,0.45)', marginRight: 5 }}>{m.rankAbbr}</span>}
+								{m.username
+									? <Link href={`/milpacs/${m.username}`} style={{ color: 'inherit', textDecoration: 'none' }}>{m.name}</Link>
+									: m.name
+								}
 							</div>
 						</div>
 					))}
 				</div>
 			</div>
+				)
+			})()}
 
 			{/* Main 4-column layout */}
 			<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start'>
@@ -451,9 +531,19 @@ export default async function Page() {
 				<PlatoonColumn name='1-2 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={orbat.platoon12} category='platoon12' metaMap={metaMap} />
 				<PlatoonColumn name='1-3 Support Platoon'  icon={<MilitaryTech sx={{ fontSize: 20 }} />} sections={support} category='support' metaMap={metaMap} />
 				<div>
-					<GamemastersCard members={orbat.gamemasters} />
-					<ReservistsCard names={orbat.activeReservists} />
-					<InactiveReservistsCard names={orbat.inactiveReservists} />
+					{(() => {
+						const gmMeta  = metaMap.get('gamemaster:')
+						const arMeta  = metaMap.get('activeReservist:')
+						const irMeta  = metaMap.get('inactiveReservist:')
+						const gmHasPatch  = metaDocs.some(m => m.category === 'gamemaster' && m.patch)
+						const arHasPatch  = metaDocs.some(m => m.category === 'activeReservist' && m.patch)
+						const irHasPatch  = metaDocs.some(m => m.category === 'inactiveReservist' && m.patch)
+						return <>
+							<GamemastersCard members={orbat.gamemasters} meta={{ color: gmMeta?.color, patchUrl: gmHasPatch ? `/api/orbat/patch?category=gamemaster` : undefined }} />
+							<ReservistsCard names={orbat.activeReservists} meta={{ color: arMeta?.color, patchUrl: arHasPatch ? `/api/orbat/patch?category=activeReservist` : undefined }} />
+							<InactiveReservistsCard names={orbat.inactiveReservists} meta={{ color: irMeta?.color, patchUrl: irHasPatch ? `/api/orbat/patch?category=inactiveReservist` : undefined }} />
+						</>
+					})()}
 				</div>
 			</div>
 		</Container>

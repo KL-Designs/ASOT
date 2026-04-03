@@ -2,7 +2,7 @@ import Db from '@/lib/mongo'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
 
 
-export interface Member { role: string; name: string }
+export interface Member { role: string; name: string; rankAbbr?: string; username?: string }
 export interface RawSection { title: string; members: Member[] }
 
 export interface ORBATData {
@@ -31,12 +31,23 @@ export async function fetchORBAT(): Promise<ORBATData> {
 		Db.users.find({}).toArray(),
 	])
 
-	const nameById = new Map<string, string>()
+	interface UserInfo { name: string; rankAbbr?: string; username?: string }
+	const userById = new Map<string, UserInfo>()
 	for (const u of users) {
-		nameById.set(u._id, u.name || u.guild?.nickname || u.globalName || u.username || '')
+		const strippedNick = u.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
+		const nickParts = (strippedNick || '').split(' ')
+		const parsedName = nickParts.length > 1 ? nickParts.slice(1).join(' ') : (strippedNick || u.globalName || u.username || '')
+		const name = u.name || parsedName || u.globalName || u.username || ''
+		const rankAbbr = u.milpac?.currentRank || (nickParts.length > 1 ? nickParts[0] : undefined) || undefined
+		userById.set(u._id, { name, rankAbbr, username: u.username })
 	}
 
-	const getName = (userId: string | null) => (userId ? (nameById.get(userId) ?? '') : '')
+	const getMember = (userId: string | null, role: string): Member => {
+		if (!userId) return { role, name: '' }
+		const info = userById.get(userId)
+		if (!info) return { role, name: '' }
+		return { role, name: info.name, rankAbbr: info.rankAbbr, username: info.username }
+	}
 
 	const data: ORBATData = {
 		companyHQ: { senior: { role: 'Commanding Officer', name: '' }, subTitle: '', members: [] },
@@ -58,7 +69,7 @@ export async function fetchORBAT(): Promise<ORBATData> {
 
 	// Company HQ
 	for (const pos of byCategory.get('companyHQ') ?? []) {
-		const member: Member = { role: pos.role, name: getName(pos.userId) }
+		const member = getMember(pos.userId, pos.role)
 		if (pos.isSenior) {
 			data.companyHQ.senior = member
 			if (pos.subTitle) data.companyHQ.subTitle = pos.subTitle
@@ -77,21 +88,23 @@ export async function fetchORBAT(): Promise<ORBATData> {
 				sectionMap.set(pos.sectionTitle, section)
 				arr.push(section)
 			}
-			sectionMap.get(pos.sectionTitle)!.members.push({ role: pos.role, name: getName(pos.userId) })
+			sectionMap.get(pos.sectionTitle)!.members.push(getMember(pos.userId, pos.role))
 		}
 	}
 
 	// Reservists
 	for (const pos of byCategory.get('activeReservist') ?? []) {
-		data.activeReservists.push(getName(pos.userId))
+		const info = pos.userId ? userById.get(pos.userId) : null
+		data.activeReservists.push(info?.name ?? '')
 	}
 	for (const pos of byCategory.get('inactiveReservist') ?? []) {
-		data.inactiveReservists.push(getName(pos.userId))
+		const info = pos.userId ? userById.get(pos.userId) : null
+		data.inactiveReservists.push(info?.name ?? '')
 	}
 
 	// Gamemasters
 	for (const pos of byCategory.get('gamemaster') ?? []) {
-		data.gamemasters.push({ role: pos.role, name: getName(pos.userId) })
+		data.gamemasters.push(getMember(pos.userId, pos.role))
 	}
 
 	return data

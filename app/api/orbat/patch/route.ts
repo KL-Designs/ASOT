@@ -27,7 +27,9 @@ export async function GET(request: NextRequest) {
 
     const sectionTitle: string | null = sectionRaw === '' || sectionRaw == null ? null : sectionRaw
 
-    const doc = await Db.orbatSectionMeta.findOne({ category, sectionTitle })
+    let doc = await Db.orbatSectionMeta.findOne({ category, sectionTitle })
+    // Fall back: if no exact match, find any patch for this category (handles legacy section-level uploads)
+    if (!doc?.patch) doc = await Db.orbatSectionMeta.findOne({ category, patch: { $exists: true } })
     if (!doc?.patch) return NextResponse.json('Not found', { status: 404 })
 
     const filePath = path.join('./uploads/orbat', doc.patch)

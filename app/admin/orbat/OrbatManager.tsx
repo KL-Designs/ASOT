@@ -905,9 +905,19 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 {/* Column header */}
                 <div className='flex items-center gap-2 px-3 py-2' style={{ borderBottom: `1px solid ${catColorAlpha}` }}>
 
-                    {/* Category color swatch — structure managers only */}
+                    {/* Category patch + color — structure managers only */}
                     {canManageStructure && (
                         <>
+                            <button
+                                title='Upload patch'
+                                onClick={() => { metaTargetRef.current = { category: cat._id, sectionTitle: null }; patchInputRef.current?.click() }}
+                                style={{ background: 'none', border: catMeta?.patch ? 'none' : '1px dashed rgba(255,255,255,0.1)', borderRadius: 3, padding: 1, cursor: 'pointer', flexShrink: 0, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            >
+                                {catMeta?.patch
+                                    ? <img src={`/api/orbat/patch?category=${cat._id}&v=${catMeta.patch}`} alt='' style={{ width: 18, height: 18, objectFit: 'contain' }} />
+                                    : <span style={{ fontSize: 7, color: 'rgba(255,255,255,0.18)', letterSpacing: 0 }}>IMG</span>
+                                }
+                            </button>
                             <button
                                 title='Set platoon color'
                                 onClick={() => {
