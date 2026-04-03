@@ -242,6 +242,15 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         }, 350)
     }
 
+    async function handleColorClear(category: string, sectionTitle: string | null) {
+        updateMetaLocal(category, sectionTitle, { color: undefined })
+        await fetch('/api/admin/orbat/meta', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ category, sectionTitle: sectionTitle ?? '', field: 'color' }),
+        })
+    }
+
     async function handlePatchUpload(file: File) {
         const target = metaTargetRef.current
         if (!target) return
@@ -739,15 +748,26 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
                         {/* Color swatch — structure managers only */}
                         {canManageStructure && (
-                            <button
-                                title='Set section color'
-                                onClick={() => {
-                                    metaTargetRef.current = { category: cat, sectionTitle: sec.title }
-                                    if (colorInputRef.current) colorInputRef.current.value = secMeta?.color ?? '#db001d'
-                                    colorInputRef.current?.click()
-                                }}
-                                style={{ background: secMeta?.color ?? 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50%', width: 11, height: 11, cursor: 'pointer', flexShrink: 0, padding: 0, marginRight: 3 }}
-                            />
+                            <>
+                                <button
+                                    title='Set section color'
+                                    onClick={() => {
+                                        metaTargetRef.current = { category: cat, sectionTitle: sec.title }
+                                        if (colorInputRef.current) colorInputRef.current.value = secMeta?.color ?? '#db001d'
+                                        colorInputRef.current?.click()
+                                    }}
+                                    style={{ background: secMeta?.color ?? 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50%', width: 11, height: 11, cursor: 'pointer', flexShrink: 0, padding: 0 }}
+                                />
+                                {secMeta?.color && (
+                                    <button
+                                        title='Reset section color'
+                                        onClick={() => handleColorClear(cat, sec.title)}
+                                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.3)', lineHeight: 1, marginLeft: 4, marginRight: 2, flexShrink: 0 }}
+                                    >
+                                        ×
+                                    </button>
+                                )}
+                            </>
                         )}
 
                         <div className='flex-1 min-w-0'>
@@ -887,15 +907,26 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
                     {/* Category color swatch — structure managers only */}
                     {canManageStructure && (
-                        <button
-                            title='Set platoon color'
-                            onClick={() => {
-                                metaTargetRef.current = { category: cat._id, sectionTitle: null }
-                                if (colorInputRef.current) colorInputRef.current.value = catMeta?.color ?? '#db001d'
-                                colorInputRef.current?.click()
-                            }}
-                            style={{ background: catColor, border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: 11, height: 11, cursor: 'pointer', flexShrink: 0, padding: 0 }}
-                        />
+                        <>
+                            <button
+                                title='Set platoon color'
+                                onClick={() => {
+                                    metaTargetRef.current = { category: cat._id, sectionTitle: null }
+                                    if (colorInputRef.current) colorInputRef.current.value = catMeta?.color ?? '#db001d'
+                                    colorInputRef.current?.click()
+                                }}
+                                style={{ background: catColor, border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: 11, height: 11, cursor: 'pointer', flexShrink: 0, padding: 0 }}
+                            />
+                            {catMeta?.color && (
+                                <button
+                                    title='Reset platoon color'
+                                    onClick={() => handleColorClear(cat._id, null)}
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.3)', lineHeight: 1, flexShrink: 0, marginLeft: 2 }}
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </>
                     )}
 
                     <Typography
@@ -986,15 +1017,26 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
                     {/* Color swatch */}
                     {canManageStructure && (
-                        <button
-                            title='Set reservist color'
-                            onClick={() => {
-                                metaTargetRef.current = { category: cat._id, sectionTitle: null }
-                                if (colorInputRef.current) colorInputRef.current.value = catMeta?.color ?? '#db001d'
-                                colorInputRef.current?.click()
-                            }}
-                            style={{ background: catMeta?.color ?? 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50%', width: 11, height: 11, cursor: 'pointer', flexShrink: 0, padding: 0 }}
-                        />
+                        <>
+                            <button
+                                title='Set reservist color'
+                                onClick={() => {
+                                    metaTargetRef.current = { category: cat._id, sectionTitle: null }
+                                    if (colorInputRef.current) colorInputRef.current.value = catMeta?.color ?? '#db001d'
+                                    colorInputRef.current?.click()
+                                }}
+                                style={{ background: catMeta?.color ?? 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50%', width: 11, height: 11, cursor: 'pointer', flexShrink: 0, padding: 0 }}
+                            />
+                            {catMeta?.color && (
+                                <button
+                                    title='Reset reservist color'
+                                    onClick={() => handleColorClear(cat._id, null)}
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 13, color: 'rgba(255,255,255,0.3)', lineHeight: 1, flexShrink: 0, marginLeft: 2 }}
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </>
                     )}
 
                     <div className='flex-1 min-w-0'>
