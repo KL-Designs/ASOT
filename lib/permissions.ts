@@ -15,12 +15,31 @@ const PERMISSIONS = {
     // ── Page access guards ────────────────────────────────────────────────────
 
     pages: {
-        /** /admin — departments that can access the admin panel */
-        admin:          ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'HQ Staff'], // All departments + all staff + hq
+        /** /admin — departments that can access the staff dashboard */
+        admin:          ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'J6-Game Master', 'J7-Community Development', 'HQ Staff', 'All Staff'],
         /** /members — who can view the member management list */
         members:        ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'HQ Staff'], // all departments + staff
         /** /operations/edit — who can access the mission editor */
         operationsEdit: ['HQ Staff', 'J2-Mission Making'],
+    },
+
+    // ── Department access (staff dashboard sidebar) ───────────────────────────
+
+    departments: {
+        /** J1 - Recruitment */
+        j1: ['J1-Recruiting', 'J1-Staff'],
+        /** J2 - Mission Making */
+        j2: ['J2-Mission Making'],
+        /** J3 - Training */
+        j3: ['J3-Training'],
+        /** J4 - Administration */
+        j4: ['J4-Administration'],
+        /** J5 - Media */
+        j5: ['J5-Media'],
+        /** J6 - Game Masters — role does not yet exist in Discord; add when created */
+        j6: ['J6-Game Master'],
+        /** J7 - Community Development — role does not yet exist in Discord; add when created */
+        j7: ['J7-Community Development'],
     },
 
     // ── Operations ────────────────────────────────────────────────────────────

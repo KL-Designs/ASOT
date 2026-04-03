@@ -245,7 +245,7 @@ export default function GalleryManager() {
             {/* Header */}
             <div className='flex flex-col px-5 py-4' style={tileStyle}>
                 <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
-                    Administration
+                    J5 — Media
                 </Typography>
                 <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
                     Gallery Management

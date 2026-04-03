@@ -238,6 +238,33 @@ export default function Navbar() {
                     ))}
                 </div>
 
+                {(user as any)?.isAdmin && (
+                    <>
+                        <Divider style={{ borderColor: 'rgba(0,195,255,0.2)' }} />
+                        <Link href='/admin' onClick={() => setSideMenuOpen(false)}>
+                            <div
+                                className='flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors'
+                                style={{
+                                    color: '#00c3ff',
+                                    background: 'rgba(0,195,255,0.05)',
+                                }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,195,255,0.1)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,195,255,0.05)')}
+                            >
+                                <AdminPanelSettings style={{ fontSize: 20, filter: 'drop-shadow(0 0 6px #00c3ff)' }} />
+                                <div className='flex flex-col'>
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.1em', textShadow: '0 0 10px rgba(0,195,255,0.6)' }}>
+                                        STAFF DASHBOARD
+                                    </span>
+                                    <span style={{ fontSize: '0.65rem', color: 'rgba(0,195,255,0.5)', letterSpacing: '0.05em' }}>
+                                        Admin access
+                                    </span>
+                                </div>
+                            </div>
+                        </Link>
+                    </>
+                )}
+
                 <Divider style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
 
                 <div className='flex gap-2 p-3'>
@@ -249,13 +276,6 @@ export default function Navbar() {
                             <Link href='/me' onClick={() => setSideMenuOpen(false)}>
                                 <div className='relative w-[36px] h-[36px]'><Avatar user={user} /></div>
                             </Link>
-                            {(user as any).isAdmin && (
-                                <Link href='/admin' onClick={() => setSideMenuOpen(false)}>
-                                    <IconButton size='small' title='Admin' style={{ border: '1px solid rgba(219,0,29,0.35)', borderRadius: 0, color: 'rgba(219,0,29,0.8)', padding: 6 }}>
-                                        <AdminPanelSettings style={{ fontSize: 20 }} />
-                                    </IconButton>
-                                </Link>
-                            )}
                         </>
                     ) : (
                         <Link href='/login' className='flex-1' onClick={() => setSideMenuOpen(false)}>
@@ -446,13 +466,16 @@ function ProfileDropdown({ user }: { user: User }) {
                         </MenuItem>
                     </Link>
                     {isAdmin && (
-                        <Link href='/admin'>
-                            <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
-                                sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
-                                <AdminPanelSettings style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
-                                <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>ADMINISTRATION</span>
-                            </MenuItem>
-                        </Link>
+                        <>
+                            <div style={{ borderTop: '1px solid rgba(0,195,255,0.15)', margin: '6px 0' }} />
+                            <Link href='/admin'>
+                                <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px', background: 'rgba(0,195,255,0.04)' }}
+                                    sx={{ '&:hover': { backgroundColor: 'rgba(0,195,255,0.1) !important' } }}>
+                                    <AdminPanelSettings style={{ fontSize: 17, color: '#00c3ff', filter: 'drop-shadow(0 0 4px #00c3ff)' }} />
+                                    <span style={{ fontSize: '0.80rem', fontWeight: 600, letterSpacing: '0.06em', color: '#00c3ff', textShadow: '0 0 8px rgba(0,195,255,0.5)' }}>STAFF DASHBOARD</span>
+                                </MenuItem>
+                            </Link>
+                        </>
                     )}
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', margin: '6px 0' }} />
                     <MenuItem

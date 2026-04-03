@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { connection } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import DashboardOverview from './DashboardOverview'
+import PlaceholderPanel from '../../PlaceholderPanel'
 
 export default async function Page() {
     await connection()
@@ -12,8 +12,9 @@ export default async function Page() {
     if (!client.hasRoles(me, PERMISSIONS.pages.admin)) redirect('/me')
 
     return (
-        <DashboardOverview
-            displayName={me.guild?.nickname || me.globalName || me.username || ''}
+        <PlaceholderPanel
+            title='Tickets'
+            description='Support ticket management and tracking are coming soon.'
         />
     )
 }

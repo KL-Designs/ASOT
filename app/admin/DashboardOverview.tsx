@@ -1,0 +1,52 @@
+'use client'
+
+import { Typography } from '@mui/material'
+import { Dashboard } from '@mui/icons-material'
+
+export default function DashboardOverview({ displayName }: { displayName: string }) {
+    return (
+        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[1000px]'>
+
+            {/* Header */}
+            <div
+                className='flex flex-col px-5 py-4'
+                style={{
+                    border: '1px solid rgba(219,0,29,0.15)',
+                    borderTop: '2px solid var(--red)',
+                    background: 'rgba(255,255,255,0.02)',
+                }}
+            >
+                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
+                    ASOT Unit
+                </Typography>
+                <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
+                    Staff Dashboard
+                </Typography>
+                <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.35)', marginTop: 4, letterSpacing: '0.04em' }}>
+                    Welcome, {displayName}
+                </Typography>
+            </div>
+
+            {/* Overview body */}
+            <div
+                className='flex flex-col items-center justify-center gap-4 p-12'
+                style={{
+                    border: '1px solid rgba(219,0,29,0.1)',
+                    background: 'rgba(255,255,255,0.01)',
+                    minHeight: 220,
+                }}
+            >
+                <Dashboard sx={{ fontSize: 40, color: 'var(--red)', opacity: 0.35 }} />
+                <Typography
+                    fontWeight={700}
+                    fontSize='0.72rem'
+                    letterSpacing={3}
+                    style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}
+                >
+                    Select a section from the sidebar
+                </Typography>
+            </div>
+
+        </div>
+    )
+}
