@@ -509,6 +509,7 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
     const [uniformFile, setUniformFile] = useState<File | null>(null)
     const [uniformPreview, setUniformPreview] = useState<string | null>(null)
@@ -1292,14 +1293,15 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                         .trim()
                 }
 
-                const groups = new Map<string, { dates: Date[]; count: number }>()
+                type GroupedOp = { id: string; name: string; date: Date | null }
+                const groups = new Map<string, { dates: Date[]; ops: GroupedOp[] }>()
                 for (const op of confirmedOps) {
                     const key = baseName(op.name)
-                    if (!groups.has(key)) groups.set(key, { dates: [], count: 0 })
+                    if (!groups.has(key)) groups.set(key, { dates: [], ops: [] })
                     const g = groups.get(key)!
                     const rawDate = op.date ?? op.confirmedAt
                     if (rawDate) g.dates.push(new Date(rawDate))
-                    g.count++
+                    g.ops.push({ id: op.operationId, name: op.name, date: rawDate ? new Date(rawDate) : null })
                 }
 
                 const grouped = Array.from(groups.entries())
@@ -1327,14 +1329,40 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                     const dateRange = sorted.length === 0 ? '—'
                                         : sorted.length === 1 ? fmtDate(sorted[0])
                                         : `${fmtDate(sorted[0])} – ${fmtDate(sorted[sorted.length - 1])}`
-                                    return (
-                                        <div key={g.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                    const isSingle = g.ops.length === 1
+                                    const isExpanded = expandedGroups.has(g.name)
+                                    const toggle = () => setExpandedGroups(prev => {
+                                        const next = new Set(prev)
+                                        if (next.has(g.name)) next.delete(g.name)
+                                        else next.add(g.name)
+                                        return next
+                                    })
+                                    return isSingle ? (
+                                        <a key={g.name} href={`/operations/${g.ops[0].id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', textDecoration: 'none', color: 'inherit' }}>
                                             <span style={{ flex: 1, fontSize: '0.78rem', color: 'rgba(237,237,237,0.75)' }}>{g.name}</span>
                                             <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', whiteSpace: 'nowrap' }}>{dateRange}</span>
-                                            {g.count > 1 && (
+                                        </a>
+                                    ) : (
+                                        <div key={g.name} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                            <div onClick={toggle} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', cursor: 'pointer', userSelect: 'none' }}>
+                                                <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.3)', flexShrink: 0, transition: 'transform 0.15s', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>▶</span>
+                                                <span style={{ flex: 1, fontSize: '0.78rem', color: 'rgba(237,237,237,0.75)' }}>{g.name}</span>
+                                                <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', whiteSpace: 'nowrap' }}>{dateRange}</span>
                                                 <span style={{ fontSize: '0.6rem', fontWeight: 700, padding: '1px 5px', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.2)', color: 'rgba(219,0,29,0.7)', borderRadius: 3, flexShrink: 0 }}>
-                                                    ×{g.count}
+                                                    ×{g.ops.length}
                                                 </span>
+                                            </div>
+                                            {isExpanded && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: 16, paddingBottom: 4 }}>
+                                                    {g.ops
+                                                        .sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0))
+                                                        .map(op => (
+                                                            <a key={op.id} href={`/operations/${op.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', textDecoration: 'none', color: 'inherit' }}>
+                                                                <span style={{ flex: 1, fontSize: '0.73rem', color: 'rgba(237,237,237,0.55)' }}>{op.name}</span>
+                                                                {op.date && <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', whiteSpace: 'nowrap' }}>{fmtDate(op.date)}</span>}
+                                                            </a>
+                                                        ))}
+                                                </div>
                                             )}
                                         </div>
                                     )

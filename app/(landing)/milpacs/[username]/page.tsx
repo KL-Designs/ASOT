@@ -91,6 +91,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 		if (!rec) return []
 		const op = opMap.get(opId)
 		return [{
+			operationId: opId,
 			name: op?.title ?? 'Unknown Operation',
 			date: op?.date ? new Date(op.date) : null,
 		}]
@@ -376,13 +377,14 @@ export default async function Page({ params }: { params: Promise<{ username: str
 						return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
 					}
 
-					const groups = new Map<string, { dates: Date[]; count: number }>()
+					type GroupedOp = { id: string; name: string; date: Date | null }
+					const groups = new Map<string, { dates: Date[]; ops: GroupedOp[] }>()
 					for (const op of confirmedOps) {
 						const key = baseName(op.name)
-						if (!groups.has(key)) groups.set(key, { dates: [], count: 0 })
+						if (!groups.has(key)) groups.set(key, { dates: [], ops: [] })
 						const g = groups.get(key)!
 						if (op.date) g.dates.push(op.date)
-						g.count++
+						g.ops.push({ id: op.operationId, name: op.name, date: op.date })
 					}
 					const grouped = Array.from(groups.entries())
 						.map(([name, g]) => ({ name, ...g }))
@@ -403,16 +405,32 @@ export default async function Page({ params }: { params: Promise<{ username: str
 										const dateRange = sorted.length === 0 ? '—'
 											: sorted.length === 1 ? fmtDate(sorted[0])
 											: `${fmtDate(sorted[0])} – ${fmtDate(sorted[sorted.length - 1])}`
-										return (
-											<div key={g.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+										const isSingle = g.ops.length === 1
+										return isSingle ? (
+											<a key={g.name} href={`/operations/${g.ops[0].id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', textDecoration: 'none', color: 'inherit' }}>
 												<span style={{ flex: 1, fontSize: '0.8rem', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{g.name}</span>
 												<span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>{dateRange}</span>
-												{g.count > 1 && (
+											</a>
+										) : (
+											<details key={g.name} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+												<summary style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', cursor: 'pointer', listStyle: 'none', userSelect: 'none' }}>
+													<span style={{ flex: 1, fontSize: '0.8rem', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{g.name}</span>
+													<span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>{dateRange}</span>
 													<span style={{ fontSize: '0.62rem', fontWeight: 700, padding: '1px 5px', background: `${accent}18`, border: `1px solid ${accent}35`, color: `${accent}cc`, borderRadius: 3, flexShrink: 0 }}>
-														×{g.count}
+														×{g.ops.length}
 													</span>
-												)}
-											</div>
+												</summary>
+												<div style={{ display: 'flex', flexDirection: 'column', paddingLeft: 12, paddingBottom: 4 }}>
+													{g.ops
+														.sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0))
+														.map(op => (
+															<a key={op.id} href={`/operations/${op.id}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', textDecoration: 'none', color: 'inherit' }}>
+																<span style={{ flex: 1, fontSize: '0.76rem', color: 'rgba(237,237,237,0.6)' }}>{op.name}</span>
+																{op.date && <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', whiteSpace: 'nowrap' }}>{fmtDate(op.date)}</span>}
+															</a>
+														))}
+												</div>
+											</details>
 										)
 									})}
 								</div>
