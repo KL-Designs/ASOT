@@ -14,6 +14,7 @@ declare global {
         confirmedBy: string | null  // userId of confirming section leader
         confirmedAt: Date | null
         importedStatus?: string     // 'ATTENDED' | 'NOT ATTENDING' | 'RESOLVED' | 'LOA' (from CSV)
+        attendanceType?: string     // Visual flag: 'ATTENDED' | 'NOT ATTENDING' | 'RESOLVED' | 'NO NOTICE' | 'LOA' | 'CONFIRM' | 'N/A' | 'ADDED TO UNIT'
         reservistSection?: string   // if set, member is attending as a reservist in this section instead of their own
     }
 

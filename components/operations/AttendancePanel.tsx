@@ -5,11 +5,11 @@ import {
     Box, Typography, Button, Chip, Divider, CircularProgress,
     Checkbox, FormControlLabel, FormGroup, Skeleton, IconButton,
     Accordion, AccordionSummary, AccordionDetails, Avatar,
-    Switch, Tooltip,
+    Switch, Tooltip, Popover,
 } from '@mui/material'
 import {
     ExpandMore, CheckCircle, Cancel, HelpOutline,
-    Lock, LockOpen, PersonAdd, Tune,
+    Lock, LockOpen, PersonAdd, Tune, Add,
 } from '@mui/icons-material'
 import AttendanceManageDialog from '@/components/operations/AttendanceManageDialog'
 
@@ -25,6 +25,7 @@ interface AttendanceRecord {
     confirmedBy: string | null
     confirmedAt: string | null
     importedStatus?: string
+    attendanceType?: string
     reservistSection?: string
     category?: string
     user: {
@@ -61,6 +62,19 @@ const PLATOON_OPTIONS = [
     { id: 'platoon11', label: '1-1 Platoon' },
     { id: 'platoon12', label: '1-2 Platoon' },
     { id: 'support',   label: '1-3 Support Platoon' },
+]
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const ATTENDANCE_TYPES = [
+    { value: 'ATTENDED',       label: 'Attended',      color: '#4caf50' },
+    { value: 'NOT ATTENDING',  label: 'Not Attending', color: 'rgba(219,0,29,0.9)' },
+    { value: 'RESOLVED',       label: 'Resolved',      color: '#2196f3' },
+    { value: 'NO NOTICE',      label: 'No Notice',     color: '#ff9800' },
+    { value: 'LOA',            label: 'LOA',           color: '#9c27b0' },
+    { value: 'CONFIRM',        label: 'Confirm',       color: '#00bcd4' },
+    { value: 'N/A',            label: 'N/A',           color: 'rgba(237,237,237,0.35)' },
+    { value: 'ADDED TO UNIT',  label: 'Added To Unit', color: '#3f51b5' },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -134,6 +148,7 @@ export default function AttendancePanel({
     const [manageOpen, setManageOpen]   = useState(false)
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
     const [sectionMeta, setSectionMeta] = useState<OrbatSectionMeta[]>([])
+    const [typeAnchor, setTypeAnchor] = useState<{ el: HTMLElement; userId: string } | null>(null)
 
     const r = parseInt(themeColor.replace('#', '').substring(0, 2), 16)
     const g = parseInt(themeColor.replace('#', '').substring(2, 4), 16)
@@ -342,6 +357,20 @@ export default function AttendancePanel({
         } finally {
             setSaving(false)
         }
+    }
+
+    // ── Attendance type ────────────────────────────────────────────────────────
+
+    const handleSetType = async (attendanceType: string | null) => {
+        if (!typeAnchor) return
+        const userId = typeAnchor.userId
+        setTypeAnchor(null)
+        await fetch(`/api/operations/${operationId}/attendance/type`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, attendanceType }),
+        })
+        refreshData(false)
     }
 
     // ── Render ─────────────────────────────────────────────────────────────────
@@ -683,18 +712,34 @@ export default function AttendancePanel({
                                                     </Typography>
                                                 </Box>
 
-                                                {/* RSVP / status indicator */}
+                                                {/* Attendance type + RSVP indicator */}
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                     {isCompleted && record.confirmed && (
                                                         <Chip label='Confirmed' size='small' sx={{ fontSize: '0.55rem', height: 16, background: 'rgba(76,175,80,0.15)', color: '#4caf50' }} />
                                                     )}
-                                                    {record.importedStatus ? (
-                                                        <Typography fontSize='0.6rem' letterSpacing={1} sx={{ textTransform: 'uppercase', color: record.importedStatus === 'ATTENDED' ? 'rgba(76,175,80,0.7)' : 'rgba(237,237,237,0.2)' }}>
-                                                            {record.importedStatus}
-                                                        </Typography>
-                                                    ) : (
-                                                        rsvpIcon(record.rsvp)
-                                                    )}
+                                                    {(() => {
+                                                        const effectiveType = record.attendanceType ?? record.importedStatus ?? null
+                                                        const typeDef = ATTENDANCE_TYPES.find(t => t.value === effectiveType)
+                                                        const canSetType = isHQ || isAllStaff || isSectionLeader
+                                                        if (typeDef) {
+                                                            return (
+                                                                <Chip
+                                                                    label={typeDef.label}
+                                                                    size='small'
+                                                                    onClick={canSetType ? (e) => setTypeAnchor({ el: e.currentTarget as HTMLElement, userId: record.userId }) : undefined}
+                                                                    sx={{ fontSize: '0.55rem', height: 16, background: `${typeDef.color}22`, color: typeDef.color, border: `1px solid ${typeDef.color}44`, cursor: canSetType ? 'pointer' : 'default' }}
+                                                                />
+                                                            )
+                                                        }
+                                                        if (canSetType) {
+                                                            return (
+                                                                <IconButton size='small' onClick={(e) => setTypeAnchor({ el: e.currentTarget, userId: record.userId })} sx={{ p: 0.25, color: 'rgba(237,237,237,0.12)', '&:hover': { color: 'rgba(237,237,237,0.4)' } }}>
+                                                                    <Add sx={{ fontSize: 12 }} />
+                                                                </IconButton>
+                                                            )
+                                                        }
+                                                        return rsvpIcon(record.rsvp)
+                                                    })()}
                                                 </Box>
                                             </Box>
                                         ))}
@@ -756,6 +801,37 @@ export default function AttendancePanel({
                     })
                 )
             )}
+
+            {/* ── Attendance type popout ──────────────────────────────────── */}
+            <Popover
+                open={!!typeAnchor}
+                anchorEl={typeAnchor?.el}
+                onClose={() => setTypeAnchor(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+                PaperProps={{ sx: { background: 'rgba(22,22,26,0.98)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' } }}
+            >
+                <Box sx={{ p: 0.75, display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 148 }}>
+                    {ATTENDANCE_TYPES.map(t => (
+                        <Button
+                            key={t.value}
+                            size='small'
+                            onClick={() => handleSetType(t.value)}
+                            sx={{ justifyContent: 'flex-start', fontSize: '0.65rem', color: t.color, py: 0.5, px: 1, letterSpacing: 0.5, '&:hover': { background: `${t.color}18` } }}
+                        >
+                            {t.label}
+                        </Button>
+                    ))}
+                    <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)', my: 0.25 }} />
+                    <Button
+                        size='small'
+                        onClick={() => handleSetType(null)}
+                        sx={{ justifyContent: 'flex-start', fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', py: 0.5, px: 1, '&:hover': { background: 'rgba(255,255,255,0.04)' } }}
+                    >
+                        Clear
+                    </Button>
+                </Box>
+            </Popover>
 
             {saving && (
                 <Box sx={{ position: 'fixed', bottom: 16, right: 16 }}>

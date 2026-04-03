@@ -31,8 +31,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const orderedRecords: RecordWithCategory[] = []
     const coveredUserIds = new Set<string>()
 
-    if (assignedPlatoons.length > 0) {
-        const categoriesToFetch = CATEGORY_ORDER.filter(c => assignedPlatoons.includes(c))
+    if (true) {
+        const categoriesToFetch = [...new Set([
+            ...CATEGORY_ORDER.filter(c => assignedPlatoons.includes(c)),
+            'gamemaster',
+        ])]
         const positions = await Db.orbatPositions
             .find({ category: { $in: categoriesToFetch }, userId: { $ne: null } })
             .sort({ sectionOrder: 1, positionOrder: 1 })
@@ -69,11 +72,32 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         }
     }
 
-    // Append any existing records not covered by the ORBAT (e.g. unmatched CSV imports)
+    // Append any existing records not covered by the ORBAT.
+    // Reservists are looked up separately so they show in their own section rather than 'other'.
+    const uncoveredIds = existingRecords
+        .filter(r => !coveredUserIds.has(r.userId))
+        .map(r => r.userId)
+
+    const reservistPositions = uncoveredIds.length > 0
+        ? await Db.orbatPositions
+            .find({ category: { $in: ['activeReservist', 'inactiveReservist'] }, userId: { $in: uncoveredIds } })
+            .toArray()
+        : []
+    const reservistCatMap = new Map(reservistPositions.map(p => [p.userId!, p.category]))
+
     for (const r of existingRecords) {
-        if (!coveredUserIds.has(r.userId)) {
-            orderedRecords.push({ ...r, category: 'other' })
-        }
+        if (coveredUserIds.has(r.userId)) continue
+        const resCat = reservistCatMap.get(r.userId)
+        const sectionLabel = resCat === 'activeReservist'
+            ? 'Company Reservists (Active)'
+            : resCat === 'inactiveReservist'
+            ? 'Company Reservists (Inactive)'
+            : undefined
+        orderedRecords.push({
+            ...r,
+            category: resCat ?? 'other',
+            ...(sectionLabel && { orbatSection: sectionLabel }),
+        })
     }
 
     const userIds = [...new Set(orderedRecords.map(r => r.userId))]

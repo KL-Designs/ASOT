@@ -27,9 +27,11 @@ export interface ParsedAttendanceSection {
 const EPOCH_ZERO_DATE = '30/12/1899'
 const OP_STRIDE = 3  // Sat, Sun, spacer — consistent across all known formats
 
-/** Detect if col0 looks like a section name ("1-0", "1-1 Alpha", "2PL", etc.) */
+/** Detect if col0 looks like a section name ("1-0", "1-1 Alpha", "2PL", "Game Masters", "Reservists", etc.) */
 function isSectionHeader(col0: string): boolean {
-    return /^\d+-\d+/.test(col0) || /^\dPL$/.test(col0)
+    return /^\d+-\d+/.test(col0)
+        || /^\dPL$/.test(col0)
+        || /^(game\s*masters?|zeus|reservists?|inactive\s+reservists?|company\s+reservists?)$/i.test(col0)
 }
 
 /** Normalise dates to DD/MM/YYYY — handles 2-digit years and single-digit day/month */

@@ -170,6 +170,7 @@ export async function POST(req: NextRequest) {
                 confirmedBy: null,
                 confirmedAt: attended ? new Date() : null,
                 importedStatus,
+                attendanceType: importedStatus || undefined,
             })
         }
     }
