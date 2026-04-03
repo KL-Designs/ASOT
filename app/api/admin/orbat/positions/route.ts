@@ -12,7 +12,7 @@ import Db from '@/lib/mongo'
 export async function POST(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbat)) {
+    if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbatStructure)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

@@ -14,6 +14,11 @@ export default async function Page() {
     if (!me) redirect('/login')
     if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbat)) redirect('/admin')
 
+    const canManageStructure      = client.hasRoles(me, PERMISSIONS.admin.manageOrbatStructure)
+    const canManageMembers        = client.hasRoles(me, PERMISSIONS.admin.manageOrbatMembers)
+    const canMilpacEditRestricted = client.hasRoles(me, PERMISSIONS.members.editRestricted)
+    const canMilpacEditStandard   = client.hasRoles(me, PERMISSIONS.members.editStandard)
+
     const allUsers = (await Db.users.find({}).toArray()).map(u => ({
         id: u._id,
         username: u.username,
@@ -21,5 +26,13 @@ export default async function Page() {
         avatarURL: u.guild?.avatarURL || u.avatarURL || '',
     }))
 
-    return <OrbatManager initialUsers={allUsers} />
+    return (
+        <OrbatManager
+            initialUsers={allUsers}
+            canManageStructure={canManageStructure}
+            canManageMembers={canManageMembers}
+            canMilpacEditRestricted={canMilpacEditRestricted}
+            canMilpacEditStandard={canMilpacEditStandard}
+        />
+    )
 }

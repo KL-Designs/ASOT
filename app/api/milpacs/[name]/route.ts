@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 import fs from 'fs'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ name: string }> }) {
 	const me = await client.fetchMe().catch(() => null)
 	if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-	if (!client.hasRoles(me, ['J4-Administration'])) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+	if (!client.hasRoles(me, PERMISSIONS.members.editStandard)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
 	const { name } = await params
 	const formData = await req.formData()

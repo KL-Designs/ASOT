@@ -7,7 +7,7 @@ import PERMISSIONS from '@/lib/permissions'
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.members.edit)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+    if (!client.hasRoles(me, PERMISSIONS.members.editStandard)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
     const { username } = await params
     const member = await Db.users.findOne({ username })
@@ -20,40 +20,49 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.members.edit)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+
+    const isRestricted = client.hasRoles(me, PERMISSIONS.members.editRestricted)
+    const isStandard   = client.hasRoles(me, PERMISSIONS.members.editStandard)
+
+    if (!isRestricted && !isStandard) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
     const { username } = await params
     const body = await request.json()
 
-    const { bioRank, enlistedDate, promotions, awards, operations, qualifications, name, billetCounts, j4Points } = body
+    const { bioRank, enlistedDate, promotions, awards, qualifications, name, billetCounts, j4Points } = body
 
-    // Uniqueness check for name
-    if (name !== undefined) {
-        if (name && typeof name === 'string') {
-            const taken = await Db.users.findOne({ name, username: { $ne: username } })
-            if (taken) return NextResponse.json({ error: 'Name already taken' }, { status: 409 })
+    // Restricted fields check — J4-Administration only
+    const hasRestrictedFields = bioRank !== undefined || enlistedDate !== undefined || billetCounts !== undefined || j4Points !== undefined
+    if (hasRestrictedFields && !isRestricted) {
+        return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+    }
+
+    const update: Record<string, any> = {}
+
+    // Standard fields (HQ Staff + J4-Admin)
+    if (isStandard) {
+        if (promotions !== undefined) update['milpac.promotions'] = promotions ?? []
+        if (awards !== undefined) update['milpac.awards'] = awards ?? []
+        if (qualifications !== undefined) update['milpac.qualifications'] = qualifications ?? []
+
+        if (name !== undefined) {
+            if (name && typeof name === 'string') {
+                const taken = await Db.users.findOne({ name, username: { $ne: username } })
+                if (taken) return NextResponse.json({ error: 'Name already taken' }, { status: 409 })
+            }
+            update['name'] = name || null
         }
     }
 
-    const update: Record<string, any> = {
-        'milpac.enlistedDate': enlistedDate ?? '',
-        'milpac.promotions': promotions ?? [],
-        'milpac.awards': awards ?? [],
-        'milpac.operations': operations ?? [],
-        'milpac.qualifications': qualifications ?? [],
+    // Restricted fields (J4-Admin only)
+    if (isRestricted) {
+        if (enlistedDate !== undefined) update['milpac.enlistedDate'] = enlistedDate ?? ''
+        if (bioRank !== undefined) update['milpac.currentRank'] = bioRank
+        if (billetCounts !== undefined) update['milpac.billetCounts'] = billetCounts
+        if (j4Points !== undefined) update['milpac.j4Points'] = j4Points
     }
-    if (bioRank !== undefined) {
-        update['milpac.currentRank'] = bioRank
-    }
-    if (name !== undefined) {
-        update['name'] = name || null
-    }
-    if (billetCounts !== undefined) {
-        update['milpac.billetCounts'] = billetCounts
-    }
-    if (j4Points !== undefined) {
-        update['milpac.j4Points'] = j4Points
-    }
+
+    if (Object.keys(update).length === 0) return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
 
     const result = await Db.users.updateOne({ username }, { $set: update })
     if (result.matchedCount === 0) return NextResponse.json({ error: 'Member not found' }, { status: 404 })

@@ -101,7 +101,13 @@ function buildSections(positions: OrbatPositionWithUser[], cat: string): Section
 }
 
 
-export default function OrbatManager({ initialUsers }: { initialUsers: PickerUser[] }) {
+export default function OrbatManager({ initialUsers, canManageStructure, canManageMembers, canMilpacEditRestricted, canMilpacEditStandard }: {
+    initialUsers: PickerUser[]
+    canManageStructure: boolean
+    canManageMembers: boolean
+    canMilpacEditRestricted: boolean
+    canMilpacEditStandard: boolean
+}) {
 
     const [positions, setPositions] = useState<OrbatPositionWithUser[]>([])
     const [loading, setLoading] = useState(true)
@@ -470,11 +476,13 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                 {/* Main row */}
                 <div className='flex items-center gap-1.5 px-2 py-1' style={rowStyle}>
 
-                    {/* Drag handle */}
-                    <DragIndicator
-                        {...(opts.dragListeners ?? {})}
-                        sx={{ fontSize: 12, color: opts.isDragOverlay ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.12)', cursor: 'grab', flexShrink: 0, touchAction: 'none' }}
-                    />
+                    {/* Drag handle — structure managers only */}
+                    {canManageStructure && (
+                        <DragIndicator
+                            {...(opts.dragListeners ?? {})}
+                            sx={{ fontSize: 12, color: opts.isDragOverlay ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.12)', cursor: 'grab', flexShrink: 0, touchAction: 'none' }}
+                        />
+                    )}
 
                     {/* Role name */}
                     <div className='flex-1 min-w-0'>
@@ -523,7 +531,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                                     </Typography>
                                 </button>
                             </>
-                        ) : (
+                        ) : canManageMembers ? (
                             <Button
                                 size='small'
                                 onClick={() => { setPickerOpen(posId); setUserSearch('') }}
@@ -545,11 +553,11 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                             >
                                 Assign
                             </Button>
-                        )}
+                        ) : null}
                     </div>
 
                     {/* More menu toggle */}
-                    {!isEditing && !opts.isDragOverlay && (
+                    {!isEditing && !opts.isDragOverlay && (canManageStructure || canManageMembers) && (
                         <IconButton
                             size='small'
                             onClick={() => setExpandedRowId(isExpanded ? null : posId)}
@@ -566,29 +574,33 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                         className='flex flex-wrap items-center gap-x-0.5 gap-y-0.5 px-2 py-1'
                         style={{ background: 'rgba(0,0,0,0.18)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
                     >
-                        <Button
-                            size='small'
-                            sx={menuItemBtn}
-                            onClick={() => {
-                                setEditRoleId(posId)
-                                setEditRoleVal(pos.role)
-                                setExpandedRowId(null)
-                            }}
-                        >
-                            Edit Name
-                        </Button>
-                        <Button
-                            size='small'
-                            sx={menuItemBtn}
-                            onClick={() => {
-                                setPickerOpen(posId)
-                                setUserSearch('')
-                                setExpandedRowId(null)
-                            }}
-                        >
-                            {pos.user ? 'Change User' : 'Assign User'}
-                        </Button>
-                        {pos.user && (
+                        {canManageStructure && (
+                            <Button
+                                size='small'
+                                sx={menuItemBtn}
+                                onClick={() => {
+                                    setEditRoleId(posId)
+                                    setEditRoleVal(pos.role)
+                                    setExpandedRowId(null)
+                                }}
+                            >
+                                Edit Name
+                            </Button>
+                        )}
+                        {canManageMembers && (
+                            <Button
+                                size='small'
+                                sx={menuItemBtn}
+                                onClick={() => {
+                                    setPickerOpen(posId)
+                                    setUserSearch('')
+                                    setExpandedRowId(null)
+                                }}
+                            >
+                                {pos.user ? 'Change User' : 'Assign User'}
+                            </Button>
+                        )}
+                        {canManageMembers && pos.user && (
                             <Button
                                 size='small'
                                 sx={menuItemBtn}
@@ -600,16 +612,18 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                                 Remove User
                             </Button>
                         )}
-                        <Button
-                            size='small'
-                            sx={{ ...menuItemBtn, color: 'rgba(219,0,29,0.45)', '&:hover': { color: 'rgba(219,0,29,0.85)', background: 'rgba(219,0,29,0.06)' } }}
-                            onClick={() => {
-                                setConfirmDeletePos(posId)
-                                setExpandedRowId(null)
-                            }}
-                        >
-                            Delete Role
-                        </Button>
+                        {canManageStructure && (
+                            <Button
+                                size='small'
+                                sx={{ ...menuItemBtn, color: 'rgba(219,0,29,0.45)', '&:hover': { color: 'rgba(219,0,29,0.85)', background: 'rgba(219,0,29,0.06)' } }}
+                                onClick={() => {
+                                    setConfirmDeletePos(posId)
+                                    setExpandedRowId(null)
+                                }}
+                            >
+                                Delete Role
+                            </Button>
+                        )}
                     </div>
                 )}
             </>
@@ -672,18 +686,22 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                                 </Typography>
                             )}
                         </div>
-                        <IconButton size='small' disabled={secIdx === 0 || busy} onClick={() => moveSection(cat, sec.title, 'up')} sx={{ ...ghostBtn, padding: '1px' }}>
-                            <ArrowUpward sx={{ fontSize: 10 }} />
-                        </IconButton>
-                        <IconButton size='small' disabled={secIdx === sections.length - 1 || busy} onClick={() => moveSection(cat, sec.title, 'down')} sx={{ ...ghostBtn, padding: '1px' }}>
-                            <ArrowDownward sx={{ fontSize: 10 }} />
-                        </IconButton>
-                        <IconButton size='small' onClick={() => { setEditSectionKey(sectionKey); setEditSectionVal(sec.title) }} sx={{ ...ghostBtn, padding: '1px' }}>
-                            <Edit sx={{ fontSize: 10 }} />
-                        </IconButton>
-                        <IconButton size='small' onClick={() => setConfirmDeleteSection({ cat, sectionTitle: sec.title })} sx={{ ...ghostBtn, padding: '1px', color: 'rgba(219,0,29,0.25)', '&:hover': { color: 'rgba(219,0,29,0.6)' } }}>
-                            <Delete sx={{ fontSize: 10 }} />
-                        </IconButton>
+                        {canManageStructure && (
+                            <>
+                                <IconButton size='small' disabled={secIdx === 0 || busy} onClick={() => moveSection(cat, sec.title, 'up')} sx={{ ...ghostBtn, padding: '1px' }}>
+                                    <ArrowUpward sx={{ fontSize: 10 }} />
+                                </IconButton>
+                                <IconButton size='small' disabled={secIdx === sections.length - 1 || busy} onClick={() => moveSection(cat, sec.title, 'down')} sx={{ ...ghostBtn, padding: '1px' }}>
+                                    <ArrowDownward sx={{ fontSize: 10 }} />
+                                </IconButton>
+                                <IconButton size='small' onClick={() => { setEditSectionKey(sectionKey); setEditSectionVal(sec.title) }} sx={{ ...ghostBtn, padding: '1px' }}>
+                                    <Edit sx={{ fontSize: 10 }} />
+                                </IconButton>
+                                <IconButton size='small' onClick={() => setConfirmDeleteSection({ cat, sectionTitle: sec.title })} sx={{ ...ghostBtn, padding: '1px', color: 'rgba(219,0,29,0.25)', '&:hover': { color: 'rgba(219,0,29,0.6)' } }}>
+                                    <Delete sx={{ fontSize: 10 }} />
+                                </IconButton>
+                            </>
+                        )}
                     </div>
                 )}
 
@@ -719,39 +737,41 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                     </DragOverlay>
                 </DndContext>
 
-                {/* Add Role */}
-                {addRoleKey === sectionKey ? (
-                    <div className='flex gap-1 px-1 py-1'>
-                        <TextField
+                {/* Add Role — structure managers only */}
+                {canManageStructure && (
+                    addRoleKey === sectionKey ? (
+                        <div className='flex gap-1 px-1 py-1'>
+                            <TextField
+                                size='small'
+                                placeholder='Role name...'
+                                value={addRoleVal}
+                                onChange={e => setAddRoleVal(e.target.value)}
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') addRole(cat, sec.title, addRoleVal)
+                                    if (e.key === 'Escape') { setAddRoleKey(null); setAddRoleVal('') }
+                                }}
+                                autoFocus
+                                fullWidth
+                                inputProps={{ style: { fontSize: '0.72rem', padding: '3px 8px' } }}
+                                sx={{ '& .MuiOutlinedInput-root': { height: 26 } }}
+                            />
+                            <IconButton size='small' onClick={() => addRole(cat, sec.title, addRoleVal)} disabled={!addRoleVal.trim() || busy} sx={{ ...ghostBtn, padding: '2px' }}>
+                                <Add sx={{ fontSize: 14 }} />
+                            </IconButton>
+                            <IconButton size='small' onClick={() => { setAddRoleKey(null); setAddRoleVal('') }} sx={{ ...ghostBtn, padding: '2px' }}>
+                                <Close sx={{ fontSize: 14 }} />
+                            </IconButton>
+                        </div>
+                    ) : (
+                        <Button
                             size='small'
-                            placeholder='Role name...'
-                            value={addRoleVal}
-                            onChange={e => setAddRoleVal(e.target.value)}
-                            onKeyDown={e => {
-                                if (e.key === 'Enter') addRole(cat, sec.title, addRoleVal)
-                                if (e.key === 'Escape') { setAddRoleKey(null); setAddRoleVal('') }
-                            }}
-                            autoFocus
-                            fullWidth
-                            inputProps={{ style: { fontSize: '0.72rem', padding: '3px 8px' } }}
-                            sx={{ '& .MuiOutlinedInput-root': { height: 26 } }}
-                        />
-                        <IconButton size='small' onClick={() => addRole(cat, sec.title, addRoleVal)} disabled={!addRoleVal.trim() || busy} sx={{ ...ghostBtn, padding: '2px' }}>
-                            <Add sx={{ fontSize: 14 }} />
-                        </IconButton>
-                        <IconButton size='small' onClick={() => { setAddRoleKey(null); setAddRoleVal('') }} sx={{ ...ghostBtn, padding: '2px' }}>
-                            <Close sx={{ fontSize: 14 }} />
-                        </IconButton>
-                    </div>
-                ) : (
-                    <Button
-                        size='small'
-                        sx={addBtn}
-                        startIcon={<Add sx={{ fontSize: '11px !important' }} />}
-                        onClick={() => { setAddRoleKey(sectionKey); setAddRoleVal('') }}
-                    >
-                        Add Role
-                    </Button>
+                            sx={addBtn}
+                            startIcon={<Add sx={{ fontSize: '11px !important' }} />}
+                            onClick={() => { setAddRoleKey(sectionKey); setAddRoleVal('') }}
+                        >
+                            Add Role
+                        </Button>
+                    )
                 )}
             </div>
         )
@@ -872,27 +892,31 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                                         Unlinked slot
                                     </Typography>
                                 )}
-                                <IconButton
-                                    size='small'
-                                    disabled={busy}
-                                    title={moveLabel}
-                                    onClick={() => moveReservist(posId, targetCat as 'activeReservist' | 'inactiveReservist')}
-                                    sx={{ ...ghostBtn, padding: '1px' }}
-                                >
-                                    {isActive
-                                        ? <ArrowDownward sx={{ fontSize: 11 }} />
-                                        : <ArrowUpward sx={{ fontSize: 11 }} />
-                                    }
-                                </IconButton>
-                                <IconButton
-                                    size='small'
-                                    disabled={busy}
-                                    title='Remove from pool'
-                                    onClick={() => removeReservist(posId)}
-                                    sx={{ ...ghostBtn, padding: '1px', color: 'rgba(219,0,29,0.3)', '&:hover': { color: 'rgba(219,0,29,0.65)' } }}
-                                >
-                                    <Delete sx={{ fontSize: 11 }} />
-                                </IconButton>
+                                {canManageMembers && (
+                                    <>
+                                        <IconButton
+                                            size='small'
+                                            disabled={busy}
+                                            title={moveLabel}
+                                            onClick={() => moveReservist(posId, targetCat as 'activeReservist' | 'inactiveReservist')}
+                                            sx={{ ...ghostBtn, padding: '1px' }}
+                                        >
+                                            {isActive
+                                                ? <ArrowDownward sx={{ fontSize: 11 }} />
+                                                : <ArrowUpward sx={{ fontSize: 11 }} />
+                                            }
+                                        </IconButton>
+                                        <IconButton
+                                            size='small'
+                                            disabled={busy}
+                                            title='Remove from pool'
+                                            onClick={() => removeReservist(posId)}
+                                            sx={{ ...ghostBtn, padding: '1px', color: 'rgba(219,0,29,0.3)', '&:hover': { color: 'rgba(219,0,29,0.65)' } }}
+                                        >
+                                            <Delete sx={{ fontSize: 11 }} />
+                                        </IconButton>
+                                    </>
+                                )}
                             </div>
                         )
                     })}
@@ -903,17 +927,19 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                     )}
                 </div>
 
-                {/* Add Member */}
-                <div className='px-1 pb-2'>
-                    <Button
-                        size='small'
-                        sx={{ ...addBtn, color: 'rgba(237,237,237,0.15)', '&:hover': { color: 'rgba(237,237,237,0.4)', background: 'transparent' } }}
-                        startIcon={<Add sx={{ fontSize: '11px !important' }} />}
-                        onClick={() => { setAddReservistCat(cat._id as 'activeReservist' | 'inactiveReservist'); setAddReservistSearch('') }}
-                    >
-                        Add Member
-                    </Button>
-                </div>
+                {/* Add Member — member managers only */}
+                {canManageMembers && (
+                    <div className='px-1 pb-2'>
+                        <Button
+                            size='small'
+                            sx={{ ...addBtn, color: 'rgba(237,237,237,0.15)', '&:hover': { color: 'rgba(237,237,237,0.4)', background: 'transparent' } }}
+                            startIcon={<Add sx={{ fontSize: '11px !important' }} />}
+                            onClick={() => { setAddReservistCat(cat._id as 'activeReservist' | 'inactiveReservist'); setAddReservistSearch('') }}
+                        >
+                            Add Member
+                        </Button>
+                    </div>
+                )}
             </div>
         )
     }
@@ -928,7 +954,7 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
     }
 
     const [hqCat, ...platoonCols] = PLATOON_CATEGORIES
-    const canAddSectionFor = (id: string) => !(SINGLE_SECTION_CATEGORIES as readonly string[]).includes(id)
+    const canAddSectionFor = (id: string) => canManageStructure && !(SINGLE_SECTION_CATEGORIES as readonly string[]).includes(id)
 
 
     return (
@@ -1228,7 +1254,13 @@ export default function OrbatManager({ initialUsers }: { initialUsers: PickerUse
                     )}
                     {milpacUser && !milpacLoading && (
                         <div style={{ padding: '20px 24px' }}>
-                            <MilpacEditor member={milpacUser} confirmedOps={milpacConfirmedOps} onDirtyChange={setMilpacDirty} />
+                            <MilpacEditor
+                            member={milpacUser}
+                            confirmedOps={milpacConfirmedOps}
+                            onDirtyChange={setMilpacDirty}
+                            canEditRestricted={canMilpacEditRestricted}
+                            canEditStandard={canMilpacEditStandard}
+                        />
                         </div>
                     )}
                 </DialogContent>

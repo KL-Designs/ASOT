@@ -9,7 +9,7 @@ import { SINGLE_SECTION_CATEGORIES } from '@/lib/orbat-constants'
 async function auth(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return false
-    return client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+    return client.hasRoles(me, PERMISSIONS.admin.manageOrbatStructure)
 }
 
 

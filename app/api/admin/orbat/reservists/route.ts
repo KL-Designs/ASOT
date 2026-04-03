@@ -9,7 +9,7 @@ import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
 async function auth() {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return false
-    return client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+    return client.hasRoles(me, PERMISSIONS.admin.manageOrbatMembers)
 }
 
 function parseId(id: string): ObjectId | null {

@@ -460,7 +460,7 @@ function SortableItem({ id, children }: { id: string; children: (listeners: Reco
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange }: { member: User; confirmedOps?: ConfirmedOp[]; onDirtyChange?: (dirty: boolean) => void }) {
+export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange, canEditRestricted = false, canEditStandard = false }: { member: User; confirmedOps?: ConfirmedOp[]; onDirtyChange?: (dirty: boolean) => void; canEditRestricted?: boolean; canEditStandard?: boolean }) {
     const strippedNickname = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
     const fullDisplay = strippedNickname || member.globalName || member.username
     const nameParts = fullDisplay.split(' ')
@@ -593,23 +593,28 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
         setSaved(false)
         setError(null)
         try {
+            const body: Record<string, any> = {}
+            if (canEditStandard) {
+                body.name = memberName.trim() || null
+                body.promotions = promotions.map(({ _key, ...rest }) => rest)
+                body.awards = awards.map(({ _key, ...rest }) => rest)
+                body.qualifications = qualifications.map(({ _key, ...rest }) => rest)
+            }
+            if (canEditRestricted) {
+                body.bioRank = rankAbbrFromName(bioRank)
+                body.enlistedDate = enlistedDate
+                body.billetCounts = {
+                    ...billetCounts,
+                    // Both primary and secondary op counts are sourced from operation_attendance
+                    primaryNightOps: 0,
+                    secondaryNightOps: 0,
+                }
+                body.j4Points = j4Points
+            }
             const res = await fetch(`/api/members/${member.username}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: memberName.trim() || null,
-                    bioRank: rankAbbrFromName(bioRank), enlistedDate,
-                    promotions: promotions.map(({ _key, ...rest }) => rest),
-                    awards: awards.map(({ _key, ...rest }) => rest),
-                    qualifications: qualifications.map(({ _key, ...rest }) => rest),
-                    billetCounts: {
-                        ...billetCounts,
-                        // Both primary and secondary op counts are sourced from operation_attendance
-                        primaryNightOps: 0,
-                        secondaryNightOps: 0,
-                    },
-                    j4Points,
-                }),
+                body: JSON.stringify(body),
             })
             const json = await res.json()
             if (!res.ok) throw new Error(json.error || 'Save failed')
@@ -781,37 +786,41 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
 
             {/* Basic Info */}
             <SectionCard title='Basic Info'>
-                <div className='flex flex-col gap-2'>
-                    <Label>Name</Label>
-                    <input
-                        value={memberName}
-                        onChange={e => { markDirty(); setMemberName(e.target.value) }}
-                        placeholder={parsedDisplayName}
-                        style={inputStyle}
-                    />
-                    <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.25)', letterSpacing: '0.04em' }}>
-                        Clean display name used across milpacs, orbat, and the roster. Must be unique. Leave blank to use Discord nickname.
-                    </span>
-                </div>
-                <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+                {canEditStandard && (
                     <div className='flex flex-col gap-2'>
-                        <Label>Current Rank</Label>
-                        <RankSelect value={bioRank} onChange={v => { markDirty(); setBioRank(v) }} />
-                    </div>
-                    <div className='flex flex-col gap-2'>
-                        <Label>Enlisted Date</Label>
+                        <Label>Name</Label>
                         <input
-                            value={enlistedDate}
-                            onChange={e => { markDirty(); setEnlistedDate(e.target.value) }}
-                            placeholder='e.g. 15 August 2020'
+                            value={memberName}
+                            onChange={e => { markDirty(); setMemberName(e.target.value) }}
+                            placeholder={parsedDisplayName}
                             style={inputStyle}
                         />
+                        <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.25)', letterSpacing: '0.04em' }}>
+                            Clean display name used across milpacs, orbat, and the roster. Must be unique. Leave blank to use Discord nickname.
+                        </span>
                     </div>
-                </div>
+                )}
+                {canEditRestricted && (
+                    <div className='grid grid-cols-1 sm:grid-cols-2 gap-4'>
+                        <div className='flex flex-col gap-2'>
+                            <Label>Current Rank</Label>
+                            <RankSelect value={bioRank} onChange={v => { markDirty(); setBioRank(v) }} />
+                        </div>
+                        <div className='flex flex-col gap-2'>
+                            <Label>Enlisted Date</Label>
+                            <input
+                                value={enlistedDate}
+                                onChange={e => { markDirty(); setEnlistedDate(e.target.value) }}
+                                placeholder='e.g. 15 August 2020'
+                                style={inputStyle}
+                            />
+                        </div>
+                    </div>
+                )}
             </SectionCard>
 
-            {/* Billet Points */}
-            {(() => {
+            {/* Billet Points — J4-Administration only */}
+            {canEditRestricted && (() => {
                 // Split confirmed ops into Saturday (primary) and Sunday (secondary)
                 const isSecondary = (name: string) => name.includes('— Sun') || name.includes('— Night 2')
                 const primaryOps  = confirmedOps.filter(op => !isSecondary(op.name))
@@ -1015,7 +1024,8 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
                 )
             })()}
 
-            {/* Promotions */}
+            {/* Promotion History — HQ Staff + J4-Admin */}
+            {canEditStandard && (
             <SectionCard title='Promotion History' onAdd={addPromotion} addLabel='Promotion'>
                 {promotions.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No promotions on record.</span>
@@ -1079,8 +1089,10 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
                     </DndContext>
                 )}
             </SectionCard>
+            )}
 
-            {/* Qualifications */}
+            {/* Qualifications — HQ Staff + J4-Admin */}
+            {canEditStandard && (
             <SectionCard title='Qualifications' onAdd={addQualification} addLabel='Qualification'>
                 {qualifications.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No qualifications on record.</span>
@@ -1164,8 +1176,10 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
                     </>
                 )}
             </SectionCard>
+            )}
 
-            {/* Awards */}
+            {/* Awards — HQ Staff + J4-Admin */}
+            {canEditStandard && (
             <SectionCard title='Awards & Commendations' onAdd={addAward} addLabel='Award'>
                 {awards.length === 0 ? (
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No awards on record.</span>
@@ -1263,6 +1277,7 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
                     </>
                 )}
             </SectionCard>
+            )}
 
             {/* Operations — derived from confirmed attendance */}
             {(() => {
@@ -1330,7 +1345,8 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
                 )
             })()}
 
-            {/* Uniform */}
+            {/* Uniform — HQ Staff + J4-Admin */}
+            {canEditStandard && (
             <SectionCard title='Uniform'>
                 <div className='flex gap-6 items-start'>
                     {/* Current / preview image */}
@@ -1375,8 +1391,10 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
                     </div>
                 </div>
             </SectionCard>
+            )}
 
-            {/* Medals */}
+            {/* Medals — HQ Staff + J4-Admin */}
+            {canEditStandard && (
             <SectionCard title='Medals'>
                 <div className='flex gap-6 items-start'>
                     <div style={{ flexShrink: 0, width: 200, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 80, overflow: 'hidden' }}>
@@ -1420,6 +1438,7 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange 
                     </div>
                 </div>
             </SectionCard>
+            )}
 
         </div>
         </div>

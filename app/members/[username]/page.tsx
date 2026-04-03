@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { connection } from 'next/server'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import MilpacEditor from './MilpacEditor'
 
@@ -10,7 +11,10 @@ export default async function Page({ params }: { params: Promise<{ username: str
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) redirect('/login')
-    if (!client.hasRoles(me, ['J4-Administration'])) redirect('/me')
+    if (!client.hasRoles(me, PERMISSIONS.members.editStandard)) redirect('/me')
+
+    const canEditRestricted = client.hasRoles(me, PERMISSIONS.members.editRestricted)
+    const canEditStandard   = client.hasRoles(me, PERMISSIONS.members.editStandard)
 
     const { username } = await params
     const allMembers = await client.fetchAllMembers()
@@ -44,5 +48,12 @@ export default async function Page({ params }: { params: Promise<{ username: str
         }]
     })
 
-    return <MilpacEditor member={member} confirmedOps={confirmedOps} />
+    return (
+        <MilpacEditor
+            member={member}
+            confirmedOps={confirmedOps}
+            canEditRestricted={canEditRestricted}
+            canEditStandard={canEditStandard}
+        />
+    )
 }

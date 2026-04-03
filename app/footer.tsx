@@ -5,6 +5,7 @@ import { Typography } from '@mui/material'
 
 import Logo from '@/public/ASOT-logo.png'
 import MapBg from '@/public/designs/map.png'
+import Signature from '@/components/signature'
 
 
 const navColumns = [
@@ -15,7 +16,7 @@ const navColumns = [
             { label: 'About Us', href: '/about' },
             { label: 'ORBAT', href: '/community/orbat' },
             { label: 'Biographies', href: '/community/bios' },
-            { label: 'Hall of Fame', href: '/community/hof' },
+            // { label: 'Hall of Fame', href: '/community/hof' },
         ],
     },
     {
@@ -25,7 +26,7 @@ const navColumns = [
             { label: 'Partners', href: '/partnerships' },
             { label: 'Support', href: '/support' },
             { label: 'Donate', href: '/donate' },
-            { label: 'MILPACS', href: 'https://www.australianspecialoperationstaskforce.com/milpacs' },
+            { label: 'MILPACS', href: '/milpacs' },
         ],
     },
     {
@@ -57,7 +58,7 @@ export default function Footer() {
             </div>
 
             {/* Main content */}
-            <div className='relative z-10 w-full max-w-6xl mx-auto px-6 md:px-10 py-12 flex flex-col gap-10'>
+            <div className='relative z-10 w-full max-w-6xl mx-auto px-6 md:px-10 py-12 flex flex-col gap-5'>
 
                 {/* Top row */}
                 <div className='flex flex-col md:flex-row gap-10 md:gap-6'>
@@ -130,6 +131,11 @@ export default function Footer() {
                     <Typography fontSize='0.7rem' letterSpacing={1} style={{ color: 'rgba(237,237,237,0.2)', textTransform: 'uppercase' }}>
                         © {new Date().getFullYear()} Australian Special Operations Taskforce
                     </Typography>
+
+                    <Link href='https://github.com/ItsKodas' target='_blank' rel='noopener noreferrer'>
+                        <Signature size='80px' color='rgba(237,237,237,0.15)' />
+                    </Link>
+
                     <Typography fontSize='0.68rem' style={{ color: 'rgba(237,237,237,0.18)', maxWidth: 560, lineHeight: 1.6, textAlign: 'right' }}>
                         ARMA 2™ ARMA 3™ and Bohemia Interactive™ are trademarks of Bohemia Interactive. ASOT is an ArmA 3 online gaming community and is not affiliated with, associated with, or endorsed by the Australian Defence Force or the Australian Government.
                     </Typography>

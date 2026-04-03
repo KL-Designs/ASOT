@@ -6,10 +6,17 @@ import Db from '@/lib/mongo'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
 
 
-async function auth() {
+async function authStructure() {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return null
-    if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbat)) return null
+    if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbatStructure)) return null
+    return me
+}
+
+async function authMembers() {
+    const me = await client.fetchMe().catch(() => null)
+    if (!me) return null
+    if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbatMembers)) return null
     return me
 }
 
@@ -30,8 +37,6 @@ export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ positionId: string }> }
 ) {
-    if (!await auth()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
     const { positionId } = await params
     const objectId = parseId(positionId)
     if (!objectId) return NextResponse.json({ error: 'Invalid positionId' }, { status: 400 })
@@ -43,6 +48,7 @@ export async function PATCH(
 
     // User assignment
     if ('userId' in body) {
+        if (!await authMembers()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         const { userId, skipAutoMove } = body
         const isUnassign = !userId
 
@@ -83,7 +89,8 @@ export async function PATCH(
         })
     }
 
-    // Field updates (role rename, reorder)
+    // Field updates (role rename, reorder) — structure permission required
+    if (!await authStructure()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const updates: Partial<OrbatPosition> = {}
     if (typeof body.role === 'string') updates.role = body.role
     if (typeof body.positionOrder === 'number') updates.positionOrder = body.positionOrder
@@ -100,7 +107,7 @@ export async function DELETE(
     _request: NextRequest,
     { params }: { params: Promise<{ positionId: string }> }
 ) {
-    if (!await auth()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!await authStructure()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { positionId } = await params
     const objectId = parseId(positionId)
