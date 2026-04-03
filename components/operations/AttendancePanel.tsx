@@ -90,7 +90,6 @@ function rsvpIcon(rsvp: 'attending' | 'not_attending' | null) {
 // subsequent sections within the same category are indented sub-sections.
 function groupByCategoryAndSection(records: AttendanceRecord[]): Map<string, { title: string; isSubSection: boolean; records: AttendanceRecord[] }[]> {
     const result = new Map<string, { title: string; isSubSection: boolean; records: AttendanceRecord[] }[]>()
-    const firstSectionByCategory = new Map<string, string>()
 
     // Map section title → category so reservists can be placed in the right platoon group
     const sectionCategoryMap = new Map<string, string>()
@@ -110,8 +109,7 @@ function groupByCategoryAndSection(records: AttendanceRecord[]): Map<string, { t
 
         let entry = catSections.find(s => s.title === sectionKey)
         if (!entry) {
-            const isSubSection = firstSectionByCategory.has(cat) && cat !== 'companyHQ' && cat !== 'other'
-            if (!firstSectionByCategory.has(cat)) firstSectionByCategory.set(cat, sectionKey)
+            const isSubSection = false
             entry = { title: sectionKey, isSubSection, records: [] }
             catSections.push(entry)
         }
