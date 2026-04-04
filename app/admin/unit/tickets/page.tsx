@@ -12,7 +12,8 @@ export default async function Page() {
     if (!client.hasRoles(me, PERMISSIONS.pages.admin)) redirect('/me')
 
     const canActionJ3 = client.hasRoles(me, PERMISSIONS.tickets.actionJ3)
+    const canActionJ4 = client.hasRoles(me, PERMISSIONS.tickets.actionJ4)
     const displayName = me.guild?.nickname || me.globalName || me.username || ''
 
-    return <TicketsPanel canActionJ3={canActionJ3} displayName={displayName} />
+    return <TicketsPanel canActionJ3={canActionJ3} canActionJ4={canActionJ4} displayName={displayName} />
 }

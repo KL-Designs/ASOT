@@ -119,6 +119,8 @@ const PERMISSIONS = {
     tickets: {
         /** PATCH /api/admin/tickets/[id] — action J3 qualification tickets */
         actionJ3: ['J3-Team Lead'],
+        /** PATCH /api/admin/tickets/[id] — action J4 award tickets */
+        actionJ4: ['J4-Administration'],
     },
 
 } satisfies Record<string, Record<string, string[]>>

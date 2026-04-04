@@ -12,6 +12,7 @@ type TicketRow = Ticket & { _id: string }
 
 const DEPT_LABELS: Record<string, string> = {
     j3: 'J3',
+    j4: 'J4',
 }
 
 const STATUS_COLORS: Record<string, 'warning' | 'success' | 'error'> = {
@@ -113,9 +114,17 @@ function ActionModal({ ticket, onClose, onResolved }: {
                     >
                         <div className='grid grid-cols-2 gap-3'>
                             <Field label='Department' value={DEPT_LABELS[ticket.department] ?? ticket.department} />
-                            <Field label='Action' value={ticket.action === 'add' ? 'Add Qualification' : 'Remove Qualification'} />
+                            <Field
+                                label='Action'
+                                value={
+                                    ticket.action === 'add' ? 'Add Qualification' :
+                                    ticket.action === 'remove' ? 'Remove Qualification' :
+                                    ticket.type === 'j4-award' ? 'Award Nomination' : undefined
+                                }
+                            />
                             <Field label='Member' value={ticket.targetUserName} />
-                            <Field label='Qualification' value={ticket.qualification} />
+                            <Field label={ticket.type === 'j4-award' ? 'Award' : 'Qualification'} value={ticket.qualification ?? ticket.awardName} />
+                            {ticket.awardType && <Field label='Award Type' value={ticket.awardType} />}
                             <Field label='Issued By' value={ticket.issuedByName} />
                             <Field label='Date Issued' value={formatDate(ticket.issuedAt)} />
                         </div>
@@ -193,7 +202,7 @@ function ActionModal({ ticket, onClose, onResolved }: {
     )
 }
 
-export default function TicketsPanel({ canActionJ3, displayName }: { canActionJ3: boolean; displayName: string }) {
+export default function TicketsPanel({ canActionJ3, canActionJ4, displayName }: { canActionJ3: boolean; canActionJ4: boolean; displayName: string }) {
     const [tickets, setTickets] = useState<TicketRow[]>([])
     const [loading, setLoading] = useState(true)
     const [deptFilter, setDeptFilter] = useState('all')
@@ -263,6 +272,7 @@ export default function TicketsPanel({ canActionJ3, displayName }: { canActionJ3
                     <Select value={deptFilter} label='Department' onChange={e => setDeptFilter(e.target.value)}>
                         <MenuItem value='all' sx={{ fontSize: '0.82rem' }}>All Departments</MenuItem>
                         <MenuItem value='j3' sx={{ fontSize: '0.82rem' }}>J3 — Training</MenuItem>
+                        <MenuItem value='j4' sx={{ fontSize: '0.82rem' }}>J4 — Administration</MenuItem>
                     </Select>
                 </FormControl>
                 <FormControl size='small' sx={selectSx}>
@@ -318,8 +328,8 @@ export default function TicketsPanel({ canActionJ3, displayName }: { canActionJ3
                                         {DEPT_LABELS[t.department] ?? t.department}
                                     </td>
                                     <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)', whiteSpace: 'nowrap' }}>{t.targetUserName}</td>
-                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{t.action}</td>
-                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>{t.qualification}</td>
+                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{t.action ?? (t.type === 'j4-award' ? 'Nomination' : '—')}</td>
+                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>{t.qualification ?? t.awardName ?? '—'}</td>
                                     <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>{t.issuedByName}</td>
                                     <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>{formatDate(t.issuedAt)}</td>
                                     <td style={{ padding: '9px 14px' }}>
@@ -331,7 +341,7 @@ export default function TicketsPanel({ canActionJ3, displayName }: { canActionJ3
                                         />
                                     </td>
                                     <td style={{ padding: '9px 14px' }}>
-                                        {canActionJ3 && t.department === 'j3' && t.status === 'open' && (
+                                        {((canActionJ3 && t.department === 'j3') || (canActionJ4 && t.department === 'j4')) && t.status === 'open' && (
                                             <Button
                                                 size='small'
                                                 variant='outlined'

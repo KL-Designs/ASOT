@@ -13,10 +13,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.tickets.actionJ3)) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
     let objectId: ObjectId
     try {
         objectId = new ObjectId(params.id)
@@ -27,6 +23,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const ticket = await Db.tickets.findOne({ _id: objectId })
     if (!ticket) {
         return NextResponse.json({ error: 'Ticket not found' }, { status: 404 })
+    }
+
+    // Auth check is ticket-department-aware
+    const canAction =
+        (ticket.department === 'j3' && client.hasRoles(me, PERMISSIONS.tickets.actionJ3)) ||
+        (ticket.department === 'j4' && client.hasRoles(me, PERMISSIONS.tickets.actionJ4))
+    if (!canAction) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     if (ticket.status !== 'open') {
@@ -56,34 +60,58 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         return NextResponse.json({ ok: true })
     }
 
-    // Approve — apply the qualification change to the member
-    const member = await Db.users.findOne({ id: ticket.targetUserId })
-    if (!member) {
-        return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
-    }
-
-    const existing = member.milpac?.qualifications ?? []
-    let updatedQuals: { date: string; qualification: string; issuedById?: string; issuedByName?: string }[]
-
-    if (ticket.action === 'add') {
-        const alreadyHas = existing.some(q => q.qualification === ticket.qualification)
-        if (alreadyHas) {
-            updatedQuals = existing
-        } else {
-            updatedQuals = [...existing, {
-                date: now.toISOString().split('T')[0],
-                qualification: ticket.qualification,
-                issuedById: ticket.issuedById,
-                issuedByName: ticket.issuedByName,
-            }]
+    // Approve — fork on ticket type
+    if (ticket.type === 'j3-qualification') {
+        const member = await Db.users.findOne({ id: ticket.targetUserId })
+        if (!member) {
+            return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
         }
-    } else {
-        updatedQuals = existing.filter(q => q.qualification !== ticket.qualification)
-    }
 
-    await Db.users.updateOne({ id: ticket.targetUserId }, {
-        $set: { 'milpac.qualifications': updatedQuals },
-    })
+        const existing = member.milpac?.qualifications ?? []
+        let updatedQuals: { date: string; qualification: string; issuedById?: string; issuedByName?: string }[]
+
+        if (ticket.action === 'add') {
+            const alreadyHas = existing.some(q => q.qualification === ticket.qualification)
+            if (alreadyHas) {
+                updatedQuals = existing
+            } else {
+                updatedQuals = [...existing, {
+                    date: now.toISOString().split('T')[0],
+                    qualification: ticket.qualification!,
+                    issuedById: ticket.issuedById,
+                    issuedByName: ticket.issuedByName,
+                }]
+            }
+        } else {
+            updatedQuals = existing.filter(q => q.qualification !== ticket.qualification)
+        }
+
+        await Db.users.updateOne({ id: ticket.targetUserId }, {
+            $set: { 'milpac.qualifications': updatedQuals },
+        })
+    } else if (ticket.type === 'j4-award') {
+        const member = await Db.users.findOne({ id: ticket.targetUserId })
+        if (!member) {
+            return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
+        }
+
+        const existing = member.milpac?.awards ?? []
+        const alreadyHas = existing.some(a => a.name === ticket.awardName)
+
+        if (!alreadyHas) {
+            await Db.users.updateOne({ id: ticket.targetUserId }, {
+                $push: {
+                    'milpac.awards': {
+                        date: now.toISOString().split('T')[0],
+                        name: ticket.awardName!,
+                        type: ticket.awardType!,
+                        issuedById: ticket.issuedById,
+                        issuedByName: ticket.issuedByName,
+                    } as any,
+                },
+            })
+        }
+    }
 
     await Db.tickets.updateOne({ _id: objectId }, {
         $set: {

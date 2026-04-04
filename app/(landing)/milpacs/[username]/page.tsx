@@ -12,6 +12,7 @@ import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/milpac-profile'
 import { CoverUpload } from './cover-upload'
 import { BiographyEditor } from './bio-editor'
+import { RequestAwardButton } from './RequestAwardButton'
 
 
 async function resolveProfile(username: string) {
@@ -71,6 +72,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const me = await client.fetchMe().catch(() => null)
 	const canEdit = me ? client.hasRoles(me, ['J5-Media']) : false
 	const isOwn = me?.id === member.id
+	const canRequestAward = me !== null && me.id !== member.id && !member.isSkeletonAccount
 	const hasCover = existsSync(join(process.cwd(), 'uploads', 'cover', `${member.id}.png`))
 
 	// Fetch confirmed attendance records for operation history
@@ -160,6 +162,14 @@ export default async function Page({ params }: { params: Promise<{ username: str
 					</Link>
 
 					<div style={{ display: 'flex', gap: 8 }}>
+						{canRequestAward && (
+							<RequestAwardButton
+								targetUserId={member.id}
+								targetUserName={name}
+								existingAwardNames={(member.milpac?.awards ?? []).map(a => a.name)}
+								accent={accent}
+							/>
+						)}
 						{canEdit && (
 							<Link href={`/members/${username}`} style={{
 								display: 'inline-flex',
