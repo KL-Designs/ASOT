@@ -44,7 +44,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
     }
 
-    const { discordUsername, inGameName, recruiter, notes } = body
+    const {
+        discordUsername, inGameName, recruiter, notes,
+        steamUrl, region, armaHours, primaryRole, availableNights,
+    } = body
 
     if (!discordUsername?.trim()) return NextResponse.json({ error: 'Discord username is required.' }, { status: 400 })
     if (!inGameName?.trim()) return NextResponse.json({ error: 'In-game name is required.' }, { status: 400 })
@@ -63,6 +66,11 @@ export async function POST(request: NextRequest) {
         notes: notes?.trim() || '',
         reviewedBy: displayName,
         reviewedAt: new Date(),
+        steamUrl: steamUrl?.trim() || undefined,
+        region: region?.trim() || undefined,
+        armaHours: armaHours?.trim() || undefined,
+        primaryRole: primaryRole?.trim() || undefined,
+        availableNights: availableNights?.trim() || undefined,
     })
 
     return NextResponse.json({ ok: true })

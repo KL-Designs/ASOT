@@ -14,4 +14,17 @@ interface J1Application {
     recruiter?: string
     linkedUserId?: string
     linkedUserDisplayName?: string
+    // Extended fields
+    steamUrl?: string
+    region?: string
+    armaHours?: string
+    priorMilsim?: boolean
+    dualClan?: boolean
+    previousUnits?: string
+    availableNights?: string
+    opsPerMonth?: string
+    primaryRole?: string
+    additionalRoles?: string[]
+    departmentInterest?: string[]
+    ownsArma?: boolean
 }

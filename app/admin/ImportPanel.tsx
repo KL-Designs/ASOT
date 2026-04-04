@@ -10,7 +10,7 @@ import {
 } from '@mui/material'
 import {
     CloudUpload, CheckCircle, Error as ErrorIcon,
-    AccountTree, EventAvailable,
+    AccountTree, EventAvailable, PersonAdd,
 } from '@mui/icons-material'
 
 interface Props {
@@ -441,6 +441,237 @@ function AttendanceImportTab() {
     )
 }
 
+// ── Tab 2: Application Records (legacy Google Form CSV) ─────────────────────
+
+// Handles quoted fields with internal commas/newlines and "" escape sequences.
+function parseAppCSV(text: string): string[][] {
+    const rows: string[][] = []
+    let i = 0
+    const len = text.length
+    while (i < len) {
+        const row: string[] = []
+        rowLoop: while (true) {
+            let field = ''
+            if (text[i] === '"') {
+                i++
+                while (i < len) {
+                    if (text[i] === '"') {
+                        if (text[i + 1] === '"') { field += '"'; i += 2 }
+                        else { i++; break }
+                    } else { field += text[i++] }
+                }
+            } else {
+                while (i < len && text[i] !== ',' && text[i] !== '\n' && text[i] !== '\r') field += text[i++]
+            }
+            row.push(field)
+            if (i >= len || text[i] === '\n' || text[i] === '\r') break rowLoop
+            if (text[i] === ',') { i++; continue }
+        }
+        if (i < len && text[i] === '\r') i++
+        if (i < len && text[i] === '\n') i++
+        if (row.length > 1 || (row.length === 1 && row[0] !== '')) rows.push(row)
+    }
+    return rows
+}
+
+const APP_COL = { TIMESTAMP: 0, DISCORD: 2, STEAM: 3, AGE: 4, PREV_EXP: 5, EXPERIENCE: 6, HOURS: 7, NIGHTS: 8, OPS_MONTH: 9, PRIMARY: 10, ADDL: 11, DEPTS: 12, GROUPS: 15, REGION: 16 }
+
+function parseAppDate(ts: string): string {
+    const [datePart, timePart] = ts.trim().split(' ')
+    if (!datePart) return new Date().toISOString()
+    const [day, month, year] = datePart.split('/')
+    if (!day || !month || !year) return new Date().toISOString()
+    const d = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timePart || '00:00:00'}`)
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+}
+
+function parseAppAge(s: string): number {
+    const l = s.toLowerCase()
+    if (l.includes('over')) return 18
+    if (l.includes('under')) return 16
+    return 0
+}
+
+function buildAppNotes(row: string[]): string {
+    const parts: string[] = []
+    const add = (label: string, idx: number) => { const v = row[idx]?.trim(); if (v) parts.push(`${label}: ${v}`) }
+    add('Steam', APP_COL.STEAM)
+    add('ARMA Hours', APP_COL.HOURS)
+    add('Prior Milsim', APP_COL.PREV_EXP)
+    add('Primary Role', APP_COL.PRIMARY)
+    add('Additional Roles', APP_COL.ADDL)
+    add('Department Interest', APP_COL.DEPTS)
+    add('Availability', APP_COL.NIGHTS)
+    add('Ops/Month', APP_COL.OPS_MONTH)
+    add('Previous Units', APP_COL.GROUPS)
+    add('Region', APP_COL.REGION)
+    return parts.join('\n')
+}
+
+interface AppRecord {
+    discordUsername: string; inGameName: string; age: number
+    experience: string; submittedAt: string; notes: string
+    status: 'pending' | 'reviewing' | 'accepted' | 'rejected'
+}
+
+const APP_STATUS_COLORS: Record<string, 'warning' | 'info' | 'success' | 'error'> = {
+    pending: 'warning', reviewing: 'info', accepted: 'success', rejected: 'error',
+}
+
+function ApplicationRecordsTab() {
+    const fileRef = useRef<HTMLInputElement>(null)
+    const [records, setRecords] = useState<AppRecord[]>([])
+    const [defaultStatus, setDefaultStatus] = useState<AppRecord['status']>('pending')
+    const [fileName, setFileName] = useState<string | null>(null)
+    const [parseError, setParseError] = useState<string | null>(null)
+    const [importing, setImporting] = useState(false)
+    const [importResult, setImportResult] = useState<{ inserted: number } | null>(null)
+    const [importError, setImportError] = useState<string | null>(null)
+
+    function handleFile(file: File) {
+        setParseError(null); setImportResult(null); setImportError(null); setFileName(file.name)
+        const reader = new FileReader()
+        reader.onload = e => {
+            const text = e.target?.result as string
+            try {
+                const rows = parseAppCSV(text)
+                if (rows.length < 2) { setParseError('CSV appears empty or has no data rows.'); setRecords([]); return }
+                const parsed: AppRecord[] = rows.slice(1)
+                    .filter(r => r[APP_COL.DISCORD]?.trim())
+                    .map(r => ({
+                        discordUsername: r[APP_COL.DISCORD]?.trim() || '',
+                        inGameName: '',
+                        age: parseAppAge(r[APP_COL.AGE] || ''),
+                        experience: r[APP_COL.EXPERIENCE]?.trim() || '',
+                        submittedAt: parseAppDate(r[APP_COL.TIMESTAMP] || ''),
+                        notes: buildAppNotes(r),
+                        status: defaultStatus,
+                    }))
+                if (parsed.length === 0) { setParseError('No valid records found. Ensure column 3 (Discord name) is populated.'); setRecords([]); return }
+                setRecords(parsed)
+            } catch {
+                setParseError('Failed to parse CSV. Ensure the file uses the standard Google Form export format.')
+                setRecords([])
+            }
+        }
+        reader.readAsText(file)
+    }
+
+    async function handleImport() {
+        setImporting(true); setImportError(null); setImportResult(null)
+        try {
+            const res = await fetch('/api/admin/j1/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ records: records.map(r => ({ ...r, status: defaultStatus })) }),
+            })
+            const data = await res.json()
+            if (!res.ok) { setImportError(data.error || 'Import failed.') }
+            else { setImportResult({ inserted: data.inserted }); setRecords([]); setFileName(null) }
+        } catch {
+            setImportError('Network error during import.')
+        } finally {
+            setImporting(false)
+        }
+    }
+
+    return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Typography fontSize='0.78rem' sx={{ color: 'rgba(237,237,237,0.5)', letterSpacing: '0.04em' }}>
+                Upload a CSV exported from the legacy Google Form application to import past records into the Applications Register.
+                Imported records will be assigned the selected status so J1 staff can finalise each entry.
+            </Typography>
+
+            {importResult && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <CheckCircle sx={{ color: '#4caf50' }} />
+                    <Typography fontSize='0.78rem' sx={{ color: 'rgba(237,237,237,0.7)' }}>
+                        Successfully imported <strong>{importResult.inserted}</strong> record{importResult.inserted !== 1 ? 's' : ''}.
+                    </Typography>
+                </Box>
+            )}
+
+            {records.length === 0 ? (
+                <Box>
+                    <input ref={fileRef} type='file' accept='.csv,text/csv' style={{ display: 'none' }}
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+                    <Button variant='outlined' startIcon={<CloudUpload />} onClick={() => fileRef.current?.click()} fullWidth sx={fileBtn(false)}>
+                        {fileName ? fileName : 'Choose Application Records CSV…'}
+                    </Button>
+                    {parseError && <Alert severity='error' sx={{ mt: 1.5, borderRadius: 0, fontSize: '0.78rem' }}>{parseError}</Alert>}
+                </Box>
+            ) : (
+                <>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                        <Typography fontSize='0.78rem' sx={{ color: 'rgba(237,237,237,0.6)' }}>
+                            <strong style={{ color: '#ededed' }}>{records.length}</strong> records parsed from <em>{fileName}</em>
+                        </Typography>
+                        <Button size='small' onClick={() => { setRecords([]); setFileName(null) }}
+                            sx={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', borderColor: 'rgba(219,0,29,0.2)', letterSpacing: 1 }}>
+                            Clear
+                        </Button>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Box sx={{ minWidth: 170 }}>
+                            <Typography sx={{ ...label, mb: 0.5 }}>Import Status</Typography>
+                            <Box
+                                component='select'
+                                value={defaultStatus}
+                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDefaultStatus(e.target.value as AppRecord['status'])}
+                                sx={{
+                                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(219,0,29,0.25)',
+                                    color: 'rgba(237,237,237,0.8)', fontSize: '0.78rem', padding: '6px 10px',
+                                    width: '100%', cursor: 'pointer', outline: 'none',
+                                    '&:focus': { borderColor: 'var(--red)' },
+                                }}
+                            >
+                                <option value='pending'>Pending</option>
+                                <option value='reviewing'>Reviewing</option>
+                                <option value='accepted'>Accepted</option>
+                                <option value='rejected'>Rejected</option>
+                            </Box>
+                        </Box>
+                    </Box>
+
+                    {/* Preview */}
+                    <Box sx={{ border: '1px solid rgba(219,0,29,0.1)', overflow: 'hidden' }}>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 50px 90px 130px', gap: 1.5, px: 1.5, py: 1, background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
+                            {['Discord', 'Age', 'Status', 'Submitted'].map(h => (
+                                <Typography key={h} fontSize='0.58rem' fontWeight={700} sx={{ letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>{h}</Typography>
+                            ))}
+                        </Box>
+                        {records.slice(0, 12).map((r, i) => (
+                            <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '1fr 50px 90px 130px', gap: 1.5, px: 1.5, py: 1, alignItems: 'center', borderBottom: '1px solid rgba(219,0,29,0.06)' }}>
+                                <Typography fontSize='0.75rem' sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.discordUsername}</Typography>
+                                <Typography fontSize='0.72rem' sx={{ color: 'rgba(237,237,237,0.5)' }}>{r.age || '—'}</Typography>
+                                <Chip label={defaultStatus.toUpperCase()} color={APP_STATUS_COLORS[defaultStatus]} size='small'
+                                    sx={{ borderRadius: 0, fontSize: '0.58rem', fontWeight: 700, height: 18 }} />
+                                <Typography fontSize='0.7rem' sx={{ color: 'rgba(237,237,237,0.4)' }}>
+                                    {new Date(r.submittedAt).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </Typography>
+                            </Box>
+                        ))}
+                        {records.length > 12 && (
+                            <Box sx={{ px: 1.5, py: 1, background: 'rgba(255,255,255,0.01)' }}>
+                                <Typography fontSize='0.7rem' sx={{ color: 'rgba(237,237,237,0.25)' }}>+ {records.length - 12} more records not shown</Typography>
+                            </Box>
+                        )}
+                    </Box>
+
+                    {importError && <Alert severity='error' sx={{ borderRadius: 0, fontSize: '0.78rem' }}>{importError}</Alert>}
+
+                    <Button variant='contained' disabled={importing} onClick={handleImport}
+                        startIcon={importing ? <CircularProgress size={14} color='inherit' /> : <PersonAdd sx={{ fontSize: 16 }} />}
+                        sx={{ ...redBtn, alignSelf: 'flex-start' }}>
+                        {importing ? 'Importing…' : `Import ${records.length} Records`}
+                    </Button>
+                </>
+            )}
+        </Box>
+    )
+}
+
 // ── Main Import Panel dialog ─────────────────────────────────────────────────
 
 export default function ImportPanel({ open, onClose }: Props) {
@@ -488,6 +719,7 @@ export default function ImportPanel({ open, onClose }: Props) {
             >
                 <Tab icon={<AccountTree sx={{ fontSize: 16 }} />} iconPosition='start' label='ORBAT & Mastersheet' />
                 <Tab icon={<EventAvailable sx={{ fontSize: 16 }} />} iconPosition='start' label='Attendance' />
+                <Tab icon={<PersonAdd sx={{ fontSize: 16 }} />} iconPosition='start' label='Application Records' />
             </Tabs>
 
             <Divider sx={{ borderColor: 'rgba(219,0,29,0.08)' }} />
@@ -495,6 +727,7 @@ export default function ImportPanel({ open, onClose }: Props) {
             <DialogContent sx={{ pt: 3 }}>
                 {tab === 0 && <OrbatImportTab />}
                 {tab === 1 && <AttendanceImportTab />}
+                {tab === 2 && <ApplicationRecordsTab />}
             </DialogContent>
 
             <Divider sx={{ borderColor: 'rgba(219,0,29,0.15)' }} />

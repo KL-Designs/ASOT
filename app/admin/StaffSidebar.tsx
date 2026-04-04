@@ -155,7 +155,7 @@ export default function StaffSidebar({
                                     return (
                                         <Link
                                             key={item.href}
-                                            href={item.href}
+                                            href={item.href as never}
                                             onClick={onNavigate}
                                             style={{
                                                 display: 'block',

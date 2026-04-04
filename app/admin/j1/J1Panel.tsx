@@ -5,6 +5,8 @@ import { Tabs, Tab, Typography } from '@mui/material'
 import { Construction } from '@mui/icons-material'
 import ApplicationsTab from './tabs/ApplicationsTab'
 import RecruitMemberTab from './tabs/RecruitMemberTab'
+import MastersheetTab from './tabs/MastersheetTab'
+import StatisticsTab from './tabs/StatisticsTab'
 
 interface J1PanelProps {
     displayName: string
@@ -93,9 +95,16 @@ export default function J1Panel({ displayName }: J1PanelProps) {
                     </div>
                 )}
                 {tab === 1 && <RecruitMemberTab displayName={displayName} />}
-                {tab === 2 && <WipTab title='Mastersheet' description='Recruit tracking spreadsheet and CSV management are coming soon.' />}
+                {tab === 2 && (
+                    <div
+                        className='m-6 mt-4'
+                        style={{ border: '1px solid rgba(0,195,100,0.1)', background: 'rgba(255,255,255,0.01)' }}
+                    >
+                        <MastersheetTab />
+                    </div>
+                )}
                 {tab === 3 && <WipTab title='Meetings' description='J1 meeting scheduling and records are coming soon.' />}
-                {tab === 4 && <WipTab title='Statistics' description='Recruitment analytics and pipeline metrics are coming soon.' />}
+                {tab === 4 && <StatisticsTab />}
             </div>
         </div>
     )
