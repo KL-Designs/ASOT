@@ -230,12 +230,14 @@ export default function TicketsPanel({ canActionJ3, canActionJ4, displayName }: 
     const filtered = useMemo(() => {
         const q = search.toLowerCase()
         return tickets.filter(t => {
+            if (t.department === 'j3' && !canActionJ3) return false
+            if (t.department === 'j4' && !canActionJ4) return false
             if (deptFilter !== 'all' && t.department !== deptFilter) return false
             if (statusFilter !== 'all' && t.status !== statusFilter) return false
             if (q && ![t.targetUserName, t.qualification, t.issuedByName].some(v => v?.toLowerCase().includes(q))) return false
             return true
         })
-    }, [tickets, deptFilter, statusFilter, search])
+    }, [tickets, deptFilter, statusFilter, search, canActionJ3, canActionJ4])
 
     const selectSx = { minWidth: 130, ...inputSx }
 
@@ -271,8 +273,8 @@ export default function TicketsPanel({ canActionJ3, canActionJ4, displayName }: 
                     <InputLabel>Department</InputLabel>
                     <Select value={deptFilter} label='Department' onChange={e => setDeptFilter(e.target.value)}>
                         <MenuItem value='all' sx={{ fontSize: '0.82rem' }}>All Departments</MenuItem>
-                        <MenuItem value='j3' sx={{ fontSize: '0.82rem' }}>J3 — Training</MenuItem>
-                        <MenuItem value='j4' sx={{ fontSize: '0.82rem' }}>J4 — Administration</MenuItem>
+                        {canActionJ3 && <MenuItem value='j3' sx={{ fontSize: '0.82rem' }}>J3 — Training</MenuItem>}
+                        {canActionJ4 && <MenuItem value='j4' sx={{ fontSize: '0.82rem' }}>J4 — Administration</MenuItem>}
                     </Select>
                 </FormControl>
                 <FormControl size='small' sx={selectSx}>
