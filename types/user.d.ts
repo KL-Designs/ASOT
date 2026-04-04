@@ -65,11 +65,15 @@ declare global {
                 date: string
                 rank: string
                 role: string
+                issuedById?: string
+                issuedByName?: string
             }[]
             awards?: {
                 date: string
                 name: string
                 type: string
+                issuedById?: string
+                issuedByName?: string
             }[]
             operations?: {
                 startToEndDate: string
@@ -78,6 +82,8 @@ declare global {
             qualifications?: {
                 date: string
                 qualification: string
+                issuedById?: string
+                issuedByName?: string
             }[]
             promotionPoints?: number
             j4Points?: number

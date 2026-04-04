@@ -77,9 +77,9 @@ function todayStr() {
     return new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-type Promotion = { _key: string; date: string; rank: string; role: string }
-type Award = { _key: string; date: string; name: string; type: string }
-type Qualification = { _key: string; date: string; qualification: string }
+type Promotion = { _key: string; date: string; rank: string; role: string; issuedById?: string; issuedByName?: string }
+type Award = { _key: string; date: string; name: string; type: string; issuedById?: string; issuedByName?: string }
+type Qualification = { _key: string; date: string; qualification: string; issuedById?: string; issuedByName?: string }
 
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -1051,21 +1051,28 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                 {promotions.map((p, i) => (
                                     <SortableItem key={p._key} id={p._key}>
                                         {(listeners) => (
-                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                <DragHandle listeners={listeners} />
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
-                                                    <Label>Date</Label>
-                                                    <input value={p.date} onChange={e => updatePromotion(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                            <div style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <div className='flex gap-2 items-end'>
+                                                    <DragHandle listeners={listeners} />
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                                        <Label>Date</Label>
+                                                        <input value={p.date} onChange={e => updatePromotion(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                                    </div>
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                        <Label>Rank</Label>
+                                                        <RankSelect value={p.rank} onChange={v => updatePromotion(i, 'rank', v)} placeholder='— Select Rank —' />
+                                                    </div>
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                        <Label>Role</Label>
+                                                        <input value={p.role} onChange={e => updatePromotion(i, 'role', e.target.value)} placeholder='Rifleman' style={inputStyle} />
+                                                    </div>
+                                                    <DeleteBtn onClick={() => removePromotion(i)} />
                                                 </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Rank</Label>
-                                                    <RankSelect value={p.rank} onChange={v => updatePromotion(i, 'rank', v)} placeholder='— Select Rank —' />
-                                                </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Role</Label>
-                                                    <input value={p.role} onChange={e => updatePromotion(i, 'role', e.target.value)} placeholder='Rifleman' style={inputStyle} />
-                                                </div>
-                                                <DeleteBtn onClick={() => removePromotion(i)} />
+                                                {p.issuedByName && (
+                                                    <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)', marginTop: 5, paddingLeft: 28 }}>
+                                                        Issued by {p.issuedByName}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </SortableItem>
@@ -1136,20 +1143,27 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                     return (
                                     <SortableItem key={q._key} id={q._key}>
                                         {(listeners) => (
-                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', ...(dupeColor ? { borderLeft: `3px solid ${dupeColor}`, paddingLeft: '0.5rem' } : {}) }}>
-                                                <DragHandle listeners={listeners} />
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
-                                                    <Label>Date</Label>
-                                                    <input value={q.date} onChange={e => updateQualification(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                            <div style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', ...(dupeColor ? { borderLeft: `3px solid ${dupeColor}`, paddingLeft: '0.5rem' } : {}) }}>
+                                                <div className='flex gap-2 items-end'>
+                                                    <DragHandle listeners={listeners} />
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                                        <Label>Date</Label>
+                                                        <input value={q.date} onChange={e => updateQualification(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                                    </div>
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                        <Label>Qualification</Label>
+                                                        <QualificationSelect value={q.qualification} onChange={v => updateQualification(i, 'qualification', v)} />
+                                                        {dupeColor && (
+                                                            <span style={{ fontSize: '0.6rem', color: dupeColor, marginTop: 2, display: 'block' }}>Duplicate entry</span>
+                                                        )}
+                                                    </div>
+                                                    <DeleteBtn onClick={() => removeQualification(i)} />
                                                 </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Qualification</Label>
-                                                    <QualificationSelect value={q.qualification} onChange={v => updateQualification(i, 'qualification', v)} />
-                                                    {dupeColor && (
-                                                        <span style={{ fontSize: '0.6rem', color: dupeColor, marginTop: 2, display: 'block' }}>Duplicate entry</span>
-                                                    )}
-                                                </div>
-                                                <DeleteBtn onClick={() => removeQualification(i)} />
+                                                {q.issuedByName && (
+                                                    <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)', marginTop: 5, paddingLeft: 28 }}>
+                                                        Issued by {q.issuedByName}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </SortableItem>
@@ -1223,33 +1237,40 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                     return (
                                     <SortableItem key={a._key} id={a._key}>
                                         {(listeners) => (
-                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', ...(dupeColor ? { borderLeft: `3px solid ${dupeColor}`, paddingLeft: '0.5rem' } : {}) }}>
-                                                <DragHandle listeners={listeners} />
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
-                                                    <Label>Date</Label>
-                                                    <input value={a.date} onChange={e => updateAward(i, 'date', e.target.value)} placeholder='05 Feb 2022' style={inputStyle} />
+                                            <div style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', ...(dupeColor ? { borderLeft: `3px solid ${dupeColor}`, paddingLeft: '0.5rem' } : {}) }}>
+                                                <div className='flex gap-2 items-end'>
+                                                    <DragHandle listeners={listeners} />
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                                        <Label>Date</Label>
+                                                        <input value={a.date} onChange={e => updateAward(i, 'date', e.target.value)} placeholder='05 Feb 2022' style={inputStyle} />
+                                                    </div>
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                        <Label>Name</Label>
+                                                        <AwardNameInput
+                                                            value={a.name}
+                                                            onChange={name => updateAward(i, 'name', name)}
+                                                            onSelect={(name, type) => {
+                                                                markDirty()
+                                                                setAwards(prev => prev.map((x, idx) => idx === i ? { ...x, name, type } : x))
+                                                            }}
+                                                        />
+                                                        {dupeColor && (
+                                                            <span style={{ fontSize: '0.6rem', color: dupeColor, marginTop: 2, display: 'block' }}>Duplicate entry</span>
+                                                        )}
+                                                    </div>
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                        <Label>Type</Label>
+                                                        <select value={a.type} onChange={e => updateAward(i, 'type', e.target.value)} style={selectStyle}>
+                                                            {AWARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <DeleteBtn onClick={() => removeAward(i)} />
                                                 </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Name</Label>
-                                                    <AwardNameInput
-                                                        value={a.name}
-                                                        onChange={name => updateAward(i, 'name', name)}
-                                                        onSelect={(name, type) => {
-                                                            markDirty()
-                                                            setAwards(prev => prev.map((x, idx) => idx === i ? { ...x, name, type } : x))
-                                                        }}
-                                                    />
-                                                    {dupeColor && (
-                                                        <span style={{ fontSize: '0.6rem', color: dupeColor, marginTop: 2, display: 'block' }}>Duplicate entry</span>
-                                                    )}
-                                                </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Type</Label>
-                                                    <select value={a.type} onChange={e => updateAward(i, 'type', e.target.value)} style={selectStyle}>
-                                                        {AWARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                                    </select>
-                                                </div>
-                                                <DeleteBtn onClick={() => removeAward(i)} />
+                                                {a.issuedByName && (
+                                                    <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)', marginTop: 5, paddingLeft: 28 }}>
+                                                        Issued by {a.issuedByName}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </SortableItem>

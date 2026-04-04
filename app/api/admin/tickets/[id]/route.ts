@@ -63,7 +63,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
 
     const existing = member.milpac?.qualifications ?? []
-    let updatedQuals: { date: string; qualification: string }[]
+    let updatedQuals: { date: string; qualification: string; issuedById?: string; issuedByName?: string }[]
 
     if (ticket.action === 'add') {
         const alreadyHas = existing.some(q => q.qualification === ticket.qualification)
@@ -73,6 +73,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             updatedQuals = [...existing, {
                 date: now.toISOString().split('T')[0],
                 qualification: ticket.qualification,
+                issuedById: ticket.issuedById,
+                issuedByName: ticket.issuedByName,
             }]
         }
     } else {

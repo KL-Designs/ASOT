@@ -37,13 +37,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
     }
 
+    const editorName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+    const stamp = <T extends { issuedById?: string; issuedByName?: string }>(entries: T[]): T[] =>
+        entries.map(e => e.issuedById ? e : { ...e, issuedById: me.id, issuedByName: editorName })
+
     const update: Record<string, any> = {}
 
     // Standard fields (HQ Staff + J4-Admin)
     if (isStandard) {
-        if (promotions !== undefined) update['milpac.promotions'] = promotions ?? []
-        if (awards !== undefined) update['milpac.awards'] = awards ?? []
-        if (qualifications !== undefined) update['milpac.qualifications'] = qualifications ?? []
+        if (promotions !== undefined) update['milpac.promotions'] = stamp(promotions ?? [])
+        if (awards !== undefined) update['milpac.awards'] = stamp(awards ?? [])
+        if (qualifications !== undefined) update['milpac.qualifications'] = stamp(qualifications ?? [])
 
         if (name !== undefined) {
             if (name && typeof name === 'string') {

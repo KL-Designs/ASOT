@@ -286,55 +286,67 @@ export default async function Page({ params }: { params: Promise<{ username: str
 						</tbody>
 					</table>
 
-					{member.milpac?.promotions && member.milpac.promotions.length > 0 ? (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-							<span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)' }}>
-								Promotion History
-							</span>
-							<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-								<thead>
-									<tr>
-										<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Date</th>
-										<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Rank</th>
-										<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Role</th>
-									</tr>
-								</thead>
-								<tbody>
-									{member.milpac.promotions.map((p, i) => (
-										<tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-											<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem', width: 130 }}>{p.date}</td>
-											<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{p.rank}</td>
-											<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.5)' }}>{p.role}</td>
+					{member.milpac?.promotions && member.milpac.promotions.length > 0 ? (() => {
+						const showIssuedBy = member.milpac!.promotions!.some(p => p.issuedByName)
+						const thStyle: React.CSSProperties = { padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }
+						return (
+							<div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+								<span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)' }}>
+									Promotion History
+								</span>
+								<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+									<thead>
+										<tr>
+											<th style={thStyle}>Date</th>
+											<th style={thStyle}>Rank</th>
+											<th style={thStyle}>Role</th>
+											{showIssuedBy && <th style={thStyle}>Issued By</th>}
 										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
-					) : (
+									</thead>
+									<tbody>
+										{member.milpac!.promotions!.map((p, i) => (
+											<tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+												<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem', width: 130 }}>{p.date}</td>
+												<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{p.rank}</td>
+												<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.5)' }}>{p.role}</td>
+												{showIssuedBy && <td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.3)', fontSize: '0.75rem' }}>{p.issuedByName || '—'}</td>}
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						)
+					})() : (
 						<Placeholder text='No promotion history on record.' />
 					)}
 				</Section>
 
 				{/* ── Qualifications ───────────────────────────────────── */}
 				<Section accent={accent} title='Qualifications'>
-					{member.milpac?.qualifications && member.milpac.qualifications.length > 0 ? (
-						<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-							<thead>
-								<tr>
-									<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Date</th>
-									<th style={{ padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Qualification</th>
-								</tr>
-							</thead>
-							<tbody>
-								{member.milpac.qualifications.map((q, i) => (
-									<tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-										<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem', width: 130 }}>{q.date}</td>
-										<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{q.qualification}</td>
+					{member.milpac?.qualifications && member.milpac.qualifications.length > 0 ? (() => {
+						const showIssuedBy = member.milpac!.qualifications!.some(q => q.issuedByName)
+						const thStyle: React.CSSProperties = { padding: '6px 0', textAlign: 'left', color: 'rgba(237,237,237,0.25)', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.65rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }
+						return (
+							<table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+								<thead>
+									<tr>
+										<th style={thStyle}>Date</th>
+										<th style={thStyle}>Qualification</th>
+										{showIssuedBy && <th style={thStyle}>Issued By</th>}
 									</tr>
-								))}
-							</tbody>
-						</table>
-					) : (
+								</thead>
+								<tbody>
+									{member.milpac!.qualifications!.map((q, i) => (
+										<tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+											<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem', width: 130 }}>{q.date}</td>
+											<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{q.qualification}</td>
+											{showIssuedBy && <td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.3)', fontSize: '0.75rem' }}>{q.issuedByName || '—'}</td>}
+										</tr>
+									))}
+								</tbody>
+							</table>
+						)
+					})() : (
 						<Placeholder text='No qualifications on record.' />
 					)}
 				</Section>
@@ -344,15 +356,22 @@ export default async function Page({ params }: { params: Promise<{ username: str
 					{member.milpac?.awards && member.milpac.awards.length > 0 ? (
 						<div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
 							{member.milpac.awards.map((a, i) => (
-								<div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-									<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-										<span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'rgba(237,237,237,0.8)' }}>{a.name}</span>
-										<span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: `${accent}bb`, padding: '2px 8px', border: `1px solid ${accent}40`, background: `${accent}10` }}>
-											{a.type}
-										</span>
+								<div key={i} style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+									<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+										<div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+											<span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'rgba(237,237,237,0.8)' }}>{a.name}</span>
+											<span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: `${accent}bb`, padding: '2px 8px', border: `1px solid ${accent}40`, background: `${accent}10` }}>
+												{a.type}
+											</span>
+										</div>
+										{a.date && (
+											<span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}>{a.date}</span>
+										)}
 									</div>
-									{a.date && (
-										<span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}>{a.date}</span>
+									{a.issuedByName && (
+										<div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', marginTop: 3 }}>
+											Issued by {a.issuedByName}
+										</div>
 									)}
 								</div>
 							))}
