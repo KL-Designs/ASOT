@@ -114,6 +114,13 @@ const PERMISSIONS = {
         collab: ['HQ Staff', 'J2-Mission Making'],
     },
 
+    // ── Tickets ───────────────────────────────────────────────────────────────
+
+    tickets: {
+        /** PATCH /api/admin/tickets/[id] — action J3 qualification tickets */
+        actionJ3: ['J3-Team Lead'],
+    },
+
 } satisfies Record<string, Record<string, string[]>>
 
 export default PERMISSIONS

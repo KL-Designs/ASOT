@@ -1,0 +1,371 @@
+'use client'
+
+import { useState, useEffect, useMemo } from 'react'
+import {
+    Typography, Chip, CircularProgress, Button,
+    TextField, Select, MenuItem, FormControl, InputLabel,
+    Dialog, DialogContent, DialogTitle, IconButton,
+} from '@mui/material'
+import { Refresh, Close } from '@mui/icons-material'
+
+type TicketRow = Ticket & { _id: string }
+
+const DEPT_LABELS: Record<string, string> = {
+    j3: 'J3',
+}
+
+const STATUS_COLORS: Record<string, 'warning' | 'success' | 'error'> = {
+    open: 'warning',
+    actioned: 'success',
+    rejected: 'error',
+}
+
+function formatDate(date: string | Date) {
+    return new Date(date).toLocaleDateString('en-AU', {
+        day: '2-digit', month: 'short', year: 'numeric',
+    })
+}
+
+const inputSx = {
+    '& .MuiOutlinedInput-root': {
+        borderRadius: 0,
+        fontSize: '0.82rem',
+        '& fieldset': { borderColor: 'rgba(219,0,29,0.2)' },
+        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.4)' },
+        '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
+    },
+    '& .MuiInputLabel-root': { fontSize: '0.82rem' },
+    '& .MuiInputLabel-root.Mui-focused': { color: 'var(--red)' },
+    '& .MuiSelect-select': { fontSize: '0.82rem' },
+}
+
+function ActionModal({ ticket, onClose, onResolved }: {
+    ticket: TicketRow
+    onClose: () => void
+    onResolved: (id: string, status: 'actioned' | 'rejected') => void
+}) {
+    const [decision, setDecision] = useState<'approve' | 'reject'>('approve')
+    const [actionNotes, setActionNotes] = useState('')
+    const [submitting, setSubmitting] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    async function handleConfirm() {
+        setSubmitting(true)
+        setError(null)
+        try {
+            const res = await fetch(`/api/admin/tickets/${ticket._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ decision, actionNotes: actionNotes.trim() || undefined }),
+            })
+            if (!res.ok) {
+                const data = await res.json()
+                setError(data.error || 'Failed to action ticket')
+                return
+            }
+            onResolved(ticket._id, decision === 'approve' ? 'actioned' : 'rejected')
+            onClose()
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    const Field = ({ label, value }: { label: string; value?: string | null }) => {
+        if (!value) return null
+        return (
+            <div>
+                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 3 }}>
+                    {label}
+                </div>
+                <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)' }}>{value}</div>
+            </div>
+        )
+    }
+
+    return (
+        <Dialog
+            open
+            onClose={onClose}
+            maxWidth='sm'
+            fullWidth
+            PaperProps={{
+                style: {
+                    background: '#141414',
+                    border: '1px solid rgba(219,0,29,0.2)',
+                    borderRadius: 0,
+                },
+            }}
+        >
+            <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                <Typography fontWeight={700} fontSize='0.8rem' letterSpacing={2} style={{ textTransform: 'uppercase' }}>
+                    Action Ticket
+                </Typography>
+                <IconButton onClick={onClose} size='small' sx={{ color: 'rgba(237,237,237,0.5)', '&:hover': { color: 'var(--foreground)' } }}>
+                    <Close fontSize='small' />
+                </IconButton>
+            </DialogTitle>
+            <DialogContent style={{ padding: '20px' }}>
+                <div className='flex flex-col gap-4'>
+                    {/* Ticket details */}
+                    <div
+                        className='flex flex-col gap-3 p-4'
+                        style={{ border: '1px solid rgba(219,0,29,0.1)', background: 'rgba(255,255,255,0.02)' }}
+                    >
+                        <div className='grid grid-cols-2 gap-3'>
+                            <Field label='Department' value={DEPT_LABELS[ticket.department] ?? ticket.department} />
+                            <Field label='Action' value={ticket.action === 'add' ? 'Add Qualification' : 'Remove Qualification'} />
+                            <Field label='Member' value={ticket.targetUserName} />
+                            <Field label='Qualification' value={ticket.qualification} />
+                            <Field label='Issued By' value={ticket.issuedByName} />
+                            <Field label='Date Issued' value={formatDate(ticket.issuedAt)} />
+                        </div>
+                        {ticket.notes && <Field label='Notes' value={ticket.notes} />}
+                    </div>
+
+                    {/* Decision */}
+                    <FormControl size='small' fullWidth sx={inputSx}>
+                        <InputLabel>Decision</InputLabel>
+                        <Select
+                            value={decision}
+                            label='Decision'
+                            onChange={e => setDecision(e.target.value as 'approve' | 'reject')}
+                        >
+                            <MenuItem value='approve' sx={{ fontSize: '0.82rem' }}>Approve</MenuItem>
+                            <MenuItem value='reject' sx={{ fontSize: '0.82rem' }}>Reject</MenuItem>
+                        </Select>
+                    </FormControl>
+
+                    <TextField
+                        label='Action Notes (optional)'
+                        size='small'
+                        fullWidth
+                        multiline
+                        rows={2}
+                        value={actionNotes}
+                        onChange={e => setActionNotes(e.target.value)}
+                        sx={inputSx}
+                    />
+
+                    {error && (
+                        <Typography style={{ fontSize: '0.78rem', color: 'var(--red)' }}>{error}</Typography>
+                    )}
+
+                    <div className='flex gap-3 justify-end'>
+                        <Button
+                            size='small'
+                            onClick={onClose}
+                            sx={{
+                                borderRadius: 0,
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                letterSpacing: '0.1em',
+                                color: 'rgba(237,237,237,0.4)',
+                                '&:hover': { color: 'rgba(237,237,237,0.7)' },
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant='outlined'
+                            size='small'
+                            disabled={submitting}
+                            onClick={handleConfirm}
+                            sx={{
+                                borderRadius: 0,
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                letterSpacing: '0.1em',
+                                borderColor: decision === 'approve' ? 'rgba(0,195,100,0.4)' : 'rgba(219,0,29,0.4)',
+                                color: decision === 'approve' ? 'rgb(0,195,100)' : 'var(--red)',
+                                '&:hover': {
+                                    borderColor: decision === 'approve' ? 'rgb(0,195,100)' : 'var(--red)',
+                                    background: decision === 'approve' ? 'rgba(0,195,100,0.06)' : 'rgba(219,0,29,0.06)',
+                                },
+                                '&:disabled': { opacity: 0.4 },
+                            }}
+                        >
+                            {submitting ? 'Processing…' : decision === 'approve' ? 'Approve' : 'Reject'}
+                        </Button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+export default function TicketsPanel({ canActionJ3, displayName }: { canActionJ3: boolean; displayName: string }) {
+    const [tickets, setTickets] = useState<TicketRow[]>([])
+    const [loading, setLoading] = useState(true)
+    const [deptFilter, setDeptFilter] = useState('all')
+    const [statusFilter, setStatusFilter] = useState('all')
+    const [search, setSearch] = useState('')
+    const [selected, setSelected] = useState<TicketRow | null>(null)
+
+    async function fetchTickets() {
+        setLoading(true)
+        try {
+            const res = await fetch('/api/admin/tickets')
+            const data = await res.json()
+            setTickets(data.tickets ?? [])
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => { fetchTickets() }, [])
+
+    function handleResolved(id: string, status: 'actioned' | 'rejected') {
+        setTickets(prev => prev.map(t => t._id === id ? { ...t, status } : t))
+    }
+
+    const filtered = useMemo(() => {
+        const q = search.toLowerCase()
+        return tickets.filter(t => {
+            if (deptFilter !== 'all' && t.department !== deptFilter) return false
+            if (statusFilter !== 'all' && t.status !== statusFilter) return false
+            if (q && ![t.targetUserName, t.qualification, t.issuedByName].some(v => v?.toLowerCase().includes(q))) return false
+            return true
+        })
+    }, [tickets, deptFilter, statusFilter, search])
+
+    const selectSx = { minWidth: 130, ...inputSx }
+
+    return (
+        <div className='h-full w-full flex flex-col max-w-[1200px]'>
+            {/* Header */}
+            <div
+                className='flex flex-col px-5 py-4 mx-6 mt-6'
+                style={{
+                    border: '1px solid rgba(219,0,29,0.15)',
+                    borderTop: '2px solid var(--red)',
+                    background: 'rgba(255,255,255,0.02)',
+                }}
+            >
+                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
+                    Unit
+                </Typography>
+                <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
+                    Tickets
+                </Typography>
+            </div>
+
+            {/* Filters */}
+            <div className='mx-6 mt-4 flex gap-3 flex-wrap items-center'>
+                <TextField
+                    size='small'
+                    placeholder='Search member, qualification, issuer…'
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    sx={{ flex: 1, minWidth: 220, ...inputSx }}
+                />
+                <FormControl size='small' sx={selectSx}>
+                    <InputLabel>Department</InputLabel>
+                    <Select value={deptFilter} label='Department' onChange={e => setDeptFilter(e.target.value)}>
+                        <MenuItem value='all' sx={{ fontSize: '0.82rem' }}>All Departments</MenuItem>
+                        <MenuItem value='j3' sx={{ fontSize: '0.82rem' }}>J3 — Training</MenuItem>
+                    </Select>
+                </FormControl>
+                <FormControl size='small' sx={selectSx}>
+                    <InputLabel>Status</InputLabel>
+                    <Select value={statusFilter} label='Status' onChange={e => setStatusFilter(e.target.value)}>
+                        <MenuItem value='all' sx={{ fontSize: '0.82rem' }}>All Statuses</MenuItem>
+                        <MenuItem value='open' sx={{ fontSize: '0.82rem' }}>Open</MenuItem>
+                        <MenuItem value='actioned' sx={{ fontSize: '0.82rem' }}>Actioned</MenuItem>
+                        <MenuItem value='rejected' sx={{ fontSize: '0.82rem' }}>Rejected</MenuItem>
+                    </Select>
+                </FormControl>
+                <IconButton
+                    size='small'
+                    onClick={fetchTickets}
+                    disabled={loading}
+                    sx={{ color: 'rgba(237,237,237,0.4)', '&:hover': { color: 'var(--foreground)' } }}
+                >
+                    <Refresh fontSize='small' />
+                </IconButton>
+            </div>
+
+            {/* Table */}
+            <div
+                className='mx-6 mt-4 mb-6 flex-1 min-h-0'
+                style={{ border: '1px solid rgba(219,0,29,0.1)', background: 'rgba(255,255,255,0.01)', overflowX: 'auto' }}
+            >
+                {loading ? (
+                    <div className='flex justify-center py-12'>
+                        <CircularProgress size={28} sx={{ color: 'var(--red)' }} />
+                    </div>
+                ) : filtered.length === 0 ? (
+                    <Typography style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.3)', padding: '32px 24px' }}>
+                        No tickets found.
+                    </Typography>
+                ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                                {['Dept', 'Member', 'Action', 'Qualification', 'Issued By', 'Date', 'Status', ''].map((h, i) => (
+                                    <th key={i} style={{ textAlign: 'left', padding: '10px 14px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>
+                                        {h}
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filtered.map(t => (
+                                <tr
+                                    key={t._id}
+                                    style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'default' }}
+                                >
+                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>
+                                        {DEPT_LABELS[t.department] ?? t.department}
+                                    </td>
+                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)', whiteSpace: 'nowrap' }}>{t.targetUserName}</td>
+                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{t.action}</td>
+                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>{t.qualification}</td>
+                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>{t.issuedByName}</td>
+                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>{formatDate(t.issuedAt)}</td>
+                                    <td style={{ padding: '9px 14px' }}>
+                                        <Chip
+                                            label={t.status}
+                                            color={STATUS_COLORS[t.status] ?? 'default'}
+                                            size='small'
+                                            sx={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1, height: 20, borderRadius: '2px' }}
+                                        />
+                                    </td>
+                                    <td style={{ padding: '9px 14px' }}>
+                                        {canActionJ3 && t.department === 'j3' && t.status === 'open' && (
+                                            <Button
+                                                size='small'
+                                                variant='outlined'
+                                                onClick={() => setSelected(t)}
+                                                sx={{
+                                                    borderRadius: 0,
+                                                    fontSize: '0.65rem',
+                                                    fontWeight: 700,
+                                                    letterSpacing: '0.1em',
+                                                    padding: '2px 10px',
+                                                    minWidth: 0,
+                                                    borderColor: 'rgba(219,0,29,0.35)',
+                                                    color: 'var(--red)',
+                                                    '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.06)' },
+                                                }}
+                                            >
+                                                Action
+                                            </Button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+
+            {selected && (
+                <ActionModal
+                    ticket={selected}
+                    onClose={() => setSelected(null)}
+                    onResolved={handleResolved}
+                />
+            )}
+        </div>
+    )
+}
