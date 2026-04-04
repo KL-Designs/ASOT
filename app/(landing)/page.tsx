@@ -134,7 +134,7 @@ export default function Page() {
 								JOIN DISCORD
 							</Button>
 						</Link>
-						<Link href='/join'>
+						{/* <Link href='/join'> */}
 							<Button
 								variant='contained'
 								size='large'
@@ -156,10 +156,11 @@ export default function Page() {
 									},
 									transition: 'transform 0.15s ease, box-shadow 0.15s ease',
 								}}
+								onClick={() => {alert('This system is not live yet, please apply through discord')}}
 							>
 								ENLIST NOW
 							</Button>
-						</Link>
+						{/* </Link> */}
 					</div>
 				</div>
 			</div>
