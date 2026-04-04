@@ -190,7 +190,7 @@ export default function StatisticsTab() {
                                 <CartesianGrid vertical={false} stroke='rgba(219,0,29,0.08)' />
                                 <XAxis dataKey='month' {...axisStyle} />
                                 <YAxis {...axisStyle} allowDecimals={false} />
-                                <Tooltip {...tooltipStyle} formatter={(v: number) => [v, 'Applications']} />
+                                <Tooltip {...tooltipStyle} formatter={(v) => [v ?? 0, 'Applications']} />
                                 <Bar dataKey='count' fill={RED} radius={[2, 2, 0, 0]} maxBarSize={40} />
                             </BarChart>
                         </ResponsiveContainer>
@@ -208,7 +208,7 @@ export default function StatisticsTab() {
                                 <CartesianGrid vertical={false} stroke='rgba(0,195,100,0.08)' />
                                 <XAxis dataKey='month' {...axisStyle} />
                                 <YAxis {...axisStyle} allowDecimals={false} />
-                                <Tooltip {...tooltipStyle} formatter={(v: number) => [v, 'Accepted']} />
+                                <Tooltip {...tooltipStyle} formatter={(v) => [v ?? 0, 'Accepted']} />
                                 <Bar dataKey='count' fill={GREEN} radius={[2, 2, 0, 0]} maxBarSize={40} />
                             </BarChart>
                         </ResponsiveContainer>
@@ -232,7 +232,7 @@ export default function StatisticsTab() {
                                     <CartesianGrid horizontal={false} stroke='rgba(219,0,29,0.08)' />
                                     <XAxis type='number' {...axisStyle} allowDecimals={false} />
                                     <YAxis type='category' dataKey='name' width={130} tick={{ fill: 'rgba(237,237,237,0.5)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                                    <Tooltip {...tooltipStyle} formatter={(v: number) => [v, 'Members']} />
+                                    <Tooltip {...tooltipStyle} formatter={(v) => [v ?? 0, 'Members']} />
                                     <Bar dataKey='value' radius={[0, 2, 2, 0]} maxBarSize={18}>
                                         {stats.roleData.map((_, i) => (
                                             <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
@@ -259,14 +259,14 @@ export default function StatisticsTab() {
                                         cy='45%'
                                         outerRadius={90}
                                         paddingAngle={2}
-                                        label={({ name, percent }) => `${name} ${Math.round(percent * 100)}%`}
+                                        label={({ name, percent }) => `${name} ${Math.round((percent ?? 0) * 100)}%`}
                                         labelLine={{ stroke: 'rgba(237,237,237,0.2)' }}
                                     >
                                         {stats.regionData.map((_, i) => (
                                             <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip {...tooltipStyle} formatter={(v: number) => [v, 'Applicants']} />
+                                    <Tooltip {...tooltipStyle} formatter={(v) => [v ?? 0, 'Applicants']} />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
@@ -295,7 +295,7 @@ export default function StatisticsTab() {
                                         <Cell key={i} fill={entry.color} />
                                     ))}
                                 </Pie>
-                                <Tooltip {...tooltipStyle} formatter={(v: number) => [v, 'Applications']} />
+                                <Tooltip {...tooltipStyle} formatter={(v) => [v ?? 0, 'Applications']} />
                                 <Legend
                                     iconType='square'
                                     iconSize={10}

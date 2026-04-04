@@ -239,7 +239,7 @@ export default function JoinForm() {
                 <FormControl sx={inputSx}>
                     <InputLabel>Do you own ARMA 3?</InputLabel>
                     <Select
-                        value={fields.ownsArma ? 'yes' : fields.ownsArma === false && fields.ownsArma !== (false as unknown as string) ? 'no' : ''}
+                        value={fields.ownsArma === true ? 'yes' : fields.ownsArma === false ? 'no' : ''}
                         label='Do you own ARMA 3?'
                         onChange={e => setFields(prev => ({ ...prev, ownsArma: e.target.value === 'yes' }))}
                     >
