@@ -162,6 +162,20 @@ declare global {
 
         // Convenience mirror of OperationAttendance.assignedPlatoons
         assignedPlatoons?: string[]
+
+        // J2-internal — never rendered on public pages
+        internalNotes?: string
+    }
+
+    interface OperationTemplate {
+        _id: ObjectId
+        name: string
+        description?: string
+        sections?: OperationSection[]
+        pages?: OperationPage[]
+        extraPageSections?: Record<string, OperationSection[]>
+        createdBy: string    // Discord user ID
+        createdAt: string    // ISO timestamp
     }
 
 }

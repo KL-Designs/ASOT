@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Typography, Tabs, Tab } from '@mui/material'
 import DeptMembersTab from '@/app/admin/DeptMembersTab'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
+import J2OperationsTab from '@/app/admin/j2/tabs/J2OperationsTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 
@@ -62,14 +63,16 @@ export default function J2Panel({
                     TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                     sx={{ minHeight: 40 }}
                 >
-                    <Tab label={<PinTabLabel label='Members'  pinLabel='J2 — Members'  href='/admin/j2' tabIndex={0} />} sx={tabSx} />
-                    <Tab label={<PinTabLabel label='Calendar' pinLabel='J2 — Calendar' href='/admin/j2' tabIndex={1} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Members'    pinLabel='J2 — Members'    href='/admin/j2' tabIndex={0} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Calendar'   pinLabel='J2 — Calendar'   href='/admin/j2' tabIndex={1} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Operations' pinLabel='J2 — Operations' href='/admin/j2' tabIndex={2} />} sx={tabSx} />
                 </Tabs>
             </div>
 
             <div className='flex-1 min-h-0 mt-0'>
                 {tab === 0 && <DeptMembersTab department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} />}
                 {tab === 1 && <DeptCalendarTab department='j2' userId={userId} isJ4={isJ4} />}
+                {tab === 2 && <J2OperationsTab />}
             </div>
         </div>
     )
