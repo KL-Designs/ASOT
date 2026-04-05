@@ -12,6 +12,7 @@ export default async function Page() {
     if (!client.hasRoles(me, PERMISSIONS.departments.j1)) redirect('/admin')
 
     const displayName = me.guild?.nickname || me.globalName || me.username || ''
+    const canManageMembers = client.hasRoles(me, PERMISSIONS.departmentLeads.j1)
 
-    return <J1Panel displayName={displayName} />
+    return <J1Panel displayName={displayName} userId={me.id} canManageMembers={canManageMembers} />
 }

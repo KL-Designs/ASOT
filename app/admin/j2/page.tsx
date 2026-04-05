@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { connection } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import PlaceholderPanel from '../PlaceholderPanel'
+import J2Panel from './J2Panel'
 
 export default async function Page() {
     await connection()
@@ -11,10 +11,8 @@ export default async function Page() {
     if (!me) redirect('/login')
     if (!client.hasRoles(me, PERMISSIONS.departments.j2)) redirect('/admin')
 
-    return (
-        <PlaceholderPanel
-            title='J2 — Mission Making'
-            description='Mission making tools and operation planning are coming soon.'
-        />
-    )
+    const displayName = me.guild?.nickname || me.globalName || me.username || ''
+    const canManageMembers = client.hasRoles(me, PERMISSIONS.departmentLeads.j2)
+
+    return <J2Panel displayName={displayName} userId={me.id} canManageMembers={canManageMembers} />
 }

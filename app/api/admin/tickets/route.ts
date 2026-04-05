@@ -294,6 +294,54 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, id: result.insertedId.toString() })
     }
 
+    // ── Department Membership ─────────────────────────────────────────────────
+    if (type === 'department-membership') {
+        const { targetUserId, targetUserName, deptCode, memberAction } = body
+        const validDepts = ['j1', 'j2', 'j3', 'j6', 'j7']
+        const validActions = ['add', 'remove', 'set-lead', 'remove-lead']
+
+        if (!targetUserId || !targetUserName || !validDepts.includes(deptCode) || !validActions.includes(memberAction)) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+
+        const leadRoles = PERMISSIONS.departmentLeads[deptCode as keyof typeof PERMISSIONS.departmentLeads]
+        if (!client.hasRoles(me, leadRoles)) {
+            return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+        }
+
+        const now = new Date()
+
+        // Apply immediately
+        if (memberAction === 'add') {
+            await Db.users.updateOne({ id: targetUserId }, { $addToSet: { departments: deptCode } })
+        } else if (memberAction === 'remove') {
+            await Db.users.updateOne({ id: targetUserId }, { $pull: { departments: deptCode } })
+        } else if (memberAction === 'set-lead') {
+            await Db.users.updateOne({ id: targetUserId }, { $addToSet: { teamLeadDepts: deptCode } })
+        } else if (memberAction === 'remove-lead') {
+            await Db.users.updateOne({ id: targetUserId }, { $pull: { teamLeadDepts: deptCode } })
+        }
+
+        // Log as pre-actioned ticket
+        const ticket: Omit<Ticket, '_id'> = {
+            type: 'department-membership',
+            department: deptCode as Ticket['department'],
+            status: 'actioned',
+            targetUserId,
+            targetUserName,
+            issuedById: me.id,
+            issuedByName: displayName,
+            issuedAt: now,
+            actionedById: me.id,
+            actionedByName: displayName,
+            actionedAt: now,
+            deptCode,
+            memberAction,
+        }
+        const result = await Db.tickets.insertOne(ticket as Ticket)
+        return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+    }
+
     // ── J3 Qualification (default) ────────────────────────────────────────────
     if (!client.hasRoles(me, PERMISSIONS.departments.j3)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

@@ -5,10 +5,12 @@ import { Tabs, Tab, Typography } from '@mui/material'
 import { Construction } from '@mui/icons-material'
 import QualificationTicketsTab from './tabs/QualificationTicketsTab'
 import PromotionTicketsTab from './tabs/PromotionTicketsTab'
+import DeptMembersTab from '@/app/admin/DeptMembersTab'
 
 interface J3PanelProps {
     displayName: string
     userId: string
+    canManageMembers: boolean
 }
 
 function WipTab({ title, description }: { title: string; description: string }) {
@@ -32,7 +34,7 @@ function WipTab({ title, description }: { title: string; description: string }) 
     )
 }
 
-export default function J3Panel({ displayName, userId }: J3PanelProps) {
+export default function J3Panel({ displayName, userId, canManageMembers }: J3PanelProps) {
     const [tab, setTab] = useState(0)
 
     const tabSx = {
@@ -75,6 +77,7 @@ export default function J3Panel({ displayName, userId }: J3PanelProps) {
                     <Tab label='Qualification Tickets' sx={tabSx} />
                     <Tab label='Promotion Tickets' sx={tabSx} />
                     <Tab label='Training Schedule' sx={tabSx} />
+                    <Tab label='Members' sx={tabSx} />
                 </Tabs>
             </div>
 
@@ -103,6 +106,7 @@ export default function J3Panel({ displayName, userId }: J3PanelProps) {
                     </div>
                 )}
                 {tab === 2 && <WipTab title='Training Schedule' description='Training schedule management and documentation tools are coming soon.' />}
+                {tab === 3 && <DeptMembersTab department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} />}
             </div>
         </div>
     )

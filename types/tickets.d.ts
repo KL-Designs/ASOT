@@ -1,7 +1,7 @@
 interface Ticket {
     _id?: import('mongodb').ObjectId
-    type: 'j3-qualification' | 'j4-award' | 'j3-promotion' | 'move-request' | 'j4-discharge' | 'discipline'
-    department: 'j3' | 'j4' | 'allstaff'
+    type: 'j3-qualification' | 'j4-award' | 'j3-promotion' | 'move-request' | 'j4-discharge' | 'discipline' | 'department-membership'
+    department: 'j3' | 'j4' | 'allstaff' | 'j1' | 'j2' | 'j6' | 'j7'
     status: 'open' | 'actioned' | 'rejected'
     targetUserId: string
     targetUserName: string
@@ -40,4 +40,7 @@ interface Ticket {
     // Discipline fields (undefined on other types)
     disciplineReason?: string
     actionedPointsDeducted?: number
+    // Department membership fields (undefined on other types)
+    deptCode?: string
+    memberAction?: 'add' | 'remove' | 'set-lead' | 'remove-lead'
 }

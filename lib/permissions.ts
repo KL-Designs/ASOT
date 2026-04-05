@@ -114,6 +114,21 @@ const PERMISSIONS = {
         collab: ['HQ Staff', 'J2-Mission Making'],
     },
 
+    // ── Department leads (add/remove members from their dept) ────────────────
+
+    departmentLeads: {
+        /** J1 department lead — can manage J1 members */
+        j1: ['J1-Staff'],
+        /** J2 department lead — can manage J2 members */
+        j2: ['J2-Team Lead'],
+        /** J3 department lead — can manage J3 members */
+        j3: ['J3-Team Lead'],
+        /** J6 department lead — can manage J6 members */
+        j6: ['J6-Department Lead'],
+        /** J7 department lead — can manage J7 members */
+        j7: ['J7 Staff'],
+    },
+
     // ── Tickets ───────────────────────────────────────────────────────────────
 
     tickets: {

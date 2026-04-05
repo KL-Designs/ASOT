@@ -63,6 +63,9 @@ declare global {
             approvedByName: string
         }
 
+        departments?: string[]   // dept codes this user is a member of, e.g. ['j1', 'j3']
+        teamLeadDepts?: string[] // dept codes this user is a team lead of, e.g. ['j3']
+
         bio?: {
             content: string
         }

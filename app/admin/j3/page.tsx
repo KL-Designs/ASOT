@@ -12,6 +12,7 @@ export default async function Page() {
     if (!client.hasRoles(me, PERMISSIONS.departments.j3)) redirect('/admin')
 
     const displayName = me.guild?.nickname || me.globalName || me.username || ''
+    const canManageMembers = client.hasRoles(me, PERMISSIONS.departmentLeads.j3)
 
-    return <J3Panel displayName={displayName} userId={me.id} />
+    return <J3Panel displayName={displayName} userId={me.id} canManageMembers={canManageMembers} />
 }

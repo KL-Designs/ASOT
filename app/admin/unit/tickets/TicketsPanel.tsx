@@ -11,8 +11,12 @@ import { Refresh, Close, ArrowForward } from '@mui/icons-material'
 type TicketRow = Ticket & { _id: string }
 
 const DEPT_LABELS: Record<string, string> = {
+    j1: 'J1',
+    j2: 'J2',
     j3: 'J3',
     j4: 'J4',
+    j6: 'J6',
+    j7: 'J7',
     allstaff: 'All Staff',
 }
 
@@ -391,6 +395,25 @@ function TicketSummaryCell({ t }: { t: TicketRow }) {
             </td>
         )
     }
+    if (t.type === 'department-membership') {
+        const dept = (t.deptCode ?? t.department ?? '').toUpperCase()
+        const actionText =
+            t.memberAction === 'add' ? `Added to ${dept}` :
+            t.memberAction === 'remove' ? `Removed from ${dept}` :
+            t.memberAction === 'set-lead' ? `Set as ${dept} Team Lead` :
+            t.memberAction === 'remove-lead' ? `Removed as ${dept} Team Lead` :
+            dept
+        return (
+            <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>
+                <div style={{ fontSize: '0.78rem' }}>{actionText}</div>
+                {t.actionedByName && (
+                    <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>
+                        Auto-approved
+                    </div>
+                )}
+            </td>
+        )
+    }
     return (
         <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>
             {t.qualification ?? t.awardName ?? t.proposedRank ?? '—'}
@@ -402,6 +425,13 @@ function ticketActionLabel(t: TicketRow) {
     if (t.type === 'move-request') return 'Move Request'
     if (t.type === 'j4-discharge') return 'Discharge'
     if (t.type === 'discipline') return 'Discipline'
+    if (t.type === 'department-membership') {
+        if (t.memberAction === 'add') return 'Add Member'
+        if (t.memberAction === 'remove') return 'Remove Member'
+        if (t.memberAction === 'set-lead') return 'Set Lead'
+        if (t.memberAction === 'remove-lead') return 'Remove Lead'
+        return 'Dept Membership'
+    }
     if (t.action === 'promote') return 'Promote'
     if (t.action === 'demote') return 'Demote'
     if (t.action) return t.action
@@ -451,13 +481,16 @@ export default function TicketsPanel({
     const filtered = useMemo(() => {
         const q = search.toLowerCase()
         return tickets.filter(t => {
-            if (t.department === 'j3' && !canActionJ3) return false
-            if (t.department === 'j4' && !canActionJ4) return false
-            if (t.department === 'allstaff') {
-                const canSee =
-                    (t.type === 'move-request' && canActionMoveRequest) ||
-                    (t.type === 'discipline' && canActionDiscipline)
-                if (!canSee) return false
+            // Dept-membership tickets are audit records — visible to all admin users
+            if (t.type !== 'department-membership') {
+                if (t.department === 'j3' && !canActionJ3) return false
+                if (t.department === 'j4' && !canActionJ4) return false
+                if (t.department === 'allstaff') {
+                    const canSee =
+                        (t.type === 'move-request' && canActionMoveRequest) ||
+                        (t.type === 'discipline' && canActionDiscipline)
+                    if (!canSee) return false
+                }
             }
             if (deptFilter !== 'all' && t.department !== deptFilter) return false
             if (statusFilter !== 'all' && t.status !== statusFilter) return false
@@ -508,8 +541,12 @@ export default function TicketsPanel({
                     <InputLabel>Department</InputLabel>
                     <Select value={deptFilter} label='Department' onChange={e => setDeptFilter(e.target.value)}>
                         <MenuItem value='all' sx={{ fontSize: '0.82rem' }}>All Departments</MenuItem>
+                        <MenuItem value='j1' sx={{ fontSize: '0.82rem' }}>J1 — Recruitment</MenuItem>
+                        <MenuItem value='j2' sx={{ fontSize: '0.82rem' }}>J2 — Mission Making</MenuItem>
                         {canActionJ3 && <MenuItem value='j3' sx={{ fontSize: '0.82rem' }}>J3 — Training</MenuItem>}
                         {canActionJ4 && <MenuItem value='j4' sx={{ fontSize: '0.82rem' }}>J4 — Administration</MenuItem>}
+                        <MenuItem value='j6' sx={{ fontSize: '0.82rem' }}>J6 — Game Masters</MenuItem>
+                        <MenuItem value='j7' sx={{ fontSize: '0.82rem' }}>J7 — Development</MenuItem>
                         {canActionMoveRequest && <MenuItem value='allstaff' sx={{ fontSize: '0.82rem' }}>All Staff — Moves</MenuItem>}
                     </Select>
                 </FormControl>
@@ -572,6 +609,8 @@ export default function TicketsPanel({
                                                 letterSpacing: 1,
                                                 height: 18,
                                                 borderRadius: '2px',
+                                                textTransform: 'uppercase',
+                                                '& .MuiChip-label': { textTransform: 'uppercase' },
                                                 background: t.department === 'allstaff'
                                                     ? 'rgba(0,195,255,0.1)'
                                                     : 'rgba(219,0,29,0.08)',
@@ -593,7 +632,7 @@ export default function TicketsPanel({
                                             label={t.status}
                                             color={STATUS_COLORS[t.status] ?? 'default'}
                                             size='small'
-                                            sx={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1, height: 20, borderRadius: '2px' }}
+                                            sx={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1, height: 20, borderRadius: '2px', '& .MuiChip-label': { textTransform: 'uppercase' } }}
                                         />
                                     </td>
                                     <td style={{ padding: '9px 14px' }}>
