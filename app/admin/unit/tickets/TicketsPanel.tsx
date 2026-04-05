@@ -493,17 +493,37 @@ function ticketActionLabel(t: TicketRow) {
 }
 
 export default function TicketsPanel({
+    canActionJ1,
+    canActionJ2,
     canActionJ3,
     canActionJ4,
+    canActionJ6,
+    canActionJ7,
     canActionMoveRequest,
     canActionDiscipline,
+    canSeeJ1,
+    canSeeJ2,
+    canSeeJ3,
+    canSeeJ4,
+    canSeeJ6,
+    canSeeJ7,
     displayName,
     userId,
 }: {
+    canActionJ1: boolean
+    canActionJ2: boolean
     canActionJ3: boolean
     canActionJ4: boolean
+    canActionJ6: boolean
+    canActionJ7: boolean
     canActionMoveRequest: boolean
     canActionDiscipline: boolean
+    canSeeJ1: boolean
+    canSeeJ2: boolean
+    canSeeJ3: boolean
+    canSeeJ4: boolean
+    canSeeJ6: boolean
+    canSeeJ7: boolean
     displayName: string
     userId: string
 }) {
@@ -541,8 +561,12 @@ export default function TicketsPanel({
         return tickets.filter(t => {
             // Dept-membership tickets are audit records — visible to all admin users
             if (t.type !== 'department-membership') {
-                if (t.department === 'j3' && !canActionJ3) return false
-                if (t.department === 'j4' && !canActionJ4) return false
+                if (t.department === 'j1' && !canSeeJ1) return false
+                if (t.department === 'j2' && !canSeeJ2) return false
+                if (t.department === 'j3' && !canSeeJ3) return false
+                if (t.department === 'j4' && !canSeeJ4) return false
+                if (t.department === 'j6' && !canSeeJ6) return false
+                if (t.department === 'j7' && !canSeeJ7) return false
                 if (t.department === 'allstaff') {
                     const canSee =
                         (t.type === 'move-request' && canActionMoveRequest) ||
@@ -559,8 +583,12 @@ export default function TicketsPanel({
 
     const canAction = (t: TicketRow) =>
         t.status === 'open' && (
+            (canActionJ1 && t.department === 'j1') ||
+            (canActionJ2 && t.department === 'j2') ||
             (canActionJ3 && t.department === 'j3') ||
             (canActionJ4 && t.department === 'j4') ||
+            (canActionJ6 && t.department === 'j6') ||
+            (canActionJ7 && t.department === 'j7') ||
             (canActionMoveRequest && t.type === 'move-request') ||
             (canActionDiscipline && t.type === 'discipline')
         )
@@ -599,12 +627,12 @@ export default function TicketsPanel({
                     <InputLabel>Department</InputLabel>
                     <Select value={deptFilter} label='Department' onChange={e => setDeptFilter(e.target.value)}>
                         <MenuItem value='all' sx={{ fontSize: '0.82rem' }}>All Departments</MenuItem>
-                        <MenuItem value='j1' sx={{ fontSize: '0.82rem' }}>J1 — Recruitment</MenuItem>
-                        <MenuItem value='j2' sx={{ fontSize: '0.82rem' }}>J2 — Mission Making</MenuItem>
-                        {canActionJ3 && <MenuItem value='j3' sx={{ fontSize: '0.82rem' }}>J3 — Training</MenuItem>}
-                        {canActionJ4 && <MenuItem value='j4' sx={{ fontSize: '0.82rem' }}>J4 — Administration</MenuItem>}
-                        <MenuItem value='j6' sx={{ fontSize: '0.82rem' }}>J6 — Game Masters</MenuItem>
-                        <MenuItem value='j7' sx={{ fontSize: '0.82rem' }}>J7 — Development</MenuItem>
+                        {canSeeJ1 && <MenuItem value='j1' sx={{ fontSize: '0.82rem' }}>J1 — Recruitment</MenuItem>}
+                        {canSeeJ2 && <MenuItem value='j2' sx={{ fontSize: '0.82rem' }}>J2 — Mission Making</MenuItem>}
+                        {canSeeJ3 && <MenuItem value='j3' sx={{ fontSize: '0.82rem' }}>J3 — Training</MenuItem>}
+                        {canSeeJ4 && <MenuItem value='j4' sx={{ fontSize: '0.82rem' }}>J4 — Administration</MenuItem>}
+                        {canSeeJ6 && <MenuItem value='j6' sx={{ fontSize: '0.82rem' }}>J6 — Game Masters</MenuItem>}
+                        {canSeeJ7 && <MenuItem value='j7' sx={{ fontSize: '0.82rem' }}>J7 — Development</MenuItem>}
                         {canActionMoveRequest && <MenuItem value='allstaff' sx={{ fontSize: '0.82rem' }}>All Staff — Moves</MenuItem>}
                     </Select>
                 </FormControl>

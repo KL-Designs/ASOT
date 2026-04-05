@@ -134,10 +134,18 @@ const PERMISSIONS = {
     // ── Tickets ───────────────────────────────────────────────────────────────
 
     tickets: {
+        /** PATCH /api/admin/tickets/[id] — action J1 tickets */
+        actionJ1: ['J1-Staff'],
+        /** PATCH /api/admin/tickets/[id] — action J2 tickets */
+        actionJ2: ['J2-Team Lead'],
         /** PATCH /api/admin/tickets/[id] — action J3 qualification tickets */
         actionJ3: ['J3-Team Lead'],
-        /** PATCH /api/admin/tickets/[id] — action J4 award tickets */
+        /** PATCH /api/admin/tickets/[id] — action J4 award/discharge tickets */
         actionJ4: ['J4-Administration'],
+        /** PATCH /api/admin/tickets/[id] — action J6 tickets */
+        actionJ6: ['J6-Department Lead'],
+        /** PATCH /api/admin/tickets/[id] — action J7 tickets */
+        actionJ7: ['J7 Staff'],
         /** PATCH /api/admin/tickets/[id] — override-action move request tickets (specific approver check is in handler) */
         actionMoveRequest: ['HQ Staff'],
         /** PATCH /api/admin/tickets/[id] — action discipline tickets */

@@ -30,8 +30,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     // Auth check is ticket-department-aware
     const canAction =
+        (ticket.department === 'j1' && client.hasRoles(me, PERMISSIONS.tickets.actionJ1)) ||
+        (ticket.department === 'j2' && client.hasRoles(me, PERMISSIONS.tickets.actionJ2)) ||
         (ticket.department === 'j3' && client.hasRoles(me, PERMISSIONS.tickets.actionJ3)) ||
         (ticket.department === 'j4' && client.hasRoles(me, PERMISSIONS.tickets.actionJ4)) ||
+        (ticket.department === 'j6' && client.hasRoles(me, PERMISSIONS.tickets.actionJ6)) ||
+        (ticket.department === 'j7' && client.hasRoles(me, PERMISSIONS.tickets.actionJ7)) ||
         (ticket.department === 'allstaff' && (
             me.id === ticket.requiredApproverUserId ||
             client.hasRoles(me, PERMISSIONS.tickets.actionMoveRequest) ||
