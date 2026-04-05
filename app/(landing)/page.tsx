@@ -40,6 +40,7 @@ export default function Page() {
 	const [globalBest, setGlobalBest]       = useState<number | undefined>(undefined)
 	const [globalBestName, setGlobalBestName] = useState<string | undefined>(undefined)
 	const [personalBest, setPersonalBest]   = useState<number | undefined>(undefined)
+	const [sotm, setSotm] = useState<ScreenshotOfMonth | null>(null)
 
 	useEffect(() => {
 		if (ref.current) ref.current.focus({ preventScroll: true })
@@ -53,6 +54,12 @@ export default function Page() {
 	useEffect(() => {
 		fetch('/api/me').then(r => r.json()).then(data => {
 			if (!data.error) setCurrentUser(data)
+		}).catch(() => {})
+	}, [])
+
+	useEffect(() => {
+		fetch('/api/gallery/sotm').then(r => r.json()).then(data => {
+			setSotm(data ?? null)
 		}).catch(() => {})
 	}, [])
 
@@ -101,12 +108,29 @@ export default function Page() {
 				onKeyDown={handleKeyDown}
 				tabIndex={0}
 			>
-				<Image src={Banner} alt='Banner' fill className='object-cover object-center' />
+				{sotm
+					? <img src='/api/gallery/sotm/image' alt={`Screenshot of the Month — ${sotm.credit}`} className='absolute inset-0 w-full h-full object-cover object-center' />
+					: <Image src={Banner} alt='Banner' fill className='object-cover object-center' />
+				}
 				<div className='absolute inset-0' style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.1) 50%, rgba(10,10,10,0.95) 100%)' }} />
 				<div className='absolute inset-0' style={{ background: 'rgba(0,0,0,0.45)', opacity: gameActive ? 1 : 0, transition: 'opacity 0.7s ease', pointerEvents: 'none', zIndex: 1 }} />
 				<FireEmbers />
 				<PhysicsGame onActivate={() => setGameActive(true)} onGameOver={handleGameOver} onRestart={() => setGameDead(false)} active={gameActive} personalBest={personalBest} globalBest={globalBest} globalBestName={globalBestName} liveUserId={currentUser?.id} liveAccentColor={currentUser?.hexAccentColor} />
 				<MinigameScoreboard visible={gameDead} currentUserId={currentUser?.id} refreshKey={scoreboardKey} lastScore={lastScore} />
+
+				{sotm && (
+					<div className='absolute bottom-0 left-0 z-10 px-4 py-3' style={{ pointerEvents: 'none' }}>
+						<div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', fontFamily: 'monospace', marginBottom: 2 }}>
+							Screenshot of the Month
+						</div>
+						<div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)', letterSpacing: '0.04em' }}>
+							{sotm.credit}
+						</div>
+						<div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.4)', letterSpacing: '0.04em', marginTop: 1 }}>
+							{new Date(sotm.dateTaken).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
+						</div>
+					</div>
+				)}
 
 				<div className='h-full flex flex-col items-center justify-center gap-6 px-6 relative' style={{ opacity: gameActive ? 0 : 1, transition: 'opacity 0.6s ease', pointerEvents: gameActive ? 'none' : 'auto' }}>
 					<div className='relative w-full max-w-[800px]' style={{ height: 'clamp(160px, 24vw, 340px)' }}>

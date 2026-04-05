@@ -5,6 +5,7 @@ import { Typography, Tabs, Tab } from '@mui/material'
 import DeptMembersTab from '@/app/admin/DeptMembersTab'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
 import GalleryManager from '@/app/admin/gallery/GalleryManager'
+import ScreenshotOfMonthTab from '@/app/admin/j5/tabs/ScreenshotOfMonthTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 
@@ -66,6 +67,7 @@ export default function J5Panel({
                     <Tab label={<PinTabLabel label='Members'  pinLabel='J5 — Members'  href='/admin/j5' tabIndex={0} />} sx={tabSx} />
                     <Tab label={<PinTabLabel label='Calendar' pinLabel='J5 — Calendar' href='/admin/j5' tabIndex={1} />} sx={tabSx} />
                     <Tab label={<PinTabLabel label='Gallery'  pinLabel='J5 — Gallery'  href='/admin/j5' tabIndex={2} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Screenshot of Month' pinLabel='J5 — SOTM' href='/admin/j5' tabIndex={3} />} sx={tabSx} />
                 </Tabs>
             </div>
 
@@ -73,6 +75,7 @@ export default function J5Panel({
                 {tab === 0 && <DeptMembersTab department='j5' displayName={displayName} userId={userId} canManage={canManageMembers} />}
                 {tab === 1 && <DeptCalendarTab department='j5' userId={userId} isJ4={isJ4} />}
                 {tab === 2 && <GalleryManager hideHeader />}
+                {tab === 3 && <ScreenshotOfMonthTab canManage={canManageMembers} />}
             </div>
         </div>
     )

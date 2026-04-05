@@ -256,7 +256,7 @@ export default function StaffSidebar({
 
     const [expanded, setExpanded] = useState({
         departments: true,
-        personnel: false,
+        personnel: true,
         unit: true,
     })
 

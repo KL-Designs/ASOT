@@ -5,6 +5,14 @@ export { }
 
 declare global {
 
+    interface ScreenshotOfMonth {
+        filename: string
+        dateTaken: string
+        credit: string
+        setAt: string
+        setBy: string
+    }
+
     interface GalleryAPI {
         info: string
         updated: string

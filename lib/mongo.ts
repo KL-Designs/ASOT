@@ -24,6 +24,7 @@ const DbInterface = {
     j1Applications: client.db(process.env.MONGO_DB!).collection('j1_applications') as MongoCollection<J1Application>,
     tickets: client.db(process.env.MONGO_DB!).collection('tickets') as MongoCollection<Ticket>,
     calendarEvents: client.db(process.env.MONGO_DB!).collection('calendar_events') as MongoCollection<CalendarEvent>,
+    siteSettings: client.db(process.env.MONGO_DB!).collection('site_settings') as MongoCollection<{ _id: string } & Record<string, unknown>>,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,
