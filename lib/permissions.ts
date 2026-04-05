@@ -16,7 +16,7 @@ const PERMISSIONS = {
 
     pages: {
         /** /admin — departments that can access the staff dashboard */
-        admin:          ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'J6-Game Master', 'J7-Community Development', 'HQ Staff', 'All Staff'],
+        admin:          ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'J6-Game Master', 'J7 Community Development', 'HQ Staff', 'All Staff'],
         /** /members — who can view the member management list */
         members:        ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'HQ Staff', 'All Staff'], // all departments + staff
         /** /operations/edit — who can access the mission editor */
@@ -39,7 +39,7 @@ const PERMISSIONS = {
         /** J6 - Game Masters — role does not yet exist in Discord; add when created */
         j6: ['J6-Game Master'],
         /** J7 - Community Development — role does not yet exist in Discord; add when created */
-        j7: ['J7-Community Development'],
+        j7: ['J7 Community Development'],
     },
 
     // ── Operations ────────────────────────────────────────────────────────────
