@@ -6,7 +6,7 @@ import {
     Button, TextField, MenuItem, FormControlLabel, Switch,
     CircularProgress, Alert, Typography, Divider,
 } from '@mui/material'
-import { Delete, Close } from '@mui/icons-material'
+import { Delete, Close, OpenInNew } from '@mui/icons-material'
 
 export type CalendarEventRow = {
     _id: string
@@ -19,6 +19,8 @@ export type CalendarEventRow = {
     createdById: string
     createdByName: string
     createdAt: string
+    isOperation?: boolean
+    operationId?: string
 }
 
 export const DEPT_COLORS: Record<string, string> = {
@@ -200,7 +202,7 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                 pb: 1.5,
             }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase' }}>
-                    {isViewMode ? 'Event Details' : 'Add Calendar Event'}
+                    {isViewMode ? (event?.isOperation ? 'Operation' : 'Event Details') : 'Add Calendar Event'}
                 </span>
                 <button
                     onClick={handleClose}
@@ -241,21 +243,25 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px' }}>
                             <div>
-                                <div style={labelStyle}>Start</div>
-                                <div style={valueStyle}>{formatDisplay(event.start, event.allDay)}</div>
+                                <div style={labelStyle}>Date</div>
+                                <div style={valueStyle}>{formatDisplay(event.start, true)}</div>
                             </div>
-                            <div>
-                                <div style={labelStyle}>End</div>
-                                <div style={valueStyle}>{formatDisplay(event.end, event.allDay)}</div>
-                            </div>
-                            <div>
-                                <div style={labelStyle}>Created By</div>
-                                <div style={valueStyle}>{event.createdByName}</div>
-                            </div>
-                            <div>
-                                <div style={labelStyle}>Created</div>
-                                <div style={valueStyle}>{formatDisplay(event.createdAt, true)}</div>
-                            </div>
+                            {!event.isOperation && (
+                                <>
+                                    <div>
+                                        <div style={labelStyle}>End</div>
+                                        <div style={valueStyle}>{formatDisplay(event.end, event.allDay)}</div>
+                                    </div>
+                                    <div>
+                                        <div style={labelStyle}>Created By</div>
+                                        <div style={valueStyle}>{event.createdByName}</div>
+                                    </div>
+                                    <div>
+                                        <div style={labelStyle}>Created</div>
+                                        <div style={valueStyle}>{formatDisplay(event.createdAt, true)}</div>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         {error && <Alert severity='error' sx={{ borderRadius: 0, fontSize: '0.8rem' }}>{error}</Alert>}
@@ -366,7 +372,26 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
             </DialogContent>
 
             <DialogActions sx={{ borderTop: '1px solid rgba(219,0,29,0.12)', px: 3, py: 1.5, justifyContent: 'space-between' }}>
-                {isViewMode && canDelete ? (
+                {isViewMode && event?.isOperation ? (
+                    <Button
+                        size='small'
+                        component='a'
+                        href={`/operations/${event.operationId}`}
+                        target='_blank'
+                        rel='noreferrer'
+                        startIcon={<OpenInNew sx={{ fontSize: 14 }} />}
+                        sx={{
+                            borderRadius: 0,
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.1em',
+                            color: '#8b5cf6',
+                            '&:hover': { background: 'rgba(139,92,246,0.08)' },
+                        }}
+                    >
+                        Open Operation
+                    </Button>
+                ) : isViewMode && canDelete ? (
                     <Button
                         size='small'
                         startIcon={deleting ? <CircularProgress size={12} /> : <Delete sx={{ fontSize: 14 }} />}

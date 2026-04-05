@@ -27,13 +27,43 @@ export async function GET(req: NextRequest) {
         .sort({ start: 1 })
         .toArray()
 
-    const events = raw.map(e => ({
+    const calEvents = raw.map(e => ({
         ...e,
         _id: e._id!.toString(),
         start: e.start.toISOString(),
         end: e.end.toISOString(),
         createdAt: e.createdAt.toISOString(),
     }))
+
+    // Merge operations as virtual all-day events (only when not filtering by a non-j2 dept)
+    const opEvents: typeof calEvents = []
+    if (!department || department === 'j2') {
+        const ops = await Db.operations
+            .find({ deletedAt: { $exists: false }, date: { $exists: true } })
+            .sort({ date: 1 })
+            .toArray()
+
+        for (const op of ops) {
+            const d = new Date(op.date)
+            const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0)
+            const dayEnd = new Date(d); dayEnd.setHours(23, 59, 59, 999)
+            opEvents.push({
+                _id: `op-${op._id.toString()}`,
+                title: op.title,
+                start: dayStart.toISOString(),
+                end: dayEnd.toISOString(),
+                allDay: true,
+                department: 'j2',
+                createdById: '',
+                createdByName: '',
+                createdAt: dayStart.toISOString(),
+                isOperation: true,
+                operationId: op._id.toString(),
+            } as any)
+        }
+    }
+
+    const events = [...calEvents, ...opEvents]
 
     return NextResponse.json({ events })
 }

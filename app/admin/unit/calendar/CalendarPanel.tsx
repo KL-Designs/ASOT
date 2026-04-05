@@ -24,7 +24,7 @@ const localizer = dateFnsLocalizer({
 const DEPT_LEGEND: { key: string; label: string }[] = [
     { key: 'unit', label: 'Unit' },
     { key: 'j1', label: 'J1' },
-    { key: 'j2', label: 'J2' },
+    { key: 'j2', label: 'J2 / Operations' },
     { key: 'j3', label: 'J3' },
     { key: 'j4', label: 'J4' },
     { key: 'j6', label: 'J6' },
