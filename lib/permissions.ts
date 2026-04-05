@@ -123,6 +123,8 @@ const PERMISSIONS = {
         j2: ['J2-Team Lead'],
         /** J3 department lead — can manage J3 members */
         j3: ['J3-Team Lead'],
+        /** J5 department lead — can manage J5 members */
+        j5: ['J5-Media'],
         /** J6 department lead — can manage J6 members */
         j6: ['J6-Department Lead'],
         /** J7 department lead — can manage J7 members */

@@ -57,7 +57,7 @@ const ghostBtn = {
 }
 
 
-export default function GalleryManager() {
+export default function GalleryManager({ hideHeader }: { hideHeader?: boolean } = {}) {
 
     const [data, setData] = useState<GalleryAPI | null>(null)
     const [loading, setLoading] = useState(true)
@@ -241,17 +241,19 @@ export default function GalleryManager() {
         <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[1200px] mx-auto'>
 
             {/* Header */}
-            <div className='flex flex-col px-5 py-4' style={tileStyle}>
-                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
-                    J5 — Media
-                </Typography>
-                <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
-                    Gallery Management
-                </Typography>
-                <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.35)', marginTop: 4, letterSpacing: '0.04em' }}>
-                    Manage gallery structure, upload images in bulk, and control featured content
-                </Typography>
-            </div>
+            {!hideHeader && (
+                <div className='flex flex-col px-5 py-4' style={tileStyle}>
+                    <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
+                        J5 — Media
+                    </Typography>
+                    <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
+                        Gallery Management
+                    </Typography>
+                    <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.35)', marginTop: 4, letterSpacing: '0.04em' }}>
+                        Manage gallery structure, upload images in bulk, and control featured content
+                    </Typography>
+                </div>
+            )}
 
             {uploading && (
                 <LinearProgress sx={{
