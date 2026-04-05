@@ -34,13 +34,13 @@ export default function StaffDashboardShell({
             <div
                 className='hidden md:flex flex-col flex-shrink-0'
                 style={{
-                    width: 240,
+                    width: 260,
                     minHeight: '100vh',
                     position: 'sticky',
                     top: 0,
                     alignSelf: 'flex-start',
-                    borderRight: '1px solid rgba(219,0,29,0.15)',
-                    background: 'rgba(10,10,10,0.97)',
+                    borderRight: '1px solid rgba(219,0,29,0.18)',
+                    background: 'rgba(8,8,8,0.98)',
                 }}
             >
                 <StaffSidebar permissions={permissions} />
@@ -82,9 +82,9 @@ export default function StaffDashboardShell({
                 onClose={() => setDrawerOpen(false)}
                 PaperProps={{
                     sx: {
-                        width: 240,
-                        background: 'rgba(10,10,10,0.99)',
-                        borderRight: '1px solid rgba(219,0,29,0.15)',
+                        width: 260,
+                        background: 'rgba(8,8,8,0.99)',
+                        borderRight: '1px solid rgba(219,0,29,0.18)',
                     },
                 }}
             >

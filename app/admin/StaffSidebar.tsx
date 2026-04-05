@@ -1,10 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Collapse } from '@mui/material'
-import { ExpandMore, ChevronRight } from '@mui/icons-material'
 import type { DashboardPermissions } from './StaffDashboardShell'
 import { useFavourites } from '@/hooks/useFavourites'
 
@@ -19,6 +18,39 @@ interface NavItem {
 interface NavSection {
     label: string
     items: NavItem[]
+}
+
+// ── ZULU clock ────────────────────────────────────────────────────────────────
+
+function ZuluClock() {
+    const [time, setTime] = useState('')
+    useEffect(() => {
+        function tick() {
+            const now = new Date()
+            const h = now.getUTCHours().toString().padStart(2, '0')
+            const m = now.getUTCMinutes().toString().padStart(2, '0')
+            const s = now.getUTCSeconds().toString().padStart(2, '0')
+            setTime(`${h}:${m}:${s}Z`)
+        }
+        tick()
+        const id = setInterval(tick, 1000)
+        return () => clearInterval(id)
+    }, [])
+    return <span style={{ fontFamily: 'monospace', letterSpacing: '0.1em' }}>{time || '──:──:──Z'}</span>
+}
+
+// ── Corner brackets ───────────────────────────────────────────────────────────
+
+function CornerBrackets({ color = 'rgba(219,0,29,0.45)', size = 7 }: { color?: string; size?: number }) {
+    const base: React.CSSProperties = { position: 'absolute', width: size, height: size }
+    return (
+        <>
+            <span style={{ ...base, top: 0, left: 0,  borderTop:    `1.5px solid ${color}`, borderLeft:  `1.5px solid ${color}` }} />
+            <span style={{ ...base, top: 0, right: 0, borderTop:    `1.5px solid ${color}`, borderRight: `1.5px solid ${color}` }} />
+            <span style={{ ...base, bottom: 0, left: 0,  borderBottom: `1.5px solid ${color}`, borderLeft:  `1.5px solid ${color}` }} />
+            <span style={{ ...base, bottom: 0, right: 0, borderBottom: `1.5px solid ${color}`, borderRight: `1.5px solid ${color}` }} />
+        </>
+    )
 }
 
 // ── Pinnable nav item row ─────────────────────────────────────────────────────
@@ -47,19 +79,31 @@ function NavRow({
                 onClick={onNavigate}
                 style={{
                     flex: 1,
-                    display: 'block',
-                    padding: '8px 36px 8px 18px',
-                    fontSize: '0.75rem',
-                    fontWeight: isActive ? 700 : 500,
-                    letterSpacing: '0.08em',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '7px 36px 7px 16px',
+                    fontSize: '0.72rem',
+                    fontWeight: isActive ? 700 : 400,
+                    letterSpacing: '0.1em',
                     textTransform: 'uppercase',
                     textDecoration: 'none',
-                    color: isActive ? 'var(--foreground)' : 'rgba(237,237,237,0.55)',
+                    color: isActive ? 'rgba(237,237,237,0.95)' : 'rgba(237,237,237,0.45)',
                     borderLeft: isActive ? '2px solid var(--red)' : '2px solid transparent',
-                    background: isActive ? 'rgba(219,0,29,0.08)' : hovered ? 'rgba(255,255,255,0.03)' : 'transparent',
-                    transition: 'background 0.15s, color 0.15s',
+                    background: isActive
+                        ? 'rgba(219,0,29,0.07)'
+                        : hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+                    transition: 'background 0.12s, color 0.12s',
                 }}
             >
+                {/* Active indicator glyph */}
+                <span style={{
+                    fontSize: '0.55rem',
+                    color: isActive ? 'var(--red)' : 'transparent',
+                    flexShrink: 0,
+                    transition: 'color 0.12s',
+                    lineHeight: 1,
+                }}>▸</span>
                 {item.label}
             </Link>
 
@@ -75,14 +119,13 @@ function NavRow({
                 style={{
                     position: 'absolute',
                     right: 10,
-                    fontSize: '0.65rem',
-                    color: pinned ? 'var(--red)' : 'rgba(237,237,237,0.35)',
+                    fontSize: '0.6rem',
+                    color: pinned ? 'var(--red)' : 'rgba(237,237,237,0.3)',
                     cursor: 'pointer',
                     opacity: pinned ? 1 : hovered ? 0.8 : 0,
-                    transition: 'opacity 0.15s, color 0.15s',
+                    transition: 'opacity 0.12s, color 0.12s',
                     userSelect: 'none',
                     lineHeight: 1,
-                    padding: '2px 2px',
                 }}
             >
                 {pinned ? '★' : '☆'}
@@ -93,11 +136,7 @@ function NavRow({
 
 // ── Pinned section ────────────────────────────────────────────────────────────
 
-function PinnedSection({
-    onNavigate,
-}: {
-    onNavigate?: () => void
-}) {
+function PinnedSection({ onNavigate }: { onNavigate?: () => void }) {
     const { favourites, unpin } = useFavourites()
     const router = useRouter()
     const pathname = usePathname()
@@ -114,23 +153,24 @@ function PinnedSection({
     }
 
     return (
-        <div style={{ marginTop: 8 }}>
+        <div>
+            {/* Section header */}
             <button
                 onClick={() => setExpanded(p => !p)}
-                className='w-full flex items-center justify-between px-5 py-2'
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(237,237,237,0.3)' }}
+                className='w-full flex items-center justify-between px-4 py-2'
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
             >
-                <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase' }}>
-                    ★ Pinned
+                <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ color: 'rgba(219,0,29,0.45)', fontFamily: 'monospace' }}>//</span>
+                    PINNED
                 </span>
-                {expanded
-                    ? <ExpandMore sx={{ fontSize: 14, opacity: 0.5 }} />
-                    : <ChevronRight sx={{ fontSize: 14, opacity: 0.5 }} />
-                }
+                <span style={{ fontSize: '0.62rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.25)', lineHeight: 1 }}>
+                    {expanded ? '[−]' : '[+]'}
+                </span>
             </button>
 
             <Collapse in={expanded}>
-                <div className='flex flex-col'>
+                <div className='flex flex-col pb-1'>
                     {favourites.map(fav => {
                         const isActive = pathname === fav.href
                         return (
@@ -143,61 +183,49 @@ function PinnedSection({
                                     onClick={() => handleClick(fav)}
                                     style={{
                                         flex: 1,
-                                        display: 'block',
-                                        padding: '7px 36px 7px 16px',
-                                        fontSize: '0.72rem',
-                                        fontWeight: isActive ? 700 : 500,
-                                        letterSpacing: '0.08em',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        padding: '6px 36px 6px 16px',
+                                        fontSize: '0.68rem',
+                                        fontWeight: isActive ? 700 : 400,
+                                        letterSpacing: '0.1em',
                                         textTransform: 'uppercase',
                                         textAlign: 'left',
                                         cursor: 'pointer',
-                                        color: isActive ? 'var(--foreground)' : 'rgba(237,237,237,0.55)',
-                                        background: isActive ? 'rgba(219,0,29,0.08)' : 'transparent',
+                                        color: isActive ? 'rgba(237,237,237,0.95)' : 'rgba(237,237,237,0.45)',
+                                        background: isActive ? 'rgba(219,0,29,0.07)' : 'transparent',
                                         borderTop: 'none',
                                         borderRight: 'none',
                                         borderBottom: 'none',
                                         borderLeft: isActive ? '2px solid var(--red)' : '2px solid transparent',
-                                        transition: 'background 0.15s, color 0.15s',
+                                        transition: 'background 0.12s, color 0.12s',
                                     }}
                                     onMouseEnter={e => {
-                                        if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'
+                                        if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.025)'
                                     }}
                                     onMouseLeave={e => {
                                         if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'
                                     }}
                                 >
+                                    <span style={{ fontSize: '0.5rem', color: isActive ? 'var(--red)' : 'transparent', flexShrink: 0, lineHeight: 1 }}>▸</span>
                                     {fav.label}
                                 </button>
                                 <span
                                     onClick={() => unpin(fav.id)}
                                     title='Unpin'
-                                    style={{
-                                        position: 'absolute',
-                                        right: 10,
-                                        fontSize: '0.7rem',
-                                        color: 'rgba(237,237,237,0.2)',
-                                        cursor: 'pointer',
-                                        opacity: 0,
-                                        transition: 'opacity 0.15s, color 0.15s',
-                                        userSelect: 'none',
-                                        lineHeight: 1,
-                                        padding: '2px 2px',
-                                    }}
+                                    style={{ position: 'absolute', right: 10, fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)', cursor: 'pointer', opacity: 0, transition: 'opacity 0.12s, color 0.12s', userSelect: 'none', lineHeight: 1 }}
                                     className='unpin-btn'
                                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--red)'}
                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'rgba(237,237,237,0.2)'}
-                                >
-                                    ×
-                                </span>
+                                >×</span>
                             </div>
                         )
                     })}
                 </div>
             </Collapse>
 
-            <style>{`
-                .group\\/pin:hover .unpin-btn { opacity: 1 !important; }
-            `}</style>
+            <style>{`.group\\/pin:hover .unpin-btn { opacity: 1 !important; }`}</style>
         </div>
     )
 }
@@ -215,7 +243,7 @@ export default function StaffSidebar({
 
     const [expanded, setExpanded] = useState({
         departments: true,
-        personnel: true,
+        personnel: false,
         unit: true,
     })
 
@@ -223,13 +251,13 @@ export default function StaffSidebar({
         {
             label: 'Departments',
             items: [
-                { label: 'J1 — Recruitment',        href: '/admin/j1',      visible: permissions.canSeeJ1 },
-                { label: 'J2 — Mission Making',      href: '/admin/j2',      visible: permissions.canSeeJ2 },
-                { label: 'J3 — Training',            href: '/admin/j3',      visible: permissions.canSeeJ3 },
-                { label: 'J4 — Administration',      href: '/admin/j4',      visible: permissions.canSeeJ4 },
-                { label: 'J5 — Media',               href: '/admin/gallery', visible: permissions.canSeeJ5 },
-                { label: 'J6 — Game Masters',        href: '/admin/j6',      visible: permissions.canSeeJ6 },
-                { label: 'J7 — Development',         href: '/admin/j7',      visible: permissions.canSeeJ7 },
+                { label: 'J1 — Recruitment',     href: '/admin/j1',      visible: permissions.canSeeJ1 },
+                { label: 'J2 — Mission Making',   href: '/admin/j2',      visible: permissions.canSeeJ2 },
+                { label: 'J3 — Training',         href: '/admin/j3',      visible: permissions.canSeeJ3 },
+                { label: 'J4 — Administration',   href: '/admin/j4',      visible: permissions.canSeeJ4 },
+                { label: 'J5 — Media',            href: '/admin/gallery', visible: permissions.canSeeJ5 },
+                { label: 'J6 — Game Masters',     href: '/admin/j6',      visible: permissions.canSeeJ6 },
+                { label: 'J7 — Development',      href: '/admin/j7',      visible: permissions.canSeeJ7 },
             ],
         },
         {
@@ -243,11 +271,11 @@ export default function StaffSidebar({
         {
             label: 'Unit',
             items: [
-                { label: 'ORBAT',                   href: '/admin/orbat',              visible: permissions.canSeeOrbat },
-                { label: 'Calendar',                href: '/admin/unit/calendar',      visible: true },
-                { label: 'Training Documentation',  href: '/admin/unit/training-docs', visible: true },
-                { label: "Unit SOP's",              href: '/admin/unit/sops',          visible: true },
-                { label: 'Tickets',                 href: '/admin/unit/tickets',       visible: true },
+                { label: 'ORBAT',               href: '/admin/orbat',              visible: permissions.canSeeOrbat },
+                { label: 'Calendar',            href: '/admin/unit/calendar',      visible: true },
+                { label: 'Training Docs',       href: '/admin/unit/training-docs', visible: true },
+                { label: "SOPs",                href: '/admin/unit/sops',          visible: true },
+                { label: 'Tickets',             href: '/admin/unit/tickets',       visible: true },
             ],
         },
     ]
@@ -259,49 +287,91 @@ export default function StaffSidebar({
     const sectionKeys: (keyof typeof expanded)[] = ['departments', 'personnel', 'unit']
 
     return (
-        <nav className='flex flex-col h-full overflow-y-auto' style={{ paddingBottom: 32 }}>
+        <nav className='flex flex-col h-full overflow-y-auto' style={{ paddingBottom: 40 }}>
 
-            {/* Dashboard header */}
-            <div className='px-5 py-5' style={{ borderBottom: '1px solid rgba(219,0,29,0.12)' }}>
-                <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 3 }}>
-                    ASOT Unit
+            {/* ── Header ─────────────────────────────────────────────────── */}
+            <div
+                style={{
+                    position: 'relative',
+                    padding: '18px 16px 16px',
+                    borderBottom: '1px solid rgba(219,0,29,0.15)',
+                    background: 'rgba(0,0,0,0.25)',
+                }}
+            >
+                <CornerBrackets />
+
+                {/* Top row: unit label + clock */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace' }}>
+                        ASOT // UNIT
+                    </span>
+                    <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.3)', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+                        <ZuluClock />
+                    </span>
                 </div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>
+
+                {/* Dashboard title */}
+                <div style={{ fontSize: '0.82rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1.1, marginBottom: 10 }}>
                     Staff Dashboard
                 </div>
-                <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.3)', marginTop: 4, letterSpacing: '0.04em' }}>
-                    {permissions.displayName}
+
+                {/* Divider */}
+                <div style={{ height: 1, background: 'rgba(219,0,29,0.18)', marginBottom: 10 }} />
+
+                {/* User + status */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)', letterSpacing: '0.06em', fontFamily: 'monospace' }}>
+                        {permissions.displayName || '—'}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.52rem', color: 'rgba(0,200,80,0.6)', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(0,200,80,0.7)', flexShrink: 0, boxShadow: '0 0 4px rgba(0,200,80,0.5)' }} />
+                        ONLINE
+                    </span>
                 </div>
             </div>
 
-            {/* Pinned section — shows only when items are pinned */}
+            {/* ── Pinned section ──────────────────────────────────────────── */}
             <PinnedSection onNavigate={onNavigate} />
 
-            {/* Divider if there are pinned items */}
-            <PinnedDivider />
-
-            {/* Sections */}
+            {/* ── Sections ────────────────────────────────────────────────── */}
             {sections.map((section, i) => {
                 const key = sectionKeys[i]
                 const visibleItems = section.items.filter(item => item.visible)
                 if (visibleItems.length === 0) return null
 
+                const isAnyActive = visibleItems.some(item =>
+                    pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href + '/'))
+                )
+
                 return (
-                    <div key={section.label} style={{ marginTop: 8 }}>
+                    <div key={section.label} style={{ marginTop: 6 }}>
+
+                        {/* Section toggle */}
                         <button
                             onClick={() => toggle(key)}
-                            className='w-full flex items-center justify-between px-5 py-2'
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(237,237,237,0.3)' }}
+                            className='w-full flex items-center justify-between px-4 py-2'
+                            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
                         >
-                            <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase' }}>
-                                {section.label}
+                            <span style={{
+                                fontSize: '0.55rem',
+                                fontWeight: 700,
+                                letterSpacing: '0.22em',
+                                textTransform: 'uppercase',
+                                color: isAnyActive ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.25)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 5,
+                                transition: 'color 0.15s',
+                            }}>
+                                <span style={{ fontFamily: 'monospace', color: isAnyActive ? 'rgba(219,0,29,0.5)' : 'rgba(237,237,237,0.15)' }}>//</span>
+                                {section.label.toUpperCase()}
                             </span>
-                            {expanded[key]
-                                ? <ExpandMore sx={{ fontSize: 14, opacity: 0.5 }} />
-                                : <ChevronRight sx={{ fontSize: 14, opacity: 0.5 }} />
-                            }
+                            <span style={{ fontSize: '0.62rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.2)', lineHeight: 1 }}>
+                                {expanded[key] ? '[−]' : '[+]'}
+                            </span>
                         </button>
 
+                        {/* Items */}
                         <Collapse in={expanded[key]}>
                             <div className='flex flex-col'>
                                 {visibleItems.map(item => {
@@ -322,13 +392,14 @@ export default function StaffSidebar({
                 )
             })}
 
+            {/* ── Footer ──────────────────────────────────────────────────── */}
+            <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid rgba(219,0,29,0.1)' }}>
+                <div style={{ fontSize: '0.5rem', fontFamily: 'monospace', letterSpacing: '0.15em', color: 'rgba(237,237,237,0.12)', textTransform: 'uppercase', lineHeight: 1.8 }}>
+                    <div>SYS // STAFF-PORTAL</div>
+                    <div>AUTH // DISCORD-SSO</div>
+                </div>
+            </div>
+
         </nav>
     )
-}
-
-// Small divider that only renders when there are pinned items
-function PinnedDivider() {
-    const { favourites } = useFavourites()
-    if (favourites.length === 0) return null
-    return <div style={{ height: 1, background: 'rgba(219,0,29,0.1)', margin: '4px 0' }} />
 }
