@@ -166,6 +166,11 @@ declare global {
         // J2-internal — never rendered on public pages
         internalNotes?: string
         campaignId?: ObjectId
+
+        // Soft delete
+        deletedAt?: Date
+        deletedBy?: string       // Discord user ID
+        deletedByName?: string   // Display name for audit
     }
 
     interface OperationCampaign {

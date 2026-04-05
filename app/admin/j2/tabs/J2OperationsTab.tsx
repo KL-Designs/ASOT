@@ -6,6 +6,7 @@ import {
     Edit, ContentCopy, Delete, Add, BookmarkAdd, BookmarkAdded,
     ExpandMore, ExpandLess, NoteAlt, Search, Close,
     ChevronLeft, ChevronRight, ViewList, AccountTree, FolderOpen, Check,
+    DeleteSweep, RestoreFromTrash, DeleteForever,
 } from '@mui/icons-material'
 import ConfirmDialog from '@/components/confirm-dialog'
 
@@ -28,7 +29,7 @@ const STATUS_BORDER: Record<string, string> = {
 
 const ALL_STATUSES = ['All', 'In Development', 'Upcoming', 'Active', 'Completed'] as const
 type StatusFilter = typeof ALL_STATUSES[number]
-type ViewMode = 'list' | 'campaigns'
+type ViewMode = 'list' | 'campaigns' | 'bin'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -318,7 +319,7 @@ function SaveTemplateForm({ op, onSaved, onCancel }: { op: Operation; onSaved: (
 
 function OpRow({ op, onDelete, onDuplicate, onNotesSaved, onTemplateSaved, onAssigned, onRemoved }: {
     op: Operation
-    onDelete: (id: string) => void
+    onDelete: (id: string, title: string) => void
     onDuplicate: (id: string) => void
     onNotesSaved: (id: string, notes: string) => void
     onTemplateSaved: () => void
@@ -375,8 +376,8 @@ function OpRow({ op, onDelete, onDuplicate, onNotesSaved, onTemplateSaved, onAss
             <AssignCampaignSection op={op} onAssigned={onAssigned} onRemoved={onRemoved} />
             <NotesRow op={op} onSaved={onNotesSaved} />
 
-            <ConfirmDialog open={confirmOpen} title='Delete Mission' message={`Delete "${op.title}"? This cannot be undone.`}
-                onConfirm={() => { setConfirmOpen(false); fetch(`/api/operations/delete?id=${id}`).then(() => onDelete(id)) }}
+            <ConfirmDialog open={confirmOpen} title='Delete Mission' message={`Delete "${op.title}"? You can restore it from the recycle bin within 30 days.`}
+                onConfirm={() => { setConfirmOpen(false); fetch(`/api/operations/delete?id=${id}`).then(() => onDelete(id, op.title)) }}
                 onCancel={() => setConfirmOpen(false)} />
         </div>
     )
@@ -387,7 +388,7 @@ function OpRow({ op, onDelete, onDuplicate, onNotesSaved, onTemplateSaved, onAss
 function CampaignGroup({ campaign, missions, onDelete, onDuplicate, onNotesSaved, onTemplateSaved, onAssigned, onRemoved, onCampaignRenamed, onCampaignDeleted }: {
     campaign: OperationCampaign | null   // null = Standalone group
     missions: Operation[]
-    onDelete: (id: string) => void
+    onDelete: (id: string, title: string) => void
     onDuplicate: (id: string) => void
     onNotesSaved: (id: string, notes: string) => void
     onTemplateSaved: () => void
@@ -604,7 +605,7 @@ function TemplatesSection({ refreshKey }: { refreshKey: number }) {
 
 // ── Main tab ───────────────────────────────────────────────────────────────────
 
-export default function J2OperationsTab() {
+export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
     const [missions, setMissions] = useState<Operation[]>([])
     const [loading, setLoading] = useState(true)
     const [viewMode, setViewMode] = useState<ViewMode>('list')
@@ -617,12 +618,34 @@ export default function J2OperationsTab() {
     const [campaigns, setCampaigns] = useState<OperationCampaign[]>([])
     const [campaignsLoaded, setCampaignsLoaded] = useState(false)
 
-    useEffect(() => {
+    // Undo toast
+    const [undoItem, setUndoItem] = useState<{ id: string; title: string } | null>(null)
+    const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Bin
+    const [binOps, setBinOps] = useState<(Operation & { deletedAt: Date; deletedByName?: string })[]>([])
+    const [loadingBin, setLoadingBin] = useState(false)
+    const [restoringId, setRestoringId] = useState<string | null>(null)
+    const [purgingId, setPurgingId] = useState<string | null>(null)
+    const [confirmPurgeId, setConfirmPurgeId] = useState<string | null>(null)
+
+    const fetchMissions = useCallback(() => {
         setLoading(true)
         fetch('/api/operations')
             .then(r => r.json())
             .then(data => setMissions(data.missions ?? []))
             .finally(() => setLoading(false))
+    }, [])
+
+    useEffect(() => { fetchMissions() }, [fetchMissions])
+
+    const fetchBin = useCallback(async () => {
+        setLoadingBin(true)
+        try {
+            const res = await fetch('/api/operations/bin')
+            const data = await res.json()
+            setBinOps(data.operations ?? [])
+        } finally { setLoadingBin(false) }
     }, [])
 
     // Lazy-load campaigns when first switching to campaigns view
@@ -635,13 +658,40 @@ export default function J2OperationsTab() {
 
     useEffect(() => { setPage(0) }, [statusFilter, search])
 
-    const handleDelete = useCallback((id: string) => {
+    const handleDelete = useCallback((id: string, title: string) => {
         setMissions(ms => ms.filter(m => m._id.toString() !== id))
+        setUndoItem({ id, title })
+        if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+        undoTimerRef.current = setTimeout(() => setUndoItem(null), 8000)
     }, [])
 
+    async function handleUndo() {
+        if (!undoItem) return
+        if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+        setUndoItem(null)
+        await fetch(`/api/operations/restore?id=${undoItem.id}`)
+        fetchMissions()
+    }
+
+    async function restoreFromBin(id: string) {
+        setRestoringId(id)
+        try {
+            await fetch(`/api/operations/restore?id=${id}`)
+            setBinOps(ops => ops.filter(o => o._id.toString() !== id))
+        } finally { setRestoringId(null) }
+    }
+
+    async function purgeFromBin(id: string) {
+        setPurgingId(id)
+        try {
+            await fetch(`/api/operations/purge?id=${id}`)
+            setBinOps(ops => ops.filter(o => o._id.toString() !== id))
+        } finally { setPurgingId(null); setConfirmPurgeId(null) }
+    }
+
     const handleDuplicate = useCallback(() => {
-        fetch('/api/operations').then(r => r.json()).then(data => setMissions(data.missions ?? []))
-    }, [])
+        fetchMissions()
+    }, [fetchMissions])
 
     const handleNotesSaved = useCallback((id: string, notes: string) => {
         setMissions(ms => ms.map(m => m._id.toString() === id ? { ...m, internalNotes: notes } : m))
@@ -661,7 +711,7 @@ export default function J2OperationsTab() {
             const res = await fetch('/api/operations/new')
             const data = await res.json()
             if (data.id) {
-                fetch('/api/operations').then(r => r.json()).then(d => setMissions(d.missions ?? []))
+                fetchMissions()
                 window.open(`/operations/edit?op=${data.id}`, '_blank')
             }
         } finally { setCreating(false) }
@@ -708,7 +758,7 @@ export default function J2OperationsTab() {
 
                 {/* View toggle */}
                 <div style={{ display: 'flex', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    {(['list', 'campaigns'] as ViewMode[]).map(v => {
+                    {(['list', 'campaigns'] as ('list' | 'campaigns')[]).map(v => {
                         const active = viewMode === v
                         return (
                             <button key={v} onClick={() => setViewMode(v)} style={{
@@ -716,7 +766,7 @@ export default function J2OperationsTab() {
                                 fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
                                 padding: '5px 12px', cursor: 'pointer',
                                 background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
-                                border: 'none', borderRight: v === 'list' ? '1px solid rgba(255,255,255,0.1)' : 'none',
+                                border: 'none', borderRight: '1px solid rgba(255,255,255,0.1)',
                                 color: active ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.3)',
                                 transition: 'all 0.15s',
                             }}>
@@ -725,6 +775,20 @@ export default function J2OperationsTab() {
                             </button>
                         )
                     })}
+                    <button
+                        onClick={() => { setViewMode('bin'); fetchBin() }}
+                        title='Recycle Bin'
+                        style={{
+                            display: 'flex', alignItems: 'center',
+                            padding: '5px 10px', cursor: 'pointer',
+                            background: viewMode === 'bin' ? 'rgba(219,0,29,0.12)' : 'transparent',
+                            border: 'none',
+                            color: viewMode === 'bin' ? 'rgba(219,0,29,0.8)' : 'rgba(237,237,237,0.3)',
+                            transition: 'all 0.15s',
+                        }}
+                    >
+                        <DeleteSweep style={{ fontSize: 15 }} />
+                    </button>
                 </div>
 
                 <button onClick={() => setTemplatePickerOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 14px', cursor: 'pointer', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.6)' }}>
@@ -814,7 +878,136 @@ export default function J2OperationsTab() {
                 </>
             )}
 
+            {/* ── BIN VIEW ── */}
+            {viewMode === 'bin' && (
+                <div>
+                    <div style={{ marginBottom: 10 }}>
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)' }}>
+                            Operations in bin are permanently deleted after 30 days
+                        </span>
+                    </div>
+
+                    {loadingBin && <LinearProgress sx={{ mb: 1, backgroundColor: 'rgba(219,0,29,0.1)', '& .MuiLinearProgress-bar': { backgroundColor: 'var(--red)' } }} />}
+
+                    {!loadingBin && binOps.length === 0 && (
+                        <Typography style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.25)', padding: '16px 0', fontStyle: 'italic' }}>
+                            Recycle bin is empty.
+                        </Typography>
+                    )}
+
+                    {binOps.length > 0 && (
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                                        {['Title', 'Deleted By', 'Deleted On', 'Days Remaining', ''].map(h => (
+                                            <th key={h} style={{ textAlign: 'left', padding: '6px 12px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>
+                                                {h}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {binOps.map(op => {
+                                        const id = op._id.toString()
+                                        const daysRemaining = Math.max(0, 30 - Math.floor((Date.now() - new Date(op.deletedAt).getTime()) / 86400000))
+                                        const isRestoring = restoringId === id
+                                        const isPurging = purgingId === id
+                                        return (
+                                            <tr key={id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.75)', fontWeight: 700 }}>{op.title}</td>
+                                                <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.45)' }}>{op.deletedByName ?? '—'}</td>
+                                                <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>
+                                                    {new Date(op.deletedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                </td>
+                                                <td style={{ padding: '8px 12px', color: daysRemaining <= 5 ? 'rgba(219,0,29,0.8)' : 'rgba(237,237,237,0.45)' }}>
+                                                    {daysRemaining}d
+                                                </td>
+                                                <td style={{ padding: '8px 12px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                                                        <button
+                                                            onClick={() => restoreFromBin(id)}
+                                                            disabled={isRestoring || isPurging}
+                                                            title='Restore'
+                                                            style={{
+                                                                display: 'flex', alignItems: 'center', gap: 4,
+                                                                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
+                                                                padding: '3px 10px', cursor: isRestoring ? 'not-allowed' : 'pointer',
+                                                                background: 'none', border: '1px solid rgba(34,197,94,0.3)',
+                                                                color: isRestoring ? 'rgba(34,197,94,0.3)' : 'rgba(34,197,94,0.7)',
+                                                            }}
+                                                        >
+                                                            <RestoreFromTrash style={{ fontSize: 13 }} />
+                                                            {isRestoring ? 'Restoring…' : 'Restore'}
+                                                        </button>
+                                                        {isJ4 && (
+                                                            <button
+                                                                onClick={() => setConfirmPurgeId(id)}
+                                                                disabled={isRestoring || isPurging}
+                                                                title='Delete Permanently'
+                                                                style={{
+                                                                    display: 'flex', alignItems: 'center', gap: 4,
+                                                                    fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
+                                                                    padding: '3px 10px', cursor: isPurging ? 'not-allowed' : 'pointer',
+                                                                    background: 'none', border: '1px solid rgba(219,0,29,0.3)',
+                                                                    color: isPurging ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.7)',
+                                                                }}
+                                                            >
+                                                                <DeleteForever style={{ fontSize: 13 }} />
+                                                                {isPurging ? 'Deleting…' : 'Delete Permanently'}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {confirmPurgeId && (
+                        <ConfirmDialog
+                            open
+                            title='Delete Permanently'
+                            message={`Permanently delete "${binOps.find(o => o._id.toString() === confirmPurgeId)?.title}"? This cannot be undone.`}
+                            onConfirm={() => purgeFromBin(confirmPurgeId)}
+                            onCancel={() => setConfirmPurgeId(null)}
+                        />
+                    )}
+                </div>
+            )}
+
             {templatePickerOpen && <TemplatePicker onClose={() => setTemplatePickerOpen(false)} />}
+
+            {/* ── UNDO TOAST ── */}
+            {undoItem && (
+                <div style={{
+                    position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+                    zIndex: 1400, display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 16px', background: 'rgb(22,22,22)',
+                    border: '1px solid rgba(219,0,29,0.3)', borderLeft: '3px solid var(--red)',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                    fontSize: '0.8rem', color: 'rgba(237,237,237,0.8)', whiteSpace: 'nowrap',
+                }}>
+                    <span>Deleted <strong style={{ color: 'rgba(237,237,237,0.95)' }}>{undoItem.title}</strong></span>
+                    <button
+                        onClick={handleUndo}
+                        style={{
+                            all: 'unset', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700,
+                            letterSpacing: '0.1em', color: 'var(--red)', padding: '2px 8px',
+                            border: '1px solid rgba(219,0,29,0.4)',
+                        }}
+                    >UNDO</button>
+                    <button
+                        onClick={() => { if (undoTimerRef.current) clearTimeout(undoTimerRef.current); setUndoItem(null) }}
+                        style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.3)', display: 'flex' }}
+                    >
+                        <Close style={{ fontSize: 15 }} />
+                    </button>
+                </div>
+            )}
         </div>
     )
 }

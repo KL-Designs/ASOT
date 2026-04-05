@@ -14,17 +14,14 @@ export async function GET(request: NextRequest) {
 
     try {
         const me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.operations.write)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+        if (!client.hasRoles(me, PERMISSIONS.departments.j4)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
-        await Db.operations.updateOne(
-            { _id: new ObjectId(id) },
-            { $set: { deletedAt: new Date(), deletedBy: me.id, deletedByName: me.guild.displayName } }
-        )
+        await Db.operations.deleteOne({ _id: new ObjectId(id) })
 
         return NextResponse.json({ success: true }, { status: 200 })
     }
 
     catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 401 })
+        return NextResponse.json({ error: err.message }, { status: 500 })
     }
 }

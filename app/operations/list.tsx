@@ -2,9 +2,8 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import ConfirmDialog from '@/components/confirm-dialog'
 import { useState, useEffect } from 'react'
-import { Edit, ContentCopy, Delete, ArrowForward, Add, ChevronLeft, ChevronRight, Search } from '@mui/icons-material'
+import { Edit, ArrowForward, Add, ChevronLeft, ChevronRight, Search, Dashboard } from '@mui/icons-material'
 import { useRef } from 'react'
 
 
@@ -53,23 +52,6 @@ function StatusBadge({ status }: { status?: string }) {
         }}>
             {status}
         </span>
-    )
-}
-
-
-// ── Icon button ────────────────────────────────────────────────────────────────
-
-function IconBtn({ children, danger }: { children: React.ReactNode, danger?: boolean }) {
-    const base = danger ? 'rgba(219,0,29,0.35)' : 'rgba(237,237,237,0.3)'
-    const hover = danger ? 'rgba(219,0,29,0.8)' : 'rgba(237,237,237,0.75)'
-    return (
-        <div
-            style={{ padding: 5, color: base, display: 'flex', transition: 'color 0.15s', cursor: 'pointer' }}
-            onMouseEnter={e => (e.currentTarget.style.color = hover)}
-            onMouseLeave={e => (e.currentTarget.style.color = base)}
-        >
-            {children}
-        </div>
     )
 }
 
@@ -502,7 +484,7 @@ function MonthlyMissionsPanel({
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     {missions.map(m => (
-                        <MissionRow key={m._id.toString()} mission={m} hasAccess={hasAccess} onDeleted={id => setMissions(prev => prev.filter(x => x._id.toString() !== id))} onDuplicated={load} />
+                        <MissionRow key={m._id.toString()} mission={m} hasAccess={hasAccess} />
                     ))}
                 </div>
             )}
@@ -510,44 +492,25 @@ function MonthlyMissionsPanel({
     )
 }
 
-function MissionRow({ mission, hasAccess, onDeleted, onDuplicated }: { mission: Operation; hasAccess: boolean; onDeleted?: (id: string) => void; onDuplicated?: () => void }) {
+function MissionRow({ mission, hasAccess }: { mission: Operation; hasAccess: boolean }) {
     const [hovered, setHovered] = useState(false)
-    const [confirmDelete, setConfirmDelete] = useState(false)
     const router = useRouter()
     const id = mission._id.toString()
 
-    function handleDelete() {
-        const id = mission._id.toString()
-        fetch(`/api/operations/delete?id=${id}`)
-            .then(r => r.json())
-            .then(j => { if (j.error) alert(j.error); else onDeleted?.(id) })
-        setConfirmDelete(false)
-    }
-
     return (
-        <>
-            <ConfirmDialog
-                open={confirmDelete}
-                title='Delete Mission'
-                message={`"${mission.title}" will be permanently deleted. This cannot be undone.`}
-                confirmLabel='Delete'
-                danger
-                onConfirm={handleDelete}
-                onCancel={() => setConfirmDelete(false)}
-            />
-            <div
-                onClick={() => router.push(`/operations/${id}`)}
-                onMouseEnter={() => setHovered(true)}
-                onMouseLeave={() => setHovered(false)}
-                style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
-                    borderBottom: '1px solid rgba(255,255,255,0.04)',
-                    borderLeft: `2px solid ${hovered ? 'var(--red)' : 'rgba(219,0,29,0.15)'}`,
-                    background: hovered ? 'rgba(255,255,255,0.015)' : 'transparent',
-                    transition: 'border-color 0.2s, background 0.2s',
-                    cursor: 'pointer',
-                }}
-            >
+        <div
+            onClick={() => router.push(`/operations/${id}`)}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => setHovered(false)}
+            style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                borderLeft: `2px solid ${hovered ? 'var(--red)' : 'rgba(219,0,29,0.15)'}`,
+                background: hovered ? 'rgba(255,255,255,0.015)' : 'transparent',
+                transition: 'border-color 0.2s, background 0.2s',
+                cursor: 'pointer',
+            }}
+        >
                 {/* Cover thumbnail */}
                 {mission.coverImage && (
                     <div style={{ width: 52, height: 36, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -578,48 +541,7 @@ function MissionRow({ mission, hasAccess, onDeleted, onDuplicated }: { mission: 
                 <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     {hasAccess && (
                         <>
-                            <button
-                                title='Delete'
-                                onClick={() => setConfirmDelete(true)}
-                                style={{ all: 'unset', cursor: 'pointer' }}
-                            >
-                                <div
-                                    style={{
-                                        display: 'flex', alignItems: 'center', lineHeight: 0,
-                                        padding: '5px 8px',
-                                        background: 'rgba(180,20,20,0.07)',
-                                        border: '1px solid rgba(180,20,20,0.35)',
-                                        color: 'rgba(220,60,60,0.75)',
-                                        cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
-                                    }}
-                                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(180,20,20,0.18)'; el.style.color = 'rgba(240,80,80,1)'; el.style.borderColor = 'rgba(180,20,20,0.65)' }}
-                                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(180,20,20,0.07)'; el.style.color = 'rgba(220,60,60,0.75)'; el.style.borderColor = 'rgba(180,20,20,0.35)' }}
-                                >
-                                    <Delete style={{ fontSize: 13 }} />
-                                </div>
-                            </button>
-                            <button
-                                title='Duplicate'
-                                onClick={() => fetch(`/api/operations/duplicate?id=${mission._id}`).then(r => r.json()).then(j => { if (j.error) alert(j.error); else onDuplicated?.() })}
-                                style={{ all: 'unset', cursor: 'pointer' }}
-                            >
-                                <div
-                                    style={{
-                                        display: 'flex', alignItems: 'center', lineHeight: 0,
-                                        padding: '5px 8px',
-                                        background: 'rgba(219,160,0,0.07)',
-                                        border: '1px solid rgba(219,160,0,0.3)',
-                                        color: 'rgba(219,160,0,0.75)',
-                                        cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
-                                    }}
-                                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(219,160,0,0.16)'; el.style.color = 'rgba(219,160,0,1)'; el.style.borderColor = 'rgba(219,160,0,0.6)' }}
-                                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(219,160,0,0.07)'; el.style.color = 'rgba(219,160,0,0.75)'; el.style.borderColor = 'rgba(219,160,0,0.3)' }}
-                                >
-                                    <ContentCopy style={{ fontSize: 13 }} />
-                                </div>
-                            </button>
-                            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)' }} />
-                            <Link href={`/operations/edit?op=${mission._id.toString()}`} title='Edit' style={{ textDecoration: 'none' }}>
+                            <Link href='/admin/j2' title='Manage in J2 Dashboard' style={{ textDecoration: 'none' }}>
                                 <div
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: 4,
@@ -632,6 +554,23 @@ function MissionRow({ mission, hasAccess, onDeleted, onDuplicated }: { mission: 
                                     }}
                                     onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(100,150,237,0.16)'; el.style.color = 'rgba(100,150,237,1)'; el.style.borderColor = 'rgba(100,150,237,0.6)' }}
                                     onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(100,150,237,0.07)'; el.style.color = 'rgba(100,150,237,0.75)'; el.style.borderColor = 'rgba(100,150,237,0.3)' }}
+                                >
+                                    <Dashboard style={{ fontSize: 11 }} /> J2
+                                </div>
+                            </Link>
+                            <Link href={`/operations/edit?op=${id}`} title='Edit' style={{ textDecoration: 'none' }}>
+                                <div
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 4,
+                                        padding: '5px 10px',
+                                        background: 'rgba(219,160,0,0.07)',
+                                        border: '1px solid rgba(219,160,0,0.3)',
+                                        color: 'rgba(219,160,0,0.75)',
+                                        fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                                        cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+                                    }}
+                                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(219,160,0,0.16)'; el.style.color = 'rgba(219,160,0,1)'; el.style.borderColor = 'rgba(219,160,0,0.6)' }}
+                                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(219,160,0,0.07)'; el.style.color = 'rgba(219,160,0,0.75)'; el.style.borderColor = 'rgba(219,160,0,0.3)' }}
                                 >
                                     <Edit style={{ fontSize: 11 }} /> Edit
                                 </div>
@@ -657,11 +596,9 @@ function MissionRow({ mission, hasAccess, onDeleted, onDuplicated }: { mission: 
                         </div>
                     </Link>
                 </div>
-            </div>
-        </>
+        </div>
     )
 }
-
 
 // ── Main board (exported) ──────────────────────────────────────────────────────
 

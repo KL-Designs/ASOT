@@ -89,7 +89,7 @@ export default function J2Panel({
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
-                        {tab === 0 && <J2OperationsTab />}
+                        {tab === 0 && <J2OperationsTab isJ4={isJ4} />}
                     </div>
                 </>
             )}

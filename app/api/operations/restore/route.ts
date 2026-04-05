@@ -18,13 +18,13 @@ export async function GET(request: NextRequest) {
 
         await Db.operations.updateOne(
             { _id: new ObjectId(id) },
-            { $set: { deletedAt: new Date(), deletedBy: me.id, deletedByName: me.guild.displayName } }
+            { $unset: { deletedAt: '', deletedBy: '', deletedByName: '' } }
         )
 
         return NextResponse.json({ success: true }, { status: 200 })
     }
 
     catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 401 })
+        return NextResponse.json({ error: err.message }, { status: 500 })
     }
 }

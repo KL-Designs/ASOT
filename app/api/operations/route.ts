@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ mission }, { status: 200 })
         }
 
-        const query: Record<string, any> = {}
+        const query: Record<string, any> = { deletedAt: { $exists: false } }
 
         // Always hide "In Development" from non-HQ users
         if (!isHQ) {
