@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { connection } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import PlaceholderPanel from '../../PlaceholderPanel'
+import TicketsPanel from './TicketsPanel'
 
 export default async function Page() {
     await connection()
@@ -11,10 +11,20 @@ export default async function Page() {
     if (!me) redirect('/login')
     if (!client.hasRoles(me, PERMISSIONS.pages.admin)) redirect('/me')
 
+    const canActionJ3 = client.hasRoles(me, PERMISSIONS.tickets.actionJ3)
+    const canActionJ4 = client.hasRoles(me, PERMISSIONS.tickets.actionJ4)
+    const canActionMoveRequest = client.hasRoles(me, PERMISSIONS.tickets.actionMoveRequest)
+    const canActionDiscipline = client.hasRoles(me, PERMISSIONS.tickets.actionDiscipline)
+    const displayName = me.guild?.nickname || me.globalName || me.username || ''
+
     return (
-        <PlaceholderPanel
-            title='Tickets'
-            description='Support ticket management and tracking are coming soon.'
+        <TicketsPanel
+            canActionJ3={canActionJ3}
+            canActionJ4={canActionJ4}
+            canActionMoveRequest={canActionMoveRequest}
+            canActionDiscipline={canActionDiscipline}
+            displayName={displayName}
+            userId={me.id}
         />
     )
 }

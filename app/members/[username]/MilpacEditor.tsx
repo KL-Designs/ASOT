@@ -77,9 +77,9 @@ function todayStr() {
     return new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-type Promotion = { _key: string; date: string; rank: string; role: string }
-type Award = { _key: string; date: string; name: string; type: string }
-type Qualification = { _key: string; date: string; qualification: string }
+type Promotion = { _key: string; date: string; rank: string; role: string; issuedById?: string; issuedByName?: string }
+type Award = { _key: string; date: string; name: string; type: string; issuedById?: string; issuedByName?: string }
+type Qualification = { _key: string; date: string; qualification: string; issuedById?: string; issuedByName?: string }
 
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
@@ -460,7 +460,7 @@ function SortableItem({ id, children }: { id: string; children: (listeners: Reco
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange, canEditRestricted = false, canEditStandard = false }: { member: User; confirmedOps?: ConfirmedOp[]; onDirtyChange?: (dirty: boolean) => void; canEditRestricted?: boolean; canEditStandard?: boolean }) {
+export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange, canEditRestricted = false, canEditStandard = false, canImpersonate = false }: { member: User; confirmedOps?: ConfirmedOp[]; onDirtyChange?: (dirty: boolean) => void; canEditRestricted?: boolean; canEditStandard?: boolean; canImpersonate?: boolean }) {
     const strippedNickname = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
     const fullDisplay = strippedNickname || member.globalName || member.username
     const nameParts = fullDisplay.split(' ')
@@ -490,6 +490,10 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
     }
     const [billetCounts, setBilletCounts] = useState({ ...defaultBilletCounts, ...(member.milpac?.billetCounts ?? {}) })
     const [j4Points, setJ4Points] = useState(member.milpac?.j4Points ?? 0)
+    const [disciplineHistory, setDisciplineHistory] = useState<NonNullable<User['milpac']>['disciplineHistory']>(
+        member.milpac?.disciplineHistory ?? []
+    )
+    const disciplineDeductions = (disciplineHistory ?? []).reduce((sum, e) => sum + e.points, 0)
 
     const [dirty, setDirty] = useState(false)
     const dirtyRef = useRef(false)
@@ -509,6 +513,21 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [impersonating, setImpersonating] = useState(false)
+
+    async function handleImpersonate() {
+        setImpersonating(true)
+        try {
+            const res = await fetch('/api/admin/impersonate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: member.id }),
+            })
+            if (res.ok) window.location.href = '/me'
+        } finally {
+            setImpersonating(false)
+        }
+    }
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
     const [uniformFile, setUniformFile] = useState<File | null>(null)
@@ -611,6 +630,8 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                     secondaryNightOps: 0,
                 }
                 body.j4Points = j4Points
+                body.disciplineHistory = disciplineHistory ?? []
+                body.disciplineDeductions = (disciplineHistory ?? []).reduce((sum, e) => sum + e.points, 0)
             }
             const res = await fetch(`/api/members/${member.username}`, {
                 method: 'PUT',
@@ -711,12 +732,20 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                         {saved && !error && (
                             <span style={{ fontSize: '0.7rem', color: 'rgba(80,200,80,0.75)' }}>Saved.</span>
                         )}
-                        <Link
-                            href='/members'
-                            style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', textDecoration: 'none' }}
-                        >
-                            ← All Members
-                        </Link>
+                        {canImpersonate && (
+                            <button
+                                onClick={handleImpersonate}
+                                disabled={impersonating}
+                                style={{
+                                    fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase',
+                                    color: impersonating ? 'rgba(255,160,0,0.3)' : 'rgba(255,160,0,0.7)',
+                                    background: 'none', border: '1px solid rgba(255,160,0,0.25)',
+                                    padding: '4px 10px', cursor: impersonating ? 'not-allowed' : 'pointer',
+                                }}
+                            >
+                                {impersonating ? '…' : 'Impersonate'}
+                            </button>
+                        )}
                         <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
                         <Link
                             href={`/milpacs/${member.username}`}
@@ -866,6 +895,7 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                     awards: awards.map(a => ({ name: a.name })),
                     qualifications: qualifications.map(q => ({ qualification: q.qualification })),
                     j4Points,
+                    disciplineDeductions,
                 }
                 const total = calculatePromotionPoints(counts) + opPts
 
@@ -1021,6 +1051,63 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                 </div>
                             )}
                         </div>
+
+                        {/* Discipline History */}
+                        {((disciplineHistory ?? []).length > 0 || true) && (
+                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 8, marginTop: 4 }}>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)', marginBottom: 6 }}>
+                                    Discipline History
+                                </div>
+                                {(disciplineHistory ?? []).length === 0 ? (
+                                    <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No discipline records.</span>
+                                ) : (
+                                    <div className='flex flex-col gap-1'>
+                                        {(disciplineHistory ?? []).map((entry, i) => (
+                                            <div key={i} style={{
+                                                display: 'flex', alignItems: 'flex-start', gap: 8,
+                                                padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                            }}>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                        <span style={{ fontSize: '0.68rem', color: 'rgba(219,0,29,0.85)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                                            -{entry.points} pts
+                                                        </span>
+                                                        <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>{entry.date}</span>
+                                                        <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.25)', whiteSpace: 'nowrap' }}>
+                                                            by {entry.approvedByName}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.6)', marginTop: 2, wordBreak: 'break-word' }}>
+                                                        {entry.reason}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', marginTop: 1 }}>
+                                                        Filed by {entry.issuedByName}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        markDirty()
+                                                        setDisciplineHistory(prev => (prev ?? []).filter((_, idx) => idx !== i))
+                                                    }}
+                                                    style={{
+                                                        background: 'none', border: 'none', cursor: 'pointer',
+                                                        color: 'rgba(219,0,29,0.5)', fontSize: '0.75rem',
+                                                        padding: '2px 4px', flexShrink: 0,
+                                                        lineHeight: 1,
+                                                    }}
+                                                    title='Remove entry'
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <div style={{ paddingTop: 4, fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', textAlign: 'right' }}>
+                                            Total deducted: <span style={{ color: 'rgba(219,0,29,0.7)', fontWeight: 700 }}>-{disciplineDeductions} pts</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </SectionCard>
                 )
             })()}
@@ -1051,21 +1138,28 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                 {promotions.map((p, i) => (
                                     <SortableItem key={p._key} id={p._key}>
                                         {(listeners) => (
-                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                                <DragHandle listeners={listeners} />
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
-                                                    <Label>Date</Label>
-                                                    <input value={p.date} onChange={e => updatePromotion(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                            <div style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <div className='flex gap-2 items-end'>
+                                                    <DragHandle listeners={listeners} />
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                                        <Label>Date</Label>
+                                                        <input value={p.date} onChange={e => updatePromotion(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                                    </div>
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                        <Label>Rank</Label>
+                                                        <RankSelect value={p.rank} onChange={v => updatePromotion(i, 'rank', v)} placeholder='— Select Rank —' />
+                                                    </div>
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                        <Label>Role</Label>
+                                                        <input value={p.role} onChange={e => updatePromotion(i, 'role', e.target.value)} placeholder='Rifleman' style={inputStyle} />
+                                                    </div>
+                                                    <DeleteBtn onClick={() => removePromotion(i)} />
                                                 </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Rank</Label>
-                                                    <RankSelect value={p.rank} onChange={v => updatePromotion(i, 'rank', v)} placeholder='— Select Rank —' />
-                                                </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Role</Label>
-                                                    <input value={p.role} onChange={e => updatePromotion(i, 'role', e.target.value)} placeholder='Rifleman' style={inputStyle} />
-                                                </div>
-                                                <DeleteBtn onClick={() => removePromotion(i)} />
+                                                {p.issuedByName && (
+                                                    <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)', marginTop: 5, paddingLeft: 28 }}>
+                                                        Issued by {p.issuedByName}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </SortableItem>
@@ -1136,20 +1230,27 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                     return (
                                     <SortableItem key={q._key} id={q._key}>
                                         {(listeners) => (
-                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', ...(dupeColor ? { borderLeft: `3px solid ${dupeColor}`, paddingLeft: '0.5rem' } : {}) }}>
-                                                <DragHandle listeners={listeners} />
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
-                                                    <Label>Date</Label>
-                                                    <input value={q.date} onChange={e => updateQualification(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                            <div style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', ...(dupeColor ? { borderLeft: `3px solid ${dupeColor}`, paddingLeft: '0.5rem' } : {}) }}>
+                                                <div className='flex gap-2 items-end'>
+                                                    <DragHandle listeners={listeners} />
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                                        <Label>Date</Label>
+                                                        <input value={q.date} onChange={e => updateQualification(i, 'date', e.target.value)} placeholder='15 Aug 2020' style={inputStyle} />
+                                                    </div>
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                        <Label>Qualification</Label>
+                                                        <QualificationSelect value={q.qualification} onChange={v => updateQualification(i, 'qualification', v)} />
+                                                        {dupeColor && (
+                                                            <span style={{ fontSize: '0.6rem', color: dupeColor, marginTop: 2, display: 'block' }}>Duplicate entry</span>
+                                                        )}
+                                                    </div>
+                                                    <DeleteBtn onClick={() => removeQualification(i)} />
                                                 </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Qualification</Label>
-                                                    <QualificationSelect value={q.qualification} onChange={v => updateQualification(i, 'qualification', v)} />
-                                                    {dupeColor && (
-                                                        <span style={{ fontSize: '0.6rem', color: dupeColor, marginTop: 2, display: 'block' }}>Duplicate entry</span>
-                                                    )}
-                                                </div>
-                                                <DeleteBtn onClick={() => removeQualification(i)} />
+                                                {q.issuedByName && (
+                                                    <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)', marginTop: 5, paddingLeft: 28 }}>
+                                                        Issued by {q.issuedByName}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </SortableItem>
@@ -1223,33 +1324,40 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                     return (
                                     <SortableItem key={a._key} id={a._key}>
                                         {(listeners) => (
-                                            <div className='flex gap-2 items-end' style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', ...(dupeColor ? { borderLeft: `3px solid ${dupeColor}`, paddingLeft: '0.5rem' } : {}) }}>
-                                                <DragHandle listeners={listeners} />
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
-                                                    <Label>Date</Label>
-                                                    <input value={a.date} onChange={e => updateAward(i, 'date', e.target.value)} placeholder='05 Feb 2022' style={inputStyle} />
+                                            <div style={{ paddingBottom: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.05)', ...(dupeColor ? { borderLeft: `3px solid ${dupeColor}`, paddingLeft: '0.5rem' } : {}) }}>
+                                                <div className='flex gap-2 items-end'>
+                                                    <DragHandle listeners={listeners} />
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0' style={{ minWidth: 100, maxWidth: 130 }}>
+                                                        <Label>Date</Label>
+                                                        <input value={a.date} onChange={e => updateAward(i, 'date', e.target.value)} placeholder='05 Feb 2022' style={inputStyle} />
+                                                    </div>
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                        <Label>Name</Label>
+                                                        <AwardNameInput
+                                                            value={a.name}
+                                                            onChange={name => updateAward(i, 'name', name)}
+                                                            onSelect={(name, type) => {
+                                                                markDirty()
+                                                                setAwards(prev => prev.map((x, idx) => idx === i ? { ...x, name, type } : x))
+                                                            }}
+                                                        />
+                                                        {dupeColor && (
+                                                            <span style={{ fontSize: '0.6rem', color: dupeColor, marginTop: 2, display: 'block' }}>Duplicate entry</span>
+                                                        )}
+                                                    </div>
+                                                    <div className='flex flex-col gap-2 flex-1 min-w-0'>
+                                                        <Label>Type</Label>
+                                                        <select value={a.type} onChange={e => updateAward(i, 'type', e.target.value)} style={selectStyle}>
+                                                            {AWARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <DeleteBtn onClick={() => removeAward(i)} />
                                                 </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Name</Label>
-                                                    <AwardNameInput
-                                                        value={a.name}
-                                                        onChange={name => updateAward(i, 'name', name)}
-                                                        onSelect={(name, type) => {
-                                                            markDirty()
-                                                            setAwards(prev => prev.map((x, idx) => idx === i ? { ...x, name, type } : x))
-                                                        }}
-                                                    />
-                                                    {dupeColor && (
-                                                        <span style={{ fontSize: '0.6rem', color: dupeColor, marginTop: 2, display: 'block' }}>Duplicate entry</span>
-                                                    )}
-                                                </div>
-                                                <div className='flex flex-col gap-2 flex-1 min-w-0'>
-                                                    <Label>Type</Label>
-                                                    <select value={a.type} onChange={e => updateAward(i, 'type', e.target.value)} style={selectStyle}>
-                                                        {AWARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                                    </select>
-                                                </div>
-                                                <DeleteBtn onClick={() => removeAward(i)} />
+                                                {a.issuedByName && (
+                                                    <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)', marginTop: 5, paddingLeft: 28 }}>
+                                                        Issued by {a.issuedByName}
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </SortableItem>

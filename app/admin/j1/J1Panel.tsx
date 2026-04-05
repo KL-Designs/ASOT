@@ -1,15 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Tabs, Tab, Typography } from '@mui/material'
 import { Construction } from '@mui/icons-material'
 import ApplicationsTab from './tabs/ApplicationsTab'
 import RecruitMemberTab from './tabs/RecruitMemberTab'
 import MastersheetTab from './tabs/MastersheetTab'
 import StatisticsTab from './tabs/StatisticsTab'
+import DeptMembersTab from '@/app/admin/DeptMembersTab'
+import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
+import PinTabLabel from '@/app/admin/_components/PinTabLabel'
+import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 
 interface J1PanelProps {
     displayName: string
+    userId: string
+    canManageMembers: boolean
+    isJ4: boolean
 }
 
 function WipTab({ title, description }: { title: string; description: string }) {
@@ -33,8 +40,13 @@ function WipTab({ title, description }: { title: string; description: string }) 
     )
 }
 
-export default function J1Panel({ displayName }: J1PanelProps) {
+export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }: J1PanelProps) {
     const [tab, setTab] = useState(0)
+
+    useEffect(() => {
+        const stored = localStorage.getItem('gotoTab:/admin/j1')
+        if (stored !== null) { setTab(Number(stored)); localStorage.removeItem('gotoTab:/admin/j1') }
+    }, [])
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -52,14 +64,16 @@ export default function J1Panel({ displayName }: J1PanelProps) {
             <div
                 className='flex flex-col px-5 py-4 mx-6 mt-6'
                 style={{
+                    position: 'relative',
                     border: '1px solid rgba(219,0,29,0.15)',
                     borderTop: '2px solid var(--red)',
                     background: 'rgba(255,255,255,0.02)',
                 }}
             >
-                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
-                    Departments
-                </Typography>
+                <CornerBrackets />
+                <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ color: 'rgba(219,0,29,0.35)' }}>//</span> DEPARTMENTS
+                </span>
                 <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
                     J1 — Recruitment
                 </Typography>
@@ -73,11 +87,13 @@ export default function J1Panel({ displayName }: J1PanelProps) {
                     TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                     sx={{ minHeight: 40 }}
                 >
-                    <Tab label='Applications' sx={tabSx} />
-                    <Tab label='Recruit Member' sx={tabSx} />
-                    <Tab label='Mastersheet' sx={tabSx} />
-                    <Tab label='Meetings' sx={tabSx} />
-                    <Tab label='Statistics' sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Applications'   pinLabel='J1 — Applications'   href='/admin/j1' tabIndex={0} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Recruit Member' pinLabel='J1 — Recruit Member' href='/admin/j1' tabIndex={1} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Mastersheet'    pinLabel='J1 — Mastersheet'    href='/admin/j1' tabIndex={2} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Meetings'       pinLabel='J1 — Meetings'       href='/admin/j1' tabIndex={3} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Statistics'     pinLabel='J1 — Statistics'     href='/admin/j1' tabIndex={4} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Members'        pinLabel='J1 — Members'        href='/admin/j1' tabIndex={5} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Calendar'       pinLabel='J1 — Calendar'       href='/admin/j1' tabIndex={6} />} sx={tabSx} />
                 </Tabs>
             </div>
 
@@ -105,6 +121,8 @@ export default function J1Panel({ displayName }: J1PanelProps) {
                 )}
                 {tab === 3 && <WipTab title='Meetings' description='J1 meeting scheduling and records are coming soon.' />}
                 {tab === 4 && <StatisticsTab />}
+                {tab === 5 && <DeptMembersTab department='j1' displayName={displayName} userId={userId} canManage={canManageMembers} />}
+                {tab === 6 && <DeptCalendarTab department='j1' userId={userId} isJ4={isJ4} />}
             </div>
         </div>
     )

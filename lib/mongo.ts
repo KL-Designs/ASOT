@@ -22,6 +22,8 @@ const DbInterface = {
     orbatSectionMeta: client.db(process.env.MONGO_DB!).collection('orbat_section_meta') as MongoCollection<OrbatSectionMeta>,
     operationAttendance: client.db(process.env.MONGO_DB!).collection('operation_attendance') as MongoCollection<OperationAttendance>,
     j1Applications: client.db(process.env.MONGO_DB!).collection('j1_applications') as MongoCollection<J1Application>,
+    tickets: client.db(process.env.MONGO_DB!).collection('tickets') as MongoCollection<Ticket>,
+    calendarEvents: client.db(process.env.MONGO_DB!).collection('calendar_events') as MongoCollection<CalendarEvent>,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,

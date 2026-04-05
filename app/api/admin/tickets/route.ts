@@ -1,0 +1,410 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { ObjectId } from 'mongodb'
+import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
+import Db from '@/lib/mongo'
+import { CERTIFICATIONS } from '@/lib/certifications'
+import { RANK_GROUPS } from '@/lib/ranks'
+import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
+import { applyOrbatMove } from '@/lib/orbat-move'
+
+const VALID_QUALIFICATIONS = CERTIFICATIONS.map(c => c.label) as string[]
+const VALID_RANKS = RANK_GROUPS.flatMap(g => g.ranks.map(r => r.name))
+
+// GET /api/admin/tickets — list tickets, optionally filtered
+export async function GET(req: NextRequest) {
+    let me: User
+    try {
+        me = await client.fetchMe()
+    } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!client.hasRoles(me, PERMISSIONS.pages.admin)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const { searchParams } = req.nextUrl
+    const filter: Record<string, unknown> = {}
+    const department = searchParams.get('department')
+    const status = searchParams.get('status')
+    const issuedById = searchParams.get('issuedById')
+    const requiredApproverUserId = searchParams.get('requiredApproverUserId')
+
+    if (department) filter.department = department
+    if (status) filter.status = status
+    if (issuedById) filter.issuedById = issuedById
+    if (requiredApproverUserId) filter.requiredApproverUserId = requiredApproverUserId
+
+    const raw = await Db.tickets
+        .find(filter)
+        .sort({ issuedAt: -1 })
+        .toArray()
+
+    const tickets = raw.map(t => ({ ...t, _id: t._id!.toString() }))
+
+    return NextResponse.json({ tickets })
+}
+
+// POST /api/admin/tickets — create a new ticket
+export async function POST(req: NextRequest) {
+    let me: User
+    try {
+        me = await client.fetchMe()
+    } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // All admin-page users (including All Staff) may submit tickets
+    if (!client.hasRoles(me, PERMISSIONS.pages.admin)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const body = await req.json()
+    const { type } = body
+
+    const displayName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+
+    // ── J3 Promotion ──────────────────────────────────────────────────────────
+    if (type === 'j3-promotion') {
+        if (!client.hasRoles(me, PERMISSIONS.departments.j3)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
+        const { action, proposedRank, targetUserId, targetUserName, notes } = body
+
+        if (!action || !proposedRank || !targetUserId || !targetUserName) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+
+        if (action !== 'promote' && action !== 'demote') {
+            return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+        }
+
+        if (!VALID_RANKS.includes(proposedRank)) {
+            return NextResponse.json({ error: 'Invalid rank' }, { status: 400 })
+        }
+
+        const ticket: Omit<Ticket, '_id'> = {
+            type: 'j3-promotion',
+            department: 'j4',
+            status: 'open',
+            action,
+            proposedRank,
+            targetUserId,
+            targetUserName,
+            issuedById: me.id,
+            issuedByName: displayName,
+            issuedAt: new Date(),
+            ...(notes?.trim() ? { notes: notes.trim() } : {}),
+        }
+
+        const result = await Db.tickets.insertOne(ticket as Ticket)
+        return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+    }
+
+    // ── Move Request ──────────────────────────────────────────────────────────
+    if (type === 'move-request') {
+        const { fromPositionId, toPositionId, toIsReservist, targetUserId, targetUserName, notes } = body
+
+        if (!fromPositionId || !targetUserId || !targetUserName) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+        if (!toIsReservist && !toPositionId) {
+            return NextResponse.json({ error: 'Missing destination position' }, { status: 400 })
+        }
+
+        // Fetch from position
+        let fromId: ObjectId
+        try { fromId = new ObjectId(fromPositionId) } catch {
+            return NextResponse.json({ error: 'Invalid fromPositionId' }, { status: 400 })
+        }
+        const fromPos = await Db.orbatPositions.findOne({ _id: fromId })
+        if (!fromPos) return NextResponse.json({ error: 'Source position not found' }, { status: 404 })
+        if (fromPos.userId !== targetUserId) {
+            return NextResponse.json({ error: 'Member is not in the specified source position' }, { status: 400 })
+        }
+
+        const fromIsReservist = RESERVIST_CATEGORY_IDS.includes(fromPos.category)
+
+        // Fetch to position (if not moving to reservist)
+        let toPos: OrbatPosition | null = null
+        if (!toIsReservist) {
+            let toId: ObjectId
+            try { toId = new ObjectId(toPositionId) } catch {
+                return NextResponse.json({ error: 'Invalid toPositionId' }, { status: 400 })
+            }
+            toPos = await Db.orbatPositions.findOne({ _id: toId })
+            if (!toPos) return NextResponse.json({ error: 'Destination position not found' }, { status: 404 })
+            if (toPos.userId !== null) {
+                return NextResponse.json({ error: 'Destination position is already occupied' }, { status: 409 })
+            }
+        }
+
+        // Find section leaders
+        const sourceLeaderPos = fromIsReservist ? null : await Db.orbatPositions.findOne({
+            category: fromPos.category,
+            sectionTitle: fromPos.sectionTitle,
+            positionOrder: 0,
+        })
+        const destLeaderPos = (toIsReservist || !toPos) ? null : await Db.orbatPositions.findOne({
+            category: toPos.category,
+            sectionTitle: toPos.sectionTitle,
+            positionOrder: 0,
+        })
+
+        const isSourceLeader = !fromIsReservist && sourceLeaderPos?.userId === me.id
+        const isDestLeader = !toIsReservist && destLeaderPos?.userId === me.id
+
+        // Determine approval routing
+        let autoApprove = false
+        let requiredApproverUserId: string | undefined
+        let requiredApproverName: string | undefined
+
+        if (fromIsReservist && isDestLeader) {
+            autoApprove = true
+        } else if (toIsReservist && isSourceLeader) {
+            autoApprove = true
+        } else if (isSourceLeader && !toIsReservist) {
+            // Moving my member to another section — destination leader must approve
+            if (!destLeaderPos?.userId) {
+                return NextResponse.json({ error: 'The destination section has no active leader to approve this move.' }, { status: 400 })
+            }
+            requiredApproverUserId = destLeaderPos.userId
+        } else if (isDestLeader && !fromIsReservist) {
+            // Pulling member from another section — source leader must approve
+            if (!sourceLeaderPos?.userId) {
+                return NextResponse.json({ error: 'The source section has no active leader to approve this move.' }, { status: 400 })
+            }
+            requiredApproverUserId = sourceLeaderPos.userId
+        } else {
+            return NextResponse.json({ error: 'Only section leaders may submit move requests involving their section.' }, { status: 403 })
+        }
+
+        // Look up approver display name
+        if (requiredApproverUserId) {
+            const approverUser = await Db.users.findOne({ id: requiredApproverUserId })
+            requiredApproverName = approverUser
+                ? (approverUser.guild?.nickname || approverUser.guild?.displayName || approverUser.globalName || approverUser.username || requiredApproverUserId)
+                : requiredApproverUserId
+        }
+
+        const now = new Date()
+
+        const ticket: Omit<Ticket, '_id'> = {
+            type: 'move-request',
+            department: 'allstaff',
+            status: autoApprove ? 'actioned' : 'open',
+            targetUserId,
+            targetUserName,
+            issuedById: me.id,
+            issuedByName: displayName,
+            issuedAt: now,
+            fromPositionId: fromPos._id.toString(),
+            fromSectionTitle: fromPos.sectionTitle,
+            fromCategory: fromPos.category,
+            fromPositionRole: fromPos.role,
+            fromIsReservist,
+            toPositionId: toPos ? toPos._id.toString() : null,
+            toSectionTitle: toPos?.sectionTitle ?? '',
+            toCategory: toPos?.category ?? 'activeReservist',
+            toPositionRole: toPos?.role ?? '',
+            toIsReservist: toIsReservist ?? false,
+            ...(requiredApproverUserId ? { requiredApproverUserId, requiredApproverName } : {}),
+            ...(notes?.trim() ? { notes: notes.trim() } : {}),
+            ...(autoApprove ? { actionedById: me.id, actionedByName: displayName, actionedAt: now } : {}),
+        }
+
+        const result = await Db.tickets.insertOne(ticket as Ticket)
+
+        if (autoApprove) {
+            await applyOrbatMove({ fromPos, toPos, toIsReservist: toIsReservist ?? false, targetUserId })
+        }
+
+        return NextResponse.json({
+            ok: true,
+            id: result.insertedId.toString(),
+            autoApproved: autoApprove,
+            requiredApproverName: requiredApproverName ?? null,
+        })
+    }
+
+    // ── J4 Discharge ──────────────────────────────────────────────────────────
+    if (type === 'j4-discharge') {
+        if (!client.hasRoles(me, PERMISSIONS.departments.j4)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
+        const { targetUserId, targetUserName, dischargeType, dischargeReason, notes } = body
+
+        if (!targetUserId || !targetUserName || !dischargeType || !dischargeReason?.trim()) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+        if (dischargeType !== 'honorable' && dischargeType !== 'dishonorable') {
+            return NextResponse.json({ error: 'Invalid dischargeType' }, { status: 400 })
+        }
+        if (targetUserId === me.id) {
+            return NextResponse.json({ error: 'Cannot discharge yourself' }, { status: 400 })
+        }
+
+        const ticket: Omit<Ticket, '_id'> = {
+            type: 'j4-discharge',
+            department: 'j4',
+            status: 'open',
+            targetUserId,
+            targetUserName,
+            issuedById: me.id,
+            issuedByName: displayName,
+            issuedAt: new Date(),
+            dischargeType,
+            dischargeReason: dischargeReason.trim(),
+            ...(notes?.trim() ? { notes: notes.trim() } : {}),
+        }
+
+        const result = await Db.tickets.insertOne(ticket as Ticket)
+        return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+    }
+
+    // ── Discipline ────────────────────────────────────────────────────────────
+    if (type === 'discipline') {
+        // Any authenticated admin-page user can submit a discipline ticket
+        const { targetUserId, targetUserName, disciplineReason, notes } = body
+
+        if (!targetUserId || !targetUserName || !disciplineReason?.trim()) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+        if (targetUserId === me.id) {
+            return NextResponse.json({ error: 'Cannot file a discipline ticket against yourself' }, { status: 400 })
+        }
+
+        const ticket: Omit<Ticket, '_id'> = {
+            type: 'discipline',
+            department: 'allstaff',
+            status: 'open',
+            targetUserId,
+            targetUserName,
+            issuedById: me.id,
+            issuedByName: displayName,
+            issuedAt: new Date(),
+            disciplineReason: disciplineReason.trim(),
+            ...(notes?.trim() ? { notes: notes.trim() } : {}),
+        }
+
+        const result = await Db.tickets.insertOne(ticket as Ticket)
+        return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+    }
+
+    // ── Department Membership ─────────────────────────────────────────────────
+    if (type === 'department-membership') {
+        const { targetUserId, targetUserName, deptCode, memberAction } = body
+        const validDepts = ['j1', 'j2', 'j3', 'j6', 'j7']
+        const validActions = ['add', 'remove', 'set-lead', 'remove-lead']
+
+        if (!targetUserId || !targetUserName || !validDepts.includes(deptCode) || !validActions.includes(memberAction)) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+
+        const leadRoles = PERMISSIONS.departmentLeads[deptCode as keyof typeof PERMISSIONS.departmentLeads]
+        if (!client.hasRoles(me, leadRoles)) {
+            return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+        }
+
+        const now = new Date()
+
+        // Apply immediately
+        if (memberAction === 'add') {
+            await Db.users.updateOne({ id: targetUserId }, { $addToSet: { departments: deptCode } })
+        } else if (memberAction === 'remove') {
+            await Db.users.updateOne({ id: targetUserId }, { $pull: { departments: deptCode } })
+        } else if (memberAction === 'set-lead') {
+            await Db.users.updateOne({ id: targetUserId }, { $addToSet: { teamLeadDepts: deptCode } })
+        } else if (memberAction === 'remove-lead') {
+            await Db.users.updateOne({ id: targetUserId }, { $pull: { teamLeadDepts: deptCode } })
+        }
+
+        // Log as pre-actioned ticket
+        const ticket: Omit<Ticket, '_id'> = {
+            type: 'department-membership',
+            department: deptCode as Ticket['department'],
+            status: 'actioned',
+            targetUserId,
+            targetUserName,
+            issuedById: me.id,
+            issuedByName: displayName,
+            issuedAt: now,
+            actionedById: me.id,
+            actionedByName: displayName,
+            actionedAt: now,
+            deptCode,
+            memberAction,
+        }
+        const result = await Db.tickets.insertOne(ticket as Ticket)
+        return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+    }
+
+    // ── Performance Report ────────────────────────────────────────────────────
+    if (type === 'performance-report') {
+        const { targetUserId, targetUserName, performanceReason, notes } = body
+
+        if (!targetUserId || !targetUserName || !performanceReason?.trim()) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+        if (targetUserId === me.id) {
+            return NextResponse.json({ error: 'Cannot file a performance report against yourself' }, { status: 400 })
+        }
+
+        const ticket: Omit<Ticket, '_id'> = {
+            type: 'performance-report',
+            department: 'j4',
+            status: 'open',
+            targetUserId,
+            targetUserName,
+            issuedById: me.id,
+            issuedByName: displayName,
+            issuedAt: new Date(),
+            performanceReason: performanceReason.trim(),
+            ...(notes?.trim() ? { notes: notes.trim() } : {}),
+        }
+
+        const result = await Db.tickets.insertOne(ticket as Ticket)
+        return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+    }
+
+    // ── J3 Qualification (default) ────────────────────────────────────────────
+    if (!client.hasRoles(me, PERMISSIONS.departments.j3)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const { action, qualification, targetUserId, targetUserName, notes } = body
+
+    if (!action || !qualification || !targetUserId || !targetUserName) {
+        return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    if (action !== 'add' && action !== 'remove') {
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    }
+
+    if (!VALID_QUALIFICATIONS.includes(qualification)) {
+        return NextResponse.json({ error: 'Invalid qualification' }, { status: 400 })
+    }
+
+    const ticket: Omit<Ticket, '_id'> = {
+        type: 'j3-qualification',
+        department: 'j3',
+        status: 'open',
+        action,
+        qualification,
+        targetUserId,
+        targetUserName,
+        issuedById: me.id,
+        issuedByName: displayName,
+        issuedAt: new Date(),
+        ...(notes?.trim() ? { notes: notes.trim() } : {}),
+    }
+
+    const result = await Db.tickets.insertOne(ticket as Ticket)
+
+    return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+}
+

@@ -238,7 +238,7 @@ export default function Navbar() {
                     ))}
                 </div>
 
-                {(user as any)?.isAdmin && (
+                {(user as any)?.isStaff && (
                     <>
                         <Divider style={{ borderColor: 'rgba(0,195,255,0.2)' }} />
                         <Link href='/admin' onClick={() => setSideMenuOpen(false)}>
@@ -350,7 +350,7 @@ function ProfileDropdown({ user }: { user: User }) {
     }
 
     const userRoles = (user as any).roles as Role[] | undefined
-    const isAdmin = !!(user as any).isAdmin
+    const isAdmin = !!(user as any).isStaff
 
     const accent = user.hexAccentColor ? `#${user.hexAccentColor.replace('#', '')}` : '#DB001D'
     const strippedNickname = user.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()

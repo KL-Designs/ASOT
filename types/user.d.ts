@@ -53,6 +53,19 @@ declare global {
             j5: { id: string, name: string }[]
         }
 
+        discharged?: {
+            date: string
+            type: 'honorable' | 'dishonorable'
+            reason: string
+            dischargedById: string
+            dischargedByName: string
+            approvedById: string
+            approvedByName: string
+        }
+
+        departments?: string[]   // dept codes this user is a member of, e.g. ['j1', 'j3']
+        teamLeadDepts?: string[] // dept codes this user is a team lead of, e.g. ['j3']
+
         bio?: {
             content: string
         }
@@ -65,11 +78,15 @@ declare global {
                 date: string
                 rank: string
                 role: string
+                issuedById?: string
+                issuedByName?: string
             }[]
             awards?: {
                 date: string
                 name: string
                 type: string
+                issuedById?: string
+                issuedByName?: string
             }[]
             operations?: {
                 startToEndDate: string
@@ -78,9 +95,21 @@ declare global {
             qualifications?: {
                 date: string
                 qualification: string
+                issuedById?: string
+                issuedByName?: string
             }[]
             promotionPoints?: number
             j4Points?: number
+            disciplineDeductions?: number
+            disciplineHistory?: {
+                date: string
+                points: number
+                reason: string
+                issuedById: string
+                issuedByName: string
+                approvedById: string
+                approvedByName: string
+            }[]
             billetCounts?: {
                 primaryNightOps: number
                 secondaryNightOps: number

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 
 
 
@@ -8,8 +9,8 @@ export async function GET(request: NextRequest) {
 
     try {
         const me = await client.fetchMe()
-        const isAdmin = client.hasRoles(me, ['J3-Training', 'J5-Media', 'J1-Recruiting'])
-        return NextResponse.json({ ...me, isAdmin }, { status: 200 })
+        const isStaff = client.hasRoles(me, PERMISSIONS.pages.admin)
+        return NextResponse.json({ ...me, isStaff }, { status: 200 })
     }
 
     catch (err: any) {

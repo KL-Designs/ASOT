@@ -29,21 +29,25 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { username } = await params
     const body = await request.json()
 
-    const { bioRank, enlistedDate, promotions, awards, qualifications, name, billetCounts, j4Points } = body
+    const { bioRank, enlistedDate, promotions, awards, qualifications, name, billetCounts, j4Points, disciplineHistory, disciplineDeductions } = body
 
     // Restricted fields check — J4-Administration only
-    const hasRestrictedFields = bioRank !== undefined || enlistedDate !== undefined || billetCounts !== undefined || j4Points !== undefined
+    const hasRestrictedFields = bioRank !== undefined || enlistedDate !== undefined || billetCounts !== undefined || j4Points !== undefined || disciplineHistory !== undefined || disciplineDeductions !== undefined
     if (hasRestrictedFields && !isRestricted) {
         return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
     }
+
+    const editorName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+    const stamp = <T extends { issuedById?: string; issuedByName?: string }>(entries: T[]): T[] =>
+        entries.map(e => e.issuedById ? e : { ...e, issuedById: me.id, issuedByName: editorName })
 
     const update: Record<string, any> = {}
 
     // Standard fields (HQ Staff + J4-Admin)
     if (isStandard) {
-        if (promotions !== undefined) update['milpac.promotions'] = promotions ?? []
-        if (awards !== undefined) update['milpac.awards'] = awards ?? []
-        if (qualifications !== undefined) update['milpac.qualifications'] = qualifications ?? []
+        if (promotions !== undefined) update['milpac.promotions'] = stamp(promotions ?? [])
+        if (awards !== undefined) update['milpac.awards'] = stamp(awards ?? [])
+        if (qualifications !== undefined) update['milpac.qualifications'] = stamp(qualifications ?? [])
 
         if (name !== undefined) {
             if (name && typeof name === 'string') {
@@ -60,6 +64,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         if (bioRank !== undefined) update['milpac.currentRank'] = bioRank
         if (billetCounts !== undefined) update['milpac.billetCounts'] = billetCounts
         if (j4Points !== undefined) update['milpac.j4Points'] = j4Points
+        if (disciplineHistory !== undefined) update['milpac.disciplineHistory'] = disciplineHistory ?? []
+        if (disciplineDeductions !== undefined) update['milpac.disciplineDeductions'] = disciplineDeductions ?? 0
     }
 
     if (Object.keys(update).length === 0) return NextResponse.json({ error: 'No valid fields' }, { status: 400 })

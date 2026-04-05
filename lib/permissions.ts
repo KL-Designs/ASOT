@@ -18,7 +18,7 @@ const PERMISSIONS = {
         /** /admin — departments that can access the staff dashboard */
         admin:          ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'J6-Game Master', 'J7-Community Development', 'HQ Staff', 'All Staff'],
         /** /members — who can view the member management list */
-        members:        ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'HQ Staff'], // all departments + staff
+        members:        ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'HQ Staff', 'All Staff'], // all departments + staff
         /** /operations/edit — who can access the mission editor */
         operationsEdit: ['HQ Staff', 'J2-Mission Making'],
     },
@@ -62,11 +62,11 @@ const PERMISSIONS = {
 
     members: {
         /** PUT /api/members/[username] — editing milpac records */
-        edit: ['J5-Media', 'J5-Milpac Staff'],
+        edit: ['J4-Administration'],
         /** Restricted milpac fields: billet points, rank, enlistment date */
         editRestricted: ['J4-Administration'],
         /** Standard milpac fields: promotions, qualifications, awards, name, uploads */
-        editStandard: ['HQ Staff'],
+        editStandard: ['J4-Administration'],
     },
 
     // ── Admin panel features ──────────────────────────────────────────────────
@@ -75,7 +75,7 @@ const PERMISSIONS = {
         /** POST /api/admin/impersonate — impersonating another user */
         impersonate:   ['J4-Administration'],
         /** Show the User Management tile in the admin panel */
-        manageMembers: ['J5-Media', 'J5-Milpac Staff'],
+        manageMembers: ['All Staff'],
         /** /admin/orbat — manage ORBAT structure and position assignments */
         manageOrbat:   ['HQ Staff'],
         /** ORBAT structural edits: create/rename/delete/reorder sections and roles */
@@ -112,6 +112,34 @@ const PERMISSIONS = {
     auth: {
         /** GET /api/auth/collab — collaborative editor authorization */
         collab: ['HQ Staff', 'J2-Mission Making'],
+    },
+
+    // ── Department leads (add/remove members from their dept) ────────────────
+
+    departmentLeads: {
+        /** J1 department lead — can manage J1 members */
+        j1: ['J1-Staff'],
+        /** J2 department lead — can manage J2 members */
+        j2: ['J2-Team Lead'],
+        /** J3 department lead — can manage J3 members */
+        j3: ['J3-Team Lead'],
+        /** J6 department lead — can manage J6 members */
+        j6: ['J6-Department Lead'],
+        /** J7 department lead — can manage J7 members */
+        j7: ['J7 Staff'],
+    },
+
+    // ── Tickets ───────────────────────────────────────────────────────────────
+
+    tickets: {
+        /** PATCH /api/admin/tickets/[id] — action J3 qualification tickets */
+        actionJ3: ['J3-Team Lead'],
+        /** PATCH /api/admin/tickets/[id] — action J4 award tickets */
+        actionJ4: ['J4-Administration'],
+        /** PATCH /api/admin/tickets/[id] — override-action move request tickets (specific approver check is in handler) */
+        actionMoveRequest: ['HQ Staff'],
+        /** PATCH /api/admin/tickets/[id] — action discipline tickets */
+        actionDiscipline: ['J4-Administration'],
     },
 
 } satisfies Record<string, Record<string, string[]>>

@@ -79,10 +79,10 @@ export async function PATCH(
                 sectionOrder: 0,
                 positionOrder,
             }
-            await Db.orbatPositions.insertOne(reservistPosition)
         }
 
         await Db.orbatPositions.updateOne({ _id: objectId }, { $set: { userId: userId ?? null } })
+        if (reservistPosition) await Db.orbatPositions.insertOne(reservistPosition)
         return NextResponse.json({
             success: true,
             reservistPosition: reservistPosition ? JSON.parse(JSON.stringify(reservistPosition)) : null,

@@ -328,7 +328,7 @@ export async function POST(request: NextRequest) {
         promotionPoints: number
         j4Points: number
         qualifications: { date: string; qualification: string }[]
-        billetCounts: Omit<MilpacImportCounts, 'awards' | 'qualifications' | 'j4Points'>
+        billetCounts: Omit<MilpacImportCounts, 'awards' | 'qualifications' | 'j4Points' | 'disciplineDeductions'>
     }>()
 
     let mastersheetMatched = 0
@@ -361,6 +361,7 @@ export async function POST(request: NextRequest) {
             awards:             [],
             qualifications:     [],
             j4Points:           row.j4Points,
+            disciplineDeductions: user.milpac?.disciplineDeductions ?? 0,
         }
 
         milpacUpdates.set(user._id, {
