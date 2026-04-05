@@ -1,7 +1,7 @@
 interface Ticket {
     _id?: import('mongodb').ObjectId
-    type: 'j3-qualification' | 'j4-award' | 'j3-promotion'
-    department: 'j3' | 'j4'
+    type: 'j3-qualification' | 'j4-award' | 'j3-promotion' | 'move-request'
+    department: 'j3' | 'j4' | 'allstaff'
     status: 'open' | 'actioned' | 'rejected'
     targetUserId: string
     targetUserName: string
@@ -13,7 +13,7 @@ interface Ticket {
     actionedByName?: string
     actionedAt?: Date
     actionNotes?: string
-    // J3 qualification fields (undefined on j4-award / j3-promotion tickets)
+    // J3 qualification fields (undefined on other types)
     action?: 'add' | 'remove' | 'promote' | 'demote'
     qualification?: string
     // J4 award fields (undefined on other types)
@@ -21,4 +21,17 @@ interface Ticket {
     awardType?: string
     // J3 promotion fields (undefined on other types)
     proposedRank?: string
+    // Move request fields (undefined on other types)
+    fromPositionId?: string
+    fromSectionTitle?: string
+    fromCategory?: string
+    fromPositionRole?: string
+    fromIsReservist?: boolean
+    toPositionId?: string | null
+    toSectionTitle?: string
+    toCategory?: string
+    toPositionRole?: string
+    toIsReservist?: boolean
+    requiredApproverUserId?: string
+    requiredApproverName?: string
 }

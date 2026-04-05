@@ -18,7 +18,7 @@ const PERMISSIONS = {
         /** /admin — departments that can access the staff dashboard */
         admin:          ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'J6-Game Master', 'J7-Community Development', 'HQ Staff', 'All Staff'],
         /** /members — who can view the member management list */
-        members:        ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'HQ Staff'], // all departments + staff
+        members:        ['J1-Recruiting', 'J1-Staff', 'J2-Mission Making', 'J3-Training', 'J5-Media', 'HQ Staff', 'All Staff'], // all departments + staff
         /** /operations/edit — who can access the mission editor */
         operationsEdit: ['HQ Staff', 'J2-Mission Making'],
     },
@@ -121,6 +121,8 @@ const PERMISSIONS = {
         actionJ3: ['J3-Team Lead'],
         /** PATCH /api/admin/tickets/[id] — action J4 award tickets */
         actionJ4: ['J4-Administration'],
+        /** PATCH /api/admin/tickets/[id] — override-action move request tickets (specific approver check is in handler) */
+        actionMoveRequest: ['HQ Staff'],
     },
 
 } satisfies Record<string, Record<string, string[]>>

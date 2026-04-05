@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { RANK_GROUPS } from '@/lib/ranks'
+import { applyOrbatMove } from '@/lib/orbat-move'
 
 // PATCH /api/admin/tickets/[id] — approve or reject a ticket
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -30,7 +31,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     // Auth check is ticket-department-aware
     const canAction =
         (ticket.department === 'j3' && client.hasRoles(me, PERMISSIONS.tickets.actionJ3)) ||
-        (ticket.department === 'j4' && client.hasRoles(me, PERMISSIONS.tickets.actionJ4))
+        (ticket.department === 'j4' && client.hasRoles(me, PERMISSIONS.tickets.actionJ4)) ||
+        (ticket.department === 'allstaff' && (
+            me.id === ticket.requiredApproverUserId ||
+            client.hasRoles(me, PERMISSIONS.tickets.actionMoveRequest)
+        ))
     if (!canAction) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -134,6 +139,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
                     issuedByName: ticket.issuedByName,
                 } as any,
             },
+        })
+    } else if (ticket.type === 'move-request') {
+        // Re-validate positions haven't shifted since submission
+        const fromPos = await Db.orbatPositions.findOne({ _id: new ObjectId(ticket.fromPositionId!) })
+        if (!fromPos || fromPos.userId !== ticket.targetUserId) {
+            return NextResponse.json({ error: 'Source position has changed since request was submitted.' }, { status: 409 })
+        }
+
+        const toPos = (!ticket.toIsReservist && ticket.toPositionId)
+            ? await Db.orbatPositions.findOne({ _id: new ObjectId(ticket.toPositionId) })
+            : null
+        if (!ticket.toIsReservist && (!toPos || toPos.userId !== null)) {
+            return NextResponse.json({ error: 'Destination position is no longer vacant.' }, { status: 409 })
+        }
+
+        await applyOrbatMove({
+            fromPos,
+            toPos,
+            toIsReservist: ticket.toIsReservist ?? false,
+            targetUserId: ticket.targetUserId,
         })
     }
 

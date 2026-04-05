@@ -6,13 +6,14 @@ import {
     TextField, Select, MenuItem, FormControl, InputLabel,
     Dialog, DialogContent, DialogTitle, IconButton,
 } from '@mui/material'
-import { Refresh, Close } from '@mui/icons-material'
+import { Refresh, Close, ArrowForward } from '@mui/icons-material'
 
 type TicketRow = Ticket & { _id: string }
 
 const DEPT_LABELS: Record<string, string> = {
     j3: 'J3',
     j4: 'J4',
+    allstaff: 'All Staff',
 }
 
 const STATUS_COLORS: Record<string, 'warning' | 'success' | 'error'> = {
@@ -40,6 +41,28 @@ const inputSx = {
     '& .MuiSelect-select': { fontSize: '0.82rem' },
 }
 
+function Field({ label, value }: { label: string; value?: string | null }) {
+    if (!value) return null
+    return (
+        <div>
+            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 3 }}>
+                {label}
+            </div>
+            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)' }}>{value}</div>
+        </div>
+    )
+}
+
+function moveFromLabel(t: TicketRow) {
+    if (t.fromIsReservist) return 'Reservist'
+    return t.fromSectionTitle ? `${t.fromSectionTitle} / ${t.fromPositionRole}` : (t.fromPositionRole ?? '—')
+}
+
+function moveToLabel(t: TicketRow) {
+    if (t.toIsReservist) return 'Reservist'
+    return t.toSectionTitle ? `${t.toSectionTitle} / ${t.toPositionRole}` : (t.toPositionRole ?? '—')
+}
+
 function ActionModal({ ticket, onClose, onResolved }: {
     ticket: TicketRow
     onClose: () => void
@@ -49,6 +72,8 @@ function ActionModal({ ticket, onClose, onResolved }: {
     const [actionNotes, setActionNotes] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+
+    const isMoveRequest = ticket.type === 'move-request'
 
     async function handleConfirm() {
         setSubmitting(true)
@@ -71,18 +96,6 @@ function ActionModal({ ticket, onClose, onResolved }: {
         }
     }
 
-    const Field = ({ label, value }: { label: string; value?: string | null }) => {
-        if (!value) return null
-        return (
-            <div>
-                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 3 }}>
-                    {label}
-                </div>
-                <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)' }}>{value}</div>
-            </div>
-        )
-    }
-
     return (
         <Dialog
             open
@@ -99,7 +112,7 @@ function ActionModal({ ticket, onClose, onResolved }: {
         >
             <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
                 <Typography fontWeight={700} fontSize='0.8rem' letterSpacing={2} style={{ textTransform: 'uppercase' }}>
-                    Action Ticket
+                    {isMoveRequest ? 'Action Move Request' : 'Action Ticket'}
                 </Typography>
                 <IconButton onClick={onClose} size='small' sx={{ color: 'rgba(237,237,237,0.5)', '&:hover': { color: 'var(--foreground)' } }}>
                     <Close fontSize='small' />
@@ -112,28 +125,58 @@ function ActionModal({ ticket, onClose, onResolved }: {
                         className='flex flex-col gap-3 p-4'
                         style={{ border: '1px solid rgba(219,0,29,0.1)', background: 'rgba(255,255,255,0.02)' }}
                     >
-                        <div className='grid grid-cols-2 gap-3'>
-                            <Field label='Department' value={DEPT_LABELS[ticket.department] ?? ticket.department} />
-                            <Field
-                                label='Action'
-                                value={
-                                    ticket.action === 'add' ? 'Add Qualification' :
-                                    ticket.action === 'remove' ? 'Remove Qualification' :
-                                    ticket.action === 'promote' ? 'Promote' :
-                                    ticket.action === 'demote' ? 'Demote' :
-                                    ticket.type === 'j4-award' ? 'Award Nomination' : undefined
-                                }
-                            />
-                            <Field label='Member' value={ticket.targetUserName} />
-                            <Field
-                                label={ticket.type === 'j3-promotion' ? 'Proposed Rank' : ticket.type === 'j4-award' ? 'Award' : 'Qualification'}
-                                value={ticket.proposedRank ?? ticket.qualification ?? ticket.awardName}
-                            />
-                            {ticket.awardType && <Field label='Award Type' value={ticket.awardType} />}
-                            <Field label='Issued By' value={ticket.issuedByName} />
-                            <Field label='Date Issued' value={formatDate(ticket.issuedAt)} />
-                        </div>
-                        {ticket.notes && <Field label='Notes' value={ticket.notes} />}
+                        {isMoveRequest ? (
+                            <>
+                                <div className='grid grid-cols-2 gap-3'>
+                                    <Field label='Department' value='All Staff' />
+                                    <Field label='Member' value={ticket.targetUserName} />
+                                    <Field label='Requested By' value={ticket.issuedByName} />
+                                    <Field label='Date' value={formatDate(ticket.issuedAt)} />
+                                </div>
+                                {/* From → To */}
+                                <div
+                                    className='flex items-center gap-3 p-3'
+                                    style={{ border: '1px solid rgba(219,0,29,0.08)', background: 'rgba(219,0,29,0.03)' }}
+                                >
+                                    <div className='flex-1'>
+                                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 3 }}>From</div>
+                                        <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)' }}>{moveFromLabel(ticket)}</div>
+                                    </div>
+                                    <ArrowForward style={{ fontSize: 16, color: 'rgba(219,0,29,0.5)', flexShrink: 0 }} />
+                                    <div className='flex-1'>
+                                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 3 }}>To</div>
+                                        <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)' }}>{moveToLabel(ticket)}</div>
+                                    </div>
+                                </div>
+                                {ticket.requiredApproverName && (
+                                    <Field label='Required Approver' value={ticket.requiredApproverName} />
+                                )}
+                                {ticket.notes && <Field label='Notes' value={ticket.notes} />}
+                            </>
+                        ) : (
+                            <div className='grid grid-cols-2 gap-3'>
+                                <Field label='Department' value={DEPT_LABELS[ticket.department] ?? ticket.department} />
+                                <Field
+                                    label='Action'
+                                    value={
+                                        ticket.action === 'add' ? 'Add Qualification' :
+                                        ticket.action === 'remove' ? 'Remove Qualification' :
+                                        ticket.action === 'promote' ? 'Promote' :
+                                        ticket.action === 'demote' ? 'Demote' :
+                                        ticket.type === 'j4-award' ? 'Award Nomination' : undefined
+                                    }
+                                />
+                                <Field label='Member' value={ticket.targetUserName} />
+                                <Field
+                                    label={ticket.type === 'j3-promotion' ? 'Proposed Rank' : ticket.type === 'j4-award' ? 'Award' : 'Qualification'}
+                                    value={ticket.proposedRank ?? ticket.qualification ?? ticket.awardName}
+                                />
+                                {ticket.awardType && <Field label='Award Type' value={ticket.awardType} />}
+                                <Field label='Issued By' value={ticket.issuedByName} />
+                                <Field label='Date Issued' value={formatDate(ticket.issuedAt)} />
+                                {ticket.notes && <Field label='Notes' value={ticket.notes} />}
+                            </div>
+                        )}
                     </div>
 
                     {/* Decision */}
@@ -207,7 +250,51 @@ function ActionModal({ ticket, onClose, onResolved }: {
     )
 }
 
-export default function TicketsPanel({ canActionJ3, canActionJ4, displayName }: { canActionJ3: boolean; canActionJ4: boolean; displayName: string }) {
+// Summary cell for the table — differs by ticket type
+function TicketSummaryCell({ t }: { t: TicketRow }) {
+    if (t.type === 'move-request') {
+        return (
+            <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem' }}>
+                    <span style={{ color: 'rgba(237,237,237,0.5)' }}>{moveFromLabel(t)}</span>
+                    <ArrowForward style={{ fontSize: 12, color: 'rgba(219,0,29,0.5)', flexShrink: 0 }} />
+                    <span>{moveToLabel(t)}</span>
+                </div>
+                {t.requiredApproverName && (
+                    <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>
+                        Approver: {t.requiredApproverName}
+                    </div>
+                )}
+            </td>
+        )
+    }
+    return (
+        <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>
+            {t.qualification ?? t.awardName ?? t.proposedRank ?? '—'}
+        </td>
+    )
+}
+
+function ticketActionLabel(t: TicketRow) {
+    if (t.type === 'move-request') return 'Move Request'
+    if (t.action === 'promote') return 'Promote'
+    if (t.action === 'demote') return 'Demote'
+    if (t.action) return t.action
+    if (t.type === 'j4-award') return 'Nomination'
+    return '—'
+}
+
+export default function TicketsPanel({
+    canActionJ3,
+    canActionJ4,
+    canActionMoveRequest,
+    displayName,
+}: {
+    canActionJ3: boolean
+    canActionJ4: boolean
+    canActionMoveRequest: boolean
+    displayName: string
+}) {
     const [tickets, setTickets] = useState<TicketRow[]>([])
     const [loading, setLoading] = useState(true)
     const [deptFilter, setDeptFilter] = useState('all')
@@ -237,12 +324,20 @@ export default function TicketsPanel({ canActionJ3, canActionJ4, displayName }: 
         return tickets.filter(t => {
             if (t.department === 'j3' && !canActionJ3) return false
             if (t.department === 'j4' && !canActionJ4) return false
+            if (t.department === 'allstaff' && !canActionMoveRequest) return false
             if (deptFilter !== 'all' && t.department !== deptFilter) return false
             if (statusFilter !== 'all' && t.status !== statusFilter) return false
-            if (q && ![t.targetUserName, t.qualification, t.issuedByName].some(v => v?.toLowerCase().includes(q))) return false
+            if (q && ![t.targetUserName, t.qualification, t.issuedByName, t.awardName, t.proposedRank, t.fromSectionTitle, t.toSectionTitle].some(v => v?.toLowerCase().includes(q))) return false
             return true
         })
-    }, [tickets, deptFilter, statusFilter, search, canActionJ3, canActionJ4])
+    }, [tickets, deptFilter, statusFilter, search, canActionJ3, canActionJ4, canActionMoveRequest])
+
+    const canAction = (t: TicketRow) =>
+        t.status === 'open' && (
+            (canActionJ3 && t.department === 'j3') ||
+            (canActionJ4 && t.department === 'j4') ||
+            (canActionMoveRequest && t.department === 'allstaff')
+        )
 
     const selectSx = { minWidth: 130, ...inputSx }
 
@@ -280,6 +375,7 @@ export default function TicketsPanel({ canActionJ3, canActionJ4, displayName }: 
                         <MenuItem value='all' sx={{ fontSize: '0.82rem' }}>All Departments</MenuItem>
                         {canActionJ3 && <MenuItem value='j3' sx={{ fontSize: '0.82rem' }}>J3 — Training</MenuItem>}
                         {canActionJ4 && <MenuItem value='j4' sx={{ fontSize: '0.82rem' }}>J4 — Administration</MenuItem>}
+                        {canActionMoveRequest && <MenuItem value='allstaff' sx={{ fontSize: '0.82rem' }}>All Staff — Moves</MenuItem>}
                     </Select>
                 </FormControl>
                 <FormControl size='small' sx={selectSx}>
@@ -318,7 +414,7 @@ export default function TicketsPanel({ canActionJ3, canActionJ4, displayName }: 
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
-                                {['Dept', 'Member', 'Action', 'Qualification', 'Issued By', 'Date', 'Status', ''].map((h, i) => (
+                                {['Dept', 'Member', 'Action', 'Details', 'Issued By', 'Date', 'Status', ''].map((h, i) => (
                                     <th key={i} style={{ textAlign: 'left', padding: '10px 14px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>
                                         {h}
                                     </th>
@@ -332,15 +428,29 @@ export default function TicketsPanel({ canActionJ3, canActionJ4, displayName }: 
                                     style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'default' }}
                                 >
                                     <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>
-                                        {DEPT_LABELS[t.department] ?? t.department}
+                                        <Chip
+                                            label={DEPT_LABELS[t.department] ?? t.department}
+                                            size='small'
+                                            sx={{
+                                                fontSize: '0.6rem',
+                                                fontWeight: 700,
+                                                letterSpacing: 1,
+                                                height: 18,
+                                                borderRadius: '2px',
+                                                background: t.department === 'allstaff'
+                                                    ? 'rgba(0,195,255,0.1)'
+                                                    : 'rgba(219,0,29,0.08)',
+                                                color: t.department === 'allstaff'
+                                                    ? '#00c3ff'
+                                                    : 'rgba(237,237,237,0.5)',
+                                            }}
+                                        />
                                     </td>
                                     <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)', whiteSpace: 'nowrap' }}>{t.targetUserName}</td>
                                     <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
-                                        {t.action === 'promote' ? 'Promote' :
-                                         t.action === 'demote' ? 'Demote' :
-                                         t.action ?? (t.type === 'j4-award' ? 'Nomination' : '—')}
+                                        {ticketActionLabel(t)}
                                     </td>
-                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>{t.qualification ?? t.awardName ?? t.proposedRank ?? '—'}</td>
+                                    <TicketSummaryCell t={t} />
                                     <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>{t.issuedByName}</td>
                                     <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>{formatDate(t.issuedAt)}</td>
                                     <td style={{ padding: '9px 14px' }}>
@@ -352,7 +462,7 @@ export default function TicketsPanel({ canActionJ3, canActionJ4, displayName }: 
                                         />
                                     </td>
                                     <td style={{ padding: '9px 14px' }}>
-                                        {((canActionJ3 && t.department === 'j3') || (canActionJ4 && t.department === 'j4')) && t.status === 'open' && (
+                                        {canAction(t) && (
                                             <Button
                                                 size='small'
                                                 variant='outlined'
