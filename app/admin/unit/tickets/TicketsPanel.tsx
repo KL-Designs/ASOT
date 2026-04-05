@@ -119,11 +119,16 @@ function ActionModal({ ticket, onClose, onResolved }: {
                                 value={
                                     ticket.action === 'add' ? 'Add Qualification' :
                                     ticket.action === 'remove' ? 'Remove Qualification' :
+                                    ticket.action === 'promote' ? 'Promote' :
+                                    ticket.action === 'demote' ? 'Demote' :
                                     ticket.type === 'j4-award' ? 'Award Nomination' : undefined
                                 }
                             />
                             <Field label='Member' value={ticket.targetUserName} />
-                            <Field label={ticket.type === 'j4-award' ? 'Award' : 'Qualification'} value={ticket.qualification ?? ticket.awardName} />
+                            <Field
+                                label={ticket.type === 'j3-promotion' ? 'Proposed Rank' : ticket.type === 'j4-award' ? 'Award' : 'Qualification'}
+                                value={ticket.proposedRank ?? ticket.qualification ?? ticket.awardName}
+                            />
                             {ticket.awardType && <Field label='Award Type' value={ticket.awardType} />}
                             <Field label='Issued By' value={ticket.issuedByName} />
                             <Field label='Date Issued' value={formatDate(ticket.issuedAt)} />
@@ -330,8 +335,12 @@ export default function TicketsPanel({ canActionJ3, canActionJ4, displayName }: 
                                         {DEPT_LABELS[t.department] ?? t.department}
                                     </td>
                                     <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)', whiteSpace: 'nowrap' }}>{t.targetUserName}</td>
-                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{t.action ?? (t.type === 'j4-award' ? 'Nomination' : '—')}</td>
-                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>{t.qualification ?? t.awardName ?? '—'}</td>
+                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
+                                        {t.action === 'promote' ? 'Promote' :
+                                         t.action === 'demote' ? 'Demote' :
+                                         t.action ?? (t.type === 'j4-award' ? 'Nomination' : '—')}
+                                    </td>
+                                    <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>{t.qualification ?? t.awardName ?? t.proposedRank ?? '—'}</td>
                                     <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>{t.issuedByName}</td>
                                     <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>{formatDate(t.issuedAt)}</td>
                                     <td style={{ padding: '9px 14px' }}>

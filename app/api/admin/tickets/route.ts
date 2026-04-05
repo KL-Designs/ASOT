@@ -3,8 +3,10 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { CERTIFICATIONS } from '@/lib/certifications'
+import { RANK_GROUPS } from '@/lib/ranks'
 
 const VALID_QUALIFICATIONS = CERTIFICATIONS.map(c => c.label) as string[]
+const VALID_RANKS = RANK_GROUPS.flatMap(g => g.ranks.map(r => r.name))
 
 // GET /api/admin/tickets — list tickets, optionally filtered
 export async function GET(req: NextRequest) {
@@ -53,9 +55,47 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { type, action, qualification, targetUserId, targetUserName, notes } = body
+    const { type } = body
 
-    if (!type || !action || !qualification || !targetUserId || !targetUserName) {
+    const displayName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+
+    if (type === 'j3-promotion') {
+        const { action, proposedRank, targetUserId, targetUserName, notes } = body
+
+        if (!action || !proposedRank || !targetUserId || !targetUserName) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+
+        if (action !== 'promote' && action !== 'demote') {
+            return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+        }
+
+        if (!VALID_RANKS.includes(proposedRank)) {
+            return NextResponse.json({ error: 'Invalid rank' }, { status: 400 })
+        }
+
+        const ticket: Omit<Ticket, '_id'> = {
+            type: 'j3-promotion',
+            department: 'j4',
+            status: 'open',
+            action,
+            proposedRank,
+            targetUserId,
+            targetUserName,
+            issuedById: me.id,
+            issuedByName: displayName,
+            issuedAt: new Date(),
+            ...(notes?.trim() ? { notes: notes.trim() } : {}),
+        }
+
+        const result = await Db.tickets.insertOne(ticket as Ticket)
+        return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+    }
+
+    // j3-qualification (default)
+    const { action, qualification, targetUserId, targetUserName, notes } = body
+
+    if (!action || !qualification || !targetUserId || !targetUserName) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
@@ -66,8 +106,6 @@ export async function POST(req: NextRequest) {
     if (!VALID_QUALIFICATIONS.includes(qualification)) {
         return NextResponse.json({ error: 'Invalid qualification' }, { status: 400 })
     }
-
-    const displayName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
 
     const ticket: Omit<Ticket, '_id'> = {
         type: 'j3-qualification',

@@ -18,7 +18,7 @@ export async function GET() {
 
     const users = await Db.users
         .find({ isSkeletonAccount: { $ne: true } })
-        .project({ id: 1, globalName: 1, username: 1, name: 1, 'guild.nickname': 1, 'guild.displayName': 1, 'milpac.qualifications': 1 })
+        .project({ id: 1, globalName: 1, username: 1, name: 1, 'guild.nickname': 1, 'guild.displayName': 1, 'milpac.qualifications': 1, 'milpac.currentRank': 1 })
         .toArray()
 
     const members = users.map(u => ({
@@ -26,6 +26,7 @@ export async function GET() {
         displayName: u.guild?.nickname || u.guild?.displayName || u.globalName || u.username || u.id,
         inGameName: u.name || null,
         qualifications: (u.milpac?.qualifications ?? []).map((q: { qualification: string }) => q.qualification),
+        currentRank: u.milpac?.currentRank ?? null,
     }))
 
     return NextResponse.json({ members })

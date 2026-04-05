@@ -3,9 +3,10 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { RANK_GROUPS } from '@/lib/ranks'
 
 // PATCH /api/admin/tickets/[id] — approve or reject a ticket
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     let me: User
     try {
         me = await client.fetchMe()
@@ -13,9 +14,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = await params
     let objectId: ObjectId
     try {
-        objectId = new ObjectId(params.id)
+        objectId = new ObjectId(id)
     } catch {
         return NextResponse.json({ error: 'Invalid ticket ID' }, { status: 400 })
     }
@@ -111,6 +113,28 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
                 },
             })
         }
+    } else if (ticket.type === 'j3-promotion') {
+        const member = await Db.users.findOne({ id: ticket.targetUserId })
+        if (!member) {
+            return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
+        }
+
+        const allRanks = RANK_GROUPS.flatMap(g => g.ranks)
+        const rankEntry = allRanks.find(r => r.name === ticket.proposedRank)
+        const abbr = rankEntry?.abbr ?? ticket.proposedRank!
+
+        await Db.users.updateOne({ id: ticket.targetUserId }, {
+            $set: { 'milpac.currentRank': abbr },
+            $push: {
+                'milpac.promotions': {
+                    date: now.toISOString().split('T')[0],
+                    rank: ticket.proposedRank!,
+                    role: '',
+                    issuedById: ticket.issuedById,
+                    issuedByName: ticket.issuedByName,
+                } as any,
+            },
+        })
     }
 
     await Db.tickets.updateOne({ _id: objectId }, {

@@ -70,7 +70,7 @@ export default function QualificationTicketsTab({ displayName, userId }: { displ
         try {
             const res = await fetch(`/api/admin/tickets?issuedById=${userId}`)
             const data = await res.json()
-            setMyTickets(data.tickets ?? [])
+            setMyTickets((data.tickets ?? []).filter((t: TicketRow) => t.type === 'j3-qualification'))
         } finally {
             setLoadingTickets(false)
         }

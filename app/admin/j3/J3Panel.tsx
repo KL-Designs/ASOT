@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Tabs, Tab, Typography } from '@mui/material'
 import { Construction } from '@mui/icons-material'
 import QualificationTicketsTab from './tabs/QualificationTicketsTab'
+import PromotionTicketsTab from './tabs/PromotionTicketsTab'
 
 interface J3PanelProps {
     displayName: string
@@ -72,6 +73,7 @@ export default function J3Panel({ displayName, userId }: J3PanelProps) {
                     sx={{ minHeight: 40 }}
                 >
                     <Tab label='Qualification Tickets' sx={tabSx} />
+                    <Tab label='Promotion Tickets' sx={tabSx} />
                     <Tab label='Training Schedule' sx={tabSx} />
                 </Tabs>
             </div>
@@ -89,7 +91,18 @@ export default function J3Panel({ displayName, userId }: J3PanelProps) {
                         <QualificationTicketsTab displayName={displayName} userId={userId} />
                     </div>
                 )}
-                {tab === 1 && <WipTab title='Training Schedule' description='Training schedule management and documentation tools are coming soon.' />}
+                {tab === 1 && (
+                    <div
+                        className='m-6 mt-4'
+                        style={{
+                            border: '1px solid rgba(219,0,29,0.1)',
+                            background: 'rgba(255,255,255,0.01)',
+                        }}
+                    >
+                        <PromotionTicketsTab displayName={displayName} userId={userId} />
+                    </div>
+                )}
+                {tab === 2 && <WipTab title='Training Schedule' description='Training schedule management and documentation tools are coming soon.' />}
             </div>
         </div>
     )
