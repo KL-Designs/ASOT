@@ -165,6 +165,15 @@ declare global {
 
         // J2-internal — never rendered on public pages
         internalNotes?: string
+        campaignId?: ObjectId
+    }
+
+    interface OperationCampaign {
+        _id: ObjectId
+        name: string
+        description?: string
+        createdBy: string    // Discord user ID
+        createdAt: string    // ISO timestamp
     }
 
     interface OperationTemplate {
