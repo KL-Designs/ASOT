@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import {
-    Typography, Chip, CircularProgress, Button,
+    Typography, Chip, Button,
     TextField, Select, MenuItem, FormControl, InputLabel,
     Dialog, DialogContent, DialogTitle, IconButton,
 } from '@mui/material'
 import { Refresh, Close, ArrowForward } from '@mui/icons-material'
+import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 
 type TicketRow = Ticket & { _id: string }
 
@@ -598,9 +599,7 @@ export default function TicketsPanel({
                 style={{ border: '1px solid rgba(219,0,29,0.1)', background: 'rgba(255,255,255,0.01)', overflowX: 'auto' }}
             >
                 {loading ? (
-                    <div className='flex justify-center py-12'>
-                        <CircularProgress size={28} sx={{ color: 'var(--red)' }} />
-                    </div>
+                    <TacticalSkeleton rows={6} className='px-4' />
                 ) : filtered.length === 0 ? (
                     <Typography style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.3)', padding: '32px 24px' }}>
                         No tickets found.

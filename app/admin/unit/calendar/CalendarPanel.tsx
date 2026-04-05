@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { Calendar, dateFnsLocalizer, Views, View } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay } from 'date-fns'
 import { enAU } from 'date-fns/locale'
-import { Typography, Button, CircularProgress } from '@mui/material'
+import { Typography, Button } from '@mui/material'
+import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 import { Add } from '@mui/icons-material'
 import EventModal, { CalendarEventRow, DEPT_COLORS } from './EventModal'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
@@ -135,9 +136,7 @@ export default function CalendarPanel({ userId, displayName, isJ4 }: { userId: s
             {/* Calendar */}
             <div className='flex-1 min-h-0 mx-6 mb-6 mt-3' style={{ minHeight: 500 }}>
                 {loading ? (
-                    <div className='flex justify-center items-center h-64'>
-                        <CircularProgress size={28} sx={{ color: 'var(--red)' }} />
-                    </div>
+                    <TacticalSkeleton rows={7} className='px-4' />
                 ) : (
                     <Calendar
                         localizer={localizer}

@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-    Chip, CircularProgress, Alert,
+    Chip, Alert,
     Dialog, DialogContent, DialogTitle, IconButton,
     TextField, InputAdornment,
 } from '@mui/material'
 import { Refresh, Link as LinkIcon, Close, Search, ArrowUpward, ArrowDownward, UnfoldMore } from '@mui/icons-material'
 import { Typography } from '@mui/material'
+import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 
 type Application = J1Application & { _id: string }
 
@@ -319,9 +320,7 @@ export default function MastersheetTab() {
 
             {/* Content */}
             {loading ? (
-                <div className='flex justify-center py-12'>
-                    <CircularProgress size={24} style={{ color: 'var(--red)' }} />
-                </div>
+                <TacticalSkeleton rows={6} className='px-4' />
             ) : error ? (
                 <div className='px-4 py-4'>
                     <Alert severity='error' sx={{ borderRadius: 0 }}>{error}</Alert>

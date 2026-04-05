@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Autocomplete, TextField, CircularProgress, Typography } from '@mui/material'
+import { Autocomplete, TextField, Typography } from '@mui/material'
+import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 import { rankNameFromAbbr } from '@/lib/ranks'
 
 type MemberOption = { id: string; displayName: string; currentRank: string | null; teamLeadDepts: string[] }
@@ -192,9 +193,7 @@ export default function DeptMembersTab({
                 )}
 
                 {loading ? (
-                    <div className='flex justify-center py-4'>
-                        <CircularProgress size={20} sx={{ color: 'var(--red)' }} />
-                    </div>
+                    <TacticalSkeleton rows={3} />
                 ) : teamLeads.length === 0 ? (
                     <Typography style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.3)', padding: '8px 0' }}>
                         No team lead assigned.
@@ -282,9 +281,7 @@ export default function DeptMembersTab({
                 <Typography style={labelStyle}>Department Members</Typography>
 
                 {loading ? (
-                    <div className='flex justify-center py-8'>
-                        <CircularProgress size={24} sx={{ color: 'var(--red)' }} />
-                    </div>
+                    <TacticalSkeleton rows={5} />
                 ) : deptMembers.length === 0 ? (
                     <Typography style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.3)', padding: '12px 0' }}>
                         No members in this department yet.

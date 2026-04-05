@@ -13,6 +13,7 @@ import {
 } from '@mui/icons-material'
 import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat-constants'
 import MilpacEditor from '@/app/members/[username]/MilpacEditor'
+import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 import {
     DndContext,
     DragOverlay,
@@ -1141,11 +1142,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
 
     if (loading) {
-        return (
-            <div className='h-full w-full flex items-center justify-center'>
-                <CircularProgress size={32} sx={{ color: 'var(--red)' }} />
-            </div>
-        )
+        return <TacticalSkeleton rows={10} className='p-8' />
     }
 
     const [hqCat, ...platoonCols] = PLATOON_CATEGORIES
@@ -1461,11 +1458,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                     </IconButton>
                 </DialogTitle>
                 <DialogContent style={{ padding: 0, overflowY: 'auto' }}>
-                    {milpacLoading && (
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
-                            <CircularProgress size={28} sx={{ color: 'var(--red)' }} />
-                        </div>
-                    )}
+                    {milpacLoading && <TacticalSkeleton rows={6} className='p-6' />}
                     {milpacUser && !milpacLoading && (
                         <div style={{ padding: '20px 24px' }}>
                             <MilpacEditor

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { CircularProgress, Alert } from '@mui/material'
+import { Alert } from '@mui/material'
+import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 import {
     ResponsiveContainer,
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell,
@@ -154,9 +155,7 @@ export default function StatisticsTab() {
         </div>
     )
 
-    if (loading) return (
-        <div className='flex justify-center py-16'><CircularProgress size={24} style={{ color: 'var(--red)' }} /></div>
-    )
+    if (loading) return <TacticalSkeleton rows={8} className='p-6' />
 
     if (error) return (
         <div className='p-6'><Alert severity='error' sx={{ borderRadius: 0 }}>{error}</Alert></div>

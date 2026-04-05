@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, Tabs, Tab } from '@mui/material'
+import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 import ImportPanel from '../ImportPanel'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
@@ -305,11 +306,7 @@ function ReinstateModal({ open, onClose }: { open: boolean; onClose: () => void 
                     Reinstate Member
                 </Typography>
 
-                {loading && (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
-                        <CircularProgress size={24} style={{ color: 'var(--red)' }} />
-                    </div>
-                )}
+                {loading && <TacticalSkeleton rows={5} className='px-4' />}
 
                 {loaded && members.length === 0 && (
                     <Typography fontSize='0.8rem' style={{ color: 'rgba(237,237,237,0.35)', padding: '12px 0' }}>

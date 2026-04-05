@@ -12,6 +12,7 @@ import {
     Search, ArrowUpward, ArrowDownward, UnfoldMore,
 } from '@mui/icons-material'
 import { Typography } from '@mui/material'
+import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 
 type Application = J1Application & { _id: string }
 
@@ -520,9 +521,7 @@ export default function ApplicationsTab() {
 
             {/* Content */}
             {loading ? (
-                <div className='flex justify-center py-12'>
-                    <CircularProgress size={24} style={{ color: 'var(--red)' }} />
-                </div>
+                <TacticalSkeleton rows={6} className='px-4' />
             ) : error ? (
                 <div className='px-4 py-4'>
                     <Alert severity='error' sx={{ borderRadius: 0 }}>{error}</Alert>

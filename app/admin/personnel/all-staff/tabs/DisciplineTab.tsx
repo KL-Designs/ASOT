@@ -5,6 +5,7 @@ import {
     Autocomplete, TextField, Button, Chip, CircularProgress, Typography, Alert,
 } from '@mui/material'
 import { Send } from '@mui/icons-material'
+import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 
 type TicketRow = Ticket & { _id: string }
 type MemberOption = { id: string; displayName: string }
@@ -203,9 +204,7 @@ export default function DisciplineTab({ userId }: { userId: string }) {
             <div style={cardStyle}>
                 <Typography style={labelStyle}>My Submitted Tickets</Typography>
                 {loadingTickets ? (
-                    <div className='flex justify-center py-8'>
-                        <CircularProgress size={24} sx={{ color: 'var(--red)' }} />
-                    </div>
+                    <TacticalSkeleton rows={4} className='px-4' />
                 ) : myTickets.length === 0 ? (
                     <Typography style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.3)', padding: '16px 0' }}>
                         No discipline tickets submitted yet.

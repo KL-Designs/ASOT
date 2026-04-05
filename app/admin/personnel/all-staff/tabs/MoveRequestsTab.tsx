@@ -7,6 +7,7 @@ import {
 } from '@mui/material'
 import { Send, CheckCircle, Cancel } from '@mui/icons-material'
 import { PLATOON_CATEGORIES, RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
+import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 
 type TicketRow = Ticket & { _id: string }
 
@@ -392,9 +393,7 @@ export default function MoveRequestsTab({ userId, displayName }: { userId: strin
                 <div style={cardStyle}>
                     <Typography style={labelStyle}>Pending My Approval</Typography>
                     {loadingTickets ? (
-                        <div className='flex justify-center py-8'>
-                            <CircularProgress size={24} sx={{ color: 'var(--red)' }} />
-                        </div>
+                        <TacticalSkeleton rows={4} className='px-4' />
                     ) : (
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
@@ -470,9 +469,7 @@ export default function MoveRequestsTab({ userId, displayName }: { userId: strin
             <div style={cardStyle}>
                 <Typography style={labelStyle}>My Submitted Requests</Typography>
                 {loadingTickets ? (
-                    <div className='flex justify-center py-8'>
-                        <CircularProgress size={24} sx={{ color: 'var(--red)' }} />
-                    </div>
+                    <TacticalSkeleton rows={4} className='px-4' />
                 ) : myTickets.length === 0 ? (
                     <Typography style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.3)', padding: '16px 0' }}>
                         No move requests submitted yet.

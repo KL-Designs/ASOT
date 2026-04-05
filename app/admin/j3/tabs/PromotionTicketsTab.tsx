@@ -7,6 +7,7 @@ import {
 } from '@mui/material'
 import { Send } from '@mui/icons-material'
 import { RANK_GROUPS } from '@/lib/ranks'
+import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 
 type TicketRow = Ticket & { _id: string }
 
@@ -242,9 +243,7 @@ export default function PromotionTicketsTab({ displayName, userId }: { displayNa
             <div style={cardStyle}>
                 <Typography style={labelStyle}>My Submitted Tickets</Typography>
                 {loadingTickets ? (
-                    <div className='flex justify-center py-8'>
-                        <CircularProgress size={24} sx={{ color: 'var(--red)' }} />
-                    </div>
+                    <TacticalSkeleton rows={4} className='px-4' />
                 ) : myTickets.length === 0 ? (
                     <Typography style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.3)', padding: '16px 0' }}>
                         No tickets submitted yet.

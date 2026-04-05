@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-    Typography, Button, CircularProgress, Checkbox,
+    Typography, Button, Checkbox,
     Dialog, DialogTitle, DialogContent, DialogActions, TextField,
     Tabs, Tab, IconButton, Collapse, Tooltip, LinearProgress,
 } from '@mui/material'
@@ -11,6 +11,8 @@ import {
     ExpandMore, ExpandLess, Collections,
 } from '@mui/icons-material'
 
+
+import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 
 type UploadTarget = { year: string; op: string; stage: string }
 
@@ -233,11 +235,7 @@ export default function GalleryManager() {
 
     // ── Render ────────────────────────────────────────────────────────────────
 
-    if (loading && !data) return (
-        <div className='h-full w-full p-6 flex justify-center pt-24'>
-            <CircularProgress style={{ color: 'var(--red)' }} />
-        </div>
-    )
+    if (loading && !data) return <TacticalSkeleton rows={8} className='p-8' />
 
     return (
         <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[1200px] mx-auto'>
