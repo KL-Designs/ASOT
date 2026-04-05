@@ -158,11 +158,11 @@ function PinnedSection({ onNavigate }: { onNavigate?: () => void }) {
     if (favourites.length === 0) return null
 
     function handleClick(fav: typeof favourites[number]) {
-        if (fav.tabIndex !== undefined) {
-            try { localStorage.setItem(`gotoTab:${fav.href}`, String(fav.tabIndex)) } catch {}
-        }
         onNavigate?.()
-        router.push(fav.href as never)
+        const href = fav.tabIndex !== undefined
+            ? `${fav.href}?tab=${fav.tabIndex}`
+            : fav.href
+        router.push(href as never)
     }
 
     return (
@@ -264,13 +264,13 @@ export default function StaffSidebar({
         {
             label: 'Departments',
             items: [
-                { label: 'J1 — Recruitment',    href: '/admin/j1',      visible: permissions.canSeeJ1,  icon: <PersonAdd sx={{ fontSize: 14 }} /> },
-                { label: 'J2 — Mission Making', href: '/admin/j2',      visible: permissions.canSeeJ2,  icon: <Map sx={{ fontSize: 14 }} /> },
-                { label: 'J3 — Training',       href: '/admin/j3',      visible: permissions.canSeeJ3,  icon: <School sx={{ fontSize: 14 }} /> },
-                { label: 'J4 — Administration', href: '/admin/j4',      visible: permissions.canSeeJ4,  icon: <AdminPanelSettings sx={{ fontSize: 14 }} /> },
-                { label: 'J5 — Media',          href: '/admin/j5',      visible: permissions.canSeeJ5,  icon: <Collections sx={{ fontSize: 14 }} /> },
-                { label: 'J6 — Game Masters',   href: '/admin/j6',      visible: permissions.canSeeJ6,  icon: <SportsEsports sx={{ fontSize: 14 }} /> },
-                { label: 'J7 — Development',    href: '/admin/j7',      visible: permissions.canSeeJ7,  icon: <Code sx={{ fontSize: 14 }} /> },
+                { label: '[J1] Recruitment',    href: '/admin/j1',      visible: permissions.canSeeJ1,  icon: <PersonAdd sx={{ fontSize: 14 }} /> },
+                { label: '[J2] Mission Making', href: '/admin/j2',      visible: permissions.canSeeJ2,  icon: <Map sx={{ fontSize: 14 }} /> },
+                { label: '[J3] Training',       href: '/admin/j3',      visible: permissions.canSeeJ3,  icon: <School sx={{ fontSize: 14 }} /> },
+                { label: '[J4] Administration', href: '/admin/j4',      visible: permissions.canSeeJ4,  icon: <AdminPanelSettings sx={{ fontSize: 14 }} /> },
+                { label: '[J5] Media',          href: '/admin/j5',      visible: permissions.canSeeJ5,  icon: <Collections sx={{ fontSize: 14 }} /> },
+                { label: '[J6] Game Masters',   href: '/admin/j6',      visible: permissions.canSeeJ6,  icon: <SportsEsports sx={{ fontSize: 14 }} /> },
+                { label: '[J7] Development',    href: '/admin/j7',      visible: permissions.canSeeJ7,  icon: <Code sx={{ fontSize: 14 }} /> },
             ],
         },
         {

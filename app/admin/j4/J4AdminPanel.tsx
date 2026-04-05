@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, Tabs, Tab } from '@mui/material'
 import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 import ImportPanel from '../ImportPanel'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
+import { useTabState } from '@/app/admin/_components/useTabState'
 
 const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -388,12 +389,7 @@ function ReinstateModal({ open, onClose }: { open: boolean; onClose: () => void 
 }
 
 export default function J4AdminPanel({ userId }: { userId: string }) {
-    const [tab, setTab] = useState(0)
-
-    useEffect(() => {
-        const stored = localStorage.getItem('gotoTab:/admin/j4')
-        if (stored !== null) { setTab(Number(stored)); localStorage.removeItem('gotoTab:/admin/j4') }
-    }, [])
+    const { tab, setTab, view, setView } = useTabState(0, 'dept')
     const [importOpen, setImportOpen] = useState(false)
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
@@ -425,27 +421,44 @@ export default function J4AdminPanel({ userId }: { userId: string }) {
                 <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ color: 'rgba(219,0,29,0.35)' }}>//</span> DEPARTMENTS
                 </span>
-                <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
-                    J4 — Administration
-                </Typography>
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+                    <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
+                        [J4] Administration
+                    </Typography>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button
+                            style={{
+                                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                                padding: '4px 10px',
+                                background: view === 'calendar' ? 'rgba(219,0,29,0.15)' : 'none',
+                                border: '1px solid rgba(219,0,29,0.25)',
+                                color: view === 'calendar' ? 'var(--foreground)' : 'rgba(237,237,237,0.4)',
+                                cursor: 'pointer',
+                            }}
+                            onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}
+                        >Calendar</button>
+                    </div>
+                </div>
             </div>
 
-            {/* Tabs */}
-            <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
-                <Tabs
-                    value={tab}
-                    onChange={(_, v) => setTab(v)}
-                    TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
-                    sx={{ minHeight: 40 }}
-                >
-                    <Tab label={<PinTabLabel label='Tools'    pinLabel='J4 — Tools'    href='/admin/j4' tabIndex={0} />} sx={tabSx} />
-                    <Tab label={<PinTabLabel label='Calendar' pinLabel='J4 — Calendar' href='/admin/j4' tabIndex={1} />} sx={tabSx} />
-                </Tabs>
-            </div>
+            {view === 'calendar' && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
+            {view !== 'calendar' && (
+                <>
+                    {/* Tabs */}
+                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                        <Tabs
+                            value={tab}
+                            onChange={(_, v) => setTab(v)}
+                            TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
+                            sx={{ minHeight: 40 }}
+                        >
+                            <Tab label={<PinTabLabel label='Tools' pinLabel='J4 — Tools' href='/admin/j4' tabIndex={0} />} sx={tabSx} />
+                        </Tabs>
+                    </div>
 
-            <div className='flex-1 min-h-0 mt-0'>
-                {tab === 0 && (
-                    <div className='p-6 md:p-10 flex flex-col gap-6'>
+                    <div className='flex-1 min-h-0 mt-0'>
+                        {tab === 0 && (
+                            <div className='p-6 md:p-10 flex flex-col gap-6'>
                         {/* Tools */}
                         <div>
                             <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 12 }}>
@@ -500,10 +513,11 @@ export default function J4AdminPanel({ userId }: { userId: string }) {
 
                             </div>
                         </div>
+                            </div>
+                        )}
                     </div>
-                )}
-                {tab === 1 && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
-            </div>
+                </>
+            )}
 
             <ImportPanel open={importOpen} onClose={() => setImportOpen(false)} />
             <DischargeModal open={dischargeOpen} onClose={() => setDischargeOpen(false)} />

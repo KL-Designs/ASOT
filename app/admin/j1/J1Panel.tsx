@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Tabs, Tab, Typography } from '@mui/material'
+import { Typography, Tabs, Tab } from '@mui/material'
 import { Construction } from '@mui/icons-material'
 import ApplicationsTab from './tabs/ApplicationsTab'
 import RecruitMemberTab from './tabs/RecruitMemberTab'
@@ -11,6 +10,7 @@ import DeptMembersTab from '@/app/admin/DeptMembersTab'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
+import { useTabState } from '@/app/admin/_components/useTabState'
 
 interface J1PanelProps {
     displayName: string
@@ -40,13 +40,20 @@ function WipTab({ title, description }: { title: string; description: string }) 
     )
 }
 
-export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }: J1PanelProps) {
-    const [tab, setTab] = useState(0)
+const btnSx = (active: boolean): React.CSSProperties => ({
+    fontSize: '0.62rem',
+    fontWeight: 700,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    padding: '4px 10px',
+    background: active ? 'rgba(219,0,29,0.15)' : 'none',
+    border: '1px solid rgba(219,0,29,0.25)',
+    color: active ? 'var(--foreground)' : 'rgba(237,237,237,0.4)',
+    cursor: 'pointer',
+})
 
-    useEffect(() => {
-        const stored = localStorage.getItem('gotoTab:/admin/j1')
-        if (stored !== null) { setTab(Number(stored)); localStorage.removeItem('gotoTab:/admin/j1') }
-    }, [])
+export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }: J1PanelProps) {
+    const { tab, setTab, view, setView } = useTabState(0, 'dept')
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -74,56 +81,68 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                 <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ color: 'rgba(219,0,29,0.35)' }}>//</span> DEPARTMENTS
                 </span>
-                <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
-                    J1 — Recruitment
-                </Typography>
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+                    <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
+                        [J1] Recruitment
+                    </Typography>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button style={btnSx(view === 'members')} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>Members</button>
+                        <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
+                    </div>
+                </div>
             </div>
 
-            {/* Tabs */}
-            <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
-                <Tabs
-                    value={tab}
-                    onChange={(_, v) => setTab(v)}
-                    TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
-                    sx={{ minHeight: 40 }}
-                >
-                    <Tab label={<PinTabLabel label='Applications'   pinLabel='J1 — Applications'   href='/admin/j1' tabIndex={0} />} sx={tabSx} />
-                    <Tab label={<PinTabLabel label='Recruit Member' pinLabel='J1 — Recruit Member' href='/admin/j1' tabIndex={1} />} sx={tabSx} />
-                    <Tab label={<PinTabLabel label='Mastersheet'    pinLabel='J1 — Mastersheet'    href='/admin/j1' tabIndex={2} />} sx={tabSx} />
-                    <Tab label={<PinTabLabel label='Meetings'       pinLabel='J1 — Meetings'       href='/admin/j1' tabIndex={3} />} sx={tabSx} />
-                    <Tab label={<PinTabLabel label='Statistics'     pinLabel='J1 — Statistics'     href='/admin/j1' tabIndex={4} />} sx={tabSx} />
-                    <Tab label={<PinTabLabel label='Members'        pinLabel='J1 — Members'        href='/admin/j1' tabIndex={5} />} sx={tabSx} />
-                    <Tab label={<PinTabLabel label='Calendar'       pinLabel='J1 — Calendar'       href='/admin/j1' tabIndex={6} />} sx={tabSx} />
-                </Tabs>
-            </div>
+            {view === 'members' && (
+                <DeptMembersTab department='j1' displayName={displayName} userId={userId} canManage={canManageMembers} />
+            )}
+            {view === 'calendar' && (
+                <DeptCalendarTab department='j1' userId={userId} isJ4={isJ4} />
+            )}
+            {view === 'dept' && (
+                <>
+                    {/* Tabs */}
+                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                        <Tabs
+                            value={tab}
+                            onChange={(_, v) => setTab(v)}
+                            TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
+                            sx={{ minHeight: 40 }}
+                        >
+                            <Tab label={<PinTabLabel label='Applications'   pinLabel='J1 — Applications'   href='/admin/j1' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Recruit Member' pinLabel='J1 — Recruit Member' href='/admin/j1' tabIndex={1} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Mastersheet'    pinLabel='J1 — Mastersheet'    href='/admin/j1' tabIndex={2} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'       pinLabel='J1 — Meetings'       href='/admin/j1' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Statistics'     pinLabel='J1 — Statistics'     href='/admin/j1' tabIndex={4} />} sx={tabSx} />
+                        </Tabs>
+                    </div>
 
-            {/* Tab content */}
-            <div className='flex-1 min-h-0 mt-0'>
-                {tab === 0 && (
-                    <div
-                        className='m-6 mt-4'
-                        style={{
-                            border: '1px solid rgba(219,0,29,0.1)',
-                            background: 'rgba(255,255,255,0.01)',
-                        }}
-                    >
-                        <ApplicationsTab />
+                    {/* Tab content */}
+                    <div className='flex-1 min-h-0 mt-0'>
+                        {tab === 0 && (
+                            <div
+                                className='m-6 mt-4'
+                                style={{
+                                    border: '1px solid rgba(219,0,29,0.1)',
+                                    background: 'rgba(255,255,255,0.01)',
+                                }}
+                            >
+                                <ApplicationsTab />
+                            </div>
+                        )}
+                        {tab === 1 && <RecruitMemberTab displayName={displayName} />}
+                        {tab === 2 && (
+                            <div
+                                className='m-6 mt-4'
+                                style={{ border: '1px solid rgba(0,195,100,0.1)', background: 'rgba(255,255,255,0.01)' }}
+                            >
+                                <MastersheetTab />
+                            </div>
+                        )}
+                        {tab === 3 && <WipTab title='Meetings' description='J1 meeting scheduling and records are coming soon.' />}
+                        {tab === 4 && <StatisticsTab />}
                     </div>
-                )}
-                {tab === 1 && <RecruitMemberTab displayName={displayName} />}
-                {tab === 2 && (
-                    <div
-                        className='m-6 mt-4'
-                        style={{ border: '1px solid rgba(0,195,100,0.1)', background: 'rgba(255,255,255,0.01)' }}
-                    >
-                        <MastersheetTab />
-                    </div>
-                )}
-                {tab === 3 && <WipTab title='Meetings' description='J1 meeting scheduling and records are coming soon.' />}
-                {tab === 4 && <StatisticsTab />}
-                {tab === 5 && <DeptMembersTab department='j1' displayName={displayName} userId={userId} canManage={canManageMembers} />}
-                {tab === 6 && <DeptCalendarTab department='j1' userId={userId} isJ4={isJ4} />}
-            </div>
+                </>
+            )}
         </div>
     )
 }

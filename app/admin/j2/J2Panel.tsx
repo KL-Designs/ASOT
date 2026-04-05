@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { Typography, Tabs, Tab } from '@mui/material'
 import DeptMembersTab from '@/app/admin/DeptMembersTab'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
 import J2OperationsTab from '@/app/admin/j2/tabs/J2OperationsTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
+import { useTabState } from '@/app/admin/_components/useTabState'
 
 export default function J2Panel({
     displayName,
@@ -19,12 +19,7 @@ export default function J2Panel({
     canManageMembers: boolean
     isJ4: boolean
 }) {
-    const [tab, setTab] = useState(0)
-
-    useEffect(() => {
-        const stored = localStorage.getItem('gotoTab:/admin/j2')
-        if (stored !== null) { setTab(Number(stored)); localStorage.removeItem('gotoTab:/admin/j2') }
-    }, [])
+    const { tab, setTab, view, setView } = useTabState(0, 'dept')
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -35,6 +30,18 @@ export default function J2Panel({
         color: 'rgba(237,237,237,0.5)',
         '&.Mui-selected': { color: 'var(--foreground)' },
     }
+
+    const btnSx = (active: boolean): React.CSSProperties => ({
+        fontSize: '0.62rem',
+        fontWeight: 700,
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        padding: '4px 10px',
+        background: active ? 'rgba(219,0,29,0.15)' : 'none',
+        border: '1px solid rgba(219,0,29,0.25)',
+        color: active ? 'var(--foreground)' : 'rgba(237,237,237,0.4)',
+        cursor: 'pointer',
+    })
 
     return (
         <div className='h-full w-full flex flex-col max-w-[1100px]'>
@@ -51,29 +58,41 @@ export default function J2Panel({
                 <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <span style={{ color: 'rgba(219,0,29,0.35)' }}>//</span> DEPARTMENTS
                 </span>
-                <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
-                    J2 — Mission Making
-                </Typography>
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+                    <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
+                        [J2] Mission Making
+                    </Typography>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button style={btnSx(view === 'members')} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>Members</button>
+                        <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
+                    </div>
+                </div>
             </div>
 
-            <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
-                <Tabs
-                    value={tab}
-                    onChange={(_, v) => setTab(v)}
-                    TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
-                    sx={{ minHeight: 40 }}
-                >
-                    <Tab label={<PinTabLabel label='Members'    pinLabel='J2 — Members'    href='/admin/j2' tabIndex={0} />} sx={tabSx} />
-                    <Tab label={<PinTabLabel label='Calendar'   pinLabel='J2 — Calendar'   href='/admin/j2' tabIndex={1} />} sx={tabSx} />
-                    <Tab label={<PinTabLabel label='Operations' pinLabel='J2 — Operations' href='/admin/j2' tabIndex={2} />} sx={tabSx} />
-                </Tabs>
-            </div>
+            {view === 'members' && (
+                <DeptMembersTab department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} />
+            )}
+            {view === 'calendar' && (
+                <DeptCalendarTab department='j2' userId={userId} isJ4={isJ4} />
+            )}
+            {view === 'dept' && (
+                <>
+                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                        <Tabs
+                            value={tab}
+                            onChange={(_, v) => setTab(v)}
+                            TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
+                            sx={{ minHeight: 40 }}
+                        >
+                            <Tab label={<PinTabLabel label='Operations' pinLabel='J2 — Operations' href='/admin/j2' tabIndex={0} />} sx={tabSx} />
+                        </Tabs>
+                    </div>
 
-            <div className='flex-1 min-h-0 mt-0'>
-                {tab === 0 && <DeptMembersTab department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} />}
-                {tab === 1 && <DeptCalendarTab department='j2' userId={userId} isJ4={isJ4} />}
-                {tab === 2 && <J2OperationsTab />}
-            </div>
+                    <div className='flex-1 min-h-0 mt-0'>
+                        {tab === 0 && <J2OperationsTab />}
+                    </div>
+                </>
+            )}
         </div>
     )
 }
