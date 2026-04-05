@@ -151,7 +151,7 @@ export default function StaffSidebar({
                             <div className='flex flex-col'>
                                 {visibleItems.map(item => {
                                     const isActive = pathname === item.href ||
-                                        (item.href !== '/admin' && pathname.startsWith(item.href))
+                                        (item.href !== '/admin' && pathname.startsWith(item.href + '/'))
                                     return (
                                         <Link
                                             key={item.href}

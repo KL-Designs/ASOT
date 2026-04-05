@@ -460,7 +460,7 @@ function SortableItem({ id, children }: { id: string; children: (listeners: Reco
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange, canEditRestricted = false, canEditStandard = false }: { member: User; confirmedOps?: ConfirmedOp[]; onDirtyChange?: (dirty: boolean) => void; canEditRestricted?: boolean; canEditStandard?: boolean }) {
+export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange, canEditRestricted = false, canEditStandard = false, canImpersonate = false }: { member: User; confirmedOps?: ConfirmedOp[]; onDirtyChange?: (dirty: boolean) => void; canEditRestricted?: boolean; canEditStandard?: boolean; canImpersonate?: boolean }) {
     const strippedNickname = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
     const fullDisplay = strippedNickname || member.globalName || member.username
     const nameParts = fullDisplay.split(' ')
@@ -513,6 +513,21 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [impersonating, setImpersonating] = useState(false)
+
+    async function handleImpersonate() {
+        setImpersonating(true)
+        try {
+            const res = await fetch('/api/admin/impersonate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: member.id }),
+            })
+            if (res.ok) window.location.href = '/me'
+        } finally {
+            setImpersonating(false)
+        }
+    }
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
     const [uniformFile, setUniformFile] = useState<File | null>(null)
@@ -717,12 +732,20 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                         {saved && !error && (
                             <span style={{ fontSize: '0.7rem', color: 'rgba(80,200,80,0.75)' }}>Saved.</span>
                         )}
-                        <Link
-                            href='/members'
-                            style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', textDecoration: 'none' }}
-                        >
-                            ← All Members
-                        </Link>
+                        {canImpersonate && (
+                            <button
+                                onClick={handleImpersonate}
+                                disabled={impersonating}
+                                style={{
+                                    fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase',
+                                    color: impersonating ? 'rgba(255,160,0,0.3)' : 'rgba(255,160,0,0.7)',
+                                    background: 'none', border: '1px solid rgba(255,160,0,0.25)',
+                                    padding: '4px 10px', cursor: impersonating ? 'not-allowed' : 'pointer',
+                                }}
+                            >
+                                {impersonating ? '…' : 'Impersonate'}
+                            </button>
+                        )}
                         <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
                         <Link
                             href={`/milpacs/${member.username}`}
