@@ -1,10 +1,55 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Typography } from '@mui/material'
 import { useFavourites } from '@/hooks/useFavourites'
+import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 import type { DashboardPermissions } from './StaffDashboardShell'
+
+// ── Local clock ────────────────────────────────────────────────────────────────
+
+function LocalClock() {
+    const [time, setTime] = useState('')
+    const [tz, setTz] = useState('')
+    useEffect(() => {
+        setTz(Intl.DateTimeFormat().resolvedOptions().timeZone)
+        function tick() {
+            const now = new Date()
+            const h = now.getHours().toString().padStart(2, '0')
+            const m = now.getMinutes().toString().padStart(2, '0')
+            const s = now.getSeconds().toString().padStart(2, '0')
+            setTime(`${h}:${m}:${s}`)
+        }
+        tick()
+        const id = setInterval(tick, 1000)
+        return () => clearInterval(id)
+    }, [])
+    return (
+        <div style={{ textAlign: 'right' }}>
+            <div style={{ fontFamily: 'monospace', fontSize: '1rem', fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(237,237,237,0.7)', lineHeight: 1 }}>
+                {time || '──:──:──'}
+            </div>
+            <div style={{ fontFamily: 'monospace', fontSize: '0.5rem', letterSpacing: '0.1em', color: 'rgba(237,237,237,0.2)', marginTop: 4, textTransform: 'uppercase' }}>
+                {tz || '─────────'}
+            </div>
+        </div>
+    )
+}
+
+// ── Section label ──────────────────────────────────────────────────────────────
+
+function SectionLabel({ label }: { label: string }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
+            <span style={{ fontFamily: 'monospace', fontSize: '0.55rem', color: 'rgba(219,0,29,0.4)', lineHeight: 1 }}>//</span>
+            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>
+                {label}
+            </span>
+        </div>
+    )
+}
 
 // ── Quick-access card definitions ─────────────────────────────────────────────
 
@@ -43,8 +88,8 @@ function QuickCardItem({ card }: { card: QuickCard }) {
             style={{ textDecoration: 'none', flex: '1 1 140px', maxWidth: 180 }}
         >
             <div
-                className='group'
                 style={{
+                    position: 'relative',
                     border: `1px solid rgba(255,255,255,0.06)`,
                     borderTop: `2px solid ${card.color}`,
                     background: 'rgba(255,255,255,0.02)',
@@ -67,6 +112,7 @@ function QuickCardItem({ card }: { card: QuickCard }) {
                     ;(e.currentTarget as HTMLElement).style.borderTopColor = card.color
                 }}
             >
+                <CornerBrackets color='rgba(255,255,255,0.08)' size={5} />
                 <div style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: 2, color: card.color, lineHeight: 1 }}>
                     {card.code}
                 </div>
@@ -112,51 +158,46 @@ export default function DashboardOverview({
             <div
                 className='flex items-start justify-between px-5 py-4'
                 style={{
+                    position: 'relative',
                     border: '1px solid rgba(219,0,29,0.15)',
                     borderTop: '2px solid var(--red)',
                     background: 'rgba(255,255,255,0.02)',
                 }}
             >
+                <CornerBrackets />
                 <div>
-                    <Typography
-                        fontSize='0.6rem'
-                        fontWeight={700}
-                        letterSpacing={3}
-                        style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}
-                    >
-                        ASOT Unit
+                    <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ color: 'rgba(219,0,29,0.4)' }}>ASOT</span>
+                        <span style={{ color: 'rgba(219,0,29,0.25)' }}>//</span>
+                        <span>UNIT</span>
+                    </div>
+                    <Typography fontWeight={700} fontSize='1.1rem' letterSpacing={3} style={{ textTransform: 'uppercase', lineHeight: 1.1, marginBottom: 6 }}>
+                        Staff Portal
                     </Typography>
-                    <Typography fontWeight={700} fontSize='1.1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
-                        Staff Dashboard
-                    </Typography>
-                    <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.4)', marginTop: 4, letterSpacing: '0.04em' }}>
+                    <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.4)', letterSpacing: '0.04em' }}>
                         Welcome back, {displayName}
                     </Typography>
                 </div>
-                <Typography
-                    fontSize='0.65rem'
-                    style={{
-                        color: 'rgba(237,237,237,0.25)',
-                        letterSpacing: '0.05em',
-                        textAlign: 'right',
-                        marginTop: 2,
-                    }}
-                >
-                    {today}
-                </Typography>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                    <LocalClock />
+                    <Typography
+                        fontSize='0.6rem'
+                        style={{
+                            color: 'rgba(237,237,237,0.2)',
+                            letterSpacing: '0.05em',
+                            textAlign: 'right',
+                            fontFamily: 'monospace',
+                        }}
+                    >
+                        {today}
+                    </Typography>
+                </div>
             </div>
 
             {/* ── Pinned / Favourites ────────────────────────────────────────── */}
             {favourites.length > 0 && (
                 <div>
-                    <Typography
-                        fontSize='0.6rem'
-                        fontWeight={700}
-                        letterSpacing={3}
-                        style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 10 }}
-                    >
-                        ★ Pinned
-                    </Typography>
+                    <SectionLabel label='Pinned ★' />
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {favourites.map(fav => (
                             <div
@@ -211,14 +252,7 @@ export default function DashboardOverview({
 
             {/* ── Quick Access ───────────────────────────────────────────────── */}
             <div>
-                <Typography
-                    fontSize='0.6rem'
-                    fontWeight={700}
-                    letterSpacing={3}
-                    style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 10 }}
-                >
-                    Quick Access
-                </Typography>
+                <SectionLabel label='Quick Access' />
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                     {cards.map(card => (
                         <QuickCardItem key={card.href} card={card} />

@@ -71,7 +71,7 @@ export default function StaffDashboardShell({
                         color: 'rgba(219,0,29,0.7)',
                     }}
                 >
-                    Staff Dashboard
+                    Staff Portal
                 </span>
             </div>
 

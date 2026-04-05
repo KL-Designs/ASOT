@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Collapse } from '@mui/material'
 import type { DashboardPermissions } from './StaffDashboardShell'
 import { useFavourites } from '@/hooks/useFavourites'
+import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,20 +38,6 @@ function ZuluClock() {
         return () => clearInterval(id)
     }, [])
     return <span style={{ fontFamily: 'monospace', letterSpacing: '0.1em' }}>{time || '──:──:──Z'}</span>
-}
-
-// ── Corner brackets ───────────────────────────────────────────────────────────
-
-function CornerBrackets({ color = 'rgba(219,0,29,0.45)', size = 7 }: { color?: string; size?: number }) {
-    const base: React.CSSProperties = { position: 'absolute', width: size, height: size }
-    return (
-        <>
-            <span style={{ ...base, top: 0, left: 0,  borderTop:    `1.5px solid ${color}`, borderLeft:  `1.5px solid ${color}` }} />
-            <span style={{ ...base, top: 0, right: 0, borderTop:    `1.5px solid ${color}`, borderRight: `1.5px solid ${color}` }} />
-            <span style={{ ...base, bottom: 0, left: 0,  borderBottom: `1.5px solid ${color}`, borderLeft:  `1.5px solid ${color}` }} />
-            <span style={{ ...base, bottom: 0, right: 0, borderBottom: `1.5px solid ${color}`, borderRight: `1.5px solid ${color}` }} />
-        </>
-    )
 }
 
 // ── Pinnable nav item row ─────────────────────────────────────────────────────
@@ -310,9 +297,9 @@ export default function StaffSidebar({
                     </span>
                 </div>
 
-                {/* Dashboard title */}
+                {/* Portal title */}
                 <div style={{ fontSize: '0.82rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1.1, marginBottom: 10 }}>
-                    Staff Dashboard
+                    Staff Portal
                 </div>
 
                 {/* Divider */}

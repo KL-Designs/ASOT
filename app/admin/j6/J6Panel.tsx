@@ -5,6 +5,7 @@ import { Typography, Tabs, Tab } from '@mui/material'
 import DeptMembersTab from '@/app/admin/DeptMembersTab'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
+import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 
 export default function J6Panel({
     displayName,
@@ -39,14 +40,16 @@ export default function J6Panel({
             <div
                 className='flex flex-col px-5 py-4 mx-6 mt-6'
                 style={{
+                    position: 'relative',
                     border: '1px solid rgba(219,0,29,0.15)',
                     borderTop: '2px solid var(--red)',
                     background: 'rgba(255,255,255,0.02)',
                 }}
             >
-                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
-                    Departments
-                </Typography>
+                <CornerBrackets />
+                <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ color: 'rgba(219,0,29,0.35)' }}>//</span> DEPARTMENTS
+                </span>
                 <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
                     J6 — Game Masters
                 </Typography>
