@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Typography, Tabs, Tab } from '@mui/material'
 import MoveRequestsTab from './tabs/MoveRequestsTab'
 import DisciplineTab from './tabs/DisciplineTab'
+import PerformanceReportTab from './tabs/PerformanceReportTab'
 
 export default function AllStaffPanel({ userId, displayName }: { userId: string; displayName: string }) {
     const [tab, setTab] = useState(0)
@@ -26,7 +27,7 @@ export default function AllStaffPanel({ userId, displayName }: { userId: string;
                     All Staff
                 </Typography>
                 <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.35)', marginTop: 4 }}>
-                    Move Requests · Discipline
+                    Move Requests · Discipline · Performance Reports
                 </Typography>
             </div>
 
@@ -52,12 +53,14 @@ export default function AllStaffPanel({ userId, displayName }: { userId: string;
                 >
                     <Tab label='Move Requests' />
                     <Tab label='Discipline' />
+                    <Tab label='Performance Reports' />
                 </Tabs>
             </div>
 
             <div className='flex-1 min-h-0 overflow-y-auto'>
                 {tab === 0 && <MoveRequestsTab userId={userId} displayName={displayName} />}
                 {tab === 1 && <DisciplineTab userId={userId} />}
+                {tab === 2 && <PerformanceReportTab userId={userId} />}
             </div>
         </div>
     )

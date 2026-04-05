@@ -82,6 +82,7 @@ function ActionModal({ ticket, userId, onClose, onResolved }: {
     const isMoveRequest = ticket.type === 'move-request'
     const isDischarge = ticket.type === 'j4-discharge'
     const isDiscipline = ticket.type === 'discipline'
+    const isPerformanceReport = ticket.type === 'performance-report'
     const isSelfDischarge = isDischarge && ticket.issuedById === userId
 
     async function handleConfirm() {
@@ -130,7 +131,7 @@ function ActionModal({ ticket, userId, onClose, onResolved }: {
         >
             <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
                 <Typography fontWeight={700} fontSize='0.8rem' letterSpacing={2} style={{ textTransform: 'uppercase' }}>
-                    {isMoveRequest ? 'Action Move Request' : isDischarge ? 'Action Discharge' : isDiscipline ? 'Action Discipline' : 'Action Ticket'}
+                    {isMoveRequest ? 'Action Move Request' : isDischarge ? 'Action Discharge' : isDiscipline ? 'Action Discipline' : isPerformanceReport ? 'Acknowledge Performance Report' : 'Action Ticket'}
                 </Typography>
                 <IconButton onClick={onClose} size='small' sx={{ color: 'rgba(237,237,237,0.5)', '&:hover': { color: 'var(--foreground)' } }}>
                     <Close fontSize='small' />
@@ -224,6 +225,16 @@ function ActionModal({ ticket, userId, onClose, onResolved }: {
                                     </div>
                                 )}
                             </div>
+                        ) : isPerformanceReport ? (
+                            <div className='flex flex-col gap-3'>
+                                <div className='grid grid-cols-2 gap-3'>
+                                    <Field label='Member' value={ticket.targetUserName} />
+                                    <Field label='Submitted By' value={ticket.issuedByName} />
+                                    <Field label='Date' value={formatDate(ticket.issuedAt)} />
+                                </div>
+                                <Field label='Report' value={ticket.performanceReason} />
+                                {ticket.notes && <Field label='Notes' value={ticket.notes} />}
+                            </div>
                         ) : (
                             <div className='grid grid-cols-2 gap-3'>
                                 <Field label='Department' value={DEPT_LABELS[ticket.department] ?? ticket.department} />
@@ -250,18 +261,20 @@ function ActionModal({ ticket, userId, onClose, onResolved }: {
                         )}
                     </div>
 
-                    {/* Decision */}
-                    <FormControl size='small' fullWidth sx={inputSx}>
-                        <InputLabel>Decision</InputLabel>
-                        <Select
-                            value={decision}
-                            label='Decision'
-                            onChange={e => setDecision(e.target.value as 'approve' | 'reject')}
-                        >
-                            <MenuItem value='approve' sx={{ fontSize: '0.82rem' }}>Approve</MenuItem>
-                            <MenuItem value='reject' sx={{ fontSize: '0.82rem' }}>Reject</MenuItem>
-                        </Select>
-                    </FormControl>
+                    {/* Decision — hidden for performance reports (acknowledge only) */}
+                    {!isPerformanceReport && (
+                        <FormControl size='small' fullWidth sx={inputSx}>
+                            <InputLabel>Decision</InputLabel>
+                            <Select
+                                value={decision}
+                                label='Decision'
+                                onChange={e => setDecision(e.target.value as 'approve' | 'reject')}
+                            >
+                                <MenuItem value='approve' sx={{ fontSize: '0.82rem' }}>Approve</MenuItem>
+                                <MenuItem value='reject' sx={{ fontSize: '0.82rem' }}>Reject</MenuItem>
+                            </Select>
+                        </FormControl>
+                    )}
 
                     {isDiscipline && decision === 'approve' && (
                         <TextField
@@ -326,7 +339,7 @@ function ActionModal({ ticket, userId, onClose, onResolved }: {
                                 '&:disabled': { opacity: 0.4 },
                             }}
                         >
-                            {submitting ? 'Processing…' : decision === 'approve' ? 'Approve' : 'Reject'}
+                            {submitting ? 'Processing…' : isPerformanceReport ? 'Acknowledge' : decision === 'approve' ? 'Approve' : 'Reject'}
                         </Button>
                     </div>
                 </div>
@@ -395,6 +408,15 @@ function TicketSummaryCell({ t }: { t: TicketRow }) {
             </td>
         )
     }
+    if (t.type === 'performance-report') {
+        return (
+            <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.5)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {t.performanceReason}
+                </div>
+            </td>
+        )
+    }
     if (t.type === 'department-membership') {
         const dept = (t.deptCode ?? t.department ?? '').toUpperCase()
         const actionText =
@@ -425,6 +447,7 @@ function ticketActionLabel(t: TicketRow) {
     if (t.type === 'move-request') return 'Move Request'
     if (t.type === 'j4-discharge') return 'Discharge'
     if (t.type === 'discipline') return 'Discipline'
+    if (t.type === 'performance-report') return 'Performance Report'
     if (t.type === 'department-membership') {
         if (t.memberAction === 'add') return 'Add Member'
         if (t.memberAction === 'remove') return 'Remove Member'

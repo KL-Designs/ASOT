@@ -342,6 +342,34 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, id: result.insertedId.toString() })
     }
 
+    // ── Performance Report ────────────────────────────────────────────────────
+    if (type === 'performance-report') {
+        const { targetUserId, targetUserName, performanceReason, notes } = body
+
+        if (!targetUserId || !targetUserName || !performanceReason?.trim()) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+        if (targetUserId === me.id) {
+            return NextResponse.json({ error: 'Cannot file a performance report against yourself' }, { status: 400 })
+        }
+
+        const ticket: Omit<Ticket, '_id'> = {
+            type: 'performance-report',
+            department: 'j4',
+            status: 'open',
+            targetUserId,
+            targetUserName,
+            issuedById: me.id,
+            issuedByName: displayName,
+            issuedAt: new Date(),
+            performanceReason: performanceReason.trim(),
+            ...(notes?.trim() ? { notes: notes.trim() } : {}),
+        }
+
+        const result = await Db.tickets.insertOne(ticket as Ticket)
+        return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+    }
+
     // ── J3 Qualification (default) ────────────────────────────────────────────
     if (!client.hasRoles(me, PERMISSIONS.departments.j3)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

@@ -62,11 +62,11 @@ const PERMISSIONS = {
 
     members: {
         /** PUT /api/members/[username] — editing milpac records */
-        edit: ['J5-Media', 'J5-Milpac Staff'],
+        edit: ['J4-Administration'],
         /** Restricted milpac fields: billet points, rank, enlistment date */
         editRestricted: ['J4-Administration'],
         /** Standard milpac fields: promotions, qualifications, awards, name, uploads */
-        editStandard: ['HQ Staff'],
+        editStandard: ['J4-Administration'],
     },
 
     // ── Admin panel features ──────────────────────────────────────────────────
@@ -75,7 +75,7 @@ const PERMISSIONS = {
         /** POST /api/admin/impersonate — impersonating another user */
         impersonate:   ['J4-Administration'],
         /** Show the User Management tile in the admin panel */
-        manageMembers: ['J5-Media', 'J5-Milpac Staff'],
+        manageMembers: ['All Staff'],
         /** /admin/orbat — manage ORBAT structure and position assignments */
         manageOrbat:   ['HQ Staff'],
         /** ORBAT structural edits: create/rename/delete/reorder sections and roles */
