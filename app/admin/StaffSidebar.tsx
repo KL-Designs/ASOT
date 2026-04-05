@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Collapse } from '@mui/material'
+import {
+    PersonAdd, Map, School, AdminPanelSettings, Collections,
+    SportsEsports, Code, Badge, Groups, People,
+    AccountTree, CalendarMonth, MenuBook, Policy, ConfirmationNumber,
+} from '@mui/icons-material'
 import type { DashboardPermissions } from './StaffDashboardShell'
 import { useFavourites } from '@/hooks/useFavourites'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
@@ -14,6 +19,7 @@ interface NavItem {
     label: string
     href: string
     visible: boolean
+    icon?: React.ReactNode
 }
 
 interface NavSection {
@@ -99,6 +105,18 @@ function NavRow({
                     transition: 'color 0.12s',
                     lineHeight: 1,
                 }}>▸</span>
+                {item.icon && (
+                    <span style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        flexShrink: 0,
+                        color: isActive ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.22)',
+                        transition: 'color 0.12s',
+                        fontSize: 14,
+                    }}>
+                        {item.icon}
+                    </span>
+                )}
                 {item.label}
             </Link>
 
@@ -246,31 +264,31 @@ export default function StaffSidebar({
         {
             label: 'Departments',
             items: [
-                { label: 'J1 — Recruitment',     href: '/admin/j1',      visible: permissions.canSeeJ1 },
-                { label: 'J2 — Mission Making',   href: '/admin/j2',      visible: permissions.canSeeJ2 },
-                { label: 'J3 — Training',         href: '/admin/j3',      visible: permissions.canSeeJ3 },
-                { label: 'J4 — Administration',   href: '/admin/j4',      visible: permissions.canSeeJ4 },
-                { label: 'J5 — Media',            href: '/admin/gallery', visible: permissions.canSeeJ5 },
-                { label: 'J6 — Game Masters',     href: '/admin/j6',      visible: permissions.canSeeJ6 },
-                { label: 'J7 — Development',      href: '/admin/j7',      visible: permissions.canSeeJ7 },
+                { label: 'J1 — Recruitment',    href: '/admin/j1',      visible: permissions.canSeeJ1,  icon: <PersonAdd sx={{ fontSize: 14 }} /> },
+                { label: 'J2 — Mission Making', href: '/admin/j2',      visible: permissions.canSeeJ2,  icon: <Map sx={{ fontSize: 14 }} /> },
+                { label: 'J3 — Training',       href: '/admin/j3',      visible: permissions.canSeeJ3,  icon: <School sx={{ fontSize: 14 }} /> },
+                { label: 'J4 — Administration', href: '/admin/j4',      visible: permissions.canSeeJ4,  icon: <AdminPanelSettings sx={{ fontSize: 14 }} /> },
+                { label: 'J5 — Media',          href: '/admin/gallery', visible: permissions.canSeeJ5,  icon: <Collections sx={{ fontSize: 14 }} /> },
+                { label: 'J6 — Game Masters',   href: '/admin/j6',      visible: permissions.canSeeJ6,  icon: <SportsEsports sx={{ fontSize: 14 }} /> },
+                { label: 'J7 — Development',    href: '/admin/j7',      visible: permissions.canSeeJ7,  icon: <Code sx={{ fontSize: 14 }} /> },
             ],
         },
         {
             label: 'Personnel',
             items: [
-                { label: 'HQ Staff',    href: '/admin/personnel/hq-staff',  visible: permissions.canSeePersonnel },
-                { label: 'All Staff',   href: '/admin/personnel/all-staff',  visible: permissions.canSeePersonnel },
-                { label: 'All Members', href: '/admin/personnel/all',        visible: permissions.canSeePersonnel },
+                { label: 'HQ Staff',    href: '/admin/personnel/hq-staff', visible: permissions.canSeePersonnel, icon: <Badge sx={{ fontSize: 14 }} /> },
+                { label: 'All Staff',   href: '/admin/personnel/all-staff', visible: permissions.canSeePersonnel, icon: <Groups sx={{ fontSize: 14 }} /> },
+                { label: 'All Members', href: '/admin/personnel/all',       visible: permissions.canSeePersonnel, icon: <People sx={{ fontSize: 14 }} /> },
             ],
         },
         {
             label: 'Unit',
             items: [
-                { label: 'ORBAT',               href: '/admin/orbat',              visible: permissions.canSeeOrbat },
-                { label: 'Calendar',            href: '/admin/unit/calendar',      visible: true },
-                { label: 'Training Docs',       href: '/admin/unit/training-docs', visible: true },
-                { label: "SOPs",                href: '/admin/unit/sops',          visible: true },
-                { label: 'Tickets',             href: '/admin/unit/tickets',       visible: true },
+                { label: 'ORBAT',         href: '/admin/orbat',              visible: permissions.canSeeOrbat, icon: <AccountTree sx={{ fontSize: 14 }} /> },
+                { label: 'Calendar',      href: '/admin/unit/calendar',      visible: true,                    icon: <CalendarMonth sx={{ fontSize: 14 }} /> },
+                { label: 'Training Docs', href: '/admin/unit/training-docs', visible: true,                    icon: <MenuBook sx={{ fontSize: 14 }} /> },
+                { label: 'SOPs',          href: '/admin/unit/sops',          visible: true,                    icon: <Policy sx={{ fontSize: 14 }} /> },
+                { label: 'Tickets',       href: '/admin/unit/tickets',       visible: true,                    icon: <ConfirmationNumber sx={{ fontSize: 14 }} /> },
             ],
         },
     ]
