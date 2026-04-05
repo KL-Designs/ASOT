@@ -21,23 +21,31 @@ interface NavSection {
     items: NavItem[]
 }
 
-// ── ZULU clock ────────────────────────────────────────────────────────────────
+// ── Local clock ───────────────────────────────────────────────────────────────
 
-function ZuluClock() {
+function LocalClock() {
     const [time, setTime] = useState('')
+    const [tzAbbr, setTzAbbr] = useState('')
     useEffect(() => {
         function tick() {
             const now = new Date()
-            const h = now.getUTCHours().toString().padStart(2, '0')
-            const m = now.getUTCMinutes().toString().padStart(2, '0')
-            const s = now.getUTCSeconds().toString().padStart(2, '0')
-            setTime(`${h}:${m}:${s}Z`)
+            const h = now.getHours().toString().padStart(2, '0')
+            const m = now.getMinutes().toString().padStart(2, '0')
+            const s = now.getSeconds().toString().padStart(2, '0')
+            setTime(`${h}:${m}:${s}`)
+            // Extract short timezone abbreviation e.g. "AEST", "GMT+10"
+            const parts = now.toLocaleTimeString('en', { timeZoneName: 'short' }).split(' ')
+            setTzAbbr(parts[parts.length - 1] ?? '')
         }
         tick()
         const id = setInterval(tick, 1000)
         return () => clearInterval(id)
     }, [])
-    return <span style={{ fontFamily: 'monospace', letterSpacing: '0.1em' }}>{time || '──:──:──Z'}</span>
+    return (
+        <span style={{ fontFamily: 'monospace', letterSpacing: '0.08em' }}>
+            {time || '──:──:──'}{tzAbbr ? <span style={{ fontSize: '0.45rem', opacity: 0.6, marginLeft: 2 }}>{tzAbbr}</span> : null}
+        </span>
+    )
 }
 
 // ── Pinnable nav item row ─────────────────────────────────────────────────────
@@ -293,7 +301,7 @@ export default function StaffSidebar({
                         ASOT // UNIT
                     </span>
                     <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.3)', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
-                        <ZuluClock />
+                        <LocalClock />
                     </span>
                 </div>
 

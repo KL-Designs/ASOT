@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Drawer, IconButton } from '@mui/material'
-import { Menu as MenuIcon } from '@mui/icons-material'
+import { Drawer } from '@mui/material'
 import StaffSidebar from './StaffSidebar'
 
 export interface DashboardPermissions {
@@ -46,34 +45,44 @@ export default function StaffDashboardShell({
                 <StaffSidebar permissions={permissions} />
             </div>
 
-            {/* Mobile: top bar with hamburger */}
-            <div
-                className='flex md:hidden items-center px-4 fixed top-[60px] left-0 right-0 z-40'
+            {/* Mobile: side pull tab */}
+            <button
+                className='flex md:hidden flex-col items-center'
+                onClick={() => setDrawerOpen(true)}
                 style={{
-                    height: 44,
-                    borderBottom: '1px solid rgba(219,0,29,0.15)',
-                    background: 'rgba(10,10,10,0.97)',
+                    position: 'fixed',
+                    left: 0,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    zIndex: 51,
+                    background: 'rgba(8,8,8,0.92)',
+                    border: '1px solid rgba(219,0,29,0.25)',
+                    borderLeft: 'none',
+                    borderRadius: '0 6px 6px 0',
+                    padding: '14px 7px',
+                    cursor: 'pointer',
+                    gap: 8,
                 }}
             >
-                <IconButton
-                    size='small'
-                    onClick={() => setDrawerOpen(true)}
-                    sx={{ color: 'rgba(237,237,237,0.6)', mr: 1.5 }}
-                >
-                    <MenuIcon fontSize='small' />
-                </IconButton>
-                <span
-                    style={{
-                        fontSize: '0.65rem',
-                        fontWeight: 700,
-                        letterSpacing: 3,
-                        textTransform: 'uppercase',
-                        color: 'rgba(219,0,29,0.7)',
-                    }}
-                >
-                    Staff Portal
-                </span>
-            </div>
+                {/* Three bar icon */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <span style={{ display: 'block', width: 14, height: 1.5, background: 'rgba(219,0,29,0.7)', borderRadius: 1 }} />
+                    <span style={{ display: 'block', width: 10, height: 1.5, background: 'rgba(219,0,29,0.5)', borderRadius: 1 }} />
+                    <span style={{ display: 'block', width: 14, height: 1.5, background: 'rgba(219,0,29,0.7)', borderRadius: 1 }} />
+                </div>
+                <span style={{
+                    writingMode: 'vertical-rl',
+                    textOrientation: 'mixed',
+                    transform: 'rotate(180deg)',
+                    fontSize: '0.4rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase',
+                    color: 'rgba(237,237,237,0.25)',
+                    fontFamily: 'monospace',
+                    marginTop: 2,
+                }}>NAV</span>
+            </button>
 
             {/* Mobile drawer */}
             <Drawer
@@ -92,7 +101,7 @@ export default function StaffDashboardShell({
             </Drawer>
 
             {/* Content area */}
-            <div className='flex-1 min-w-0 md:pt-0 pt-[44px]'>
+            <div className='flex-1 min-w-0'>
                 {children}
             </div>
 
