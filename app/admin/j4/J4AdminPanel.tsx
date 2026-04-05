@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress } from '@mui/material'
+import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, Tabs, Tab } from '@mui/material'
 import ImportPanel from '../ImportPanel'
+import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
 
 const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -387,17 +388,28 @@ function ReinstateModal({ open, onClose }: { open: boolean; onClose: () => void 
     )
 }
 
-export default function J4AdminPanel() {
+export default function J4AdminPanel({ userId }: { userId: string }) {
+    const [tab, setTab] = useState(0)
     const [importOpen, setImportOpen] = useState(false)
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
 
+    const tabSx = {
+        fontSize: '0.72rem',
+        fontWeight: 700,
+        letterSpacing: '0.1em',
+        minHeight: 40,
+        padding: '8px 16px',
+        color: 'rgba(237,237,237,0.5)',
+        '&.Mui-selected': { color: 'var(--foreground)' },
+    }
+
     return (
-        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[1000px]'>
+        <div className='h-full w-full flex flex-col max-w-[1100px]'>
 
             {/* Header */}
             <div
-                className='flex flex-col px-5 py-4'
+                className='flex flex-col px-5 py-4 mx-6 mt-6'
                 style={{
                     border: '1px solid rgba(219,0,29,0.15)',
                     borderTop: '2px solid var(--red)',
@@ -412,59 +424,79 @@ export default function J4AdminPanel() {
                 </Typography>
             </div>
 
-            {/* Tools */}
-            <div>
-                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 12 }}>
-                    Tools
-                </Typography>
-                <div className='flex flex-wrap gap-4'>
+            {/* Tabs */}
+            <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                <Tabs
+                    value={tab}
+                    onChange={(_, v) => setTab(v)}
+                    TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
+                    sx={{ minHeight: 40 }}
+                >
+                    <Tab label='Tools' sx={tabSx} />
+                    <Tab label='Calendar' sx={tabSx} />
+                </Tabs>
+            </div>
 
-                    <button
-                        onClick={() => setImportOpen(true)}
-                        className='flex-1 min-w-[160px] max-w-[220px]'
-                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-                    >
-                        <div
-                            className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
-                            style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
-                        >
-                            <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                Import<br />Panel
+            <div className='flex-1 min-h-0 mt-0'>
+                {tab === 0 && (
+                    <div className='p-6 md:p-10 flex flex-col gap-6'>
+                        {/* Tools */}
+                        <div>
+                            <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 12 }}>
+                                Tools
                             </Typography>
-                        </div>
-                    </button>
+                            <div className='flex flex-wrap gap-4'>
 
-                    <button
-                        onClick={() => setDischargeOpen(true)}
-                        className='flex-1 min-w-[160px] max-w-[220px]'
-                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-                    >
-                        <div
-                            className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
-                            style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
-                        >
-                            <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                Discharge<br />Member
-                            </Typography>
-                        </div>
-                    </button>
+                                <button
+                                    onClick={() => setImportOpen(true)}
+                                    className='flex-1 min-w-[160px] max-w-[220px]'
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                                >
+                                    <div
+                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
+                                        style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
+                                    >
+                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
+                                            Import<br />Panel
+                                        </Typography>
+                                    </div>
+                                </button>
 
-                    <button
-                        onClick={() => setReinstateOpen(true)}
-                        className='flex-1 min-w-[160px] max-w-[220px]'
-                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-                    >
-                        <div
-                            className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(0,195,100,0.06)]'
-                            style={{ border: '1px solid rgba(0,195,100,0.15)', borderTop: '2px solid rgb(0,195,100)' }}
-                        >
-                            <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase', color: 'rgba(0,195,100,0.8)' }}>
-                                Reinstate<br />Member
-                            </Typography>
-                        </div>
-                    </button>
+                                <button
+                                    onClick={() => setDischargeOpen(true)}
+                                    className='flex-1 min-w-[160px] max-w-[220px]'
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                                >
+                                    <div
+                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
+                                        style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
+                                    >
+                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
+                                            Discharge<br />Member
+                                        </Typography>
+                                    </div>
+                                </button>
 
-                </div>
+                                <button
+                                    onClick={() => setReinstateOpen(true)}
+                                    className='flex-1 min-w-[160px] max-w-[220px]'
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                                >
+                                    <div
+                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(0,195,100,0.06)]'
+                                        style={{ border: '1px solid rgba(0,195,100,0.15)', borderTop: '2px solid rgb(0,195,100)' }}
+                                    >
+                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase', color: 'rgba(0,195,100,0.8)' }}>
+                                            Reinstate<br />Member
+                                        </Typography>
+                                    </div>
+                                </button>
+
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {tab === 1 && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
             </div>
 
             <ImportPanel open={importOpen} onClose={() => setImportOpen(false)} />

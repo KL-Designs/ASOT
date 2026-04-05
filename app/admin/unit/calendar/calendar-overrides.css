@@ -1,0 +1,267 @@
+/* react-big-calendar dark theme overrides — must load AFTER the library CSS */
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+
+.rbc-calendar {
+    color: rgba(237, 237, 237, 0.8) !important;
+    background: transparent !important;
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────────────── */
+
+.rbc-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.rbc-toolbar button {
+    color: rgba(237, 237, 237, 0.6) !important;
+    background: transparent !important;
+    border: 1px solid rgba(219, 0, 29, 0.25) !important;
+    border-radius: 0 !important;
+    padding: 4px 14px !important;
+    font-size: 0.7rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.rbc-toolbar button:hover {
+    background: rgba(219, 0, 29, 0.08) !important;
+    border-color: rgba(219, 0, 29, 0.5) !important;
+    color: rgba(237, 237, 237, 0.9) !important;
+}
+
+.rbc-toolbar button.rbc-active,
+.rbc-toolbar button.rbc-active:hover,
+.rbc-toolbar button.rbc-active:focus {
+    background: rgba(219, 0, 29, 0.18) !important;
+    border-color: var(--red) !important;
+    color: var(--red) !important;
+    box-shadow: none !important;
+}
+
+.rbc-toolbar-label {
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+    color: rgba(237, 237, 237, 0.85) !important;
+}
+
+/* ── Month view ───────────────────────────────────────────────────────────── */
+
+.rbc-month-view {
+    border: 1px solid rgba(219, 0, 29, 0.15) !important;
+    border-radius: 0 !important;
+    background: rgba(255, 255, 255, 0.01) !important;
+}
+
+.rbc-month-row {
+    border-top: 1px solid rgba(219, 0, 29, 0.1) !important;
+}
+
+/* All day cells dark by default */
+.rbc-day-bg {
+    background: transparent !important;
+}
+
+.rbc-day-bg + .rbc-day-bg {
+    border-left: 1px solid rgba(219, 0, 29, 0.1) !important;
+}
+
+.rbc-header {
+    border-bottom: 1px solid rgba(219, 0, 29, 0.15) !important;
+    background: transparent !important;
+    padding: 6px 4px !important;
+    font-size: 0.6rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+    color: rgba(237, 237, 237, 0.35) !important;
+}
+
+.rbc-header + .rbc-header {
+    border-left: 1px solid rgba(219, 0, 29, 0.1) !important;
+}
+
+/* Off-range (prev/next month days) — dark */
+.rbc-off-range-bg {
+    background: rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Today cell — red tint */
+.rbc-today {
+    background-color: rgba(219, 0, 29, 0.09) !important;
+}
+
+.rbc-date-cell {
+    padding: 4px 8px !important;
+    font-size: 0.7rem !important;
+    color: rgba(237, 237, 237, 0.45) !important;
+    text-align: right !important;
+}
+
+.rbc-date-cell.rbc-now a,
+.rbc-date-cell.rbc-now {
+    color: var(--red) !important;
+    font-weight: 700 !important;
+}
+
+.rbc-date-cell.rbc-off-range a,
+.rbc-date-cell.rbc-off-range {
+    color: rgba(237, 237, 237, 0.18) !important;
+}
+
+/* ── Events ───────────────────────────────────────────────────────────────── */
+
+.rbc-event {
+    border-radius: 0 !important;
+    border: none !important;
+    padding: 2px 6px !important;
+    font-size: 0.68rem !important;
+    font-weight: 600 !important;
+    color: #fff !important;
+    outline: none !important;
+}
+
+.rbc-event.rbc-selected {
+    outline: 2px solid rgba(255, 255, 255, 0.5) !important;
+}
+
+.rbc-event-label {
+    font-size: 0.65rem !important;
+    opacity: 0.85 !important;
+}
+
+.rbc-show-more {
+    color: rgba(219, 0, 29, 0.85) !important;
+    font-size: 0.65rem !important;
+    font-weight: 700 !important;
+    background: transparent !important;
+    padding: 2px 6px !important;
+}
+
+.rbc-show-more:hover {
+    color: var(--red) !important;
+    background: transparent !important;
+    text-decoration: underline !important;
+}
+
+/* ── Week / Day view ──────────────────────────────────────────────────────── */
+
+.rbc-time-view {
+    border: 1px solid rgba(219, 0, 29, 0.15) !important;
+    background: rgba(255, 255, 255, 0.01) !important;
+}
+
+.rbc-time-header {
+    border-bottom: 1px solid rgba(219, 0, 29, 0.15) !important;
+}
+
+.rbc-time-header-content {
+    border-left: 1px solid rgba(219, 0, 29, 0.1) !important;
+}
+
+.rbc-time-content {
+    border-top: 1px solid rgba(219, 0, 29, 0.15) !important;
+}
+
+.rbc-time-content > * + * > * {
+    border-left: 1px solid rgba(219, 0, 29, 0.1) !important;
+}
+
+.rbc-timeslot-group {
+    border-bottom: 1px solid rgba(219, 0, 29, 0.12) !important;
+    min-height: 40px !important;
+}
+
+.rbc-time-slot {
+    border-top: 1px solid rgba(219, 0, 29, 0.05) !important;
+    font-size: 0.65rem !important;
+    color: rgba(237, 237, 237, 0.25) !important;
+}
+
+.rbc-day-slot .rbc-time-slot {
+    border-top: 1px solid rgba(219, 0, 29, 0.05) !important;
+}
+
+.rbc-label {
+    color: rgba(237, 237, 237, 0.3) !important;
+    font-size: 0.65rem !important;
+}
+
+.rbc-current-time-indicator {
+    background: var(--red) !important;
+    opacity: 0.7 !important;
+}
+
+/* Week/day column headers */
+.rbc-time-header .rbc-header {
+    background: transparent !important;
+}
+
+/* ── Agenda view ──────────────────────────────────────────────────────────── */
+
+.rbc-agenda-view table.rbc-agenda-table {
+    border: 1px solid rgba(219, 0, 29, 0.15) !important;
+}
+
+.rbc-agenda-view table.rbc-agenda-table thead > tr > th {
+    border-bottom: 1px solid rgba(219, 0, 29, 0.15) !important;
+    background: transparent !important;
+    padding: 6px 12px !important;
+    font-size: 0.6rem !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+    color: rgba(237, 237, 237, 0.3) !important;
+    font-weight: 700 !important;
+}
+
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+    border-bottom: 1px solid rgba(219, 0, 29, 0.08) !important;
+    padding: 8px 12px !important;
+    font-size: 0.78rem !important;
+    color: rgba(237, 237, 237, 0.7) !important;
+}
+
+.rbc-agenda-view table.rbc-agenda-table tbody > tr {
+    background: transparent !important;
+}
+
+.rbc-agenda-view table.rbc-agenda-table .rbc-agenda-date-cell,
+.rbc-agenda-view table.rbc-agenda-table .rbc-agenda-time-cell {
+    color: rgba(237, 237, 237, 0.4) !important;
+    font-size: 0.72rem !important;
+}
+
+.rbc-agenda-empty {
+    color: rgba(237, 237, 237, 0.3) !important;
+    padding: 24px !important;
+    font-size: 0.8rem !important;
+}
+
+/* ── Popup (show more overlay) ────────────────────────────────────────────── */
+
+.rbc-overlay {
+    background: rgba(14, 14, 14, 0.99) !important;
+    border: 1px solid rgba(219, 0, 29, 0.2) !important;
+    border-radius: 0 !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6) !important;
+    padding: 8px !important;
+    z-index: 1400 !important;
+}
+
+.rbc-overlay-header {
+    border-bottom: 1px solid rgba(219, 0, 29, 0.15) !important;
+    padding: 4px 8px 8px !important;
+    font-size: 0.65rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+    color: rgba(237, 237, 237, 0.35) !important;
+}

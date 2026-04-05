@@ -8,11 +8,13 @@ import RecruitMemberTab from './tabs/RecruitMemberTab'
 import MastersheetTab from './tabs/MastersheetTab'
 import StatisticsTab from './tabs/StatisticsTab'
 import DeptMembersTab from '@/app/admin/DeptMembersTab'
+import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
 
 interface J1PanelProps {
     displayName: string
     userId: string
     canManageMembers: boolean
+    isJ4: boolean
 }
 
 function WipTab({ title, description }: { title: string; description: string }) {
@@ -36,7 +38,7 @@ function WipTab({ title, description }: { title: string; description: string }) 
     )
 }
 
-export default function J1Panel({ displayName, userId, canManageMembers }: J1PanelProps) {
+export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }: J1PanelProps) {
     const [tab, setTab] = useState(0)
 
     const tabSx = {
@@ -82,6 +84,7 @@ export default function J1Panel({ displayName, userId, canManageMembers }: J1Pan
                     <Tab label='Meetings' sx={tabSx} />
                     <Tab label='Statistics' sx={tabSx} />
                     <Tab label='Members' sx={tabSx} />
+                    <Tab label='Calendar' sx={tabSx} />
                 </Tabs>
             </div>
 
@@ -110,6 +113,7 @@ export default function J1Panel({ displayName, userId, canManageMembers }: J1Pan
                 {tab === 3 && <WipTab title='Meetings' description='J1 meeting scheduling and records are coming soon.' />}
                 {tab === 4 && <StatisticsTab />}
                 {tab === 5 && <DeptMembersTab department='j1' displayName={displayName} userId={userId} canManage={canManageMembers} />}
+                {tab === 6 && <DeptCalendarTab department='j1' userId={userId} isJ4={isJ4} />}
             </div>
         </div>
     )

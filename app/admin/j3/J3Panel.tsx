@@ -6,11 +6,13 @@ import { Construction } from '@mui/icons-material'
 import QualificationTicketsTab from './tabs/QualificationTicketsTab'
 import PromotionTicketsTab from './tabs/PromotionTicketsTab'
 import DeptMembersTab from '@/app/admin/DeptMembersTab'
+import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
 
 interface J3PanelProps {
     displayName: string
     userId: string
     canManageMembers: boolean
+    isJ4: boolean
 }
 
 function WipTab({ title, description }: { title: string; description: string }) {
@@ -34,7 +36,7 @@ function WipTab({ title, description }: { title: string; description: string }) 
     )
 }
 
-export default function J3Panel({ displayName, userId, canManageMembers }: J3PanelProps) {
+export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }: J3PanelProps) {
     const [tab, setTab] = useState(0)
 
     const tabSx = {
@@ -78,6 +80,7 @@ export default function J3Panel({ displayName, userId, canManageMembers }: J3Pan
                     <Tab label='Promotion Tickets' sx={tabSx} />
                     <Tab label='Training Schedule' sx={tabSx} />
                     <Tab label='Members' sx={tabSx} />
+                    <Tab label='Calendar' sx={tabSx} />
                 </Tabs>
             </div>
 
@@ -107,6 +110,7 @@ export default function J3Panel({ displayName, userId, canManageMembers }: J3Pan
                 )}
                 {tab === 2 && <WipTab title='Training Schedule' description='Training schedule management and documentation tools are coming soon.' />}
                 {tab === 3 && <DeptMembersTab department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} />}
+                {tab === 4 && <DeptCalendarTab department='j3' userId={userId} isJ4={isJ4} />}
             </div>
         </div>
     )
