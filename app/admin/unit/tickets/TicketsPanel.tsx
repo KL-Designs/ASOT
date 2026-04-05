@@ -68,11 +68,12 @@ function moveToLabel(t: TicketRow) {
     return t.toSectionTitle ? `${t.toSectionTitle} / ${t.toPositionRole}` : (t.toPositionRole ?? '—')
 }
 
-function ActionModal({ ticket, userId, onClose, onResolved }: {
+function ActionModal({ ticket, userId, onClose, onResolved, readOnly = false }: {
     ticket: TicketRow
     userId: string
     onClose: () => void
     onResolved: (id: string, status: 'actioned' | 'rejected') => void
+    readOnly?: boolean
 }) {
     const [decision, setDecision] = useState<'approve' | 'reject'>('approve')
     const [actionNotes, setActionNotes] = useState('')
@@ -132,7 +133,9 @@ function ActionModal({ ticket, userId, onClose, onResolved }: {
         >
             <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
                 <Typography fontWeight={700} fontSize='0.8rem' letterSpacing={2} style={{ textTransform: 'uppercase' }}>
-                    {isMoveRequest ? 'Action Move Request' : isDischarge ? 'Action Discharge' : isDiscipline ? 'Action Discipline' : isPerformanceReport ? 'Acknowledge Performance Report' : 'Action Ticket'}
+                    {readOnly
+                        ? (isMoveRequest ? 'Move Request' : isDischarge ? 'Discharge' : isDiscipline ? 'Discipline' : isPerformanceReport ? 'Performance Report' : 'Ticket Details')
+                        : (isMoveRequest ? 'Action Move Request' : isDischarge ? 'Action Discharge' : isDiscipline ? 'Action Discipline' : isPerformanceReport ? 'Acknowledge Performance Report' : 'Action Ticket')}
                 </Typography>
                 <IconButton onClick={onClose} size='small' sx={{ color: 'rgba(237,237,237,0.5)', '&:hover': { color: 'var(--foreground)' } }}>
                     <Close fontSize='small' />
@@ -262,87 +265,113 @@ function ActionModal({ ticket, userId, onClose, onResolved }: {
                         )}
                     </div>
 
-                    {/* Decision — hidden for performance reports (acknowledge only) */}
-                    {!isPerformanceReport && (
-                        <FormControl size='small' fullWidth sx={inputSx}>
-                            <InputLabel>Decision</InputLabel>
-                            <Select
-                                value={decision}
-                                label='Decision'
-                                onChange={e => setDecision(e.target.value as 'approve' | 'reject')}
-                            >
-                                <MenuItem value='approve' sx={{ fontSize: '0.82rem' }}>Approve</MenuItem>
-                                <MenuItem value='reject' sx={{ fontSize: '0.82rem' }}>Reject</MenuItem>
-                            </Select>
-                        </FormControl>
+                    {readOnly ? (
+                        <>
+                            {(ticket.actionedByName || ticket.actionedAt) && (
+                                <div
+                                    className='flex gap-4 p-3'
+                                    style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}
+                                >
+                                    {ticket.actionedByName && <Field label='Actioned By' value={ticket.actionedByName} />}
+                                    {ticket.actionedAt && <Field label='Actioned On' value={formatDate(ticket.actionedAt)} />}
+                                    {ticket.actionNotes && <Field label='Action Notes' value={ticket.actionNotes} />}
+                                </div>
+                            )}
+                            <div className='flex justify-end'>
+                                <Button
+                                    size='small'
+                                    onClick={onClose}
+                                    sx={{ borderRadius: 0, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.4)', '&:hover': { color: 'rgba(237,237,237,0.7)' } }}
+                                >
+                                    Close
+                                </Button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {/* Decision — hidden for performance reports (acknowledge only) */}
+                            {!isPerformanceReport && (
+                                <FormControl size='small' fullWidth sx={inputSx}>
+                                    <InputLabel>Decision</InputLabel>
+                                    <Select
+                                        value={decision}
+                                        label='Decision'
+                                        onChange={e => setDecision(e.target.value as 'approve' | 'reject')}
+                                    >
+                                        <MenuItem value='approve' sx={{ fontSize: '0.82rem' }}>Approve</MenuItem>
+                                        <MenuItem value='reject' sx={{ fontSize: '0.82rem' }}>Reject</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            )}
+
+                            {isDiscipline && decision === 'approve' && (
+                                <TextField
+                                    label='Points to Deduct'
+                                    size='small'
+                                    type='number'
+                                    inputProps={{ min: 1, step: 1 }}
+                                    value={disciplinePoints}
+                                    onChange={e => setDisciplinePoints(e.target.value)}
+                                    sx={inputSx}
+                                    helperText='Number of billet points to subtract from the member'
+                                    FormHelperTextProps={{ style: { fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', margin: '4px 0 0' } }}
+                                />
+                            )}
+
+                            <TextField
+                                label='Action Notes (optional)'
+                                size='small'
+                                fullWidth
+                                multiline
+                                rows={2}
+                                value={actionNotes}
+                                onChange={e => setActionNotes(e.target.value)}
+                                sx={inputSx}
+                            />
+
+                            {error && (
+                                <Typography style={{ fontSize: '0.78rem', color: 'var(--red)' }}>{error}</Typography>
+                            )}
+
+                            <div className='flex gap-3 justify-end'>
+                                <Button
+                                    size='small'
+                                    onClick={onClose}
+                                    sx={{
+                                        borderRadius: 0,
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
+                                        letterSpacing: '0.1em',
+                                        color: 'rgba(237,237,237,0.4)',
+                                        '&:hover': { color: 'rgba(237,237,237,0.7)' },
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    variant='outlined'
+                                    size='small'
+                                    disabled={submitting || (isSelfDischarge && decision === 'approve')}
+                                    onClick={handleConfirm}
+                                    sx={{
+                                        borderRadius: 0,
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
+                                        letterSpacing: '0.1em',
+                                        borderColor: decision === 'approve' ? 'rgba(0,195,100,0.4)' : 'rgba(219,0,29,0.4)',
+                                        color: decision === 'approve' ? 'rgb(0,195,100)' : 'var(--red)',
+                                        '&:hover': {
+                                            borderColor: decision === 'approve' ? 'rgb(0,195,100)' : 'var(--red)',
+                                            background: decision === 'approve' ? 'rgba(0,195,100,0.06)' : 'rgba(219,0,29,0.06)',
+                                        },
+                                        '&:disabled': { opacity: 0.4 },
+                                    }}
+                                >
+                                    {submitting ? 'Processing…' : isPerformanceReport ? 'Acknowledge' : decision === 'approve' ? 'Approve' : 'Reject'}
+                                </Button>
+                            </div>
+                        </>
                     )}
-
-                    {isDiscipline && decision === 'approve' && (
-                        <TextField
-                            label='Points to Deduct'
-                            size='small'
-                            type='number'
-                            inputProps={{ min: 1, step: 1 }}
-                            value={disciplinePoints}
-                            onChange={e => setDisciplinePoints(e.target.value)}
-                            sx={inputSx}
-                            helperText='Number of billet points to subtract from the member'
-                            FormHelperTextProps={{ style: { fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', margin: '4px 0 0' } }}
-                        />
-                    )}
-
-                    <TextField
-                        label='Action Notes (optional)'
-                        size='small'
-                        fullWidth
-                        multiline
-                        rows={2}
-                        value={actionNotes}
-                        onChange={e => setActionNotes(e.target.value)}
-                        sx={inputSx}
-                    />
-
-                    {error && (
-                        <Typography style={{ fontSize: '0.78rem', color: 'var(--red)' }}>{error}</Typography>
-                    )}
-
-                    <div className='flex gap-3 justify-end'>
-                        <Button
-                            size='small'
-                            onClick={onClose}
-                            sx={{
-                                borderRadius: 0,
-                                fontSize: '0.72rem',
-                                fontWeight: 700,
-                                letterSpacing: '0.1em',
-                                color: 'rgba(237,237,237,0.4)',
-                                '&:hover': { color: 'rgba(237,237,237,0.7)' },
-                            }}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            variant='outlined'
-                            size='small'
-                            disabled={submitting || (isSelfDischarge && decision === 'approve')}
-                            onClick={handleConfirm}
-                            sx={{
-                                borderRadius: 0,
-                                fontSize: '0.72rem',
-                                fontWeight: 700,
-                                letterSpacing: '0.1em',
-                                borderColor: decision === 'approve' ? 'rgba(0,195,100,0.4)' : 'rgba(219,0,29,0.4)',
-                                color: decision === 'approve' ? 'rgb(0,195,100)' : 'var(--red)',
-                                '&:hover': {
-                                    borderColor: decision === 'approve' ? 'rgb(0,195,100)' : 'var(--red)',
-                                    background: decision === 'approve' ? 'rgba(0,195,100,0.06)' : 'rgba(219,0,29,0.06)',
-                                },
-                                '&:disabled': { opacity: 0.4 },
-                            }}
-                        >
-                            {submitting ? 'Processing…' : isPerformanceReport ? 'Acknowledge' : decision === 'approve' ? 'Approve' : 'Reject'}
-                        </Button>
-                    </div>
                 </div>
             </DialogContent>
         </Dialog>
@@ -484,6 +513,7 @@ export default function TicketsPanel({
     const [statusFilter, setStatusFilter] = useState('all')
     const [search, setSearch] = useState('')
     const [selected, setSelected] = useState<TicketRow | null>(null)
+    const [viewing, setViewing] = useState<TicketRow | null>(null)
     const [page, setPage] = useState(0)
     const PAGE_SIZE = 20
 
@@ -623,7 +653,8 @@ export default function TicketsPanel({
                             {filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(t => (
                                 <tr
                                     key={t._id}
-                                    style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'default' }}
+                                    onClick={t.status !== 'open' ? () => setViewing(t) : undefined}
+                                    style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: t.status !== 'open' ? 'pointer' : 'default' }}
                                 >
                                     <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>
                                         <Chip
@@ -716,6 +747,15 @@ export default function TicketsPanel({
                     userId={userId}
                     onClose={() => setSelected(null)}
                     onResolved={handleResolved}
+                />
+            )}
+            {viewing && (
+                <ActionModal
+                    ticket={viewing}
+                    userId={userId}
+                    onClose={() => setViewing(null)}
+                    onResolved={handleResolved}
+                    readOnly
                 />
             )}
         </div>
