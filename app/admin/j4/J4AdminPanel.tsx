@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, Tabs, Tab } from '@mui/material'
 import ImportPanel from '../ImportPanel'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
+import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 
 const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -390,6 +391,11 @@ function ReinstateModal({ open, onClose }: { open: boolean; onClose: () => void 
 
 export default function J4AdminPanel({ userId }: { userId: string }) {
     const [tab, setTab] = useState(0)
+
+    useEffect(() => {
+        const stored = localStorage.getItem('gotoTab:/admin/j4')
+        if (stored !== null) { setTab(Number(stored)); localStorage.removeItem('gotoTab:/admin/j4') }
+    }, [])
     const [importOpen, setImportOpen] = useState(false)
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
@@ -432,8 +438,8 @@ export default function J4AdminPanel({ userId }: { userId: string }) {
                     TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                     sx={{ minHeight: 40 }}
                 >
-                    <Tab label='Tools' sx={tabSx} />
-                    <Tab label='Calendar' sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Tools'    pinLabel='J4 — Tools'    href='/admin/j4' tabIndex={0} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Calendar' pinLabel='J4 — Calendar' href='/admin/j4' tabIndex={1} />} sx={tabSx} />
                 </Tabs>
             </div>
 

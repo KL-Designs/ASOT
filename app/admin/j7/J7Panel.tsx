@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Typography, Tabs, Tab } from '@mui/material'
 import DeptMembersTab from '@/app/admin/DeptMembersTab'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
+import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 
 export default function J7Panel({
     displayName,
@@ -17,6 +18,11 @@ export default function J7Panel({
     isJ4: boolean
 }) {
     const [tab, setTab] = useState(0)
+
+    useEffect(() => {
+        const stored = localStorage.getItem('gotoTab:/admin/j7')
+        if (stored !== null) { setTab(Number(stored)); localStorage.removeItem('gotoTab:/admin/j7') }
+    }, [])
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -53,8 +59,8 @@ export default function J7Panel({
                     TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                     sx={{ minHeight: 40 }}
                 >
-                    <Tab label='Members' sx={tabSx} />
-                    <Tab label='Calendar' sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Members'  pinLabel='J7 — Members'  href='/admin/j7' tabIndex={0} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Calendar' pinLabel='J7 — Calendar' href='/admin/j7' tabIndex={1} />} sx={tabSx} />
                 </Tabs>
             </div>
 

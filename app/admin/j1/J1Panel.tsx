@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Tabs, Tab, Typography } from '@mui/material'
 import { Construction } from '@mui/icons-material'
 import ApplicationsTab from './tabs/ApplicationsTab'
@@ -9,6 +9,7 @@ import MastersheetTab from './tabs/MastersheetTab'
 import StatisticsTab from './tabs/StatisticsTab'
 import DeptMembersTab from '@/app/admin/DeptMembersTab'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
+import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 
 interface J1PanelProps {
     displayName: string
@@ -40,6 +41,11 @@ function WipTab({ title, description }: { title: string; description: string }) 
 
 export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }: J1PanelProps) {
     const [tab, setTab] = useState(0)
+
+    useEffect(() => {
+        const stored = localStorage.getItem('gotoTab:/admin/j1')
+        if (stored !== null) { setTab(Number(stored)); localStorage.removeItem('gotoTab:/admin/j1') }
+    }, [])
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -78,13 +84,13 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                     TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                     sx={{ minHeight: 40 }}
                 >
-                    <Tab label='Applications' sx={tabSx} />
-                    <Tab label='Recruit Member' sx={tabSx} />
-                    <Tab label='Mastersheet' sx={tabSx} />
-                    <Tab label='Meetings' sx={tabSx} />
-                    <Tab label='Statistics' sx={tabSx} />
-                    <Tab label='Members' sx={tabSx} />
-                    <Tab label='Calendar' sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Applications'   pinLabel='J1 — Applications'   href='/admin/j1' tabIndex={0} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Recruit Member' pinLabel='J1 — Recruit Member' href='/admin/j1' tabIndex={1} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Mastersheet'    pinLabel='J1 — Mastersheet'    href='/admin/j1' tabIndex={2} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Meetings'       pinLabel='J1 — Meetings'       href='/admin/j1' tabIndex={3} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Statistics'     pinLabel='J1 — Statistics'     href='/admin/j1' tabIndex={4} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Members'        pinLabel='J1 — Members'        href='/admin/j1' tabIndex={5} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Calendar'       pinLabel='J1 — Calendar'       href='/admin/j1' tabIndex={6} />} sx={tabSx} />
                 </Tabs>
             </div>
 

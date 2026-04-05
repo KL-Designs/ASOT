@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Tabs, Tab, Typography } from '@mui/material'
 import { Construction } from '@mui/icons-material'
 import QualificationTicketsTab from './tabs/QualificationTicketsTab'
 import PromotionTicketsTab from './tabs/PromotionTicketsTab'
 import DeptMembersTab from '@/app/admin/DeptMembersTab'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
+import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 
 interface J3PanelProps {
     displayName: string
@@ -38,6 +39,11 @@ function WipTab({ title, description }: { title: string; description: string }) 
 
 export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }: J3PanelProps) {
     const [tab, setTab] = useState(0)
+
+    useEffect(() => {
+        const stored = localStorage.getItem('gotoTab:/admin/j3')
+        if (stored !== null) { setTab(Number(stored)); localStorage.removeItem('gotoTab:/admin/j3') }
+    }, [])
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -76,11 +82,11 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                     TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                     sx={{ minHeight: 40 }}
                 >
-                    <Tab label='Qualification Tickets' sx={tabSx} />
-                    <Tab label='Promotion Tickets' sx={tabSx} />
-                    <Tab label='Training Schedule' sx={tabSx} />
-                    <Tab label='Members' sx={tabSx} />
-                    <Tab label='Calendar' sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Qualification Tickets' pinLabel='J3 — Qual Tickets'   href='/admin/j3' tabIndex={0} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Promotion Tickets'    pinLabel='J3 — Promo Tickets'  href='/admin/j3' tabIndex={1} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Training Schedule'    pinLabel='J3 — Schedule'       href='/admin/j3' tabIndex={2} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Members'              pinLabel='J3 — Members'        href='/admin/j3' tabIndex={3} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Calendar'             pinLabel='J3 — Calendar'       href='/admin/j3' tabIndex={4} />} sx={tabSx} />
                 </Tabs>
             </div>
 

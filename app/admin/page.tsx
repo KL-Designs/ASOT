@@ -11,9 +11,23 @@ export default async function Page() {
     if (!me) redirect('/login')
     if (!client.hasRoles(me, PERMISSIONS.pages.admin)) redirect('/me')
 
+    const permissions = {
+        displayName:     me.guild?.nickname || me.globalName || me.username || '',
+        canSeeJ1:        client.hasRoles(me, PERMISSIONS.departments.j1),
+        canSeeJ2:        client.hasRoles(me, PERMISSIONS.departments.j2),
+        canSeeJ3:        client.hasRoles(me, PERMISSIONS.departments.j3),
+        canSeeJ4:        client.hasRoles(me, PERMISSIONS.departments.j4),
+        canSeeJ5:        client.hasRoles(me, PERMISSIONS.departments.j5),
+        canSeeJ6:        client.hasRoles(me, PERMISSIONS.departments.j6),
+        canSeeJ7:        client.hasRoles(me, PERMISSIONS.departments.j7),
+        canSeeOrbat:     client.hasRoles(me, PERMISSIONS.admin.manageOrbat),
+        canSeePersonnel: client.hasRoles(me, PERMISSIONS.pages.members),
+    }
+
     return (
         <DashboardOverview
-            displayName={me.guild?.nickname || me.globalName || me.username || ''}
+            displayName={permissions.displayName}
+            permissions={permissions}
         />
     )
 }

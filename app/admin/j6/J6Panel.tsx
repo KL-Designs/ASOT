@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Typography, Tabs, Tab } from '@mui/material'
 import DeptMembersTab from '@/app/admin/DeptMembersTab'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
+import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 
 export default function J6Panel({
     displayName,
@@ -17,6 +18,11 @@ export default function J6Panel({
     isJ4: boolean
 }) {
     const [tab, setTab] = useState(0)
+
+    useEffect(() => {
+        const stored = localStorage.getItem('gotoTab:/admin/j6')
+        if (stored !== null) { setTab(Number(stored)); localStorage.removeItem('gotoTab:/admin/j6') }
+    }, [])
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -53,8 +59,8 @@ export default function J6Panel({
                     TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                     sx={{ minHeight: 40 }}
                 >
-                    <Tab label='Members' sx={tabSx} />
-                    <Tab label='Calendar' sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Members'  pinLabel='J6 — Members'  href='/admin/j6' tabIndex={0} />} sx={tabSx} />
+                    <Tab label={<PinTabLabel label='Calendar' pinLabel='J6 — Calendar' href='/admin/j6' tabIndex={1} />} sx={tabSx} />
                 </Tabs>
             </div>
 
