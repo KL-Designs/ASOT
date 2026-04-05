@@ -44,19 +44,17 @@ export async function GET(req: NextRequest) {
             .toArray()
 
         for (const op of ops) {
-            const d = new Date(op.date)
-            const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0)
-            const dayEnd = new Date(d); dayEnd.setHours(23, 59, 59, 999)
+            const start = new Date(op.date)
+            const end = new Date(start.getTime() + 3 * 60 * 60 * 1000)
             opEvents.push({
                 _id: `op-${op._id.toString()}`,
                 title: op.title,
-                start: dayStart.toISOString(),
-                end: dayEnd.toISOString(),
-                allDay: true,
+                start: start.toISOString(),
+                end: end.toISOString(),
                 department: 'j2',
                 createdById: '',
                 createdByName: '',
-                createdAt: dayStart.toISOString(),
+                createdAt: start.toISOString(),
                 isOperation: true,
                 operationId: op._id.toString(),
             } as any)

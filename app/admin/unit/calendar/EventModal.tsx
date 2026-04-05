@@ -244,7 +244,7 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px' }}>
                             <div>
                                 <div style={labelStyle}>Date</div>
-                                <div style={valueStyle}>{formatDisplay(event.start, true)}</div>
+                                <div style={valueStyle}>{formatDisplay(event.start, false)}</div>
                             </div>
                             {!event.isOperation && (
                                 <>
