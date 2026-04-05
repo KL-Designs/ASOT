@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     await db.siteSettings.updateOne(
         { _id: SETTING_ID },
-        { $set: sotm },
+        { $set: sotm as Record<string, unknown> },
         { upsert: true }
     )
 
