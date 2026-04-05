@@ -278,7 +278,7 @@ export default function StaffSidebar({
             items: [
                 { label: 'HQ Staff',    href: '/admin/personnel/hq-staff', visible: permissions.canSeePersonnel, icon: <Badge sx={{ fontSize: 14 }} /> },
                 { label: 'All Staff',   href: '/admin/personnel/all-staff', visible: permissions.canSeePersonnel, icon: <Groups sx={{ fontSize: 14 }} /> },
-                { label: 'All Members', href: '/admin/personnel/all',       visible: permissions.canSeePersonnel, icon: <People sx={{ fontSize: 14 }} /> },
+                { label: 'Members',     href: '/admin/personnel/all',       visible: permissions.canSeePersonnel, icon: <People sx={{ fontSize: 14 }} /> },
             ],
         },
         {

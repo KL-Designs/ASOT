@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Avatar from '@/components/member/avatar'
 import { rankNameFromAbbr } from '@/lib/ranks'
 import MilpacEditor from '@/app/members/[username]/MilpacEditor'
+
+const PAGE_SIZE = 25
 
 type OrbatEntry = { role: string; section: string } | null
 
@@ -12,11 +14,13 @@ type MemberRow = {
     username: string
     name?: string | null
     globalName?: string | null
-    guild?: { nickname?: string | null } | null
+    guild?: { nickname?: string | null; displayName?: string | null } | null
     milpac?: { currentRank?: string | null } | null
     avatar?: string | null
     avatarDecoration?: string | null
     hexAccentColor?: string | null
+    teamLeadDepts: string[]
+    orbatEntry: OrbatEntry
 }
 
 type ConfirmedOp = { operationId: string; name: string; date?: string | null; confirmedAt: string | null }
@@ -26,32 +30,62 @@ function getDisplayName(m: MemberRow) {
 }
 
 export default function AllMembersPanel({
-    members,
-    orbatMap,
     canEditRestricted,
     canEditStandard,
     canImpersonate,
 }: {
-    members: MemberRow[]
-    orbatMap: Record<string, OrbatEntry>
     canEditRestricted: boolean
     canEditStandard: boolean
     canImpersonate: boolean
 }) {
-    const [query, setQuery] = useState('')
+    const [members, setMembers] = useState<MemberRow[]>([])
+    const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(0)
+    const [search, setSearch] = useState('')
+    const [loadingList, setLoadingList] = useState(true)
+
     const [selectedUsername, setSelectedUsername] = useState<string | null>(null)
     const [memberData, setMemberData] = useState<User | null>(null)
     const [confirmedOps, setConfirmedOps] = useState<ConfirmedOp[]>([])
-    const [loading, setLoading] = useState(false)
+    const [loadingMember, setLoadingMember] = useState(false)
     const [loadError, setLoadError] = useState<string | null>(null)
     const [dirty, setDirty] = useState(false)
 
-    const filtered = members.filter(m => {
-        if (!query.trim()) return true
-        const display = getDisplayName(m)
-        const q = query.trim().toLowerCase()
-        return display.toLowerCase().includes(q) || m.username.toLowerCase().includes(q)
-    })
+    const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const totalPages = Math.ceil(total / PAGE_SIZE)
+
+    // Fetch the current page of members
+    const fetchMembers = useCallback(async (p: number, q: string) => {
+        setLoadingList(true)
+        try {
+            const params = new URLSearchParams({ page: String(p), limit: String(PAGE_SIZE) })
+            if (q) params.set('search', q)
+            const res = await fetch(`/api/admin/members?${params}`)
+            const data = await res.json()
+            setMembers(data.members ?? [])
+            setTotal(data.total ?? 0)
+        } finally {
+            setLoadingList(false)
+        }
+    }, [])
+
+    // Initial load
+    useEffect(() => { fetchMembers(0, '') }, [fetchMembers])
+
+    // Debounce search — reset to page 0 when query changes
+    function handleSearchChange(value: string) {
+        setSearch(value)
+        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+        searchDebounceRef.current = setTimeout(() => {
+            setPage(0)
+            fetchMembers(0, value)
+        }, 300)
+    }
+
+    function handlePageChange(next: number) {
+        setPage(next)
+        fetchMembers(next, search)
+    }
 
     const selectMember = useCallback(async (username: string) => {
         if (username === selectedUsername) return
@@ -62,7 +96,7 @@ export default function AllMembersPanel({
         setMemberData(null)
         setConfirmedOps([])
         setLoadError(null)
-        setLoading(true)
+        setLoadingMember(true)
         setDirty(false)
         try {
             const [memberRes, opsRes] = await Promise.all([
@@ -76,11 +110,12 @@ export default function AllMembersPanel({
         } catch (e: any) {
             setLoadError(e.message || 'Failed to load member')
         } finally {
-            setLoading(false)
+            setLoadingMember(false)
         }
     }, [selectedUsername, dirty])
 
-    const selectedMemberRow = selectedUsername ? members.find(m => m.username === selectedUsername) ?? null : null
+    const start = page * PAGE_SIZE + 1
+    const end   = Math.min((page + 1) * PAGE_SIZE, total)
 
     return (
         <div className='flex h-full w-full' style={{ minHeight: 0 }}>
@@ -104,10 +139,10 @@ export default function AllMembersPanel({
                         Personnel
                     </div>
                     <div style={{ fontSize: '0.9rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase' }}>
-                        All Members
+                        Members
                     </div>
                     <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>
-                        {members.length} member{members.length !== 1 ? 's' : ''}
+                        {total > 0 ? `${total} member${total !== 1 ? 's' : ''}` : loadingList ? 'Loading…' : '0 members'}
                     </div>
                 </div>
 
@@ -115,8 +150,8 @@ export default function AllMembersPanel({
                 <div className='px-3 py-2 flex-shrink-0' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <input
                         type='text'
-                        value={query}
-                        onChange={e => setQuery(e.target.value)}
+                        value={search}
+                        onChange={e => handleSearchChange(e.target.value)}
                         placeholder='Search…'
                         style={{
                             width: '100%',
@@ -130,16 +165,63 @@ export default function AllMembersPanel({
                     />
                 </div>
 
+                {/* Page navigation */}
+                {total > PAGE_SIZE && (
+                    <div
+                        className='flex-shrink-0 flex items-center justify-between px-3 py-1'
+                        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', gap: 6 }}
+                    >
+                        <button
+                            onClick={() => handlePageChange(page - 1)}
+                            disabled={page === 0 || loadingList}
+                            style={{
+                                background: 'none',
+                                border: '1px solid rgba(219,0,29,0.25)',
+                                color: page === 0 ? 'rgba(237,237,237,0.15)' : 'rgba(237,237,237,0.45)',
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                letterSpacing: '0.08em',
+                                padding: '2px 8px',
+                                cursor: page === 0 ? 'default' : 'pointer',
+                            }}
+                        >
+                            Prev
+                        </button>
+                        <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.3)', whiteSpace: 'nowrap' }}>
+                            {loadingList ? '…' : `${start}–${end} of ${total}`}
+                        </span>
+                        <button
+                            onClick={() => handlePageChange(page + 1)}
+                            disabled={page >= totalPages - 1 || loadingList}
+                            style={{
+                                background: 'none',
+                                border: '1px solid rgba(219,0,29,0.25)',
+                                color: page >= totalPages - 1 ? 'rgba(237,237,237,0.15)' : 'rgba(237,237,237,0.45)',
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                letterSpacing: '0.08em',
+                                padding: '2px 8px',
+                                cursor: page >= totalPages - 1 ? 'default' : 'pointer',
+                            }}
+                        >
+                            Next
+                        </button>
+                    </div>
+                )}
+
                 {/* List */}
                 <div className='flex flex-col overflow-y-auto flex-1'>
-                    {filtered.length === 0 ? (
+                    {loadingList ? (
+                        <div className='px-4 py-6' style={{ textAlign: 'center', fontSize: '0.75rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>
+                            Loading…
+                        </div>
+                    ) : members.length === 0 ? (
                         <div className='px-4 py-6' style={{ textAlign: 'center', fontSize: '0.75rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>
                             No members found.
                         </div>
-                    ) : filtered.map(m => {
+                    ) : members.map(m => {
                         const display = getDisplayName(m)
                         const rank = m.milpac?.currentRank ? rankNameFromAbbr(m.milpac.currentRank) : null
-                        const orbatEntry = orbatMap[m.id] ?? null
                         const isSelected = m.username === selectedUsername
 
                         return (
@@ -157,7 +239,7 @@ export default function AllMembersPanel({
                                 }}
                             >
                                 <div style={{ position: 'relative', width: 30, height: 30, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: 'rgba(255,255,255,0.05)' }}>
-                                    <Avatar user={m as User} />
+                                    <Avatar user={m as unknown as User} />
                                 </div>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     {rank && (
@@ -168,9 +250,9 @@ export default function AllMembersPanel({
                                     <div style={{ fontSize: '0.8rem', fontWeight: 600, color: isSelected ? 'rgba(237,237,237,0.95)' : 'rgba(237,237,237,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {display}
                                     </div>
-                                    {orbatEntry && (
+                                    {m.orbatEntry && (
                                         <div style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.06em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {orbatEntry.role}
+                                            {m.orbatEntry.role}
                                         </div>
                                     )}
                                 </div>
@@ -188,7 +270,7 @@ export default function AllMembersPanel({
                     </div>
                 )}
 
-                {selectedUsername && loading && (
+                {selectedUsername && loadingMember && (
                     <div className='flex items-center justify-center h-full' style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.82rem' }}>
                         Loading…
                     </div>
@@ -200,7 +282,7 @@ export default function AllMembersPanel({
                     </div>
                 )}
 
-                {memberData && !loading && (
+                {memberData && !loadingMember && (
                     <MilpacEditor
                         key={memberData.username}
                         member={memberData}
