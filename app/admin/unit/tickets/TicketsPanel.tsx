@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
     Typography, Chip, Button,
     TextField, Select, MenuItem, FormControl, InputLabel,
@@ -484,19 +484,23 @@ export default function TicketsPanel({
     const [statusFilter, setStatusFilter] = useState('all')
     const [search, setSearch] = useState('')
     const [selected, setSelected] = useState<TicketRow | null>(null)
+    const [page, setPage] = useState(0)
+    const PAGE_SIZE = 20
 
-    async function fetchTickets() {
+    const fetchTickets = useCallback(async () => {
         setLoading(true)
         try {
             const res = await fetch('/api/admin/tickets')
             const data = await res.json()
             setTickets(data.tickets ?? [])
+            setPage(0)
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
 
-    useEffect(() => { fetchTickets() }, [])
+    useEffect(() => { fetchTickets() }, [fetchTickets])
+    useEffect(() => { setPage(0) }, [deptFilter, statusFilter, search])
 
     function handleResolved(id: string, status: 'actioned' | 'rejected') {
         setTickets(prev => prev.map(t => t._id === id ? { ...t, status } : t))
@@ -595,7 +599,7 @@ export default function TicketsPanel({
 
             {/* Table */}
             <div
-                className='mx-6 mt-4 mb-6 flex-1 min-h-0'
+                className='mx-6 mt-4'
                 style={{ border: '1px solid rgba(219,0,29,0.1)', background: 'rgba(255,255,255,0.01)', overflowX: 'auto' }}
             >
                 {loading ? (
@@ -616,7 +620,7 @@ export default function TicketsPanel({
                             </tr>
                         </thead>
                         <tbody>
-                            {filtered.map(t => (
+                            {filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(t => (
                                 <tr
                                     key={t._id}
                                     style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: 'default' }}
@@ -685,6 +689,26 @@ export default function TicketsPanel({
                     </table>
                 )}
             </div>
+
+            {/* Pagination */}
+            {filtered.length > PAGE_SIZE && (
+                <div className='mx-6 mb-6' style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
+                    <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>
+                        {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                    </span>
+                    <button
+                        onClick={() => setPage(p => p - 1)}
+                        disabled={page === 0}
+                        style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: 'none', border: '1px solid rgba(219,0,29,0.25)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.5)', cursor: page === 0 ? 'default' : 'pointer' }}
+                    >Prev</button>
+                    <button
+                        onClick={() => setPage(p => p + 1)}
+                        disabled={(page + 1) * PAGE_SIZE >= filtered.length}
+                        style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: 'none', border: '1px solid rgba(219,0,29,0.25)', color: (page + 1) * PAGE_SIZE >= filtered.length ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.5)', cursor: (page + 1) * PAGE_SIZE >= filtered.length ? 'default' : 'pointer' }}
+                    >Next</button>
+                </div>
+            )}
+            {filtered.length <= PAGE_SIZE && <div className='mb-6' />}
 
             {selected && (
                 <ActionModal

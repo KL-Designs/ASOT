@@ -49,6 +49,8 @@ export default function PromotionTicketsTab({ displayName, userId }: { displayNa
     const [myTickets, setMyTickets] = useState<TicketRow[]>([])
     const [loadingMembers, setLoadingMembers] = useState(true)
     const [loadingTickets, setLoadingTickets] = useState(true)
+    const [page, setPage] = useState(0)
+    const PAGE_SIZE = 10
 
     const [selectedMember, setSelectedMember] = useState<Member | null>(null)
     const [action, setAction] = useState<'promote' | 'demote'>('promote')
@@ -64,6 +66,7 @@ export default function PromotionTicketsTab({ displayName, userId }: { displayNa
             const res = await fetch(`/api/admin/tickets?issuedById=${userId}`)
             const data = await res.json()
             setMyTickets((data.tickets ?? []).filter((t: TicketRow) => t.type === 'j3-promotion'))
+            setPage(0)
         } finally {
             setLoadingTickets(false)
         }
@@ -249,37 +252,56 @@ export default function PromotionTicketsTab({ displayName, userId }: { displayNa
                         No tickets submitted yet.
                     </Typography>
                 ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                            <thead>
-                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
-                                    {['Member', 'Action', 'Proposed Rank', 'Status', 'Date'].map(h => (
-                                        <th key={h} style={{ textAlign: 'left', padding: '6px 12px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>
-                                            {h}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {myTickets.map(t => (
-                                    <tr key={t._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                        <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.75)' }}>{t.targetUserName}</td>
-                                        <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.75)', textTransform: 'capitalize' }}>{t.action}</td>
-                                        <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.75)' }}>{t.proposedRank}</td>
-                                        <td style={{ padding: '8px 12px' }}>
-                                            <Chip
-                                                label={t.status}
-                                                color={STATUS_COLORS[t.status] ?? 'default'}
-                                                size='small'
-                                                sx={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1, height: 20, borderRadius: '2px' }}
-                                            />
-                                        </td>
-                                        <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.45)' }}>{formatDate(t.issuedAt)}</td>
+                    <>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                                        {['Member', 'Action', 'Proposed Rank', 'Status', 'Date'].map(h => (
+                                            <th key={h} style={{ textAlign: 'left', padding: '6px 12px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>
+                                                {h}
+                                            </th>
+                                        ))}
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    {myTickets.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(t => (
+                                        <tr key={t._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                            <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.75)' }}>{t.targetUserName}</td>
+                                            <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.75)', textTransform: 'capitalize' }}>{t.action}</td>
+                                            <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.75)' }}>{t.proposedRank}</td>
+                                            <td style={{ padding: '8px 12px' }}>
+                                                <Chip
+                                                    label={t.status}
+                                                    color={STATUS_COLORS[t.status] ?? 'default'}
+                                                    size='small'
+                                                    sx={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1, height: 20, borderRadius: '2px' }}
+                                                />
+                                            </td>
+                                            <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.45)' }}>{formatDate(t.issuedAt)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        {myTickets.length > PAGE_SIZE && (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
+                                <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>
+                                    {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, myTickets.length)} of {myTickets.length}
+                                </span>
+                                <button
+                                    onClick={() => setPage(p => p - 1)}
+                                    disabled={page === 0}
+                                    style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: 'none', border: '1px solid rgba(219,0,29,0.25)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.5)', cursor: page === 0 ? 'default' : 'pointer' }}
+                                >Prev</button>
+                                <button
+                                    onClick={() => setPage(p => p + 1)}
+                                    disabled={(page + 1) * PAGE_SIZE >= myTickets.length}
+                                    style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: 'none', border: '1px solid rgba(219,0,29,0.25)', color: (page + 1) * PAGE_SIZE >= myTickets.length ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.5)', cursor: (page + 1) * PAGE_SIZE >= myTickets.length ? 'default' : 'pointer' }}
+                                >Next</button>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>
