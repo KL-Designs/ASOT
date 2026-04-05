@@ -17,7 +17,7 @@ export async function GET() {
     }
 
     const users = await Db.users
-        .find({ isSkeletonAccount: { $ne: true } })
+        .find({ isSkeletonAccount: { $ne: true }, discharged: { $exists: false } })
         .project({ id: 1, globalName: 1, username: 1, name: 1, 'guild.nickname': 1, 'guild.displayName': 1, 'milpac.qualifications': 1, 'milpac.currentRank': 1 })
         .toArray()
 

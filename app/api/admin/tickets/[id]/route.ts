@@ -40,6 +40,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
+    if (ticket.type === 'j4-discharge' && me.id === ticket.issuedById) {
+        return NextResponse.json({ error: 'You cannot approve your own discharge request.' }, { status: 403 })
+    }
+
     if (ticket.status !== 'open') {
         return NextResponse.json({ error: 'Ticket already resolved' }, { status: 409 })
     }
@@ -139,6 +143,32 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
                     issuedByName: ticket.issuedByName,
                 } as any,
             },
+        })
+    } else if (ticket.type === 'j4-discharge') {
+        const member = await Db.users.findOne({ id: ticket.targetUserId })
+        if (!member) return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
+
+        const approverDisplayName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+
+        // Remove from all ORBAT positions — no reservist slot for discharged members
+        await Db.orbatPositions.updateMany(
+            { userId: ticket.targetUserId },
+            { $set: { userId: null } }
+        )
+
+        // Mark user as discharged
+        await Db.users.updateOne({ id: ticket.targetUserId }, {
+            $set: {
+                discharged: {
+                    date: now.toISOString().split('T')[0],
+                    type: ticket.dischargeType!,
+                    reason: ticket.dischargeReason!,
+                    dischargedById: ticket.issuedById,
+                    dischargedByName: ticket.issuedByName,
+                    approvedById: me.id,
+                    approvedByName: approverDisplayName,
+                }
+            }
         })
     } else if (ticket.type === 'move-request') {
         // Re-validate positions haven't shifted since submission

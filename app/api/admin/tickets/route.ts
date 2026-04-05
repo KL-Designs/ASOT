@@ -229,6 +229,42 @@ export async function POST(req: NextRequest) {
         })
     }
 
+    // ── J4 Discharge ──────────────────────────────────────────────────────────
+    if (type === 'j4-discharge') {
+        if (!client.hasRoles(me, PERMISSIONS.departments.j4)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
+        const { targetUserId, targetUserName, dischargeType, dischargeReason, notes } = body
+
+        if (!targetUserId || !targetUserName || !dischargeType || !dischargeReason?.trim()) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+        if (dischargeType !== 'honorable' && dischargeType !== 'dishonorable') {
+            return NextResponse.json({ error: 'Invalid dischargeType' }, { status: 400 })
+        }
+        if (targetUserId === me.id) {
+            return NextResponse.json({ error: 'Cannot discharge yourself' }, { status: 400 })
+        }
+
+        const ticket: Omit<Ticket, '_id'> = {
+            type: 'j4-discharge',
+            department: 'j4',
+            status: 'open',
+            targetUserId,
+            targetUserName,
+            issuedById: me.id,
+            issuedByName: displayName,
+            issuedAt: new Date(),
+            dischargeType,
+            dischargeReason: dischargeReason.trim(),
+            ...(notes?.trim() ? { notes: notes.trim() } : {}),
+        }
+
+        const result = await Db.tickets.insertOne(ticket as Ticket)
+        return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+    }
+
     // ── J3 Qualification (default) ────────────────────────────────────────────
     if (!client.hasRoles(me, PERMISSIONS.departments.j3)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

@@ -48,6 +48,8 @@ const headerStyle = {
 
 export function BioSections({ canUploadImage, isHQ }: { canUploadImage?: boolean; isHQ?: boolean }) {
     const { id, bio, setBio, save } = useBioData()
+    const [cacheKey, setCacheKey] = useState('')
+    useEffect(() => { setCacheKey(String(Date.now())) }, [])
 
     const upload = async (file: File) => {
         const formData = new FormData()
@@ -94,7 +96,7 @@ export function BioSections({ canUploadImage, isHQ }: { canUploadImage?: boolean
                             className="relative w-full h-full min-w-[140px]"
                             style={{ border: '1px solid rgba(255,255,255,0.06)' }}
                         >
-                            <Image src={`/api/uploads/bio?id=${id}&time=${new Date().getTime()}`} alt="User Bio Image" fill className="object-contain" />
+                            <Image src={`/api/uploads/bio?id=${id}${cacheKey ? `&time=${cacheKey}` : ''}`} alt="User Bio Image" fill className="object-contain" />
                         </div>
                         <label
                             style={{

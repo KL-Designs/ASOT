@@ -22,6 +22,7 @@ export default async function Page() {
             canActionJ4={canActionJ4}
             canActionMoveRequest={canActionMoveRequest}
             displayName={displayName}
+            userId={me.id}
         />
     )
 }

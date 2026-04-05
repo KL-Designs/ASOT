@@ -63,8 +63,9 @@ function moveToLabel(t: TicketRow) {
     return t.toSectionTitle ? `${t.toSectionTitle} / ${t.toPositionRole}` : (t.toPositionRole ?? '—')
 }
 
-function ActionModal({ ticket, onClose, onResolved }: {
+function ActionModal({ ticket, userId, onClose, onResolved }: {
     ticket: TicketRow
+    userId: string
     onClose: () => void
     onResolved: (id: string, status: 'actioned' | 'rejected') => void
 }) {
@@ -74,6 +75,8 @@ function ActionModal({ ticket, onClose, onResolved }: {
     const [error, setError] = useState<string | null>(null)
 
     const isMoveRequest = ticket.type === 'move-request'
+    const isDischarge = ticket.type === 'j4-discharge'
+    const isSelfDischarge = isDischarge && ticket.issuedById === userId
 
     async function handleConfirm() {
         setSubmitting(true)
@@ -112,7 +115,7 @@ function ActionModal({ ticket, onClose, onResolved }: {
         >
             <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
                 <Typography fontWeight={700} fontSize='0.8rem' letterSpacing={2} style={{ textTransform: 'uppercase' }}>
-                    {isMoveRequest ? 'Action Move Request' : 'Action Ticket'}
+                    {isMoveRequest ? 'Action Move Request' : isDischarge ? 'Action Discharge' : 'Action Ticket'}
                 </Typography>
                 <IconButton onClick={onClose} size='small' sx={{ color: 'rgba(237,237,237,0.5)', '&:hover': { color: 'var(--foreground)' } }}>
                     <Close fontSize='small' />
@@ -153,6 +156,39 @@ function ActionModal({ ticket, onClose, onResolved }: {
                                 )}
                                 {ticket.notes && <Field label='Notes' value={ticket.notes} />}
                             </>
+                        ) : isDischarge ? (
+                            <div className='flex flex-col gap-3'>
+                                <div className='grid grid-cols-2 gap-3'>
+                                    <Field label='Member' value={ticket.targetUserName} />
+                                    <Field label='Submitted By' value={ticket.issuedByName} />
+                                    <Field label='Date' value={formatDate(ticket.issuedAt)} />
+                                    <div>
+                                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 3 }}>
+                                            Discharge Type
+                                        </div>
+                                        <Chip
+                                            label={ticket.dischargeType === 'honorable' ? 'Honorable' : 'Dishonorable'}
+                                            size='small'
+                                            sx={{
+                                                fontSize: '0.65rem',
+                                                fontWeight: 700,
+                                                letterSpacing: 1,
+                                                height: 18,
+                                                borderRadius: '2px',
+                                                background: ticket.dischargeType === 'honorable' ? 'rgba(0,195,100,0.12)' : 'rgba(219,0,29,0.12)',
+                                                color: ticket.dischargeType === 'honorable' ? 'rgb(0,195,100)' : 'var(--red)',
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <Field label='Reason' value={ticket.dischargeReason} />
+                                {ticket.notes && <Field label='Notes' value={ticket.notes} />}
+                                {isSelfDischarge && (
+                                    <div style={{ fontSize: '0.75rem', color: 'rgba(219,0,29,0.8)', padding: '8px 10px', border: '1px solid rgba(219,0,29,0.2)', background: 'rgba(219,0,29,0.05)' }}>
+                                        You submitted this request and cannot approve it. Another J4 member must action this ticket.
+                                    </div>
+                                )}
+                            </div>
                         ) : (
                             <div className='grid grid-cols-2 gap-3'>
                                 <Field label='Department' value={DEPT_LABELS[ticket.department] ?? ticket.department} />
@@ -225,7 +261,7 @@ function ActionModal({ ticket, onClose, onResolved }: {
                         <Button
                             variant='outlined'
                             size='small'
-                            disabled={submitting}
+                            disabled={submitting || (isSelfDischarge && decision === 'approve')}
                             onClick={handleConfirm}
                             sx={{
                                 borderRadius: 0,
@@ -268,6 +304,32 @@ function TicketSummaryCell({ t }: { t: TicketRow }) {
             </td>
         )
     }
+    if (t.type === 'j4-discharge') {
+        return (
+            <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Chip
+                        label={t.dischargeType === 'honorable' ? 'Honorable' : 'Dishonorable'}
+                        size='small'
+                        sx={{
+                            fontSize: '0.6rem',
+                            fontWeight: 700,
+                            letterSpacing: 1,
+                            height: 18,
+                            borderRadius: '2px',
+                            background: t.dischargeType === 'honorable' ? 'rgba(0,195,100,0.12)' : 'rgba(219,0,29,0.12)',
+                            color: t.dischargeType === 'honorable' ? 'rgb(0,195,100)' : 'var(--red)',
+                        }}
+                    />
+                </div>
+                {t.dischargeReason && (
+                    <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.4)', marginTop: 2, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {t.dischargeReason}
+                    </div>
+                )}
+            </td>
+        )
+    }
     return (
         <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>
             {t.qualification ?? t.awardName ?? t.proposedRank ?? '—'}
@@ -277,6 +339,7 @@ function TicketSummaryCell({ t }: { t: TicketRow }) {
 
 function ticketActionLabel(t: TicketRow) {
     if (t.type === 'move-request') return 'Move Request'
+    if (t.type === 'j4-discharge') return 'Discharge'
     if (t.action === 'promote') return 'Promote'
     if (t.action === 'demote') return 'Demote'
     if (t.action) return t.action
@@ -289,11 +352,13 @@ export default function TicketsPanel({
     canActionJ4,
     canActionMoveRequest,
     displayName,
+    userId,
 }: {
     canActionJ3: boolean
     canActionJ4: boolean
     canActionMoveRequest: boolean
     displayName: string
+    userId: string
 }) {
     const [tickets, setTickets] = useState<TicketRow[]>([])
     const [loading, setLoading] = useState(true)
@@ -493,6 +558,7 @@ export default function TicketsPanel({
             {selected && (
                 <ActionModal
                     ticket={selected}
+                    userId={userId}
                     onClose={() => setSelected(null)}
                     onResolved={handleResolved}
                 />

@@ -1,6 +1,6 @@
 interface Ticket {
     _id?: import('mongodb').ObjectId
-    type: 'j3-qualification' | 'j4-award' | 'j3-promotion' | 'move-request'
+    type: 'j3-qualification' | 'j4-award' | 'j3-promotion' | 'move-request' | 'j4-discharge'
     department: 'j3' | 'j4' | 'allstaff'
     status: 'open' | 'actioned' | 'rejected'
     targetUserId: string
@@ -34,4 +34,7 @@ interface Ticket {
     toIsReservist?: boolean
     requiredApproverUserId?: string
     requiredApproverName?: string
+    // Discharge fields (undefined on other types)
+    dischargeType?: 'honorable' | 'dishonorable'
+    dischargeReason?: string
 }

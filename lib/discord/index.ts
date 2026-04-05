@@ -65,6 +65,7 @@ export class Client implements IClient {
     async fetchMember(identifier: string, rolesEnabled?: boolean): Promise<Member> {
         const user = await Db.users.findOne({ $or: [{ _id: identifier }, { token: identifier }] })
         if (!user) throw new Error('User not found, please try again later.')
+        if (user.discharged) throw new Error('Account has been discharged.')
 
         if (!user.token) {
             user.token = GenerateToken()

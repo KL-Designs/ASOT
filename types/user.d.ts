@@ -53,6 +53,16 @@ declare global {
             j5: { id: string, name: string }[]
         }
 
+        discharged?: {
+            date: string
+            type: 'honorable' | 'dishonorable'
+            reason: string
+            dischargedById: string
+            dischargedByName: string
+            approvedById: string
+            approvedByName: string
+        }
+
         bio?: {
             content: string
         }
