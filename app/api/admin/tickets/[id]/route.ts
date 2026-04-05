@@ -34,7 +34,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         (ticket.department === 'j4' && client.hasRoles(me, PERMISSIONS.tickets.actionJ4)) ||
         (ticket.department === 'allstaff' && (
             me.id === ticket.requiredApproverUserId ||
-            client.hasRoles(me, PERMISSIONS.tickets.actionMoveRequest)
+            client.hasRoles(me, PERMISSIONS.tickets.actionMoveRequest) ||
+            (ticket.type === 'discipline' && client.hasRoles(me, PERMISSIONS.tickets.actionDiscipline))
         ))
     if (!canAction) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -49,7 +50,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const body = await req.json()
-    const { decision, actionNotes } = body
+    const { decision, actionNotes, disciplinePoints } = body
 
     if (decision !== 'approve' && decision !== 'reject') {
         return NextResponse.json({ error: 'Invalid decision' }, { status: 400 })
@@ -170,6 +171,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
                 }
             }
         })
+    } else if (ticket.type === 'discipline') {
+        const pts = Number(disciplinePoints)
+        if (!Number.isFinite(pts) || pts <= 0) {
+            return NextResponse.json({ error: 'disciplinePoints must be a positive number' }, { status: 400 })
+        }
+
+        const approverDisplayName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+
+        const entry = {
+            date: now.toISOString().split('T')[0],
+            points: pts,
+            reason: ticket.disciplineReason!,
+            issuedById: ticket.issuedById,
+            issuedByName: ticket.issuedByName,
+            approvedById: me.id,
+            approvedByName: approverDisplayName,
+        }
+
+        await Db.users.updateOne({ id: ticket.targetUserId }, {
+            $inc: { 'milpac.disciplineDeductions': pts },
+            $push: { 'milpac.disciplineHistory': entry as any },
+        })
+
+        // Record points on the ticket itself for display
+        await Db.tickets.updateOne({ _id: objectId }, { $set: { actionedPointsDeducted: pts } })
     } else if (ticket.type === 'move-request') {
         // Re-validate positions haven't shifted since submission
         const fromPos = await Db.orbatPositions.findOne({ _id: new ObjectId(ticket.fromPositionId!) })

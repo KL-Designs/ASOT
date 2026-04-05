@@ -490,6 +490,10 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
     }
     const [billetCounts, setBilletCounts] = useState({ ...defaultBilletCounts, ...(member.milpac?.billetCounts ?? {}) })
     const [j4Points, setJ4Points] = useState(member.milpac?.j4Points ?? 0)
+    const [disciplineHistory, setDisciplineHistory] = useState<NonNullable<User['milpac']>['disciplineHistory']>(
+        member.milpac?.disciplineHistory ?? []
+    )
+    const disciplineDeductions = (disciplineHistory ?? []).reduce((sum, e) => sum + e.points, 0)
 
     const [dirty, setDirty] = useState(false)
     const dirtyRef = useRef(false)
@@ -611,6 +615,8 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                     secondaryNightOps: 0,
                 }
                 body.j4Points = j4Points
+                body.disciplineHistory = disciplineHistory ?? []
+                body.disciplineDeductions = (disciplineHistory ?? []).reduce((sum, e) => sum + e.points, 0)
             }
             const res = await fetch(`/api/members/${member.username}`, {
                 method: 'PUT',
@@ -866,6 +872,7 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                     awards: awards.map(a => ({ name: a.name })),
                     qualifications: qualifications.map(q => ({ qualification: q.qualification })),
                     j4Points,
+                    disciplineDeductions,
                 }
                 const total = calculatePromotionPoints(counts) + opPts
 
@@ -1021,6 +1028,63 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                 </div>
                             )}
                         </div>
+
+                        {/* Discipline History */}
+                        {((disciplineHistory ?? []).length > 0 || true) && (
+                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 8, marginTop: 4 }}>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)', marginBottom: 6 }}>
+                                    Discipline History
+                                </div>
+                                {(disciplineHistory ?? []).length === 0 ? (
+                                    <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No discipline records.</span>
+                                ) : (
+                                    <div className='flex flex-col gap-1'>
+                                        {(disciplineHistory ?? []).map((entry, i) => (
+                                            <div key={i} style={{
+                                                display: 'flex', alignItems: 'flex-start', gap: 8,
+                                                padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                            }}>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                        <span style={{ fontSize: '0.68rem', color: 'rgba(219,0,29,0.85)', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                                            -{entry.points} pts
+                                                        </span>
+                                                        <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>{entry.date}</span>
+                                                        <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.25)', whiteSpace: 'nowrap' }}>
+                                                            by {entry.approvedByName}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.6)', marginTop: 2, wordBreak: 'break-word' }}>
+                                                        {entry.reason}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', marginTop: 1 }}>
+                                                        Filed by {entry.issuedByName}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        markDirty()
+                                                        setDisciplineHistory(prev => (prev ?? []).filter((_, idx) => idx !== i))
+                                                    }}
+                                                    style={{
+                                                        background: 'none', border: 'none', cursor: 'pointer',
+                                                        color: 'rgba(219,0,29,0.5)', fontSize: '0.75rem',
+                                                        padding: '2px 4px', flexShrink: 0,
+                                                        lineHeight: 1,
+                                                    }}
+                                                    title='Remove entry'
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <div style={{ paddingTop: 4, fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', textAlign: 'right' }}>
+                                            Total deducted: <span style={{ color: 'rgba(219,0,29,0.7)', fontWeight: 700 }}>-{disciplineDeductions} pts</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </SectionCard>
                 )
             })()}

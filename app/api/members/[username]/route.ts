@@ -29,10 +29,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { username } = await params
     const body = await request.json()
 
-    const { bioRank, enlistedDate, promotions, awards, qualifications, name, billetCounts, j4Points } = body
+    const { bioRank, enlistedDate, promotions, awards, qualifications, name, billetCounts, j4Points, disciplineHistory, disciplineDeductions } = body
 
     // Restricted fields check — J4-Administration only
-    const hasRestrictedFields = bioRank !== undefined || enlistedDate !== undefined || billetCounts !== undefined || j4Points !== undefined
+    const hasRestrictedFields = bioRank !== undefined || enlistedDate !== undefined || billetCounts !== undefined || j4Points !== undefined || disciplineHistory !== undefined || disciplineDeductions !== undefined
     if (hasRestrictedFields && !isRestricted) {
         return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
     }
@@ -64,6 +64,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         if (bioRank !== undefined) update['milpac.currentRank'] = bioRank
         if (billetCounts !== undefined) update['milpac.billetCounts'] = billetCounts
         if (j4Points !== undefined) update['milpac.j4Points'] = j4Points
+        if (disciplineHistory !== undefined) update['milpac.disciplineHistory'] = disciplineHistory ?? []
+        if (disciplineDeductions !== undefined) update['milpac.disciplineDeductions'] = disciplineDeductions ?? 0
     }
 
     if (Object.keys(update).length === 0) return NextResponse.json({ error: 'No valid fields' }, { status: 400 })

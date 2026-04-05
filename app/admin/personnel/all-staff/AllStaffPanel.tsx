@@ -1,9 +1,13 @@
 'use client'
 
-import { Typography } from '@mui/material'
+import { useState } from 'react'
+import { Typography, Tabs, Tab } from '@mui/material'
 import MoveRequestsTab from './tabs/MoveRequestsTab'
+import DisciplineTab from './tabs/DisciplineTab'
 
 export default function AllStaffPanel({ userId, displayName }: { userId: string; displayName: string }) {
+    const [tab, setTab] = useState(0)
+
     return (
         <div className='h-full w-full flex flex-col max-w-[1100px]'>
             {/* Header */}
@@ -22,12 +26,38 @@ export default function AllStaffPanel({ userId, displayName }: { userId: string;
                     All Staff
                 </Typography>
                 <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.35)', marginTop: 4 }}>
-                    Move Requests
+                    Move Requests · Discipline
                 </Typography>
             </div>
 
-            <div className='flex-1 min-h-0'>
-                <MoveRequestsTab userId={userId} displayName={displayName} />
+            <div className='mx-6 mt-4'>
+                <Tabs
+                    value={tab}
+                    onChange={(_, v) => setTab(v)}
+                    sx={{
+                        minHeight: 36,
+                        borderBottom: '1px solid rgba(219,0,29,0.15)',
+                        '& .MuiTab-root': {
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            letterSpacing: 2,
+                            textTransform: 'uppercase',
+                            minHeight: 36,
+                            padding: '0 16px',
+                            color: 'rgba(237,237,237,0.4)',
+                        },
+                        '& .Mui-selected': { color: 'var(--red) !important' },
+                        '& .MuiTabs-indicator': { backgroundColor: 'var(--red)' },
+                    }}
+                >
+                    <Tab label='Move Requests' />
+                    <Tab label='Discipline' />
+                </Tabs>
+            </div>
+
+            <div className='flex-1 min-h-0 overflow-y-auto'>
+                {tab === 0 && <MoveRequestsTab userId={userId} displayName={displayName} />}
+                {tab === 1 && <DisciplineTab userId={userId} />}
             </div>
         </div>
     )

@@ -71,21 +71,32 @@ function ActionModal({ ticket, userId, onClose, onResolved }: {
 }) {
     const [decision, setDecision] = useState<'approve' | 'reject'>('approve')
     const [actionNotes, setActionNotes] = useState('')
+    const [disciplinePoints, setDisciplinePoints] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     const isMoveRequest = ticket.type === 'move-request'
     const isDischarge = ticket.type === 'j4-discharge'
+    const isDiscipline = ticket.type === 'discipline'
     const isSelfDischarge = isDischarge && ticket.issuedById === userId
 
     async function handleConfirm() {
+        if (isDiscipline && decision === 'approve') {
+            const pts = Number(disciplinePoints)
+            if (!Number.isFinite(pts) || pts <= 0) {
+                setError('Enter a valid positive number of points to deduct.')
+                return
+            }
+        }
         setSubmitting(true)
         setError(null)
         try {
+            const body: Record<string, unknown> = { decision, actionNotes: actionNotes.trim() || undefined }
+            if (isDiscipline && decision === 'approve') body.disciplinePoints = Number(disciplinePoints)
             const res = await fetch(`/api/admin/tickets/${ticket._id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ decision, actionNotes: actionNotes.trim() || undefined }),
+                body: JSON.stringify(body),
             })
             if (!res.ok) {
                 const data = await res.json()
@@ -115,7 +126,7 @@ function ActionModal({ ticket, userId, onClose, onResolved }: {
         >
             <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
                 <Typography fontWeight={700} fontSize='0.8rem' letterSpacing={2} style={{ textTransform: 'uppercase' }}>
-                    {isMoveRequest ? 'Action Move Request' : isDischarge ? 'Action Discharge' : 'Action Ticket'}
+                    {isMoveRequest ? 'Action Move Request' : isDischarge ? 'Action Discharge' : isDiscipline ? 'Action Discipline' : 'Action Ticket'}
                 </Typography>
                 <IconButton onClick={onClose} size='small' sx={{ color: 'rgba(237,237,237,0.5)', '&:hover': { color: 'var(--foreground)' } }}>
                     <Close fontSize='small' />
@@ -156,6 +167,26 @@ function ActionModal({ ticket, userId, onClose, onResolved }: {
                                 )}
                                 {ticket.notes && <Field label='Notes' value={ticket.notes} />}
                             </>
+                        ) : isDiscipline ? (
+                            <div className='flex flex-col gap-3'>
+                                <div className='grid grid-cols-2 gap-3'>
+                                    <Field label='Member' value={ticket.targetUserName} />
+                                    <Field label='Submitted By' value={ticket.issuedByName} />
+                                    <Field label='Date' value={formatDate(ticket.issuedAt)} />
+                                    {ticket.actionedPointsDeducted != null && (
+                                        <div>
+                                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 3 }}>Points Deducted</div>
+                                            <Chip
+                                                label={`-${ticket.actionedPointsDeducted} pts`}
+                                                size='small'
+                                                sx={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: 1, height: 18, borderRadius: '2px', background: 'rgba(219,0,29,0.12)', color: 'var(--red)' }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                                <Field label='Reason' value={ticket.disciplineReason} />
+                                {ticket.notes && <Field label='Notes' value={ticket.notes} />}
+                            </div>
                         ) : isDischarge ? (
                             <div className='flex flex-col gap-3'>
                                 <div className='grid grid-cols-2 gap-3'>
@@ -227,6 +258,20 @@ function ActionModal({ ticket, userId, onClose, onResolved }: {
                             <MenuItem value='reject' sx={{ fontSize: '0.82rem' }}>Reject</MenuItem>
                         </Select>
                     </FormControl>
+
+                    {isDiscipline && decision === 'approve' && (
+                        <TextField
+                            label='Points to Deduct'
+                            size='small'
+                            type='number'
+                            inputProps={{ min: 1, step: 1 }}
+                            value={disciplinePoints}
+                            onChange={e => setDisciplinePoints(e.target.value)}
+                            sx={inputSx}
+                            helperText='Number of billet points to subtract from the member'
+                            FormHelperTextProps={{ style: { fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', margin: '4px 0 0' } }}
+                        />
+                    )}
 
                     <TextField
                         label='Action Notes (optional)'
@@ -330,6 +375,22 @@ function TicketSummaryCell({ t }: { t: TicketRow }) {
             </td>
         )
     }
+    if (t.type === 'discipline') {
+        return (
+            <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>
+                <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.5)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {t.disciplineReason}
+                </div>
+                {t.actionedPointsDeducted != null && (
+                    <Chip
+                        label={`-${t.actionedPointsDeducted} pts`}
+                        size='small'
+                        sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 1, height: 16, borderRadius: '2px', background: 'rgba(219,0,29,0.12)', color: 'var(--red)', marginTop: '3px' }}
+                    />
+                )}
+            </td>
+        )
+    }
     return (
         <td style={{ padding: '9px 14px', color: 'rgba(237,237,237,0.75)' }}>
             {t.qualification ?? t.awardName ?? t.proposedRank ?? '—'}
@@ -340,6 +401,7 @@ function TicketSummaryCell({ t }: { t: TicketRow }) {
 function ticketActionLabel(t: TicketRow) {
     if (t.type === 'move-request') return 'Move Request'
     if (t.type === 'j4-discharge') return 'Discharge'
+    if (t.type === 'discipline') return 'Discipline'
     if (t.action === 'promote') return 'Promote'
     if (t.action === 'demote') return 'Demote'
     if (t.action) return t.action
@@ -351,12 +413,14 @@ export default function TicketsPanel({
     canActionJ3,
     canActionJ4,
     canActionMoveRequest,
+    canActionDiscipline,
     displayName,
     userId,
 }: {
     canActionJ3: boolean
     canActionJ4: boolean
     canActionMoveRequest: boolean
+    canActionDiscipline: boolean
     displayName: string
     userId: string
 }) {
@@ -389,19 +453,25 @@ export default function TicketsPanel({
         return tickets.filter(t => {
             if (t.department === 'j3' && !canActionJ3) return false
             if (t.department === 'j4' && !canActionJ4) return false
-            if (t.department === 'allstaff' && !canActionMoveRequest) return false
+            if (t.department === 'allstaff') {
+                const canSee =
+                    (t.type === 'move-request' && canActionMoveRequest) ||
+                    (t.type === 'discipline' && canActionDiscipline)
+                if (!canSee) return false
+            }
             if (deptFilter !== 'all' && t.department !== deptFilter) return false
             if (statusFilter !== 'all' && t.status !== statusFilter) return false
-            if (q && ![t.targetUserName, t.qualification, t.issuedByName, t.awardName, t.proposedRank, t.fromSectionTitle, t.toSectionTitle].some(v => v?.toLowerCase().includes(q))) return false
+            if (q && ![t.targetUserName, t.qualification, t.issuedByName, t.awardName, t.proposedRank, t.fromSectionTitle, t.toSectionTitle, t.disciplineReason].some(v => v?.toLowerCase().includes(q))) return false
             return true
         })
-    }, [tickets, deptFilter, statusFilter, search, canActionJ3, canActionJ4, canActionMoveRequest])
+    }, [tickets, deptFilter, statusFilter, search, canActionJ3, canActionJ4, canActionMoveRequest, canActionDiscipline])
 
     const canAction = (t: TicketRow) =>
         t.status === 'open' && (
             (canActionJ3 && t.department === 'j3') ||
             (canActionJ4 && t.department === 'j4') ||
-            (canActionMoveRequest && t.department === 'allstaff')
+            (canActionMoveRequest && t.type === 'move-request') ||
+            (canActionDiscipline && t.type === 'discipline')
         )
 
     const selectSx = { minWidth: 130, ...inputSx }

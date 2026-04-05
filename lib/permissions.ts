@@ -123,6 +123,8 @@ const PERMISSIONS = {
         actionJ4: ['J4-Administration'],
         /** PATCH /api/admin/tickets/[id] — override-action move request tickets (specific approver check is in handler) */
         actionMoveRequest: ['HQ Staff'],
+        /** PATCH /api/admin/tickets/[id] — action discipline tickets */
+        actionDiscipline: ['J4-Administration'],
     },
 
 } satisfies Record<string, Record<string, string[]>>

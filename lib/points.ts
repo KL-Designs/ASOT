@@ -91,6 +91,9 @@ export interface MilpacImportCounts {
 
     // Manual adjustment from J4
     j4Points: number
+
+    // Discipline deductions (cumulative, always >= 0)
+    disciplineDeductions: number
 }
 
 // ── Point calculation ─────────────────────────────────────────────────────────
@@ -131,6 +134,9 @@ export function calculatePromotionPoints(counts: MilpacImportCounts): number {
 
     // Manual J4 adjustment (can be negative for discipline deductions)
     total += counts.j4Points
+
+    // Discipline deductions
+    total -= (counts.disciplineDeductions ?? 0)
 
     return Math.max(0, total)
 }

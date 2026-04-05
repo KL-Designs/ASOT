@@ -265,6 +265,35 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true, id: result.insertedId.toString() })
     }
 
+    // ── Discipline ────────────────────────────────────────────────────────────
+    if (type === 'discipline') {
+        // Any authenticated admin-page user can submit a discipline ticket
+        const { targetUserId, targetUserName, disciplineReason, notes } = body
+
+        if (!targetUserId || !targetUserName || !disciplineReason?.trim()) {
+            return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+        if (targetUserId === me.id) {
+            return NextResponse.json({ error: 'Cannot file a discipline ticket against yourself' }, { status: 400 })
+        }
+
+        const ticket: Omit<Ticket, '_id'> = {
+            type: 'discipline',
+            department: 'allstaff',
+            status: 'open',
+            targetUserId,
+            targetUserName,
+            issuedById: me.id,
+            issuedByName: displayName,
+            issuedAt: new Date(),
+            disciplineReason: disciplineReason.trim(),
+            ...(notes?.trim() ? { notes: notes.trim() } : {}),
+        }
+
+        const result = await Db.tickets.insertOne(ticket as Ticket)
+        return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+    }
+
     // ── J3 Qualification (default) ────────────────────────────────────────────
     if (!client.hasRoles(me, PERMISSIONS.departments.j3)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

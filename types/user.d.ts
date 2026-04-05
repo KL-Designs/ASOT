@@ -97,6 +97,16 @@ declare global {
             }[]
             promotionPoints?: number
             j4Points?: number
+            disciplineDeductions?: number
+            disciplineHistory?: {
+                date: string
+                points: number
+                reason: string
+                issuedById: string
+                issuedByName: string
+                approvedById: string
+                approvedByName: string
+            }[]
             billetCounts?: {
                 primaryNightOps: number
                 secondaryNightOps: number

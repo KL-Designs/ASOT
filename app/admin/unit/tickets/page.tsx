@@ -14,6 +14,7 @@ export default async function Page() {
     const canActionJ3 = client.hasRoles(me, PERMISSIONS.tickets.actionJ3)
     const canActionJ4 = client.hasRoles(me, PERMISSIONS.tickets.actionJ4)
     const canActionMoveRequest = client.hasRoles(me, PERMISSIONS.tickets.actionMoveRequest)
+    const canActionDiscipline = client.hasRoles(me, PERMISSIONS.tickets.actionDiscipline)
     const displayName = me.guild?.nickname || me.globalName || me.username || ''
 
     return (
@@ -21,6 +22,7 @@ export default async function Page() {
             canActionJ3={canActionJ3}
             canActionJ4={canActionJ4}
             canActionMoveRequest={canActionMoveRequest}
+            canActionDiscipline={canActionDiscipline}
             displayName={displayName}
             userId={me.id}
         />
