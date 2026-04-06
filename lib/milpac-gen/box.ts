@@ -1,6 +1,7 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas'
 import fs from 'fs'
 import path from 'path'
+import { AWARD_TO_CITATION } from './maps'
 import type { BoxData, Citation } from './types'
 
 // loadImage doesn't support Windows drive-letter paths (e.g. f:\...) — read as buffer first
@@ -28,34 +29,16 @@ const CONJOINED: string[] = [
     ...medalJSON.first_line.slice().reverse(),
 ]
 
-// Normalise raw award names to citation codes used by medals.json
-function normaliseMedalName(raw: string): string {
-    const campaignMap: Record<string, string> = {
-        'Campaign Medallion':                       'campaign',
-        'Campaign Medallion, First Clasp':          'campaign1',
-        'Campaign Medallion, Second Clasp':         'campaign2',
-        'Campaign Medallion, Third Clasp':          'campaign3',
-        'Campaign Medallion, Fourth Clasp':         'campaign4',
-        'Campaign Medallion, Fifth Clasp':          'campaign5',
-        'Campaign Medallion, Sixth Clasp':          'campaign6',
-        'Campaign Medallion, Seventh Clasp':        'campaign7',
-        'Campaign Medallion, Eighth Clasp':         'campaign8',
-        'Campaign Medallion, Ninth Clasp':          'campaign9',
-        'Campaign Medallion, Tenth Clasp':          'campaign10',
-        'Campaign Medallion, Eleventh Clasp':       'campaign11',
-        'Campaign Medallion, Twelfth Clasp':        'campaign12',
-        'Campaign Medallion, Thirteenth Clasp':     'campaign13',
-        'Campaign Medallion, Fourteenth Clasp':     'campaign14',
-        'Campaign Medallion, Fifteenth Clasp':      'campaign15',
-        'Campaign Medallion, Sixteenth Clasp':      'campaign16',
-    }
-    return campaignMap[raw] ?? raw.toLowerCase().replace(/[\s,]/g, '')
+// Normalise raw award names to citation codes used by medals.json.
+// Uses the same AWARD_TO_CITATION map as the uniform generator to guarantee consistency.
+function normaliseMedalName(raw: string): string | undefined {
+    return AWARD_TO_CITATION[raw]
 }
 
 export async function generateBox(rawData: BoxData): Promise<void> {
     if (!fs.existsSync(OUTPUT)) fs.mkdirSync(OUTPUT, { recursive: true })
 
-    const normalisedMedals = rawData.medals.map(normaliseMedalName)
+    const normalisedMedals = rawData.medals.map(normaliseMedalName).filter((m): m is string => m !== undefined)
 
     // Find medals that exist in the hierarchy, in display order
     const foundMedals = CONJOINED.filter(m => normalisedMedals.includes(m)).reverse()
