@@ -12,10 +12,14 @@ function loadFile(filePath: string) {
 const ASSETS = path.join(process.cwd(), 'public', 'milpac-assets')
 const OUTPUT = path.join(process.cwd(), 'milpacs')
 
-// Register Times New Roman from Windows system fonts (falls back gracefully if missing)
-const fontPath = 'C:\\Windows\\Fonts\\times.ttf'
+// Register Times New Roman — use the bundled asset copy so it works on Linux (production) too
+const fontPath = path.join(ASSETS, 'times.ttf')
 if (fs.existsSync(fontPath)) {
     GlobalFonts.registerFromPath(fontPath, 'Times New Roman')
+} else {
+    // Fallback to Windows system font for local dev if asset copy is somehow missing
+    const winFont = 'C:\\Windows\\Fonts\\times.ttf'
+    if (fs.existsSync(winFont)) GlobalFonts.registerFromPath(winFont, 'Times New Roman')
 }
 
 type MedalJson = { [line: string]: Citation[] }
