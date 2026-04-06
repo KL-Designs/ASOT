@@ -88,7 +88,7 @@ export default function DeptMembersTab({
         fetchDeptMembers()
         if (canManage) {
             setLoadingAll(true)
-            fetch('/api/admin/members')
+            fetch('/api/admin/members?limit=1000')
                 .then(r => r.json())
                 .then(d => setAllMembers(d.members ?? []))
                 .finally(() => setLoadingAll(false))

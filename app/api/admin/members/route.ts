@@ -25,7 +25,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const page   = Math.max(0, parseInt(searchParams.get('page')  ?? '0',  10) || 0)
-    const limit  = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? String(PAGE_SIZE), 10) || PAGE_SIZE))
+    const limit  = Math.min(1000, Math.max(1, parseInt(searchParams.get('limit') ?? String(PAGE_SIZE), 10) || PAGE_SIZE))
     const search = searchParams.get('search')?.trim() ?? ''
     const dept   = searchParams.get('department')
 
@@ -81,19 +81,31 @@ export async function GET(request: Request) {
         }
     }
 
-    const members = users.map(u => ({
-        id:             u.id,
-        username:       u.username,
-        name:           u.name           ?? null,
-        globalName:     u.globalName     ?? null,
-        guild:          u.guild          ?? null,
-        milpac:         u.milpac         ?? null,
-        avatar:         u.avatar         ?? null,
-        avatarDecoration: u.avatarDecoration ?? null,
-        hexAccentColor: u.hexAccentColor  ?? null,
-        teamLeadDepts:  u.teamLeadDepts  ?? [],
-        orbatEntry:     orbatMap[u.id]   ?? null,
-    }))
+    const members = users.map(u => {
+        const displayName =
+            u.name ||
+            u.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim() ||
+            u.globalName ||
+            u.username ||
+            u.id
+
+        return {
+            id:             u.id,
+            username:       u.username,
+            name:           u.name           ?? null,
+            globalName:     u.globalName     ?? null,
+            guild:          u.guild          ?? null,
+            milpac:         u.milpac         ?? null,
+            avatar:         u.avatar         ?? null,
+            avatarDecoration: u.avatarDecoration ?? null,
+            hexAccentColor: u.hexAccentColor  ?? null,
+            teamLeadDepts:  u.teamLeadDepts  ?? [],
+            orbatEntry:     orbatMap[u.id]   ?? null,
+            // Pre-computed fields for consumers that need flat shape (DeptMembersTab)
+            displayName,
+            currentRank:    u.milpac?.currentRank ?? null,
+        }
+    })
 
     return NextResponse.json({ members, total, page, limit })
 }
