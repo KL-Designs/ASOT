@@ -12,7 +12,7 @@ This document captures requested features and improvements for the ASOT milsim c
 - Update all labels, page titles, nav links, and any copy that says "Staff Portal" or "Staff Dashboard"
 - No permission logic changes required
 
-### Discord Role ↔ ORBAT Auto-Sync
+### Discord Role ↔ ORBAT Auto-Sync *(Deferred — future)*
 - When a member's ORBAT position changes on the website, their Discord guild roles should update automatically
 - Uses the existing bot token (no Discord.js — use Discord REST API directly from Next.js API routes)
 - Determine the role mapping: each ORBAT position/section should correspond to one or more Discord role IDs (may need a mapping config)
@@ -57,7 +57,7 @@ This document captures requested features and improvements for the ASOT milsim c
 - Members can opt-in to a reminder for any calendar event
 - Default reminder time: **1 hour before** the event
 - Members can set a **custom reminder time**
-- Reminder delivery: in-app notification **and** Discord DM/ping via the bot
+- Reminder delivery: in-app notification *(Discord DM/ping via bot — deferred to future)*
 
 ### Event Filtering
 - Add filter controls to the calendar view (admin panel `/admin/unit/calendar`)
@@ -83,8 +83,9 @@ This document captures requested features and improvements for the ASOT milsim c
 - Add a Steam ID64 lookup field that accepts a **custom Steam URL** and resolves it to the underlying ID64
 - Use the Steam API or a public resolver
 
-### Optional Integrations *(stretch goal)*
-- Optional fields to **link Steam account** and **link Discord account** via OAuth, rather than manual entry
+### Optional Integrations *(stretch goal — Discord parts deferred)*
+- Optional field to **link Steam account** via OAuth, rather than manual entry
+- Link Discord via OAuth — *deferred to future*
 
 ### Previous & Current Units — Separate Sections
 - If an applicant selects "yes" to both previous units and current units, show **two separate input sections**
@@ -116,7 +117,7 @@ This document captures requested features and improvements for the ASOT milsim c
 - **Discord**:
   - **Discord ID** is mandatory
   - Display the resolved Discord username/tag
-  - At first, show **applicant's Discord tag**; allow searching **all guild members** via Discord REST API (bot token)
+  - At first, show **applicant's Discord tag**; searching all guild members via bot — *deferred to future*
   - Display the Discord ID alongside the name
 - **Region**:
   - If "Other" is selected, show a text field to type their country
@@ -210,10 +211,15 @@ Ensure the mastersheet displays (at minimum):
 
 | Feature | Dependency |
 |---|---|
-| Discord role sync | Discord REST API, bot token, ORBAT position→role mapping config |
-| Discord member search (J1) | Discord REST API, bot token — no Discord.js (incompatible with Next.js) |
-| Calendar reminders (Discord) | Bot token, DM/notification endpoint |
 | RSVP/Confirmation automation | Scheduled jobs (cron or Next.js route + external scheduler) |
 | Latency test | Client-side fetch to region endpoints |
 | Steam ID64 lookup | Steam API or public resolver |
 | Notifications (in-app) | New DB collection + real-time delivery (polling or WebSocket) |
+
+### Deferred — Requires Discord Bot Integration
+| Feature | Dependency |
+|---|---|
+| Discord role ↔ ORBAT sync | Discord REST API, bot token, ORBAT position→role mapping config |
+| Discord guild member search (J1) | Discord REST API, bot token — no Discord.js (incompatible with Next.js) |
+| Calendar reminders via Discord | Bot token, DM/notification endpoint |
+| Link Discord via OAuth (applications) | Extended OAuth scopes |
