@@ -57,7 +57,7 @@ export function CoverUpload({ hasCover: initialHasCover }: { hasCover: boolean }
                     pointer-events: none;
                 }
             `}</style>
-            <div style={{ position: 'absolute', bottom: 16, right: 16, zIndex: 20, display: 'flex', gap: 8 }}>
+            <div style={{ position: 'absolute', top: 52, right: 16, zIndex: 20, display: 'flex', gap: 8 }}>
                 {hasCover && (
                     <button
                         title='Remove cover photo'
