@@ -13,13 +13,13 @@ export default function PlaceholderPanel({
             <div
                 className='flex flex-col px-5 py-4'
                 style={{
-                    border: '1px solid rgba(219,0,29,0.15)',
+                    border: '1px solid rgba(219,0,29,0.3)',
                     borderTop: '2px solid var(--red)',
-                    background: 'rgba(255,255,255,0.02)',
+                    background: 'rgba(255,255,255,0.04)',
                 }}
             >
                 <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
-                    Staff Portal
+                    Member Portal
                 </Typography>
                 <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
                     {title}

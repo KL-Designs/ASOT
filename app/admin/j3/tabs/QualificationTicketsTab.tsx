@@ -362,7 +362,7 @@ export default function QualificationTicketsTab({ displayName, userId }: { displ
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                                 <thead>
-                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
                                         {['Member', 'Action', 'Qualification', 'Status', 'Date'].map(h => (
                                             <th key={h} style={{ textAlign: 'left', padding: '6px 12px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>
                                                 {h}

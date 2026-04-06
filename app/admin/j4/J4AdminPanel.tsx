@@ -14,7 +14,7 @@ const inputSx = {
         '& fieldset': { borderColor: 'rgba(219,0,29,0.25)' },
         '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.5)' },
         '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
-        background: 'rgba(255,255,255,0.02)',
+        background: 'rgba(255,255,255,0.04)',
         color: '#ededed',
         borderRadius: 0,
     },
@@ -206,7 +206,7 @@ function DischargeModal({ open, onClose }: { open: boolean; onClose: () => void 
                         onClick={handleSubmit}
                         disabled={submitting}
                         style={{
-                            background: submitting ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.15)',
+                            background: submitting ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.3)',
                             border: '1px solid rgba(219,0,29,0.4)',
                             color: submitting ? 'rgba(237,237,237,0.4)' : '#ededed',
                             padding: '7px 18px',
@@ -325,7 +325,7 @@ function ReinstateModal({ open, onClose }: { open: boolean; onClose: () => void 
                                     alignItems: 'center',
                                     gap: 12,
                                     padding: '10px 12px',
-                                    background: 'rgba(255,255,255,0.02)',
+                                    background: 'rgba(255,255,255,0.04)',
                                     border: '1px solid rgba(255,255,255,0.05)',
                                 }}
                             >
@@ -412,9 +412,9 @@ export default function J4AdminPanel({ userId }: { userId: string }) {
                 className='flex flex-col px-5 py-4 mx-6 mt-6'
                 style={{
                     position: 'relative',
-                    border: '1px solid rgba(219,0,29,0.15)',
+                    border: '1px solid rgba(219,0,29,0.3)',
                     borderTop: '2px solid var(--red)',
-                    background: 'rgba(255,255,255,0.02)',
+                    background: 'rgba(255,255,255,0.04)',
                 }}
             >
                 <CornerBrackets />
@@ -430,7 +430,7 @@ export default function J4AdminPanel({ userId }: { userId: string }) {
                             style={{
                                 fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
                                 padding: '4px 10px',
-                                background: view === 'calendar' ? 'rgba(219,0,29,0.15)' : 'none',
+                                background: view === 'calendar' ? 'rgba(219,0,29,0.3)' : 'none',
                                 border: '1px solid rgba(219,0,29,0.25)',
                                 color: view === 'calendar' ? 'var(--foreground)' : 'rgba(237,237,237,0.4)',
                                 cursor: 'pointer',
@@ -445,7 +445,7 @@ export default function J4AdminPanel({ userId }: { userId: string }) {
             {view !== 'calendar' && (
                 <>
                     {/* Tabs */}
-                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
                         <Tabs
                             value={tab}
                             onChange={(_, v) => setTab(v)}
@@ -472,8 +472,8 @@ export default function J4AdminPanel({ userId }: { userId: string }) {
                                     style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                                 >
                                     <div
-                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
+                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
+                                        style={{ border: '1px solid rgba(219,0,29,0.3)', borderTop: '2px solid var(--red)' }}
                                     >
                                         <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
                                             Import<br />Panel
@@ -487,8 +487,8 @@ export default function J4AdminPanel({ userId }: { userId: string }) {
                                     style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                                 >
                                     <div
-                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
+                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
+                                        style={{ border: '1px solid rgba(219,0,29,0.3)', borderTop: '2px solid var(--red)' }}
                                     >
                                         <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
                                             Discharge<br />Member
@@ -502,7 +502,7 @@ export default function J4AdminPanel({ userId }: { userId: string }) {
                                     style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                                 >
                                     <div
-                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(0,195,100,0.06)]'
+                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(0,195,100,0.06)]'
                                         style={{ border: '1px solid rgba(0,195,100,0.15)', borderTop: '2px solid rgb(0,195,100)' }}
                                     >
                                         <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase', color: 'rgba(0,195,100,0.8)' }}>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Collapse } from '@mui/material'
 import {
     PersonAdd, Map, School, AdminPanelSettings, Collections,
@@ -15,11 +15,17 @@ import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface NavTab {
+    label: string
+    tab: number
+}
+
 interface NavItem {
     label: string
     href: string
     visible: boolean
     icon?: React.ReactNode
+    tabs?: NavTab[]
 }
 
 interface NavSection {
@@ -66,83 +72,164 @@ function NavRow({
     onNavigate?: () => void
 }) {
     const { isPinned, pin, unpin } = useFavourites()
+    const searchParams = useSearchParams()
     const [hovered, setHovered] = useState(false)
+    const [subExpanded, setSubExpanded] = useState(isActive)
     const pinned = isPinned(item.href)
+    const hasTabs = item.tabs && item.tabs.length > 0
+    const activeTab = isActive ? Number(searchParams.get('tab') ?? -1) : -1
+
+    // Auto-expand when navigating to this section
+    useEffect(() => {
+        if (isActive && hasTabs) setSubExpanded(true)
+    }, [isActive, hasTabs])
 
     return (
-        <div
-            style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-        >
-            <Link
-                href={item.href as never}
-                onClick={onNavigate}
-                style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '7px 36px 7px 16px',
-                    fontSize: '0.72rem',
-                    fontWeight: isActive ? 700 : 400,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    textDecoration: 'none',
-                    color: isActive ? 'rgba(237,237,237,0.95)' : 'rgba(237,237,237,0.45)',
-                    borderLeft: isActive ? '2px solid var(--red)' : '2px solid transparent',
-                    background: isActive
-                        ? 'rgba(219,0,29,0.07)'
-                        : hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
-                    transition: 'background 0.12s, color 0.12s',
-                }}
+        <div>
+            <div
+                style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
             >
-                {/* Active indicator glyph */}
-                <span style={{
-                    fontSize: '0.55rem',
-                    color: isActive ? 'var(--red)' : 'transparent',
-                    flexShrink: 0,
-                    transition: 'color 0.12s',
-                    lineHeight: 1,
-                }}>▸</span>
-                {item.icon && (
-                    <span style={{
+                <Link
+                    href={item.href as never}
+                    onClick={onNavigate}
+                    style={{
+                        flex: 1,
                         display: 'flex',
                         alignItems: 'center',
+                        gap: 6,
+                        padding: hasTabs ? '7px 52px 7px 16px' : '7px 36px 7px 16px',
+                        fontSize: '0.72rem',
+                        fontWeight: isActive ? 700 : 400,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        textDecoration: 'none',
+                        color: isActive ? 'rgba(237,237,237,0.95)' : 'rgba(237,237,237,0.45)',
+                        borderLeft: isActive ? '2px solid var(--red)' : '2px solid transparent',
+                        background: isActive
+                            ? 'rgba(219,0,29,0.07)'
+                            : hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+                        transition: 'background 0.12s, color 0.12s',
+                    }}
+                >
+                    {/* Active indicator glyph */}
+                    <span style={{
+                        fontSize: '0.55rem',
+                        color: isActive ? 'var(--red)' : 'transparent',
                         flexShrink: 0,
-                        color: isActive ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.22)',
                         transition: 'color 0.12s',
-                        fontSize: 14,
-                    }}>
-                        {item.icon}
-                    </span>
-                )}
-                {item.label}
-            </Link>
+                        lineHeight: 1,
+                    }}>▸</span>
+                    {item.icon && (
+                        <span style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            flexShrink: 0,
+                            color: isActive ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.22)',
+                            transition: 'color 0.12s',
+                            fontSize: 14,
+                        }}>
+                            {item.icon}
+                        </span>
+                    )}
+                    {item.label}
+                </Link>
 
-            {/* Pin icon */}
-            <span
-                onClick={e => {
-                    e.stopPropagation()
-                    pinned
-                        ? unpin(item.href)
-                        : pin({ id: item.href, label: item.label, href: item.href })
-                }}
-                title={pinned ? 'Remove from favourites' : 'Pin to favourites'}
-                style={{
-                    position: 'absolute',
-                    right: 10,
-                    fontSize: '0.6rem',
-                    color: pinned ? 'var(--red)' : 'rgba(237,237,237,0.3)',
-                    cursor: 'pointer',
-                    opacity: pinned ? 1 : hovered ? 0.8 : 0,
-                    transition: 'opacity 0.12s, color 0.12s',
-                    userSelect: 'none',
-                    lineHeight: 1,
-                }}
-            >
-                {pinned ? '★' : '☆'}
-            </span>
+                {/* Expand toggle for sub-tabs */}
+                {hasTabs && (
+                    <button
+                        onClick={e => { e.preventDefault(); setSubExpanded(p => !p) }}
+                        style={{
+                            position: 'absolute',
+                            right: 26,
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            fontSize: '0.55rem',
+                            fontFamily: 'monospace',
+                            color: subExpanded ? 'rgba(219,0,29,0.5)' : 'rgba(237,237,237,0.2)',
+                            lineHeight: 1,
+                            opacity: hovered || subExpanded ? 1 : 0.5,
+                            transition: 'opacity 0.12s, color 0.12s',
+                        }}
+                    >
+                        {subExpanded ? '[−]' : '[+]'}
+                    </button>
+                )}
+
+                {/* Pin icon */}
+                <span
+                    onClick={e => {
+                        e.stopPropagation()
+                        pinned
+                            ? unpin(item.href)
+                            : pin({ id: item.href, label: item.label, href: item.href })
+                    }}
+                    title={pinned ? 'Remove from favourites' : 'Pin to favourites'}
+                    style={{
+                        position: 'absolute',
+                        right: 10,
+                        fontSize: '0.6rem',
+                        color: pinned ? 'var(--red)' : 'rgba(237,237,237,0.3)',
+                        cursor: 'pointer',
+                        opacity: pinned ? 1 : hovered ? 0.8 : 0,
+                        transition: 'opacity 0.12s, color 0.12s',
+                        userSelect: 'none',
+                        lineHeight: 1,
+                    }}
+                >
+                    {pinned ? '★' : '☆'}
+                </span>
+            </div>
+
+            {/* Sub-tab rows */}
+            {hasTabs && (
+                <Collapse in={subExpanded}>
+                    <div className='flex flex-col pb-1'>
+                        {item.tabs!.map(t => {
+                            const isTabActive = isActive && activeTab === t.tab
+                            return (
+                                <Link
+                                    key={t.tab}
+                                    href={`${item.href}?tab=${t.tab}` as never}
+                                    onClick={onNavigate}
+                                    style={{
+                                        padding: '5px 16px 5px 44px',
+                                        fontSize: '0.65rem',
+                                        letterSpacing: '0.08em',
+                                        textTransform: 'uppercase',
+                                        textDecoration: 'none',
+                                        color: isTabActive ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.32)',
+                                        borderLeft: isTabActive ? '2px solid rgba(219,0,29,0.5)' : '2px solid transparent',
+                                        background: isTabActive ? 'rgba(219,0,29,0.04)' : 'transparent',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        transition: 'background 0.12s, color 0.12s',
+                                    }}
+                                    onMouseEnter={e => {
+                                        if (!isTabActive) {
+                                            (e.currentTarget as HTMLElement).style.color = 'rgba(237,237,237,0.65)'
+                                            ;(e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)'
+                                        }
+                                    }}
+                                    onMouseLeave={e => {
+                                        if (!isTabActive) {
+                                            (e.currentTarget as HTMLElement).style.color = 'rgba(237,237,237,0.32)'
+                                            ;(e.currentTarget as HTMLElement).style.background = 'transparent'
+                                        }
+                                    }}
+                                >
+                                    <span style={{ fontSize: '0.4rem', color: isTabActive ? 'rgba(219,0,29,0.6)' : 'rgba(237,237,237,0.18)', flexShrink: 0, lineHeight: 1 }}>▸</span>
+                                    {t.label}
+                                </Link>
+                            )
+                        })}
+                    </div>
+                </Collapse>
+            )}
         </div>
     )
 }
@@ -264,13 +351,45 @@ export default function StaffSidebar({
         {
             label: 'Departments',
             items: [
-                { label: '[J1] Recruitment',    href: '/admin/j1',      visible: permissions.canSeeJ1,  icon: <PersonAdd sx={{ fontSize: 14 }} /> },
-                { label: '[J2] Mission Making', href: '/admin/j2',      visible: permissions.canSeeJ2,  icon: <Map sx={{ fontSize: 14 }} /> },
-                { label: '[J3] Training',       href: '/admin/j3',      visible: permissions.canSeeJ3,  icon: <School sx={{ fontSize: 14 }} /> },
-                { label: '[J4] Administration', href: '/admin/j4',      visible: permissions.canSeeJ4,  icon: <AdminPanelSettings sx={{ fontSize: 14 }} /> },
-                { label: '[J5] Media',          href: '/admin/j5',      visible: permissions.canSeeJ5,  icon: <Collections sx={{ fontSize: 14 }} /> },
-                { label: '[J6] Game Masters',   href: '/admin/j6',      visible: permissions.canSeeJ6,  icon: <SportsEsports sx={{ fontSize: 14 }} /> },
-                { label: '[J7] Development',    href: '/admin/j7',      visible: permissions.canSeeJ7,  icon: <Code sx={{ fontSize: 14 }} /> },
+                {
+                    label: '[J1] Recruitment', href: '/admin/j1', visible: permissions.canSeeJ1, icon: <PersonAdd sx={{ fontSize: 14 }} />,
+                    tabs: [
+                        { label: 'Applications',   tab: 0 },
+                        { label: 'Recruit Member', tab: 1 },
+                        { label: 'Mastersheet',    tab: 2 },
+                        { label: 'Meetings',       tab: 3 },
+                        { label: 'Statistics',     tab: 4 },
+                    ],
+                },
+                {
+                    label: '[J2] Mission Making', href: '/admin/j2', visible: permissions.canSeeJ2, icon: <Map sx={{ fontSize: 14 }} />,
+                    tabs: [
+                        { label: 'Operations', tab: 0 },
+                    ],
+                },
+                {
+                    label: '[J3] Training', href: '/admin/j3', visible: permissions.canSeeJ3, icon: <School sx={{ fontSize: 14 }} />,
+                    tabs: [
+                        { label: 'Qual Tickets',   tab: 0 },
+                        { label: 'Promo Tickets',  tab: 1 },
+                        { label: 'Training Sched', tab: 2 },
+                    ],
+                },
+                {
+                    label: '[J4] Administration', href: '/admin/j4', visible: permissions.canSeeJ4, icon: <AdminPanelSettings sx={{ fontSize: 14 }} />,
+                    tabs: [
+                        { label: 'Tools', tab: 0 },
+                    ],
+                },
+                {
+                    label: '[J5] Media', href: '/admin/j5', visible: permissions.canSeeJ5, icon: <Collections sx={{ fontSize: 14 }} />,
+                    tabs: [
+                        { label: 'Gallery',              tab: 0 },
+                        { label: 'Screenshot of Month',  tab: 1 },
+                    ],
+                },
+                { label: '[J6] Game Masters', href: '/admin/j6', visible: permissions.canSeeJ6, icon: <SportsEsports sx={{ fontSize: 14 }} /> },
+                { label: '[J7] Development',  href: '/admin/j7', visible: permissions.canSeeJ7, icon: <Code sx={{ fontSize: 14 }} /> },
             ],
         },
         {
@@ -307,7 +426,7 @@ export default function StaffSidebar({
                 style={{
                     position: 'relative',
                     padding: '18px 16px 16px',
-                    borderBottom: '1px solid rgba(219,0,29,0.15)',
+                    borderBottom: '1px solid rgba(219,0,29,0.3)',
                     background: 'rgba(0,0,0,0.25)',
                 }}
             >
@@ -325,7 +444,7 @@ export default function StaffSidebar({
 
                 {/* Portal title */}
                 <div style={{ fontSize: '0.82rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1.1, marginBottom: 10 }}>
-                    Staff Portal
+                    Member Portal
                 </div>
 
                 {/* Divider */}
@@ -408,7 +527,7 @@ export default function StaffSidebar({
             {/* ── Footer ──────────────────────────────────────────────────── */}
             <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid rgba(219,0,29,0.1)' }}>
                 <div style={{ fontSize: '0.5rem', fontFamily: 'monospace', letterSpacing: '0.15em', color: 'rgba(237,237,237,0.12)', textTransform: 'uppercase', lineHeight: 1.8 }}>
-                    <div>SYS // STAFF-PORTAL</div>
+                    <div>SYS // MEMBER-PORTAL</div>
                     <div>AUTH // DISCORD-SSO</div>
                 </div>
             </div>

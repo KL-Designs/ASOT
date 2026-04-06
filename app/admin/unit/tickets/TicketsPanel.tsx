@@ -131,7 +131,7 @@ function ActionModal({ ticket, userId, onClose, onResolved, readOnly = false }: 
                 },
             }}
         >
-            <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+            <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
                 <Typography fontWeight={700} fontSize='0.8rem' letterSpacing={2} style={{ textTransform: 'uppercase' }}>
                     {readOnly
                         ? (isMoveRequest ? 'Move Request' : isDischarge ? 'Discharge' : isDiscipline ? 'Discipline' : isPerformanceReport ? 'Performance Report' : 'Ticket Details')
@@ -146,7 +146,7 @@ function ActionModal({ ticket, userId, onClose, onResolved, readOnly = false }: 
                     {/* Ticket details */}
                     <div
                         className='flex flex-col gap-3 p-4'
-                        style={{ border: '1px solid rgba(219,0,29,0.1)', background: 'rgba(255,255,255,0.02)' }}
+                        style={{ border: '1px solid rgba(219,0,29,0.1)', background: 'rgba(255,255,255,0.04)' }}
                     >
                         {isMoveRequest ? (
                             <>
@@ -270,7 +270,7 @@ function ActionModal({ ticket, userId, onClose, onResolved, readOnly = false }: 
                             {(ticket.actionedByName || ticket.actionedAt) && (
                                 <div
                                     className='flex gap-4 p-3'
-                                    style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}
+                                    style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.04)' }}
                                 >
                                     {ticket.actionedByName && <Field label='Actioned By' value={ticket.actionedByName} />}
                                     {ticket.actionedAt && <Field label='Actioned On' value={formatDate(ticket.actionedAt)} />}
@@ -601,9 +601,9 @@ export default function TicketsPanel({
             <div
                 className='flex flex-col px-5 py-4 mx-6 mt-6'
                 style={{
-                    border: '1px solid rgba(219,0,29,0.15)',
+                    border: '1px solid rgba(219,0,29,0.3)',
                     borderTop: '2px solid var(--red)',
-                    background: 'rgba(255,255,255,0.02)',
+                    background: 'rgba(255,255,255,0.04)',
                 }}
             >
                 <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
@@ -669,7 +669,7 @@ export default function TicketsPanel({
                 ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                         <thead>
-                            <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                            <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
                                 {['Dept', 'Member', 'Action', 'Details', 'Issued By', 'Date', 'Status', ''].map((h, i) => (
                                     <th key={i} style={{ textAlign: 'left', padding: '10px 14px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>
                                         {h}

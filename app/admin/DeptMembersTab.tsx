@@ -202,7 +202,7 @@ export default function DeptMembersTab({
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
                                     <th style={thStyle}>Name</th>
                                     <th style={thStyle}>Rank</th>
                                     {canManage && <th style={{ ...thStyle, textAlign: 'right' }} />}
@@ -290,7 +290,7 @@ export default function DeptMembersTab({
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
                                     <th style={thStyle}>Name</th>
                                     <th style={thStyle}>Rank</th>
                                     {canManage && <th style={{ ...thStyle, textAlign: 'right' }} />}

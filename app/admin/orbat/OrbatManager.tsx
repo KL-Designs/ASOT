@@ -33,9 +33,9 @@ import { CSS } from '@dnd-kit/utilities'
 
 
 const tileStyle = {
-    border: '1px solid rgba(219,0,29,0.15)',
+    border: '1px solid rgba(219,0,29,0.3)',
     borderTop: '2px solid var(--red)',
-    background: 'rgba(255,255,255,0.02)',
+    background: 'rgba(255,255,255,0.04)',
 }
 
 const rowStyle = {
@@ -1179,9 +1179,9 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             <div
                 className='flex flex-col px-5 py-4'
                 style={{
-                    border: '1px solid rgba(219,0,29,0.15)',
+                    border: '1px solid rgba(219,0,29,0.3)',
                     borderTop: '2px solid var(--red)',
-                    background: 'rgba(255,255,255,0.02)',
+                    background: 'rgba(255,255,255,0.04)',
                 }}
             >
                 <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
@@ -1491,7 +1491,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                     <button onClick={() => setMilpacConfirmClose(false)} style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.5)', padding: '6px 16px', cursor: 'pointer' }}>
                         Keep Editing
                     </button>
-                    <button onClick={confirmCloseMilpac} style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'rgba(219,0,29,0.15)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.9)', padding: '6px 16px', cursor: 'pointer' }}>
+                    <button onClick={confirmCloseMilpac} style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'rgba(219,0,29,0.3)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.9)', padding: '6px 16px', cursor: 'pointer' }}>
                         Discard & Close
                     </button>
                 </DialogActions>

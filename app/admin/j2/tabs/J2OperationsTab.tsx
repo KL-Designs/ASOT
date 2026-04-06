@@ -94,14 +94,14 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
                         const tid = t._id.toString()
                         const isApplying = applying === tid
                         return (
-                            <div key={tid} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+                            <div key={tid} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.04)' }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'rgba(237,237,237,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
                                     <div style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.3)', marginTop: 3 }}>
                                         {t.sections?.length ?? 0} section{(t.sections?.length ?? 0) !== 1 ? 's' : ''} · {new Date(t.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
                                     </div>
                                 </div>
-                                <button onClick={() => apply(tid)} disabled={!!applying} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 14px', cursor: applying ? 'not-allowed' : 'pointer', background: isApplying ? 'rgba(219,0,29,0.15)' : 'var(--red)', border: '1px solid var(--red)', color: 'white', transition: 'background 0.15s' }}>
+                                <button onClick={() => apply(tid)} disabled={!!applying} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 14px', cursor: applying ? 'not-allowed' : 'pointer', background: isApplying ? 'rgba(219,0,29,0.3)' : 'var(--red)', border: '1px solid var(--red)', color: 'white', transition: 'background 0.15s' }}>
                                     <Add style={{ fontSize: 13 }} />{isApplying ? 'Creating…' : 'Use'}
                                 </button>
                             </div>
@@ -164,7 +164,7 @@ function AssignCampaignSection({ op, onAssigned, onRemoved }: {
                     width: '100%', padding: '6px 14px',
                     color: currentCampaignId ? 'rgba(100,150,237,0.75)' : 'rgba(237,237,237,0.25)',
                     fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                    background: open ? 'rgba(255,255,255,0.02)' : 'transparent',
+                    background: open ? 'rgba(255,255,255,0.04)' : 'transparent',
                     transition: 'background 0.15s',
                 }}
             >
@@ -193,7 +193,7 @@ function AssignCampaignSection({ op, onAssigned, onRemoved }: {
                                     all: 'unset', cursor: busy ? 'not-allowed' : 'pointer',
                                     display: 'flex', alignItems: 'center', gap: 8,
                                     padding: '5px 10px',
-                                    background: isActive ? 'rgba(100,150,237,0.08)' : 'rgba(255,255,255,0.02)',
+                                    background: isActive ? 'rgba(100,150,237,0.08)' : 'rgba(255,255,255,0.04)',
                                     border: `1px solid ${isActive ? 'rgba(100,150,237,0.3)' : 'rgba(255,255,255,0.06)'}`,
                                     color: isActive ? 'rgba(100,150,237,0.9)' : 'rgba(237,237,237,0.6)',
                                     fontSize: '0.75rem', fontWeight: isActive ? 700 : 400,
@@ -247,7 +247,7 @@ function NotesRow({ op, onSaved }: { op: Operation; onSaved: (id: string, notes:
                     width: '100%', padding: '6px 14px',
                     color: op.internalNotes ? 'rgba(219,160,0,0.75)' : 'rgba(237,237,237,0.25)',
                     fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                    background: open ? 'rgba(255,255,255,0.02)' : 'transparent', transition: 'background 0.15s',
+                    background: open ? 'rgba(255,255,255,0.04)' : 'transparent', transition: 'background 0.15s',
                 }}
             >
                 <NoteAlt style={{ fontSize: 13 }} />
@@ -899,7 +899,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                                 <thead>
-                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
                                         {['Title', 'Deleted By', 'Deleted On', 'Days Remaining', ''].map(h => (
                                             <th key={h} style={{ textAlign: 'left', padding: '6px 12px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>
                                                 {h}

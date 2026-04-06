@@ -125,7 +125,7 @@ export default function AllMembersPanel({
                 className='flex flex-col flex-shrink-0'
                 style={{
                     width: 300,
-                    borderRight: '1px solid rgba(219,0,29,0.15)',
+                    borderRight: '1px solid rgba(219,0,29,0.3)',
                     background: 'rgba(0,0,0,0.15)',
                     overflow: 'hidden',
                 }}
@@ -133,7 +133,7 @@ export default function AllMembersPanel({
                 {/* Header */}
                 <div
                     className='px-4 py-3 flex-shrink-0'
-                    style={{ borderBottom: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
+                    style={{ borderBottom: '1px solid rgba(219,0,29,0.3)', borderTop: '2px solid var(--red)' }}
                 >
                     <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 2 }}>
                         Personnel

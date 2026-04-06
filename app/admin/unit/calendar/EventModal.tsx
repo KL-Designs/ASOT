@@ -198,7 +198,7 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                borderBottom: '1px solid rgba(219,0,29,0.15)',
+                borderBottom: '1px solid rgba(219,0,29,0.3)',
                 pb: 1.5,
             }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase' }}>

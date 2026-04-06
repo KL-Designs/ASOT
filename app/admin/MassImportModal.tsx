@@ -101,7 +101,7 @@ export default function MassImportModal({ open, onClose }: Props) {
                 </Typography>
             </DialogTitle>
 
-            <Divider sx={{ borderColor: 'rgba(219,0,29,0.15)' }} />
+            <Divider sx={{ borderColor: 'rgba(219,0,29,0.3)' }} />
 
             <DialogContent sx={{ pt: 3 }}>
 
@@ -266,7 +266,7 @@ export default function MassImportModal({ open, onClose }: Props) {
 
             </DialogContent>
 
-            <Divider sx={{ borderColor: 'rgba(219,0,29,0.15)' }} />
+            <Divider sx={{ borderColor: 'rgba(219,0,29,0.3)' }} />
 
             <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
                 {step === 'upload' && (

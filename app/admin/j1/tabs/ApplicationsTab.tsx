@@ -182,7 +182,7 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
                             </div>
                             <div className='flex flex-wrap gap-2'>
                                 {app.additionalRoles.map(r => (
-                                    <Chip key={r} label={r} size='small' sx={{ borderRadius: 0, fontSize: '0.72rem', background: 'rgba(219,0,29,0.08)', color: 'rgba(237,237,237,0.7)', border: '1px solid rgba(219,0,29,0.15)' }} />
+                                    <Chip key={r} label={r} size='small' sx={{ borderRadius: 0, fontSize: '0.72rem', background: 'rgba(219,0,29,0.08)', color: 'rgba(237,237,237,0.7)', border: '1px solid rgba(219,0,29,0.3)' }} />
                                 ))}
                             </div>
                         </div>
@@ -226,7 +226,7 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
                             <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 6 }}>
                                 Experience
                             </div>
-                            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)', whiteSpace: 'pre-wrap', lineHeight: 1.7, background: 'rgba(255,255,255,0.02)', padding: '10px 12px', border: '1px solid rgba(219,0,29,0.08)' }}>
+                            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)', whiteSpace: 'pre-wrap', lineHeight: 1.7, background: 'rgba(255,255,255,0.04)', padding: '10px 12px', border: '1px solid rgba(219,0,29,0.08)' }}>
                                 {app.experience}
                             </div>
                         </div>
@@ -494,7 +494,7 @@ export default function ApplicationsTab() {
             </div>
 
             {/* Column headers */}
-            <div className='grid gap-3 px-4 py-2 mx-4 mt-3' style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr', borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+            <div className='grid gap-3 px-4 py-2 mx-4 mt-3' style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr', borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
                 {([
                     { label: 'Discord', key: 'discordUsername' },
                     { label: 'In-Game Name', key: 'inGameName' },
@@ -540,7 +540,7 @@ export default function ApplicationsTab() {
                             className='grid gap-3 px-4 py-3 cursor-pointer transition-colors'
                             style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr', borderBottom: '1px solid rgba(219,0,29,0.08)' }}
                             onClick={() => setSelected(app)}
-                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
                             <span style={{ fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -599,7 +599,7 @@ export default function ApplicationsTab() {
                                         <button
                                             key={item}
                                             onClick={() => setPage(item as number)}
-                                            style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 8px', minWidth: 30, background: page === item ? 'rgba(219,0,29,0.15)' : 'transparent', border: '1px solid', borderColor: page === item ? 'var(--red)' : 'rgba(219,0,29,0.2)', color: page === item ? 'var(--foreground)' : 'rgba(237,237,237,0.5)', cursor: 'pointer' }}
+                                            style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 8px', minWidth: 30, background: page === item ? 'rgba(219,0,29,0.3)' : 'transparent', border: '1px solid', borderColor: page === item ? 'var(--red)' : 'rgba(219,0,29,0.2)', color: page === item ? 'var(--foreground)' : 'rgba(237,237,237,0.5)', cursor: 'pointer' }}
                                         >
                                             {(item as number) + 1}
                                         </button>

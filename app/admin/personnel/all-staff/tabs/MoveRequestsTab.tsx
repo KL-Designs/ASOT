@@ -398,7 +398,7 @@ export default function MoveRequestsTab({ userId, displayName }: { userId: strin
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                                 <thead>
-                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
                                         {['Member', 'From', 'To', 'Requested By', 'Date', 'Action'].map(h => (
                                             <th key={h} style={thStyle}>{h}</th>
                                         ))}
@@ -478,7 +478,7 @@ export default function MoveRequestsTab({ userId, displayName }: { userId: strin
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
                                     {['Member', 'From', 'To', 'Status', 'Date'].map(h => (
                                         <th key={h} style={thStyle}>{h}</th>
                                     ))}

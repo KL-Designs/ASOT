@@ -8,7 +8,7 @@ const inputSx = {
         borderRadius: 0,
         fontSize: '0.82rem',
         color: '#ededed',
-        background: 'rgba(255,255,255,0.02)',
+        background: 'rgba(255,255,255,0.04)',
         '& fieldset': { borderColor: 'rgba(219,0,29,0.2)' },
         '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.4)' },
         '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
@@ -149,7 +149,7 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
                 ) : (
                     <div className='flex flex-col gap-4'>
                         {/* Preview */}
-                        <div style={{ position: 'relative', maxWidth: 480, aspectRatio: '16/9', background: '#0a0a0a', border: '1px solid rgba(219,0,29,0.15)' }}>
+                        <div style={{ position: 'relative', maxWidth: 480, aspectRatio: '16/9', background: '#0a0a0a', border: '1px solid rgba(219,0,29,0.3)' }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src='/api/gallery/sotm/image'

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { Drawer } from '@mui/material'
 import StaffSidebar from './StaffSidebar'
 
@@ -42,7 +42,9 @@ export default function StaffDashboardShell({
                     background: 'rgba(8,8,8,0.98)',
                 }}
             >
-                <StaffSidebar permissions={permissions} />
+                <Suspense>
+                    <StaffSidebar permissions={permissions} />
+                </Suspense>
             </div>
 
             {/* Mobile: side pull tab */}
@@ -97,11 +99,13 @@ export default function StaffDashboardShell({
                     },
                 }}
             >
-                <StaffSidebar permissions={permissions} onNavigate={() => setDrawerOpen(false)} />
+                <Suspense>
+                    <StaffSidebar permissions={permissions} onNavigate={() => setDrawerOpen(false)} />
+                </Suspense>
             </Drawer>
 
             {/* Content area */}
-            <div className='flex-1 min-w-0'>
+            <div className='flex-1 min-w-0' style={{ background: 'var(--workspace)' }}>
                 {children}
             </div>
 

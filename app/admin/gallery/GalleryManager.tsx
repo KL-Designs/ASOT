@@ -33,9 +33,9 @@ type DeleteFolderTarget = {
 
 
 const tileStyle = {
-    border: '1px solid rgba(219,0,29,0.15)',
+    border: '1px solid rgba(219,0,29,0.3)',
     borderTop: '2px solid var(--red)',
-    background: 'rgba(255,255,255,0.02)',
+    background: 'rgba(255,255,255,0.04)',
 }
 
 const rowStyle = {

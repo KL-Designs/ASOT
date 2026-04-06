@@ -31,5 +31,6 @@ export function useFavourites() {
         pin:      (fav: Favourite) => save([...favourites.filter(f => f.id !== fav.id), fav]),
         unpin:    (id: string)     => save(favourites.filter(f => f.id !== id)),
         isPinned: (id: string)     => favourites.some(f => f.id === id),
+        reorder:  (next: Favourite[]) => save(next),
     }
 }

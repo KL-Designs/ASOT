@@ -102,7 +102,7 @@ function DetailModal({ app, onClose }: { app: Application; onClose: () => void }
                             </div>
                             <div className='flex flex-wrap gap-2'>
                                 {app.additionalRoles.map(r => (
-                                    <Chip key={r} label={r} size='small' sx={{ borderRadius: 0, fontSize: '0.72rem', background: 'rgba(219,0,29,0.08)', color: 'rgba(237,237,237,0.7)', border: '1px solid rgba(219,0,29,0.15)' }} />
+                                    <Chip key={r} label={r} size='small' sx={{ borderRadius: 0, fontSize: '0.72rem', background: 'rgba(219,0,29,0.08)', color: 'rgba(237,237,237,0.7)', border: '1px solid rgba(219,0,29,0.3)' }} />
                                 ))}
                             </div>
                         </div>
@@ -146,7 +146,7 @@ function DetailModal({ app, onClose }: { app: Application; onClose: () => void }
                             <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 6 }}>
                                 Experience
                             </div>
-                            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)', whiteSpace: 'pre-wrap', lineHeight: 1.7, background: 'rgba(255,255,255,0.02)', padding: '10px 12px', border: '1px solid rgba(0,195,100,0.08)' }}>
+                            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)', whiteSpace: 'pre-wrap', lineHeight: 1.7, background: 'rgba(255,255,255,0.04)', padding: '10px 12px', border: '1px solid rgba(0,195,100,0.08)' }}>
                                 {app.experience}
                             </div>
                         </div>

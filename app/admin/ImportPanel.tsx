@@ -334,7 +334,7 @@ function AttendanceImportTab() {
             {step === 'resolve' && importResult && (
                 <>
                     <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                        <Chip label={`${importResult.operationsProcessed} operations processed`} size='small' sx={{ background: 'rgba(219,0,29,0.15)', color: 'rgba(237,237,237,0.7)', fontSize: '0.7rem' }} />
+                        <Chip label={`${importResult.operationsProcessed} operations processed`} size='small' sx={{ background: 'rgba(219,0,29,0.3)', color: 'rgba(237,237,237,0.7)', fontSize: '0.7rem' }} />
                         <Chip label={`${importResult.membersMatched} members matched`} size='small' sx={{ background: 'rgba(76,175,80,0.15)', color: 'rgba(237,237,237,0.7)', fontSize: '0.7rem' }} />
                         <Chip label={`${importResult.unmatched.length} unmatched`} size='small' sx={{ background: 'rgba(255,152,0,0.15)', color: 'rgba(237,237,237,0.7)', fontSize: '0.7rem' }} />
                     </Box>
@@ -636,7 +636,7 @@ function ApplicationRecordsTab() {
 
                     {/* Preview */}
                     <Box sx={{ border: '1px solid rgba(219,0,29,0.1)', overflow: 'hidden' }}>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 50px 90px 130px', gap: 1.5, px: 1.5, py: 1, background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 50px 90px 130px', gap: 1.5, px: 1.5, py: 1, background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
                             {['Discord', 'Age', 'Status', 'Submitted'].map(h => (
                                 <Typography key={h} fontSize='0.58rem' fontWeight={700} sx={{ letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>{h}</Typography>
                             ))}
@@ -705,7 +705,7 @@ export default function ImportPanel({ open, onClose }: Props) {
                 </Typography>
             </DialogTitle>
 
-            <Divider sx={{ borderColor: 'rgba(219,0,29,0.15)' }} />
+            <Divider sx={{ borderColor: 'rgba(219,0,29,0.3)' }} />
 
             <Tabs
                 value={tab}
@@ -730,7 +730,7 @@ export default function ImportPanel({ open, onClose }: Props) {
                 {tab === 2 && <ApplicationRecordsTab />}
             </DialogContent>
 
-            <Divider sx={{ borderColor: 'rgba(219,0,29,0.15)' }} />
+            <Divider sx={{ borderColor: 'rgba(219,0,29,0.3)' }} />
 
             <DialogActions sx={{ px: 3, py: 2 }}>
                 <Button onClick={handleClose} size='small' sx={ghostBtn}>Close</Button>

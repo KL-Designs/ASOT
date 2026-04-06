@@ -52,7 +52,7 @@ const tooltipStyle = {
 
 const axisStyle = {
     tick: { fill: 'rgba(237,237,237,0.35)', fontSize: 11 },
-    axisLine: { stroke: 'rgba(219,0,29,0.15)' },
+    axisLine: { stroke: 'rgba(219,0,29,0.3)' },
     tickLine: false as const,
 }
 

@@ -38,7 +38,7 @@ export default function J5Panel({
         letterSpacing: '0.12em',
         textTransform: 'uppercase',
         padding: '4px 10px',
-        background: active ? 'rgba(219,0,29,0.15)' : 'none',
+        background: active ? 'rgba(219,0,29,0.3)' : 'none',
         border: '1px solid rgba(219,0,29,0.25)',
         color: active ? 'var(--foreground)' : 'rgba(237,237,237,0.4)',
         cursor: 'pointer',
@@ -50,9 +50,9 @@ export default function J5Panel({
                 className='flex flex-col px-5 py-4 mx-6 mt-6'
                 style={{
                     position: 'relative',
-                    border: '1px solid rgba(219,0,29,0.15)',
+                    border: '1px solid rgba(219,0,29,0.3)',
                     borderTop: '2px solid var(--red)',
-                    background: 'rgba(255,255,255,0.02)',
+                    background: 'rgba(255,255,255,0.04)',
                 }}
             >
                 <CornerBrackets />
@@ -78,7 +78,7 @@ export default function J5Panel({
             )}
             {view === 'dept' && (
                 <>
-                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
                         <Tabs
                             value={tab}
                             onChange={(_, v) => setTab(v)}

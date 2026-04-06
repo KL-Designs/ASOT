@@ -4,6 +4,7 @@
 
 :root {
 	--background: rgb(10, 10, 10);
+	--workspace: rgb(16, 16, 16);
 	--foreground: rgb(237, 237, 237);
 
 	--primary: rgb(189, 9, 24);

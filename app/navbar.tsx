@@ -156,7 +156,7 @@ export default function Navbar() {
                         </Link>
 
                         {user && (user as any).isStaff && (
-                            <Link href='/admin' title='Staff Portal' className='self-center hidden md:block'>
+                            <Link href='/admin' title='Member Portal' className='self-center hidden md:block'>
                                 <div className={Navigation['nav-button']} style={{ color: '#00c3ff', borderColor: 'rgba(0,195,255,0.4)', filter: 'drop-shadow(0 0 4px rgba(0,195,255,0.3))' }}>
                                     <AdminPanelSettings style={{ fontSize: 20 }} />
                                 </div>
@@ -262,7 +262,7 @@ export default function Navbar() {
                                 <AdminPanelSettings style={{ fontSize: 20, filter: 'drop-shadow(0 0 6px #00c3ff)' }} />
                                 <div className='flex flex-col'>
                                     <span style={{ fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.1em', textShadow: '0 0 10px rgba(0,195,255,0.6)' }}>
-                                        STAFF PORTAL
+                                        MEMBER PORTAL
                                     </span>
                                     <span style={{ fontSize: '0.65rem', color: 'rgba(0,195,255,0.5)', letterSpacing: '0.05em' }}>
                                         Admin access
@@ -480,7 +480,7 @@ function ProfileDropdown({ user }: { user: User }) {
                                 <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px', background: 'rgba(0,195,255,0.04)' }}
                                     sx={{ '&:hover': { backgroundColor: 'rgba(0,195,255,0.1) !important' } }}>
                                     <AdminPanelSettings style={{ fontSize: 17, color: '#00c3ff', filter: 'drop-shadow(0 0 4px #00c3ff)' }} />
-                                    <span style={{ fontSize: '0.80rem', fontWeight: 600, letterSpacing: '0.06em', color: '#00c3ff', textShadow: '0 0 8px rgba(0,195,255,0.5)' }}>STAFF PORTAL</span>
+                                    <span style={{ fontSize: '0.80rem', fontWeight: 600, letterSpacing: '0.06em', color: '#00c3ff', textShadow: '0 0 8px rgba(0,195,255,0.5)' }}>MEMBER PORTAL</span>
                                 </MenuItem>
                             </Link>
                         </>

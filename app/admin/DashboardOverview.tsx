@@ -2,9 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { Typography } from '@mui/material'
-import { useFavourites } from '@/hooks/useFavourites'
+import {
+    DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+    type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+    SortableContext, rectSortingStrategy, useSortable, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { useFavourites, type Favourite } from '@/hooks/useFavourites'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 import type { DashboardPermissions } from './StaffDashboardShell'
 
@@ -51,76 +58,156 @@ function SectionLabel({ label }: { label: string }) {
     )
 }
 
-// ── Quick-access card definitions ─────────────────────────────────────────────
+// ── Derive card appearance from favourite href ─────────────────────────────────
 
-interface QuickCard {
-    code: string
-    name: string
-    href: string
-    color: string
-    visible: boolean
+function deriveCard(fav: Favourite): { code: string; color: string } {
+    const h = fav.href
+    if (h.includes('/j1'))            return { code: 'J1',  color: '#3b82f6' }
+    if (h.includes('/j2'))            return { code: 'J2',  color: '#8b5cf6' }
+    if (h.includes('/j3'))            return { code: 'J3',  color: '#10b981' }
+    if (h.includes('/j4'))            return { code: 'J4',  color: '#ef4444' }
+    if (h.includes('/j5') || h.includes('/gallery')) return { code: 'J5', color: '#f59e0b' }
+    if (h.includes('/j6'))            return { code: 'J6',  color: '#06b6d4' }
+    if (h.includes('/j7'))            return { code: 'J7',  color: '#a78bfa' }
+    if (h.includes('/calendar'))      return { code: 'CAL', color: 'rgba(219,0,29,0.85)' }
+    if (h.includes('/orbat'))         return { code: 'ORB', color: 'rgba(219,0,29,0.7)' }
+    if (h.includes('/personnel'))     return { code: 'PER', color: 'rgba(219,0,29,0.6)' }
+    if (h.includes('/training-docs')) return { code: 'TRN', color: 'rgba(237,237,237,0.4)' }
+    if (h.includes('/sops'))          return { code: 'SOP', color: 'rgba(237,237,237,0.4)' }
+    if (h.includes('/tickets'))       return { code: 'TKT', color: 'rgba(237,237,237,0.4)' }
+    return { code: fav.label.slice(0, 3).toUpperCase(), color: 'rgba(219,0,29,0.7)' }
 }
 
-function buildCards(p: DashboardPermissions): QuickCard[] {
-    return [
-        { code: 'J1', name: 'Recruitment',    href: '/admin/j1',                  color: '#3b82f6', visible: p.canSeeJ1 },
-        { code: 'J2', name: 'Mission Making',  href: '/admin/j2',                  color: '#8b5cf6', visible: p.canSeeJ2 },
-        { code: 'J3', name: 'Training',        href: '/admin/j3',                  color: '#10b981', visible: p.canSeeJ3 },
-        { code: 'J4', name: 'Administration',  href: '/admin/j4',                  color: '#ef4444', visible: p.canSeeJ4 },
-        { code: 'J5', name: 'Media',           href: '/admin/gallery',             color: '#f59e0b', visible: p.canSeeJ5 },
-        { code: 'J6', name: 'Game Masters',    href: '/admin/j6',                  color: '#06b6d4', visible: p.canSeeJ6 },
-        { code: 'J7', name: 'Development',     href: '/admin/j7',                  color: '#a78bfa', visible: p.canSeeJ7 },
-        { code: 'CAL', name: 'Unit Calendar',  href: '/admin/unit/calendar',       color: 'rgba(219,0,29,0.85)', visible: true },
-        { code: 'ORB', name: 'ORBAT',          href: '/admin/orbat',               color: 'rgba(219,0,29,0.7)',  visible: p.canSeeOrbat },
-        { code: 'PER', name: 'Personnel',      href: '/admin/personnel/hq-staff',  color: 'rgba(219,0,29,0.6)',  visible: p.canSeePersonnel },
-        { code: 'TRN', name: 'Training Docs',  href: '/admin/unit/training-docs',  color: 'rgba(237,237,237,0.3)', visible: true },
-        { code: 'SOP', name: "Unit SOPs",      href: '/admin/unit/sops',           color: 'rgba(237,237,237,0.3)', visible: true },
-        { code: 'TKT', name: 'Tickets',        href: '/admin/unit/tickets',        color: 'rgba(237,237,237,0.3)', visible: true },
-    ]
-}
+// ── Sortable favourite card ────────────────────────────────────────────────────
 
-// ── Sub-components ─────────────────────────────────────────────────────────────
+function SortableFavCard({
+    fav,
+    onNavigate,
+    onUnpin,
+}: {
+    fav: Favourite
+    onNavigate: (fav: Favourite) => void
+    onUnpin: (id: string) => void
+}) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fav.id })
+    const { code, color } = deriveCard(fav)
+    const [hovered, setHovered] = useState(false)
 
-function QuickCardItem({ card }: { card: QuickCard }) {
     return (
-        <Link
-            href={card.href as never}
-            style={{ textDecoration: 'none', flex: '1 1 140px', maxWidth: 180 }}
+        <div
+            ref={setNodeRef}
+            style={{
+                flex: '1 1 140px',
+                maxWidth: 180,
+                transform: CSS.Transform.toString(transform),
+                transition,
+                opacity: isDragging ? 0.45 : 1,
+                zIndex: isDragging ? 10 : undefined,
+            }}
         >
             <div
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
                 style={{
                     position: 'relative',
-                    border: `1px solid rgba(255,255,255,0.06)`,
-                    borderTop: `2px solid ${card.color}`,
-                    background: 'rgba(255,255,255,0.02)',
-                    padding: '18px 16px 16px',
-                    cursor: 'pointer',
-                    transition: 'background 0.15s, border-color 0.15s',
+                    border: `1px solid ${hovered ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.12)'}`,
+                    borderTop: `2px solid ${color}`,
+                    background: hovered ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)',
+                    padding: '14px 14px 12px',
                     height: 90,
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                }}
-                onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'
-                    ;(e.currentTarget as HTMLElement).style.borderColor = `rgba(255,255,255,0.12)`
-                    ;(e.currentTarget as HTMLElement).style.borderTopColor = card.color
-                }}
-                onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)'
-                    ;(e.currentTarget as HTMLElement).style.borderColor = `rgba(255,255,255,0.06)`
-                    ;(e.currentTarget as HTMLElement).style.borderTopColor = card.color
+                    transition: 'background 0.15s, border-color 0.15s',
+                    cursor: isDragging ? 'grabbing' : 'pointer',
                 }}
             >
                 <CornerBrackets color='rgba(255,255,255,0.08)' size={5} />
-                <div style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: 2, color: card.color, lineHeight: 1 }}>
-                    {card.code}
+
+                {/* Drag handle — top-right */}
+                <div
+                    {...attributes}
+                    {...listeners}
+                    title='Drag to reorder'
+                    style={{
+                        position: 'absolute',
+                        top: 6,
+                        right: 30,
+                        padding: '2px 4px',
+                        cursor: isDragging ? 'grabbing' : 'grab',
+                        color: hovered ? 'rgba(237,237,237,0.35)' : 'rgba(237,237,237,0.1)',
+                        fontSize: '0.55rem',
+                        lineHeight: 1,
+                        letterSpacing: 1,
+                        transition: 'color 0.15s',
+                        userSelect: 'none',
+                    }}
+                >
+                    ⠿
                 </div>
-                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.45)', lineHeight: 1.2 }}>
-                    {card.name}
+
+                {/* Unpin button — top-right */}
+                <button
+                    onClick={e => { e.stopPropagation(); onUnpin(fav.id) }}
+                    title='Remove from favourites'
+                    style={{
+                        position: 'absolute',
+                        top: 5,
+                        right: 8,
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '2px 4px',
+                        color: hovered ? 'rgba(237,237,237,0.4)' : 'rgba(237,237,237,0.1)',
+                        fontSize: '0.65rem',
+                        lineHeight: 1,
+                        transition: 'color 0.15s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--red)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = hovered ? 'rgba(237,237,237,0.4)' : 'rgba(237,237,237,0.1)')}
+                >
+                    ×
+                </button>
+
+                {/* Card content — clickable area */}
+                <div
+                    onClick={() => onNavigate(fav)}
+                    style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, paddingTop: 6 }}
+                >
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: 2, color, lineHeight: 1 }}>
+                        {code}
+                    </div>
+                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.45)', lineHeight: 1.2 }}>
+                        {fav.label}
+                    </div>
                 </div>
             </div>
-        </Link>
+        </div>
+    )
+}
+
+// ── Empty state ────────────────────────────────────────────────────────────────
+
+function EmptyFavourites() {
+    return (
+        <div
+            style={{
+                border: '1px dashed rgba(219,0,29,0.2)',
+                background: 'rgba(219,0,29,0.02)',
+                padding: '32px 24px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 8,
+            }}
+        >
+            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)' }}>
+                No favourites pinned
+            </div>
+            <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.2)', textAlign: 'center', maxWidth: 320, lineHeight: 1.6 }}>
+                Pin pages using the <span style={{ color: 'rgba(219,0,29,0.6)', fontWeight: 700 }}>★</span> icon in the sidebar navigation to add them here.
+            </div>
+        </div>
     )
 }
 
@@ -128,14 +215,16 @@ function QuickCardItem({ card }: { card: QuickCard }) {
 
 export default function DashboardOverview({
     displayName,
-    permissions,
 }: {
     displayName: string
     permissions: DashboardPermissions
 }) {
     const router = useRouter()
-    const { favourites, unpin } = useFavourites()
-    const cards = buildCards(permissions).filter(c => c.visible)
+    const { favourites, unpin, reorder } = useFavourites()
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+    )
 
     const today = new Date().toLocaleDateString('en-AU', {
         weekday: 'long',
@@ -144,11 +233,19 @@ export default function DashboardOverview({
         year: 'numeric',
     })
 
-    function handleFavClick(fav: { href: string; tabIndex?: number }) {
+    function handleNavigate(fav: Favourite) {
         if (fav.tabIndex !== undefined) {
             try { localStorage.setItem(`gotoTab:${fav.href}`, String(fav.tabIndex)) } catch {}
         }
         router.push(fav.href as never)
+    }
+
+    function handleDragEnd(event: DragEndEvent) {
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+        const oldIndex = favourites.findIndex(f => f.id === active.id)
+        const newIndex = favourites.findIndex(f => f.id === over.id)
+        reorder(arrayMove(favourites, oldIndex, newIndex))
     }
 
     return (
@@ -159,9 +256,9 @@ export default function DashboardOverview({
                 className='flex items-start justify-between px-5 py-4'
                 style={{
                     position: 'relative',
-                    border: '1px solid rgba(219,0,29,0.15)',
+                    border: '1px solid rgba(219,0,29,0.3)',
                     borderTop: '2px solid var(--red)',
-                    background: 'rgba(255,255,255,0.02)',
+                    background: 'rgba(255,255,255,0.04)',
                 }}
             >
                 <CornerBrackets />
@@ -172,7 +269,7 @@ export default function DashboardOverview({
                         <span>UNIT</span>
                     </div>
                     <Typography fontWeight={700} fontSize='1.1rem' letterSpacing={3} style={{ textTransform: 'uppercase', lineHeight: 1.1, marginBottom: 6 }}>
-                        Staff Portal
+                        Member Portal
                     </Typography>
                     <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.4)', letterSpacing: '0.04em' }}>
                         Welcome back, {displayName}
@@ -194,70 +291,28 @@ export default function DashboardOverview({
                 </div>
             </div>
 
-            {/* ── Pinned / Favourites ────────────────────────────────────────── */}
-            {favourites.length > 0 && (
-                <div>
-                    <SectionLabel label='Pinned ★' />
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {favourites.map(fav => (
-                            <div
-                                key={fav.id}
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 0,
-                                    border: '1px solid rgba(219,0,29,0.2)',
-                                    background: 'rgba(219,0,29,0.05)',
-                                    cursor: 'pointer',
-                                    overflow: 'hidden',
-                                }}
-                            >
-                                <span
-                                    onClick={() => handleFavClick(fav)}
-                                    style={{
-                                        padding: '6px 12px',
-                                        fontSize: '0.68rem',
-                                        fontWeight: 700,
-                                        letterSpacing: '0.08em',
-                                        textTransform: 'uppercase',
-                                        color: 'rgba(237,237,237,0.7)',
-                                        transition: 'color 0.15s',
-                                    }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = '#fff'}
-                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'rgba(237,237,237,0.7)'}
-                                >
-                                    {fav.label}
-                                </span>
-                                <span
-                                    onClick={() => unpin(fav.id)}
-                                    title='Remove from favourites'
-                                    style={{
-                                        padding: '6px 9px 6px 4px',
-                                        fontSize: '0.6rem',
-                                        color: 'rgba(237,237,237,0.25)',
-                                        cursor: 'pointer',
-                                        transition: 'color 0.15s',
-                                        lineHeight: 1,
-                                    }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = 'var(--red)'}
-                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = 'rgba(237,237,237,0.25)'}
-                                >
-                                    ×
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* ── Quick Access ───────────────────────────────────────────────── */}
+            {/* ── Favourites (draggable) ─────────────────────────────────────── */}
             <div>
-                <SectionLabel label='Quick Access' />
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                    {cards.map(card => (
-                        <QuickCardItem key={card.href} card={card} />
-                    ))}
-                </div>
+                <SectionLabel label='Favourites ★' />
+
+                {favourites.length === 0 ? (
+                    <EmptyFavourites />
+                ) : (
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={favourites.map(f => f.id)} strategy={rectSortingStrategy}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                                {favourites.map(fav => (
+                                    <SortableFavCard
+                                        key={fav.id}
+                                        fav={fav}
+                                        onNavigate={handleNavigate}
+                                        onUnpin={unpin}
+                                    />
+                                ))}
+                            </div>
+                        </SortableContext>
+                    </DndContext>
+                )}
             </div>
 
         </div>
