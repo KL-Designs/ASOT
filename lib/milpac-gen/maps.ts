@@ -89,7 +89,7 @@ export const DEFAULT_BADGE: Badge = 'Infantry'
 const BLUE_RANKS = new Set([
     'OCDT', 'OCDTV', 'SECLT', 'SECLTV', 'CLT', 'CLTV',
     '2LT', '2LTV', 'LT', 'LTV', 'SLT', 'SLTV',
-    'CAPT', 'SCAPT', 'MAJ', 'LTCOL', 'COL', 'BRIG', 'MAJGEN', 'LTGEN', 'GEN',
+    'CAPT', 'SCAPT', 'MAJ', 'LTCOL', 'COL',
     'WO1', 'WO2', 'CSM', 'CSMA', 'RSM', 'RSMA',
 ])
 

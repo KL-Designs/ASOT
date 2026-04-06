@@ -92,15 +92,16 @@ export async function generateUniform(rawData: UniformData): Promise<void> {
     }
 
     // 3. Name tag text
+    const displayName = data.displayName.toUpperCase()
     ctx.fillStyle = '#ffffff'
     ctx.textAlign = 'center'
     let fontSize = 20
     ctx.font = `bold ${fontSize}px Times New Roman`
-    while (ctx.measureText(data.displayName).width > 120 && fontSize > 8) {
+    while (ctx.measureText(displayName).width > 120 && fontSize > 8) {
         fontSize--
         ctx.font = `bold ${fontSize}px Times New Roman`
     }
-    ctx.fillText(data.displayName, 475, 512)
+    ctx.fillText(displayName, 475, 512)
 
     // 4. Corps badge (generals get variant 2)
     const highRanks = ['COL', 'LTGEN', 'GEN', 'MAJGEN', 'BRIG']
