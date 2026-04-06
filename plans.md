@@ -15,24 +15,6 @@ This document captures requested features and improvements for the ASOT milsim c
 
 ---
 
-## Notification System *(New — build from scratch)*
-
-### In-App Notification Popup
-- Bell icon or notification area in the **top-right corner** of the portal UI
-- Shows unread count badge
-
-### Notification Sources
-- **Tasks**: when a task is assigned to a user or role, a notification is created
-- **Event/Calendar reminders**: see Calendar section below
-- **Task extension alerts**: if a task deadline is extended, the original tasker is notified
-
-### Task Features
-- Tasks can be assigned to a **specific member** or a **role**
-- Tasks have a due date and can be extended (with notification to assigner on extension)
-- Notifications can be dismissed or marked as read
-
----
-
 ## Calendar / Events
 
 ### Event Reminders
