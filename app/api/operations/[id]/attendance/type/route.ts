@@ -38,15 +38,41 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
 
     if (attendanceType === null) {
+        // Clearing a type — only meaningful if a record already exists
         await Db.operationAttendance.updateOne(
             { operationId, 'records.userId': userId },
             { $unset: { 'records.$.attendanceType': '' } }
         )
     } else {
-        await Db.operationAttendance.updateOne(
+        // Try to update an existing record first
+        const result = await Db.operationAttendance.updateOne(
             { operationId, 'records.userId': userId },
             { $set: { 'records.$.attendanceType': attendanceType } }
         )
+
+        // No record found — member is in the ORBAT but hasn't RSVPed yet.
+        // Create a minimal record with their ORBAT position data so the type is persisted.
+        if (result.matchedCount === 0) {
+            const pos = await Db.orbatPositions.findOne({ userId })
+            await Db.operationAttendance.updateOne(
+                { operationId },
+                {
+                    $push: {
+                        records: {
+                            userId,
+                            unit: pos?.sectionTitle ?? '',
+                            orbatSection: pos?.sectionTitle ?? '',
+                            orbatRole: pos?.role ?? '',
+                            rsvp: null,
+                            confirmed: false,
+                            confirmedBy: null,
+                            confirmedAt: null,
+                            attendanceType,
+                        } as any,
+                    },
+                }
+            )
+        }
     }
 
     return NextResponse.json({ ok: true })

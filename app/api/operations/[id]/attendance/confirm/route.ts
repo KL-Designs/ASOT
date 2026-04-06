@@ -84,6 +84,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             confirmed: didAttend,
             confirmedBy: me.id,
             confirmedAt: didAttend ? now : null,
+            // Default to 'ATTENDED' when confirmed and no type has been explicitly set
+            ...(didAttend && !record.attendanceType ? { attendanceType: 'ATTENDED' } : {}),
         }
     })
 
