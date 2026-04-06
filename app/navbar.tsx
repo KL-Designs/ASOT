@@ -13,6 +13,7 @@ import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collect
 import Navigation from '@/styles/navigation.module.css'
 import { rankNameFromAbbr } from '@/lib/ranks'
 import Avatar from '@/components/member/avatar'
+import NotificationBell from '@/app/admin/_components/NotificationBell'
 
 import Logo from '@/public/logo.png'
 import MapBg from '@/public/designs/map.png'
@@ -156,11 +157,14 @@ export default function Navbar() {
                         </Link>
 
                         {user && (user as any).isStaff && (
-                            <Link href='/admin' title='Member Portal' className='self-center hidden md:block'>
-                                <div className={Navigation['nav-button']} style={{ color: '#00c3ff', borderColor: 'rgba(0,195,255,0.4)', filter: 'drop-shadow(0 0 4px rgba(0,195,255,0.3))' }}>
-                                    <AdminPanelSettings style={{ fontSize: 20 }} />
-                                </div>
-                            </Link>
+                            <div className='self-center hidden md:flex items-center gap-x-3'>
+                                <NotificationBell />
+                                <Link href='/admin' title='Member Portal'>
+                                    <div className={Navigation['nav-button']} style={{ color: '#00c3ff', borderColor: 'rgba(0,195,255,0.4)', filter: 'drop-shadow(0 0 4px rgba(0,195,255,0.3))' }}>
+                                        <AdminPanelSettings style={{ fontSize: 20 }} />
+                                    </div>
+                                </Link>
+                            </div>
                         )}
 
                         {user ?

@@ -7,29 +7,11 @@ This document captures requested features and improvements for the ASOT milsim c
 
 ## Global / Cross-Site
 
-### Rename "Staff Portal" → "Member Portal"
-- Rebrand only — same access rules and role requirements apply
-- Update all labels, page titles, nav links, and any copy that says "Staff Portal" or "Staff Dashboard"
-- No permission logic changes required
-
 ### Discord Role ↔ ORBAT Auto-Sync *(Deferred — future)*
 - When a member's ORBAT position changes on the website, their Discord guild roles should update automatically
 - Uses the existing bot token (no Discord.js — use Discord REST API directly from Next.js API routes)
 - Determine the role mapping: each ORBAT position/section should correspond to one or more Discord role IDs (may need a mapping config)
 - Handle removal of old roles when position changes
-
----
-
-## Dashboard (Member Portal)
-
-### Personalised Home Screen
-- Upon login, the dashboard shows the user's **favourited departments/pages** first
-- Users can pin/favourite departments or sections
-- Expandable navigation list on the **left panel** for all departments (collapsed by default, expands on hover or click)
-
-### Visual Contrast Improvements
-- Lighten the dashboard workspace background to create more contrast
-- Section outlines/cards should stand out more (stronger borders or shadow)
 
 ---
 
