@@ -4,6 +4,10 @@ import path from 'path'
 const nextConfig: NextConfig = {
 	typedRoutes: true,
 
+	// @napi-rs/canvas ships a native .node binary that webpack cannot bundle.
+	// Marking it external keeps it as a require() at runtime on the server.
+	serverExternalPackages: ['@napi-rs/canvas'],
+
 	webpack(config) {
 		config.resolve.alias['yjs'] = path.resolve('./node_modules/yjs')
 		return config

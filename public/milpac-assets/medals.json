@@ -1,0 +1,31 @@
+{
+  "first_line": [
+    "campaign",
+    "campaign1",
+    "campaign2",
+    "campaign3",
+    "campaign4",
+    "campaign5",
+    "campaign6",
+    "campaign7",
+    "campaign8",
+    "campaign9",
+    "campaign10",
+    "campaign11",
+    "campaign12",
+    "campaign13",
+    "campaign14",
+    "campaign15",
+    "campaign16",
+    "1year",
+    "2year",
+    "3year"
+  ],
+  "second_line": ["4year", "aviation", "medical", "protagonist"],
+  "third_line": ["juniorleadership", "seniorleadership", "atlas", "instructor"],
+  "fourth_line": ["watchman", "architect", "brokenlance"],
+  "fifth_line": ["diplomat", "publicrelation", "groupdevelopment"],
+  "sixth_line": ["founders", "gallantry"],
+  "seventh_line": ["crossofvalour", "starofcourage"],
+  "eighth_line": ["beyond"]
+}
