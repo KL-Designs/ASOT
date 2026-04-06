@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { existsSync } from 'fs'
 import { join } from 'path'
+import { generateUniform } from '@/lib/milpac-gen/uniform'
+import { generateBox } from '@/lib/milpac-gen/box'
+import { buildUniformData, buildBoxData, computeUniformHash } from '@/lib/milpac-gen/data-mapper'
 import Image from 'next/image'
 import Avatar from '@/components/member/avatar'
 import Banner from '@/public/images/home/Droneteam7.png'
@@ -64,10 +67,28 @@ export default async function Page({ params }: { params: Promise<{ username: str
 
 	const { member, orbatEntry, accent, name, fullRank, callsign } = profile
 
-	const uniformPath = join(process.cwd(), 'milpacs', `${username}.png`)
+	// Auto-generate portrait and medal box if stale or missing
+	// Files are keyed by Discord ID (stable across username changes)
+	const uniformPath = join(process.cwd(), 'milpacs', `${member.id}.png`)
+	const medalsPath  = join(process.cwd(), 'milpacs', `${member.id}-medals.png`)
+	try {
+		const uniformData  = buildUniformData(member, orbatEntry)
+		const boxData      = buildBoxData(member)
+		const currentHash  = computeUniformHash(uniformData, boxData)
+		const needsRegen   = currentHash !== member.milpac?.uniformHash
+			|| !existsSync(uniformPath)
+			|| !existsSync(medalsPath)
+
+		if (needsRegen) {
+			await Promise.all([generateUniform(uniformData), generateBox(boxData)])
+			await Db.users.updateOne({ username }, { $set: { 'milpac.uniformHash': currentHash } })
+		}
+	} catch (err) {
+		console.error('[milpac-gen] generation failed for', username, err)
+	}
+
 	const hasUniform = existsSync(uniformPath)
-	const medalsPath = join(process.cwd(), 'milpacs', `${username}-medals.png`)
-	const hasMedals = existsSync(medalsPath)
+	const hasMedals  = existsSync(medalsPath)
 
 	const me = await client.fetchMe().catch(() => null)
 	const canEdit = me ? client.hasRoles(me, ['J5-Media']) : false
@@ -247,7 +268,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 						<div style={{ display: 'flex', justifyContent: 'center', padding: '1rem' }}>
 							{/* eslint-disable-next-line @next/next/no-img-element */}
 							<img
-								src={`/api/milpacs/${username}`}
+								src={`/api/milpacs/${member.id}`}
 								alt={`${name} uniform`}
 								style={{ objectFit: 'contain', maxHeight: 500 }}
 							/>
@@ -278,7 +299,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 						<div style={{ display: 'flex', justifyContent: 'center', padding: '1rem' }}>
 							{/* eslint-disable-next-line @next/next/no-img-element */}
 							<img
-								src={`/api/milpacs/${username}?type=medals`}
+								src={`/api/milpacs/${member.id}?type=medals`}
 								alt={`${name} medals`}
 								style={{ objectFit: 'contain', maxWidth: '100%' }}
 							/>

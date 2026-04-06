@@ -128,6 +128,7 @@ declare global {
                 j5MilpacsGenerated: number
                 j5OfficialPR: number
             }
+            uniformHash?: string   // MD5 of generation inputs; used to detect stale cached portrait
         }
     }
 
