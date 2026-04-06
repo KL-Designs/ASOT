@@ -43,6 +43,14 @@ export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): Uni
     const rank = normaliseRank(user.milpac?.currentRank ?? '')
     const awardNames = user.milpac?.awards?.map(a => a.name) ?? []
 
+    // Resolve display name from Discord nickname (strip rank prefix and tag decorations),
+    // falling back to globalName or username. Mirrors milpac-profile.ts logic.
+    const strippedNickname = user.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
+    const rawDisplay = strippedNickname || user.globalName || user.username
+    const parts = (strippedNickname || rawDisplay).split(' ')
+    const parsedName = parts.length > 1 ? parts.slice(1).join(' ') : rawDisplay
+    const resolvedDisplayName = user.name || parsedName
+
     const citations = awardNames
         .filter(n => !MEDALLION_AWARDS.has(n))
         .map(n => AWARD_TO_CITATION[n])
@@ -62,7 +70,7 @@ export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): Uni
 
     return {
         name: user.id,
-        displayName: user.name ?? user.id,
+        displayName: resolvedDisplayName,
         rank: rank as Rank,
         Uniform: uniform,
         badge,
