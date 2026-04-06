@@ -55,11 +55,11 @@ export const QUAL_TO_BADGE: Record<string, TrainingBadge> = {
     'Advanced Medical Course':                  'AdvM',
     'Basic Indirect Fires Course':              'BIDF',
     'Direct Fires Support Weapons Course':      'BCIDF',
-    'Basic Rotary Wing Course':                 'BR',
+    // 'Basic Rotary Wing Course':                 'BR',
     'Basic Rotary Wing Assessment (Wings)':     'BR',
     'Advanced Rotary Wing Course':              'AdvR',
     'Basic CAS and RECON Course':               'BF',
-    'Advanced CAS Course':                      'AdvF',
+    'Advanced CAS Course':                      'AF',
     'Forward Observer Course':                  'FO',
     'Basic Staff (NCO) Course':                 'NCO',
     'Static Line Paratrooper Course':           'PT',
@@ -68,6 +68,7 @@ export const QUAL_TO_BADGE: Record<string, TrainingBadge> = {
     'Machine Gunner Proficiency':               'BMG',
     'AT Gunner Proficiency':                    'BAT',
     'Pistol Sharpshooter Proficiency':          'BPistol',
+    'Grenadier Proficiency':                    'BGLA',
 }
 
 // ── ORBAT section title → Corps badge ────────────────────────────────────────
@@ -85,14 +86,5 @@ export const SECTION_TO_BADGE: Record<string, Badge> = {
 
 export const DEFAULT_BADGE: Badge = 'Infantry'
 
-// ── Rank → Uniform colour ─────────────────────────────────────────────────────
-const BLUE_RANKS = new Set([
-    'OCDT', 'OCDTV', 'SECLT', 'SECLTV', 'CLT', 'CLTV',
-    '2LT', '2LTV', 'LT', 'LTV', 'SLT', 'SLTV',
-    'CAPT', 'SCAPT', 'MAJ', 'LTCOL', 'COL',
-    'WO1', 'WO2', 'CSM', 'CSMA', 'RSM', 'RSMA',
-])
-
-export function rankToUniformColor(rank: string): 'Blue' | 'Brown' {
-    return BLUE_RANKS.has(rank) ? 'Blue' : 'Brown'
-}
+// Uniform colour is determined by ORBAT section in data-mapper.ts:
+// only '1-3 HOTEL - ROTARY WING' → Blue; all other sections → Brown.

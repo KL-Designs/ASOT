@@ -5,7 +5,6 @@ import {
     QUAL_TO_BADGE,
     SECTION_TO_BADGE,
     DEFAULT_BADGE,
-    rankToUniformColor,
 } from './maps'
 import type { UniformData, BoxData, Citation, Medallion, TrainingBadge, Rank, Badge } from './types'
 
@@ -59,11 +58,13 @@ export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): Uni
         ? (SECTION_TO_BADGE[orbatEntry.section] ?? DEFAULT_BADGE)
         : DEFAULT_BADGE
 
+    const uniform = orbatEntry?.section === '1-3 HOTEL - ROTARY WING' ? 'Blue' : 'Brown'
+
     return {
         name: user.id,
         displayName: user.name ?? user.id,
         rank: rank as Rank,
-        Uniform: rankToUniformColor(rank),
+        Uniform: uniform,
         badge,
         medallions,
         citations,
