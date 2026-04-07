@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { createNotificationForRole } from '@/lib/notifications'
 
 // GET /api/admin/j1/applications — fetch all applications
 export async function GET() {
@@ -71,6 +72,14 @@ export async function POST(request: NextRequest) {
         armaHours: armaHours?.trim() || undefined,
         primaryRole: primaryRole?.trim() || undefined,
         availableNights: availableNights?.trim() || undefined,
+    })
+
+    // Notify J1 leads to sign off on the new recruit
+    await createNotificationForRole('J1-Staff', {
+        type: 'task_assigned',
+        title: 'New recruit requires sign-off',
+        body: `${displayName} logged ${inGameName.trim()} as a new recruit`,
+        actionUrl: '/admin/j1',
     })
 
     return NextResponse.json({ ok: true })

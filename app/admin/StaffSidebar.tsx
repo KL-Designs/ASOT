@@ -7,7 +7,7 @@ import { Collapse } from '@mui/material'
 import {
     PersonAdd, Map, School, AdminPanelSettings, Collections,
     SportsEsports, Code, Badge, Groups, People,
-    AccountTree, CalendarMonth, MenuBook, Policy, ConfirmationNumber, AssignmentTurnedIn,
+    AccountTree, CalendarMonth, MenuBook, Policy, ConfirmationNumber,
 } from '@mui/icons-material'
 import type { DashboardPermissions } from './StaffDashboardShell'
 import { useFavourites } from '@/hooks/useFavourites'
@@ -405,7 +405,6 @@ export default function StaffSidebar({
             items: [
                 { label: 'ORBAT',         href: '/admin/orbat',              visible: permissions.canSeeOrbat, icon: <AccountTree sx={{ fontSize: 14 }} /> },
                 { label: 'Calendar',      href: '/admin/unit/calendar',      visible: true,                    icon: <CalendarMonth sx={{ fontSize: 14 }} /> },
-                { label: 'Tasks',         href: '/admin/tasks',              visible: true,                    icon: <AssignmentTurnedIn sx={{ fontSize: 14 }} /> },
                 { label: 'Training Docs', href: '/admin/unit/training-docs', visible: true,                    icon: <MenuBook sx={{ fontSize: 14 }} /> },
                 { label: 'SOPs',          href: '/admin/unit/sops',          visible: true,                    icon: <Policy sx={{ fontSize: 14 }} /> },
                 { label: 'Tickets',       href: '/admin/unit/tickets',       visible: true,                    icon: <ConfirmationNumber sx={{ fontSize: 14 }} /> },

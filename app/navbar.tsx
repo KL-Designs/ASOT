@@ -113,11 +113,11 @@ export default function Navbar() {
                     <Image src={MapBg} alt='map' fill className='object-cover opacity-15' />
                 </div>
 
-                <div className='flex flex-row justify-between gap-10 px-[30px]' style={{ zIndex: 1, padding: scrolled ? '10px 30px' : '15px 30px', transition: 'padding 0.3s ease' }}>
+                <div className='flex flex-row justify-between gap-10 px-[30px]' style={{ zIndex: 1, padding: scrolled ? '7px 30px' : '11px 30px', transition: 'padding 0.3s ease' }}>
                     <div className='min-w-[50px] self-center flex flex-row items-center gap-x-3'>
                         <Link href='/'>
                             <IconButton style={{ padding: 0 }}>
-                                <Image src={Logo} width={scrolled ? 40 : 50} quality={100} alt='Logo' style={{ transition: 'width 0.3s ease' }} />
+                                <Image src={Logo} width={scrolled ? 36 : 42} quality={100} alt='Logo' style={{ transition: 'width 0.3s ease' }} />
                             </IconButton>
                         </Link>
                     </div>

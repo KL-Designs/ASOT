@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
+import { createNotificationForRole } from '@/lib/notifications'
 
 const VALID_REGIONS = ['Oceania', 'North America', 'Europe', 'Asia', 'Other']
 const VALID_NIGHTS  = ['Saturday', 'Sunday', 'Both', 'Flexible']
@@ -82,6 +83,23 @@ export async function POST(request: NextRequest) {
         departmentInterest: Array.isArray(departmentInterest) ? departmentInterest.filter((d): d is string => typeof d === 'string') : undefined,
         ownsArma: ownsArma === true || ownsArma === 'true',
     })
+
+    // Notify all J1 members of the new application
+    const applicantName = String(inGameName).trim()
+    await Promise.all([
+        createNotificationForRole('J1-Recruiting', {
+            type: 'task_assigned',
+            title: 'New member application',
+            body: `${applicantName} has submitted a recruitment application`,
+            actionUrl: '/admin/j1',
+        }),
+        createNotificationForRole('J1-Staff', {
+            type: 'task_assigned',
+            title: 'New member application',
+            body: `${applicantName} has submitted a recruitment application`,
+            actionUrl: '/admin/j1',
+        }),
+    ])
 
     return NextResponse.json({ ok: true })
 }

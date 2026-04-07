@@ -7,6 +7,13 @@ import { CERTIFICATIONS } from '@/lib/certifications'
 import { RANK_GROUPS } from '@/lib/ranks'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
 import { applyOrbatMove } from '@/lib/orbat-move'
+import { createNotification, createNotificationForRole } from '@/lib/notifications'
+
+// Maps ticket department → role(s) that should be notified
+const TICKET_NOTIFY_ROLES: Record<string, string[]> = {
+    j3: ['J3-Team Lead'],
+    j4: ['J4-Administration'],
+}
 
 const VALID_QUALIFICATIONS = CERTIFICATIONS.map(c => c.label) as string[]
 const VALID_RANKS = RANK_GROUPS.flatMap(g => g.ranks.map(r => r.name))
@@ -100,6 +107,13 @@ export async function POST(req: NextRequest) {
         }
 
         const result = await Db.tickets.insertOne(ticket as Ticket)
+        await createNotificationForRole('J4-Administration', {
+            type: 'task_assigned',
+            title: 'New promotion ticket',
+            body: `${action === 'promote' ? 'Promotion' : 'Demotion'} request for ${targetUserName} — ${proposedRank}`,
+            actionUrl: '/admin/unit/tickets',
+            relatedId: result.insertedId.toString(),
+        })
         return NextResponse.json({ ok: true, id: result.insertedId.toString() })
     }
 
@@ -219,6 +233,15 @@ export async function POST(req: NextRequest) {
 
         if (autoApprove) {
             await applyOrbatMove({ fromPos, toPos, toIsReservist: toIsReservist ?? false, targetUserId })
+        } else if (requiredApproverUserId) {
+            await createNotification({
+                userId: requiredApproverUserId,
+                type: 'task_assigned',
+                title: 'Move request requires your approval',
+                body: `${displayName} submitted a move request for ${targetUserName}`,
+                actionUrl: '/admin/unit/tickets',
+                relatedId: result.insertedId.toString(),
+            })
         }
 
         return NextResponse.json({
@@ -262,6 +285,13 @@ export async function POST(req: NextRequest) {
         }
 
         const result = await Db.tickets.insertOne(ticket as Ticket)
+        await createNotificationForRole('J4-Administration', {
+            type: 'task_assigned',
+            title: 'New discharge ticket',
+            body: `${dischargeType === 'honorable' ? 'Honourable' : 'Dishonourable'} discharge request for ${targetUserName}`,
+            actionUrl: '/admin/unit/tickets',
+            relatedId: result.insertedId.toString(),
+        })
         return NextResponse.json({ ok: true, id: result.insertedId.toString() })
     }
 
@@ -291,6 +321,13 @@ export async function POST(req: NextRequest) {
         }
 
         const result = await Db.tickets.insertOne(ticket as Ticket)
+        await createNotificationForRole('J4-Administration', {
+            type: 'task_assigned',
+            title: 'New discipline ticket',
+            body: `Discipline report filed against ${targetUserName} by ${displayName}`,
+            actionUrl: '/admin/unit/tickets',
+            relatedId: result.insertedId.toString(),
+        })
         return NextResponse.json({ ok: true, id: result.insertedId.toString() })
     }
 
@@ -367,6 +404,13 @@ export async function POST(req: NextRequest) {
         }
 
         const result = await Db.tickets.insertOne(ticket as Ticket)
+        await createNotificationForRole('J4-Administration', {
+            type: 'task_assigned',
+            title: 'New performance report',
+            body: `Performance report filed against ${targetUserName} by ${displayName}`,
+            actionUrl: '/admin/unit/tickets',
+            relatedId: result.insertedId.toString(),
+        })
         return NextResponse.json({ ok: true, id: result.insertedId.toString() })
     }
 
@@ -404,6 +448,13 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await Db.tickets.insertOne(ticket as Ticket)
+    await createNotificationForRole('J3-Team Lead', {
+        type: 'task_assigned',
+        title: `New qualification ticket`,
+        body: `${action === 'add' ? 'Add' : 'Remove'} ${qualification} for ${targetUserName}`,
+        actionUrl: '/admin/unit/tickets',
+        relatedId: result.insertedId.toString(),
+    })
 
     return NextResponse.json({ ok: true, id: result.insertedId.toString() })
 }
