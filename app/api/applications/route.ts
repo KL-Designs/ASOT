@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
 import { createNotificationForRole } from '@/lib/notifications'
 
-const VALID_REGIONS = ['Oceania', 'North America', 'Europe', 'Asia', 'Other']
+// Country is now a free-form string (full country list in the form)
+const VALID_REGIONS = null // kept for reference, no longer a fixed enum
 const VALID_NIGHTS  = ['Saturday', 'Sunday', 'Both', 'Flexible']
 const VALID_OPS     = ['1+', '2+', '3+', '4+']
 const VALID_ROLES   = [
@@ -22,8 +23,8 @@ export async function POST(request: NextRequest) {
 
     const {
         discordUsername, inGameName, age, experience, website,
-        steamUrl, region, armaHours, priorMilsim, dualClan,
-        previousUnits, availableNights, opsPerMonth, primaryRole,
+        steamUrl, steamId64, region, armaHours, priorMilsim, dualClan,
+        previousUnits, currentUnit, availableNights, opsPerMonth, primaryRole,
         additionalRoles, departmentInterest, ownsArma,
     } = body as Record<string, unknown>
 
@@ -36,13 +37,13 @@ export async function POST(request: NextRequest) {
     const ageNum = parseInt(String(age), 10)
     if (isNaN(ageNum) || ageNum < 13 || ageNum > 100) return NextResponse.json({ error: 'Please enter a valid age (13–100).' }, { status: 400 })
     if (!String(experience ?? '').trim()) return NextResponse.json({ error: 'Experience field is required.' }, { status: 400 })
-    if (!region || !VALID_REGIONS.includes(String(region))) return NextResponse.json({ error: 'Please select a region.' }, { status: 400 })
+    if (!region || !String(region).trim()) return NextResponse.json({ error: 'Please select a country.' }, { status: 400 })
     if (!availableNights || !VALID_NIGHTS.includes(String(availableNights))) return NextResponse.json({ error: 'Please select your available nights.' }, { status: 400 })
     if (!primaryRole || !VALID_ROLES.includes(String(primaryRole))) return NextResponse.json({ error: 'Please select a primary role.' }, { status: 400 })
 
     // Length limits
     if (String(discordUsername).length > 100) return NextResponse.json({ error: 'Discord username is too long.' }, { status: 400 })
-    if (String(inGameName).length > 100) return NextResponse.json({ error: 'In-game name is too long.' }, { status: 400 })
+    if (String(inGameName).length > 16) return NextResponse.json({ error: 'In-game name must be 16 characters or fewer.' }, { status: 400 })
     if (String(experience).length > 2000) return NextResponse.json({ error: 'Experience field is too long (max 2000 characters).' }, { status: 400 })
     if (steamUrl && String(steamUrl).length > 200) return NextResponse.json({ error: 'Steam URL is too long.' }, { status: 400 })
     if (previousUnits && String(previousUnits).length > 500) return NextResponse.json({ error: 'Previous units field is too long.' }, { status: 400 })
@@ -70,12 +71,14 @@ export async function POST(request: NextRequest) {
         status: 'pending',
         submittedAt: new Date(),
         submittedIp: ip,
-        steamUrl: steamUrl ? String(steamUrl).trim() : undefined,
+        steamUrl:   steamUrl   ? String(steamUrl).trim()   : undefined,
+        steamId64:  steamId64  ? String(steamId64).trim()  : undefined,
         region: String(region),
         armaHours: armaHours ? String(armaHours).trim() : undefined,
         priorMilsim: priorMilsim === true || priorMilsim === 'true',
         dualClan: dualClan === true || dualClan === 'true',
         previousUnits: previousUnits ? String(previousUnits).trim() : undefined,
+        currentUnit:   currentUnit   ? String(currentUnit).trim()   : undefined,
         availableNights: String(availableNights),
         opsPerMonth: opsPerMonth && VALID_OPS.includes(String(opsPerMonth)) ? String(opsPerMonth) : undefined,
         primaryRole: String(primaryRole),

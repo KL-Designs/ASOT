@@ -16,7 +16,7 @@ export default async function JoinPage() {
         <Container
             title='JOIN ASOT'
             subtitle='Fill out the form below to apply for membership. Our J1 Recruitment team will review your application and contact you via Discord.'
-            backgroundUrl={sotm ? '/api/gallery/sotm/image' : undefined}
+            backgroundUrl={sotm ? '/api/gallery/sotm/image' : '/images/home/1122.png'}
             sx={{ bannerHeight: 'sm', maxWidth: 'max-w-sm' }}
         >
             {sotm && (
