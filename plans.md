@@ -32,9 +32,9 @@ This document captures requested features and improvements for the ASOT milsim c
 
 ## Public Applications Page (`/join`)
 
-### Shot of the Month Background
-- The current Shot of the Month image is displayed as the **hero/background** on the applications page
-- Pull from the existing J5/SOTM data
+### ~~Shot of the Month Background~~ ✓
+- ~~The current Shot of the Month image is displayed as the **hero/background** on the applications page~~
+- ~~Pull from the existing J5/SOTM data~~
 
 ### Region Latency Test
 - When an applicant selects a server region, run a **browser-side ping/latency check** to that region's server
@@ -186,5 +186,5 @@ Ensure the mastersheet displays (at minimum):
 |---|---|
 | Discord role ↔ ORBAT sync | Discord REST API, bot token, ORBAT position→role mapping config |
 | Discord guild member search (J1) | Discord REST API, bot token — no Discord.js (incompatible with Next.js) |
-| Calendar reminders via Discord | Bot token, DM/notification endpoint |
+| ~~Calendar reminders via Discord~~ ✓ | ~~Bot token, DM/notification endpoint~~ |
 | Link Discord via OAuth (applications) | Extended OAuth scopes |
