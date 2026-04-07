@@ -29,7 +29,7 @@ const DEPARTMENTS = [
 async function measureLatency(): Promise<number | null> {
     try {
         const t = performance.now()
-        await fetch('/ping.txt', { method: 'HEAD', cache: 'no-store' })
+        await fetch('/api/ping', { cache: 'no-store' })
         return Math.round(performance.now() - t)
     } catch {
         return null
