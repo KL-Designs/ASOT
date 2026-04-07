@@ -36,32 +36,32 @@ This document captures requested features and improvements for the ASOT milsim c
 - ~~The current Shot of the Month image is displayed as the **hero/background** on the applications page~~
 - ~~Pull from the existing J5/SOTM data~~
 
-### Region Latency Test
-- When an applicant selects a server region, run a **browser-side ping/latency check** to that region's server
-- Display the estimated latency result inline so they can confirm their connection is acceptable
+### ~~Region Latency Test~~ ✓
+- ~~When an applicant selects a server region, run a **browser-side ping/latency check** to that region's server~~
+- ~~Display the estimated latency result inline so they can confirm their connection is acceptable~~
 
-### Help & Instructions
-- Add contextual help text throughout the form
-- Each section should have a brief explanation of **what it is, how to fill it in, and why it's needed**
+### ~~Help & Instructions~~ ✓
+- ~~Add contextual help text throughout the form~~
+- ~~Each section should have a brief explanation of **what it is, how to fill it in, and why it's needed**~~
 
-### Steam ID64 Lookup
-- Add a Steam ID64 lookup field that accepts a **custom Steam URL** and resolves it to the underlying ID64
-- Use the Steam API or a public resolver
+### ~~Steam ID64 Lookup~~ ✓
+- ~~Add a Steam ID64 lookup field that accepts a **custom Steam URL** and resolves it to the underlying ID64~~
+- ~~Use the Steam API or a public resolver~~
 
 ### Optional Integrations *(stretch goal — Discord parts deferred)*
 - Optional field to **link Steam account** via OAuth, rather than manual entry
 - Link Discord via OAuth — *deferred to future*
 
-### Previous & Current Units — Separate Sections
-- If an applicant selects "yes" to both previous units and current units, show **two separate input sections**
-- Current unit section label: "List current group/s" (or similar)
+### ~~Previous & Current Units — Separate Sections~~ ✓
+- ~~If an applicant selects "yes" to both previous units and current units, show **two separate input sections**~~
+- ~~Current unit section label: "List current group/s" (or similar)~~
 
-### Availability — Op Times in Applicant's Timezone
-- Below the availability section header, display the unit's standard operation times **converted to the applicant's detected timezone**
+### ~~Availability — Op Times in Applicant's Timezone~~ ✓
+- ~~Below the availability section header, display the unit's standard operation times **converted to the applicant's detected timezone**~~
 
-### Department Info Tabs
-- Add **J4** and **J5** to the department info tabs on the applications page (currently missing)
-- Centre the layout of these info tabs
+### ~~Department Info Tabs~~ ✓
+- ~~Add **J4** and **J5** to the department info tabs on the applications page (currently missing)~~
+- ~~Centre the layout of these info tabs~~
 
 ---
 
@@ -177,8 +177,8 @@ Ensure the mastersheet displays (at minimum):
 | Feature | Dependency |
 |---|---|
 | RSVP/Confirmation automation | Scheduled jobs (cron or Next.js route + external scheduler) |
-| Latency test | Client-side fetch to region endpoints |
-| Steam ID64 lookup | Steam API or public resolver |
+| ~~Latency test~~ ✓ | ~~Client-side fetch to region endpoints~~ |
+| ~~Steam ID64 lookup~~ ✓ | ~~Steam API or public resolver~~ |
 | Notifications (in-app) | New DB collection + real-time delivery (polling or WebSocket) |
 
 ### Deferred — Requires Discord Bot Integration

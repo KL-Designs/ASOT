@@ -46,18 +46,24 @@ export async function POST(request: NextRequest) {
     }
 
     const {
-        discordUsername, inGameName, recruiter, notes,
-        steamUrl, region, armaHours, primaryRole, availableNights,
+        discordUsername, discordId, joiningName, recruiter, notes,
+        steamId64, region, regionCustom, armaHours, primaryRole, availableNights,
+        heardAbout, heardAboutOther,
     } = body
 
     if (!discordUsername?.trim()) return NextResponse.json({ error: 'Discord username is required.' }, { status: 400 })
-    if (!inGameName?.trim()) return NextResponse.json({ error: 'In-game name is required.' }, { status: 400 })
+    if (!discordId?.trim()) return NextResponse.json({ error: 'Discord ID is required.' }, { status: 400 })
+    if (!joiningName?.trim()) return NextResponse.json({ error: 'Joining name is required.' }, { status: 400 })
+    if (joiningName.trim().length > 12) return NextResponse.json({ error: 'Joining name must be 12 characters or fewer.' }, { status: 400 })
+    if (!steamId64?.trim()) return NextResponse.json({ error: 'Steam ID64 is required.' }, { status: 400 })
 
     const displayName = me.guild?.nickname || me.globalName || me.username || 'Unknown'
+    const effectiveRegion = region === 'Other' && regionCustom?.trim() ? regionCustom.trim() : region?.trim()
 
     await Db.j1Applications.insertOne({
         discordUsername: discordUsername.trim(),
-        inGameName: inGameName.trim(),
+        discordId: discordId.trim(),
+        inGameName: joiningName.trim(),
         age: 0,
         experience: '',
         status: 'accepted',
@@ -67,11 +73,13 @@ export async function POST(request: NextRequest) {
         notes: notes?.trim() || '',
         reviewedBy: displayName,
         reviewedAt: new Date(),
-        steamUrl: steamUrl?.trim() || undefined,
-        region: region?.trim() || undefined,
+        steamId64: steamId64.trim(),
+        region: effectiveRegion || undefined,
         armaHours: armaHours?.trim() || undefined,
         primaryRole: primaryRole?.trim() || undefined,
         availableNights: availableNights?.trim() || undefined,
+        heardAbout: heardAbout?.trim() || undefined,
+        heardAboutOther: heardAboutOther?.trim() || undefined,
     })
 
     // Notify J1 leads to sign off on the new recruit
