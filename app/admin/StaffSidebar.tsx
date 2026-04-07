@@ -354,8 +354,8 @@ export default function StaffSidebar({
                 {
                     label: '[J1] Recruitment', href: '/admin/j1', visible: permissions.canSeeJ1, icon: <PersonAdd sx={{ fontSize: 14 }} />,
                     tabs: [
-                        { label: 'Applications',   tab: 0 },
-                        { label: 'Recruit Member', tab: 1 },
+                        { label: 'Recruit Member', tab: 0 },
+                        { label: 'Applications',   tab: 1 },
                         { label: 'Mastersheet',    tab: 2 },
                         { label: 'Meetings',       tab: 3 },
                         { label: 'Statistics',     tab: 4 },

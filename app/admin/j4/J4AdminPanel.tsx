@@ -5,9 +5,22 @@ import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, Men
 import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 import ImportPanel from '../ImportPanel'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
+import DeptMembersTab from '@/app/admin/DeptMembersTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 import { useTabState } from '@/app/admin/_components/useTabState'
+
+const btnSx = (active: boolean): React.CSSProperties => ({
+    fontSize: '0.62rem',
+    fontWeight: 700,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    padding: '4px 10px',
+    background: active ? 'rgba(219,0,29,0.3)' : 'none',
+    border: '1px solid rgba(219,0,29,0.25)',
+    color: active ? 'var(--foreground)' : 'rgba(237,237,237,0.4)',
+    cursor: 'pointer',
+})
 
 const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -388,7 +401,7 @@ function ReinstateModal({ open, onClose }: { open: boolean; onClose: () => void 
     )
 }
 
-export default function J4AdminPanel({ userId }: { userId: string }) {
+export default function J4AdminPanel({ userId, displayName }: { userId: string; displayName: string }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
     const [importOpen, setImportOpen] = useState(false)
     const [dischargeOpen, setDischargeOpen] = useState(false)
@@ -426,23 +439,15 @@ export default function J4AdminPanel({ userId }: { userId: string }) {
                         [J4] Administration
                     </Typography>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button
-                            style={{
-                                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                                padding: '4px 10px',
-                                background: view === 'calendar' ? 'rgba(219,0,29,0.3)' : 'none',
-                                border: '1px solid rgba(219,0,29,0.25)',
-                                color: view === 'calendar' ? 'var(--foreground)' : 'rgba(237,237,237,0.4)',
-                                cursor: 'pointer',
-                            }}
-                            onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}
-                        >Calendar</button>
+                        <button style={btnSx(view === 'members')}  onClick={() => setView(view === 'members'  ? 'dept' : 'members')}>Members</button>
+                        <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
                     </div>
                 </div>
             </div>
 
+            {view === 'members'  && <DeptMembersTab department='j4' displayName={displayName} userId={userId} canManage={true} />}
             {view === 'calendar' && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
-            {view !== 'calendar' && (
+            {view === 'dept' && (
                 <>
                     {/* Tabs */}
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>

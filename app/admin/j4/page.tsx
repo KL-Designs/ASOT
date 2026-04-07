@@ -11,5 +11,5 @@ export default async function Page() {
     if (!me) redirect('/login')
     if (!client.hasRoles(me, PERMISSIONS.departments.j4)) redirect('/admin')
 
-    return <J4AdminPanel userId={me.id} />
+    return <J4AdminPanel userId={me.id} displayName={me.name ?? me.globalName ?? me.id} />
 }

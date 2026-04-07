@@ -67,8 +67,8 @@ This document captures requested features and improvements for the ASOT milsim c
 
 ## J1 — Recruitment
 
-### UI: Switch Applications ↔ Recruit Applicant
-- Swap the layout/order of the "Applications" list and "Recruit Applicant" form/button so the workflow is more logical
+### ~~UI: Switch Applications ↔ Recruit Applicant~~ ✓
+- ~~Swap the layout/order of the "Applications" list and "Recruit Applicant" form/button so the workflow is more logical~~
 
 ### Recruit Member Ticket — Improvements
 - **Name (joining name)**:
@@ -129,8 +129,8 @@ Ensure the mastersheet displays (at minimum):
 
 ## J4 — Administration
 
-### Dashboard Parity
-- J4 dashboard layout should match the other department dashboards (J1–J7 standard layout)
+### ~~Dashboard Parity~~ ✓
+- ~~J4 dashboard layout should match the other department dashboards (J1–J7 standard layout)~~
 
 ### Tasks & Reminders
 - J4 should receive tasks/reminders for **J2 deletions** (members removed from J2/Mission Making)

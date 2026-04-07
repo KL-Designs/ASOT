@@ -108,8 +108,8 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Applications'   pinLabel='J1 — Applications'   href='/admin/j1' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Recruit Member' pinLabel='J1 — Recruit Member' href='/admin/j1' tabIndex={1} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Recruit Member' pinLabel='J1 — Recruit Member' href='/admin/j1' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Applications'   pinLabel='J1 — Applications'   href='/admin/j1' tabIndex={1} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Mastersheet'    pinLabel='J1 — Mastersheet'    href='/admin/j1' tabIndex={2} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Meetings'       pinLabel='J1 — Meetings'       href='/admin/j1' tabIndex={3} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Statistics'     pinLabel='J1 — Statistics'     href='/admin/j1' tabIndex={4} />} sx={tabSx} />
@@ -118,7 +118,8 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
 
                     {/* Tab content */}
                     <div className='flex-1 min-h-0 mt-0'>
-                        {tab === 0 && (
+                        {tab === 0 && <RecruitMemberTab displayName={displayName} />}
+                        {tab === 1 && (
                             <div
                                 className='m-6 mt-4'
                                 style={{
@@ -129,7 +130,6 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                                 <ApplicationsTab />
                             </div>
                         )}
-                        {tab === 1 && <RecruitMemberTab displayName={displayName} />}
                         {tab === 2 && (
                             <div
                                 className='m-6 mt-4'
