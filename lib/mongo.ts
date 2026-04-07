@@ -29,6 +29,7 @@ const DbInterface = {
     operationCampaigns: client.db(process.env.MONGO_DB!).collection('operation_campaigns') as MongoCollection<OperationCampaign>,
     notifications: client.db(process.env.MONGO_DB!).collection('notifications') as MongoCollection<Notification>,
     tasks: client.db(process.env.MONGO_DB!).collection('tasks') as MongoCollection<Task>,
+    calendarReminders: client.db(process.env.MONGO_DB!).collection('calendar_reminders') as MongoCollection<CalendarReminder>,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,

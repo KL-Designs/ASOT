@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 export interface NotificationItem {
     _id: string
@@ -18,14 +18,29 @@ const POLL_INTERVAL = 30_000 // 30 seconds
 
 export function useNotifications() {
     const [notifications, setNotifications] = useState<NotificationItem[]>([])
+    const [newArrivals, setNewArrivals] = useState<NotificationItem[]>([])
     const [loading, setLoading] = useState(false)
+    const knownIdsRef = useRef<Set<string> | null>(null) // null = first load not yet done
 
     const fetch_ = useCallback(async () => {
         try {
             const res = await fetch('/api/notifications')
             if (!res.ok) return
             const data = await res.json()
-            setNotifications(data.notifications ?? [])
+            const incoming: NotificationItem[] = data.notifications ?? []
+
+            if (knownIdsRef.current === null) {
+                // First load — seed known IDs, no toasts
+                knownIdsRef.current = new Set(incoming.map(n => n._id))
+            } else {
+                const arrived = incoming.filter(n => !knownIdsRef.current!.has(n._id) && !n.readAt)
+                if (arrived.length > 0) {
+                    setNewArrivals(arrived)
+                    arrived.forEach(n => knownIdsRef.current!.add(n._id))
+                }
+            }
+
+            setNotifications(incoming)
         } catch {
             // silently fail — network may be unavailable
         }
@@ -57,5 +72,5 @@ export function useNotifications() {
         await fetch(`/api/notifications/${id}`, { method: 'DELETE' })
     }
 
-    return { notifications, unreadCount, loading, markRead, markAllRead, dismiss, refresh: fetch_ }
+    return { notifications, newArrivals, unreadCount, loading, markRead, markAllRead, dismiss, refresh: fetch_ }
 }

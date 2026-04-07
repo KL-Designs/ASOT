@@ -1,14 +1,53 @@
+import { ObjectId } from 'mongodb'
 import { NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
+import { createNotification } from '@/lib/notifications'
 
 // GET /api/notifications — fetch the current user's notifications (newest first, max 50)
+// Also fires any calendar reminders that are due for this user (avoids needing an external cron).
 export async function GET() {
     let me: User
     try {
         me = await client.fetchMe()
     } catch {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Fire any due calendar reminders for this user
+    const now = new Date()
+    const dueReminders = await Db.calendarReminders.find({
+        userId: me.id,
+        fireAt: { $lte: now },
+        firedAt: { $exists: false },
+    }).toArray()
+
+    if (dueReminders.length > 0) {
+        await Promise.all(dueReminders.map(async reminder => {
+            const label = reminder.minutesBefore === 0
+                ? 'is starting now'
+                : reminder.minutesBefore < 60
+                    ? `is in ${reminder.minutesBefore} minute${reminder.minutesBefore === 1 ? '' : 's'}`
+                    : reminder.minutesBefore === 60
+                        ? 'is in 1 hour'
+                        : reminder.minutesBefore < 1440
+                            ? `is in ${reminder.minutesBefore / 60} hours`
+                            : 'is tomorrow'
+
+            await createNotification({
+                userId: reminder.userId,
+                type: 'calendar_reminder',
+                title: 'Event Reminder',
+                body: `${reminder.eventTitle} ${label}.`,
+                actionUrl: '/admin/unit/calendar',
+                relatedId: reminder.eventId,
+            })
+
+            await Db.calendarReminders.updateOne(
+                { _id: reminder._id as ObjectId },
+                { $set: { firedAt: now } }
+            )
+        }))
     }
 
     const docs = await Db.notifications

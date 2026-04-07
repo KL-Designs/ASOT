@@ -1,8 +1,34 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { useNotifications } from '@/hooks/useNotifications'
+import { useNotifications, NotificationItem } from '@/hooks/useNotifications'
+
+function playChime() {
+    try {
+        const ctx = new AudioContext()
+        const note = (freq: number, start: number, dur: number) => {
+            const osc = ctx.createOscillator()
+            const gain = ctx.createGain()
+            osc.connect(gain)
+            gain.connect(ctx.destination)
+            osc.type = 'sine'
+            osc.frequency.value = freq
+            gain.gain.setValueAtTime(0, start)
+            gain.gain.linearRampToValueAtTime(0.12, start + 0.02)
+            gain.gain.exponentialRampToValueAtTime(0.001, start + dur)
+            osc.start(start)
+            osc.stop(start + dur)
+        }
+        const t = ctx.currentTime
+        note(880, t, 0.7)          // A5
+        note(1108.73, t + 0.18, 0.7) // C#6
+        setTimeout(() => ctx.close(), 1500)
+    } catch { /* AudioContext blocked — ignore */ }
+}
+
+interface Toast extends NotificationItem { key: number }
+let toastKey = 0
 
 const TYPE_LABELS: Record<string, string> = {
     task_assigned:  'Task',
@@ -32,10 +58,26 @@ function timeAgo(iso: string) {
 }
 
 export default function NotificationBell() {
-    const { notifications, unreadCount, markRead, markAllRead, dismiss } = useNotifications()
+    const { notifications, newArrivals, unreadCount, markRead, markAllRead, dismiss } = useNotifications()
     const [open, setOpen] = useState(false)
+    const [toasts, setToasts] = useState<Toast[]>([])
     const ref = useRef<HTMLDivElement>(null)
     const router = useRouter()
+
+    const dismissToast = useCallback((key: number) => {
+        setToasts(prev => prev.filter(t => t.key !== key))
+    }, [])
+
+    // Show toast + play chime for newly arrived notifications
+    useEffect(() => {
+        if (newArrivals.length === 0) return
+        playChime()
+        const created: Toast[] = newArrivals.map(n => ({ ...n, key: toastKey++ }))
+        setToasts(prev => [...prev, ...created])
+        created.forEach(t => {
+            setTimeout(() => dismissToast(t.key), 6000)
+        })
+    }, [newArrivals, dismissToast])
 
     // Close on outside click
     useEffect(() => {
@@ -247,6 +289,66 @@ export default function NotificationBell() {
                     </div>
                 </div>
             )}
+
+            {/* Toast popups — fixed bottom-right */}
+            {toasts.length > 0 && (
+            <div style={{
+                position: 'fixed',
+                bottom: 24,
+                right: 24,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                zIndex: 9999,
+                pointerEvents: 'none',
+            }}>
+                {toasts.map(t => {
+                    const color = TYPE_COLORS[t.type] ?? 'rgba(237,237,237,0.4)'
+                    const label = TYPE_LABELS[t.type] ?? t.type
+                    return (
+                        <div
+                            key={t.key}
+                            style={{
+                                pointerEvents: 'auto',
+                                width: 300,
+                                background: 'rgba(12,12,12,0.97)',
+                                border: '1px solid rgba(219,0,29,0.4)',
+                                borderLeft: '3px solid var(--red)',
+                                boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
+                                padding: '12px 14px',
+                                animation: 'toastIn 0.25s ease',
+                                display: 'flex',
+                                gap: 10,
+                                alignItems: 'flex-start',
+                            }}
+                        >
+                            {/* Bell icon */}
+                            <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke={color} strokeWidth='2.5' strokeLinecap='round' strokeLinejoin='round' style={{ flexShrink: 0, marginTop: 2 }}>
+                                <path d='M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9' />
+                                <path d='M13.73 21a2 2 0 0 1-3.46 0' />
+                            </svg>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color, fontFamily: 'monospace', marginBottom: 4 }}>
+                                    {label}
+                                </div>
+                                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'rgba(237,237,237,0.9)', lineHeight: 1.3, marginBottom: 3 }}>
+                                    {t.title}
+                                </div>
+                                <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.4 }}>
+                                    {t.body}
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => dismissToast(t.key)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(237,237,237,0.2)', fontSize: '0.85rem', lineHeight: 1, padding: '2px 2px', flexShrink: 0, transition: 'color 0.12s' }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--red)' }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,237,237,0.2)' }}
+                            >×</button>
+                        </div>
+                    )
+                })}
+            </div>
+        )}
         </div>
     )
 }

@@ -138,6 +138,12 @@ body {
 
 
 
+/* Toast popup */
+@keyframes toastIn {
+	from { opacity: 0; transform: translateX(20px); }
+	to   { opacity: 1; transform: translateX(0); }
+}
+
 /* Carousel */
 @keyframes carousel-scroll {
 	from { transform: translateX(0); }

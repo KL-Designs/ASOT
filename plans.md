@@ -17,11 +17,12 @@ This document captures requested features and improvements for the ASOT milsim c
 
 ## Calendar / Events
 
-### Event Reminders
-- Members can opt-in to a reminder for any calendar event
-- Default reminder time: **1 hour before** the event
-- Members can set a **custom reminder time**
-- Reminder delivery: in-app notification *(Discord DM/ping via bot — deferred to future)*
+### ~~Event Reminders~~ ✓
+- ~~Members can opt-in to a reminder for any calendar event~~
+- ~~Default reminder time: **1 hour before** the event~~
+- ~~Members can set a **custom reminder time**~~
+- ~~Reminder delivery: in-app notification~~ *(Discord DM/ping via bot — deferred to future)*
+- **Note:** Requires `CRON_SECRET` env var + an external scheduler hitting `GET /api/cron/calendar-reminders?secret=...` every 5 minutes
 
 ### ~~Event Filtering~~ ✓
 - ~~Add filter controls to the calendar view (admin panel `/admin/unit/calendar`)~~

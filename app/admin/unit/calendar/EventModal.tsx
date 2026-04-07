@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     Button, TextField, MenuItem, FormControlLabel, Switch,
     CircularProgress, Alert, Typography, Divider,
 } from '@mui/material'
-import { Delete, Close, OpenInNew } from '@mui/icons-material'
+import { Delete, Close, OpenInNew, NotificationsNone, NotificationsActive } from '@mui/icons-material'
 
 export type CalendarEventRow = {
     _id: string
@@ -102,6 +102,30 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
     const [deleting, setDeleting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
+    // Reminder state (view mode only)
+    const [reminderEnabled, setReminderEnabled] = useState(false)
+    const [leadUpEnabled, setLeadUpEnabled] = useState(false)
+    const [leadUpMinutes, setLeadUpMinutes] = useState(60)
+    const [reminderLoading, setReminderLoading] = useState(false)
+    const [reminderSaving, setReminderSaving] = useState(false)
+
+    useEffect(() => {
+        if (!open || !event) return
+        setReminderLoading(true)
+        fetch(`/api/admin/calendar/reminders?eventId=${event._id}`)
+            .then(r => r.json())
+            .then(data => {
+                const reminders: { minutesBefore: number }[] = data.reminders ?? []
+                const hasStart = reminders.some(r => r.minutesBefore === 0)
+                const leadUp = reminders.find(r => r.minutesBefore > 0)
+                setReminderEnabled(hasStart || !!leadUp)
+                setLeadUpEnabled(!!leadUp)
+                setLeadUpMinutes(leadUp?.minutesBefore ?? 60)
+            })
+            .catch(() => {})
+            .finally(() => setReminderLoading(false))
+    }, [open, event])
+
     function handleClose() {
         setTitle('')
         setDescription('')
@@ -145,6 +169,61 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
             handleClose()
         } finally {
             setSubmitting(false)
+        }
+    }
+
+    async function postReminder(mins: number) {
+        if (!event) return
+        await fetch('/api/admin/calendar/reminders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ eventId: event._id, minutesBefore: mins }),
+        }).catch(() => {})
+    }
+
+    async function deleteReminder(mins?: number) {
+        if (!event) return
+        const url = mins !== undefined
+            ? `/api/admin/calendar/reminders?eventId=${event._id}&minutesBefore=${mins}`
+            : `/api/admin/calendar/reminders?eventId=${event._id}`
+        await fetch(url, { method: 'DELETE' }).catch(() => {})
+    }
+
+    async function handleReminderToggle(enabled: boolean) {
+        if (!event) return
+        setReminderEnabled(enabled)
+        setReminderSaving(true)
+        if (enabled) {
+            await postReminder(0)
+            if (leadUpEnabled) await postReminder(leadUpMinutes)
+        } else {
+            setLeadUpEnabled(false)
+            await deleteReminder()
+        }
+        setReminderSaving(false)
+    }
+
+    async function handleLeadUpToggle(enabled: boolean) {
+        if (!event) return
+        setLeadUpEnabled(enabled)
+        setReminderSaving(true)
+        if (enabled) {
+            await postReminder(leadUpMinutes)
+        } else {
+            await deleteReminder(leadUpMinutes)
+        }
+        setReminderSaving(false)
+    }
+
+    async function handleLeadUpMinutesChange(mins: number) {
+        if (!event) return
+        const prev = leadUpMinutes
+        setLeadUpMinutes(mins)
+        if (leadUpEnabled) {
+            setReminderSaving(true)
+            await deleteReminder(prev)
+            await postReminder(mins)
+            setReminderSaving(false)
         }
     }
 
@@ -212,7 +291,7 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                 </button>
             </DialogTitle>
 
-            <DialogContent sx={{ pt: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <DialogContent sx={{ pt: '20px !important', display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {isViewMode && event ? (
                     <>
                         {/* Department badge */}
@@ -263,6 +342,86 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                                 </>
                             )}
                         </div>
+
+                        {/* Reminder */}
+                        {!event.isOperation && (
+                            <>
+                                <Divider sx={{ borderColor: 'rgba(219,0,29,0.12)', my: 0.5 }} />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                                    {/* Main toggle — at start time */}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            {reminderEnabled
+                                                ? <NotificationsActive sx={{ fontSize: 16, color: 'var(--red)' }} />
+                                                : <NotificationsNone sx={{ fontSize: 16, color: 'rgba(237,237,237,0.3)' }} />
+                                            }
+                                            <span style={{ fontSize: '0.78rem', color: reminderEnabled ? 'rgba(237,237,237,0.8)' : 'rgba(237,237,237,0.4)' }}>
+                                                {reminderLoading ? 'Loading…' : 'Remind me at start time'}
+                                            </span>
+                                            {reminderSaving && <CircularProgress size={10} sx={{ color: 'var(--red)', ml: 0.5 }} />}
+                                        </div>
+                                        <Switch
+                                            checked={reminderEnabled}
+                                            onChange={e => handleReminderToggle(e.target.checked)}
+                                            disabled={reminderLoading || reminderSaving}
+                                            size='small'
+                                            sx={{
+                                                '& .MuiSwitch-switchBase.Mui-checked': { color: 'var(--red)' },
+                                                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: 'var(--red)' },
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* Lead-up toggle — only visible when main is on */}
+                                    {reminderEnabled && (
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingLeft: 24 }}>
+                                            <span style={{ fontSize: '0.75rem', color: leadUpEnabled ? 'rgba(237,237,237,0.7)' : 'rgba(237,237,237,0.35)' }}>
+                                                Also remind me beforehand
+                                            </span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                {leadUpEnabled && (
+                                                    <TextField
+                                                        select
+                                                        size='small'
+                                                        value={leadUpMinutes}
+                                                        onChange={e => handleLeadUpMinutesChange(Number(e.target.value))}
+                                                        disabled={reminderSaving}
+                                                        sx={{
+                                                            minWidth: 140,
+                                                            '& .MuiOutlinedInput-root': {
+                                                                borderRadius: 0,
+                                                                fontSize: '0.78rem',
+                                                                '& fieldset': { borderColor: 'rgba(219,0,29,0.2)' },
+                                                                '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.4)' },
+                                                                '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
+                                                            },
+                                                        }}
+                                                    >
+                                                        <MenuItem value={15} sx={{ fontSize: '0.78rem' }}>15 min before</MenuItem>
+                                                        <MenuItem value={30} sx={{ fontSize: '0.78rem' }}>30 min before</MenuItem>
+                                                        <MenuItem value={60} sx={{ fontSize: '0.78rem' }}>1 hour before</MenuItem>
+                                                        <MenuItem value={120} sx={{ fontSize: '0.78rem' }}>2 hours before</MenuItem>
+                                                        <MenuItem value={360} sx={{ fontSize: '0.78rem' }}>6 hours before</MenuItem>
+                                                        <MenuItem value={1440} sx={{ fontSize: '0.78rem' }}>1 day before</MenuItem>
+                                                    </TextField>
+                                                )}
+                                                <Switch
+                                                    checked={leadUpEnabled}
+                                                    onChange={e => handleLeadUpToggle(e.target.checked)}
+                                                    disabled={reminderSaving}
+                                                    size='small'
+                                                    sx={{
+                                                        '& .MuiSwitch-switchBase.Mui-checked': { color: 'var(--red)' },
+                                                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: 'var(--red)' },
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
 
                         {error && <Alert severity='error' sx={{ borderRadius: 0, fontSize: '0.8rem' }}>{error}</Alert>}
                     </>

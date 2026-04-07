@@ -10,3 +10,15 @@ interface CalendarEvent {
     createdByName: string
     createdAt: Date
 }
+
+interface CalendarReminder {
+    _id?: import('mongodb').ObjectId
+    userId: string          // Discord user ID
+    eventId: string         // CalendarEvent _id as string
+    eventTitle: string
+    eventStart: Date
+    minutesBefore: number   // how many minutes before the event to fire
+    fireAt: Date            // = eventStart - minutesBefore * 60_000
+    firedAt?: Date          // set once the notification has been sent
+    createdAt: Date
+}
