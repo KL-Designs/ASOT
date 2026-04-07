@@ -23,9 +23,9 @@ This document captures requested features and improvements for the ASOT milsim c
 - Members can set a **custom reminder time**
 - Reminder delivery: in-app notification *(Discord DM/ping via bot — deferred to future)*
 
-### Event Filtering
-- Add filter controls to the calendar view (admin panel `/admin/unit/calendar`)
-- Filter by department, event type, or date range
+### ~~Event Filtering~~ ✓
+- ~~Add filter controls to the calendar view (admin panel `/admin/unit/calendar`)~~
+- ~~Filter by department, event type, or date range~~
 
 ---
 
@@ -138,9 +138,9 @@ Ensure the mastersheet displays (at minimum):
 
 ## J6 — Game Masters
 
-### Zeus Notes Access Control
-- In operation orders/operations, the **Zeus notes section** should only be visible to members with the **J6 tag/role**
-- Other staff can see the operation exists but cannot view zeus-specific notes
+### ~~Zeus Notes Access Control~~ ✓
+- ~~In operation orders/operations, the **Zeus notes section** should only be visible to members with the **J6 tag/role**~~
+- ~~Other staff can see the operation exists but cannot view zeus-specific notes~~
 
 ---
 
@@ -162,9 +162,9 @@ Ensure the mastersheet displays (at minimum):
 
 ## Shot of the Month (J5)
 
-### Link to Operation
-- Add a new field on SOTM entries: **"Which operation is this from?"**
-- Dropdown or search linking to an operation in the system
+### ~~Link to Operation~~ ✓
+- ~~Add a new field on SOTM entries: **"Which operation is this from?"**~~
+- ~~Dropdown or search linking to an operation in the system~~
 
 ### Include Operations Screenshots
 - Operations-related screenshots (from the gallery or uploaded) can be submitted/nominated for SOTM

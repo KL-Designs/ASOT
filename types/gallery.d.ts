@@ -11,6 +11,8 @@ declare global {
         credit: string
         setAt: string
         setBy: string
+        operationId?: string
+        operationTitle?: string
     }
 
     interface GalleryAPI {

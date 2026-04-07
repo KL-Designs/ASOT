@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null
     const dateTaken = (formData.get('dateTaken') as string | null)?.trim()
     const credit = (formData.get('credit') as string | null)?.trim()
+    const operationId = (formData.get('operationId') as string | null)?.trim() || undefined
+    const operationTitle = (formData.get('operationTitle') as string | null)?.trim() || undefined
 
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     if (!dateTaken) return NextResponse.json({ error: 'dateTaken is required' }, { status: 400 })
@@ -62,6 +64,7 @@ export async function POST(request: NextRequest) {
         credit,
         setAt: new Date().toISOString(),
         setBy: me?.id ?? 'unknown',
+        ...(operationId ? { operationId, operationTitle } : {}),
     }
 
     await db.siteSettings.updateOne(

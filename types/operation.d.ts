@@ -165,6 +165,9 @@ declare global {
 
         // J2-internal — never rendered on public pages
         internalNotes?: string
+
+        // J6-only — only visible to members with the J6-Game Master role
+        zeusNotes?: string
         campaignId?: ObjectId
 
         // Soft delete

@@ -11,6 +11,7 @@ import PrintButton from './print-button'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import AttendanceDrawer from '@/components/operations/AttendanceDrawer'
+import ZeusNotesPanel from './ZeusNotesPanel'
 
 
 function hexToRgb(hex: string) {
@@ -33,6 +34,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     const isLoggedIn = !!me
     const isHQ = me ? client.hasRoles(me, PERMISSIONS.pages.operationsEdit) : false
     const isAllStaff = me ? client.hasRoles(me, PERMISSIONS.attendance.confirm) : false
+    const isJ6 = me ? client.hasRoles(me, PERMISSIONS.departments.j6) : false
 
     // Check if the logged-in user is a section leader (isSenior on their ORBAT position)
     const isSectionLeader = me
@@ -660,6 +662,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             </div>
             )}
             </div>
+
+            {/* Zeus Notes — J6 only */}
+            {isJ6 && (
+                <ZeusNotesPanel operationId={id} initialNotes={operation.zeusNotes ?? ''} />
+            )}
 
             {/* Right: attendance sidebar / mobile drawer */}
             <AttendanceDrawer

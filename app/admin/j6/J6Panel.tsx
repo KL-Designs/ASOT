@@ -1,8 +1,10 @@
 'use client'
 
-import { Typography } from '@mui/material'
+import { Typography, Tabs, Tab } from '@mui/material'
 import DeptMembersTab from '@/app/admin/DeptMembersTab'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
+import ZeusNotesTab from './ZeusNotesTab'
+import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 import { useTabState } from '@/app/admin/_components/useTabState'
 
@@ -17,7 +19,17 @@ export default function J6Panel({
     canManageMembers: boolean
     isJ4: boolean
 }) {
-    const { view, setView } = useTabState(0, 'members')
+    const { tab, setTab, view, setView } = useTabState(0, 'dept')
+
+    const tabSx = {
+        fontSize: '0.72rem',
+        fontWeight: 700,
+        letterSpacing: '0.1em',
+        minHeight: 40,
+        padding: '8px 16px',
+        color: 'rgba(237,237,237,0.5)',
+        '&.Mui-selected': { color: 'var(--foreground)' },
+    }
 
     const btnSx = (active: boolean): React.CSSProperties => ({
         fontSize: '0.62rem',
@@ -51,20 +63,36 @@ export default function J6Panel({
                         [J6] Game Masters
                     </Typography>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button style={btnSx(view === 'members')} onClick={() => setView('members')}>Members</button>
-                        <button style={btnSx(view === 'calendar')} onClick={() => setView('calendar')}>Calendar</button>
+                        <button style={btnSx(view === 'members')} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>Members</button>
+                        <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
                     </div>
                 </div>
             </div>
 
-            <div className='flex-1 min-h-0'>
-                {view === 'members' && (
-                    <DeptMembersTab department='j6' displayName={displayName} userId={userId} canManage={canManageMembers} />
-                )}
-                {view === 'calendar' && (
-                    <DeptCalendarTab department='j6' userId={userId} isJ4={isJ4} />
-                )}
-            </div>
+            {view === 'members' && (
+                <DeptMembersTab department='j6' displayName={displayName} userId={userId} canManage={canManageMembers} />
+            )}
+            {view === 'calendar' && (
+                <DeptCalendarTab department='j6' userId={userId} isJ4={isJ4} />
+            )}
+            {view === 'dept' && (
+                <>
+                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
+                        <Tabs
+                            value={tab}
+                            onChange={(_, v) => setTab(v)}
+                            TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
+                            sx={{ minHeight: 40 }}
+                        >
+                            <Tab label={<PinTabLabel label='Zeus Notes' pinLabel='J6 — Zeus Notes' href='/admin/j6' tabIndex={0} />} sx={tabSx} />
+                        </Tabs>
+                    </div>
+
+                    <div className='flex-1 min-h-0 mt-0'>
+                        {tab === 0 && <ZeusNotesTab />}
+                    </div>
+                </>
+            )}
         </div>
     )
 }

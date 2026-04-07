@@ -388,7 +388,12 @@ export default function StaffSidebar({
                         { label: 'Screenshot of Month',  tab: 1 },
                     ],
                 },
-                { label: '[J6] Game Masters', href: '/admin/j6', visible: permissions.canSeeJ6, icon: <SportsEsports sx={{ fontSize: 14 }} /> },
+                {
+                    label: '[J6] Game Masters', href: '/admin/j6', visible: permissions.canSeeJ6, icon: <SportsEsports sx={{ fontSize: 14 }} />,
+                    tabs: [
+                        { label: 'Zeus Notes', tab: 0 },
+                    ],
+                },
                 { label: '[J7] Development',  href: '/admin/j7', visible: permissions.canSeeJ7, icon: <Code sx={{ fontSize: 14 }} /> },
             ],
         },

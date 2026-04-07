@@ -46,6 +46,37 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
     const [credit, setCredit] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
 
+    // Operation search
+    const [opSearch, setOpSearch] = useState('')
+    const [opResults, setOpResults] = useState<{ _id: string; title: string }[]>([])
+    const [selectedOp, setSelectedOp] = useState<{ id: string; title: string } | null>(null)
+    const opSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    function handleOpSearch(val: string) {
+        setOpSearch(val)
+        if (!val.trim()) { setOpResults([]); setSelectedOp(null); return }
+        if (opSearchTimeout.current) clearTimeout(opSearchTimeout.current)
+        opSearchTimeout.current = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/operations?search=${encodeURIComponent(val.trim())}`)
+                const data = await res.json()
+                setOpResults((data.missions ?? []).slice(0, 8))
+            } catch { setOpResults([]) }
+        }, 300)
+    }
+
+    function selectOp(op: { _id: string; title: string }) {
+        setSelectedOp({ id: op._id, title: op.title })
+        setOpSearch(op.title)
+        setOpResults([])
+    }
+
+    function clearOp() {
+        setSelectedOp(null)
+        setOpSearch('')
+        setOpResults([])
+    }
+
     function showFeedback(type: 'success' | 'error', msg: string) {
         setFeedback({ type, msg })
         setTimeout(() => setFeedback(null), 5000)
@@ -77,6 +108,10 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
             fd.append('file', file)
             fd.append('dateTaken', dateTaken)
             fd.append('credit', credit.trim())
+            if (selectedOp) {
+                fd.append('operationId', selectedOp.id)
+                fd.append('operationTitle', selectedOp.title)
+            }
             const res = await fetch('/api/gallery/sotm', { method: 'POST', body: fd })
             const data = await res.json()
             if (!res.ok) {
@@ -86,6 +121,8 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
                 setFile(null)
                 setDateTaken('')
                 setCredit('')
+                setSelectedOp(null)
+                setOpSearch('')
                 if (fileInputRef.current) fileInputRef.current.value = ''
                 fetchSotm()
             }
@@ -174,6 +211,12 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
                                     {new Date(sotm.setAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                 </span>
                             </div>
+                            {sotm.operationTitle && (
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', minWidth: 80 }}>Operation</span>
+                                    <span style={{ fontSize: '0.82rem', color: '#ededed' }}>{sotm.operationTitle}</span>
+                                </div>
+                            )}
                         </div>
 
                         {canManage && (
@@ -249,6 +292,47 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
                                 sx={{ ...inputSx, flex: 1, minWidth: 200 }}
                                 placeholder='e.g. Cpl. Smith'
                             />
+                        </div>
+
+                        {/* Operation search */}
+                        <div style={{ position: 'relative' }}>
+                            <TextField
+                                label='Operation (optional)'
+                                value={opSearch}
+                                onChange={e => handleOpSearch(e.target.value)}
+                                size='small'
+                                sx={{ ...inputSx, width: '100%' }}
+                                placeholder='Search for an operation…'
+                                slotProps={{
+                                    input: {
+                                        endAdornment: selectedOp ? (
+                                            <button
+                                                onClick={clearOp}
+                                                style={{ background: 'none', border: 'none', color: 'rgba(237,237,237,0.4)', cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px' }}
+                                            >✕</button>
+                                        ) : undefined,
+                                    },
+                                }}
+                            />
+                            {opResults.length > 0 && (
+                                <div style={{
+                                    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+                                    background: 'rgb(18,18,18)', border: '1px solid rgba(219,0,29,0.25)',
+                                    borderTop: 'none', maxHeight: 220, overflowY: 'auto',
+                                }}>
+                                    {opResults.map(op => (
+                                        <div
+                                            key={op._id}
+                                            onClick={() => selectOp(op)}
+                                            style={{ padding: '8px 12px', fontSize: '0.82rem', color: 'rgba(237,237,237,0.8)', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(219,0,29,0.08)')}
+                                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                        >
+                                            {op.title}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         <div>
