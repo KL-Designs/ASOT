@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     await createNotificationForRole('J1-Staff', {
         type: 'task_assigned',
         title: 'New recruit requires sign-off',
-        body: `${displayName} logged ${inGameName.trim()} as a new recruit`,
+        body: `${displayName} logged ${joiningName.trim()} as a new recruit`,
         actionUrl: '/admin/j1',
     })
 

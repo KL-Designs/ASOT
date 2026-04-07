@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const lower = name.toLowerCase()
 
     const allUsers = await Db.users
-        .find({ name: { $exists: true, $ne: null } }, { projection: { name: 1 } })
+        .find({ name: { $exists: true } }, { projection: { name: 1 } })
         .toArray()
 
     let taken = false

@@ -94,7 +94,7 @@ export default function NotificationBell() {
         markRead(n._id)
         if (n.actionUrl) {
             setOpen(false)
-            router.push(n.actionUrl)
+            router.push(n.actionUrl as never)
         }
     }
 

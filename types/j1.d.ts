@@ -1,6 +1,7 @@
 interface J1Application {
     _id?: import('mongodb').ObjectId
     discordUsername: string
+    discordId?: string
     inGameName: string
     age: number
     experience: string
@@ -16,7 +17,11 @@ interface J1Application {
     linkedUserDisplayName?: string
     // Extended fields
     steamUrl?: string
+    steamId64?: string
     region?: string
+    currentUnit?: string
+    heardAbout?: string
+    heardAboutOther?: string
     armaHours?: string
     priorMilsim?: boolean
     dualClan?: boolean
