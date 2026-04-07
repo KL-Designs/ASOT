@@ -131,11 +131,13 @@ export default function Navbar() {
                                         <Button
                                             startIcon={link.icon}
                                             color='light'
+                                            size='small'
                                             style={{
                                                 borderBottom: isActive ? '2px solid var(--red)' : '2px solid transparent',
                                                 borderRadius: 0,
                                                 opacity: isActive ? 1 : 0.75,
                                                 transition: 'border-color 0.2s, opacity 0.2s',
+                                                fontSize: '0.9rem',
                                             }}
                                         >
                                             {link.name}
@@ -440,7 +442,7 @@ function ProfileDropdown({ user }: { user: User }) {
                             {name}
                         </div>
                         {rank && (
-                            <div style={{ fontSize: '0.72rem', color: accent, fontWeight: 600, marginTop: 2, letterSpacing: '0.05em' }}>
+                            <div style={{ fontSize: '0.9rem', color: accent, fontWeight: 600, marginTop: 2, letterSpacing: '0.05em' }}>
                                 {rank}
                             </div>
                         )}
@@ -523,6 +525,7 @@ function DropDownMenu({ data, isActive }: { data: Link, isActive: boolean }) {
                 id="basic-button"
                 variant='text'
                 color='light'
+                size='small'
                 aria-controls={open ? 'basic-menu' : undefined}
                 aria-haspopup="true"
                 aria-expanded={open ? 'true' : undefined}
@@ -534,6 +537,7 @@ function DropDownMenu({ data, isActive }: { data: Link, isActive: boolean }) {
                     borderRadius: 0,
                     opacity: isActive ? 1 : 0.75,
                     transition: 'border-color 0.2s, opacity 0.2s',
+                    fontSize: '0.9rem',
                 }}
             >
                 {data.name}
