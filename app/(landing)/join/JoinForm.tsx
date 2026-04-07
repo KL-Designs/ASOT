@@ -96,6 +96,62 @@ function OpTimesDisplay() {
     )
 }
 
+function SteamHelp() {
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLSpanElement>(null)
+
+    useEffect(() => {
+        if (!open) return
+        const handler = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+        }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [open])
+
+    return (
+        <span ref={ref} style={{ position: 'relative', display: 'inline-flex' }}>
+            <button
+                type='button'
+                onClick={() => setOpen(v => !v)}
+                style={{
+                    width: 15, height: 15, borderRadius: '50%',
+                    border: '1px solid rgba(237,237,237,0.25)',
+                    background: 'rgba(255,255,255,0.05)',
+                    color: 'rgba(237,237,237,0.5)',
+                    fontSize: '0.6rem', fontWeight: 700, lineHeight: 1,
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0,
+                }}
+                aria-label='Steam URL help'
+            >
+                ?
+            </button>
+            {open && (
+                <div style={{
+                    position: 'absolute', left: 0, top: 20, zIndex: 10,
+                    width: 260, padding: '10px 12px',
+                    background: '#1c1c1c', border: '1px solid rgba(219,0,29,0.3)',
+                    fontSize: '0.72rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6,
+                }}>
+                    <div style={{ fontWeight: 700, color: 'rgba(237,237,237,0.85)', marginBottom: 6 }}>Finding your Steam URL</div>
+                    <ol style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <li>Open Steam and go to your profile page</li>
+                        <li>Right-click anywhere on the page → <strong>&#8220;Copy Page URL&#8221;</strong></li>
+                        <li>Paste the URL here — it will look like:<br />
+                            <code style={{ fontSize: '0.68rem', color: 'rgba(219,0,29,0.8)' }}>steamcommunity.com/id/yourname</code><br />
+                            or <code style={{ fontSize: '0.68rem', color: 'rgba(219,0,29,0.8)' }}>steamcommunity.com/profiles/76561…</code>
+                        </li>
+                    </ol>
+                    <div style={{ marginTop: 8, color: 'rgba(237,237,237,0.35)', fontSize: '0.68rem' }}>
+                        Then click <strong style={{ color: 'rgba(237,237,237,0.5)' }}>RESOLVE</strong> to look up your SteamID64.
+                    </div>
+                </div>
+            )}
+        </span>
+    )
+}
+
 export default function JoinForm() {
     const [fields, setFields] = useState({
         discordUsername: '',
@@ -294,7 +350,7 @@ export default function JoinForm() {
                 />
                 <TextField
                     label='In-Game Name'
-                    placeholder='Your preferred name in-game'
+                    placeholder='e.g. Thomas, Six, Yoshi'
                     value={fields.inGameName}
                     onChange={set('inGameName')}
                     required fullWidth
@@ -318,9 +374,12 @@ export default function JoinForm() {
 
             {/* Steam */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.35)' }}>Steam Profile URL or SteamID64</span>
+                    <SteamHelp />
+                </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                     <TextField
-                        label='Steam Profile URL or SteamID64'
                         placeholder='https://steamcommunity.com/id/yourprofile'
                         value={fields.steamUrl}
                         onChange={e => {
