@@ -129,6 +129,11 @@ export default function Page() {
 						<div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.4)', letterSpacing: '0.04em', marginTop: 1 }}>
 							{new Date(sotm.dateTaken).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
 						</div>
+						{sotm.operationTitle && (
+							<div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.35)', letterSpacing: '0.04em', marginTop: 1 }}>
+								{sotm.operationTitle}
+							</div>
+						)}
 					</div>
 				)}
 

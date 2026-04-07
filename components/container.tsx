@@ -5,11 +5,12 @@ import Image, { StaticImageData } from 'next/image'
 
 
 
-export default function Container({ children, title, subtitle, background, sx }: {
+export default function Container({ children, title, subtitle, background, backgroundUrl, sx }: {
     children?: React.ReactNode,
     title?: string,
     subtitle?: string,
     background?: StaticImageData,
+    backgroundUrl?: string,
     sx?: {
         maxWidth?: 'max-w-sm' | 'max-w-md' | 'max-w-lg' | 'max-w-xl' | (string & {}),
         bannerHeight?: 'xsm' | 'sm' | 'md' | 'lg',
@@ -31,7 +32,11 @@ export default function Container({ children, title, subtitle, background, sx }:
         <div className='h-full w-full'>
 
             <div className={`relative w-full ${bannerHeight} flex flex-col justify-end items-center overflow-hidden`}>
-                <Image src={background || '/images/fallback.webp'} alt='Banner' fill className='object-cover object-center' loading='eager' />
+                {backgroundUrl
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={backgroundUrl} alt='Banner' className='absolute inset-0 w-full h-full object-cover object-center' />
+                    : <Image src={background || '/images/fallback.webp'} alt='Banner' fill className='object-cover object-center' loading='eager' />
+                }
 
                 {/* Gradient overlay — dark top edge, heavy fade to page bg at bottom */}
                 <div className='absolute inset-0' style={{

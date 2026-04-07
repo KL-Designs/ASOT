@@ -1,19 +1,40 @@
 import { Metadata } from 'next'
 import Container from '@/components/container'
 import JoinForm from './JoinForm'
+import db from '@/lib/mongo'
 
 export const metadata: Metadata = {
     title: 'Join ASOT | Australian Special Operations Taskforce',
     description: 'Apply to join the Australian Special Operations Taskforce milsim community.',
 }
 
-export default function JoinPage() {
+export default async function JoinPage() {
+    const sotmDoc = await db.siteSettings.findOne({ _id: 'screenshotOfMonth' }).catch(() => null)
+    const sotm = sotmDoc ? (sotmDoc as unknown as ScreenshotOfMonth) : null
+
     return (
         <Container
             title='JOIN ASOT'
             subtitle='Fill out the form below to apply for membership. Our J1 Recruitment team will review your application and contact you via Discord.'
+            backgroundUrl={sotm ? '/api/gallery/sotm/image' : undefined}
             sx={{ bannerHeight: 'sm', maxWidth: 'max-w-sm' }}
         >
+            {sotm && (
+                <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', letterSpacing: '0.04em', marginTop: -16, marginBottom: -8 }}>
+                    <span style={{ color: 'rgba(219,0,29,0.6)', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', fontSize: '0.58rem' }}>
+                        Screenshot of the Month
+                    </span>
+                    {' — '}
+                    {sotm.credit}
+                    {sotm.dateTaken && (
+                        <> · {new Date(sotm.dateTaken).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}</>
+                    )}
+                    {sotm.operationTitle && (
+                        <> · <span style={{ color: 'rgba(237,237,237,0.5)' }}>{sotm.operationTitle}</span></>
+                    )}
+                </div>
+            )}
+
             <div
                 className='flex flex-col gap-6 p-6'
                 style={{
