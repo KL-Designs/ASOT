@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
+import { sendCalendarReminderDM } from '@/lib/discord/bot'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
 
@@ -37,14 +38,18 @@ export async function GET(request: NextRequest) {
                         ? `is in ${reminder.minutesBefore / 60} hours`
                         : 'is tomorrow'
 
-        await createNotification({
-            userId: reminder.userId,
-            type: 'calendar_reminder',
-            title: 'Event Reminder',
-            body: `${reminder.eventTitle} ${label}.`,
-            actionUrl: '/admin/unit/calendar',
-            relatedId: reminder.eventId,
-        })
+        await Promise.all([
+            createNotification({
+                userId: reminder.userId,
+                type: 'calendar_reminder',
+                title: 'Event Reminder',
+                body: `${reminder.eventTitle} ${label}.`,
+                actionUrl: '/admin/unit/calendar',
+                relatedId: reminder.eventId,
+            }),
+            sendCalendarReminderDM(reminder.userId, reminder.eventTitle, label, '/admin/unit/calendar')
+                .catch(err => console.error('[reminder] Discord DM failed:', err)),
+        ])
 
         await Db.calendarReminders.updateOne(
             { _id: reminder._id as ObjectId },
