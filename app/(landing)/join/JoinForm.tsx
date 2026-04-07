@@ -611,7 +611,7 @@ export default function JoinForm() {
                 sx={{
                     borderRadius: 0, background: 'var(--red)',
                     fontWeight: 700, letterSpacing: '0.1em', fontSize: '0.8rem',
-                    padding: '10px 24px', alignSelf: 'flex-start',
+                    padding: '10px 24px',
                     '&:hover': { background: 'rgba(219,0,29,0.85)' },
                     '&.Mui-disabled': { background: 'rgba(219,0,29,0.3)' },
                 }}
