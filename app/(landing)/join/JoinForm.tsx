@@ -26,14 +26,15 @@ const DEPARTMENTS = [
 ]
 
 
-async function measureLatency(): Promise<number | null> {
-    try {
-        const t = performance.now()
-        await fetch('/api/ping', { cache: 'no-store' })
-        return Math.round(performance.now() - t)
-    } catch {
-        return null
-    }
+// Estimated latency from our Sydney server to each region (ms)
+const REGION_LATENCY: Record<string, number> = {
+    'Oceania':       20,
+    'Asia':         120,
+    'North America': 200,
+    'Europe':        270,
+    'Middle East':   230,
+    'South America': 330,
+    'Africa':        370,
 }
 
 function LatencyBadge({ ms }: { ms: number }) {
@@ -187,9 +188,8 @@ export default function JoinForm() {
     const [steamStatus,  setSteamStatus]  = useState<'idle' | 'resolving' | 'resolved' | 'error'>('idle')
     const [steamError,   setSteamError]   = useState<string | null>(null)
 
-    // Region latency
-    const [latency,        setLatency]        = useState<number | null>(null)
-    const [latencyLoading, setLatencyLoading] = useState(false)
+    // Region latency — derived from selected region
+    const latency = REGION_LATENCY[fields.region] ?? null
 
     // Name check
     useEffect(() => {
@@ -206,21 +206,8 @@ export default function JoinForm() {
         }, 500)
     }, [fields.inGameName])
 
-    // Latency test — ping our server on mount then every 5 seconds
-    useEffect(() => {
-        let cancelled = false
-        const run = (initial = false) => {
-            if (initial) setLatencyLoading(true)
-            measureLatency().then(ms => {
-                if (!cancelled) { setLatency(ms); setLatencyLoading(false) }
-            })
-        }
-        run(true)
-        const id = setInterval(() => run(false), 5000)
-        return () => { cancelled = true; clearInterval(id) }
-    }, [])
 
-    const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
         setFields(prev => ({ ...prev, [key]: e.target.value }))
 
     const setSelect = (key: string) => (value: string) =>
@@ -477,16 +464,13 @@ export default function JoinForm() {
                 </div>
             )}
 
-            {/* Latency result */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)' }}>
-                <span>Your latency to our server:</span>
-                {latencyLoading
-                    ? <CircularProgress size={12} style={{ color: 'rgba(237,237,237,0.3)' }} />
-                    : latency !== null
-                    ? <LatencyBadge ms={latency} />
-                    : <span style={{ color: 'rgba(237,237,237,0.25)' }}>Unable to test</span>
-                }
-            </div>
+            {/* Latency estimate */}
+            {latency !== null && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)' }}>
+                    <span>Estimated latency to our server:</span>
+                    <LatencyBadge ms={latency} />
+                </div>
+            )}
 
             <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
                 <FormControl sx={inputSx}>
