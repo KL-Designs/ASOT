@@ -70,32 +70,14 @@ This document captures requested features and improvements for the ASOT milsim c
 ### ~~UI: Switch Applications ↔ Recruit Applicant~~ ✓
 - ~~Swap the layout/order of the "Applications" list and "Recruit Applicant" form/button so the workflow is more logical~~
 
-### Recruit Member Ticket — Improvements
-- **Name (joining name)**:
-  - Rename "in-game name" field to **"Joining Name"**
-  - Max 12 characters
-  - Warn if a **similar name already exists** in the system
-  - Warn or block if the name is **offensive** (basic filter)
-- **Steam**:
-  - Remove the Steam URL field
-  - **Steam URL is mandatory** — but auto-strip the URL and store only the **ID64**
-- **Discord**:
-  - **Discord ID** is mandatory
-  - Display the resolved Discord username/tag
-  - At first, show **applicant's Discord tag**; searching all guild members via bot — *deferred to future*
-  - Display the Discord ID alongside the name
-- **Region**:
-  - If "Other" is selected, show a text field to type their country
-  - For any region outside Oceania and Asia, show a **warning about ping and timezone compatibility**
-- **How they heard about us**:
-  - Dropdown with preset options **plus** a free-text "custom answer" field
-- **Returning member detection**:
-  - Auto-detect if the Discord ID or Steam ID matches a previous member
-  - Auto-indicate status: **Welcome Back** / **To Be Reviewed** / **Not Welcome**
-  - For "To Be Reviewed" and "Not Welcome": show a button to notify J4
-- **Log Recruit**:
-  - On submission, send a **notification/task to the J1 Lead** for sign-off
-  - Once the J1 Lead ticks it off, the **recruiter receives their billet and stat credit**
+### ~~Recruit Member Ticket — Improvements~~ ✓
+- ~~**Name (joining name)**: Rename, 12 char limit, similar name warning, offensive name warning~~
+- ~~**Steam**: Mandatory URL → resolve to ID64~~
+- ~~**Discord**: Member picker from server list, manual fallback with Discord ID~~
+- ~~**Region**: "Other" free-text, non-Oceania/Asia ping warning~~
+- ~~**How they heard about us**: Dropdown + free-text "Other"~~
+- ~~**Returning member detection**: Auto-detect active/discharged from member picker~~
+- **Log Recruit sign-off**: J1 Lead sign-off flow + recruiter billet/stat credit — *deferred*
 
 ### J1 Mastersheet — Required Columns
 Ensure the mastersheet displays (at minimum):
