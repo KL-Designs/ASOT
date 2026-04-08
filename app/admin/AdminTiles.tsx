@@ -24,7 +24,7 @@ export default function AdminTiles({ canManageMembers, canManageGallery, canMana
             <div
                 className='flex flex-col px-5 py-4'
                 style={{
-                    border: '1px solid rgba(219,0,29,0.3)',
+                    border: '1px solid rgba(219,0,29,0.42)',
                     borderTop: '2px solid var(--red)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
@@ -51,7 +51,7 @@ export default function AdminTiles({ canManageMembers, canManageGallery, canMana
                         <Link href='/members' className='flex-1 min-w-[160px] max-w-[220px]'>
                             <div
                                 className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                style={{ border: '1px solid rgba(219,0,29,0.3)', borderTop: '2px solid var(--red)' }}
+                                style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
                             >
                                 <ManageAccounts sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
                                 <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
@@ -65,7 +65,7 @@ export default function AdminTiles({ canManageMembers, canManageGallery, canMana
                         <Link href='/admin/gallery' className='flex-1 min-w-[160px] max-w-[220px]'>
                             <div
                                 className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                style={{ border: '1px solid rgba(219,0,29,0.3)', borderTop: '2px solid var(--red)' }}
+                                style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
                             >
                                 <PhotoLibrary sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
                                 <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
@@ -79,7 +79,7 @@ export default function AdminTiles({ canManageMembers, canManageGallery, canMana
                         <Link href='/admin/orbat' className='flex-1 min-w-[160px] max-w-[220px]'>
                             <div
                                 className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                style={{ border: '1px solid rgba(219,0,29,0.3)', borderTop: '2px solid var(--red)' }}
+                                style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
                             >
                                 <AccountTree sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
                                 <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
@@ -97,7 +97,7 @@ export default function AdminTiles({ canManageMembers, canManageGallery, canMana
                         >
                             <div
                                 className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                style={{ border: '1px solid rgba(219,0,29,0.3)', borderTop: '2px solid var(--red)' }}
+                                style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
                             >
                                 <CloudUpload sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
                                 <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>

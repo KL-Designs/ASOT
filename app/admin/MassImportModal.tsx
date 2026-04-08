@@ -87,7 +87,7 @@ export default function MassImportModal({ open, onClose }: Props) {
             PaperProps={{
                 style: {
                     background: 'var(--background, #0a0a0a)',
-                    border: '1px solid rgba(219,0,29,0.2)',
+                    border: '1px solid rgba(219,0,29,0.32)',
                     borderTop: '2px solid var(--red)',
                 },
             }}
@@ -101,7 +101,7 @@ export default function MassImportModal({ open, onClose }: Props) {
                 </Typography>
             </DialogTitle>
 
-            <Divider sx={{ borderColor: 'rgba(219,0,29,0.3)' }} />
+            <Divider sx={{ borderColor: 'rgba(219,0,29,0.42)' }} />
 
             <DialogContent sx={{ pt: 3 }}>
 
@@ -182,7 +182,7 @@ export default function MassImportModal({ open, onClose }: Props) {
                             severity='warning'
                             sx={{
                                 background: 'rgba(219,0,29,0.08)',
-                                border: '1px solid rgba(219,0,29,0.3)',
+                                border: '1px solid rgba(219,0,29,0.42)',
                                 color: 'rgba(237,237,237,0.85)',
                                 fontSize: '0.78rem',
                                 '& .MuiAlert-icon': { color: 'rgba(219,0,29,0.8)' },
@@ -266,7 +266,7 @@ export default function MassImportModal({ open, onClose }: Props) {
 
             </DialogContent>
 
-            <Divider sx={{ borderColor: 'rgba(219,0,29,0.3)' }} />
+            <Divider sx={{ borderColor: 'rgba(219,0,29,0.42)' }} />
 
             <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
                 {step === 'upload' && (

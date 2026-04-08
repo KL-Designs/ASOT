@@ -95,7 +95,7 @@ export default function DeptCalendarTab({ department, userId, isJ4 }: DeptCalend
                         fontSize: '0.7rem',
                         fontWeight: 700,
                         letterSpacing: '0.1em',
-                        borderColor: 'rgba(219,0,29,0.3)',
+                        borderColor: 'rgba(219,0,29,0.42)',
                         color: 'var(--red)',
                         '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.06)' },
                     }}

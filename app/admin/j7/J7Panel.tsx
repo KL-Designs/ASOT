@@ -37,7 +37,7 @@ export default function J7Panel({
                 className='flex flex-col px-5 py-4 mx-6 mt-6'
                 style={{
                     position: 'relative',
-                    border: '1px solid rgba(219,0,29,0.3)',
+                    border: '1px solid rgba(219,0,29,0.42)',
                     borderTop: '2px solid var(--red)',
                     background: 'rgba(255,255,255,0.04)',
                 }}

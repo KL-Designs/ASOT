@@ -431,7 +431,7 @@ export default function StaffSidebar({
                 style={{
                     position: 'relative',
                     padding: '18px 16px 16px',
-                    borderBottom: '1px solid rgba(219,0,29,0.3)',
+                    borderBottom: '1px solid rgba(219,0,29,0.42)',
                     background: 'rgba(0,0,0,0.25)',
                 }}
             >
@@ -530,7 +530,7 @@ export default function StaffSidebar({
             })}
 
             {/* ── Footer ──────────────────────────────────────────────────── */}
-            <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid rgba(219,0,29,0.1)' }}>
+            <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid rgba(219,0,29,0.22)' }}>
                 <div style={{ fontSize: '0.5rem', fontFamily: 'monospace', letterSpacing: '0.15em', color: 'rgba(237,237,237,0.12)', textTransform: 'uppercase', lineHeight: 1.8 }}>
                     <div>SYS // MEMBER-PORTAL</div>
                     <div>AUTH // DISCORD-SSO</div>

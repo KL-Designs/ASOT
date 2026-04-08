@@ -102,7 +102,7 @@ function DetailModal({ app, onClose }: { app: Application; onClose: () => void }
                             </div>
                             <div className='flex flex-wrap gap-2'>
                                 {app.additionalRoles.map(r => (
-                                    <Chip key={r} label={r} size='small' sx={{ borderRadius: 0, fontSize: '0.72rem', background: 'rgba(219,0,29,0.08)', color: 'rgba(237,237,237,0.7)', border: '1px solid rgba(219,0,29,0.3)' }} />
+                                    <Chip key={r} label={r} size='small' sx={{ borderRadius: 0, fontSize: '0.72rem', background: 'rgba(219,0,29,0.08)', color: 'rgba(237,237,237,0.7)', border: '1px solid rgba(219,0,29,0.42)' }} />
                                 ))}
                             </div>
                         </div>
@@ -261,8 +261,8 @@ export default function MastersheetTab() {
             borderRadius: 0,
             fontSize: '0.8rem',
             height: 34,
-            '& fieldset': { borderColor: 'rgba(219,0,29,0.2)' },
-            '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.35)' },
+            '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
+            '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.22)' },
             '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
         },
     }
@@ -377,10 +377,10 @@ export default function MastersheetTab() {
                                 {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
                             </span>
                             <div className='flex items-center gap-1'>
-                                <button onClick={() => setPage(p => p - 1)} disabled={page === 0} style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === 0 ? 'default' : 'pointer' }}>
+                                <button onClick={() => setPage(p => p - 1)} disabled={page === 0} style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === 0 ? 'default' : 'pointer' }}>
                                     ‹ Prev
                                 </button>
-                                <button onClick={() => setPage(p => p + 1)} disabled={page === totalPages - 1} style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', color: page === totalPages - 1 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === totalPages - 1 ? 'default' : 'pointer' }}>
+                                <button onClick={() => setPage(p => p + 1)} disabled={page === totalPages - 1} style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', color: page === totalPages - 1 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === totalPages - 1 ? 'default' : 'pointer' }}>
                                     Next ›
                                 </button>
                             </div>

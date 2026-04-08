@@ -33,7 +33,7 @@ import { CSS } from '@dnd-kit/utilities'
 
 
 const tileStyle = {
-    border: '1px solid rgba(219,0,29,0.3)',
+    border: '1px solid rgba(219,0,29,0.42)',
     borderTop: '2px solid var(--red)',
     background: 'rgba(255,255,255,0.04)',
 }
@@ -45,7 +45,7 @@ const rowStyle = {
 
 const redBtn = {
     fontSize: '0.72rem',
-    borderColor: 'rgba(219,0,29,0.4)',
+    borderColor: 'rgba(219,0,29,0.27)',
     color: 'rgba(219,0,29,0.8)',
     '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.08)' },
 }
@@ -1179,7 +1179,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             <div
                 className='flex flex-col px-5 py-4'
                 style={{
-                    border: '1px solid rgba(219,0,29,0.3)',
+                    border: '1px solid rgba(219,0,29,0.42)',
                     borderTop: '2px solid var(--red)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
@@ -1227,7 +1227,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 onClose={() => setPickerOpen(null)}
                 maxWidth='xs'
                 fullWidth
-                PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.2)' } }}
+                PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.32)' } }}
             >
                 <DialogTitle style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>
                     Assign User
@@ -1291,7 +1291,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 onClose={() => setConflict(null)}
                 maxWidth='xs'
                 fullWidth
-                PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.2)' } }}
+                PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.32)' } }}
             >
                 <DialogTitle style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Warning sx={{ fontSize: 18, color: 'var(--red)' }} />
@@ -1326,7 +1326,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 onClose={() => setConfirmDeletePos(null)}
                 maxWidth='xs'
                 fullWidth
-                PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.2)' } }}
+                PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.32)' } }}
             >
                 <DialogTitle style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>
                     Delete Position
@@ -1351,7 +1351,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 onClose={() => setConfirmDeleteSection(null)}
                 maxWidth='xs'
                 fullWidth
-                PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.2)' } }}
+                PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.32)' } }}
             >
                 <DialogTitle style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>
                     Delete Section
@@ -1378,7 +1378,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 onClose={() => { setAddReservistCat(null); setAddReservistSearch('') }}
                 maxWidth='xs'
                 fullWidth
-                PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.2)' } }}
+                PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.32)' } }}
             >
                 <DialogTitle style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>
                     Add Member
@@ -1443,7 +1443,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 PaperProps={{
                     style: {
                         background: '#0e0e0e',
-                        border: '1px solid rgba(219,0,29,0.2)',
+                        border: '1px solid rgba(219,0,29,0.32)',
                         maxHeight: '90vh',
                     },
                 }}
@@ -1477,7 +1477,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             <Dialog
                 open={milpacConfirmClose}
                 onClose={() => setMilpacConfirmClose(false)}
-                PaperProps={{ style: { background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.2)' } }}
+                PaperProps={{ style: { background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.32)' } }}
             >
                 <DialogTitle style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
                     Unsaved Changes
@@ -1491,7 +1491,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                     <button onClick={() => setMilpacConfirmClose(false)} style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.5)', padding: '6px 16px', cursor: 'pointer' }}>
                         Keep Editing
                     </button>
-                    <button onClick={confirmCloseMilpac} style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'rgba(219,0,29,0.3)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.9)', padding: '6px 16px', cursor: 'pointer' }}>
+                    <button onClick={confirmCloseMilpac} style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'rgba(219,0,29,0.42)', border: '1px solid rgba(219,0,29,0.27)', color: 'rgba(219,0,29,0.9)', padding: '6px 16px', cursor: 'pointer' }}>
                         Discard & Close
                     </button>
                 </DialogActions>

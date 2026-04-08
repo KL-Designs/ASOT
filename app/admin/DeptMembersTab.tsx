@@ -11,8 +11,8 @@ const inputSx = {
     '& .MuiOutlinedInput-root': {
         borderRadius: 0,
         fontSize: '0.82rem',
-        '& fieldset': { borderColor: 'rgba(219,0,29,0.2)' },
-        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.4)' },
+        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
+        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
         '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
     },
     '& .MuiInputLabel-root': { fontSize: '0.82rem' },
@@ -202,7 +202,7 @@ export default function DeptMembersTab({
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
+                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                                     <th style={thStyle}>Name</th>
                                     <th style={thStyle}>Rank</th>
                                     {canManage && <th style={{ ...thStyle, textAlign: 'right' }} />}
@@ -290,7 +290,7 @@ export default function DeptMembersTab({
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
+                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                                     <th style={thStyle}>Name</th>
                                     <th style={thStyle}>Rank</th>
                                     {canManage && <th style={{ ...thStyle, textAlign: 'right' }} />}
@@ -319,7 +319,7 @@ export default function DeptMembersTab({
                                                             fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
                                                             textTransform: 'uppercase', cursor: 'pointer',
                                                             color: removingId === m.id ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.6)',
-                                                            background: 'none', border: '1px solid rgba(219,0,29,0.2)',
+                                                            background: 'none', border: '1px solid rgba(219,0,29,0.32)',
                                                             padding: '3px 10px',
                                                         }}
                                                     >

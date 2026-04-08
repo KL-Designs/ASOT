@@ -101,7 +101,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
                                         {t.sections?.length ?? 0} section{(t.sections?.length ?? 0) !== 1 ? 's' : ''} · {new Date(t.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
                                     </div>
                                 </div>
-                                <button onClick={() => apply(tid)} disabled={!!applying} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 14px', cursor: applying ? 'not-allowed' : 'pointer', background: isApplying ? 'rgba(219,0,29,0.3)' : 'var(--red)', border: '1px solid var(--red)', color: 'white', transition: 'background 0.15s' }}>
+                                <button onClick={() => apply(tid)} disabled={!!applying} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 14px', cursor: applying ? 'not-allowed' : 'pointer', background: isApplying ? 'rgba(219,0,29,0.42)' : 'var(--red)', border: '1px solid var(--red)', color: 'white', transition: 'background 0.15s' }}>
                                     <Add style={{ fontSize: 13 }} />{isApplying ? 'Creating…' : 'Use'}
                                 </button>
                             </div>
@@ -585,7 +585,7 @@ function TemplatesSection({ refreshKey }: { refreshKey: number }) {
                                         {t.sections?.length ?? 0} section{(t.sections?.length ?? 0) !== 1 ? 's' : ''} · {new Date(t.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
                                     </div>
                                 </div>
-                                <button onClick={() => setConfirmDeleteId(tid)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'rgba(219,0,29,0.35)', display: 'flex', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.35)')}>
+                                <button onClick={() => setConfirmDeleteId(tid)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'rgba(219,0,29,0.22)', display: 'flex', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.22)')}>
                                     <Delete style={{ fontSize: 15 }} />
                                 </button>
                             </div>
@@ -794,7 +794,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                 <button onClick={() => setTemplatePickerOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 14px', cursor: 'pointer', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.6)' }}>
                     <BookmarkAdd style={{ fontSize: 14 }} />From Template
                 </button>
-                <button onClick={createMission} disabled={creating} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 14px', cursor: creating ? 'not-allowed' : 'pointer', background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.3)', color: creating ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.8)' }}>
+                <button onClick={createMission} disabled={creating} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 14px', cursor: creating ? 'not-allowed' : 'pointer', background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.42)', color: creating ? 'rgba(219,0,29,0.42)' : 'rgba(219,0,29,0.8)' }}>
                     <Add style={{ fontSize: 14 }} />{creating ? 'Creating…' : 'New Mission'}
                 </button>
             </div>
@@ -899,7 +899,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                                 <thead>
-                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
+                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                                         {['Title', 'Deleted By', 'Deleted On', 'Days Remaining', ''].map(h => (
                                             <th key={h} style={{ textAlign: 'left', padding: '6px 12px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>
                                                 {h}
@@ -949,7 +949,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                                                                     display: 'flex', alignItems: 'center', gap: 4,
                                                                     fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
                                                                     padding: '3px 10px', cursor: isPurging ? 'not-allowed' : 'pointer',
-                                                                    background: 'none', border: '1px solid rgba(219,0,29,0.3)',
+                                                                    background: 'none', border: '1px solid rgba(219,0,29,0.42)',
                                                                     color: isPurging ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.7)',
                                                                 }}
                                                             >
@@ -987,7 +987,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                     position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
                     zIndex: 1400, display: 'flex', alignItems: 'center', gap: 12,
                     padding: '10px 16px', background: 'rgb(22,22,22)',
-                    border: '1px solid rgba(219,0,29,0.3)', borderLeft: '3px solid var(--red)',
+                    border: '1px solid rgba(219,0,29,0.42)', borderLeft: '3px solid var(--red)',
                     boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
                     fontSize: '0.8rem', color: 'rgba(237,237,237,0.8)', whiteSpace: 'nowrap',
                 }}>
@@ -997,7 +997,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                         style={{
                             all: 'unset', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700,
                             letterSpacing: '0.1em', color: 'var(--red)', padding: '2px 8px',
-                            border: '1px solid rgba(219,0,29,0.4)',
+                            border: '1px solid rgba(219,0,29,0.27)',
                         }}
                     >UNDO</button>
                     <button

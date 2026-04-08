@@ -22,7 +22,7 @@ function WipTab({ title, description }: { title: string; description: string }) 
         <div
             className='flex flex-col items-center justify-center gap-4 p-12 m-5'
             style={{
-                border: '1px solid rgba(219,0,29,0.1)',
+                border: '1px solid rgba(219,0,29,0.22)',
                 background: 'rgba(255,255,255,0.01)',
                 minHeight: 220,
             }}
@@ -70,7 +70,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                 className='flex flex-col px-5 py-4 mx-6 mt-6'
                 style={{
                     position: 'relative',
-                    border: '1px solid rgba(219,0,29,0.3)',
+                    border: '1px solid rgba(219,0,29,0.42)',
                     borderTop: '2px solid var(--red)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
@@ -99,7 +99,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
             {view === 'dept' && (
                 <>
                     {/* Tabs */}
-                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
+                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                         <Tabs
                             value={tab}
                             onChange={(_, v) => setTab(v)}
@@ -118,7 +118,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                             <div
                                 className='m-6 mt-4'
                                 style={{
-                                    border: '1px solid rgba(219,0,29,0.1)',
+                                    border: '1px solid rgba(219,0,29,0.22)',
                                     background: 'rgba(255,255,255,0.01)',
                                 }}
                             >
@@ -129,7 +129,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                             <div
                                 className='m-6 mt-4'
                                 style={{
-                                    border: '1px solid rgba(219,0,29,0.1)',
+                                    border: '1px solid rgba(219,0,29,0.22)',
                                     background: 'rgba(255,255,255,0.01)',
                                 }}
                             >

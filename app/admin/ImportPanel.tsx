@@ -124,7 +124,7 @@ function OrbatImportTab() {
 
             {step === 'confirm' && (
                 <>
-                    <Alert severity='warning' sx={{ background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.3)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', '& .MuiAlert-icon': { color: 'rgba(219,0,29,0.8)' } }}>
+                    <Alert severity='warning' sx={{ background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.42)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', '& .MuiAlert-icon': { color: 'rgba(219,0,29,0.8)' } }}>
                         This will <strong>permanently wipe</strong> all ORBAT positions and milpac records. This cannot be undone.
                     </Alert>
                     <Box sx={{ pl: 1 }}>
@@ -607,7 +607,7 @@ function ApplicationRecordsTab() {
                             <strong style={{ color: '#ededed' }}>{records.length}</strong> records parsed from <em>{fileName}</em>
                         </Typography>
                         <Button size='small' onClick={() => { setRecords([]); setFileName(null) }}
-                            sx={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', borderColor: 'rgba(219,0,29,0.2)', letterSpacing: 1 }}>
+                            sx={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', borderColor: 'rgba(219,0,29,0.32)', letterSpacing: 1 }}>
                             Clear
                         </Button>
                     </Box>
@@ -635,8 +635,8 @@ function ApplicationRecordsTab() {
                     </Box>
 
                     {/* Preview */}
-                    <Box sx={{ border: '1px solid rgba(219,0,29,0.1)', overflow: 'hidden' }}>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 50px 90px 130px', gap: 1.5, px: 1.5, py: 1, background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
+                    <Box sx={{ border: '1px solid rgba(219,0,29,0.22)', overflow: 'hidden' }}>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 50px 90px 130px', gap: 1.5, px: 1.5, py: 1, background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(219,0,29,0.22)' }}>
                             {['Discord', 'Age', 'Status', 'Submitted'].map(h => (
                                 <Typography key={h} fontSize='0.58rem' fontWeight={700} sx={{ letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>{h}</Typography>
                             ))}
@@ -691,7 +691,7 @@ export default function ImportPanel({ open, onClose }: Props) {
             PaperProps={{
                 style: {
                     background: 'var(--background, #0a0a0a)',
-                    border: '1px solid rgba(219,0,29,0.2)',
+                    border: '1px solid rgba(219,0,29,0.32)',
                     borderTop: '2px solid var(--red)',
                 },
             }}
@@ -705,7 +705,7 @@ export default function ImportPanel({ open, onClose }: Props) {
                 </Typography>
             </DialogTitle>
 
-            <Divider sx={{ borderColor: 'rgba(219,0,29,0.3)' }} />
+            <Divider sx={{ borderColor: 'rgba(219,0,29,0.42)' }} />
 
             <Tabs
                 value={tab}
@@ -730,7 +730,7 @@ export default function ImportPanel({ open, onClose }: Props) {
                 {tab === 2 && <ApplicationRecordsTab />}
             </DialogContent>
 
-            <Divider sx={{ borderColor: 'rgba(219,0,29,0.3)' }} />
+            <Divider sx={{ borderColor: 'rgba(219,0,29,0.42)' }} />
 
             <DialogActions sx={{ px: 3, py: 2 }}>
                 <Button onClick={handleClose} size='small' sx={ghostBtn}>Close</Button>

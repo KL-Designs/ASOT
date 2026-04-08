@@ -184,8 +184,8 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         '& .MuiOutlinedInput-root': {
             borderRadius: 0,
             fontSize: '0.85rem',
-            '& fieldset': { borderColor: 'rgba(219,0,29,0.2)' },
-            '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.4)' },
+            '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
+            '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
             '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
         },
         '& .MuiInputLabel-root': { fontSize: '0.85rem' },
@@ -289,7 +289,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                 ...inputSx,
                             }}
                             PaperComponent={({ children, ...props }) => (
-                                <div {...props as React.HTMLAttributes<HTMLDivElement>} style={{ background: '#1a1a1a', border: '1px solid rgba(219,0,29,0.2)', borderRadius: 0, marginTop: 2 }}>
+                                <div {...props as React.HTMLAttributes<HTMLDivElement>} style={{ background: '#1a1a1a', border: '1px solid rgba(219,0,29,0.32)', borderRadius: 0, marginTop: 2 }}>
                                     {children}
                                 </div>
                             )}

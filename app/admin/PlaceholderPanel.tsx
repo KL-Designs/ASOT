@@ -13,7 +13,7 @@ export default function PlaceholderPanel({
             <div
                 className='flex flex-col px-5 py-4'
                 style={{
-                    border: '1px solid rgba(219,0,29,0.3)',
+                    border: '1px solid rgba(219,0,29,0.42)',
                     borderTop: '2px solid var(--red)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
@@ -29,7 +29,7 @@ export default function PlaceholderPanel({
             <div
                 className='flex flex-col items-center justify-center gap-4 p-12'
                 style={{
-                    border: '1px solid rgba(219,0,29,0.1)',
+                    border: '1px solid rgba(219,0,29,0.22)',
                     background: 'rgba(255,255,255,0.01)',
                     minHeight: 220,
                 }}

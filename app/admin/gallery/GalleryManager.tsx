@@ -33,7 +33,7 @@ type DeleteFolderTarget = {
 
 
 const tileStyle = {
-    border: '1px solid rgba(219,0,29,0.3)',
+    border: '1px solid rgba(219,0,29,0.42)',
     borderTop: '2px solid var(--red)',
     background: 'rgba(255,255,255,0.04)',
 }
@@ -45,7 +45,7 @@ const rowStyle = {
 
 const redBtn = {
     fontSize: '0.72rem',
-    borderColor: 'rgba(219,0,29,0.4)',
+    borderColor: 'rgba(219,0,29,0.27)',
     color: 'rgba(219,0,29,0.8)',
     '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.08)' },
 }
@@ -561,7 +561,7 @@ export default function GalleryManager({ hideHeader }: { hideHeader?: boolean } 
             <Dialog
                 open={!!addContext}
                 onClose={() => { setAddContext(null); setAddInput('') }}
-                PaperProps={{ style: { background: '#181818', border: '1px solid rgba(219,0,29,0.2)', minWidth: 340 } }}
+                PaperProps={{ style: { background: '#181818', border: '1px solid rgba(219,0,29,0.32)', minWidth: 340 } }}
             >
                 <DialogTitle sx={{ fontSize: '0.85rem', letterSpacing: 2, textTransform: 'uppercase', pb: 1 }}>
                     {addContext?.type === 'year' ? 'Add Year' : addContext?.type === 'operation' ? 'Add Operation' : 'Add Stage'}
@@ -596,7 +596,7 @@ export default function GalleryManager({ hideHeader }: { hideHeader?: boolean } 
             <Dialog
                 open={!!deleteTarget}
                 onClose={() => { setDeleteTarget(null); setDeleteConfirmInput('') }}
-                PaperProps={{ style: { background: '#181818', border: '1px solid rgba(219,0,29,0.2)', minWidth: 380 } }}
+                PaperProps={{ style: { background: '#181818', border: '1px solid rgba(219,0,29,0.32)', minWidth: 380 } }}
             >
                 <DialogTitle sx={{ fontSize: '0.85rem', letterSpacing: 2, textTransform: 'uppercase', pb: 1 }}>
                     Confirm Delete
@@ -618,7 +618,7 @@ export default function GalleryManager({ hideHeader }: { hideHeader?: boolean } 
                         onKeyDown={e => { if (e.key === 'Enter' && deleteConfirmInput === deleteTarget?.name) deleteFolder() }}
                         sx={{
                             '& .MuiOutlinedInput-root': {
-                                '& fieldset': { borderColor: 'rgba(219,0,29,0.3)' },
+                                '& fieldset': { borderColor: 'rgba(219,0,29,0.42)' },
                                 '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.5)' },
                                 '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
                             },
@@ -645,7 +645,7 @@ export default function GalleryManager({ hideHeader }: { hideHeader?: boolean } 
             <Dialog
                 open={!!deleteImagesConfirm}
                 onClose={() => setDeleteImagesConfirm(null)}
-                PaperProps={{ style: { background: '#181818', border: '1px solid rgba(219,0,29,0.2)', minWidth: 320 } }}
+                PaperProps={{ style: { background: '#181818', border: '1px solid rgba(219,0,29,0.32)', minWidth: 320 } }}
             >
                 <DialogTitle sx={{ fontSize: '0.85rem', letterSpacing: 2, textTransform: 'uppercase', pb: 1 }}>
                     Delete Images

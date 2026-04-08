@@ -42,7 +42,7 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 const tooltipStyle = {
     contentStyle: {
         background: '#111',
-        border: '1px solid rgba(219,0,29,0.2)',
+        border: '1px solid rgba(219,0,29,0.32)',
         borderRadius: 0,
         fontSize: '0.78rem',
         color: '#ededed',

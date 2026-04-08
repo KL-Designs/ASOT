@@ -235,7 +235,7 @@ export default function ZeusNotesTab() {
                         {/* Body */}
                         <div style={{ padding: '14px 16px', flex: 1, minHeight: 0, overflow: 'auto' }}>
                             {saveError && (
-                                <div style={{ marginBottom: 10, fontSize: '0.75rem', color: 'rgba(219,0,29,0.8)', padding: '6px 10px', border: '1px solid rgba(219,0,29,0.2)', background: 'rgba(219,0,29,0.05)' }}>
+                                <div style={{ marginBottom: 10, fontSize: '0.75rem', color: 'rgba(219,0,29,0.8)', padding: '6px 10px', border: '1px solid rgba(219,0,29,0.32)', background: 'rgba(219,0,29,0.05)' }}>
                                     Failed to save. Please try again.
                                 </div>
                             )}

@@ -93,8 +93,8 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
         '& .MuiOutlinedInput-root': {
             borderRadius: 0,
             fontSize: '0.82rem',
-            '& fieldset': { borderColor: 'rgba(219,0,29,0.2)' },
-            '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.4)' },
+            '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
+            '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
             '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
         },
         '& .MuiInputLabel-root': { fontSize: '0.82rem' },
@@ -125,14 +125,14 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
             PaperProps={{
                 style: {
                     background: '#0f0f0f',
-                    border: '1px solid rgba(219,0,29,0.2)',
+                    border: '1px solid rgba(219,0,29,0.32)',
                     borderTop: '2px solid var(--red)',
                     borderRadius: 0,
                     color: 'var(--foreground)',
                 },
             }}
         >
-            <DialogTitle style={{ padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
+            <DialogTitle style={{ padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.22)' }}>
                 <div className='flex items-center justify-between'>
                     <div>
                         <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
@@ -182,7 +182,7 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
                             </div>
                             <div className='flex flex-wrap gap-2'>
                                 {app.additionalRoles.map(r => (
-                                    <Chip key={r} label={r} size='small' sx={{ borderRadius: 0, fontSize: '0.72rem', background: 'rgba(219,0,29,0.08)', color: 'rgba(237,237,237,0.7)', border: '1px solid rgba(219,0,29,0.3)' }} />
+                                    <Chip key={r} label={r} size='small' sx={{ borderRadius: 0, fontSize: '0.72rem', background: 'rgba(219,0,29,0.08)', color: 'rgba(237,237,237,0.7)', border: '1px solid rgba(219,0,29,0.42)' }} />
                                 ))}
                             </div>
                         </div>
@@ -239,7 +239,7 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
                     )}
 
                     {/* Divider */}
-                    <div style={{ borderTop: '1px solid rgba(219,0,29,0.1)', paddingTop: 16 }}>
+                    <div style={{ borderTop: '1px solid rgba(219,0,29,0.22)', paddingTop: 16 }}>
                         <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 14 }}>
                             Review
                         </div>
@@ -295,7 +295,7 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
                                         <button
                                             onClick={() => setLinkedMember(null)}
                                             title='Unlink'
-                                            style={{ background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
+                                            style={{ background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
                                         >
                                             <LinkOff style={{ fontSize: 16 }} />
                                         </button>
@@ -315,7 +315,7 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
                                     size='small'
                                     onClick={handleSave}
                                     disabled={saving}
-                                    sx={{ borderRadius: 0, background: 'var(--red)', fontWeight: 700, letterSpacing: '0.08em', fontSize: '0.72rem', '&:hover': { background: 'rgba(219,0,29,0.85)' }, '&.Mui-disabled': { background: 'rgba(219,0,29,0.3)' } }}
+                                    sx={{ borderRadius: 0, background: 'var(--red)', fontWeight: 700, letterSpacing: '0.08em', fontSize: '0.72rem', '&:hover': { background: 'rgba(219,0,29,0.85)' }, '&.Mui-disabled': { background: 'rgba(219,0,29,0.42)' } }}
                                 >
                                     {saving ? <CircularProgress size={12} color='inherit' /> : 'SAVE'}
                                 </Button>
@@ -445,8 +445,8 @@ export default function ApplicationsTab() {
             borderRadius: 0,
             fontSize: '0.8rem',
             height: 34,
-            '& fieldset': { borderColor: 'rgba(219,0,29,0.2)' },
-            '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.35)' },
+            '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
+            '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.22)' },
             '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
         },
         '& .MuiInputLabel-root': { fontSize: '0.8rem' },
@@ -494,7 +494,7 @@ export default function ApplicationsTab() {
             </div>
 
             {/* Column headers */}
-            <div className='grid gap-3 px-4 py-2 mx-4 mt-3' style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr', borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
+            <div className='grid gap-3 px-4 py-2 mx-4 mt-3' style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr', borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                 {([
                     { label: 'Discord', key: 'discordUsername' },
                     { label: 'In-Game Name', key: 'inGameName' },
@@ -574,7 +574,7 @@ export default function ApplicationsTab() {
 
                     {/* Pagination */}
                     {totalPages > 1 && (
-                        <div className='flex items-center justify-between px-4 py-3' style={{ borderTop: '1px solid rgba(219,0,29,0.1)' }}>
+                        <div className='flex items-center justify-between px-4 py-3' style={{ borderTop: '1px solid rgba(219,0,29,0.22)' }}>
                             <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)' }}>
                                 {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
                             </span>
@@ -582,7 +582,7 @@ export default function ApplicationsTab() {
                                 <button
                                     onClick={() => setPage(p => p - 1)}
                                     disabled={page === 0}
-                                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === 0 ? 'default' : 'pointer' }}
+                                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === 0 ? 'default' : 'pointer' }}
                                 >
                                     ‹ Prev
                                 </button>
@@ -599,7 +599,7 @@ export default function ApplicationsTab() {
                                         <button
                                             key={item}
                                             onClick={() => setPage(item as number)}
-                                            style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 8px', minWidth: 30, background: page === item ? 'rgba(219,0,29,0.3)' : 'transparent', border: '1px solid', borderColor: page === item ? 'var(--red)' : 'rgba(219,0,29,0.2)', color: page === item ? 'var(--foreground)' : 'rgba(237,237,237,0.5)', cursor: 'pointer' }}
+                                            style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 8px', minWidth: 30, background: page === item ? 'rgba(219,0,29,0.42)' : 'transparent', border: '1px solid', borderColor: page === item ? 'var(--red)' : 'rgba(219,0,29,0.32)', color: page === item ? 'var(--foreground)' : 'rgba(237,237,237,0.5)', cursor: 'pointer' }}
                                         >
                                             {(item as number) + 1}
                                         </button>
@@ -608,7 +608,7 @@ export default function ApplicationsTab() {
                                 <button
                                     onClick={() => setPage(p => p + 1)}
                                     disabled={page === totalPages - 1}
-                                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', color: page === totalPages - 1 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === totalPages - 1 ? 'default' : 'pointer' }}
+                                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', color: page === totalPages - 1 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === totalPages - 1 ? 'default' : 'pointer' }}
                                 >
                                     Next ›
                                 </button>

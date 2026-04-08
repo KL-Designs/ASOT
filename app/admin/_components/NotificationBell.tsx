@@ -164,7 +164,7 @@ export default function NotificationBell() {
                         width: 340,
                         maxHeight: 480,
                         background: 'rgba(12,12,12,0.98)',
-                        border: '1px solid rgba(219,0,29,0.3)',
+                        border: '1px solid rgba(219,0,29,0.42)',
                         borderTop: '2px solid var(--red)',
                         boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
                         zIndex: 200,
@@ -179,7 +179,7 @@ export default function NotificationBell() {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '10px 14px',
-                        borderBottom: '1px solid rgba(219,0,29,0.15)',
+                        borderBottom: '1px solid rgba(219,0,29,0.27)',
                         flexShrink: 0,
                     }}>
                         <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.75)', fontFamily: 'monospace' }}>
@@ -312,7 +312,7 @@ export default function NotificationBell() {
                                 pointerEvents: 'auto',
                                 width: 300,
                                 background: 'rgba(12,12,12,0.97)',
-                                border: '1px solid rgba(219,0,29,0.4)',
+                                border: '1px solid rgba(219,0,29,0.27)',
                                 borderLeft: '3px solid var(--red)',
                                 boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
                                 padding: '12px 14px',

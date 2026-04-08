@@ -119,7 +119,7 @@ export default function CalendarPanel({ userId, displayName, isJ4 }: { userId: s
             <div
                 className='flex items-center justify-between px-5 py-4 mx-6 mt-6'
                 style={{
-                    border: '1px solid rgba(219,0,29,0.3)',
+                    border: '1px solid rgba(219,0,29,0.42)',
                     borderTop: '2px solid var(--red)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
@@ -145,7 +145,7 @@ export default function CalendarPanel({ userId, displayName, isJ4 }: { userId: s
                         fontSize: '0.72rem',
                         fontWeight: 700,
                         letterSpacing: '0.1em',
-                        borderColor: 'rgba(219,0,29,0.4)',
+                        borderColor: 'rgba(219,0,29,0.27)',
                         color: 'var(--red)',
                         '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.06)' },
                     }}
@@ -203,13 +203,13 @@ export default function CalendarPanel({ userId, displayName, isJ4 }: { userId: s
                     <button
                         onClick={clearFilters}
                         style={{
-                            background: 'none', border: '1px solid rgba(219,0,29,0.3)', cursor: 'pointer',
+                            background: 'none', border: '1px solid rgba(219,0,29,0.42)', cursor: 'pointer',
                             fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
                             color: 'rgba(219,0,29,0.7)', padding: '2px 10px',
                             transition: 'border-color 0.15s, color 0.15s',
                         }}
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(219,0,29,0.7)'; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(219,0,29,1)' }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(219,0,29,0.3)'; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(219,0,29,0.7)' }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(219,0,29,0.42)'; (e.currentTarget as HTMLButtonElement).style.color = 'rgba(219,0,29,0.7)' }}
                     >
                         Clear
                     </button>

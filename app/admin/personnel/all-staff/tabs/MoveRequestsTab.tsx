@@ -58,8 +58,8 @@ const inputSx = {
     '& .MuiOutlinedInput-root': {
         borderRadius: 0,
         fontSize: '0.82rem',
-        '& fieldset': { borderColor: 'rgba(219,0,29,0.2)' },
-        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.4)' },
+        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
+        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
         '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
     },
     '& .MuiInputLabel-root': { fontSize: '0.82rem' },
@@ -376,7 +376,7 @@ export default function MoveRequestsTab({ userId, displayName }: { userId: strin
                                 fontSize: '0.72rem',
                                 fontWeight: 700,
                                 letterSpacing: '0.1em',
-                                borderColor: 'rgba(219,0,29,0.4)',
+                                borderColor: 'rgba(219,0,29,0.27)',
                                 color: 'var(--red)',
                                 '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.06)' },
                                 '&:disabled': { opacity: 0.4 },
@@ -398,7 +398,7 @@ export default function MoveRequestsTab({ userId, displayName }: { userId: strin
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                                 <thead>
-                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
+                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                                         {['Member', 'From', 'To', 'Requested By', 'Date', 'Action'].map(h => (
                                             <th key={h} style={thStyle}>{h}</th>
                                         ))}
@@ -445,7 +445,7 @@ export default function MoveRequestsTab({ userId, displayName }: { userId: strin
                                                             fontSize: '0.65rem',
                                                             fontWeight: 700,
                                                             letterSpacing: '0.08em',
-                                                            borderColor: 'rgba(219,0,29,0.3)',
+                                                            borderColor: 'rgba(219,0,29,0.42)',
                                                             color: 'var(--red)',
                                                             '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.06)' },
                                                             '&:disabled': { opacity: 0.4 },
@@ -478,7 +478,7 @@ export default function MoveRequestsTab({ userId, displayName }: { userId: strin
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
+                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                                     {['Member', 'From', 'To', 'Status', 'Date'].map(h => (
                                         <th key={h} style={thStyle}>{h}</th>
                                     ))}

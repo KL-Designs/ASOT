@@ -192,7 +192,7 @@ function EmptyFavourites() {
     return (
         <div
             style={{
-                border: '1px dashed rgba(219,0,29,0.2)',
+                border: '1px dashed rgba(219,0,29,0.32)',
                 background: 'rgba(219,0,29,0.02)',
                 padding: '32px 24px',
                 display: 'flex',
@@ -256,7 +256,7 @@ export default function DashboardOverview({
                 className='flex items-start justify-between px-5 py-4'
                 style={{
                     position: 'relative',
-                    border: '1px solid rgba(219,0,29,0.3)',
+                    border: '1px solid rgba(219,0,29,0.42)',
                     borderTop: '2px solid var(--red)',
                     background: 'rgba(255,255,255,0.04)',
                 }}

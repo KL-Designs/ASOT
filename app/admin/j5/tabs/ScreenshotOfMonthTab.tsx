@@ -9,8 +9,8 @@ const inputSx = {
         fontSize: '0.82rem',
         color: '#ededed',
         background: 'rgba(255,255,255,0.04)',
-        '& fieldset': { borderColor: 'rgba(219,0,29,0.2)' },
-        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.4)' },
+        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
+        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
         '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
     },
     '& .MuiInputLabel-root': { fontSize: '0.82rem', color: 'rgba(237,237,237,0.4)' },
@@ -186,7 +186,7 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
                 ) : (
                     <div className='flex flex-col gap-4'>
                         {/* Preview */}
-                        <div style={{ position: 'relative', maxWidth: 480, aspectRatio: '16/9', background: '#0a0a0a', border: '1px solid rgba(219,0,29,0.3)' }}>
+                        <div style={{ position: 'relative', maxWidth: 480, aspectRatio: '16/9', background: '#0a0a0a', border: '1px solid rgba(219,0,29,0.42)' }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src='/api/gallery/sotm/image'
@@ -228,7 +228,7 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
                                         fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
                                         padding: '6px 16px', cursor: clearing ? 'not-allowed' : 'pointer',
                                         background: 'none',
-                                        border: '1px solid rgba(219,0,29,0.3)',
+                                        border: '1px solid rgba(219,0,29,0.42)',
                                         color: clearing ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.7)',
                                     }}
                                 >
@@ -262,7 +262,7 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
                                         fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
                                         padding: '7px 16px', cursor: 'pointer',
                                         background: 'rgba(219,0,29,0.1)',
-                                        border: '1px solid rgba(219,0,29,0.3)',
+                                        border: '1px solid rgba(219,0,29,0.42)',
                                         color: 'rgba(219,0,29,0.8)',
                                     }}
                                 >

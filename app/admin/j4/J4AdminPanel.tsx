@@ -123,7 +123,7 @@ function DischargeModal({ open, onClose }: { open: boolean; onClose: () => void 
             PaperProps={{
                 style: {
                     background: '#111',
-                    border: '1px solid rgba(219,0,29,0.2)',
+                    border: '1px solid rgba(219,0,29,0.32)',
                     borderTop: '2px solid var(--red)',
                     borderRadius: 0,
                     minWidth: 480,
@@ -220,7 +220,7 @@ function DischargeModal({ open, onClose }: { open: boolean; onClose: () => void 
                         disabled={submitting}
                         style={{
                             background: submitting ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.3)',
-                            border: '1px solid rgba(219,0,29,0.4)',
+                            border: '1px solid rgba(219,0,29,0.27)',
                             color: submitting ? 'rgba(237,237,237,0.4)' : '#ededed',
                             padding: '7px 18px',
                             cursor: submitting ? 'not-allowed' : 'pointer',
@@ -303,7 +303,7 @@ function ReinstateModal({ open, onClose }: { open: boolean; onClose: () => void 
             PaperProps={{
                 style: {
                     background: '#111',
-                    border: '1px solid rgba(219,0,29,0.2)',
+                    border: '1px solid rgba(219,0,29,0.32)',
                     borderTop: '2px solid var(--red)',
                     borderRadius: 0,
                     minWidth: 520,
@@ -425,7 +425,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                 className='flex flex-col px-5 py-4 mx-6 mt-6'
                 style={{
                     position: 'relative',
-                    border: '1px solid rgba(219,0,29,0.3)',
+                    border: '1px solid rgba(219,0,29,0.42)',
                     borderTop: '2px solid var(--red)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
@@ -450,7 +450,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
             {view === 'dept' && (
                 <>
                     {/* Tabs */}
-                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
+                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                         <Tabs
                             value={tab}
                             onChange={(_, v) => setTab(v)}
@@ -478,7 +478,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                 >
                                     <div
                                         className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.3)', borderTop: '2px solid var(--red)' }}
+                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
                                     >
                                         <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
                                             Import<br />Panel
@@ -493,7 +493,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                 >
                                     <div
                                         className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.3)', borderTop: '2px solid var(--red)' }}
+                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
                                     >
                                         <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
                                             Discharge<br />Member

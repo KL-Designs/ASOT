@@ -37,8 +37,8 @@ const inputSx = {
     '& .MuiOutlinedInput-root': {
         borderRadius: 0,
         fontSize: '0.82rem',
-        '& fieldset': { borderColor: 'rgba(219,0,29,0.2)' },
-        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.4)' },
+        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
+        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
         '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
     },
     '& .MuiInputLabel-root': { fontSize: '0.82rem' },
@@ -126,12 +126,12 @@ function ActionModal({ ticket, userId, onClose, onResolved, readOnly = false }: 
             PaperProps={{
                 style: {
                     background: '#141414',
-                    border: '1px solid rgba(219,0,29,0.2)',
+                    border: '1px solid rgba(219,0,29,0.32)',
                     borderRadius: 0,
                 },
             }}
         >
-            <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
+            <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                 <Typography fontWeight={700} fontSize='0.8rem' letterSpacing={2} style={{ textTransform: 'uppercase' }}>
                     {readOnly
                         ? (isMoveRequest ? 'Move Request' : isDischarge ? 'Discharge' : isDiscipline ? 'Discipline' : isPerformanceReport ? 'Performance Report' : 'Ticket Details')
@@ -146,7 +146,7 @@ function ActionModal({ ticket, userId, onClose, onResolved, readOnly = false }: 
                     {/* Ticket details */}
                     <div
                         className='flex flex-col gap-3 p-4'
-                        style={{ border: '1px solid rgba(219,0,29,0.1)', background: 'rgba(255,255,255,0.04)' }}
+                        style={{ border: '1px solid rgba(219,0,29,0.22)', background: 'rgba(255,255,255,0.04)' }}
                     >
                         {isMoveRequest ? (
                             <>
@@ -224,7 +224,7 @@ function ActionModal({ ticket, userId, onClose, onResolved, readOnly = false }: 
                                 <Field label='Reason' value={ticket.dischargeReason} />
                                 {ticket.notes && <Field label='Notes' value={ticket.notes} />}
                                 {isSelfDischarge && (
-                                    <div style={{ fontSize: '0.75rem', color: 'rgba(219,0,29,0.8)', padding: '8px 10px', border: '1px solid rgba(219,0,29,0.2)', background: 'rgba(219,0,29,0.05)' }}>
+                                    <div style={{ fontSize: '0.75rem', color: 'rgba(219,0,29,0.8)', padding: '8px 10px', border: '1px solid rgba(219,0,29,0.32)', background: 'rgba(219,0,29,0.05)' }}>
                                         You submitted this request and cannot approve it. Another J4 member must action this ticket.
                                     </div>
                                 )}
@@ -358,7 +358,7 @@ function ActionModal({ ticket, userId, onClose, onResolved, readOnly = false }: 
                                         fontSize: '0.72rem',
                                         fontWeight: 700,
                                         letterSpacing: '0.1em',
-                                        borderColor: decision === 'approve' ? 'rgba(0,195,100,0.4)' : 'rgba(219,0,29,0.4)',
+                                        borderColor: decision === 'approve' ? 'rgba(0,195,100,0.4)' : 'rgba(219,0,29,0.27)',
                                         color: decision === 'approve' ? 'rgb(0,195,100)' : 'var(--red)',
                                         '&:hover': {
                                             borderColor: decision === 'approve' ? 'rgb(0,195,100)' : 'var(--red)',
@@ -601,7 +601,7 @@ export default function TicketsPanel({
             <div
                 className='flex flex-col px-5 py-4 mx-6 mt-6'
                 style={{
-                    border: '1px solid rgba(219,0,29,0.3)',
+                    border: '1px solid rgba(219,0,29,0.42)',
                     borderTop: '2px solid var(--red)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
@@ -658,7 +658,7 @@ export default function TicketsPanel({
             {/* Table */}
             <div
                 className='mx-6 mt-4'
-                style={{ border: '1px solid rgba(219,0,29,0.1)', background: 'rgba(255,255,255,0.01)', overflowX: 'auto' }}
+                style={{ border: '1px solid rgba(219,0,29,0.22)', background: 'rgba(255,255,255,0.01)', overflowX: 'auto' }}
             >
                 {loading ? (
                     <TacticalSkeleton rows={6} className='px-4' />
@@ -669,7 +669,7 @@ export default function TicketsPanel({
                 ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                         <thead>
-                            <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
+                            <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                                 {['Dept', 'Member', 'Action', 'Details', 'Issued By', 'Date', 'Status', ''].map((h, i) => (
                                     <th key={i} style={{ textAlign: 'left', padding: '10px 14px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>
                                         {h}
@@ -733,7 +733,7 @@ export default function TicketsPanel({
                                                     letterSpacing: '0.1em',
                                                     padding: '2px 10px',
                                                     minWidth: 0,
-                                                    borderColor: 'rgba(219,0,29,0.35)',
+                                                    borderColor: 'rgba(219,0,29,0.22)',
                                                     color: 'var(--red)',
                                                     '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.06)' },
                                                 }}
