@@ -105,6 +105,7 @@ export default function StatisticsTab() {
     const [applications, setApplications] = useState<Application[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [recruiterPeriod, setRecruiterPeriod] = useState<'all' | '90' | '30'>('all')
 
     const fetchApps = useCallback(async () => {
         setLoading(true)
@@ -195,6 +196,44 @@ export default function StatisticsTab() {
 
         return { total, accepted, pending, reviewing, rejected, acceptRate, monthlyData, acceptedMonthlyData, roleData, regionData, statusData }
     }, [applications])
+
+    const recruiterStats = useMemo(() => {
+        const cutoff = recruiterPeriod === 'all'
+            ? null
+            : new Date(Date.now() - Number(recruiterPeriod) * 24 * 60 * 60 * 1000)
+
+        const pool = applications.filter(a =>
+            a.status === 'accepted' && a.recruiter &&
+            (!cutoff || new Date(a.submittedAt) >= cutoff)
+        )
+
+        const map: Record<string, number> = {}
+        for (const app of pool) map[app.recruiter!] = (map[app.recruiter!] ?? 0) + 1
+
+        const data = Object.entries(map)
+            .sort(([, a], [, b]) => b - a)
+            .map(([name, count]) => ({ name, count }))
+
+        // All-time top (always, regardless of period filter)
+        const allMap: Record<string, number> = {}
+        for (const app of applications.filter(a => a.status === 'accepted' && a.recruiter))
+            allMap[app.recruiter!] = (allMap[app.recruiter!] ?? 0) + 1
+        const allSorted = Object.entries(allMap).sort(([, a], [, b]) => b - a)
+        const topAllTime = allSorted[0] ? { name: allSorted[0][0], count: allSorted[0][1] } : null
+
+        // This month's top
+        const monthStart = new Date()
+        monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
+        const monthMap: Record<string, number> = {}
+        for (const app of applications.filter(a => a.status === 'accepted' && a.recruiter && new Date(a.submittedAt) >= monthStart))
+            monthMap[app.recruiter!] = (monthMap[app.recruiter!] ?? 0) + 1
+        const monthSorted = Object.entries(monthMap).sort(([, a], [, b]) => b - a)
+        const topThisMonth = monthSorted[0] ? { name: monthSorted[0][0], count: monthSorted[0][1] } : null
+
+        const totalRecruited = pool.length
+
+        return { data, topAllTime, topThisMonth, totalRecruited }
+    }, [applications, recruiterPeriod])
 
     const sectionLabel = (text: string) => (
         <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 14 }}>
@@ -349,6 +388,81 @@ export default function StatisticsTab() {
                     </div>
                 </div>
             )}
+
+            {/* Recruiter statistics */}
+            {recruiterStats.topAllTime !== null ? (
+                <div style={{ borderTop: '1px solid rgba(219,0,29,0.12)', paddingTop: 24 }}>
+                    {sectionLabel('Recruiter Statistics')}
+
+                    {/* Top recruiter cards */}
+                    <div className='grid grid-cols-2 md:grid-cols-3 gap-3' style={{ marginBottom: 20 }}>
+                        <StatCard
+                            label='Top Recruiter (All Time)'
+                            value={recruiterStats.topAllTime?.name ?? '—'}
+                            sub={recruiterStats.topAllTime ? `${recruiterStats.topAllTime.count} recruits` : undefined}
+                        />
+                        <StatCard
+                            label='Top Recruiter (This Month)'
+                            value={recruiterStats.topThisMonth?.name ?? '—'}
+                            sub={recruiterStats.topThisMonth ? `${recruiterStats.topThisMonth.count} recruits` : undefined}
+                        />
+                        <StatCard
+                            label={recruiterPeriod === 'all' ? 'Total Recruited (All Time)' : `Total Recruited (Last ${recruiterPeriod}d)`}
+                            value={recruiterStats.totalRecruited}
+                        />
+                    </div>
+
+                    {/* Period filter */}
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+                        {(['all', '90', '30'] as const).map(p => (
+                            <button
+                                key={p}
+                                onClick={() => setRecruiterPeriod(p)}
+                                style={{
+                                    fontSize: '0.6rem',
+                                    fontWeight: 700,
+                                    letterSpacing: 2,
+                                    textTransform: 'uppercase',
+                                    padding: '4px 12px',
+                                    background: recruiterPeriod === p ? 'rgba(219,0,29,0.2)' : 'none',
+                                    border: `1px solid ${recruiterPeriod === p ? 'rgba(219,0,29,0.5)' : 'rgba(237,237,237,0.1)'}`,
+                                    color: recruiterPeriod === p ? '#ededed' : 'rgba(237,237,237,0.35)',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                {p === 'all' ? 'All Time' : `Last ${p}d`}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Leaderboard chart */}
+                    {recruiterStats.data.length > 0 ? (
+                        <div style={{ width: '100%', height: Math.max(160, recruiterStats.data.length * 36) }}>
+                            <ResponsiveContainer>
+                                <BarChart
+                                    data={recruiterStats.data}
+                                    layout='vertical'
+                                    margin={{ top: 0, right: 40, left: 0, bottom: 0 }}
+                                >
+                                    <CartesianGrid horizontal={false} stroke='rgba(219,0,29,0.08)' />
+                                    <XAxis type='number' {...axisStyle} allowDecimals={false} />
+                                    <YAxis type='category' dataKey='name' width={130} tick={{ fill: 'rgba(237,237,237,0.5)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                                    <Tooltip {...tooltipStyle} formatter={(v) => [v ?? 0, 'Recruits']} />
+                                    <Bar dataKey='count' radius={[0, 2, 2, 0]} maxBarSize={18}>
+                                        {recruiterStats.data.map((_, i) => (
+                                            <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    ) : (
+                        <div style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.3)', padding: '12px 0' }}>
+                            No recruiter data for this period.
+                        </div>
+                    )}
+                </div>
+            ) : null}
         </div>
     )
 }

@@ -89,23 +89,23 @@ This document captures requested features and improvements for the ASOT milsim c
 - ~~Recruited By~~
 - ~~Region~~ *(normalised to canonical labels at import time)*
 
-### Recruiter Statistics
-- Add recruiter stats to the J1 statistics section (number recruited, breakdown by period, etc.)
+### ~~Recruiter Statistics~~ ✓
+- ~~Add recruiter stats to the J1 statistics section (number recruited, breakdown by period, etc.)~~
 
 ---
 
-## Meetings *(New — shared across all departments J1–J7)*
+## ~~Meetings~~ ✓ *(New — shared across all departments J1–J7)*
 
-### Framework
-- A new "Meetings" section available in **every department** panel
-- Layout similar to Operations (dot-point/section-based structure)
-- Can be locked/unlocked by department leads
+### ~~Framework~~ ✓
+- ~~A new "Meetings" section available in **every department** panel~~
+- ~~Layout similar to Operations (dot-point/section-based structure)~~
+- ~~Can be locked/unlocked by department leads~~
 
-### Meeting Content
-- Rich-text dot-point structure for notes
-- Ability to **assign tasks** to a role or individual member
-  - Tasks include: chase-up/reminder, set date/time for reminder
-- Can **upload audio/visual recordings** or attach a YouTube link
+### ~~Meeting Content~~ ✓
+- ~~Rich-text dot-point structure for notes~~
+- ~~Ability to **assign tasks** to a role or individual member~~
+  - ~~Tasks include: chase-up/reminder, set date/time for reminder~~
+- ~~Can **upload audio/visual recordings** or attach a YouTube link~~
 
 ---
 
@@ -149,8 +149,8 @@ This document captures requested features and improvements for the ASOT milsim c
 - ~~Add a new field on SOTM entries: **"Which operation is this from?"**~~
 - ~~Dropdown or search linking to an operation in the system~~
 
-### Include Operations Screenshots
-- Operations-related screenshots (from the gallery or uploaded) can be submitted/nominated for SOTM
+### ~~Include Operations Screenshots~~ ✓
+- ~~Operations-related screenshots (from the gallery or uploaded) can be submitted/nominated for SOTM~~
 
 ---
 
