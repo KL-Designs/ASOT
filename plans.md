@@ -79,15 +79,15 @@ This document captures requested features and improvements for the ASOT milsim c
 - ~~**Returning member detection**: Auto-detect active/discharged from member picker~~
 - **Log Recruit sign-off**: J1 Lead sign-off flow + recruiter billet/stat credit — *deferred*
 
-### J1 Mastersheet — Required Columns
-Ensure the mastersheet displays (at minimum):
-- Discord Username
-- Joining Name
-- Join Date
-- Discord ID
-- Steam ID64
-- Recruited By
-- Region
+### ~~J1 Mastersheet — Required Columns~~ ✓
+~~Ensure the mastersheet displays (at minimum):~~
+- ~~Discord Username~~
+- ~~Joining Name~~ *(populated via Discord guild cross-reference on import)*
+- ~~Join Date~~
+- ~~Discord ID~~ *(resolved via Discord guild cross-reference on import)*
+- ~~Steam ID64~~
+- ~~Recruited By~~
+- ~~Region~~ *(normalised to canonical labels at import time)*
 
 ### Recruiter Statistics
 - Add recruiter stats to the J1 statistics section (number recruited, breakdown by period, etc.)

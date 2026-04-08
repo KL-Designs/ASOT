@@ -12,7 +12,7 @@ import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 
 type Application = J1Application & { _id: string }
 
-type SortKey = 'discordUsername' | 'inGameName' | 'submittedAt' | 'primaryRole' | 'region' | 'recruiter'
+type SortKey = 'discordUsername' | 'inGameName' | 'submittedAt' | 'region' | 'recruiter'
 type SortDir = 'asc' | 'desc'
 
 function formatDate(date: string | Date) {
@@ -173,14 +173,17 @@ function DetailModal({ app, onClose }: { app: Application; onClose: () => void }
     )
 }
 
-const COLUMNS: { label: string; key: SortKey | null; style?: React.CSSProperties }[] = [
+const COLUMNS: { label: string; key: SortKey | null }[] = [
     { label: 'Discord', key: 'discordUsername' },
-    { label: 'In-Game Name', key: 'inGameName' },
-    { label: 'Role', key: 'primaryRole' },
+    { label: 'Joining Name', key: 'inGameName' },
+    { label: 'Discord ID', key: null },
+    { label: 'Steam ID64', key: null },
     { label: 'Region', key: 'region' },
-    { label: 'Recruiter', key: 'recruiter' },
-    { label: 'Accepted', key: 'submittedAt' },
+    { label: 'Recruited By', key: 'recruiter' },
+    { label: 'Join Date', key: 'submittedAt' },
 ]
+
+const GRID = '1.4fr 1fr 110px 130px 90px 1fr 90px'
 
 const PAGE_SIZE = 50
 
@@ -220,7 +223,8 @@ export default function MastersheetTab() {
             list = list.filter(a =>
                 a.discordUsername.toLowerCase().includes(q) ||
                 a.inGameName.toLowerCase().includes(q) ||
-                (a.primaryRole ?? '').toLowerCase().includes(q) ||
+                (a.discordId ?? '').toLowerCase().includes(q) ||
+                (a.steamId64 ?? '').toLowerCase().includes(q) ||
                 (a.region ?? '').toLowerCase().includes(q) ||
                 (a.recruiter ?? '').toLowerCase().includes(q)
             )
@@ -231,8 +235,8 @@ export default function MastersheetTab() {
                 av = new Date(a.submittedAt).getTime()
                 bv = new Date(b.submittedAt).getTime()
             } else {
-                av = (a[sortKey] as string ?? '').toLowerCase()
-                bv = (b[sortKey] as string ?? '').toLowerCase()
+                av = ((a[sortKey as keyof J1Application] as string) ?? '').toLowerCase()
+                bv = ((b[sortKey as keyof J1Application] as string) ?? '').toLowerCase()
             }
             if (av < bv) return sortDir === 'asc' ? -1 : 1
             if (av > bv) return sortDir === 'asc' ? 1 : -1
@@ -298,7 +302,7 @@ export default function MastersheetTab() {
             {/* Column headers */}
             <div
                 className='grid gap-3 px-4 py-2 mx-4 mt-1'
-                style={{ gridTemplateColumns: '1fr 1fr 1fr 100px 120px 100px', borderBottom: '1px solid rgba(0,195,100,0.12)' }}
+                style={{ gridTemplateColumns: GRID, borderBottom: '1px solid rgba(0,195,100,0.12)' }}
             >
                 {COLUMNS.map(({ label, key }) => (
                     <button
@@ -337,34 +341,40 @@ export default function MastersheetTab() {
                         <div
                             key={app._id}
                             className='grid gap-3 px-4 py-3 cursor-pointer'
-                            style={{ gridTemplateColumns: '1fr 1fr 1fr 100px 120px 100px', borderBottom: '1px solid rgba(0,195,100,0.06)' }}
+                            style={{ gridTemplateColumns: GRID, borderBottom: '1px solid rgba(0,195,100,0.06)' }}
                             onClick={() => setSelected(app)}
                             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,195,100,0.03)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
+                            {/* Discord */}
                             <div className='flex items-center gap-2' style={{ overflow: 'hidden' }}>
                                 <span style={{ fontSize: '0.82rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {app.discordUsername}
                                 </span>
                                 {app.linkedUserId && <LinkIcon style={{ fontSize: 13, color: '#00c364', flexShrink: 0 }} />}
+                                {app.isDirectRecruit && <span style={{ color: '#00c3ff', fontSize: '0.6rem', flexShrink: 0 }}>[D]</span>}
                             </div>
+                            {/* Joining Name */}
                             <span style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.65)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {app.inGameName}
+                                {app.inGameName || '—'}
                             </span>
-                            <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {app.primaryRole || '—'}
+                            {/* Discord ID */}
+                            <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+                                {app.discordId || '—'}
                             </span>
-                            <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.45)' }}>
+                            {/* Steam ID64 */}
+                            <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+                                {app.steamId64 || '—'}
+                            </span>
+                            {/* Region */}
+                            <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {app.region || '—'}
                             </span>
-                            <div className='flex items-center gap-1' style={{ overflow: 'hidden' }}>
-                                <span style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {app.recruiter || '—'}
-                                </span>
-                                {app.isDirectRecruit && (
-                                    <span style={{ color: '#00c3ff', fontSize: '0.6rem', flexShrink: 0 }}>[D]</span>
-                                )}
-                            </div>
+                            {/* Recruited By */}
+                            <span style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {app.recruiter || '—'}
+                            </span>
+                            {/* Join Date */}
                             <span style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.35)' }}>
                                 {formatDate(app.submittedAt)}
                             </span>

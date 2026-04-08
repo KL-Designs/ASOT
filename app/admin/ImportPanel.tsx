@@ -492,6 +492,20 @@ function parseAppAge(s: string): number {
     return 0
 }
 
+function normalizeRegion(raw: string): string {
+    const s = raw.toLowerCase()
+    if (!s) return raw
+    if (s.includes('oceania') || s.includes('australia') || s.startsWith('aus') || s.includes('brisbane') || s.includes('new zealand') || s.includes('pacific island')) return 'Oceania'
+    if (s.includes('asia') || s.includes('korea') || s.includes('japan') || s.includes('india') || s.includes('sri lanka') || s.includes('pakistan')) return 'Asia'
+    if (s.includes('north america') || s.includes('canada') || s.includes('united states') || s.includes('usa')) return 'North America'
+    if (s.includes('south america') || s.includes('central america') || s.includes('latin') || s.includes('north/central/south')) return 'South America'
+    if (s.includes('europe')) return 'Europe'
+    if (s.includes('middle east')) return 'Middle East'
+    if (s.includes('russia') || s.includes('cis')) return 'Russia / CIS'
+    if (s.includes('africa')) return 'Africa'
+    return raw.trim()
+}
+
 function buildAppNotes(row: string[]): string {
     const parts: string[] = []
     const add = (label: string, idx: number) => { const v = row[idx]?.trim(); if (v) parts.push(`${label}: ${v}`) }
@@ -509,9 +523,23 @@ function buildAppNotes(row: string[]): string {
 }
 
 interface AppRecord {
-    discordUsername: string; inGameName: string; age: number
-    experience: string; submittedAt: string; notes: string
+    discordUsername: string
+    inGameName: string
+    age: number
+    experience: string
+    submittedAt: string
+    notes: string
     status: 'pending' | 'reviewing' | 'accepted' | 'rejected'
+    steamUrl?: string
+    region?: string
+    armaHours?: string
+    availableNights?: string
+    opsPerMonth?: string
+    primaryRole?: string
+    additionalRoles?: string
+    departmentInterest?: string
+    previousUnits?: string
+    priorMilsim?: string
 }
 
 const APP_STATUS_COLORS: Record<string, 'warning' | 'info' | 'success' | 'error'> = {
@@ -538,15 +566,38 @@ function ApplicationRecordsTab() {
                 if (rows.length < 2) { setParseError('CSV appears empty or has no data rows.'); setRecords([]); return }
                 const parsed: AppRecord[] = rows.slice(1)
                     .filter(r => r[APP_COL.DISCORD]?.trim())
-                    .map(r => ({
-                        discordUsername: r[APP_COL.DISCORD]?.trim() || '',
-                        inGameName: '',
-                        age: parseAppAge(r[APP_COL.AGE] || ''),
-                        experience: r[APP_COL.EXPERIENCE]?.trim() || '',
-                        submittedAt: parseAppDate(r[APP_COL.TIMESTAMP] || ''),
-                        notes: buildAppNotes(r),
-                        status: defaultStatus,
-                    }))
+                    .map(r => {
+                        const rec: AppRecord = {
+                            discordUsername: r[APP_COL.DISCORD]?.trim() || '',
+                            inGameName: '',
+                            age: parseAppAge(r[APP_COL.AGE] || ''),
+                            experience: r[APP_COL.EXPERIENCE]?.trim() || '',
+                            submittedAt: parseAppDate(r[APP_COL.TIMESTAMP] || ''),
+                            notes: '',
+                            status: defaultStatus,
+                        }
+                        const steam = r[APP_COL.STEAM]?.trim()
+                        if (steam) rec.steamUrl = steam
+                        const region = r[APP_COL.REGION]?.trim()
+                        if (region) rec.region = normalizeRegion(region)
+                        const hours = r[APP_COL.HOURS]?.trim()
+                        if (hours) rec.armaHours = hours
+                        const nights = r[APP_COL.NIGHTS]?.trim()
+                        if (nights) rec.availableNights = nights
+                        const ops = r[APP_COL.OPS_MONTH]?.trim()
+                        if (ops) rec.opsPerMonth = ops
+                        const primary = r[APP_COL.PRIMARY]?.trim()
+                        if (primary) rec.primaryRole = primary
+                        const addl = r[APP_COL.ADDL]?.trim()
+                        if (addl) rec.additionalRoles = addl
+                        const depts = r[APP_COL.DEPTS]?.trim()
+                        if (depts) rec.departmentInterest = depts
+                        const groups = r[APP_COL.GROUPS]?.trim()
+                        if (groups) rec.previousUnits = groups
+                        const prevExp = r[APP_COL.PREV_EXP]?.trim()
+                        if (prevExp) rec.priorMilsim = prevExp
+                        return rec
+                    })
                 if (parsed.length === 0) { setParseError('No valid records found. Ensure column 3 (Discord name) is populated.'); setRecords([]); return }
                 setRecords(parsed)
             } catch {

@@ -11,6 +11,51 @@ import {
 
 type Application = J1Application & { _id: string }
 
+// Normalise raw primary role strings from old Google Form options → canonical labels.
+// Returns null for non-answers that should be excluded from the chart.
+function normalizeRole(raw: string): string | null {
+    const s = raw.toLowerCase().trim()
+    // Filter out non-answers
+    if (s.length < 3) return null
+    // Filter out non-answers / free-text rambling (longer than any valid role name)
+    if (s.length > 40) return null
+    if (s.includes('idk') || s.includes("don't know") || s.includes('not sure') || s.includes('unsure') || s.includes('wherever') || s.includes('reserve') || s.includes('can i just')) return null
+    // Canonical mappings
+    if (s.includes('infantry')) return 'Infantry'
+    if (s.includes('section medic')) return 'Section Medic'
+    if (s.includes('advanced medic')) return 'Advanced Medic'
+    if (s.includes('medic')) return 'Section Medic'
+    if (s.includes('rotary') || s.includes('helicopter') || s.includes('heli')) return 'Rotary Aviation'
+    if (s.includes('fixed wing') || s.includes('fixed-wing') || s.includes('jet')) return 'Fixed Wing Aviation'
+    if (s.includes('armored') || s.includes('armoured') || s.includes('tank') || s.includes('crewman')) return 'Armored Crew'
+    if (s.includes('machine gun') || s.includes('mg') || s.includes('mg gunner')) return 'Machine Gunner'
+    if (s.includes('anti-tank') || s.includes('anti tank') || s.includes('mat ')) return 'Medium Anti-Tank'
+    if (s.includes('engineer') || s.includes('sapper')) return 'Engineer'
+    if (s.includes('logistics') || s.includes('logi')) return 'Logistics'
+    if (s.includes('indirect fire') || s.includes('mortar') || s.includes('artillery')) return 'Indirect Fire'
+    if (s.includes('heavy weapon')) return 'Heavy Weapons'
+    if (s.includes('reconnai') || s.includes('recon') || s.includes('drone') || s.includes('uav')) return 'Reconnaissance'
+    if (s.includes('zeus') || s.includes('gamemaster') || s.includes('game master')) return 'Game Master (Zeus)'
+    if (s.includes('terminal attack') || s.includes('jtac') || s.includes('tac')) return 'Terminal Attack Controller'
+    if (s.includes('sniper') || s.includes('marksman')) return 'Marksman / Sniper'
+    // Return trimmed original for anything unrecognised
+    return raw.trim()
+}
+
+// Normalise region strings — mainly a safety net for pre-normalisation legacy records
+function normalizeRegion(raw: string): string {
+    const s = raw.toLowerCase()
+    if (s.includes('oceania') || s.includes('australia') || s.startsWith('aus') || s.includes('brisbane') || s.includes('new zealand') || s.includes('pacific island')) return 'Oceania'
+    if (s.includes('asia') || s.includes('korea') || s.includes('japan') || s.includes('india') || s.includes('sri lanka') || s.includes('pakistan')) return 'Asia'
+    if (s.includes('north america') || s.includes('canada') || s.includes('united states') || s.includes('usa')) return 'North America'
+    if (s.includes('south america') || s.includes('central america') || s.includes('latin') || s.includes('north/central/south') || s === 'americas') return 'South America'
+    if (s.includes('europe')) return 'Europe'
+    if (s.includes('middle east')) return 'Middle East'
+    if (s.includes('russia') || s.includes('cis')) return 'Russia / CIS'
+    if (s.includes('africa')) return 'Africa'
+    return raw.trim()
+}
+
 const RED = '#db001d'
 const GREEN = '#00c364'
 const BLUE = '#00c3ff'
@@ -120,19 +165,21 @@ export default function StatisticsTab() {
                 count,
             }))
 
-        // Role distribution (accepted only)
+        // Role distribution (accepted only) — normalise and filter junk answers
         const roleMap: Record<string, number> = {}
         for (const app of applications.filter(a => a.status === 'accepted' && a.primaryRole)) {
-            roleMap[app.primaryRole!] = (roleMap[app.primaryRole!] ?? 0) + 1
+            const key = normalizeRole(app.primaryRole!)
+            if (key) roleMap[key] = (roleMap[key] ?? 0) + 1
         }
         const roleData = Object.entries(roleMap)
             .sort(([, a], [, b]) => b - a)
             .map(([name, value]) => ({ name, value }))
 
-        // Region distribution (all applicants)
+        // Region distribution (all applicants) — normalise raw strings first
         const regionMap: Record<string, number> = {}
         for (const app of applications.filter(a => a.region)) {
-            regionMap[app.region!] = (regionMap[app.region!] ?? 0) + 1
+            const key = normalizeRegion(app.region!)
+            regionMap[key] = (regionMap[key] ?? 0) + 1
         }
         const regionData = Object.entries(regionMap)
             .sort(([, a], [, b]) => b - a)
@@ -221,7 +268,7 @@ export default function StatisticsTab() {
                 {stats.roleData.length > 0 && (
                     <div>
                         {sectionLabel('Primary Role (Accepted Members)')}
-                        <div style={{ width: '100%', height: 280 }}>
+                        <div style={{ width: '100%', height: Math.max(200, stats.roleData.length * 36) }}>
                             <ResponsiveContainer>
                                 <BarChart
                                     data={stats.roleData}
@@ -247,26 +294,23 @@ export default function StatisticsTab() {
                 {stats.regionData.length > 0 && (
                     <div>
                         {sectionLabel('Region (All Applicants)')}
-                        <div style={{ width: '100%', height: 280 }}>
+                        <div style={{ width: '100%', height: Math.max(200, stats.regionData.length * 32) }}>
                             <ResponsiveContainer>
-                                <PieChart>
-                                    <Pie
-                                        data={stats.regionData}
-                                        dataKey='value'
-                                        nameKey='name'
-                                        cx='50%'
-                                        cy='45%'
-                                        outerRadius={90}
-                                        paddingAngle={2}
-                                        label={({ name, percent }) => `${name} ${Math.round((percent ?? 0) * 100)}%`}
-                                        labelLine={{ stroke: 'rgba(237,237,237,0.2)' }}
-                                    >
+                                <BarChart
+                                    data={stats.regionData}
+                                    layout='vertical'
+                                    margin={{ top: 0, right: 40, left: 0, bottom: 0 }}
+                                >
+                                    <CartesianGrid horizontal={false} stroke='rgba(219,0,29,0.08)' />
+                                    <XAxis type='number' {...axisStyle} allowDecimals={false} />
+                                    <YAxis type='category' dataKey='name' width={130} tick={{ fill: 'rgba(237,237,237,0.5)', fontSize: 11 }} axisLine={false} tickLine={false} />
+                                    <Tooltip {...tooltipStyle} formatter={(v) => [v ?? 0, 'Applicants']} />
+                                    <Bar dataKey='value' radius={[0, 2, 2, 0]} maxBarSize={18}>
                                         {stats.regionData.map((_, i) => (
                                             <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
                                         ))}
-                                    </Pie>
-                                    <Tooltip {...tooltipStyle} formatter={(v) => [v ?? 0, 'Applicants']} />
-                                </PieChart>
+                                    </Bar>
+                                </BarChart>
                             </ResponsiveContainer>
                         </div>
                     </div>

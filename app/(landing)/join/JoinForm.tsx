@@ -9,7 +9,7 @@ import {
 import { Send, CheckCircle, Warning } from '@mui/icons-material'
 import DeptInfoTabs from './DeptInfoTabs'
 
-const REGIONS = ['Oceania', 'Asia', 'Europe', 'North America', 'South America', 'Middle East', 'Africa', 'Other']
+const REGIONS = ['Oceania', 'Asia', 'Europe', 'North America', 'South America', 'Middle East', 'Africa']
 const NIGHTS = ['Saturday', 'Sunday', 'Both', 'Flexible']
 const OPS_PER_MONTH = ['1+', '2+', '3+', '4+']
 const PRIMARY_ROLES = [
@@ -187,6 +187,32 @@ export default function JoinForm() {
     // Steam ID64 resolution
     const [steamStatus,  setSteamStatus]  = useState<'idle' | 'resolving' | 'resolved' | 'error'>('idle')
     const [steamError,   setSteamError]   = useState<string | null>(null)
+    const steamTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Auto-resolve Steam ID64 when URL changes (debounced)
+    useEffect(() => {
+        const url = fields.steamUrl.trim()
+        if (!url) { setSteamStatus('idle'); setSteamError(null); return }
+        setSteamStatus('resolving')
+        if (steamTimer.current) clearTimeout(steamTimer.current)
+        steamTimer.current = setTimeout(async () => {
+            setSteamError(null)
+            try {
+                const res = await fetch(`/api/applications/resolve-steam?url=${encodeURIComponent(url)}`)
+                const data = await res.json()
+                if (!res.ok) {
+                    setSteamStatus('error')
+                    setSteamError(data.error ?? 'Could not resolve Steam profile.')
+                } else {
+                    setFields(prev => ({ ...prev, steamId64: data.steamId64 }))
+                    setSteamStatus('resolved')
+                }
+            } catch {
+                setSteamStatus('error')
+                setSteamError('Network error. Please try again.')
+            }
+        }, 700)
+    }, [fields.steamUrl])
 
     // Region latency — derived from selected region
     const latency = REGION_LATENCY[fields.region] ?? null
@@ -218,27 +244,6 @@ const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAr
             const arr = prev[key] as string[]
             return { ...prev, [key]: arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value] }
         })
-
-    async function resolveSteam() {
-        const url = fields.steamUrl.trim()
-        if (!url) return
-        setSteamStatus('resolving')
-        setSteamError(null)
-        try {
-            const res = await fetch(`/api/applications/resolve-steam?url=${encodeURIComponent(url)}`)
-            const data = await res.json()
-            if (!res.ok) {
-                setSteamStatus('error')
-                setSteamError(data.error ?? 'Could not resolve Steam profile.')
-            } else {
-                setFields(prev => ({ ...prev, steamId64: data.steamId64 }))
-                setSteamStatus('resolved')
-            }
-        } catch {
-            setSteamStatus('error')
-            setSteamError('Network error. Please try again.')
-        }
-    }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
@@ -365,44 +370,19 @@ const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAr
                     <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.35)' }}>Steam Profile URL or SteamID64</span>
                     <SteamHelp />
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                    <TextField
-                        placeholder='https://steamcommunity.com/id/yourprofile'
-                        value={fields.steamUrl}
-                        onChange={e => {
-                            set('steamUrl')(e)
-                            setSteamStatus('idle')
-                            setSteamError(null)
-                            setFields(prev => ({ ...prev, steamId64: '', steamUrl: e.target.value }))
-                        }}
-                        fullWidth sx={inputSx}
-                        InputProps={{
-                            endAdornment: steamStatus === 'resolving'
-                                ? <CircularProgress size={14} style={{ color: 'rgba(237,237,237,0.3)' }} />
-                                : steamStatus === 'resolved'
-                                ? <CheckCircle style={{ fontSize: 16, color: '#00c364' }} />
-                                : undefined,
-                        }}
-                    />
-                    <button
-                        type='button'
-                        onClick={resolveSteam}
-                        disabled={!fields.steamUrl.trim() || steamStatus === 'resolving'}
-                        style={{
-                            flexShrink: 0, alignSelf: 'stretch',
-                            padding: '0 14px', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em',
-                            background: 'rgba(255,255,255,0.04)',
-                            border: '1px solid rgba(219,0,29,0.25)',
-                            color: 'rgba(237,237,237,0.6)',
-                            cursor: 'pointer',
-                            transition: 'border-color 0.15s, color 0.15s',
-                            whiteSpace: 'nowrap',
-                            opacity: !fields.steamUrl.trim() ? 0.4 : 1,
-                        }}
-                    >
-                        RESOLVE
-                    </button>
-                </div>
+                <TextField
+                    placeholder='https://steamcommunity.com/id/yourprofile'
+                    value={fields.steamUrl}
+                    onChange={e => setFields(prev => ({ ...prev, steamId64: '', steamUrl: e.target.value }))}
+                    fullWidth sx={inputSx}
+                    InputProps={{
+                        endAdornment: steamStatus === 'resolving'
+                            ? <CircularProgress size={14} style={{ color: 'rgba(237,237,237,0.3)' }} />
+                            : steamStatus === 'resolved'
+                            ? <CheckCircle style={{ fontSize: 16, color: '#00c364' }} />
+                            : undefined,
+                    }}
+                />
                 {steamStatus === 'resolved' && (
                     <div style={{ fontSize: '0.72rem', color: '#00c364', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <CheckCircle style={{ fontSize: 14 }} />
@@ -411,11 +391,6 @@ const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAr
                 )}
                 {steamStatus === 'error' && (
                     <div style={{ fontSize: '0.72rem', color: '#ef4444' }}>{steamError}</div>
-                )}
-                {steamStatus === 'idle' && fields.steamUrl.trim() && (
-                    <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)' }}>
-                        Click Resolve to look up your SteamID64 from the URL above.
-                    </div>
                 )}
             </div>
 
