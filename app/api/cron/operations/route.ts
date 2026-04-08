@@ -7,9 +7,10 @@ import { sendDM } from '@/lib/discord/bot'
  * GET /api/cron/operations?secret=...
  *
  * Runs every 5 minutes via the server.mjs scheduler. Handles:
- *  1. RSVP auto-close  — 1 hour before op start date
- *  2. Confirmation auto-open — when op is marked Completed (notifies squad leaders)
- *  3. Confirmation auto-close — 24 hours after confirmation opened
+ *  1. RSVP auto-close       — 1 hour before op start date
+ *  2. Auto-activate          — Upcoming → Active at op start time
+ *  3. Confirmation auto-open — when op is marked Completed (notifies squad leaders)
+ *  4. Confirmation auto-close — 24 hours after confirmation opened
  */
 export async function GET(request: NextRequest) {
     const secret = request.nextUrl.searchParams.get('secret')
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
     }
 
     const now = new Date()
-    const results = { rsvpClosed: 0, confirmationOpened: 0, confirmationClosed: 0 }
+    const results = { rsvpClosed: 0, activatedOps: 0, confirmationOpened: 0, confirmationClosed: 0 }
 
     // ── 1. RSVP auto-close (1 hour before op start) ────────────────────────────
 
@@ -37,7 +38,18 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    // ── 2. Confirmation auto-open (op marked Completed, not yet opened) ────────
+    // ── 2. Auto-activate (Upcoming → Active at start time) ────────────────────
+
+    const activateResult = await Db.operations.updateMany(
+        { status: 'Upcoming', date: { $lte: now }, deletedAt: { $exists: false } } as Parameters<typeof Db.operations.updateMany>[0],
+        { $set: { status: 'Active' } }
+    )
+    results.activatedOps = activateResult.modifiedCount
+    if (activateResult.modifiedCount > 0) {
+        console.log(`[cron/operations] ${activateResult.modifiedCount} op(s) set to Active`)
+    }
+
+    // ── 3. Confirmation auto-open (op marked Completed, not yet opened) ────────
 
     const completedOps = await Db.operations
         .find({ status: 'Completed', deletedAt: { $exists: false } })
@@ -98,7 +110,7 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    // ── 3. Confirmation auto-close (24 hours after opened) ─────────────────────
+    // ── 4. Confirmation auto-close (24 hours after opened) ─────────────────────
 
     const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000)
     const closeResult = await Db.operationAttendance.updateMany(
