@@ -373,6 +373,24 @@ httpServer.listen(port, '0.0.0.0', () => {
     console.log(`> Collab WebSocket on ws://0.0.0.0:${port}/collab`)
 })
 
+// ── Operations cron (every 5 minutes) ────────────────────────────────────────
+
+async function triggerOperationsCron() {
+    try {
+        const res = await fetch(`http://localhost:${port}/api/cron/operations?secret=${process.env.CRON_SECRET}`)
+        const data = await res.json()
+        const { rsvpClosed, confirmationOpened, confirmationClosed } = data
+        if (rsvpClosed || confirmationOpened || confirmationClosed) {
+            console.log(`[cron/operations] rsvpClosed=${rsvpClosed} confirmationOpened=${confirmationOpened} confirmationClosed=${confirmationClosed}`)
+        }
+    } catch (e) {
+        console.error('[cron/operations] Error:', e.message)
+    }
+}
+
+setInterval(triggerOperationsCron, 5 * 60 * 1000)
+triggerOperationsCron()
+
 // ── Snapshot scheduler (every 2 days at 3am) ──────────────────────────────────
 
 function msUntilNext3am() {

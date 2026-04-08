@@ -29,6 +29,7 @@ declare global {
         }[]
         rsvpOpen: boolean           // whether members can still RSVP
         confirmationOpen: boolean   // whether section leaders can still confirm
+        confirmationOpenedAt?: Date // when confirmation was last opened (for 24h auto-close)
     }
 
     /** Shape returned by the attendance GET endpoint with user details populated */

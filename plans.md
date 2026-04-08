@@ -129,14 +129,12 @@ This document captures requested features and improvements for the ASOT milsim c
 
 ## Operations
 
-### Automate RSVP Closing *(time-based)*
-- RSVP for an operation closes **automatically at a scheduled time** before the operation starts (configurable, e.g. 2 hours prior)
+### ~~Automate RSVP Closing~~ ✓ *(time-based)*
+- ~~RSVP closes automatically 1 hour before op start~~
 
-### Automate Attendance Confirmation *(time-based)*
-- Attendance confirmation runs automatically at a scheduled time relative to the operation
-
-### Tasks for Attendance Checking
-- Automatically generate tasks for **PHQ and CHQ** to check attendance after an operation
+### ~~Automate Attendance Confirmation~~ ✓ *(time-based)*
+- ~~Confirmation opens automatically when op is marked Completed; squad leaders notified via in-app + Discord DM~~
+- ~~Confirmation closes automatically 24 hours after opening~~
 
 ### Reservist Allocations
 - Add a system for allocating reservists to operations (details TBD)

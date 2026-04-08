@@ -185,6 +185,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Check current state before updating so we can detect rsvpOpen transition
     const existingAttendance = await Db.operationAttendance.findOne({ operationId })
     const wasRsvpOpen = existingAttendance?.rsvpOpen ?? false
+    const wasConfirmationOpen = existingAttendance?.confirmationOpen ?? false
 
     await Db.operationAttendance.updateOne(
         { operationId },
@@ -198,6 +199,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             $set: {
                 ...(rsvpOpen !== undefined && { rsvpOpen }),
                 ...(confirmationOpen !== undefined && { confirmationOpen }),
+                // Track when confirmation opens so auto-close knows the 24h window
+                ...(confirmationOpen === true && !wasConfirmationOpen && { confirmationOpenedAt: new Date() }),
             },
         },
         { upsert: true }
