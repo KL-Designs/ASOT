@@ -70,7 +70,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
         <div className='h-full w-full flex flex-col max-w-[1100px]'>
             {/* Header */}
             <div
-                className='flex flex-col px-5 py-4 mx-6 mt-6'
+                className='flex items-center justify-between px-5 py-3 mx-6 mt-6'
                 style={{
                     position: 'relative',
                     border: '1px solid rgba(219,0,29,0.42)',
@@ -79,18 +79,21 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                 }}
             >
                 <CornerBrackets />
-                <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ color: 'rgba(219,0,29,0.35)' }}>//</span> DEPARTMENTS
-                </span>
-                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ color: 'rgba(219,0,29,0.35)' }}>//</span> DEPARTMENTS
+                        </span>
                     <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
                         [J1] Recruitment
                     </Typography>
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button style={btnSx(view === 'members')} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>Members</button>
-                        <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
                     </div>
-                </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                        <button style={{ ...btnSx(view === 'meetings'), width: '100%', textAlign: 'center' }} onClick={() => setView(view === 'meetings' ? 'dept' : 'meetings')}>Meetings</button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            <button style={btnSx(view === 'members')} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>Members</button>
+                            <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
+                        </div>
+                    </div>
             </div>
 
             {view === 'members' && (
@@ -98,6 +101,9 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j1' userId={userId} isJ4={isJ4} />
+            )}
+            {view === 'meetings' && (
+                <MeetingsTab department='j1' userId={userId} isLead={canManageMembers} />
             )}
             {view === 'dept' && (
                 <>
@@ -112,8 +118,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                             <Tab label={<PinTabLabel label='Recruit Member' pinLabel='J1 — Recruit Member' href='/admin/j1' tabIndex={0} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Applications'   pinLabel='J1 — Applications'   href='/admin/j1' tabIndex={1} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Mastersheet'    pinLabel='J1 — Mastersheet'    href='/admin/j1' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'       pinLabel='J1 — Meetings'       href='/admin/j1' tabIndex={3} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Statistics'     pinLabel='J1 — Statistics'     href='/admin/j1' tabIndex={4} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Statistics'     pinLabel='J1 — Statistics'     href='/admin/j1' tabIndex={3} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -139,8 +144,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                                 <MastersheetTab />
                             </div>
                         )}
-                        {tab === 3 && <MeetingsTab department='j1' userId={userId} isLead={canManageMembers} />}
-                        {tab === 4 && <StatisticsTab />}
+                        {tab === 3 && <StatisticsTab />}
                     </div>
                 </>
             )}

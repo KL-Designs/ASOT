@@ -48,7 +48,7 @@ export default function J5Panel({
     return (
         <div className='h-full w-full flex flex-col max-w-[1100px]'>
             <div
-                className='flex flex-col px-5 py-4 mx-6 mt-6'
+                className='flex items-center justify-between px-5 py-3 mx-6 mt-6'
                 style={{
                     position: 'relative',
                     border: '1px solid rgba(219,0,29,0.42)',
@@ -57,18 +57,21 @@ export default function J5Panel({
                 }}
             >
                 <CornerBrackets />
-                <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ color: 'rgba(219,0,29,0.35)' }}>//</span> DEPARTMENTS
-                </span>
-                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ color: 'rgba(219,0,29,0.35)' }}>//</span> DEPARTMENTS
+                        </span>
                     <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
                         [J5] Media
                     </Typography>
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button style={btnSx(view === 'members')} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>Members</button>
-                        <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
                     </div>
-                </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                        <button style={{ ...btnSx(view === 'meetings'), width: '100%', textAlign: 'center' }} onClick={() => setView(view === 'meetings' ? 'dept' : 'meetings')}>Meetings</button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            <button style={btnSx(view === 'members')} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>Members</button>
+                            <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
+                        </div>
+                    </div>
             </div>
 
             {view === 'members' && (
@@ -76,6 +79,9 @@ export default function J5Panel({
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j5' userId={userId} isJ4={isJ4} />
+            )}
+            {view === 'meetings' && (
+                <MeetingsTab department='j5' userId={userId} isLead={canManageMembers} />
             )}
             {view === 'dept' && (
                 <>
@@ -88,14 +94,12 @@ export default function J5Panel({
                         >
                             <Tab label={<PinTabLabel label='Gallery'             pinLabel='J5 — Gallery' href='/admin/j5' tabIndex={0} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Screenshot of Month' pinLabel='J5 — SOTM'    href='/admin/j5' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'            pinLabel='J5 — Meetings' href='/admin/j5' tabIndex={2} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
                         {tab === 0 && <GalleryManager hideHeader />}
                         {tab === 1 && <ScreenshotOfMonthTab canManage={canManageMembers} />}
-                        {tab === 2 && <MeetingsTab department='j5' userId={userId} isLead={canManageMembers} />}
                     </div>
                 </>
             )}

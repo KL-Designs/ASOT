@@ -357,8 +357,7 @@ export default function StaffSidebar({
                         { label: 'Recruit Member', tab: 0 },
                         { label: 'Applications',   tab: 1 },
                         { label: 'Mastersheet',    tab: 2 },
-                        { label: 'Meetings',       tab: 3 },
-                        { label: 'Statistics',     tab: 4 },
+                        { label: 'Statistics',     tab: 3 },
                     ],
                 },
                 {

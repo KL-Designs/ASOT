@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 
-type View = 'dept' | 'members' | 'calendar'
+type View = 'dept' | 'members' | 'calendar' | 'meetings'
 
 /**
  * URL-backed tab + view state for department panels.
@@ -16,7 +16,7 @@ export function useTabState(defaultTab = 0, defaultView: View = 'dept') {
         const t = params.get('tab')
         const v = params.get('view') as View | null
         if (t !== null && !isNaN(Number(t))) setTabState(Number(t))
-        if (v && (v === 'dept' || v === 'members' || v === 'calendar')) setViewState(v)
+        if (v && (v === 'dept' || v === 'members' || v === 'calendar' || v === 'meetings')) setViewState(v)
     }, [])
 
     const setTab = useCallback((n: number) => {
