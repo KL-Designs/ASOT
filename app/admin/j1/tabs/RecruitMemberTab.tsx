@@ -253,8 +253,10 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                             }}
                             getOptionLabel={o => o.displayName}
                             isOptionEqualToValue={(a, b) => a.id === b.id}
-                            renderOption={(props, option) => (
-                                <li {...props} key={option.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', padding: '6px 12px' }}>
+                            renderOption={(props, option) => {
+                                const { key, ...liProps } = props
+                                return (
+                                <li key={option.id} {...liProps} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', padding: '6px 12px' }}>
                                     <span style={{ flex: 1 }}>{option.displayName}</span>
                                     {option.inGameName && (
                                         <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', fontFamily: 'monospace' }}>{option.inGameName}</span>
@@ -265,7 +267,8 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                         </span>
                                     )}
                                 </li>
-                            )}
+                                )
+                            }}
                             renderInput={params => (
                                 <TextField
                                     {...params}
