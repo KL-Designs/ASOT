@@ -178,6 +178,6 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    const result = await Db.j1Applications.insertMany(docs as Parameters<typeof Db.j1Applications.insertMany>[0], { ordered: false })
+    const result = await Db.j1Applications.insertMany(docs as unknown as Parameters<typeof Db.j1Applications.insertMany>[0], { ordered: false })
     return NextResponse.json({ inserted: result.insertedCount })
 }
