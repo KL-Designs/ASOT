@@ -372,3 +372,29 @@ httpServer.listen(port, '0.0.0.0', () => {
     console.log(`> Next.js ready on http://0.0.0.0:${port}`)
     console.log(`> Collab WebSocket on ws://0.0.0.0:${port}/collab`)
 })
+
+// ── Snapshot scheduler (every 2 days at 3am) ──────────────────────────────────
+
+function msUntilNext3am() {
+    const now = new Date()
+    const next = new Date(now)
+    next.setHours(3, 0, 0, 0)
+    if (next <= now) next.setDate(next.getDate() + 1)
+    return next.getTime() - now.getTime()
+}
+
+async function triggerScheduledSnapshot() {
+    try {
+        const res = await fetch(`http://localhost:${port}/api/cron/snapshots?secret=${process.env.CRON_SECRET}`)
+        const data = await res.json()
+        console.log('[snapshots] Scheduled snapshot triggered:', data)
+    } catch (e) {
+        console.error('[snapshots] Scheduled snapshot error:', e.message)
+    }
+}
+
+setTimeout(() => {
+    triggerScheduledSnapshot()
+    setInterval(triggerScheduledSnapshot, 48 * 60 * 60 * 1000)
+}, msUntilNext3am())
+console.log(`[snapshots] Next auto-snapshot in ${Math.round(msUntilNext3am() / 1000 / 60)} minutes`)

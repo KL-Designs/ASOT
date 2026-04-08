@@ -45,3 +45,4 @@ config.ts
 /milpacs
 /.backup
 /.test
+/snapshots
