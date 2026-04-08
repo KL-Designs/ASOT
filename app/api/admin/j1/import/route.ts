@@ -157,11 +157,25 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'No valid records to import.' }, { status: 400 })
     }
 
-    // Cross-reference Discord usernames against the users DB to fill in names + link accounts
-    const allUsers = await Db.users.find({}, { projection: { _id: 1, username: 1, globalName: 1, 'guild.nickname': 1 } }).toArray()
-    const byUsername = new Map<string, typeof allUsers[0]>()
-    const byId = new Map<string, typeof allUsers[0]>()
-    for (const u of allUsers) {
+    // Cross-reference Discord usernames against the users DB to fill in names + link accounts.
+    // Only fetch users that appear in this import batch (not the entire users collection).
+    const importUsernames = docs
+        .map(d => (d.discordUsername as string).toLowerCase().replace(/#\d+$/, ''))
+    const importDiscordIds = docs
+        .map(d => d.discordId as string | undefined)
+        .filter((id): id is string => Boolean(id))
+
+    const matchedUsers = await Db.users.find(
+        { $or: [
+            { username: { $in: importUsernames } },
+            ...(importDiscordIds.length > 0 ? [{ _id: { $in: importDiscordIds } }] : []),
+        ] },
+        { projection: { _id: 1, username: 1, globalName: 1, 'guild.nickname': 1 } }
+    ).toArray()
+
+    const byUsername = new Map<string, typeof matchedUsers[0]>()
+    const byId = new Map<string, typeof matchedUsers[0]>()
+    for (const u of matchedUsers) {
         if (u.username) byUsername.set(u.username.toLowerCase(), u)
         byId.set(u._id, u)
     }

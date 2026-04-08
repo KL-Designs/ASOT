@@ -402,12 +402,20 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     themeColor={operation.themeColor || '#db001d'}
                     pageTheme={pageTheme}
                     isLoggedIn={isLoggedIn}
+                    isJ6={isJ6}
+                    operationId={id}
+                    zeusNotes={operation.zeusNotes ?? ''}
                 />
             )}
 
             {/* Single-page sections */}
             {(!operation.pages || operation.pages.length <= 1) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Zeus Notes — J6 only; no sidebar in single-page layout so render inline */}
+                {isJ6 && (
+                    <ZeusNotesPanel operationId={id} initialNotes={operation.zeusNotes ?? ''} />
+                )}
 
                 {operation.sections && operation.sections.length > 0 ? (
                     operation.sections
@@ -662,11 +670,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             </div>
             )}
             </div>
-
-            {/* Zeus Notes — J6 only */}
-            {isJ6 && (
-                <ZeusNotesPanel operationId={id} initialNotes={operation.zeusNotes ?? ''} />
-            )}
 
             {/* Right: attendance sidebar / mobile drawer */}
             <AttendanceDrawer

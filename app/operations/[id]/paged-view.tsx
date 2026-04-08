@@ -3,6 +3,9 @@
 import React, { useEffect, useState } from 'react'
 import DocBody from './doc-body'
 import SectionNav from './section-nav'
+import ZeusNotesPanel from './ZeusNotesPanel'
+
+const ZEUS_TAB = '__zeus__'
 
 interface Props {
     pages: OperationPage[]
@@ -11,6 +14,9 @@ interface Props {
     themeColor: string
     pageTheme: 'modern' | 'oldfashioned' | 'scifi'
     isLoggedIn: boolean
+    isJ6?: boolean
+    operationId?: string
+    zeusNotes?: string
 }
 
 function hexToRgb(hex: string) {
@@ -22,7 +28,7 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn }: Props) {
+export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, operationId, zeusNotes }: Props) {
     const [activePageId, setActivePageId] = useState<string>(pages[0]?.id ?? 'main')
     const [isMobile, setIsMobile] = useState(false)
 
@@ -100,6 +106,35 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                             </button>
                         )
                     })}
+                    {isJ6 && (
+                        <button
+                            type='button'
+                            onClick={() => setActivePageId(ZEUS_TAB)}
+                            style={{
+                                flexShrink: 0,
+                                padding: '7px 14px',
+                                background: activePageId === ZEUS_TAB ? 'rgba(0,195,255,0.1)' : 'transparent',
+                                border: activePageId === ZEUS_TAB
+                                    ? '1px solid rgba(0,195,255,0.35)'
+                                    : '1px solid rgba(255,255,255,0.06)',
+                                borderBottom: activePageId === ZEUS_TAB ? '2px solid rgba(0,195,255,0.7)' : '2px solid transparent',
+                                cursor: 'pointer',
+                                transition: 'all 0.12s',
+                                borderRadius: 3,
+                            }}
+                        >
+                            <span style={{
+                                fontSize: '0.65rem',
+                                fontWeight: activePageId === ZEUS_TAB ? 700 : 500,
+                                letterSpacing: '0.06em',
+                                textTransform: 'uppercase',
+                                whiteSpace: 'nowrap',
+                                color: activePageId === ZEUS_TAB ? 'rgba(0,195,255,0.9)' : 'rgba(237,237,237,0.4)',
+                            }}>
+                                Zeus Notes
+                            </span>
+                        </button>
+                    )}
                 </div>
 
                 {/* Section nav */}
@@ -216,36 +251,89 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                         </button>
                     )
                 })}
+
+                {/* Zeus Notes tab — J6 only */}
+                {isJ6 && (
+                    <>
+                        <div style={{
+                            height: 1,
+                            background: 'rgba(0,195,255,0.12)',
+                            margin: '6px 0',
+                        }} />
+                        <button
+                            type='button'
+                            onClick={() => setActivePageId(ZEUS_TAB)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '8px 10px',
+                                textAlign: 'left',
+                                background: activePageId === ZEUS_TAB ? 'rgba(0,195,255,0.08)' : 'transparent',
+                                borderTop: activePageId === ZEUS_TAB ? '1px solid rgba(0,195,255,0.25)' : '1px solid transparent',
+                                borderRight: activePageId === ZEUS_TAB ? '1px solid rgba(0,195,255,0.25)' : '1px solid transparent',
+                                borderBottom: activePageId === ZEUS_TAB ? '1px solid rgba(0,195,255,0.25)' : '1px solid transparent',
+                                borderLeft: activePageId === ZEUS_TAB ? '3px solid rgba(0,195,255,0.7)' : '3px solid transparent',
+                                cursor: 'pointer',
+                                transition: 'all 0.12s',
+                                width: '100%',
+                            }}
+                            onMouseEnter={e => {
+                                if (activePageId !== ZEUS_TAB) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,195,255,0.04)'
+                            }}
+                            onMouseLeave={e => {
+                                if (activePageId !== ZEUS_TAB) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                            }}
+                        >
+                            <span style={{
+                                fontSize: '0.65rem',
+                                fontWeight: activePageId === ZEUS_TAB ? 700 : 500,
+                                letterSpacing: '0.06em',
+                                textTransform: 'uppercase',
+                                color: activePageId === ZEUS_TAB ? 'rgba(0,195,255,0.9)' : 'rgba(0,195,255,0.4)',
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                                Zeus Notes
+                            </span>
+                        </button>
+                    </>
+                )}
             </div>
 
             {/* Right content area */}
             <div style={{ flex: 1, minWidth: 0 }}>
 
-                {activeSections.length > 1 && (
-                    <SectionNav
-                        className='print-hide'
-                        themeColor={themeColor}
-                        pageTheme={pageTheme}
-                        sections={activeSections.map(s => ({ id: s.id, title: s.title }))}
-                    />
-                )}
+                {activePageId === ZEUS_TAB ? (
+                    <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
+                        <ZeusNotesPanel operationId={operationId ?? ''} initialNotes={zeusNotes ?? ''} />
+                    </div>
+                ) : (
+                    <>
+                        {activeSections.length > 1 && (
+                            <SectionNav
+                                className='print-hide'
+                                themeColor={themeColor}
+                                pageTheme={pageTheme}
+                                sections={activeSections.map(s => ({ id: s.id, title: s.title }))}
+                            />
+                        )}
 
-                <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {activeSections.map(s => (
-                        <SectionCard
-                            key={s.id}
-                            s={s}
-                            isOF={isOF}
-                            isSF={isSF}
-                            c={c}
-                            r={r} g={g} b={b}
-                            isLoggedIn={isLoggedIn}
-                            themeColor={themeColor}
-                            pageTheme={pageTheme}
-                            operationTitle={operationTitle}
-                        />
-                    ))}
-                </div>
+                        <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: activeSections.length > 1 ? 32 : 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            {activeSections.map(s => (
+                                <SectionCard
+                                    key={s.id}
+                                    s={s}
+                                    isOF={isOF}
+                                    isSF={isSF}
+                                    c={c}
+                                    r={r} g={g} b={b}
+                                    isLoggedIn={isLoggedIn}
+                                    themeColor={themeColor}
+                                    pageTheme={pageTheme}
+                                    operationTitle={operationTitle}
+                                />
+                            ))}
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     )

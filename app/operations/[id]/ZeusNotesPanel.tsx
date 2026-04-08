@@ -30,12 +30,6 @@ export default function ZeusNotesPanel({ operationId, initialNotes }: { operatio
 
     return (
         <div style={{
-            margin: '0 auto',
-            maxWidth: 960,
-            width: '100%',
-            padding: '0 16px 48px',
-        }}>
-            <div style={{
                 border: '1px solid rgba(0,195,255,0.2)',
                 borderTop: '2px solid rgba(0,195,255,0.6)',
                 background: 'rgba(0,195,255,0.03)',
@@ -141,7 +135,6 @@ export default function ZeusNotesPanel({ operationId, initialNotes }: { operatio
                         </p>
                     )}
                 </div>
-            </div>
         </div>
     )
 }
