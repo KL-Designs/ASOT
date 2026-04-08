@@ -7,6 +7,7 @@ import ZeusNotesTab from './ZeusNotesTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 import { useTabState } from '@/app/admin/_components/useTabState'
+import MeetingsTab from '@/app/admin/_components/meetings/MeetingsTab'
 
 export default function J6Panel({
     displayName,
@@ -85,11 +86,13 @@ export default function J6Panel({
                             sx={{ minHeight: 40 }}
                         >
                             <Tab label={<PinTabLabel label='Zeus Notes' pinLabel='J6 — Zeus Notes' href='/admin/j6' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'   pinLabel='J6 — Meetings'   href='/admin/j6' tabIndex={1} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
                         {tab === 0 && <ZeusNotesTab />}
+                        {tab === 1 && <MeetingsTab department='j6' userId={userId} isLead={canManageMembers} />}
                     </div>
                 </>
             )}

@@ -9,6 +9,7 @@ import DeptMembersTab from '@/app/admin/DeptMembersTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 import { useTabState } from '@/app/admin/_components/useTabState'
+import MeetingsTab from '@/app/admin/_components/meetings/MeetingsTab'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -457,11 +458,13 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Tools' pinLabel='J4 — Tools' href='/admin/j4' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Tools'    pinLabel='J4 — Tools'    href='/admin/j4' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings' pinLabel='J4 — Meetings' href='/admin/j4' tabIndex={1} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
+                        {tab === 1 && <MeetingsTab department='j4' userId={userId} isLead={true} />}
                         {tab === 0 && (
                             <div className='p-6 md:p-10 flex flex-col gap-6'>
                         {/* Tools */}

@@ -8,6 +8,7 @@ import ScreenshotOfMonthTab from '@/app/admin/j5/tabs/ScreenshotOfMonthTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 import { useTabState } from '@/app/admin/_components/useTabState'
+import MeetingsTab from '@/app/admin/_components/meetings/MeetingsTab'
 
 export default function J5Panel({
     displayName,
@@ -87,12 +88,14 @@ export default function J5Panel({
                         >
                             <Tab label={<PinTabLabel label='Gallery'             pinLabel='J5 — Gallery' href='/admin/j5' tabIndex={0} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Screenshot of Month' pinLabel='J5 — SOTM'    href='/admin/j5' tabIndex={1} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'            pinLabel='J5 — Meetings' href='/admin/j5' tabIndex={2} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
                         {tab === 0 && <GalleryManager hideHeader />}
                         {tab === 1 && <ScreenshotOfMonthTab canManage={canManageMembers} />}
+                        {tab === 2 && <MeetingsTab department='j5' userId={userId} isLead={canManageMembers} />}
                     </div>
                 </>
             )}

@@ -16,6 +16,7 @@ type NotificationType =
     | 'task_extended'
     | 'task_completed'
     | 'calendar_reminder'
+    | 'meeting_task_assigned'
     | 'system'
 
 interface Task {

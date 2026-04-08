@@ -11,6 +11,7 @@ import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 import { useTabState } from '@/app/admin/_components/useTabState'
+import MeetingsTab from '@/app/admin/_components/meetings/MeetingsTab'
 
 interface J1PanelProps {
     displayName: string
@@ -138,7 +139,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                                 <MastersheetTab />
                             </div>
                         )}
-                        {tab === 3 && <WipTab title='Meetings' description='J1 meeting scheduling and records are coming soon.' />}
+                        {tab === 3 && <MeetingsTab department='j1' userId={userId} isLead={canManageMembers} />}
                         {tab === 4 && <StatisticsTab />}
                     </div>
                 </>

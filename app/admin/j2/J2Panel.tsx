@@ -7,6 +7,7 @@ import J2OperationsTab from '@/app/admin/j2/tabs/J2OperationsTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 import { useTabState } from '@/app/admin/_components/useTabState'
+import MeetingsTab from '@/app/admin/_components/meetings/MeetingsTab'
 
 export default function J2Panel({
     displayName,
@@ -85,11 +86,13 @@ export default function J2Panel({
                             sx={{ minHeight: 40 }}
                         >
                             <Tab label={<PinTabLabel label='Operations' pinLabel='J2 — Operations' href='/admin/j2' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'   pinLabel='J2 — Meetings'   href='/admin/j2' tabIndex={1} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
                         {tab === 0 && <J2OperationsTab isJ4={isJ4} />}
+                        {tab === 1 && <MeetingsTab department='j2' userId={userId} isLead={canManageMembers} />}
                     </div>
                 </>
             )}

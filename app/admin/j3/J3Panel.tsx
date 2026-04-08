@@ -9,6 +9,7 @@ import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/admin/_components/PinTabLabel'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 import { useTabState } from '@/app/admin/_components/useTabState'
+import MeetingsTab from '@/app/admin/_components/meetings/MeetingsTab'
 
 interface J3PanelProps {
     displayName: string
@@ -109,6 +110,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                             <Tab label={<PinTabLabel label='Qualification Tickets' pinLabel='J3 — Qual Tickets'  href='/admin/j3' tabIndex={0} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Promotion Tickets'     pinLabel='J3 — Promo Tickets' href='/admin/j3' tabIndex={1} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Training Schedule'     pinLabel='J3 — Schedule'      href='/admin/j3' tabIndex={2} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'             pinLabel='J3 — Meetings'       href='/admin/j3' tabIndex={3} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -137,6 +139,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                             </div>
                         )}
                         {tab === 2 && <WipTab title='Training Schedule' description='Training schedule management and documentation tools are coming soon.' />}
+                        {tab === 3 && <MeetingsTab department='j3' userId={userId} isLead={canManageMembers} />}
                     </div>
                 </>
             )}

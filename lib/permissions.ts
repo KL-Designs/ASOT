@@ -461,6 +461,21 @@ const PERMISSIONS = {
     // All Staff tickets (move requests, discipline) are handled separately and
     // are not controlled by these keys.
 
+    // ── Meetings ──────────────────────────────────────────────────────────────
+    //
+    // Controls who can lock/unlock individual meeting records for each department.
+    // Regular department members can create and edit meetings; only leads can lock.
+
+    meetings: {
+        lockJ1: ['J1-Staff'],
+        lockJ2: ['J2-Team Lead'],
+        lockJ3: ['J3-Team Lead'],
+        lockJ4: ['J4-Administration'],
+        lockJ5: ['J5-Media'],
+        lockJ6: ['J6-Department Lead'],
+        lockJ7: ['J7 Staff'],
+    },
+
     tickets: {
         /**
          * Approve or reject J1 department tickets.
