@@ -28,10 +28,13 @@ export async function GET(request: NextRequest) {
         rsvpOpenAt: { $type: 'date', $lte: now },
     } as Parameters<typeof Db.operationAttendance.find>[0]).toArray()
 
+    // Track IDs just opened so step 1 doesn't immediately close them in the same tick
+    const justOpenedIds = new Set(autoOpenCandidates.map(a => a._id.toString()))
+
     for (const att of autoOpenCandidates) {
         await Db.operationAttendance.updateOne(
             { _id: att._id },
-            { $set: { rsvpOpen: true } }
+            { $set: { rsvpOpen: true, stage: 'rsvp_open' } }
         )
         results.rsvpOpened++
         console.log(`[cron/operations] RSVP auto-opened for att=${att._id}`)
@@ -63,14 +66,18 @@ export async function GET(request: NextRequest) {
 
     const openRsvps = await Db.operationAttendance.find({ rsvpOpen: true }).toArray()
     for (const att of openRsvps) {
+        // Skip records just opened in this tick — give them at least one cron cycle
+        if (justOpenedIds.has(att._id.toString())) continue
         const op = await Db.operations.findOne({ _id: att.operationId })
         if (!op?.date) continue
         const offsetMins = att.rsvpCloseOffsetMins ?? 60
         const closeAt = new Date(new Date(op.date).getTime() - offsetMins * 60 * 1000)
+        // Don't close if close time ≤ open time — window was misconfigured; respect the open
+        if (att.rsvpOpenAt && closeAt <= new Date(att.rsvpOpenAt)) continue
         if (now >= closeAt) {
             await Db.operationAttendance.updateOne(
                 { _id: att._id },
-                { $set: { rsvpOpen: false } }
+                { $set: { rsvpOpen: false, stage: 'rsvp_closed' } }
             )
             results.rsvpClosed++
             console.log(`[cron/operations] RSVP closed for op=${op._id} "${op.title}"`)
@@ -86,6 +93,17 @@ export async function GET(request: NextRequest) {
     results.activatedOps = activateResult.modifiedCount
     if (activateResult.modifiedCount > 0) {
         console.log(`[cron/operations] ${activateResult.modifiedCount} op(s) set to Active`)
+        // Mirror stage onto attendance docs for newly activated ops
+        const activatedOps = await Db.operations
+            .find({ status: 'Active', date: { $lte: now }, deletedAt: { $exists: false } } as Parameters<typeof Db.operations.find>[0])
+            .project<{ _id: import('mongodb').ObjectId }>({ _id: 1 })
+            .toArray()
+        for (const op of activatedOps) {
+            await Db.operationAttendance.updateOne(
+                { operationId: op._id, stage: { $nin: ['op_running', 'confirmations_open', 'completed'] } } as Parameters<typeof Db.operationAttendance.updateOne>[0],
+                { $set: { stage: 'op_running' } }
+            )
+        }
     }
 
     // ── 3. Confirmation auto-open (op marked Completed, not yet opened) ────────
@@ -108,7 +126,7 @@ export async function GET(request: NextRequest) {
         const openedAt = new Date()
         await Db.operationAttendance.updateOne(
             { _id: att._id },
-            { $set: { confirmationOpen: true, confirmationOpenedAt: openedAt } }
+            { $set: { confirmationOpen: true, confirmationOpenedAt: openedAt, stage: 'confirmations_open' } }
         )
         results.confirmationOpened++
         console.log(`[cron/operations] Confirmation opened for op=${op._id} "${op.title}"`)
@@ -157,7 +175,7 @@ export async function GET(request: NextRequest) {
             confirmationOpen: true,
             confirmationOpenedAt: { $lte: cutoff },
         } as Parameters<typeof Db.operationAttendance.updateMany>[0],
-        { $set: { confirmationOpen: false } }
+        { $set: { confirmationOpen: false, stage: 'completed' } }
     )
     results.confirmationClosed = closeResult.modifiedCount
     if (closeResult.modifiedCount > 0) {

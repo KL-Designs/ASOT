@@ -379,9 +379,9 @@ async function triggerOperationsCron() {
     try {
         const res = await fetch(`http://localhost:${port}/api/cron/operations?secret=${process.env.CRON_SECRET}`)
         const data = await res.json()
-        const { rsvpClosed, confirmationOpened, confirmationClosed } = data
-        if (rsvpClosed || confirmationOpened || confirmationClosed) {
-            console.log(`[cron/operations] rsvpClosed=${rsvpClosed} confirmationOpened=${confirmationOpened} confirmationClosed=${confirmationClosed}`)
+        const { rsvpOpened, rsvpClosed, activatedOps, confirmationOpened, confirmationClosed } = data
+        if (rsvpOpened || rsvpClosed || activatedOps || confirmationOpened || confirmationClosed) {
+            console.log(`[cron/operations] rsvpOpened=${rsvpOpened} rsvpClosed=${rsvpClosed} activatedOps=${activatedOps} confirmationOpened=${confirmationOpened} confirmationClosed=${confirmationClosed}`)
         }
     } catch (e) {
         console.error('[cron/operations] Error:', e.message)

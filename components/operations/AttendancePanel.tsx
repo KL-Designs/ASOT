@@ -531,7 +531,7 @@ export default function AttendancePanel({
 
 
             {/* ── My RSVP (logged-in member) ─────────────────────────────── */}
-            {myUserId && isUpcomingOrActive && data?.rsvpOpen && (
+            {myUserId && data?.rsvpOpen && (
                 <Box sx={{ p: 2, border: '1px solid rgba(255,255,255,0.06)', borderTop: `2px solid ${c(0.5)}`, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                         <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} sx={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', flex: 1 }}>

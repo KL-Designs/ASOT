@@ -12,6 +12,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import AttendanceDrawer from '@/components/operations/AttendanceDrawer'
 import ZeusNotesPanel from './ZeusNotesPanel'
+import OperationStatusBar from '@/components/operations/OperationStatusBar'
 
 
 function hexToRgb(hex: string) {
@@ -392,6 +393,15 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
             {/* Left: document content */}
             <div style={{ flex: 1, minWidth: 0 }}>
+
+            {/* Op status / automation timeline bar */}
+            <OperationStatusBar
+                operationId={id}
+                operationDate={operation.date?.toString() ?? null}
+                operationStatus={operation.status ?? ''}
+                themeColor={operation.themeColor || '#db001d'}
+                r={r} g={g} b={b}
+            />
 
             {/* Multi-page view */}
             {operation.pages && operation.pages.length > 1 && (

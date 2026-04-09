@@ -14,6 +14,17 @@ import { type MetaFields } from './editor'
 import ActivityLog from './activity-log'
 const OperationEditor = dynamic(() => import('./editor'), { ssr: false })
 
+type AttendanceStage = 'preparing' | 'rsvp_open' | 'rsvp_closed' | 'op_running' | 'confirmations_open' | 'completed'
+
+const STAGE_DEFS: { id: AttendanceStage; label: string; sub: string }[] = [
+    { id: 'preparing',          label: 'Preparing',    sub: '' },
+    { id: 'rsvp_open',          label: 'RSVP',         sub: 'Open' },
+    { id: 'rsvp_closed',        label: 'RSVP',         sub: 'Closed' },
+    { id: 'op_running',         label: 'Op',           sub: 'Running' },
+    { id: 'confirmations_open', label: 'Confirm',      sub: 'Open' },
+    { id: 'completed',          label: 'Completed',    sub: '' },
+]
+
 function hexToRgb(hex: string) {
     const h = hex.replace('#', '')
     return {
@@ -50,8 +61,10 @@ export default function Page() {
     const [attendanceSaving, setAttendanceSaving] = useState(false)
     const [tickNow, setTickNow] = useState(() => new Date())
 
+    const [attStage, setAttStage] = useState<AttendanceStage>('preparing')
+    const [confirmStage, setConfirmStage] = useState<AttendanceStage | null>(null)
+
     const [confirmDelete, setConfirmDelete] = useState(false)
-    const [confirmEndMission, setConfirmEndMission] = useState(false)
     const [previewOpen, setPreviewOpen] = useState(false)
     const [activityOpen, setActivityOpen] = useState(false)
     const router = useRouter()
@@ -59,6 +72,74 @@ export default function Page() {
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
     const metaHandleRef = useRef<{ set: (key: keyof MetaFields, value: string) => void } | null>(null)
     const previewIframeRef = useRef<HTMLIFrameElement>(null)
+
+    useEffect(() => {
+        const id = setInterval(() => setTickNow(new Date()), 1000)
+        return () => clearInterval(id)
+    }, [])
+
+    // Client-side auto-open/close/activate: fire the moment the scheduled time crosses zero
+    // so we don't wait up to 5 minutes for the next cron tick.
+    const autoOpenFiredRef       = useRef<string | null>(null)
+    const autoCloseFiredRef      = useRef<string | null>(null)
+    const autoActivateFiredRef   = useRef<string | null>(null)
+    const autoConfirmFiredRef    = useRef<string | null>(null)
+    useEffect(() => {
+        if (!isHQ || !opID) return
+
+        // Auto-open
+        if (rsvpOpenAt && !rsvpOpen) {
+            if (autoOpenFiredRef.current !== rsvpOpenAt && new Date(rsvpOpenAt) <= tickNow) {
+                autoOpenFiredRef.current = rsvpOpenAt
+                setRsvpOpen(true)
+                setAttStage('rsvp_open')
+                saveAttendanceSettings({ rsvpOpen: true, stage: 'rsvp_open' })
+                return
+            }
+        }
+
+        // Auto-close: fires when op date is known and close offset has been reached
+        if (rsvpOpen && date) {
+            const closeAt = new Date(date.toDate().getTime() - rsvpCloseOffsetMins * 60000)
+            const closeKey = closeAt.toISOString()
+            if (autoCloseFiredRef.current !== closeKey && tickNow >= closeAt) {
+                autoCloseFiredRef.current = closeKey
+                // Also stamp the open-ref so the auto-open can't immediately re-fire
+                if (rsvpOpenAt) autoOpenFiredRef.current = rsvpOpenAt
+                setRsvpOpen(false)
+                setAttStage('rsvp_closed')
+                saveAttendanceSettings({ rsvpOpen: false, stage: 'rsvp_closed' })
+            }
+        }
+
+        // Auto-activate: Upcoming → Active when op date is reached
+        if (status === 'Upcoming' && date) {
+            const activateAt = date.toDate()
+            const activateKey = activateAt.toISOString()
+            if (autoActivateFiredRef.current !== activateKey && tickNow >= activateAt) {
+                autoActivateFiredRef.current = activateKey
+                fetch(`/api/operations/update?id=${opID}&status=Active`).then(() => {
+                    setStatus('Active')
+                    setAttStage('op_running')
+                    saveAttendanceSettings({ stage: 'op_running' })
+                })
+            }
+        }
+
+        // Auto-open confirmation: fires when status is Completed and confirmation not yet open
+        if (status === 'Completed' && !confirmationOpen && !confirmationOpenedAt) {
+            const confirmKey = `confirm-${opID}`
+            if (autoConfirmFiredRef.current !== confirmKey) {
+                autoConfirmFiredRef.current = confirmKey
+                const now = new Date()
+                setConfirmationOpen(true)
+                setConfirmationOpenedAt(now)
+                setAttStage('confirmations_open')
+                saveAttendanceSettings({ confirmationOpen: true, stage: 'confirmations_open' })
+            }
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tickNow])
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search)
@@ -97,15 +178,16 @@ export default function Page() {
                 setRsvpOpen(json.rsvpOpen ?? false)
                 setConfirmationOpen(json.confirmationOpen ?? false)
                 setConfirmationOpenedAt(json.confirmationOpenedAt ? new Date(json.confirmationOpenedAt) : null)
-                setRsvpOpenAt(json.rsvpOpenAt ? new Date(json.rsvpOpenAt).toISOString() : null)
+                const openAt = json.rsvpOpenAt ? new Date(json.rsvpOpenAt).toISOString() : null
+                setRsvpOpenAt(openAt)
                 setRsvpCloseOffsetMins(json.rsvpCloseOffsetMins ?? 60)
+                setAttStage(json.stage ?? 'preparing')
+                // If RSVP is already open when we load, mark the auto-open as already fired
+                // so the close→re-open bounce can't happen.
+                if (json.rsvpOpen && openAt) autoOpenFiredRef.current = openAt
             })
     }, [])
 
-    useEffect(() => {
-        const id = setInterval(() => setTickNow(new Date()), 1000)
-        return () => clearInterval(id)
-    }, [])
 
     function scheduleSave(updates: Record<string, string>) {
         setSaveStatus('unsaved')
@@ -163,10 +245,11 @@ export default function Page() {
         confirmationOpen?: boolean
         rsvpOpenAt?: string | null
         rsvpCloseOffsetMins?: number
+        stage?: AttendanceStage
     }) {
         setAttendanceSaving(true)
         try {
-            await fetch(`/api/operations/${opID}/attendance/platoons`, {
+            const res = await fetch(`/api/operations/${opID}/attendance/platoons`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -176,16 +259,40 @@ export default function Page() {
                     confirmationOpen: updates.confirmationOpen ?? confirmationOpen,
                     ...(updates.rsvpOpenAt !== undefined && { rsvpOpenAt: updates.rsvpOpenAt }),
                     ...(updates.rsvpCloseOffsetMins !== undefined && { rsvpCloseOffsetMins: updates.rsvpCloseOffsetMins }),
+                    ...(updates.stage !== undefined && { stage: updates.stage }),
                 }),
             })
+            const json = await res.json()
+            // If the API resolved rsvpOpen server-side (e.g. past rsvpOpenAt), reflect that immediately
+            if (json.rsvpOpen !== undefined) setRsvpOpen(json.rsvpOpen)
         } finally {
             setAttendanceSaving(false)
         }
     }
 
-    async function handleEndMission() {
-        await fetch(`/api/operations/update?id=${opID}&status=Completed`)
-        setStatus('Completed')
+    async function applyStage(newStage: AttendanceStage) {
+        const updates: Parameters<typeof saveAttendanceSettings>[0] = { stage: newStage }
+        if (newStage === 'rsvp_open') {
+            setRsvpOpen(true);        updates.rsvpOpen = true
+        } else if (newStage === 'rsvp_closed') {
+            setRsvpOpen(false);       updates.rsvpOpen = false
+        } else if (newStage === 'op_running') {
+            setRsvpOpen(false);       updates.rsvpOpen = false
+            await fetch(`/api/operations/update?id=${opID}&status=Active`)
+            setStatus('Active')
+        } else if (newStage === 'confirmations_open') {
+            setRsvpOpen(false);       updates.rsvpOpen = false
+            setConfirmationOpen(true);updates.confirmationOpen = true
+            await fetch(`/api/operations/update?id=${opID}&status=Completed`)
+            setStatus('Completed')
+        } else if (newStage === 'completed') {
+            setConfirmationOpen(false);updates.confirmationOpen = false
+        } else {
+            // preparing
+            setRsvpOpen(false);       updates.rsvpOpen = false
+        }
+        setAttStage(newStage)
+        await saveAttendanceSettings(updates)
     }
 
     const PLATOON_OPTS = [
@@ -197,6 +304,19 @@ export default function Page() {
 
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
+
+    // Derive the displayed stage from live state so it stays in sync with cron/DB changes.
+    // attStage (DB-stored) is only used to distinguish 'preparing' vs 'rsvp_closed',
+    // since both have rsvpOpen=false and status=Upcoming.
+    const displayStage: AttendanceStage = (() => {
+        if (status === 'Completed') {
+            if (confirmationOpen) return 'confirmations_open'
+            return 'completed'
+        }
+        if (status === 'Active') return 'op_running'
+        if (rsvpOpen)            return 'rsvp_open'
+        return attStage === 'rsvp_closed' ? 'rsvp_closed' : 'preparing'
+    })()
 
     const STATUS_COLORS: Record<string, string> = {
         'Active':         'rgba(0,200,80,0.9)',
@@ -382,6 +502,26 @@ export default function Page() {
                             <option value='Completed' style={{ background: 'rgb(18,18,18)', color: 'rgba(100,150,237,0.8)' }}>Completed</option>
                             {isHQ && <option value='In Development' style={{ background: 'rgb(18,18,18)', color: 'rgba(219,0,29,0.75)' }}>In Development</option>}
                         </select>
+                        {/* Complete Mission button — visible when op is Active */}
+                        {isHQ && status === 'Active' && (
+                            <button
+                                onClick={() => applyStage('confirmations_open')}
+                                style={{
+                                    background: 'rgba(219,0,29,0.15)',
+                                    border: '1px solid rgba(219,0,29,0.6)',
+                                    color: 'rgba(219,0,29,0.9)',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700,
+                                    letterSpacing: '0.1em',
+                                    textTransform: 'uppercase',
+                                    padding: '8px 16px',
+                                    cursor: 'pointer',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                Complete Mission
+                            </button>
+                        )}
                         {/* Theme color picker */}
                         <label style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid rgba(255,255,255,0.1)', padding: '6px 12px', cursor: 'pointer', userSelect: 'none' }}>
                             <input
@@ -513,62 +653,79 @@ export default function Page() {
                             </div>
                         </div>
 
-                        {/* RSVP / Confirmation toggles */}
-                        <div className='flex flex-wrap gap-6'>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
-                                <div
-                                    onClick={() => {
-                                        setRsvpOpen(o => {
-                                            saveAttendanceSettings({ rsvpOpen: !o })
-                                            return !o
-                                        })
-                                    }}
-                                    style={{
-                                        width: 36, height: 20, borderRadius: 10, position: 'relative', cursor: 'pointer', flexShrink: 0,
-                                        background: rsvpOpen ? c(0.75) : 'rgba(255,255,255,0.1)',
-                                        transition: 'background 0.2s',
-                                    }}
-                                >
-                                    <div style={{
-                                        position: 'absolute', top: 3, left: rsvpOpen ? 18 : 3, width: 14, height: 14,
-                                        borderRadius: '50%', background: 'white', transition: 'left 0.2s',
-                                    }} />
+                        {/* Mission Stage bar */}
+                        {(() => {
+                            const currentIdx = STAGE_DEFS.findIndex(s => s.id === displayStage)
+                            const NEEDS_CONFIRM = new Set<AttendanceStage>(['op_running', 'confirmations_open', 'completed'])
+                            const CONFIRM_MSGS: Record<string, string> = {
+                                op_running:          'Mark the operation as Active? This sets it to "Op Running".',
+                                confirmations_open:  `End "${title || 'this mission'}"? This marks it Completed and opens attendance confirmation.`,
+                                completed:           'Close attendance confirmation? Squad leaders will no longer be able to confirm.',
+                            }
+                            return (
+                                <div>
+                                    <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: c(0.55), marginBottom: 16 }}>
+                                        Mission Stage
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                                        {STAGE_DEFS.map((s, i) => {
+                                            const isPast    = i < currentIdx
+                                            const isCurrent = i === currentIdx
+                                            const nodeColor = isCurrent ? c(1) : isPast ? 'rgba(0,200,80,0.6)' : 'rgba(255,255,255,0.1)'
+                                            const borderClr = isCurrent ? c(0.9) : isPast ? 'rgba(0,200,80,0.5)' : 'rgba(255,255,255,0.15)'
+                                            const labelClr  = isCurrent ? 'rgba(237,237,237,0.95)' : isPast ? 'rgba(0,200,80,0.7)' : 'rgba(237,237,237,0.2)'
+                                            return (
+                                                <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', flex: i < STAGE_DEFS.length - 1 ? 1 : undefined }}>
+                                                    {/* Node + label */}
+                                                    <div
+                                                        onClick={isHQ ? () => {
+                                                            if (i === currentIdx) return
+                                                            if (NEEDS_CONFIRM.has(s.id)) { setConfirmStage(s.id); return }
+                                                            applyStage(s.id)
+                                                        } : undefined}
+                                                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7, cursor: isHQ && i !== currentIdx ? 'pointer' : 'default', minWidth: 44 }}
+                                                    >
+                                                        <div style={{
+                                                            width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                                                            background: nodeColor, border: `2px solid ${borderClr}`,
+                                                            boxShadow: isCurrent ? `0 0 10px ${c(0.45)}` : 'none',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            transition: 'all 0.2s',
+                                                        }}>
+                                                            {isPast && <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.9)', lineHeight: 1 }}>✓</span>}
+                                                        </div>
+                                                        <div style={{ textAlign: 'center', lineHeight: 1.3 }}>
+                                                            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: labelClr }}>{s.label}</div>
+                                                            {s.sub && <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: labelClr }}>{s.sub}</div>}
+                                                        </div>
+                                                    </div>
+                                                    {/* Connector */}
+                                                    {i < STAGE_DEFS.length - 1 && (
+                                                        <div style={{ flex: 1, height: 2, marginTop: 9, background: isPast ? 'rgba(0,200,80,0.35)' : 'rgba(255,255,255,0.08)' }} />
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                    {/* Confirm dialog for impactful stage changes */}
+                                    <ConfirmDialog
+                                        open={confirmStage !== null}
+                                        title='Change Stage'
+                                        message={confirmStage ? (CONFIRM_MSGS[confirmStage] ?? `Move to "${confirmStage}"?`) : ''}
+                                        confirmLabel='Confirm'
+                                        danger
+                                        onConfirm={() => { const s = confirmStage!; setConfirmStage(null); applyStage(s) }}
+                                        onCancel={() => setConfirmStage(null)}
+                                    />
                                 </div>
-                                <span style={{ fontSize: '0.78rem', letterSpacing: '0.06em', color: rsvpOpen ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.4)' }}>
-                                    RSVP Open
-                                </span>
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
-                                <div
-                                    onClick={() => {
-                                        setConfirmationOpen(o => {
-                                            saveAttendanceSettings({ confirmationOpen: !o })
-                                            return !o
-                                        })
-                                    }}
-                                    style={{
-                                        width: 36, height: 20, borderRadius: 10, position: 'relative', cursor: 'pointer', flexShrink: 0,
-                                        background: confirmationOpen ? c(0.75) : 'rgba(255,255,255,0.1)',
-                                        transition: 'background 0.2s',
-                                    }}
-                                >
-                                    <div style={{
-                                        position: 'absolute', top: 3, left: confirmationOpen ? 18 : 3, width: 14, height: 14,
-                                        borderRadius: '50%', background: 'white', transition: 'left 0.2s',
-                                    }} />
-                                </div>
-                                <span style={{ fontSize: '0.78rem', letterSpacing: '0.06em', color: confirmationOpen ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.4)' }}>
-                                    Confirmation Open
-                                </span>
-                            </label>
-                        </div>
+                            )
+                        })()}
                     </div>
                 </div>
             )}
 
             {/* Automation panel — HQ only */}
             {isHQ && opID && (() => {
-                // ── helpers ──────────────────────────────────────────────────
                 function fmtCountdown(target: Date): string | null {
                     const diffMs = target.getTime() - tickNow.getTime()
                     if (diffMs <= 0) return null
@@ -581,7 +738,7 @@ export default function Page() {
                     return `${m}m ${s}s`
                 }
 
-                const opDate = date?.toDate() ?? null
+                const opDate        = date?.toDate() ?? null
                 const rsvpCloseDate = opDate ? new Date(opDate.getTime() - rsvpCloseOffsetMins * 60000) : null
                 const confirmCloseDate = confirmationOpenedAt ? new Date(confirmationOpenedAt.getTime() + 24 * 3600000) : null
 
@@ -614,109 +771,9 @@ export default function Page() {
                     width: '100%',
                 }
 
-                function dot(color: string) {
-                    return (
-                        <span style={{
-                            display: 'inline-block', width: 7, height: 7,
-                            borderRadius: '50%', background: color, flexShrink: 0,
-                            marginTop: 1,
-                        }} />
-                    )
-                }
-
-                type StageState = 'done' | 'active' | 'pending' | 'off'
-                function stageDot(state: StageState) {
-                    if (state === 'done')    return dot('rgba(0,210,90,0.85)')
-                    if (state === 'active')  return dot('rgba(219,160,0,0.9)')
-                    if (state === 'off')     return dot('rgba(237,237,237,0.15)')
-                    return dot('rgba(237,237,237,0.25)')
-                }
-
-                // Stage states
-                const rsvpOpenState: StageState =
-                    rsvpOpen ? 'done'
-                    : !rsvpOpenAt ? 'off'
-                    : fmtCountdown(new Date(rsvpOpenAt)) ? 'active'
-                    : 'done'
-
-                const rsvpCloseState: StageState =
-                    !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? 'done'
-                    : rsvpOpen && rsvpCloseDate ? (fmtCountdown(rsvpCloseDate) ? 'active' : 'done')
-                    : 'pending'
-
-                const missionActiveState: StageState =
-                    status === 'Completed' ? 'done'
-                    : status === 'Active' ? 'done'
-                    : opDate && fmtCountdown(opDate) ? 'active'
-                    : 'pending'
-
-                const confirmOpenState: StageState =
-                    confirmationOpen ? 'done'
-                    : (status === 'Completed' && !confirmationOpen && confirmationOpenedAt) ? 'done'
-                    : status === 'Completed' ? 'active'
-                    : 'pending'
-
-                const confirmCloseState: StageState =
-                    confirmationOpenedAt && !confirmationOpen ? 'done'
-                    : confirmationOpenedAt && confirmationOpen && confirmCloseDate ? (fmtCountdown(confirmCloseDate) ? 'active' : 'done')
-                    : 'pending'
-
                 return (
                     <>
-                        {/* End Mission button — shown when Active */}
-                        {status === 'Active' && (
-                            <div style={{
-                                border: '1px solid rgba(219,0,29,0.4)',
-                                borderTop: '2px solid var(--red)',
-                                background: 'rgba(219,0,29,0.04)',
-                                marginBottom: 20,
-                                padding: '14px 16px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: 16,
-                            }}>
-                                <div>
-                                    <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(0,200,80,0.85)', marginBottom: 3 }}>
-                                        Mission Active
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.4)', letterSpacing: '0.04em' }}>
-                                        End the mission to open attendance confirmation.
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => setConfirmEndMission(true)}
-                                    style={{
-                                        padding: '8px 20px',
-                                        background: 'rgba(219,0,29,0.2)',
-                                        border: '1px solid rgba(219,0,29,0.5)',
-                                        color: 'rgba(237,237,237,0.9)',
-                                        fontSize: '0.72rem',
-                                        fontWeight: 700,
-                                        letterSpacing: '0.14em',
-                                        textTransform: 'uppercase',
-                                        cursor: 'pointer',
-                                        flexShrink: 0,
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(219,0,29,0.35)' }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(219,0,29,0.2)' }}
-                                >
-                                    End Mission
-                                </button>
-                            </div>
-                        )}
-
-                        <ConfirmDialog
-                            open={confirmEndMission}
-                            title='End Mission'
-                            message={`Mark "${title || 'this mission'}" as Completed? This will close the operation and automatically open attendance confirmation within 5 minutes.`}
-                            confirmLabel='End Mission'
-                            danger
-                            onConfirm={() => { setConfirmEndMission(false); handleEndMission() }}
-                            onCancel={() => setConfirmEndMission(false)}
-                        />
-
-                        {/* Automation settings + status */}
+                        {/* Automation settings */}
                         <div style={{
                             border: `1px solid ${c(0.15)}`,
                             borderTop: `2px solid ${c(0.5)}`,
@@ -735,9 +792,8 @@ export default function Page() {
                             </div>
 
                             <div className='flex flex-wrap gap-6 p-4'>
-
                                 {/* ── Settings column ── */}
-                                <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                                <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
                                     {/* RSVP Open */}
                                     <div>
@@ -843,81 +899,60 @@ export default function Page() {
                                 </div>
 
                                 {/* ── Status column ── */}
-                                <div style={{ flex: '1 1 240px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: 0 }}>
                                     <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 14, fontFamily: 'monospace' }}>
-                                        // AUTOMATION STATUS
+                                        // STATUS
                                     </div>
-
                                     {([
                                         {
                                             label: 'RSVP Opens',
-                                            state: rsvpOpenState,
-                                            detail: rsvpOpenState === 'done' ? (rsvpOpen ? 'Open' : 'Closed')
-                                                : rsvpOpenState === 'off' ? 'Manual'
-                                                : rsvpOpenAt ? (fmtCountdown(new Date(rsvpOpenAt)) ?? 'Firing…') : '—',
+                                            color: rsvpOpen || ['rsvp_closed','op_running','confirmations_open','completed'].includes(displayStage) ? 'rgba(0,210,90,0.8)'
+                                                : rsvpOpenAt && !fmtCountdown(new Date(rsvpOpenAt)) ? 'rgba(219,160,0,0.9)'
+                                                : rsvpOpenAt ? 'rgba(219,160,0,0.8)'
+                                                : 'rgba(237,237,237,0.2)',
+                                            detail: rsvpOpen ? '✓ Open'
+                                                : ['rsvp_closed','op_running','confirmations_open','completed'].includes(displayStage) ? '✓ Opened'
+                                                : rsvpOpenAt ? (fmtCountdown(new Date(rsvpOpenAt)) ?? 'Pending cron…')
+                                                : 'Manual',
                                         },
                                         {
                                             label: 'RSVP Closes',
-                                            state: rsvpCloseState,
-                                            detail: rsvpCloseState === 'done' ? 'Closed'
-                                                : rsvpCloseDate ? (fmtCountdown(rsvpCloseDate) ?? 'Firing…') : '—',
+                                            color: !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? 'rgba(0,210,90,0.8)'
+                                                : rsvpOpen && rsvpCloseDate ? 'rgba(219,160,0,0.8)'
+                                                : 'rgba(237,237,237,0.2)',
+                                            detail: !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? '✓ Closed'
+                                                : rsvpCloseDate ? (fmtCountdown(rsvpCloseDate) ?? 'Firing…')
+                                                : '—',
                                         },
                                         {
                                             label: 'Mission Active',
-                                            state: missionActiveState,
-                                            detail: missionActiveState === 'done' ? (status === 'Completed' ? 'Completed' : 'Active')
+                                            color: status === 'Active' || status === 'Completed' ? 'rgba(0,210,90,0.8)'
+                                                : opDate && fmtCountdown(opDate) ? 'rgba(219,160,0,0.8)'
+                                                : 'rgba(237,237,237,0.2)',
+                                            detail: status === 'Completed' ? '✓ Completed'
+                                                : status === 'Active' ? '✓ Active'
                                                 : opDate ? (fmtCountdown(opDate) ?? 'Firing…') : '—',
                                         },
                                         {
-                                            label: 'Confirmation Opens',
-                                            state: confirmOpenState,
-                                            detail: confirmOpenState === 'done' ? (confirmationOpen ? 'Open' : 'Closed')
-                                                : confirmOpenState === 'active' ? 'Pending cron…'
+                                            label: 'Confirmations',
+                                            color: confirmationOpen ? 'rgba(219,160,0,0.8)'
+                                                : confirmationOpenedAt && !confirmationOpen ? 'rgba(0,210,90,0.8)'
+                                                : status === 'Completed' ? 'rgba(219,160,0,0.6)'
+                                                : 'rgba(237,237,237,0.2)',
+                                            detail: confirmationOpen ? `Open · closes ${confirmCloseDate ? (fmtCountdown(confirmCloseDate) ?? 'soon') : '—'}`
+                                                : confirmationOpenedAt && !confirmationOpen ? '✓ Closed'
+                                                : status === 'Completed' ? 'Pending cron…'
                                                 : 'When mission ends',
                                         },
-                                        {
-                                            label: 'Confirmation Closes',
-                                            state: confirmCloseState,
-                                            detail: confirmCloseState === 'done' ? 'Closed'
-                                                : confirmCloseDate ? (fmtCountdown(confirmCloseDate) ?? 'Firing…')
-                                                : 'After confirmation opens',
-                                        },
-                                    ] as { label: string; state: StageState; detail: string }[]).map((stage, i) => (
-                                        <div
-                                            key={i}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'flex-start',
-                                                gap: 10,
-                                                padding: '9px 0',
-                                                borderBottom: i < 4 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, paddingTop: 2 }}>
-                                                {stageDot(stage.state)}
-                                                {i < 4 && (
-                                                    <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.07)', marginTop: 4 }} />
-                                                )}
-                                            </div>
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.55)', marginBottom: 1 }}>
-                                                    {stage.label}
-                                                </div>
-                                                <div style={{
-                                                    fontSize: '0.72rem',
-                                                    fontWeight: stage.state === 'active' ? 700 : 400,
-                                                    color: stage.state === 'done' ? 'rgba(0,210,90,0.75)'
-                                                        : stage.state === 'active' ? 'rgba(219,160,0,0.9)'
-                                                        : stage.state === 'off' ? 'rgba(237,237,237,0.25)'
-                                                        : 'rgba(237,237,237,0.4)',
-                                                    fontFamily: stage.state === 'active' ? 'monospace' : 'inherit',
-                                                    letterSpacing: stage.state === 'active' ? '0.04em' : 'inherit',
-                                                }}>
-                                                    {stage.state === 'done' ? `✓ ${stage.detail}` : stage.detail}
-                                                </div>
+                                    ].map((row, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 0', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                                            <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: row.color, flexShrink: 0, marginTop: 4 }} />
+                                            <div>
+                                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 1 }}>{row.label}</div>
+                                                <div style={{ fontSize: '0.72rem', color: row.color, fontWeight: row.color.includes('160') ? 700 : 400, fontFamily: 'monospace', letterSpacing: '0.03em' }}>{row.detail}</div>
                                             </div>
                                         </div>
-                                    ))}
+                                    )))}
                                 </div>
 
                             </div>

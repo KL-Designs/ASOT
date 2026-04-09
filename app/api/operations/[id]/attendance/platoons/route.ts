@@ -33,15 +33,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         confirmationOpen?: boolean
         rsvpOpenAt?: string | null   // ISO datetime or null to clear
         rsvpCloseOffsetMins?: number
+        stage?: string
     } = await req.json()
+
+    // If rsvpOpenAt is being set to a time already in the past, open RSVP immediately
+    // rather than waiting up to 5 minutes for the next cron tick.
+    let resolvedRsvpOpen = body.rsvpOpen
+    if (body.rsvpOpenAt && resolvedRsvpOpen === false) {
+        if (new Date(body.rsvpOpenAt) <= new Date()) {
+            resolvedRsvpOpen = true
+        }
+    }
 
     const setFields: Record<string, unknown> = {
         assignedPlatoons: body.assignedPlatoons ?? [],
         reservistAssignments: body.reservistAssignments ?? [],
-        ...(body.rsvpOpen !== undefined && { rsvpOpen: body.rsvpOpen }),
+        ...(resolvedRsvpOpen !== undefined && { rsvpOpen: resolvedRsvpOpen }),
         ...(body.confirmationOpen !== undefined && { confirmationOpen: body.confirmationOpen }),
         ...(body.rsvpOpenAt ? { rsvpOpenAt: new Date(body.rsvpOpenAt) } : {}),
         ...(body.rsvpCloseOffsetMins !== undefined && { rsvpCloseOffsetMins: body.rsvpCloseOffsetMins }),
+        ...(body.stage !== undefined && { stage: body.stage }),
     }
 
     const update: Record<string, unknown> = {
@@ -60,5 +71,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { $set: { assignedPlatoons: body.assignedPlatoons ?? [] } }
     )
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, rsvpOpen: resolvedRsvpOpen })
 }

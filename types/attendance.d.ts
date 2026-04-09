@@ -32,6 +32,7 @@ declare global {
         rsvpCloseOffsetMins?: number // mins before op start to auto-close RSVP (default: 60)
         confirmationOpen: boolean   // whether section leaders can still confirm
         confirmationOpenedAt?: Date // when confirmation was last opened (for 24h auto-close)
+        stage?: 'preparing' | 'rsvp_open' | 'rsvp_closed' | 'op_running' | 'confirmations_open' | 'completed'
     }
 
     /** Shape returned by the attendance GET endpoint with user details populated */
