@@ -28,6 +28,8 @@ declare global {
             sectionTitle: string
         }[]
         rsvpOpen: boolean           // whether members can still RSVP
+        rsvpOpenAt?: Date           // when to auto-open RSVP (undefined = manual only)
+        rsvpCloseOffsetMins?: number // mins before op start to auto-close RSVP (default: 60)
         confirmationOpen: boolean   // whether section leaders can still confirm
         confirmationOpenedAt?: Date // when confirmation was last opened (for 24h auto-close)
     }

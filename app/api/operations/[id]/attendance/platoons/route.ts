@@ -31,24 +31,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         reservistAssignments: { userId: string; sectionTitle: string }[]
         rsvpOpen?: boolean
         confirmationOpen?: boolean
+        rsvpOpenAt?: string | null   // ISO datetime or null to clear
+        rsvpCloseOffsetMins?: number
     } = await req.json()
 
-    await Db.operationAttendance.updateOne(
-        { operationId },
-        {
-            $setOnInsert: {
-                operationId,
-                records: [],
-            },
-            $set: {
-                assignedPlatoons: body.assignedPlatoons ?? [],
-                reservistAssignments: body.reservistAssignments ?? [],
-                ...(body.rsvpOpen !== undefined && { rsvpOpen: body.rsvpOpen }),
-                ...(body.confirmationOpen !== undefined && { confirmationOpen: body.confirmationOpen }),
-            },
-        },
-        { upsert: true }
-    )
+    const setFields: Record<string, unknown> = {
+        assignedPlatoons: body.assignedPlatoons ?? [],
+        reservistAssignments: body.reservistAssignments ?? [],
+        ...(body.rsvpOpen !== undefined && { rsvpOpen: body.rsvpOpen }),
+        ...(body.confirmationOpen !== undefined && { confirmationOpen: body.confirmationOpen }),
+        ...(body.rsvpOpenAt ? { rsvpOpenAt: new Date(body.rsvpOpenAt) } : {}),
+        ...(body.rsvpCloseOffsetMins !== undefined && { rsvpCloseOffsetMins: body.rsvpCloseOffsetMins }),
+    }
+
+    const update: Record<string, unknown> = {
+        $setOnInsert: { operationId, records: [] },
+        $set: setFields,
+    }
+    if (body.rsvpOpenAt === null) {
+        update.$unset = { rsvpOpenAt: '' }
+    }
+
+    await Db.operationAttendance.updateOne({ operationId }, update as Parameters<typeof Db.operationAttendance.updateOne>[1], { upsert: true })
 
     // Mirror assignedPlatoons onto the operation document for quick reads
     await Db.operations.updateOne(

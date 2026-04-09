@@ -4,6 +4,41 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Typography, CircularProgress, Dialog, DialogContent } from '@mui/material'
 import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 
+// ── Duration history (localStorage) ──────────────────────────────────────────
+
+const DURATION_KEY = 'snapshot_op_durations'
+
+type DurationHistory = { create: number[]; revert: number[] }
+
+function loadHistory(): DurationHistory {
+    try {
+        const raw = localStorage.getItem(DURATION_KEY)
+        return raw ? JSON.parse(raw) as DurationHistory : { create: [], revert: [] }
+    } catch { return { create: [], revert: [] } }
+}
+
+function recordDuration(type: 'create' | 'revert', secs: number) {
+    const h = loadHistory()
+    if (!h.create) h.create = []
+    if (!h.revert) h.revert = []
+    h[type].push(Math.round(secs))
+    h[type] = h[type].slice(-5)  // keep last 5
+    try { localStorage.setItem(DURATION_KEY, JSON.stringify(h)) } catch {}
+}
+
+function getEstimate(type: 'create' | 'revert'): number {
+    const h = loadHistory()
+    const times = (h[type] ?? []).slice(-3)
+    if (times.length === 0) return type === 'create' ? 90 : 45
+    return times.reduce((a, b) => a + b, 0) / times.length
+}
+
+function fmtTime(secs: number): string {
+    const m = Math.floor(secs / 60)
+    const s = Math.floor(secs % 60)
+    return `${m}:${String(s).padStart(2, '0')}`
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface SnapshotInfo {
@@ -105,6 +140,11 @@ export default function SnapshotsTab() {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null)
 
+    const [elapsed, setElapsed] = useState(0)
+    const prevBusy   = useRef(false)
+    const opStartMs  = useRef(0)
+    const opTypeRef  = useRef<'create' | 'revert'>('create')
+
     const [confirm, setConfirm] = useState<{
         open: boolean
         title: string
@@ -112,6 +152,8 @@ export default function SnapshotsTab() {
         danger?: boolean
         action: (() => void) | null
     }>({ open: false, title: '', body: '', action: null })
+
+    const busy = status.state !== 'idle'
 
     const fetchData = useCallback(async () => {
         try {
@@ -140,7 +182,26 @@ export default function SnapshotsTab() {
         return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } }
     }, [status.state, fetchData])
 
-    const busy = status.state !== 'idle'
+    // Record duration when operation completes; set start time when it begins
+    useEffect(() => {
+        if (busy && !prevBusy.current) {
+            opStartMs.current = status.startedAt ? new Date(status.startedAt).getTime() : Date.now()
+            opTypeRef.current = status.state === 'creating' ? 'create' : 'revert'
+        }
+        if (!busy && prevBusy.current && opStartMs.current) {
+            const secs = (Date.now() - opStartMs.current) / 1000
+            if (secs > 2) recordDuration(opTypeRef.current, secs)
+        }
+        prevBusy.current = busy
+    }, [busy, status.state, status.startedAt])
+
+    // Sub-second ticker for smooth progress bar
+    useEffect(() => {
+        if (!busy) { setElapsed(0); return }
+        const startMs = status.startedAt ? new Date(status.startedAt).getTime() : Date.now()
+        const id = setInterval(() => setElapsed((Date.now() - startMs) / 1000), 200)
+        return () => clearInterval(id)
+    }, [busy, status.startedAt])
 
     function openConfirm(title: string, body: string, action: () => void, danger = false) {
         setConfirm({ open: true, title, body, danger, action })
@@ -296,25 +357,96 @@ export default function SnapshotsTab() {
                 </button>
             </div>
 
-            {/* Status banner */}
-            {(busy || status.error) && (
-                <div style={{
-                    padding: '10px 16px',
-                    background: status.error ? 'rgba(219,0,29,0.1)' : 'rgba(255,200,0,0.06)',
-                    border: `1px solid ${status.error ? 'rgba(219,0,29,0.4)' : 'rgba(255,200,0,0.2)'}`,
-                    fontSize: '0.78rem',
-                    color: status.error ? 'rgba(219,0,29,0.9)' : 'rgba(237,237,237,0.7)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                }}>
-                    {busy && <CircularProgress size={14} style={{ color: 'rgba(237,237,237,0.4)' }} />}
-                    {status.error
-                        ? `Error: ${status.error}`
-                        : `${status.state === 'creating' ? 'Creating snapshot' : 'Reverting to snapshot'}… ${status.message ?? ''}`
-                    }
-                </div>
-            )}
+            {/* Progress banner */}
+            {(busy || status.error) && (() => {
+                const opType  = status.state === 'creating' ? 'create' : 'revert'
+                const estimate = getEstimate(opType)
+                const pct     = busy ? Math.min(96, (elapsed / estimate) * 100) : 0
+                const remaining = Math.max(0, Math.ceil(estimate - elapsed))
+                const almostDone = elapsed > estimate * 0.9
+
+                return status.error ? (
+                    <div style={{
+                        padding: '10px 16px',
+                        background: 'rgba(219,0,29,0.1)',
+                        border: '1px solid rgba(219,0,29,0.4)',
+                        fontSize: '0.78rem',
+                        color: 'rgba(219,0,29,0.9)',
+                    }}>
+                        Error: {status.error}
+                    </div>
+                ) : (
+                    <div style={{
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,200,0,0.15)',
+                        overflow: 'hidden',
+                    }}>
+                        {/* Progress bar */}
+                        <div style={{ position: 'relative', height: 3, background: 'rgba(255,255,255,0.06)' }}>
+                            <div style={{
+                                position: 'absolute', left: 0, top: 0, bottom: 0,
+                                width: `${pct}%`,
+                                background: almostDone ? 'rgba(0,200,80,0.7)' : 'rgba(219,160,0,0.8)',
+                                transition: 'width 0.4s ease, background 0.6s ease',
+                            }} />
+                        </div>
+
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '10px 14px',
+                            gap: 12,
+                            flexWrap: 'wrap',
+                        }}>
+                            {/* Left: label + phase */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <CircularProgress size={13} style={{ color: 'rgba(219,160,0,0.7)', flexShrink: 0 }} />
+                                <div>
+                                    <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.7)' }}>
+                                        {status.state === 'creating' ? 'Creating Snapshot' : 'Reverting to Snapshot'}
+                                    </div>
+                                    {status.message && (
+                                        <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', marginTop: 1, letterSpacing: '0.04em' }}>
+                                            {status.message}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Right: times + percentage */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0 }}>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 1 }}>
+                                        Elapsed
+                                    </div>
+                                    <div style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'monospace', color: 'rgba(237,237,237,0.6)' }}>
+                                        {fmtTime(elapsed)}
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 1 }}>
+                                        Est. Remaining
+                                    </div>
+                                    <div style={{ fontSize: '0.78rem', fontWeight: 700, fontFamily: 'monospace', color: almostDone ? 'rgba(0,200,80,0.75)' : 'rgba(219,160,0,0.85)' }}>
+                                        {almostDone ? 'Almost done…' : `~${fmtTime(remaining)}`}
+                                    </div>
+                                </div>
+                                <div style={{
+                                    fontSize: '1rem',
+                                    fontWeight: 700,
+                                    fontFamily: 'monospace',
+                                    color: almostDone ? 'rgba(0,200,80,0.75)' : 'rgba(219,160,0,0.85)',
+                                    minWidth: 44,
+                                    textAlign: 'right',
+                                }}>
+                                    {Math.round(pct)}%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            })()}
 
             {/* Error */}
             {error && (

@@ -19,15 +19,54 @@ export async function GET(request: NextRequest) {
     }
 
     const now = new Date()
-    const results = { rsvpClosed: 0, activatedOps: 0, confirmationOpened: 0, confirmationClosed: 0 }
+    const results = { rsvpOpened: 0, rsvpClosed: 0, activatedOps: 0, confirmationOpened: 0, confirmationClosed: 0 }
 
-    // ── 1. RSVP auto-close (1 hour before op start) ────────────────────────────
+    // ── 0. RSVP auto-open (fires at rsvpOpenAt) ────────────────────────────────
+
+    const autoOpenCandidates = await Db.operationAttendance.find({
+        rsvpOpen: false,
+        rsvpOpenAt: { $type: 'date', $lte: now },
+    } as Parameters<typeof Db.operationAttendance.find>[0]).toArray()
+
+    for (const att of autoOpenCandidates) {
+        await Db.operationAttendance.updateOne(
+            { _id: att._id },
+            { $set: { rsvpOpen: true } }
+        )
+        results.rsvpOpened++
+        console.log(`[cron/operations] RSVP auto-opened for att=${att._id}`)
+
+        // Notify all members in assigned platoons (same pattern as confirmation-open)
+        if (att.assignedPlatoons.length > 0) {
+            const op = await Db.operations.findOne({ _id: att.operationId })
+            if (op) {
+                const positions = await Db.orbatPositions
+                    .find({ category: { $in: att.assignedPlatoons }, userId: { $ne: null } })
+                    .project<{ userId: string }>({ userId: 1 })
+                    .toArray()
+                const userIds = [...new Set(positions.map(p => p.userId!))]
+                await Promise.all(userIds.map(userId =>
+                    createNotification({
+                        userId,
+                        type: 'task_assigned',
+                        title: 'RSVP is now open',
+                        body: `${op.title} — submit your attendance`,
+                        actionUrl: `/operations/${op._id.toString()}`,
+                        relatedId: op._id.toString(),
+                    }).catch(() => {})
+                ))
+            }
+        }
+    }
+
+    // ── 1. RSVP auto-close (configurable offset before op start, default 60 min) ─
 
     const openRsvps = await Db.operationAttendance.find({ rsvpOpen: true }).toArray()
     for (const att of openRsvps) {
         const op = await Db.operations.findOne({ _id: att.operationId })
         if (!op?.date) continue
-        const closeAt = new Date(new Date(op.date).getTime() - 60 * 60 * 1000)
+        const offsetMins = att.rsvpCloseOffsetMins ?? 60
+        const closeAt = new Date(new Date(op.date).getTime() - offsetMins * 60 * 1000)
         if (now >= closeAt) {
             await Db.operationAttendance.updateOne(
                 { _id: att._id },

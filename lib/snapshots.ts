@@ -217,11 +217,17 @@ export async function revertSnapshot(zipPath: string): Promise<void> {
 
     const mongoClient = new MongoClient(process.env.MONGO_URI!)
     try {
-        // Extract entire ZIP to tmpDir
+        // Extract entire ZIP to tmpDir.
+        // unzipper.Extract closes the writable side before the readable finishes,
+        // which causes pipeline() to throw "Premature close" even on success.
+        // We catch and ignore that specific error.
         await pipeline(
             createReadStream(zipPath),
             unzipper.Extract({ path: tmpDir })
-        )
+        ).catch((e: unknown) => {
+            if (e instanceof Error && e.message === 'Premature close') return
+            throw e
+        })
 
         await writeStatus({ state: 'reverting', message: 'Restoring database…' })
 
