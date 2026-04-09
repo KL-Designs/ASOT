@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
         if (title) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { title } })
         if (date) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { date: new Date(date) } })
-        if (loreDate) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { loreDate: new Date(loreDate) } })
+        if (loreDate !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { loreDate } })
         if (department) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { department } })
         if (themeColor) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { themeColor } })
         if (pageTheme) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { pageTheme: pageTheme as Operation['pageTheme'] } })

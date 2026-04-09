@@ -148,7 +148,7 @@ declare global {
         title: string
         department: string
         date: Date
-        loreDate: Date
+        loreDate: Date | string
         status?: 'Completed' | 'Active' | 'Upcoming' | 'In Development'
 
         sections?: OperationSection[]

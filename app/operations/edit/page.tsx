@@ -168,7 +168,7 @@ export default function Page() {
                 const opDate = op.date ? dayjs(op.date) : null
                 setDate(opDate)
                 setDraftDate(opDate)
-                setLoreDate(op.loreDate ?? '')
+                setLoreDate(op.loreDate instanceof Date ? op.loreDate.toLocaleDateString() : (op.loreDate ?? ''))
                 setDepartment(op.department || '')
                 setThemeColor(op.themeColor || '#db001d')
                 setPageTheme((op.pageTheme as any) || 'modern')
