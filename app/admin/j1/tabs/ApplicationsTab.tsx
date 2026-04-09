@@ -283,6 +283,7 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
                                         value={linkedMember}
                                         onChange={(_, val) => setLinkedMember(val)}
                                         getOptionLabel={m => m.displayName + (m.inGameName ? ` (${m.inGameName})` : '')}
+                                        getOptionKey={m => m.id}
                                         isOptionEqualToValue={(a, b) => a.id === b.id}
                                         renderInput={params => (
                                             <TextField {...params} label='Discord Member' placeholder='Search by display name...' sx={inputSx} />

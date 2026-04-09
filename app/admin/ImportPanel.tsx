@@ -441,7 +441,7 @@ function AttendanceImportTab() {
     )
 }
 
-// ── Tab 2: Application Records (legacy Google Form CSV) ─────────────────────
+// ── Tab 2: Application Register + Records (dual-CSV J1 import) ──────────────
 
 // Handles quoted fields with internal commas/newlines and "" escape sequences.
 function parseAppCSV(text: string): string[][] {
@@ -542,28 +542,161 @@ interface AppRecord {
     priorMilsim?: string
 }
 
+// ── Applications Register helpers ────────────────────────────────────────────
+
+const REG_COL = {
+    JOIN_DATE: 0, NAME: 3, REJECTED: 4, DISCORD: 5,
+    STEAM_URL: 6, STEAM_ID: 7, DISCORD_ID: 8, RECRUITER: 14, NOTES: 15,
+}
+
+interface RegisterEntry {
+    joinDate: string
+    inGameName: string
+    rejected: boolean
+    discordUsername: string
+    steamUrl: string
+    steamId64: string
+    discordId: string
+    recruiter: string
+    notes: string
+}
+
+interface MergedRecord extends AppRecord {
+    inGameName: string
+    discordId?: string
+    steamId64?: string
+    recruiter?: string
+    source: 'register-only' | 'record-only' | 'merged'
+}
+
+function parseRegisterDate(s: string): string {
+    const d = new Date(s.trim())
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+}
+
+function parseRegister(text: string): RegisterEntry[] {
+    const rows = parseAppCSV(text)
+    return rows.slice(1)
+        .filter(r => {
+            const date = r[REG_COL.JOIN_DATE]?.trim()
+            if (!date) return false
+            // Skip year-only rows like "2020", "2021" etc.
+            return !/^\d{4}$/.test(date)
+        })
+        .map(r => ({
+            joinDate:       parseRegisterDate(r[REG_COL.JOIN_DATE] || ''),
+            inGameName:     r[REG_COL.NAME]?.trim() || '',
+            rejected:       (r[REG_COL.REJECTED] || '').trim().toUpperCase() === 'TRUE',
+            discordUsername:r[REG_COL.DISCORD]?.trim() || '',
+            steamUrl:       r[REG_COL.STEAM_URL]?.trim() || '',
+            steamId64:      r[REG_COL.STEAM_ID]?.trim() || '',
+            discordId:      r[REG_COL.DISCORD_ID]?.trim() || '',
+            recruiter:      r[REG_COL.RECRUITER]?.trim() || '',
+            notes:          r[REG_COL.NOTES]?.trim() || '',
+        }))
+}
+
+function normalizeDiscord(s: string): string {
+    return s.toLowerCase().replace(/#\d+$/, '').trim()
+}
+
+function mergeEntries(
+    register: RegisterEntry[],
+    appRecords: AppRecord[],
+    fallbackStatus: AppRecord['status'],
+): MergedRecord[] {
+    const recByDiscord = new Map<string, AppRecord>()
+    for (const r of appRecords) {
+        const key = normalizeDiscord(r.discordUsername)
+        if (key) recByDiscord.set(key, r)
+    }
+
+    const out: MergedRecord[] = []
+
+    for (const reg of register) {
+        const key = normalizeDiscord(reg.discordUsername)
+        const rec = key ? recByDiscord.get(key) : undefined
+
+        const merged: MergedRecord = {
+            discordUsername: reg.discordUsername || rec?.discordUsername || '',
+            inGameName:      reg.inGameName,
+            status:          reg.rejected ? 'rejected' : 'accepted',
+            submittedAt:     reg.joinDate,
+            notes:           reg.notes,
+            age:             rec?.age ?? 0,
+            experience:      rec?.experience ?? '',
+            ...(rec?.armaHours        && { armaHours:        rec.armaHours }),
+            ...(rec?.availableNights  && { availableNights:  rec.availableNights }),
+            ...(rec?.opsPerMonth      && { opsPerMonth:      rec.opsPerMonth }),
+            ...(rec?.primaryRole      && { primaryRole:      rec.primaryRole }),
+            ...(rec?.additionalRoles  && { additionalRoles:  rec.additionalRoles }),
+            ...(rec?.departmentInterest && { departmentInterest: rec.departmentInterest }),
+            ...(rec?.previousUnits    && { previousUnits:    rec.previousUnits }),
+            ...(rec?.region           && { region:           rec.region }),
+            ...(rec?.priorMilsim      && { priorMilsim:      rec.priorMilsim }),
+            steamUrl:  rec?.steamUrl || reg.steamUrl || undefined,
+            ...(reg.steamId64  && { steamId64:  reg.steamId64 }),
+            ...(reg.discordId  && { discordId:  reg.discordId }),
+            ...(reg.recruiter  && { recruiter:  reg.recruiter }),
+            source: rec ? 'merged' : 'register-only',
+        }
+
+        if (merged.discordUsername || merged.inGameName) out.push(merged)
+        if (key && rec) recByDiscord.delete(key)
+    }
+
+    for (const rec of recByDiscord.values()) {
+        out.push({ ...rec, inGameName: '', status: fallbackStatus, source: 'record-only' })
+    }
+
+    return out
+}
+
 const APP_STATUS_COLORS: Record<string, 'warning' | 'info' | 'success' | 'error'> = {
     pending: 'warning', reviewing: 'info', accepted: 'success', rejected: 'error',
 }
 
 function ApplicationRecordsTab() {
-    const fileRef = useRef<HTMLInputElement>(null)
-    const [records, setRecords] = useState<AppRecord[]>([])
-    const [defaultStatus, setDefaultStatus] = useState<AppRecord['status']>('pending')
-    const [fileName, setFileName] = useState<string | null>(null)
-    const [parseError, setParseError] = useState<string | null>(null)
-    const [importing, setImporting] = useState(false)
-    const [importResult, setImportResult] = useState<{ inserted: number } | null>(null)
-    const [importError, setImportError] = useState<string | null>(null)
+    const registerFileRef = useRef<HTMLInputElement>(null)
+    const recordsFileRef  = useRef<HTMLInputElement>(null)
 
-    function handleFile(file: File) {
-        setParseError(null); setImportResult(null); setImportError(null); setFileName(file.name)
+    const [registerEntries, setRegisterEntries] = useState<RegisterEntry[]>([])
+    const [appRecords, setAppRecords]           = useState<AppRecord[]>([])
+    const [registerFileName, setRegisterFileName] = useState<string | null>(null)
+    const [recordsFileName, setRecordsFileName]   = useState<string | null>(null)
+    const [registerError, setRegisterError]       = useState<string | null>(null)
+    const [recordsError, setRecordsError]         = useState<string | null>(null)
+    const [fallbackStatus, setFallbackStatus]     = useState<AppRecord['status']>('pending')
+    const [importing, setImporting]               = useState(false)
+    const [importResult, setImportResult]         = useState<{ inserted: number } | null>(null)
+    const [importError, setImportError]           = useState<string | null>(null)
+
+    function handleRegisterFile(file: File) {
+        setRegisterError(null); setImportResult(null); setImportError(null)
+        setRegisterFileName(file.name)
+        const reader = new FileReader()
+        reader.onload = e => {
+            try {
+                const entries = parseRegister(e.target?.result as string)
+                if (entries.length === 0) { setRegisterError('No valid entries found. Check the file is the Applications Register CSV.'); setRegisterEntries([]); return }
+                setRegisterEntries(entries)
+            } catch {
+                setRegisterError('Failed to parse Applications Register CSV.')
+                setRegisterEntries([])
+            }
+        }
+        reader.readAsText(file)
+    }
+
+    function handleRecordsFile(file: File) {
+        setRecordsError(null); setImportResult(null); setImportError(null)
+        setRecordsFileName(file.name)
         const reader = new FileReader()
         reader.onload = e => {
             const text = e.target?.result as string
             try {
                 const rows = parseAppCSV(text)
-                if (rows.length < 2) { setParseError('CSV appears empty or has no data rows.'); setRecords([]); return }
+                if (rows.length < 2) { setRecordsError('CSV appears empty or has no data rows.'); setAppRecords([]); return }
                 const parsed: AppRecord[] = rows.slice(1)
                     .filter(r => r[APP_COL.DISCORD]?.trim())
                     .map(r => {
@@ -574,38 +707,43 @@ function ApplicationRecordsTab() {
                             experience: r[APP_COL.EXPERIENCE]?.trim() || '',
                             submittedAt: parseAppDate(r[APP_COL.TIMESTAMP] || ''),
                             notes: '',
-                            status: defaultStatus,
+                            status: fallbackStatus,
                         }
-                        const steam = r[APP_COL.STEAM]?.trim()
-                        if (steam) rec.steamUrl = steam
-                        const region = r[APP_COL.REGION]?.trim()
-                        if (region) rec.region = normalizeRegion(region)
-                        const hours = r[APP_COL.HOURS]?.trim()
-                        if (hours) rec.armaHours = hours
-                        const nights = r[APP_COL.NIGHTS]?.trim()
-                        if (nights) rec.availableNights = nights
-                        const ops = r[APP_COL.OPS_MONTH]?.trim()
-                        if (ops) rec.opsPerMonth = ops
-                        const primary = r[APP_COL.PRIMARY]?.trim()
-                        if (primary) rec.primaryRole = primary
-                        const addl = r[APP_COL.ADDL]?.trim()
-                        if (addl) rec.additionalRoles = addl
-                        const depts = r[APP_COL.DEPTS]?.trim()
-                        if (depts) rec.departmentInterest = depts
-                        const groups = r[APP_COL.GROUPS]?.trim()
-                        if (groups) rec.previousUnits = groups
-                        const prevExp = r[APP_COL.PREV_EXP]?.trim()
-                        if (prevExp) rec.priorMilsim = prevExp
+                        const steam = r[APP_COL.STEAM]?.trim(); if (steam) rec.steamUrl = steam
+                        const region = r[APP_COL.REGION]?.trim(); if (region) rec.region = normalizeRegion(region)
+                        const hours = r[APP_COL.HOURS]?.trim(); if (hours) rec.armaHours = hours
+                        const nights = r[APP_COL.NIGHTS]?.trim(); if (nights) rec.availableNights = nights
+                        const ops = r[APP_COL.OPS_MONTH]?.trim(); if (ops) rec.opsPerMonth = ops
+                        const primary = r[APP_COL.PRIMARY]?.trim(); if (primary) rec.primaryRole = primary
+                        const addl = r[APP_COL.ADDL]?.trim(); if (addl) rec.additionalRoles = addl
+                        const depts = r[APP_COL.DEPTS]?.trim(); if (depts) rec.departmentInterest = depts
+                        const groups = r[APP_COL.GROUPS]?.trim(); if (groups) rec.previousUnits = groups
+                        const prevExp = r[APP_COL.PREV_EXP]?.trim(); if (prevExp) rec.priorMilsim = prevExp
                         return rec
                     })
-                if (parsed.length === 0) { setParseError('No valid records found. Ensure column 3 (Discord name) is populated.'); setRecords([]); return }
-                setRecords(parsed)
+                if (parsed.length === 0) { setRecordsError('No valid records found. Ensure column 3 (Discord name) is populated.'); setAppRecords([]); return }
+                setAppRecords(parsed)
             } catch {
-                setParseError('Failed to parse CSV. Ensure the file uses the standard Google Form export format.')
-                setRecords([])
+                setRecordsError('Failed to parse Application Records CSV.')
+                setAppRecords([])
             }
         }
         reader.readAsText(file)
+    }
+
+    const merged = mergeEntries(registerEntries, appRecords, fallbackStatus)
+    const matchedCount      = merged.filter(r => r.source === 'merged').length
+    const registerOnlyCount = merged.filter(r => r.source === 'register-only').length
+    const recordOnlyCount   = merged.filter(r => r.source === 'record-only').length
+    const hasData = merged.length > 0
+
+    const SOURCE_COLOR: Record<MergedRecord['source'], string> = {
+        merged:          'rgba(0,200,80,0.8)',
+        'register-only': 'rgba(219,160,0,0.8)',
+        'record-only':   'rgba(237,237,237,0.3)',
+    }
+    const SOURCE_LABEL: Record<MergedRecord['source'], string> = {
+        merged: 'MATCHED', 'register-only': 'REG ONLY', 'record-only': 'FORM ONLY',
     }
 
     async function handleImport() {
@@ -614,11 +752,15 @@ function ApplicationRecordsTab() {
             const res = await fetch('/api/admin/j1/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ records: records.map(r => ({ ...r, status: defaultStatus })) }),
+                body: JSON.stringify({ records: merged }),
             })
             const data = await res.json()
             if (!res.ok) { setImportError(data.error || 'Import failed.') }
-            else { setImportResult({ inserted: data.inserted }); setRecords([]); setFileName(null) }
+            else {
+                setImportResult({ inserted: data.inserted })
+                setRegisterEntries([]); setAppRecords([])
+                setRegisterFileName(null); setRecordsFileName(null)
+            }
         } catch {
             setImportError('Network error during import.')
         } finally {
@@ -629,8 +771,9 @@ function ApplicationRecordsTab() {
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Typography fontSize='0.78rem' sx={{ color: 'rgba(237,237,237,0.5)', letterSpacing: '0.04em' }}>
-                Upload a CSV exported from the legacy Google Form application to import past records into the Applications Register.
-                Imported records will be assigned the selected status so J1 staff can finalise each entry.
+                Upload the Applications Register and (optionally) the Application Records CSV together.
+                The Register provides status, join date, and identity fields. The Records CSV provides questionnaire details.
+                Records are matched by Discord username.
             </Typography>
 
             {importResult && (
@@ -642,70 +785,126 @@ function ApplicationRecordsTab() {
                 </Box>
             )}
 
-            {records.length === 0 ? (
+            {/* File inputs */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 <Box>
-                    <input ref={fileRef} type='file' accept='.csv,text/csv' style={{ display: 'none' }}
-                        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
-                    <Button variant='outlined' startIcon={<CloudUpload />} onClick={() => fileRef.current?.click()} fullWidth sx={fileBtn(false)}>
-                        {fileName ? fileName : 'Choose Application Records CSV…'}
-                    </Button>
-                    {parseError && <Alert severity='error' sx={{ mt: 1.5, borderRadius: 0, fontSize: '0.78rem' }}>{parseError}</Alert>}
-                </Box>
-            ) : (
-                <>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                        <Typography fontSize='0.78rem' sx={{ color: 'rgba(237,237,237,0.6)' }}>
-                            <strong style={{ color: '#ededed' }}>{records.length}</strong> records parsed from <em>{fileName}</em>
-                        </Typography>
-                        <Button size='small' onClick={() => { setRecords([]); setFileName(null) }}
-                            sx={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', borderColor: 'rgba(219,0,29,0.32)', letterSpacing: 1 }}>
-                            Clear
+                    <Typography sx={{ ...label, mb: 0.5 }}>Applications Register CSV</Typography>
+                    <input ref={registerFileRef} type='file' accept='.csv,text/csv' style={{ display: 'none' }}
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleRegisterFile(f) }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Button variant='outlined' startIcon={<CloudUpload />} onClick={() => registerFileRef.current?.click()} sx={{ ...fileBtn(!!registerFileName), flex: 1 }}>
+                            {registerFileName ? registerFileName : 'Choose Applications Register CSV…'}
                         </Button>
+                        {registerEntries.length > 0 && (
+                            <Button size='small' onClick={() => { setRegisterEntries([]); setRegisterFileName(null) }}
+                                sx={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', borderColor: 'rgba(219,0,29,0.32)', letterSpacing: 1, whiteSpace: 'nowrap' }}>
+                                Clear
+                            </Button>
+                        )}
+                    </Box>
+                    {registerEntries.length > 0 && (
+                        <Typography fontSize='0.7rem' sx={{ color: 'rgba(0,200,80,0.7)', mt: 0.5 }}>
+                            ✓ {registerEntries.length} entries loaded
+                        </Typography>
+                    )}
+                    {registerError && <Alert severity='error' sx={{ mt: 0.5, borderRadius: 0, fontSize: '0.75rem' }}>{registerError}</Alert>}
+                </Box>
+
+                <Box>
+                    <Typography sx={{ ...label, mb: 0.5 }}>Application Records CSV <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0, opacity: 0.5 }}>(optional)</span></Typography>
+                    <input ref={recordsFileRef} type='file' accept='.csv,text/csv' style={{ display: 'none' }}
+                        onChange={e => { const f = e.target.files?.[0]; if (f) handleRecordsFile(f) }} />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Button variant='outlined' startIcon={<CloudUpload />} onClick={() => recordsFileRef.current?.click()} sx={{ ...fileBtn(!!recordsFileName), flex: 1 }}>
+                            {recordsFileName ? recordsFileName : 'Choose Application Records CSV…'}
+                        </Button>
+                        {appRecords.length > 0 && (
+                            <Button size='small' onClick={() => { setAppRecords([]); setRecordsFileName(null) }}
+                                sx={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', borderColor: 'rgba(219,0,29,0.32)', letterSpacing: 1, whiteSpace: 'nowrap' }}>
+                                Clear
+                            </Button>
+                        )}
+                    </Box>
+                    {appRecords.length > 0 && (
+                        <Typography fontSize='0.7rem' sx={{ color: 'rgba(0,200,80,0.7)', mt: 0.5 }}>
+                            ✓ {appRecords.length} records loaded
+                        </Typography>
+                    )}
+                    {recordsError && <Alert severity='error' sx={{ mt: 0.5, borderRadius: 0, fontSize: '0.75rem' }}>{recordsError}</Alert>}
+                </Box>
+            </Box>
+
+            {/* Merge stats + preview */}
+            {hasData && (
+                <>
+                    {/* Stats banner */}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, px: 1.5, py: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(219,0,29,0.15)' }}>
+                        {[
+                            ['Total',         merged.length,      'rgba(237,237,237,0.6)'],
+                            ['Matched',        matchedCount,       'rgba(0,200,80,0.7)'],
+                            ['Register Only',  registerOnlyCount,  'rgba(219,160,0,0.7)'],
+                            ['Form Only',      recordOnlyCount,    'rgba(237,237,237,0.35)'],
+                        ].map(([lbl, val, color]) => (
+                            <Box key={lbl as string} sx={{ display: 'flex', gap: 0.75, alignItems: 'baseline' }}>
+                                <Typography fontSize='0.78rem' fontWeight={700} sx={{ color }}>{val}</Typography>
+                                <Typography fontSize='0.65rem' sx={{ color: 'rgba(237,237,237,0.3)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{lbl}</Typography>
+                            </Box>
+                        ))}
                     </Box>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Box sx={{ minWidth: 170 }}>
-                            <Typography sx={{ ...label, mb: 0.5 }}>Import Status</Typography>
-                            <Box
-                                component='select'
-                                value={defaultStatus}
-                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDefaultStatus(e.target.value as AppRecord['status'])}
-                                sx={{
-                                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(219,0,29,0.25)',
-                                    color: 'rgba(237,237,237,0.8)', fontSize: '0.78rem', padding: '6px 10px',
-                                    width: '100%', cursor: 'pointer', outline: 'none',
-                                    '&:focus': { borderColor: 'var(--red)' },
-                                }}
-                            >
-                                <option value='pending'>Pending</option>
-                                <option value='reviewing'>Reviewing</option>
-                                <option value='accepted'>Accepted</option>
-                                <option value='rejected'>Rejected</option>
+                    {/* Fallback status for form-only records */}
+                    {recordOnlyCount > 0 && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Box sx={{ minWidth: 230 }}>
+                                <Typography sx={{ ...label, mb: 0.5 }}>Status for form-only records</Typography>
+                                <Box
+                                    component='select'
+                                    value={fallbackStatus}
+                                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFallbackStatus(e.target.value as AppRecord['status'])}
+                                    sx={{
+                                        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(219,0,29,0.25)',
+                                        color: 'rgba(237,237,237,0.8)', fontSize: '0.78rem', padding: '6px 10px',
+                                        width: '100%', cursor: 'pointer', outline: 'none',
+                                        '&:focus': { borderColor: 'var(--red)' },
+                                    }}
+                                >
+                                    <option value='pending'>Pending</option>
+                                    <option value='reviewing'>Reviewing</option>
+                                    <option value='accepted'>Accepted</option>
+                                    <option value='rejected'>Rejected</option>
+                                </Box>
                             </Box>
                         </Box>
-                    </Box>
+                    )}
 
-                    {/* Preview */}
+                    {/* Preview table */}
                     <Box sx={{ border: '1px solid rgba(219,0,29,0.22)', overflow: 'hidden' }}>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 50px 90px 130px', gap: 1.5, px: 1.5, py: 1, background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(219,0,29,0.22)' }}>
-                            {['Discord', 'Age', 'Status', 'Submitted'].map(h => (
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 110px 80px', gap: 1.5, px: 1.5, py: 1, background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(219,0,29,0.22)' }}>
+                            {['Discord', 'Name', 'Status', 'Join Date', 'Source'].map(h => (
                                 <Typography key={h} fontSize='0.58rem' fontWeight={700} sx={{ letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>{h}</Typography>
                             ))}
                         </Box>
-                        {records.slice(0, 12).map((r, i) => (
-                            <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '1fr 50px 90px 130px', gap: 1.5, px: 1.5, py: 1, alignItems: 'center', borderBottom: '1px solid rgba(219,0,29,0.06)' }}>
-                                <Typography fontSize='0.75rem' sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.discordUsername}</Typography>
-                                <Typography fontSize='0.72rem' sx={{ color: 'rgba(237,237,237,0.5)' }}>{r.age || '—'}</Typography>
-                                <Chip label={defaultStatus.toUpperCase()} color={APP_STATUS_COLORS[defaultStatus]} size='small'
-                                    sx={{ borderRadius: 0, fontSize: '0.58rem', fontWeight: 700, height: 18 }} />
-                                <Typography fontSize='0.7rem' sx={{ color: 'rgba(237,237,237,0.4)' }}>
+                        {merged.slice(0, 15).map((r, i) => (
+                            <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 110px 80px', gap: 1.5, px: 1.5, py: 0.75, alignItems: 'center', borderBottom: '1px solid rgba(219,0,29,0.06)' }}>
+                                <Typography fontSize='0.72rem' sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: r.discordUsername ? undefined : 'rgba(237,237,237,0.3)' }}>
+                                    {r.discordUsername || '—'}
+                                </Typography>
+                                <Typography fontSize='0.72rem' sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: r.inGameName ? undefined : 'rgba(237,237,237,0.3)' }}>
+                                    {r.inGameName || '—'}
+                                </Typography>
+                                <Chip label={r.status.toUpperCase()} color={APP_STATUS_COLORS[r.status]} size='small'
+                                    sx={{ borderRadius: 0, fontSize: '0.55rem', fontWeight: 700, height: 17 }} />
+                                <Typography fontSize='0.68rem' sx={{ color: 'rgba(237,237,237,0.4)' }}>
                                     {new Date(r.submittedAt).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </Typography>
+                                <Typography fontSize='0.6rem' fontWeight={700} sx={{ color: SOURCE_COLOR[r.source], letterSpacing: '0.05em' }}>
+                                    {SOURCE_LABEL[r.source]}
                                 </Typography>
                             </Box>
                         ))}
-                        {records.length > 12 && (
+                        {merged.length > 15 && (
                             <Box sx={{ px: 1.5, py: 1, background: 'rgba(255,255,255,0.01)' }}>
-                                <Typography fontSize='0.7rem' sx={{ color: 'rgba(237,237,237,0.25)' }}>+ {records.length - 12} more records not shown</Typography>
+                                <Typography fontSize='0.7rem' sx={{ color: 'rgba(237,237,237,0.25)' }}>+ {merged.length - 15} more records not shown</Typography>
                             </Box>
                         )}
                     </Box>
@@ -715,7 +914,7 @@ function ApplicationRecordsTab() {
                     <Button variant='contained' disabled={importing} onClick={handleImport}
                         startIcon={importing ? <CircularProgress size={14} color='inherit' /> : <PersonAdd sx={{ fontSize: 16 }} />}
                         sx={{ ...redBtn, alignSelf: 'flex-start' }}>
-                        {importing ? 'Importing…' : `Import ${records.length} Records`}
+                        {importing ? 'Importing…' : `Import ${merged.length} Records`}
                     </Button>
                 </>
             )}
