@@ -364,7 +364,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                                 } : {
                                     fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.1em', color: c(0.85),
                                 }}>
-                                    {dayjs(operation.loreDate).format('DD HHmm MMM YY').toUpperCase()}
+                                    {operation.loreDate instanceof Date
+                                        ? operation.loreDate.toLocaleDateString()
+                                        : String(operation.loreDate)}
                                 </span>
                             </div>
                         )}

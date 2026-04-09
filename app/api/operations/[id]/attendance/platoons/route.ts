@@ -37,9 +37,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     } = await req.json()
 
     // If rsvpOpenAt is being set to a time already in the past, open RSVP immediately
-    // rather than waiting up to 5 minutes for the next cron tick.
+    // rather than waiting up to a minute for the next cron tick.
+    // Never auto-open for In Development operations.
+    const operation = await Db.operations.findOne({ _id: operationId }, { projection: { status: 1 } })
     let resolvedRsvpOpen = body.rsvpOpen
-    if (body.rsvpOpenAt && resolvedRsvpOpen === false) {
+    if (body.rsvpOpenAt && resolvedRsvpOpen === false && operation?.status !== 'In Development') {
         if (new Date(body.rsvpOpenAt) <= new Date()) {
             resolvedRsvpOpen = true
         }
@@ -56,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const update: Record<string, unknown> = {
-        $setOnInsert: { operationId, records: [] },
+        $setOnInsert: { operationId, records: [], rsvpOpen: false, confirmationOpen: false },
         $set: setFields,
     }
     if (body.rsvpOpenAt === null) {

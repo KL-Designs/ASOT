@@ -40,7 +40,7 @@ export default function Page() {
     const [opID, setOpID] = useState('')
     const [title, setTitle] = useState('')
     const [date, setDate] = useState<Dayjs | null>(null)
-    const [loreDate, setLoreDate] = useState<Dayjs | null>(null)
+    const [loreDate, setLoreDate] = useState<string>('')
     const [department, setDepartment] = useState('')
     const [themeColor, setThemeColor] = useState('#db001d')
     const [pageTheme, setPageTheme] = useState<'modern' | 'oldfashioned' | 'scifi'>('modern')
@@ -60,6 +60,12 @@ export default function Page() {
     const [rsvpCloseOffsetMins, setRsvpCloseOffsetMins] = useState(60)
     const [attendanceSaving, setAttendanceSaving] = useState(false)
     const [tickNow, setTickNow] = useState(() => new Date())
+
+    // Draft state for the schedule panel — only committed on "Confirm Schedule"
+    const [draftDate, setDraftDate] = useState<Dayjs | null>(null)
+    const [draftRsvpOpenAt, setDraftRsvpOpenAt] = useState<string | null>(null)
+    const [draftRsvpCloseOffsetMins, setDraftRsvpCloseOffsetMins] = useState(60)
+    const [scheduleSaving, setScheduleSaving] = useState(false)
 
     const [attStage, setAttStage] = useState<AttendanceStage>('preparing')
     const [confirmStage, setConfirmStage] = useState<AttendanceStage | null>(null)
@@ -87,8 +93,8 @@ export default function Page() {
     useEffect(() => {
         if (!isHQ || !opID) return
 
-        // Auto-open
-        if (rsvpOpenAt && !rsvpOpen) {
+        // Auto-open (skip if still In Development)
+        if (rsvpOpenAt && !rsvpOpen && status !== 'In Development') {
             if (autoOpenFiredRef.current !== rsvpOpenAt && new Date(rsvpOpenAt) <= tickNow) {
                 autoOpenFiredRef.current = rsvpOpenAt
                 setRsvpOpen(true)
@@ -159,8 +165,10 @@ export default function Page() {
                 if (json.error) return
                 const op: Operation = json.mission
                 setTitle(op.title || '')
-                setDate(op.date ? dayjs(op.date) : null)
-                setLoreDate(op.loreDate ? dayjs(op.loreDate) : null)
+                const opDate = op.date ? dayjs(op.date) : null
+                setDate(opDate)
+                setDraftDate(opDate)
+                setLoreDate(op.loreDate ?? '')
                 setDepartment(op.department || '')
                 setThemeColor(op.themeColor || '#db001d')
                 setPageTheme((op.pageTheme as any) || 'modern')
@@ -181,6 +189,8 @@ export default function Page() {
                 const openAt = json.rsvpOpenAt ? new Date(json.rsvpOpenAt).toISOString() : null
                 setRsvpOpenAt(openAt)
                 setRsvpCloseOffsetMins(json.rsvpCloseOffsetMins ?? 60)
+                setDraftRsvpOpenAt(openAt)
+                setDraftRsvpCloseOffsetMins(json.rsvpCloseOffsetMins ?? 60)
                 setAttStage(json.stage ?? 'preparing')
                 // If RSVP is already open when we load, mark the auto-open as already fired
                 // so the close→re-open bounce can't happen.
@@ -255,8 +265,8 @@ export default function Page() {
                 body: JSON.stringify({
                     assignedPlatoons: updates.assignedPlatoons ?? assignedPlatoons,
                     reservistAssignments: [],
-                    rsvpOpen: updates.rsvpOpen ?? rsvpOpen,
-                    confirmationOpen: updates.confirmationOpen ?? confirmationOpen,
+                    ...(updates.rsvpOpen !== undefined && { rsvpOpen: updates.rsvpOpen }),
+                    ...(updates.confirmationOpen !== undefined && { confirmationOpen: updates.confirmationOpen }),
                     ...(updates.rsvpOpenAt !== undefined && { rsvpOpenAt: updates.rsvpOpenAt }),
                     ...(updates.rsvpCloseOffsetMins !== undefined && { rsvpCloseOffsetMins: updates.rsvpCloseOffsetMins }),
                     ...(updates.stage !== undefined && { stage: updates.stage }),
@@ -267,6 +277,27 @@ export default function Page() {
             if (json.rsvpOpen !== undefined) setRsvpOpen(json.rsvpOpen)
         } finally {
             setAttendanceSaving(false)
+        }
+    }
+
+    async function confirmSchedule() {
+        setScheduleSaving(true)
+        try {
+            // Save operation date if changed
+            if (draftDate && draftDate.toISOString() !== date?.toISOString()) {
+                metaHandleRef.current?.set('date', draftDate.toISOString())
+                await fetch(`/api/operations/update?id=${opID}&date=${encodeURIComponent(draftDate.toISOString())}`)
+                setDate(draftDate)
+            }
+            // Save automation settings if changed
+            const attUpdates: Parameters<typeof saveAttendanceSettings>[0] = {}
+            if (draftRsvpOpenAt !== rsvpOpenAt) attUpdates.rsvpOpenAt = draftRsvpOpenAt
+            if (draftRsvpCloseOffsetMins !== rsvpCloseOffsetMins) attUpdates.rsvpCloseOffsetMins = draftRsvpCloseOffsetMins
+            if (Object.keys(attUpdates).length > 0) await saveAttendanceSettings(attUpdates)
+            setRsvpOpenAt(draftRsvpOpenAt)
+            setRsvpCloseOffsetMins(draftRsvpCloseOffsetMins)
+        } finally {
+            setScheduleSaving(false)
         }
     }
 
@@ -581,25 +612,26 @@ export default function Page() {
                             <option value='scifi' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Sci-Fi</option>
                         </select>
                     </div>
-                    {/* Dates row */}
-                    <div className='flex flex-wrap gap-4'>
-                        <LocalizationProvider dateAdapter={AdapterDayjs}>
-                            <DateTimePicker
-                                label='Operation Date'
-                                value={date}
-                                format='DD/MM/YYYY HH:mm'
-                                onChange={v => { setDate(v); if (v) { metaHandleRef.current?.set('date', v.toISOString()); scheduleSave({ date: v.toISOString() }) } }}
-                                slotProps={{ textField: { size: 'small', sx: { flex: 1, minWidth: 190 } } }}
-                            />
-                            <DateTimePicker
-                                label='In-Game Date'
-                                value={loreDate}
-                                format='DD/MM/YYYY HH:mm'
-                                onChange={v => { setLoreDate(v); if (v) { metaHandleRef.current?.set('loreDate', v.toISOString()); scheduleSave({ loreDate: v.toISOString() }) } }}
-                                slotProps={{ textField: { size: 'small', sx: { flex: 1, minWidth: 190 } } }}
-                            />
-                        </LocalizationProvider>
-                    </div>
+                    {/* In-Game (lore) date — free text, auto-saves */}
+                    <input
+                        value={loreDate}
+                        placeholder='In-Game Date (e.g. 14th of Secundus, 999.M41)'
+                        onChange={e => {
+                            setLoreDate(e.target.value)
+                            metaHandleRef.current?.set('loreDate', e.target.value)
+                            scheduleSave({ loreDate: e.target.value })
+                        }}
+                        style={{
+                            background: 'transparent',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            color: 'rgba(237,237,237,0.75)',
+                            fontSize: '0.8rem',
+                            letterSpacing: '0.06em',
+                            outline: 'none',
+                            padding: '8px 12px',
+                            width: '100%',
+                        }}
+                    />
 
                     {/* Cover image */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -751,7 +783,7 @@ export default function Page() {
                 </div>
             )}
 
-            {/* Automation panel — HQ only */}
+            {/* Schedule & Automation panel — HQ only */}
             {isHQ && opID && (() => {
                 function fmtCountdown(target: Date): string | null {
                     const diffMs = target.getTime() - tickNow.getTime()
@@ -765,9 +797,17 @@ export default function Page() {
                     return `${m}m ${s}s`
                 }
 
-                const opDate        = date?.toDate() ?? null
-                const rsvpCloseDate = opDate ? new Date(opDate.getTime() - rsvpCloseOffsetMins * 60000) : null
+                const inDev = status === 'In Development'
+                const opDate        = draftDate?.toDate() ?? null
+                // inDev only suppresses cron/triggers — editing is always allowed
+                const rsvpCloseDate = opDate ? new Date(opDate.getTime() - draftRsvpCloseOffsetMins * 60000) : null
                 const confirmCloseDate = confirmationOpenedAt ? new Date(confirmationOpenedAt.getTime() + 24 * 3600000) : null
+
+                const scheduleDirty = (
+                    draftDate?.toISOString() !== date?.toISOString() ||
+                    draftRsvpOpenAt !== rsvpOpenAt ||
+                    draftRsvpCloseOffsetMins !== rsvpCloseOffsetMins
+                )
 
                 const RELATIVE_OPTS = [
                     { label: '1 day before',   mins: 1440 },
@@ -799,192 +839,209 @@ export default function Page() {
                 }
 
                 return (
-                    <>
-                        {/* Automation settings */}
-                        <div style={{
-                            border: `1px solid ${c(0.15)}`,
-                            borderTop: `2px solid ${c(0.5)}`,
-                            background: 'rgba(255,255,255,0.01)',
-                            marginBottom: 20,
-                        }}>
-                            <div className='flex items-center justify-between px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{
+                        border: `1px solid ${c(0.15)}`,
+                        borderTop: `2px solid ${c(0.5)}`,
+                        background: 'rgba(255,255,255,0.01)',
+                        marginBottom: 20,
+                    }}>
+                        <div className='flex items-center justify-between px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
-                                    Automation
+                                    Schedule &amp; Automation
                                 </span>
-                                {attendanceSaving && (
-                                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>
-                                        Saving…
+                                {inDev && (
+                                    <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,160,0,0.7)', border: '1px solid rgba(237,160,0,0.3)', padding: '2px 8px' }}>
+                                        Automation paused — In Development
                                     </span>
                                 )}
                             </div>
+                            {scheduleSaving && (
+                                <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>
+                                    Saving…
+                                </span>
+                            )}
+                        </div>
 
-                            <div className='flex flex-wrap gap-6 p-4'>
-                                {/* ── Settings column ── */}
-                                <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                        <div className='flex flex-wrap gap-6 p-4'>
+                            {/* ── Settings column ── */}
+                            <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-                                    {/* RSVP Open */}
-                                    <div>
-                                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
-                                            // RSVP OPEN
-                                        </div>
-                                        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                                            <button
-                                                onClick={() => {
-                                                    setRsvpOpenAt(null)
-                                                    saveAttendanceSettings({ rsvpOpenAt: null })
-                                                }}
-                                                style={{
-                                                    padding: '5px 14px',
-                                                    borderRadius: 999,
-                                                    border: '1px solid rgba(219,0,29,0.25)',
-                                                    background: !rsvpOpenAt ? 'rgba(219,0,29,0.3)' : 'rgba(255,255,255,0.05)',
-                                                    color: !rsvpOpenAt ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.45)',
-                                                    fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em',
-                                                    textTransform: 'uppercase', cursor: 'pointer',
-                                                }}
-                                            >Manual</button>
-                                            <button
-                                                onClick={() => {
-                                                    if (!rsvpOpenAt && date) {
-                                                        const defaultAt = new Date(date.toDate().getTime() - 3 * 24 * 3600000).toISOString()
-                                                        setRsvpOpenAt(defaultAt)
-                                                        saveAttendanceSettings({ rsvpOpenAt: defaultAt })
-                                                    }
-                                                }}
-                                                style={{
-                                                    padding: '5px 14px',
-                                                    borderRadius: 999,
-                                                    border: '1px solid rgba(219,0,29,0.25)',
-                                                    background: rsvpOpenAt ? 'rgba(219,0,29,0.3)' : 'rgba(255,255,255,0.05)',
-                                                    color: rsvpOpenAt ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.45)',
-                                                    fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em',
-                                                    textTransform: 'uppercase', cursor: 'pointer',
-                                                }}
-                                            >Scheduled</button>
-                                        </div>
-
-                                        {rsvpOpenAt && (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                                    <DateTimePicker
-                                                        label='RSVP Opens At'
-                                                        value={dayjs(rsvpOpenAt)}
-                                                        format='DD/MM/YYYY HH:mm'
-                                                        onChange={v => {
-                                                            if (v) {
-                                                                const iso = v.toISOString()
-                                                                setRsvpOpenAt(iso)
-                                                                saveAttendanceSettings({ rsvpOpenAt: iso })
-                                                            }
-                                                        }}
-                                                        slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
-                                                    />
-                                                </LocalizationProvider>
-                                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>
-                                                    Quick set
-                                                </div>
-                                                <select
-                                                    defaultValue=''
-                                                    onChange={e => {
-                                                        const mins = parseInt(e.target.value)
-                                                        if (!mins || !date) return
-                                                        const iso = new Date(date.toDate().getTime() - mins * 60000).toISOString()
-                                                        setRsvpOpenAt(iso)
-                                                        saveAttendanceSettings({ rsvpOpenAt: iso })
-                                                        e.target.value = ''
-                                                    }}
-                                                    style={inputSx}
-                                                >
-                                                    <option value='' disabled>Relative to op date…</option>
-                                                    {RELATIVE_OPTS.map(o => (
-                                                        <option key={o.mins} value={o.mins}>{o.label}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        )}
+                                {/* Operation Date */}
+                                <div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
+                                        // OPERATION DATE
                                     </div>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                        <DateTimePicker
+                                            label='Operation Date'
+                                            value={draftDate}
+                                            format='DD/MM/YYYY HH:mm'
+                                            onChange={v => setDraftDate(v)}
+                                            slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
+                                        />
+                                    </LocalizationProvider>
+                                </div>
 
-                                    {/* RSVP Close */}
-                                    <div>
-                                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
-                                            // RSVP CLOSE
-                                        </div>
-                                        <select
-                                            value={rsvpCloseOffsetMins}
-                                            onChange={e => {
-                                                const mins = parseInt(e.target.value)
-                                                setRsvpCloseOffsetMins(mins)
-                                                saveAttendanceSettings({ rsvpCloseOffsetMins: mins })
+                                {/* RSVP Open */}
+                                <div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
+                                        // RSVP OPEN
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                                        <button
+                                            onClick={() => setDraftRsvpOpenAt(null)}
+                                            style={{
+                                                padding: '5px 14px', borderRadius: 999,
+                                                border: '1px solid rgba(219,0,29,0.25)',
+                                                background: !draftRsvpOpenAt ? 'rgba(219,0,29,0.3)' : 'rgba(255,255,255,0.05)',
+                                                color: !draftRsvpOpenAt ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.45)',
+                                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em',
+                                                textTransform: 'uppercase', cursor: 'pointer',
                                             }}
-                                            style={inputSx}
-                                        >
-                                            {CLOSE_OPTS.map(o => (
-                                                <option key={o.mins} value={o.mins}>{o.label}</option>
-                                            ))}
-                                        </select>
+                                        >Manual</button>
+                                        <button
+                                            onClick={() => {
+                                                if (!draftRsvpOpenAt && draftDate) {
+                                                    setDraftRsvpOpenAt(new Date(draftDate.toDate().getTime() - 3 * 24 * 3600000).toISOString())
+                                                }
+                                            }}
+                                            style={{
+                                                padding: '5px 14px', borderRadius: 999,
+                                                border: '1px solid rgba(219,0,29,0.25)',
+                                                background: draftRsvpOpenAt ? 'rgba(219,0,29,0.3)' : 'rgba(255,255,255,0.05)',
+                                                color: draftRsvpOpenAt ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.45)',
+                                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em',
+                                                textTransform: 'uppercase', cursor: 'pointer',
+                                            }}
+                                        >Scheduled</button>
                                     </div>
-                                </div>
 
-                                {/* ── Status column ── */}
-                                <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 14, fontFamily: 'monospace' }}>
-                                        // STATUS
-                                    </div>
-                                    {([
-                                        {
-                                            label: 'RSVP Opens',
-                                            color: rsvpOpen || ['rsvp_closed','op_running','confirmations_open','completed'].includes(displayStage) ? 'rgba(0,210,90,0.8)'
-                                                : rsvpOpenAt && !fmtCountdown(new Date(rsvpOpenAt)) ? 'rgba(219,160,0,0.9)'
-                                                : rsvpOpenAt ? 'rgba(219,160,0,0.8)'
-                                                : 'rgba(237,237,237,0.2)',
-                                            detail: rsvpOpen ? '✓ Open'
-                                                : ['rsvp_closed','op_running','confirmations_open','completed'].includes(displayStage) ? '✓ Opened'
-                                                : rsvpOpenAt ? (fmtCountdown(new Date(rsvpOpenAt)) ?? 'Pending cron…')
-                                                : 'Manual',
-                                        },
-                                        {
-                                            label: 'RSVP Closes',
-                                            color: !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? 'rgba(0,210,90,0.8)'
-                                                : rsvpOpen && rsvpCloseDate ? 'rgba(219,160,0,0.8)'
-                                                : 'rgba(237,237,237,0.2)',
-                                            detail: !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? '✓ Closed'
-                                                : rsvpCloseDate ? (fmtCountdown(rsvpCloseDate) ?? 'Firing…')
-                                                : '—',
-                                        },
-                                        {
-                                            label: 'Mission Active',
-                                            color: status === 'Active' || status === 'Completed' ? 'rgba(0,210,90,0.8)'
-                                                : opDate && fmtCountdown(opDate) ? 'rgba(219,160,0,0.8)'
-                                                : 'rgba(237,237,237,0.2)',
-                                            detail: status === 'Completed' ? '✓ Completed'
-                                                : status === 'Active' ? '✓ Active'
-                                                : opDate ? (fmtCountdown(opDate) ?? 'Firing…') : '—',
-                                        },
-                                        {
-                                            label: 'Confirmations',
-                                            color: confirmationOpen ? 'rgba(219,160,0,0.8)'
-                                                : confirmationOpenedAt && !confirmationOpen ? 'rgba(0,210,90,0.8)'
-                                                : status === 'Completed' ? 'rgba(219,160,0,0.6)'
-                                                : 'rgba(237,237,237,0.2)',
-                                            detail: confirmationOpen ? `Open · closes ${confirmCloseDate ? (fmtCountdown(confirmCloseDate) ?? 'soon') : '—'}`
-                                                : confirmationOpenedAt && !confirmationOpen ? '✓ Closed'
-                                                : status === 'Completed' ? 'Pending cron…'
-                                                : 'When mission ends',
-                                        },
-                                    ].map((row, i) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 0', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                                            <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: row.color, flexShrink: 0, marginTop: 4 }} />
-                                            <div>
-                                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 1 }}>{row.label}</div>
-                                                <div style={{ fontSize: '0.72rem', color: row.color, fontWeight: row.color.includes('160') ? 700 : 400, fontFamily: 'monospace', letterSpacing: '0.03em' }}>{row.detail}</div>
+                                    {draftRsvpOpenAt && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                                <DateTimePicker
+                                                    label='RSVP Opens At'
+                                                    value={dayjs(draftRsvpOpenAt)}
+                                                    format='DD/MM/YYYY HH:mm'
+                                                    onChange={v => { if (v) setDraftRsvpOpenAt(v.toISOString()) }}
+                                                    slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
+                                                />
+                                            </LocalizationProvider>
+                                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>
+                                                Quick set
                                             </div>
+                                            <select
+                                                defaultValue=''
+                                                onChange={e => {
+                                                    const mins = parseInt(e.target.value)
+                                                    if (!mins || !draftDate) return
+                                                    setDraftRsvpOpenAt(new Date(draftDate.toDate().getTime() - mins * 60000).toISOString())
+                                                    e.target.value = ''
+                                                }}
+                                                style={inputSx}
+                                            >
+                                                <option value='' disabled>Relative to op date…</option>
+                                                {RELATIVE_OPTS.map(o => (
+                                                    <option key={o.mins} value={o.mins}>{o.label}</option>
+                                                ))}
+                                            </select>
                                         </div>
-                                    )))}
+                                    )}
                                 </div>
 
+                                {/* RSVP Close */}
+                                <div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
+                                        // RSVP CLOSE
+                                    </div>
+                                    <select
+                                        value={draftRsvpCloseOffsetMins}
+                                        onChange={e => setDraftRsvpCloseOffsetMins(parseInt(e.target.value))}
+                                        style={inputSx}
+                                    >
+                                        {CLOSE_OPTS.map(o => (
+                                            <option key={o.mins} value={o.mins}>{o.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Confirm button */}
+                                <button
+                                    disabled={!scheduleDirty || scheduleSaving}
+                                    onClick={confirmSchedule}
+                                    style={{
+                                        padding: '9px 20px',
+                                        background: scheduleDirty ? c(0.18) : 'rgba(255,255,255,0.03)',
+                                        border: `1px solid ${scheduleDirty ? c(0.6) : 'rgba(255,255,255,0.1)'}`,
+                                        color: scheduleDirty ? c(0.9) : 'rgba(237,237,237,0.2)',
+                                        fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em',
+                                        textTransform: 'uppercase', cursor: scheduleDirty ? 'pointer' : 'not-allowed',
+                                        transition: 'all 0.15s', alignSelf: 'flex-start',
+                                    }}
+                                >
+                                    {scheduleSaving ? 'Saving…' : scheduleDirty ? '⬆ Confirm Schedule' : '✓ Schedule Confirmed'}
+                                </button>
+                            </div>
+
+                            {/* ── Status column ── */}
+                            <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 14, fontFamily: 'monospace' }}>
+                                    // STATUS
+                                </div>
+                                {([
+                                    {
+                                        label: 'RSVP Opens',
+                                        color: rsvpOpen || ['rsvp_closed','op_running','confirmations_open','completed'].includes(displayStage) ? 'rgba(0,210,90,0.8)'
+                                            : rsvpOpenAt && !fmtCountdown(new Date(rsvpOpenAt)) ? 'rgba(219,160,0,0.9)'
+                                            : rsvpOpenAt ? 'rgba(219,160,0,0.8)'
+                                            : 'rgba(237,237,237,0.2)',
+                                        detail: rsvpOpen ? '✓ Open'
+                                            : ['rsvp_closed','op_running','confirmations_open','completed'].includes(displayStage) ? '✓ Opened'
+                                            : rsvpOpenAt ? (fmtCountdown(new Date(rsvpOpenAt)) ?? 'Pending cron…')
+                                            : 'Manual',
+                                    },
+                                    {
+                                        label: 'RSVP Closes',
+                                        color: !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? 'rgba(0,210,90,0.8)'
+                                            : rsvpOpen && rsvpCloseDate ? 'rgba(219,160,0,0.8)'
+                                            : 'rgba(237,237,237,0.2)',
+                                        detail: !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? '✓ Closed'
+                                            : rsvpCloseDate ? (fmtCountdown(rsvpCloseDate) ?? 'Firing…')
+                                            : '—',
+                                    },
+                                    {
+                                        label: 'Mission Active',
+                                        color: status === 'Active' || status === 'Completed' ? 'rgba(0,210,90,0.8)'
+                                            : opDate && fmtCountdown(opDate) ? 'rgba(219,160,0,0.8)'
+                                            : 'rgba(237,237,237,0.2)',
+                                        detail: status === 'Completed' ? '✓ Completed'
+                                            : status === 'Active' ? '✓ Active'
+                                            : opDate ? (fmtCountdown(opDate) ?? 'Firing…') : '—',
+                                    },
+                                    {
+                                        label: 'Confirmations',
+                                        color: confirmationOpen ? 'rgba(219,160,0,0.8)'
+                                            : confirmationOpenedAt && !confirmationOpen ? 'rgba(0,210,90,0.8)'
+                                            : status === 'Completed' ? 'rgba(219,160,0,0.6)'
+                                            : 'rgba(237,237,237,0.2)',
+                                        detail: confirmationOpen ? `Open · closes ${confirmCloseDate ? (fmtCountdown(confirmCloseDate) ?? 'soon') : '—'}`
+                                            : confirmationOpenedAt && !confirmationOpen ? '✓ Closed'
+                                            : status === 'Completed' ? 'Pending cron…'
+                                            : 'When mission ends',
+                                    },
+                                ].map((row, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 0', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                                        <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: row.color, flexShrink: 0, marginTop: 4 }} />
+                                        <div>
+                                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 1 }}>{row.label}</div>
+                                            <div style={{ fontSize: '0.72rem', color: row.color, fontWeight: row.color.includes('160') ? 700 : 400, fontFamily: 'monospace', letterSpacing: '0.03em' }}>{row.detail}</div>
+                                        </div>
+                                    </div>
+                                )))}
                             </div>
                         </div>
-                    </>
+                    </div>
                 )
             })()}
 
@@ -994,12 +1051,12 @@ export default function Page() {
                     operationId={opID}
                     initialContent={initialContent}
                     themeColor={themeColor}
-                    initialMeta={{ title, department, date: date?.toISOString() ?? '', loreDate: loreDate?.toISOString() ?? '' }}
+                    initialMeta={{ title, department, date: date?.toISOString() ?? '', loreDate: loreDate ?? '' }}
                     onMetaChange={fields => {
                         if (fields.title !== undefined) setTitle(fields.title)
                         if (fields.department !== undefined) setDepartment(fields.department)
                         if (fields.date !== undefined) setDate(fields.date ? dayjs(fields.date) : null)
-                        if (fields.loreDate !== undefined) setLoreDate(fields.loreDate ? dayjs(fields.loreDate) : null)
+                        if (fields.loreDate !== undefined) setLoreDate(fields.loreDate ?? '')
                     }}
                     metaHandleRef={metaHandleRef}
                     onSaveStatusChange={setSaveStatus}

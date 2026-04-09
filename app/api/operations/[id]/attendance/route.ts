@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
-import { createNotification } from '@/lib/notifications'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -206,36 +205,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { upsert: true }
     )
 
-    // When RSVP transitions to open, notify all members in the assigned platoons
-    if (rsvpOpen === true && !wasRsvpOpen) {
-        const assignedPlatoons = existingAttendance?.assignedPlatoons ?? []
-        if (assignedPlatoons.length > 0) {
-            // Get the operation title for the notification body
-            const operation = await Db.operations.findOne({ _id: operationId })
-            const opTitle = operation?.title ?? 'an operation'
-
-            // Find all ORBAT members in the assigned platoon categories
-            const positions = await Db.orbatPositions
-                .find({ category: { $in: assignedPlatoons }, userId: { $ne: null } })
-                .project<{ userId: string }>({ userId: 1 })
-                .toArray()
-
-            const userIds = [...new Set(positions.map(p => p.userId!))]
-
-            await Promise.all(
-                userIds.map(userId =>
-                    createNotification({
-                        userId,
-                        type: 'task_assigned',
-                        title: 'RSVP is now open',
-                        body: `${opTitle} — submit your attendance`,
-                        actionUrl: `/operations/${id}`,
-                        relatedId: id,
-                    })
-                )
-            )
-        }
-    }
 
     return NextResponse.json({ ok: true })
 }
