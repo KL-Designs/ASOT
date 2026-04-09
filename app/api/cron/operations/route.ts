@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
     const autoOpenCandidates = await Db.operationAttendance.find({
         rsvpOpen: { $ne: true },
         rsvpOpenAt: { $type: 'date', $lte: now },
+        stage: { $nin: ['rsvp_closed', 'op_running', 'confirmations_open', 'completed'] },
     } as Parameters<typeof Db.operationAttendance.find>[0]).toArray()
 
     // Track IDs just opened so step 1 doesn't immediately close them in the same tick

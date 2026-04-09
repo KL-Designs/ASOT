@@ -58,7 +58,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const update: Record<string, unknown> = {
-        $setOnInsert: { operationId, records: [], rsvpOpen: false, confirmationOpen: false },
+        $setOnInsert: {
+            operationId,
+            records: [],
+            // Only include defaults for fields NOT already being set via $set — MongoDB
+            // throws code 40 if the same path appears in both $setOnInsert and $set.
+            ...(resolvedRsvpOpen === undefined && { rsvpOpen: false }),
+            ...(body.confirmationOpen === undefined && { confirmationOpen: false }),
+        },
         $set: setFields,
     }
     if (body.rsvpOpenAt === null) {

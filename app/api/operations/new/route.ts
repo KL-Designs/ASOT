@@ -19,12 +19,16 @@ export async function GET(request: NextRequest) {
         const year = rawDate.getFullYear()
         const formatted = `${day}/${month}/${year}`
 
+        const defaultDate = new Date()
+        defaultDate.setDate(defaultDate.getDate() + 7)
+        defaultDate.setMinutes(0, 0, 0) // round to the hour
+
         const newOp = await Db.operations.insertOne({
             _id: new ObjectId(),
             title: `New Mission ${formatted}`,
             department: '1-0 HQ',
-            date: new Date(),
-            loreDate: new Date(),
+            date: defaultDate,
+            loreDate: '',
             status: 'In Development' as const,
         })
 

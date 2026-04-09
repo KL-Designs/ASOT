@@ -272,6 +272,7 @@ export default function Page() {
                     ...(updates.stage !== undefined && { stage: updates.stage }),
                 }),
             })
+            if (!res.ok) return
             const json = await res.json()
             // If the API resolved rsvpOpen server-side (e.g. past rsvpOpenAt), reflect that immediately
             if (json.rsvpOpen !== undefined) setRsvpOpen(json.rsvpOpen)
@@ -687,26 +688,34 @@ export default function Page() {
                                 {PLATOON_OPTS.map(opt => {
                                     const checked = assignedPlatoons.includes(opt.id)
                                     return (
-                                        <label
+                                        <button
                                             key={opt.id}
-                                            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}
+                                            onClick={() => {
+                                                const updated = checked
+                                                    ? assignedPlatoons.filter(p => p !== opt.id)
+                                                    : [...assignedPlatoons, opt.id]
+                                                setAssignedPlatoons(updated)
+                                                saveAttendanceSettings({ assignedPlatoons: updated })
+                                            }}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: 6,
+                                                padding: '6px 12px',
+                                                border: checked ? `1px solid ${c(0.7)}` : '1px solid rgba(255,255,255,0.12)',
+                                                background: checked ? c(0.12) : 'rgba(255,255,255,0.03)',
+                                                color: checked ? c(0.95) : 'rgba(237,237,237,0.35)',
+                                                fontSize: '0.75rem', fontWeight: 700,
+                                                letterSpacing: '0.07em', textTransform: 'uppercase',
+                                                cursor: 'pointer', userSelect: 'none',
+                                                transition: 'all 0.15s',
+                                            }}
                                         >
-                                            <input
-                                                type='checkbox'
-                                                checked={checked}
-                                                onChange={() => {
-                                                    const updated = checked
-                                                        ? assignedPlatoons.filter(p => p !== opt.id)
-                                                        : [...assignedPlatoons, opt.id]
-                                                    setAssignedPlatoons(updated)
-                                                    saveAttendanceSettings({ assignedPlatoons: updated })
-                                                }}
-                                                style={{ accentColor: c(1), width: 14, height: 14, cursor: 'pointer' }}
-                                            />
-                                            <span style={{ fontSize: '0.78rem', letterSpacing: '0.06em', color: checked ? c(0.9) : 'rgba(237,237,237,0.45)' }}>
-                                                {opt.label}
-                                            </span>
-                                        </label>
+                                            {checked && (
+                                                <svg width='11' height='11' viewBox='0 0 12 12' fill='none'>
+                                                    <path d='M2 6l3 3 5-5' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' />
+                                                </svg>
+                                            )}
+                                            {opt.label}
+                                        </button>
                                     )
                                 })}
                             </div>
