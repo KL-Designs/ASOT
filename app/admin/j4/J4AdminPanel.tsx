@@ -441,18 +441,14 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                         [J4] Administration
                     </Typography>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
-                        <button style={{ ...btnSx(view === 'meetings'), width: '100%', textAlign: 'center' }} onClick={() => setView(view === 'meetings' ? 'dept' : 'meetings')}>Meetings</button>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                            <button style={btnSx(view === 'members')}  onClick={() => setView(view === 'members'  ? 'dept' : 'members')}>Members</button>
-                            <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
-                        </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button style={btnSx(view === 'members')}  onClick={() => setView(view === 'members'  ? 'dept' : 'members')}>Members</button>
+                        <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
                     </div>
             </div>
 
             {view === 'members'   && <DeptMembersTab department='j4' displayName={displayName} userId={userId} canManage={true} />}
             {view === 'calendar'  && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
-            {view === 'meetings'  && <MeetingsTab department='j4' userId={userId} isLead={true} />}
             {view === 'dept' && (
                 <>
                     {/* Tabs */}
@@ -465,11 +461,13 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                         >
                             <Tab label={<PinTabLabel label='Tools'     pinLabel='J4 — Tools'     href='/admin/j4' tabIndex={0} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Snapshots' pinLabel='J4 — Snapshots' href='/admin/j4' tabIndex={1} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'  pinLabel='J4 — Meetings'  href='/admin/j4' tabIndex={2} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
                         {tab === 1 && <SnapshotsTab />}
+                        {tab === 2 && <MeetingsTab department='j4' userId={userId} isLead={true} />}
                         {tab === 0 && (
                             <div className='p-6 md:p-10 flex flex-col gap-6'>
                         {/* Tools */}

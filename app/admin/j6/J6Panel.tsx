@@ -64,12 +64,9 @@ export default function J6Panel({
                         [J6] Game Masters
                     </Typography>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
-                        <button style={{ ...btnSx(view === 'meetings'), width: '100%', textAlign: 'center' }} onClick={() => setView(view === 'meetings' ? 'dept' : 'meetings')}>Meetings</button>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                            <button style={btnSx(view === 'members')} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>Members</button>
-                            <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
-                        </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button style={btnSx(view === 'members')} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>Members</button>
+                        <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
                     </div>
             </div>
 
@@ -78,9 +75,6 @@ export default function J6Panel({
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j6' userId={userId} isJ4={isJ4} />
-            )}
-            {view === 'meetings' && (
-                <MeetingsTab department='j6' userId={userId} isLead={canManageMembers} />
             )}
             {view === 'dept' && (
                 <>
@@ -92,11 +86,13 @@ export default function J6Panel({
                             sx={{ minHeight: 40 }}
                         >
                             <Tab label={<PinTabLabel label='Zeus Notes' pinLabel='J6 — Zeus Notes' href='/admin/j6' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'   pinLabel='J6 — Meetings'   href='/admin/j6' tabIndex={1} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
                         {tab === 0 && <ZeusNotesTab />}
+                        {tab === 1 && <MeetingsTab department='j6' userId={userId} isLead={canManageMembers} />}
                     </div>
                 </>
             )}

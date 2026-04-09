@@ -85,12 +85,9 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                         [J3] Training
                     </Typography>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
-                        <button style={{ ...btnSx(view === 'meetings'), width: '100%', textAlign: 'center' }} onClick={() => setView(view === 'meetings' ? 'dept' : 'meetings')}>Meetings</button>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                            <button style={btnSx(view === 'members')} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>Members</button>
-                            <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
-                        </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button style={btnSx(view === 'members')} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>Members</button>
+                        <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
                     </div>
             </div>
 
@@ -99,9 +96,6 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j3' userId={userId} isJ4={isJ4} />
-            )}
-            {view === 'meetings' && (
-                <MeetingsTab department='j3' userId={userId} isLead={canManageMembers} />
             )}
             {view === 'dept' && (
                 <>
@@ -116,6 +110,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                             <Tab label={<PinTabLabel label='Qualification Tickets' pinLabel='J3 — Qual Tickets'  href='/admin/j3' tabIndex={0} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Promotion Tickets'     pinLabel='J3 — Promo Tickets' href='/admin/j3' tabIndex={1} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Training Schedule'     pinLabel='J3 — Schedule'      href='/admin/j3' tabIndex={2} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'              pinLabel='J3 — Meetings'      href='/admin/j3' tabIndex={3} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -144,6 +139,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                             </div>
                         )}
                         {tab === 2 && <WipTab title='Training Schedule' description='Training schedule management and documentation tools are coming soon.' />}
+                        {tab === 3 && <MeetingsTab department='j3' userId={userId} isLead={canManageMembers} />}
                     </div>
                 </>
             )}
