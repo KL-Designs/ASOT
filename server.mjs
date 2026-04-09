@@ -378,17 +378,20 @@ httpServer.listen(port, '0.0.0.0', () => {
 async function triggerOperationsCron() {
     try {
         const res = await fetch(`http://localhost:${port}/api/cron/operations?secret=${process.env.CRON_SECRET}`)
+        if (!res.ok) {
+            console.error(`[cron/operations] HTTP ${res.status} — check CRON_SECRET`)
+            return
+        }
         const data = await res.json()
         const { rsvpOpened, rsvpClosed, activatedOps, confirmationOpened, confirmationClosed } = data
-        if (rsvpOpened || rsvpClosed || activatedOps || confirmationOpened || confirmationClosed) {
-            console.log(`[cron/operations] rsvpOpened=${rsvpOpened} rsvpClosed=${rsvpClosed} activatedOps=${activatedOps} confirmationOpened=${confirmationOpened} confirmationClosed=${confirmationClosed}`)
-        }
+        const summary = `rsvpOpened=${rsvpOpened} rsvpClosed=${rsvpClosed} activatedOps=${activatedOps} confirmationOpened=${confirmationOpened} confirmationClosed=${confirmationClosed}`
+        console.log(`[cron/operations] tick — ${summary}`)
     } catch (e) {
         console.error('[cron/operations] Error:', e.message)
     }
 }
 
-setInterval(triggerOperationsCron, 5 * 60 * 1000)
+setInterval(triggerOperationsCron, 60 * 1000)
 triggerOperationsCron()
 
 // ── Snapshot scheduler (every 2 days at 3am) ──────────────────────────────────

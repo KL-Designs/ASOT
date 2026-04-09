@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 
-interface StatusBarData {
+interface LiveStatus {
+    operationStatus: string | null
+    operationDate: string | null
     stage?: string
     rsvpOpen: boolean
     rsvpOpenAt?: string
@@ -13,8 +15,8 @@ interface StatusBarData {
 
 interface Props {
     operationId: string
-    operationDate: string | null   // ISO string
-    operationStatus: string
+    operationDate: string | null   // ISO string (initial SSR value)
+    operationStatus: string        // initial SSR value
     themeColor: string
     r: number
     g: number
@@ -33,16 +35,22 @@ function fmtCountdown(target: Date, now: Date): string | null {
     return `${m}m ${s % 60}s`
 }
 
-export default function OperationStatusBar({ operationId, operationDate, operationStatus, r, g, b }: Props) {
+export default function OperationStatusBar({ operationId, operationDate: initialDate, operationStatus: initialStatus, r, g, b }: Props) {
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
-    const [data, setData] = useState<StatusBarData | null>(null)
+    const [data, setData] = useState<LiveStatus | null>(null)
     const [now, setNow] = useState(() => new Date())
 
-    useEffect(() => {
-        fetch(`/api/operations/${operationId}/attendance`)
+    const fetchStatus = () => {
+        fetch(`/api/operations/${operationId}/live-status`)
             .then(res => res.json())
             .then(json => setData(json))
             .catch(() => {})
+    }
+
+    useEffect(() => {
+        fetchStatus()
+        const id = setInterval(fetchStatus, 30_000)
+        return () => clearInterval(id)
     }, [operationId])
 
     useEffect(() => {
@@ -51,6 +59,9 @@ export default function OperationStatusBar({ operationId, operationDate, operati
     }, [])
 
     if (!data) return null
+
+    const operationStatus = data.operationStatus ?? initialStatus
+    const operationDate   = data.operationDate   ?? initialDate
 
     const opDate = operationDate ? new Date(operationDate) : null
     const rsvpOpenAt = data.rsvpOpenAt ? new Date(data.rsvpOpenAt) : null
@@ -71,7 +82,7 @@ export default function OperationStatusBar({ operationId, operationDate, operati
         let state: 'done' | 'active' | 'pending'
         if (data.rsvpOpen) {
             // Green while open
-            detail = '● RSVP Open'
+            detail = 'RSVP Open'
             state = 'done'
         } else if (rsvpAlreadyFired) {
             // Greyed out once closed
@@ -81,7 +92,7 @@ export default function OperationStatusBar({ operationId, operationDate, operati
             detail = `Opens in ${fmtCountdown(rsvpOpenAt, now) ?? '...'}`
             state = 'pending'
         } else {
-            detail = '● RSVP Open'
+            detail = 'RSVP Open'
             state = 'done'
         }
         items.push({ label: 'RSVP', detail, state })

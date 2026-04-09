@@ -72,8 +72,9 @@ export async function GET(request: NextRequest) {
         if (!op?.date) continue
         const offsetMins = att.rsvpCloseOffsetMins ?? 60
         const closeAt = new Date(new Date(op.date).getTime() - offsetMins * 60 * 1000)
-        // Don't close if close time ≤ open time — window was misconfigured; respect the open
-        if (att.rsvpOpenAt && closeAt <= new Date(att.rsvpOpenAt)) continue
+        // Only guard against a misconfigured future window (close before open, not yet reached)
+        // Once closeAt has passed, always close regardless of the openAt relationship.
+        if (att.rsvpOpenAt && closeAt > now && closeAt <= new Date(att.rsvpOpenAt)) continue
         if (now >= closeAt) {
             await Db.operationAttendance.updateOne(
                 { _id: att._id },

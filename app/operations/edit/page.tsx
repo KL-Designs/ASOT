@@ -329,6 +329,33 @@ export default function Page() {
     const statusColor = saveStatus === 'saved' ? 'rgba(100,220,100,0.65)' : saveStatus === 'saving' ? 'rgba(219,0,29,0.65)' : 'rgba(237,200,0,0.65)'
     const statusLabel = saveStatus === 'saved' ? '● Saved' : saveStatus === 'saving' ? '● Saving…' : '● Unsaved'
 
+    if (!loaded) return (
+        <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            minHeight: '80vh', gap: 20,
+        }}>
+            <style>{`
+                @keyframes edit-spin { to { transform: rotate(360deg) } }
+                @keyframes edit-fade { 0%,100%{opacity:.3} 50%{opacity:.85} }
+            `}</style>
+            {/* Spinner */}
+            <div style={{
+                width: 36, height: 36,
+                border: `2px solid rgba(219,0,29,0.12)`,
+                borderTop: `2px solid rgba(219,0,29,0.75)`,
+                borderRadius: '50%',
+                animation: 'edit-spin 0.8s linear infinite',
+            }} />
+            <span style={{
+                fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.28em',
+                textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)',
+                animation: 'edit-fade 1.8s ease-in-out infinite',
+            }}>
+                Loading Operation…
+            </span>
+        </div>
+    )
+
     return (
         <div className='w-full' style={{
             paddingRight: previewOpen ? 'clamp(360px, 40vw, 700px)' : activityOpen ? 'clamp(280px, 30vw, 460px)' : 0,

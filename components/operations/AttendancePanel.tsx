@@ -149,14 +149,15 @@ export default function AttendancePanel({
     const [sectionMeta, setSectionMeta] = useState<OrbatSectionMeta[]>([])
     const [typeAnchor, setTypeAnchor] = useState<{ el: HTMLElement; userId: string } | null>(null)
     const [joinRoleAnchor, setJoinRoleAnchor] = useState<{ el: HTMLElement; sectionTitle: string } | null>(null)
+    const [liveStatus, setLiveStatus] = useState(operationStatus)
 
     const r = parseInt(themeColor.replace('#', '').substring(0, 2), 16)
     const g = parseInt(themeColor.replace('#', '').substring(2, 4), 16)
     const b = parseInt(themeColor.replace('#', '').substring(4, 6), 16)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
-    const isUpcomingOrActive = operationStatus === 'Upcoming' || operationStatus === 'Active'
-    const isCompleted        = operationStatus === 'Completed'
+    const isUpcomingOrActive = liveStatus === 'Upcoming' || liveStatus === 'Active'
+    const isCompleted        = liveStatus === 'Completed'
 
     // ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -217,6 +218,19 @@ export default function AttendancePanel({
         }, 15000)
         return () => clearInterval(interval)
     }, [saving, manageOpen, refreshData, confirmingDirty])
+
+    // Poll operation status separately (lightweight) so RSVP/confirmation UI
+    // reflects status changes without needing a page reload.
+    useEffect(() => {
+        const poll = () => {
+            fetch(`/api/operations/${operationId}/live-status`)
+                .then(res => res.json())
+                .then(json => { if (json.operationStatus) setLiveStatus(json.operationStatus) })
+                .catch(() => {})
+        }
+        const interval = setInterval(poll, 30_000)
+        return () => clearInterval(interval)
+    }, [operationId])
 
     // ── RSVP ───────────────────────────────────────────────────────────────────
 
