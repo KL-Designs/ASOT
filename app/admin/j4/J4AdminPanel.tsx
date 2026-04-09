@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, Tabs, Tab } from '@mui/material'
+import { PeopleAlt, CalendarMonth } from '@mui/icons-material'
 import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 import ImportPanel from '../ImportPanel'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
@@ -17,11 +18,12 @@ const btnSx = (active: boolean): React.CSSProperties => ({
     fontWeight: 700,
     letterSpacing: '0.12em',
     textTransform: 'uppercase',
-    padding: '4px 10px',
-    background: active ? 'rgba(219,0,29,0.3)' : 'none',
+    padding: '5px 14px',
+    background: active ? 'rgba(219,0,29,0.35)' : 'rgba(255,255,255,0.06)',
     border: '1px solid rgba(219,0,29,0.25)',
-    color: active ? 'var(--foreground)' : 'rgba(237,237,237,0.4)',
+    color: active ? 'var(--foreground)' : 'rgba(237,237,237,0.55)',
     cursor: 'pointer',
+    borderRadius: 999,
 })
 
 const inputSx = {
@@ -442,8 +444,12 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                     </Typography>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button style={btnSx(view === 'members')}  onClick={() => setView(view === 'members'  ? 'dept' : 'members')}>Members</button>
-                        <button style={btnSx(view === 'calendar')} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>Calendar</button>
+                        <button style={{ ...btnSx(view === 'members'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>
+                            <PeopleAlt sx={{ fontSize: '0.85rem' }} />Members
+                        </button>
+                        <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
+                            <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
+                        </button>
                     </div>
             </div>
 
