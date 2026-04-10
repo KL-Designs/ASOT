@@ -51,10 +51,23 @@ export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): Uni
     const parsedName = parts.length > 1 ? parts.slice(1).join(' ') : rawDisplay
     const resolvedDisplayName = user.name || parsedName
 
-    const citations = awardNames
+    const allCitations = awardNames
         .filter(n => !MEDALLION_AWARDS.has(n))
         .map(n => AWARD_TO_CITATION[n])
         .filter((c): c is Citation => Boolean(c))
+
+    // Campaign medallions are tiered — only render the highest clasp the member holds.
+    const CAMPAIGN_RANK: Citation[] = [
+        'campaign', 'campaign1', 'campaign2', 'campaign3', 'campaign4',
+        'campaign5', 'campaign6', 'campaign7', 'campaign8', 'campaign9',
+        'campaign10', 'campaign11', 'campaign12', 'campaign13', 'campaign14',
+        'campaign15', 'campaign16',
+    ]
+    const heldCampaigns = CAMPAIGN_RANK.filter(c => allCitations.includes(c))
+    const highestCampaign = heldCampaigns.at(-1)
+    const citations = allCitations
+        .filter(c => !CAMPAIGN_RANK.includes(c))
+        .concat(highestCampaign ? [highestCampaign] : [])
 
     const medallions = deriveMedallions(awardNames)
 

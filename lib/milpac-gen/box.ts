@@ -38,7 +38,20 @@ function normaliseMedalName(raw: string): string | undefined {
 export async function generateBox(rawData: BoxData): Promise<void> {
     if (!fs.existsSync(OUTPUT)) fs.mkdirSync(OUTPUT, { recursive: true })
 
-    const normalisedMedals = rawData.medals.map(normaliseMedalName).filter((m): m is string => m !== undefined)
+    const allNormalised = rawData.medals.map(normaliseMedalName).filter((m): m is string => m !== undefined)
+
+    // Campaign medallions are tiered — keep only the highest clasp the member holds.
+    const CAMPAIGN_RANK = [
+        'campaign', 'campaign1', 'campaign2', 'campaign3', 'campaign4',
+        'campaign5', 'campaign6', 'campaign7', 'campaign8', 'campaign9',
+        'campaign10', 'campaign11', 'campaign12', 'campaign13', 'campaign14',
+        'campaign15', 'campaign16',
+    ]
+    const heldCampaigns = CAMPAIGN_RANK.filter(c => allNormalised.includes(c))
+    const highestCampaign = heldCampaigns.at(-1)
+    const normalisedMedals = allNormalised
+        .filter(m => !CAMPAIGN_RANK.includes(m))
+        .concat(highestCampaign ? [highestCampaign] : [])
 
     // Find medals that exist in the hierarchy, in display order
     const foundMedals = CONJOINED.filter(m => normalisedMedals.includes(m)).reverse()
