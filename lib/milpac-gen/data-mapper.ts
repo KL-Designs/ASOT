@@ -39,6 +39,20 @@ function normaliseRank(rank: string): string {
     return rank.replace(/[()]/g, '')
 }
 
+// Non-P private-equivalent ranks — BCT 2 holders at these ranks show PTE embellishment.
+// All other ranks (PTEP tier and higher) show the gold PTEP embellishment.
+// Ranks at or below PTE(P) show standard PTE badge; PTE(S)/SL and above show gold PTEP badge.
+// Rank order within the private tier: base → L → P → S → SL
+const PTE_BASIC_RANKS = new Set([
+    'PTE', 'PTEL',
+    'SIG', 'SIGL',
+    'TPR', 'TPRL',
+    'SAP', 'SAPL',
+    'GNR', 'GNRL',
+    'LBDR', 'LBDRL', 'LBDRJ',
+    'BDR', 'BDRL', 'BDRJ',
+])
+
 export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): UniformData {
     const rank = normaliseRank(user.milpac?.currentRank ?? '')
     const awardNames = user.milpac?.awards?.map(a => a.name) ?? []
@@ -81,6 +95,14 @@ export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): Uni
 
     const uniform = orbatEntry?.section === '1-3 HOTEL - ROTARY WING' ? 'Blue' : 'Brown'
 
+    // BCT 2 cert gates the embellishment; rank determines PTE vs PTEP (gold) variant.
+    // REC holders never show the badge. LCPL+ with BCT 2 get the gold PTEP badge.
+    const hasBct2 = (user.milpac?.qualifications ?? []).some(q => q.qualification === 'BCT 2')
+    const rifleManBadge: 'PTE' | 'PTEP' | '' =
+        hasBct2 && rank !== 'REC'
+            ? (PTE_BASIC_RANKS.has(rank) ? 'PTE' : 'PTEP')
+            : ''
+
     return {
         name: user.id,
         displayName: resolvedDisplayName,
@@ -90,7 +112,7 @@ export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): Uni
         medallions,
         citations,
         TrainingMedals: trainingMedals,
-        RifleManBadge: '',  // derived inside generateUniform from rank
+        RifleManBadge: rifleManBadge,
     }
 }
 

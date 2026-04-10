@@ -63,14 +63,8 @@ function sanitize(data: UniformData): UniformData {
         .replace(/^SAP.*/, 'PTE').replace(/^GM.*/, 'PTE')
         .replace(/^GNR.*/, 'PTE') as Rank
 
-    if (normRank === 'PTEP' as Rank) {
-        d.RifleManBadge = 'PTEP'
-        d.rank = '' as Rank
-    } else if (normRank === 'PTE' as Rank) {
-        d.RifleManBadge = 'PTE'
-        d.rank = '' as Rank
-    } else if (normRank === 'REC' as Rank) {
-        d.RifleManBadge = ''
+    // Suppress rank insignia for private-tier members; embellishment is set by buildUniformData
+    if (['PTE', 'PTEP', 'REC'].includes(normRank as string)) {
         d.rank = '' as Rank
     }
 
