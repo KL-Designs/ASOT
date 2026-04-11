@@ -145,6 +145,8 @@ export default function SnapshotsTab() {
     const opStartMs  = useRef(0)
     const opTypeRef  = useRef<'create' | 'revert'>('create')
 
+    const [cancelling, setCancelling] = useState(false)
+
     const [confirm, setConfirm] = useState<{
         open: boolean
         title: string
@@ -209,6 +211,25 @@ export default function SnapshotsTab() {
 
     function closeConfirm() {
         setConfirm(c => ({ ...c, open: false, action: null }))
+    }
+
+    async function handleForceReset() {
+        openConfirm(
+            'Force Reset Status',
+            'This will reset the in-progress status immediately. If a background operation is still running it may finish silently or leave a partial .tmp file (cleaned up automatically after 2 hours). Only use this if the operation appears stuck.',
+            async () => {
+                setCancelling(true)
+                try {
+                    const res = await fetch('/api/snapshots/cancel', { method: 'POST' })
+                    const data = await res.json()
+                    if (!res.ok) setError(data.error ?? 'Reset failed')
+                    else fetchData()
+                } finally {
+                    setCancelling(false)
+                }
+            },
+            true
+        )
     }
 
     async function handleCreate() {
@@ -414,7 +435,7 @@ export default function SnapshotsTab() {
                                 </div>
                             </div>
 
-                            {/* Right: times + percentage */}
+                            {/* Right: times + percentage + cancel */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0 }}>
                                 <div style={{ textAlign: 'right' }}>
                                     <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 1 }}>
@@ -442,6 +463,25 @@ export default function SnapshotsTab() {
                                 }}>
                                     {Math.round(pct)}%
                                 </div>
+                                <button
+                                    onClick={handleForceReset}
+                                    disabled={cancelling}
+                                    title='Force-reset stuck operation'
+                                    style={{
+                                        fontSize: '0.6rem',
+                                        fontWeight: 700,
+                                        letterSpacing: '0.12em',
+                                        textTransform: 'uppercase',
+                                        padding: '4px 10px',
+                                        background: 'none',
+                                        border: '1px solid rgba(219,0,29,0.35)',
+                                        color: cancelling ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.7)',
+                                        cursor: cancelling ? 'not-allowed' : 'pointer',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    {cancelling ? '…' : 'Force Reset'}
+                                </button>
                             </div>
                         </div>
                     </div>
