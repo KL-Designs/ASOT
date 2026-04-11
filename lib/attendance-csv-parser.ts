@@ -205,8 +205,8 @@ export function parseAttendanceCSV(csv: string): ParsedAttendanceSection[] {
                 for (let o = 0; o < rawOpNames.length; o++) {
                     if (opIndexMap[o] === -1) continue
                     const baseCol = opStartCol + o * OP_STRIDE
-                    const sat = (memberRow[baseCol] ?? '').trim()
-                    const sun = (memberRow[baseCol + 1] ?? '').trim()
+                    const sat = (memberRow[baseCol] ?? '').trim().toUpperCase()
+                    const sun = (memberRow[baseCol + 1] ?? '').trim().toUpperCase()
                     // Skip pure placeholder values
                     if (sat || sun) {
                         attendance.push({ opIndex: opIndexMap[o], sat, sun })
