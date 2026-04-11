@@ -116,7 +116,7 @@ const nextConfig: NextConfig = {
 				has: [
 					{
 						type: 'host',
-						value: 'asotmilsim.com',
+						value: 'www.asotmilsim.com', //TODO REMEMBER TO CHANGE THIS
 					}
 				],
 				destination: `${process.env.NEXT_PUBLIC_BASEURL}/:path*`,
