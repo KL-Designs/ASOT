@@ -29,13 +29,25 @@ const nextConfig: NextConfig = {
 
 			{
 				protocol: 'https',
-				hostname: 'www.asotmilsim.com',
+				hostname: '*.asotmilsim.com',
 				pathname: '/api/gallery/fetch/**',
 			},
 
 			{
 				protocol: 'https',
-				hostname: 'www.asotmilsim.com',
+				hostname: '*.asotmilsim.com',
+				pathname: '/api/gallery/featured/**',
+			},
+
+			{
+				protocol: 'https',
+				hostname: 'asotmilsim.com',
+				pathname: '/api/gallery/fetch/**',
+			},
+
+			{
+				protocol: 'https',
+				hostname: 'asotmilsim.com',
 				pathname: '/api/gallery/featured/**',
 			},
 
@@ -56,7 +68,13 @@ const nextConfig: NextConfig = {
 
 			{
 				protocol: 'https',
-				hostname: 'www.asotmilsim.com',
+				hostname: '*.asotmilsim.com',
+				pathname: '/api/uploads/**',
+			},
+
+			{
+				protocol: 'https',
+				hostname: 'asotmilsim.com',
 				pathname: '/api/uploads/**',
 			},
 
