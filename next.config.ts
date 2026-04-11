@@ -123,18 +123,18 @@ const nextConfig: NextConfig = {
 				permanent: true,
 			},
 
-			{
-				source: '/:path*',
-				has: [
-					{
-						type: 'header',
-						key: 'x-forwarded-proto',
-						value: 'http',
-					}
-				],
-				destination: `${process.env.NEXT_PUBLIC_BASEURL}/:path*`,
-				permanent: true,
-			},
+			// {
+			// 	source: '/:path*',
+			// 	has: [
+			// 		{
+			// 			type: 'header',
+			// 			key: 'x-forwarded-proto',
+			// 			value: 'http',
+			// 		}
+			// 	],
+			// 	destination: `${process.env.NEXT_PUBLIC_BASEURL}/:path*`,
+			// 	permanent: true,
+			// },
 		];
 	}
 }
