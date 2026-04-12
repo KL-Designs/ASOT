@@ -134,25 +134,25 @@ const nextConfig: NextConfig = {
 				has: [
 					{
 						type: 'host',
-						value: 'www.asotmilsim.com', //TODO REMEMBER TO CHANGE THIS
+						value: 'asotmilsim.com',
 					}
 				],
 				destination: `${process.env.NEXT_PUBLIC_BASEURL}/:path*`,
 				permanent: true,
 			},
 
-			// {
-			// 	source: '/:path*',
-			// 	has: [
-			// 		{
-			// 			type: 'header',
-			// 			key: 'x-forwarded-proto',
-			// 			value: 'http',
-			// 		}
-			// 	],
-			// 	destination: `${process.env.NEXT_PUBLIC_BASEURL}/:path*`,
-			// 	permanent: true,
-			// },
+			{
+				source: '/:path*',
+				has: [
+					{
+						type: 'header',
+						key: 'x-forwarded-proto',
+						value: 'http',
+					}
+				],
+				destination: `${process.env.NEXT_PUBLIC_BASEURL}/:path*`,
+				permanent: true,
+			},
 		];
 	}
 }
