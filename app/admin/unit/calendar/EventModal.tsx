@@ -106,8 +106,19 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
     const [reminderEnabled, setReminderEnabled] = useState(false)
     const [leadUpEnabled, setLeadUpEnabled] = useState(false)
     const [leadUpMinutes, setLeadUpMinutes] = useState(60)
+    const [leadUpPreset, setLeadUpPreset] = useState<number | 'custom'>(60)
+    const [customAmount, setCustomAmount] = useState(90)
+    const [customUnit, setCustomUnit] = useState<'minutes' | 'hours' | 'days'>('minutes')
     const [reminderLoading, setReminderLoading] = useState(false)
     const [reminderSaving, setReminderSaving] = useState(false)
+
+    const LEAD_UP_PRESETS = [15, 30, 60, 120, 360, 1440]
+
+    function computeCustomMinutes(amount: number, unit: 'minutes' | 'hours' | 'days') {
+        if (unit === 'hours') return amount * 60
+        if (unit === 'days') return amount * 1440
+        return amount
+    }
 
     useEffect(() => {
         if (!open || !event) return
@@ -118,9 +129,18 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                 const reminders: { minutesBefore: number }[] = data.reminders ?? []
                 const hasStart = reminders.some(r => r.minutesBefore === 0)
                 const leadUp = reminders.find(r => r.minutesBefore > 0)
-                setReminderEnabled(hasStart || !!leadUp)
+                setReminderEnabled(hasStart)
                 setLeadUpEnabled(!!leadUp)
-                setLeadUpMinutes(leadUp?.minutesBefore ?? 60)
+                const mins = leadUp?.minutesBefore ?? 60
+                setLeadUpMinutes(mins)
+                if (LEAD_UP_PRESETS.includes(mins)) {
+                    setLeadUpPreset(mins)
+                } else {
+                    setLeadUpPreset('custom')
+                    if (mins % 1440 === 0) { setCustomAmount(mins / 1440); setCustomUnit('days') }
+                    else if (mins % 60 === 0) { setCustomAmount(mins / 60); setCustomUnit('hours') }
+                    else { setCustomAmount(mins); setCustomUnit('minutes') }
+                }
             })
             .catch(() => {})
             .finally(() => setReminderLoading(false))
@@ -195,10 +215,8 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
         setReminderSaving(true)
         if (enabled) {
             await postReminder(0)
-            if (leadUpEnabled) await postReminder(leadUpMinutes)
         } else {
-            setLeadUpEnabled(false)
-            await deleteReminder()
+            await deleteReminder(0)
         }
         setReminderSaving(false)
     }
@@ -215,8 +233,24 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
         setReminderSaving(false)
     }
 
-    async function handleLeadUpMinutesChange(mins: number) {
-        if (!event) return
+    async function handleLeadUpPresetChange(val: number | 'custom') {
+        setLeadUpPreset(val)
+        if (val === 'custom') return // wait for custom inputs before saving
+        const prev = leadUpMinutes
+        setLeadUpMinutes(val)
+        if (leadUpEnabled) {
+            setReminderSaving(true)
+            await deleteReminder(prev)
+            await postReminder(val)
+            setReminderSaving(false)
+        }
+    }
+
+    async function handleCustomChange(amount: number, unit: 'minutes' | 'hours' | 'days') {
+        setCustomAmount(amount)
+        setCustomUnit(unit)
+        const mins = computeCustomMinutes(amount, unit)
+        if (mins <= 0) return
         const prev = leadUpMinutes
         setLeadUpMinutes(mins)
         if (leadUpEnabled) {
@@ -347,20 +381,24 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                         {!event.isOperation && (
                             <>
                                 <Divider sx={{ borderColor: 'rgba(219,0,29,0.12)', my: 0.5 }} />
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
-                                    {/* Main toggle — at start time */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                                        {(reminderEnabled || leadUpEnabled)
+                                            ? <NotificationsActive sx={{ fontSize: 14, color: 'var(--red)' }} />
+                                            : <NotificationsNone sx={{ fontSize: 14, color: 'rgba(237,237,237,0.3)' }} />
+                                        }
+                                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
+                                            Reminders
+                                        </span>
+                                        {reminderSaving && <CircularProgress size={10} sx={{ color: 'var(--red)', ml: 0.5 }} />}
+                                    </div>
+
+                                    {/* At start time */}
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            {reminderEnabled
-                                                ? <NotificationsActive sx={{ fontSize: 16, color: 'var(--red)' }} />
-                                                : <NotificationsNone sx={{ fontSize: 16, color: 'rgba(237,237,237,0.3)' }} />
-                                            }
-                                            <span style={{ fontSize: '0.78rem', color: reminderEnabled ? 'rgba(237,237,237,0.8)' : 'rgba(237,237,237,0.4)' }}>
-                                                {reminderLoading ? 'Loading…' : 'Remind me at start time'}
-                                            </span>
-                                            {reminderSaving && <CircularProgress size={10} sx={{ color: 'var(--red)', ml: 0.5 }} />}
-                                        </div>
+                                        <span style={{ fontSize: '0.78rem', color: reminderEnabled ? 'rgba(237,237,237,0.8)' : 'rgba(237,237,237,0.4)' }}>
+                                            {reminderLoading ? 'Loading…' : 'At start time'}
+                                        </span>
                                         <Switch
                                             checked={reminderEnabled}
                                             onChange={e => handleReminderToggle(e.target.checked)}
@@ -373,22 +411,22 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                                         />
                                     </div>
 
-                                    {/* Lead-up toggle — only visible when main is on */}
-                                    {reminderEnabled && (
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingLeft: 24 }}>
-                                            <span style={{ fontSize: '0.75rem', color: leadUpEnabled ? 'rgba(237,237,237,0.7)' : 'rgba(237,237,237,0.35)' }}>
-                                                Also remind me beforehand
-                                            </span>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                {leadUpEnabled && (
+                                    {/* Beforehand — always visible, independent */}
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginTop: 4 }}>
+                                        <span style={{ fontSize: '0.78rem', color: leadUpEnabled ? 'rgba(237,237,237,0.8)' : 'rgba(237,237,237,0.4)', paddingTop: 6 }}>
+                                            Beforehand
+                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            {leadUpEnabled && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
                                                     <TextField
                                                         select
                                                         size='small'
-                                                        value={leadUpMinutes}
-                                                        onChange={e => handleLeadUpMinutesChange(Number(e.target.value))}
+                                                        value={leadUpPreset}
+                                                        onChange={e => handleLeadUpPresetChange(e.target.value === 'custom' ? 'custom' : Number(e.target.value))}
                                                         disabled={reminderSaving}
                                                         sx={{
-                                                            minWidth: 140,
+                                                            minWidth: 150,
                                                             '& .MuiOutlinedInput-root': {
                                                                 borderRadius: 0,
                                                                 fontSize: '0.78rem',
@@ -398,27 +436,71 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                                                             },
                                                         }}
                                                     >
-                                                        <MenuItem value={15} sx={{ fontSize: '0.78rem' }}>15 min before</MenuItem>
-                                                        <MenuItem value={30} sx={{ fontSize: '0.78rem' }}>30 min before</MenuItem>
-                                                        <MenuItem value={60} sx={{ fontSize: '0.78rem' }}>1 hour before</MenuItem>
-                                                        <MenuItem value={120} sx={{ fontSize: '0.78rem' }}>2 hours before</MenuItem>
-                                                        <MenuItem value={360} sx={{ fontSize: '0.78rem' }}>6 hours before</MenuItem>
-                                                        <MenuItem value={1440} sx={{ fontSize: '0.78rem' }}>1 day before</MenuItem>
+                                                        <MenuItem value={15}       sx={{ fontSize: '0.78rem' }}>15 min before</MenuItem>
+                                                        <MenuItem value={30}       sx={{ fontSize: '0.78rem' }}>30 min before</MenuItem>
+                                                        <MenuItem value={60}       sx={{ fontSize: '0.78rem' }}>1 hour before</MenuItem>
+                                                        <MenuItem value={120}      sx={{ fontSize: '0.78rem' }}>2 hours before</MenuItem>
+                                                        <MenuItem value={360}      sx={{ fontSize: '0.78rem' }}>6 hours before</MenuItem>
+                                                        <MenuItem value={1440}     sx={{ fontSize: '0.78rem' }}>1 day before</MenuItem>
+                                                        <MenuItem value='custom'   sx={{ fontSize: '0.78rem' }}>Custom…</MenuItem>
                                                     </TextField>
-                                                )}
-                                                <Switch
-                                                    checked={leadUpEnabled}
-                                                    onChange={e => handleLeadUpToggle(e.target.checked)}
-                                                    disabled={reminderSaving}
-                                                    size='small'
-                                                    sx={{
-                                                        '& .MuiSwitch-switchBase.Mui-checked': { color: 'var(--red)' },
-                                                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: 'var(--red)' },
-                                                    }}
-                                                />
-                                            </div>
+
+                                                    {leadUpPreset === 'custom' && (
+                                                        <div style={{ display: 'flex', gap: 6 }}>
+                                                            <TextField
+                                                                size='small'
+                                                                type='number'
+                                                                value={customAmount}
+                                                                onChange={e => handleCustomChange(Math.max(1, Number(e.target.value)), customUnit)}
+                                                                inputProps={{ min: 1, style: { fontSize: '0.78rem', width: 56 } }}
+                                                                disabled={reminderSaving}
+                                                                sx={{
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        borderRadius: 0,
+                                                                        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
+                                                                        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
+                                                                        '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
+                                                                    },
+                                                                }}
+                                                            />
+                                                            <TextField
+                                                                select
+                                                                size='small'
+                                                                value={customUnit}
+                                                                onChange={e => handleCustomChange(customAmount, e.target.value as 'minutes' | 'hours' | 'days')}
+                                                                disabled={reminderSaving}
+                                                                sx={{
+                                                                    minWidth: 90,
+                                                                    '& .MuiOutlinedInput-root': {
+                                                                        borderRadius: 0,
+                                                                        fontSize: '0.78rem',
+                                                                        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
+                                                                        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
+                                                                        '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
+                                                                    },
+                                                                }}
+                                                            >
+                                                                <MenuItem value='minutes' sx={{ fontSize: '0.78rem' }}>min</MenuItem>
+                                                                <MenuItem value='hours'   sx={{ fontSize: '0.78rem' }}>hours</MenuItem>
+                                                                <MenuItem value='days'    sx={{ fontSize: '0.78rem' }}>days</MenuItem>
+                                                            </TextField>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <Switch
+                                                checked={leadUpEnabled}
+                                                onChange={e => handleLeadUpToggle(e.target.checked)}
+                                                disabled={reminderLoading || reminderSaving}
+                                                size='small'
+                                                sx={{
+                                                    '& .MuiSwitch-switchBase.Mui-checked': { color: 'var(--red)' },
+                                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: 'var(--red)' },
+                                                }}
+                                            />
                                         </div>
-                                    )}
+                                    </div>
+
                                 </div>
                             </>
                         )}
