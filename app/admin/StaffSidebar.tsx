@@ -413,12 +413,14 @@ export default function StaffSidebar({
                         { label: 'Applications',   tab: 1 },
                         { label: 'Mastersheet',    tab: 2 },
                         { label: 'Statistics',     tab: 3 },
+                        { label: 'Meetings',       tab: 4 },
                     ],
                 },
                 {
                     label: '[J2] Mission Making', href: '/admin/j2', visible: permissions.canSeeJ2, icon: <Map sx={{ fontSize: 14 }} />,
                     tabs: [
                         { label: 'Operations', tab: 0 },
+                        { label: 'Meetings',   tab: 1 },
                     ],
                 },
                 {
@@ -427,12 +429,15 @@ export default function StaffSidebar({
                         { label: 'Qual Tickets',   tab: 0 },
                         { label: 'Promo Tickets',  tab: 1 },
                         { label: 'Training Sched', tab: 2 },
+                        { label: 'Meetings',       tab: 3 },
                     ],
                 },
                 {
                     label: '[J4] Administration', href: '/admin/j4', visible: permissions.canSeeJ4, icon: <AdminPanelSettings sx={{ fontSize: 14 }} />,
                     tabs: [
-                        { label: 'Tools', tab: 0 },
+                        { label: 'Tools',      tab: 0 },
+                        { label: 'Snapshots',  tab: 1 },
+                        { label: 'Meetings',   tab: 2 },
                     ],
                 },
                 {
@@ -440,15 +445,22 @@ export default function StaffSidebar({
                     tabs: [
                         { label: 'Gallery',              tab: 0 },
                         { label: 'Screenshot of Month',  tab: 1 },
+                        { label: 'Meetings',             tab: 2 },
                     ],
                 },
                 {
                     label: '[J6] Game Masters', href: '/admin/j6', visible: permissions.canSeeJ6, icon: <SportsEsports sx={{ fontSize: 14 }} />,
                     tabs: [
                         { label: 'Zeus Notes', tab: 0 },
+                        { label: 'Meetings',   tab: 1 },
                     ],
                 },
-                { label: '[J7] Development',  href: '/admin/j7', visible: permissions.canSeeJ7, icon: <Code sx={{ fontSize: 14 }} /> },
+                {
+                    label: '[J7] Development', href: '/admin/j7', visible: permissions.canSeeJ7, icon: <Code sx={{ fontSize: 14 }} />,
+                    tabs: [
+                        { label: 'Meetings', tab: 0 },
+                    ],
+                },
             ],
         },
         {
