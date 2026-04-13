@@ -8,6 +8,7 @@ import {
     PersonAdd, Map, School, AdminPanelSettings, Collections,
     SportsEsports, Code, Badge, Groups, People,
     AccountTree, CalendarMonth, MenuBook, Policy, ConfirmationNumber,
+    Dashboard,
 } from '@mui/icons-material'
 import type { DashboardPermissions } from './StaffDashboardShell'
 import { useFavourites } from '@/hooks/useFavourites'
@@ -230,6 +231,60 @@ function NavRow({
                     </div>
                 </Collapse>
             )}
+        </div>
+    )
+}
+
+// ── Home button ───────────────────────────────────────────────────────────────
+
+function HomeButton({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+    const isActive = pathname === '/admin'
+    const [hovered, setHovered] = useState(false)
+
+    return (
+        <div style={{ padding: '6px 0 2px' }}>
+            <Link
+                href='/admin'
+                onClick={onNavigate}
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '7px 16px',
+                    fontSize: '0.72rem',
+                    fontWeight: isActive ? 700 : 400,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    textDecoration: 'none',
+                    color: isActive ? 'rgba(237,237,237,0.95)' : 'rgba(237,237,237,0.45)',
+                    borderLeft: isActive ? '2px solid var(--red)' : '2px solid transparent',
+                    background: isActive
+                        ? 'rgba(219,0,29,0.07)'
+                        : hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+                    transition: 'background 0.12s, color 0.12s',
+                }}
+            >
+                <span style={{
+                    fontSize: '0.55rem',
+                    color: isActive ? 'var(--red)' : 'transparent',
+                    flexShrink: 0,
+                    transition: 'color 0.12s',
+                    lineHeight: 1,
+                }}>▸</span>
+                <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    flexShrink: 0,
+                    color: isActive ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.22)',
+                    transition: 'color 0.12s',
+                    fontSize: 14,
+                }}>
+                    <Dashboard sx={{ fontSize: 14 }} />
+                </span>
+                Dashboard
+            </Link>
         </div>
     )
 }
@@ -465,6 +520,9 @@ export default function StaffSidebar({
                     </span>
                 </div>
             </div>
+
+            {/* ── Home button ─────────────────────────────────────────────── */}
+            <HomeButton pathname={pathname} onNavigate={onNavigate} />
 
             {/* ── Pinned section ──────────────────────────────────────────── */}
             <PinnedSection onNavigate={onNavigate} />
