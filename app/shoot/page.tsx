@@ -27,8 +27,8 @@ function sndShot(ctx: AudioContext) {
   src.connect(flt); flt.connect(g); g.connect(ctx.destination); src.start();
 }
 function sndHit(ctx: AudioContext) {
-  const t = ctx.currentTime;
-  // Short percussive tap — noise burst low-passed for a dull impact thud
+  // Delayed slightly so it lands after the gunshot sound
+  const t = ctx.currentTime + 0.08;
   const n = Math.floor(ctx.sampleRate * 0.045);
   const buf = ctx.createBuffer(1, n, ctx.sampleRate);
   const d = buf.getChannelData(0);
@@ -37,6 +37,17 @@ function sndHit(ctx: AudioContext) {
   const flt = ctx.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = 1800;
   const g = ctx.createGain(); g.gain.value = 0.75;
   src.connect(flt); flt.connect(g); g.connect(ctx.destination); src.start(t);
+}
+function sndKill(ctx: AudioContext) {
+  // Happy ascending chime — major triad arpeggio
+  const t = ctx.currentTime;
+  [523, 659, 784, 1047].forEach((freq, i) => {
+    const osc = ctx.createOscillator(); const g = ctx.createGain();
+    osc.type = 'triangle'; osc.frequency.value = freq;
+    const at = t + i * 0.07;
+    g.gain.setValueAtTime(0.22, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.18);
+    osc.connect(g); g.connect(ctx.destination); osc.start(at); osc.stop(at + 0.2);
+  });
 }
 function sndDamage(ctx: AudioContext) {
   const t = ctx.currentTime;
@@ -594,6 +605,7 @@ export default function DungeonShooter() {
             killsRef.current++; setKills(k => k + 1);
             scoreRef.current += 100; setScore(s => s + 100);
             showFeedback('+100 KILL', '#00ffcc');
+            const killCtx = getCtx(audioRef); if (killCtx) sndKill(killCtx);
           } else {
             showFeedback('HIT', '#ffee00');
           }
@@ -630,6 +642,7 @@ export default function DungeonShooter() {
     let velY = 0;
     let lastDmg = 0;
     let lastWarnTime = 0;
+    let lastProxBeep = 0;
     const visited = new Set<string>(['0,0']);
     const SPEED = 5; // units per second
 
@@ -779,7 +792,7 @@ export default function DungeonShooter() {
         cl.bulbMat.emissiveColor = new Color3(cl.color.r * n, cl.color.g * n, cl.color.b * n);
       }
 
-      // ── Proximity audio — scale gain by nearest living enemy ────────────
+      // ── Proximity beep — interval shrinks as nearest enemy closes in ────────
       let minDist = Infinity;
       for (const enemy of allEnemies) {
         if (!enemy.alive) continue;
@@ -787,10 +800,22 @@ export default function DungeonShooter() {
         if (d < minDist) minDist = d;
       }
       const HEAR_RANGE = 18;
-      const targetVol = minDist < HEAR_RANGE
-        ? Math.pow(1 - minDist / HEAR_RANGE, 3) * 1.4
-        : 0;
-      proxGain.gain.setTargetAtTime(targetVol, proxCtx.currentTime, 0.08);
+      if (minDist < HEAR_RANGE) {
+        const intensity = 1 - minDist / HEAR_RANGE;           // 0 = far, 1 = right on top
+        const interval  = 100 + 2400 * (1 - intensity * intensity); // 2500ms → 100ms
+        if (now - lastProxBeep > interval) {
+          lastProxBeep = now;
+          const osc = proxCtx.createOscillator();
+          const g   = proxCtx.createGain();
+          osc.type            = 'sine';
+          osc.frequency.value = 300 + intensity * 900; // 300 Hz far → 1200 Hz close
+          g.gain.setValueAtTime(0.25 + intensity * 0.25, proxCtx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001, proxCtx.currentTime + 0.07);
+          osc.connect(g); g.connect(proxCtx.destination);
+          osc.start(proxCtx.currentTime);
+          osc.stop(proxCtx.currentTime + 0.08);
+        }
+      }
 
       // Warning beep when an enemy is right on top of the player
       const WARN_DIST = 2.5;
@@ -899,7 +924,6 @@ export default function DungeonShooter() {
       document.removeEventListener('pointerlockchange', onPLChange);
       window.removeEventListener('resize', onResize);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
-      noiseSrc.stop();
       proxCtx.close();
       scene.dispose();
       engine.dispose();
