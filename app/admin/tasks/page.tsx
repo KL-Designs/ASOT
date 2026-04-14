@@ -11,7 +11,7 @@ export default async function Page() {
     if (!me) redirect('/login')
     if (!client.hasRoles(me, PERMISSIONS.pages.admin)) redirect('/me')
 
-    const isElevated = client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+    const isElevated = client.hasRoles(me, PERMISSIONS.admin.j4)
 
     return (
         <TasksPage

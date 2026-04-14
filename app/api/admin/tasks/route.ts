@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
         filter = { assignedBy: me.id }
     } else if (view === 'all') {
         // All-tasks view requires elevated permissions
-        if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbat)) {
+        if (!client.hasRoles(me, PERMISSIONS.admin.j4)) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
         filter = {}
