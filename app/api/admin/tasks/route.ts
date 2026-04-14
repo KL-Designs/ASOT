@@ -4,10 +4,9 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { createNotification, createNotificationForRole } from '@/lib/notifications'
 
-// GET /api/admin/tasks — list tasks relevant to the current user
-// ?view=mine     → tasks assigned to me (default)
-// ?view=created  → tasks I created
-// ?view=all      → all tasks (admin only — any admin role)
+// GET /api/admin/tasks
+// ?view=mine|created|all  (default: mine)
+// ?includeCompleted=true  (default: false — excludes completed tasks)
 export async function GET(req: NextRequest) {
     let me: User
     try {
@@ -21,37 +20,50 @@ export async function GET(req: NextRequest) {
     }
 
     const view = req.nextUrl.searchParams.get('view') ?? 'mine'
-    const myRoles: string[] = me.guild?.roles ?? []
+    const includeCompleted = req.nextUrl.searchParams.get('includeCompleted') === 'true'
+
+    // Resolve role IDs → role names for assignedRole matching
+    const myRoleNames = client.roles
+        .filter(r => (me.guild?.roles ?? []).includes(r.id))
+        .map(r => r.name)
 
     let filter: Record<string, unknown>
 
     if (view === 'created') {
         filter = { assignedBy: me.id }
     } else if (view === 'all') {
+        // All-tasks view requires elevated permissions
+        if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbat)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
         filter = {}
     } else {
-        // 'mine' — tasks assigned directly to me OR to a role I hold
+        // 'mine' — assigned directly to me OR to a role I hold
         filter = {
             $or: [
                 { assignedTo: me.id },
-                ...(myRoles.length > 0 ? [{ assignedRole: { $in: myRoles } }] : []),
+                ...(myRoleNames.length > 0 ? [{ assignedRole: { $in: myRoleNames } }] : []),
             ],
         }
     }
 
+    if (!includeCompleted) {
+        filter = { ...filter, completedAt: { $exists: false } }
+    }
+
     const raw = await Db.tasks
-        .find({ ...filter, completedAt: { $exists: false } })
-        .sort({ createdAt: -1 })
+        .find(filter)
+        .sort({ completedAt: 1, createdAt: -1 })
         .toArray()
 
     const tasks = raw.map(t => ({
         ...t,
         _id: t._id!.toString(),
-        createdAt: t.createdAt.toISOString(),
-        dueDate: t.dueDate?.toISOString() ?? null,
-        originalDueDate: t.originalDueDate?.toISOString() ?? null,
-        extendedAt: t.extendedAt?.toISOString() ?? null,
-        completedAt: t.completedAt?.toISOString() ?? null,
+        createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
+        dueDate: t.dueDate instanceof Date ? t.dueDate.toISOString() : (t.dueDate ?? null),
+        originalDueDate: t.originalDueDate instanceof Date ? t.originalDueDate.toISOString() : (t.originalDueDate ?? null),
+        extendedAt: t.extendedAt instanceof Date ? t.extendedAt.toISOString() : (t.extendedAt ?? null),
+        completedAt: t.completedAt instanceof Date ? t.completedAt.toISOString() : (t.completedAt ?? null),
     }))
 
     return NextResponse.json({ tasks })
@@ -71,7 +83,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { title, description, assignedTo, assignedToName, assignedRole, dueDate, department } = body
+    const { title, description, assignedTo, assignedToName, assignedRole, dueDate, department, type, actionUrl, relatedId } = body
 
     if (!title?.trim()) {
         return NextResponse.json({ error: 'Title is required' }, { status: 400 })
@@ -91,6 +103,9 @@ export async function POST(req: NextRequest) {
         assignedByName: assignerName,
         ...(dueDate ? { dueDate: new Date(dueDate) } : {}),
         ...(department ? { department } : {}),
+        ...(type ? { type } : {}),
+        ...(actionUrl ? { actionUrl } : {}),
+        ...(relatedId ? { relatedId } : {}),
         status: 'pending',
         createdAt: new Date(),
     }
@@ -105,7 +120,7 @@ export async function POST(req: NextRequest) {
             type: 'task_assigned',
             title: 'New task assigned to you',
             body: title.trim(),
-            actionUrl: '/admin/tasks',
+            actionUrl: actionUrl ?? '/admin/tasks',
             relatedId: taskId,
         })
     } else if (assignedRole) {
@@ -113,7 +128,7 @@ export async function POST(req: NextRequest) {
             type: 'task_assigned',
             title: `New task assigned to ${assignedRole}`,
             body: title.trim(),
-            actionUrl: '/admin/tasks',
+            actionUrl: actionUrl ?? '/admin/tasks',
             relatedId: taskId,
         })
     }

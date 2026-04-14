@@ -53,6 +53,9 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
     const [linkedMember, setLinkedMember] = useState<DiscordMember | null>(
         app.linkedUserId ? (members.find(m => m.id === app.linkedUserId) ?? null) : null
     )
+    const [reviewer, setReviewer] = useState<DiscordMember | null>(
+        app.assignedReviewerId ? (members.find(m => m.id === app.assignedReviewerId) ?? null) : null
+    )
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
 
@@ -60,7 +63,10 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
         if (app.linkedUserId && members.length > 0) {
             setLinkedMember(members.find(m => m.id === app.linkedUserId) ?? null)
         }
-    }, [members, app.linkedUserId])
+        if (app.assignedReviewerId && members.length > 0) {
+            setReviewer(members.find(m => m.id === app.assignedReviewerId) ?? null)
+        }
+    }, [members, app.linkedUserId, app.assignedReviewerId])
 
     async function handleSave() {
         setSaving(true)
@@ -74,6 +80,8 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
                     notes,
                     linkedUserId: linkedMember?.id ?? null,
                     linkedUserDisplayName: linkedMember?.displayName ?? null,
+                    assignedReviewerId: reviewer?.id ?? null,
+                    assignedReviewerName: reviewer?.displayName ?? null,
                 }),
             })
             onUpdate(app._id, {
@@ -81,6 +89,8 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
                 notes,
                 linkedUserId: linkedMember?.id,
                 linkedUserDisplayName: linkedMember?.displayName,
+                assignedReviewerId: reviewer?.id,
+                assignedReviewerName: reviewer?.displayName,
             })
             setSaved(true)
             setTimeout(() => setSaved(false), 2000)
@@ -310,6 +320,49 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
                                 )}
                             </div>
 
+                            {/* Assign reviewer */}
+                            <div>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 8 }}>
+                                    Assign Reviewer
+                                </div>
+                                <div className='flex items-center gap-2'>
+                                    <Autocomplete
+                                        size='small'
+                                        options={members}
+                                        value={reviewer}
+                                        onChange={(_, val) => setReviewer(val)}
+                                        getOptionLabel={m => m.displayName + (m.inGameName ? ` (${m.inGameName})` : '')}
+                                        getOptionKey={m => m.id}
+                                        isOptionEqualToValue={(a, b) => a.id === b.id}
+                                        renderInput={params => (
+                                            <TextField {...params} label='Reviewer (J1 member)' placeholder='Search by display name...' sx={inputSx} />
+                                        )}
+                                        noOptionsText={<span style={{ fontSize: '0.8rem' }}>No members found</span>}
+                                        sx={{ flex: 1, maxWidth: 380 }}
+                                        ListboxProps={{ style: { fontSize: '0.82rem' } }}
+                                    />
+                                    {reviewer && (
+                                        <button
+                                            onClick={() => setReviewer(null)}
+                                            title='Remove reviewer'
+                                            style={{ background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
+                                        >
+                                            <LinkOff style={{ fontSize: 16 }} />
+                                        </button>
+                                    )}
+                                </div>
+                                {reviewer && reviewer.id !== app.assignedReviewerId && (
+                                    <div style={{ fontSize: '0.72rem', color: '#f59e0b', marginTop: 6 }}>
+                                        ● Will assign <strong>{reviewer.displayName}</strong> — they'll receive a task notification
+                                    </div>
+                                )}
+                                {reviewer && reviewer.id === app.assignedReviewerId && (
+                                    <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', marginTop: 6 }}>
+                                        Currently assigned to <strong>{reviewer.displayName}</strong>
+                                    </div>
+                                )}
+                            </div>
+
                             <div className='flex items-center gap-3 mt-1'>
                                 <Button
                                     variant='contained'
@@ -495,13 +548,14 @@ export default function ApplicationsTab() {
             </div>
 
             {/* Column headers */}
-            <div className='grid gap-3 px-4 py-2 mx-4 mt-3' style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr', borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+            <div className='grid gap-3 px-4 py-2 mx-4 mt-3' style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr 100px', borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                 {([
                     { label: 'Discord', key: 'discordUsername' },
                     { label: 'In-Game Name', key: 'inGameName' },
                     { label: 'Age', key: null },
                     { label: 'Status', key: 'status' },
                     { label: 'Submitted', key: 'submittedAt' },
+                    { label: 'Reviewer', key: null },
                 ] as { label: string; key: SortKey | null }[]).map(({ label, key }) => (
                     <button
                         key={label}
@@ -539,7 +593,7 @@ export default function ApplicationsTab() {
                         <div
                             key={app._id}
                             className='grid gap-3 px-4 py-3 cursor-pointer transition-colors'
-                            style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr', borderBottom: '1px solid rgba(219,0,29,0.08)' }}
+                            style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr 100px', borderBottom: '1px solid rgba(219,0,29,0.08)' }}
                             onClick={() => setSelected(app)}
                             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -570,6 +624,9 @@ export default function ApplicationsTab() {
                                     <LinkIcon style={{ fontSize: 14, color: '#00c364' }} titleAccess={`Linked: ${app.linkedUserDisplayName}`} />
                                 )}
                             </div>
+                            <span style={{ fontSize: '0.7rem', color: app.assignedReviewerName ? 'rgba(245,158,11,0.8)' : 'rgba(237,237,237,0.2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {app.assignedReviewerName ?? '—'}
+                            </span>
                         </div>
                     ))}
 

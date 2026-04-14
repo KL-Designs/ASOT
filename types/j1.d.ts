@@ -32,4 +32,6 @@ interface J1Application {
     additionalRoles?: string[]
     departmentInterest?: string[]
     ownsArma?: boolean
+    assignedReviewerId?: string
+    assignedReviewerName?: string
 }

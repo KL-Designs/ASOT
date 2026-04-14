@@ -6,10 +6,11 @@ import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
 
 // PATCH /api/admin/tasks/[id]
-// Body actions:
+// Actions:
 //   { action: 'complete', notes?: string }
 //   { action: 'extend', dueDate: string }
 //   { action: 'start' }
+//   { action: 'reopen' }
 export async function PATCH(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -40,8 +41,7 @@ export async function PATCH(
             { $set: { status: 'completed', completedAt: new Date(), ...(body.notes ? { notes: body.notes } : {}) } }
         )
 
-        // Notify the original assigner that the task is done
-        if (task.assignedBy && task.assignedBy !== me.id) {
+        if (task.assignedBy && task.assignedBy !== me.id && task.assignedBy !== 'system') {
             await createNotification({
                 userId: task.assignedBy,
                 type: 'task_completed',
@@ -73,8 +73,7 @@ export async function PATCH(
             }
         )
 
-        // Notify the original assigner of the extension
-        if (task.assignedBy && task.assignedBy !== me.id) {
+        if (task.assignedBy && task.assignedBy !== me.id && task.assignedBy !== 'system') {
             await createNotification({
                 userId: task.assignedBy,
                 type: 'task_extended',
@@ -96,10 +95,18 @@ export async function PATCH(
         return NextResponse.json({ ok: true })
     }
 
+    if (action === 'reopen') {
+        await Db.tasks.updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { status: 'pending' }, $unset: { completedAt: '', notes: '' } }
+        )
+        return NextResponse.json({ ok: true })
+    }
+
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }
 
-// DELETE /api/admin/tasks/[id] — hard delete (creator or any admin can delete)
+// DELETE /api/admin/tasks/[id] — hard delete (creator, J4-Administration, or HQ Staff)
 export async function DELETE(
     _req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -117,6 +124,14 @@ export async function DELETE(
 
     const { id } = await params
     if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 })
+
+    const task = await Db.tasks.findOne({ _id: new ObjectId(id) })
+    if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    const isElevated = client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+    if (task.assignedBy !== me.id && !isElevated) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     await Db.tasks.deleteOne({ _id: new ObjectId(id) })
     return NextResponse.json({ ok: true })

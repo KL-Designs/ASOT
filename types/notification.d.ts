@@ -19,6 +19,8 @@ type NotificationType =
     | 'meeting_task_assigned'
     | 'system'
 
+type TaskType = 'manual' | 'attendance' | 'application_review'
+
 interface Task {
     _id?: import('mongodb').ObjectId
     title: string
@@ -36,6 +38,9 @@ interface Task {
     status: TaskStatus
     department?: string         // Optional department tag (j1, j2, etc.)
     notes?: string              // Follow-up notes on completion
+    type?: TaskType             // Task category; 'manual' if unset
+    actionUrl?: string          // Deep link for task completion context
+    relatedId?: string          // ID of related entity (operationId, applicationId, etc.)
 }
 
 type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'overdue'

@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Typography } from '@mui/material'
+import { CheckCircleOutline } from '@mui/icons-material'
 import {
     DndContext, closestCenter, PointerSensor, useSensor, useSensors,
     type DragEndEvent,
@@ -211,6 +213,192 @@ function EmptyFavourites() {
     )
 }
 
+// ── Tasks widget ───────────────────────────────────────────────────────────────
+
+type TaskItem = {
+    _id: string
+    title: string
+    description?: string
+    type?: string
+    dueDate?: string | null
+    status: string
+    assignedByName: string
+    actionUrl?: string
+}
+
+function TaskTypeBadge({ type }: { type?: string }) {
+    const map: Record<string, { label: string; color: string }> = {
+        attendance:         { label: 'ATT', color: '#f97316' },
+        application_review: { label: 'APP', color: '#3b82f6' },
+        manual:             { label: 'TSK', color: 'rgba(237,237,237,0.3)' },
+    }
+    const entry = map[type ?? 'manual'] ?? map.manual
+    return (
+        <span style={{
+            fontSize: '0.48rem',
+            fontWeight: 700,
+            letterSpacing: '0.1em',
+            padding: '2px 5px',
+            border: `1px solid ${entry.color}`,
+            color: entry.color,
+            borderRadius: 3,
+            fontFamily: 'monospace',
+            flexShrink: 0,
+        }}>
+            {entry.label}
+        </span>
+    )
+}
+
+function TasksWidget() {
+    const router = useRouter()
+    const [tasks, setTasks] = useState<TaskItem[]>([])
+    const [loading, setLoading] = useState(true)
+    const [completing, setCompleting] = useState<string | null>(null)
+
+    const load = useCallback(() => {
+        setLoading(true)
+        fetch('/api/admin/tasks?view=mine')
+            .then(r => r.json())
+            .then(d => { setTasks(d.tasks ?? []); setLoading(false) })
+            .catch(() => setLoading(false))
+    }, [])
+
+    useEffect(() => { load() }, [load])
+
+    async function handleComplete(taskId: string, e: React.MouseEvent) {
+        e.stopPropagation()
+        setCompleting(taskId)
+        await fetch(`/api/admin/tasks/${taskId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'complete' }),
+        })
+        setTasks(prev => prev.filter(t => t._id !== taskId))
+        setCompleting(null)
+    }
+
+    const preview = tasks.slice(0, 5)
+    const overflow = tasks.length - preview.length
+
+    return (
+        <div>
+            <SectionLabel label='My Tasks' />
+            <div style={{
+                border: '1px solid rgba(219,0,29,0.42)',
+                borderTop: '2px solid var(--red)',
+                background: 'rgba(255,255,255,0.03)',
+                position: 'relative',
+            }}>
+                <CornerBrackets />
+
+                {loading ? (
+                    <div style={{ padding: '20px 20px', fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>
+                        Loading…
+                    </div>
+                ) : tasks.length === 0 ? (
+                    <div style={{ padding: '24px 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <CheckCircleOutline sx={{ fontSize: '1rem', color: 'rgba(34,197,94,0.5)' }} />
+                        <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', letterSpacing: '0.05em' }}>
+                            No pending tasks
+                        </span>
+                    </div>
+                ) : (
+                    <>
+                        {preview.map((task, i) => {
+                            const isOverdue = task.dueDate && new Date(task.dueDate) < new Date()
+                            const isCompleting = completing === task._id
+                            return (
+                                <div
+                                    key={task._id}
+                                    onClick={() => task.actionUrl ? router.push(task.actionUrl as never) : router.push('/admin/tasks')}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 10,
+                                        padding: '9px 14px',
+                                        borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                                        cursor: 'pointer',
+                                        transition: 'background 0.12s',
+                                    }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                                >
+                                    <TaskTypeBadge type={task.type} />
+
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{
+                                            fontSize: '0.72rem',
+                                            fontWeight: 600,
+                                            color: 'rgba(237,237,237,0.85)',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            lineHeight: 1.3,
+                                        }}>
+                                            {task.title}
+                                        </div>
+                                        <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.3)', marginTop: 1 }}>
+                                            {task.assignedByName === 'System' ? 'Auto-assigned' : `From: ${task.assignedByName}`}
+                                            {task.dueDate && (
+                                                <span style={{ marginLeft: 8, color: isOverdue ? 'rgba(219,0,29,0.8)' : 'rgba(237,237,237,0.3)' }}>
+                                                    Due {new Date(task.dueDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
+                                                    {isOverdue && ' — overdue'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={e => handleComplete(task._id, e)}
+                                        disabled={isCompleting}
+                                        title='Mark complete'
+                                        style={{
+                                            background: 'none',
+                                            border: '1px solid rgba(34,197,94,0.3)',
+                                            borderRadius: 4,
+                                            padding: '3px 7px',
+                                            cursor: isCompleting ? 'default' : 'pointer',
+                                            color: isCompleting ? 'rgba(34,197,94,0.3)' : 'rgba(34,197,94,0.7)',
+                                            fontSize: '0.6rem',
+                                            fontWeight: 700,
+                                            letterSpacing: '0.08em',
+                                            flexShrink: 0,
+                                            transition: 'all 0.12s',
+                                        }}
+                                        onMouseEnter={e => { if (!isCompleting) e.currentTarget.style.background = 'rgba(34,197,94,0.12)' }}
+                                        onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
+                                    >
+                                        {isCompleting ? '…' : '✓'}
+                                    </button>
+                                </div>
+                            )
+                        })}
+
+                        <div style={{
+                            borderTop: '1px solid rgba(219,0,29,0.18)',
+                            padding: '7px 14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                        }}>
+                            <span style={{ fontSize: '0.57rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>
+                                {tasks.length} pending task{tasks.length !== 1 ? 's' : ''}{overflow > 0 ? ` — ${overflow} more` : ''}
+                            </span>
+                            <Link
+                                href='/admin/tasks'
+                                style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(219,0,29,0.7)', textDecoration: 'none', textTransform: 'uppercase' }}
+                            >
+                                View all →
+                            </Link>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    )
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function DashboardOverview({
@@ -314,6 +502,9 @@ export default function DashboardOverview({
                     </DndContext>
                 )}
             </div>
+
+            {/* ── Tasks ──────────────────────────────────────────────────────── */}
+            <TasksWidget />
 
         </div>
     )
