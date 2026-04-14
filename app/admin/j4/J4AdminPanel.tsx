@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, Tabs, Tab } from '@mui/material'
-import { PeopleAlt, CalendarMonth } from '@mui/icons-material'
+import { PeopleAlt, CalendarMonth, Assignment } from '@mui/icons-material'
 import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
 import ImportPanel from '../ImportPanel'
 import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
@@ -12,6 +12,7 @@ import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 import { useTabState } from '@/app/admin/_components/useTabState'
 import MeetingsTab from '@/app/admin/_components/meetings/MeetingsTab'
 import SnapshotsTab from './SnapshotsTab'
+import LogsTab from './tabs/LogsTab'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -450,11 +451,19 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
                         </button>
+                        <button style={{ ...btnSx(view === 'logs'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'logs' ? 'dept' : 'logs')}>
+                            <Assignment sx={{ fontSize: '0.85rem' }} />Logs
+                        </button>
                     </div>
             </div>
 
             {view === 'members'   && <DeptMembersTab department='j4' displayName={displayName} userId={userId} canManage={true} />}
             {view === 'calendar'  && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
+            {view === 'logs'      && (
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '16px 0 0' }}>
+                    <LogsTab />
+                </div>
+            )}
             {view === 'dept' && (
                 <>
                     {/* Tabs */}

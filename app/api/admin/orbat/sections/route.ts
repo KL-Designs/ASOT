@@ -4,12 +4,14 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { SINGLE_SECTION_CATEGORIES } from '@/lib/orbat-constants'
+import { logAction } from '@/lib/logs'
 
 
 async function auth(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
-    if (!me) return false
-    return client.hasRoles(me, PERMISSIONS.admin.manageOrbatStructure)
+    if (!me) return null
+    if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbatStructure)) return null
+    return me
 }
 
 
@@ -18,7 +20,8 @@ async function auth(request: NextRequest) {
 // Creates the first position (placeholder) in a new section.
 
 export async function POST(request: NextRequest) {
-    if (!await auth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const me = await auth(request)
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { category, sectionTitle } = await request.json()
     if (!category || !sectionTitle?.trim()) {
@@ -48,6 +51,16 @@ export async function POST(request: NextRequest) {
     }
     await Db.orbatPositions.insertOne(newPosition)
 
+    const performedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+    logAction({
+        action: 'orbat.create_section',
+        category: 'orbat',
+        performedBy: me.id,
+        performedByName,
+        target: `Created section "${sectionTitle.trim()}" in ${category}`,
+        details: { category, sectionTitle: sectionTitle.trim() },
+    })
+
     return NextResponse.json({ position: JSON.parse(JSON.stringify(newPosition)) })
 }
 
@@ -57,10 +70,12 @@ export async function POST(request: NextRequest) {
 // Body (reorder): { category, sectionTitle, direction: 'up' | 'down' }
 
 export async function PATCH(request: NextRequest) {
-    if (!await auth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const me = await auth(request)
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()
     const { category } = body
+    const performedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
 
     if (body.direction) {
         // Reorder section
@@ -91,6 +106,15 @@ export async function PATCH(request: NextRequest) {
                 { $set: { sectionOrder: curr.sectionOrder } }
             ),
         ])
+
+        logAction({
+            action: 'orbat.reorder_section',
+            category: 'orbat',
+            performedBy: me.id,
+            performedByName,
+            target: `Moved "${sectionTitle}" ${direction} in ${category}`,
+            details: { category, sectionTitle, direction },
+        })
     } else {
         // Rename section
         const { oldTitle, newTitle } = body
@@ -99,6 +123,15 @@ export async function PATCH(request: NextRequest) {
             { category, sectionTitle: oldTitle },
             { $set: { sectionTitle: newTitle.trim() } }
         )
+
+        logAction({
+            action: 'orbat.rename_section',
+            category: 'orbat',
+            performedBy: me.id,
+            performedByName,
+            target: `Renamed section "${oldTitle}" → "${newTitle.trim()}" in ${category}`,
+            details: { category, oldTitle, newTitle: newTitle.trim() },
+        })
     }
 
     return NextResponse.json({ success: true })
@@ -110,9 +143,21 @@ export async function PATCH(request: NextRequest) {
 // Deletes all positions in the section.
 
 export async function DELETE(request: NextRequest) {
-    if (!await auth(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const me = await auth(request)
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { category, sectionTitle } = await request.json()
     await Db.orbatPositions.deleteMany({ category, sectionTitle })
+
+    const performedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+    logAction({
+        action: 'orbat.delete_section',
+        category: 'orbat',
+        performedBy: me.id,
+        performedByName,
+        target: `Deleted section "${sectionTitle}" from ${category}`,
+        details: { category, sectionTitle },
+    })
+
     return NextResponse.json({ success: true })
 }

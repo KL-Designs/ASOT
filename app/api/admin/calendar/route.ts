@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { logAction } from '@/lib/logs'
 
 const VALID_DEPARTMENTS = ['j1', 'j2', 'j3', 'j4', 'j6', 'j7', 'unit']
 
@@ -117,5 +118,15 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await Db.calendarEvents.insertOne(event as CalendarEvent)
+
+    logAction({
+        action: 'calendar.create',
+        category: 'calendar',
+        performedBy: me.id,
+        performedByName: displayName,
+        target: `Created event "${title.trim()}" in ${department.toUpperCase()}`,
+        details: { eventId: result.insertedId.toString(), department, start, end },
+    })
+
     return NextResponse.json({ ok: true, id: result.insertedId.toString() })
 }

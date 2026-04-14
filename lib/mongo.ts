@@ -31,6 +31,8 @@ const DbInterface = {
     tasks: client.db(process.env.MONGO_DB!).collection('tasks') as MongoCollection<Task>,
     calendarReminders: client.db(process.env.MONGO_DB!).collection('calendar_reminders') as MongoCollection<CalendarReminder>,
     meetings: client.db(process.env.MONGO_DB!).collection('meetings') as MongoCollection<Meeting>,
+    actionLogs: client.db(process.env.MONGO_DB!).collection('action_logs') as MongoCollection<ActionLog>,
+    errorLogs: client.db(process.env.MONGO_DB!).collection('error_logs') as MongoCollection<ErrorLog>,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,

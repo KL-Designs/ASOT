@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { logAction } from '@/lib/logs'
 
 // DELETE /api/admin/calendar/[id] — delete an event (creator or J4 admin)
 export async function DELETE(
@@ -40,5 +41,16 @@ export async function DELETE(
     }
 
     await Db.calendarEvents.deleteOne({ _id: oid })
+
+    const displayName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+    logAction({
+        action: 'calendar.delete',
+        category: 'calendar',
+        performedBy: me.id,
+        performedByName: displayName,
+        target: `Deleted event "${event.title}" from ${event.department.toUpperCase()}`,
+        details: { eventId: id, department: event.department, title: event.title },
+    })
+
     return NextResponse.json({ ok: true })
 }

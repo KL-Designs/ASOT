@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { logAction } from '@/lib/logs'
 
 // GET /api/admin/members/discharged — list discharged members (J4 only)
 export async function GET() {
@@ -53,6 +54,17 @@ export async function PATCH(req: NextRequest) {
     if (!user.discharged) return NextResponse.json({ error: 'Member is not discharged' }, { status: 400 })
 
     await Db.users.updateOne({ id: targetUserId }, { $unset: { discharged: '' } })
+
+    const performedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+    const targetName = user.guild?.nickname || user.guild?.displayName || user.globalName || user.username || targetUserId
+    logAction({
+        action: 'member.reinstate',
+        category: 'member',
+        performedBy: me.id,
+        performedByName,
+        target: `Reinstated ${targetName}`,
+        details: { targetUserId, dischargeType: user.discharged.type },
+    })
 
     return NextResponse.json({ ok: true })
 }

@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
+import { logAction } from '@/lib/logs'
 
 
 async function authStructure() {
@@ -29,9 +30,6 @@ function parseId(positionId: string): ObjectId | null {
 // Body: { userId: string | null, skipAutoMove?: boolean }  — assign/unassign user
 //       { role: string }                                   — rename role
 //       { positionOrder: number }                          — reorder within section
-//
-// When userId is set to null on a platoon position (and skipAutoMove is not true),
-// the evicted user is automatically placed into activeReservist.
 
 export async function PATCH(
     request: NextRequest,
@@ -48,9 +46,12 @@ export async function PATCH(
 
     // User assignment
     if ('userId' in body) {
-        if (!await authMembers()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const me = await authMembers()
+        if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
         const { userId, skipAutoMove } = body
         const isUnassign = !userId
+        const performedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
 
         if (!isUnassign) {
             // Conflict check — prevent dual assignment
@@ -83,6 +84,34 @@ export async function PATCH(
 
         await Db.orbatPositions.updateOne({ _id: objectId }, { $set: { userId: userId ?? null } })
         if (reservistPosition) await Db.orbatPositions.insertOne(reservistPosition)
+
+        // Resolve display name of the member being assigned/unassigned
+        const targetUserId = isUnassign ? position.userId : userId
+        const targetUser = targetUserId ? await Db.users.findOne({ $or: [{ id: targetUserId }, { _id: targetUserId }] }) : null
+        const targetName = targetUser
+            ? (targetUser.guild?.nickname || targetUser.guild?.displayName || targetUser.globalName || targetUser.username || targetUserId)
+            : targetUserId
+
+        if (isUnassign) {
+            logAction({
+                action: 'orbat.unassign',
+                category: 'orbat',
+                performedBy: me.id,
+                performedByName,
+                target: `${targetName} removed from ${position.sectionTitle} (${position.role})`,
+                details: { positionId, category: position.category, sectionTitle: position.sectionTitle, role: position.role },
+            })
+        } else {
+            logAction({
+                action: 'orbat.assign',
+                category: 'orbat',
+                performedBy: me.id,
+                performedByName,
+                target: `${targetName} assigned to ${position.sectionTitle} (${position.role})`,
+                details: { positionId, category: position.category, sectionTitle: position.sectionTitle, role: position.role },
+            })
+        }
+
         return NextResponse.json({
             success: true,
             reservistPosition: reservistPosition ? JSON.parse(JSON.stringify(reservistPosition)) : null,
@@ -90,13 +119,28 @@ export async function PATCH(
     }
 
     // Field updates (role rename, reorder) — structure permission required
-    if (!await authStructure()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const me = await authStructure()
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const performedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
     const updates: Partial<OrbatPosition> = {}
     if (typeof body.role === 'string') updates.role = body.role
     if (typeof body.positionOrder === 'number') updates.positionOrder = body.positionOrder
     if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
 
     await Db.orbatPositions.updateOne({ _id: objectId }, { $set: updates })
+
+    if (typeof body.role === 'string') {
+        logAction({
+            action: 'orbat.rename_role',
+            category: 'orbat',
+            performedBy: me.id,
+            performedByName,
+            target: `${position.sectionTitle}: "${position.role}" → "${body.role}"`,
+            details: { positionId, category: position.category, sectionTitle: position.sectionTitle, oldRole: position.role, newRole: body.role },
+        })
+    }
+
     return NextResponse.json({ success: true })
 }
 
@@ -107,12 +151,27 @@ export async function DELETE(
     _request: NextRequest,
     { params }: { params: Promise<{ positionId: string }> }
 ) {
-    if (!await authStructure()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const me = await authStructure()
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { positionId } = await params
     const objectId = parseId(positionId)
     if (!objectId) return NextResponse.json({ error: 'Invalid positionId' }, { status: 400 })
 
+    const position = await Db.orbatPositions.findOne({ _id: objectId })
     await Db.orbatPositions.deleteOne({ _id: objectId })
+
+    if (position) {
+        const performedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+        logAction({
+            action: 'orbat.delete_position',
+            category: 'orbat',
+            performedBy: me.id,
+            performedByName,
+            target: `Deleted position "${position.role}" in ${position.sectionTitle}`,
+            details: { positionId, category: position.category, sectionTitle: position.sectionTitle, role: position.role },
+        })
+    }
+
     return NextResponse.json({ success: true })
 }
