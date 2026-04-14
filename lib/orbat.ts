@@ -126,6 +126,52 @@ export async function getOrbatEntryByUserId(userId: string): Promise<OrbatEntry 
 }
 
 
+/**
+ * Returns the first occupied position (lowest positionOrder) from each section
+ * within the given categories — i.e. the section leader per section.
+ *
+ * "First occupied" means the first slot that has a userId assigned, which is
+ * more robust than relying on the `isSenior` flag (which is only set during
+ * mass-import and not maintained by the ORBAT editor).
+ *
+ * Pass an optional `rolePattern` (string or RegExp) to narrow by role name.
+ * e.g. getSectionLeaders(['platoon11','platoon12'])           → squad leaders
+ *      getSectionLeaders(['platoon11'], /medic/i)             → section medics
+ */
+export async function getSectionLeaders(
+	categories: string[],
+	rolePattern?: string | RegExp,
+): Promise<OrbatPosition[]> {
+	if (!categories.length) return []
+
+	const positions = await Db.orbatPositions
+		.find({ category: { $in: categories }, userId: { $ne: null } } as Parameters<typeof Db.orbatPositions.find>[0])
+		.sort({ sectionOrder: 1, positionOrder: 1 })
+		.toArray()
+
+	const pattern = rolePattern
+		? (typeof rolePattern === 'string' ? new RegExp(rolePattern, 'i') : rolePattern)
+		: null
+
+	// If a role pattern is given, return ALL matching positions (not just the first per section)
+	if (pattern) {
+		return positions.filter(p => pattern.test(p.role))
+	}
+
+	// Otherwise return the first occupied position per (category + sectionTitle) — the section leader
+	const seen = new Set<string>()
+	const leaders: OrbatPosition[] = []
+	for (const pos of positions) {
+		const key = `${pos.category}::${pos.sectionTitle}`
+		if (!seen.has(key)) {
+			seen.add(key)
+			leaders.push(pos)
+		}
+	}
+	return leaders
+}
+
+
 // Bulk lookup by Discord IDs — single query for the members page.
 export async function getOrbatEntriesForUsers(
 	userIds: string[]

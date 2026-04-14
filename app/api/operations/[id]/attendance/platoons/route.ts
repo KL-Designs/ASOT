@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { createAttendanceTasksForOperation } from '@/lib/attendance-tasks'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     await client.updateRoles()
@@ -57,6 +58,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         ...(body.stage !== undefined && { stage: body.stage }),
     }
 
+    // Detect confirmation open transition before mutating
+    const existingAtt = await Db.operationAttendance.findOne({ operationId }, { projection: { confirmationOpen: 1 } })
+    const wasConfirmationOpen = existingAtt?.confirmationOpen ?? false
+    const confirmationOpeningNow = body.confirmationOpen === true && !wasConfirmationOpen
+    const openedAt = confirmationOpeningNow ? new Date() : undefined
+
+    // Stamp confirmationOpenedAt when opening confirmation so auto-close works
+    if (openedAt) setFields.confirmationOpenedAt = openedAt
+
     const update: Record<string, unknown> = {
         $setOnInsert: {
             operationId,
@@ -79,6 +89,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { _id: operationId },
         { $set: { assignedPlatoons: body.assignedPlatoons ?? [] } }
     )
+
+    // Create section leader tasks if confirmation just opened
+    if (confirmationOpeningNow && openedAt) {
+        await createAttendanceTasksForOperation(operationId, body.assignedPlatoons ?? [], openedAt)
+    }
 
     return NextResponse.json({ ok: true, rsvpOpen: resolvedRsvpOpen })
 }

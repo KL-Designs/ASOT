@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
-import { createNotification } from '@/lib/notifications'
+import { createAttendanceTasksForOperation } from '@/lib/attendance-tasks'
 
 /**
  * GET /api/cron/operations?secret=...
@@ -114,51 +114,7 @@ export async function GET(request: NextRequest) {
         results.confirmationOpened++
         console.log(`[cron/operations] Confirmation opened for op=${op._id} "${op.title}"`)
 
-        // Create tasks for section leaders in the assigned platoons
-        try {
-            if (att.assignedPlatoons?.length) {
-                const leaders = await Db.orbatPositions
-                    .find({
-                        isSenior: true,
-                        userId: { $ne: null },
-                        category: { $in: att.assignedPlatoons },
-                    } as Parameters<typeof Db.orbatPositions.find>[0])
-                    .toArray()
-
-                const dueDate = new Date(openedAt.getTime() + 24 * 60 * 60 * 1000)
-                const taskTitle = `Confirm attendance — ${op.title}`
-                const actionUrl = `/operations/${op._id}`
-
-                for (const leader of leaders) {
-                    if (!leader.userId) continue
-                    const description = `Attendance confirmations are open for ${leader.sectionTitle}. Please confirm your section's attendance before the window closes.`
-                    const insertResult = await Db.tasks.insertOne({
-                        title: taskTitle,
-                        description,
-                        assignedTo: leader.userId,
-                        assignedBy: 'system',
-                        assignedByName: 'System',
-                        type: 'attendance',
-                        actionUrl,
-                        relatedId: op._id.toString(),
-                        dueDate,
-                        status: 'pending',
-                        createdAt: openedAt,
-                    } as Task)
-                    await createNotification({
-                        userId: leader.userId,
-                        type: 'task_assigned',
-                        title: taskTitle,
-                        body: description,
-                        actionUrl,
-                        relatedId: insertResult.insertedId.toString(),
-                    })
-                }
-                console.log(`[cron/operations] Created attendance tasks for ${leaders.length} section leader(s) — op="${op.title}"`)
-            }
-        } catch (err) {
-            console.error(`[cron/operations] Failed to create attendance tasks for op=${op._id}:`, err)
-        }
+        await createAttendanceTasksForOperation(op._id, att.assignedPlatoons ?? [], openedAt)
     }
 
     // ── 4. Confirmation auto-close (24 hours after opened) ─────────────────────

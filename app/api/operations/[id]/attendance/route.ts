@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
+import { createAttendanceTasksForOperation } from '@/lib/attendance-tasks'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -186,6 +187,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const wasRsvpOpen = existingAttendance?.rsvpOpen ?? false
     const wasConfirmationOpen = existingAttendance?.confirmationOpen ?? false
 
+    const confirmationOpeningNow = confirmationOpen === true && !wasConfirmationOpen
+    const openedAt = confirmationOpeningNow ? new Date() : undefined
+
     await Db.operationAttendance.updateOne(
         { operationId },
         {
@@ -199,12 +203,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 ...(rsvpOpen !== undefined && { rsvpOpen }),
                 ...(confirmationOpen !== undefined && { confirmationOpen }),
                 // Track when confirmation opens so auto-close knows the 24h window
-                ...(confirmationOpen === true && !wasConfirmationOpen && { confirmationOpenedAt: new Date() }),
+                ...(openedAt && { confirmationOpenedAt: openedAt }),
             },
         },
         { upsert: true }
     )
 
+    // Create tasks for section leaders when confirmation is manually opened
+    if (confirmationOpeningNow && openedAt) {
+        const att = await Db.operationAttendance.findOne({ operationId })
+        await createAttendanceTasksForOperation(operationId, att?.assignedPlatoons ?? [], openedAt)
+    }
 
     return NextResponse.json({ ok: true })
 }
