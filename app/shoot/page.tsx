@@ -88,30 +88,6 @@ interface EnemyData {
   speed: number;
 }
 
-// ─── Path generation ─────────────────────────────────────────────────────────
-
-function genPath(count: number): { gx: number; gz: number }[] {
-  const path = [{ gx: 0, gz: 0 }];
-  const vis  = new Set<string>(['0,0']);
-  let gx = 0, gz = 0, dx = 0, dz = 1;
-  for (let i = 0; i < count - 1; i++) {
-    const opts: [number, number][] = [[dx, dz], [-dz, dx], [dz, -dx]];
-    if (Math.random() > 0.6) opts.sort(() => Math.random() - 0.5);
-    let moved = false;
-    for (const [nx, nz] of opts) {
-      const ngx = gx + nx, ngz = gz + nz;
-      const k = `${ngx},${ngz}`;
-      if (!vis.has(k)) {
-        vis.add(k); path.push({ gx: ngx, gz: ngz });
-        dx = nx; dz = nz; gx = ngx; gz = ngz;
-        moved = true; break;
-      }
-    }
-    if (!moved) break;
-  }
-  return path;
-}
-
 // ─── Room builder ─────────────────────────────────────────────────────────────
 
 function makeMat(scene: Scene, hex: number, alpha = 1): StandardMaterial {
@@ -351,28 +327,56 @@ export default function DungeonShooter() {
     // Clear all built-in inputs — we drive everything manually
     camera.inputs.clear();
 
-    // ── Build dungeon ─────────────────────────────────────────────────────
-    const path = genPath(22);
+    // ── Infinite dungeon — rooms generated on-demand as player explores ────
+    // roomsBuilt stores each room's opening flags once decided.
+    // When a neighbour already exists its shared wall decision is honoured,
+    // guaranteeing walls are always consistent on both sides.
+    type RoomFlags = { n: boolean; s: boolean; e: boolean; w: boolean };
+    const roomsBuilt = new Map<string, RoomFlags>();
 
-    const openMap = new Map<string, { n: boolean; s: boolean; e: boolean; w: boolean }>();
-    for (const { gx, gz } of path) openMap.set(`${gx},${gz}`, { n: false, s: false, e: false, w: false });
-    for (let i = 0; i < path.length - 1; i++) {
-      const a = path[i], b = path[i + 1];
-      const oa = openMap.get(`${a.gx},${a.gz}`)!;
-      const ob = openMap.get(`${b.gx},${b.gz}`)!;
-      const ddx = b.gx - a.gx, ddz = b.gz - a.gz;
-      if (ddx ===  1) { oa.e = true; ob.w = true; }
-      if (ddx === -1) { oa.w = true; ob.e = true; }
-      if (ddz ===  1) { oa.n = true; ob.s = true; }
-      if (ddz === -1) { oa.s = true; ob.n = true; }
-    }
+    const allDisposables: any[] = [];
+    const allEnemies: EnemyData[] = [];
 
-    // Grid-based collision — returns true if world point (px,pz) is inside a wall
+    const ensureRoom = (gx: number, gz: number): void => {
+      const key = `${gx},${gz}`;
+      if (roomsBuilt.has(key)) return;
+
+      // Respect any already-built neighbours so shared walls always agree
+      const nbN = roomsBuilt.get(`${gx},${gz + 1}`);
+      const nbS = roomsBuilt.get(`${gx},${gz - 1}`);
+      const nbE = roomsBuilt.get(`${gx + 1},${gz}`);
+      const nbW = roomsBuilt.get(`${gx - 1},${gz}`);
+
+      // 65 % chance of an opening on each free side; guarantee ≥1 opening
+      let n = nbN ? nbN.s : Math.random() < 0.65;
+      let s = nbS ? nbS.n : Math.random() < 0.65;
+      let e = nbE ? nbE.w : Math.random() < 0.65;
+      let w = nbW ? nbW.e : Math.random() < 0.65;
+      if (!n && !s && !e && !w) {
+        // Force a random side open so rooms are never dead-end islands
+        const sides = ['n', 's', 'e', 'w'] as const;
+        const pick = sides[Math.floor(Math.random() * 4)];
+        if (pick === 'n') n = true;
+        else if (pick === 's') s = true;
+        else if (pick === 'e') e = true;
+        else w = true;
+      }
+
+      const flags: RoomFlags = { n, s, e, w };
+      roomsBuilt.set(key, flags);
+
+      const roomIdx = roomsBuilt.size;
+      const { enemies, disposables } = buildRoom(scene, gx, gz, n, s, e, w, roomIdx);
+      allDisposables.push(...disposables);
+      allEnemies.push(...enemies);
+    };
+
+    // Grid-based collision — true if world point (px,pz) is inside a wall
     const isWall = (px: number, pz: number): boolean => {
       const gx = Math.floor(px / RS);
       const gz = Math.floor(pz / RS);
-      const cell = openMap.get(`${gx},${gz}`);
-      if (!cell) return true; // outside dungeon
+      const cell = roomsBuilt.get(`${gx},${gz}`);
+      if (!cell) return true;
       const lx = px - gx * RS;
       const lz = pz - gz * RS;
       if (lx < WT && !cell.w) return true;
@@ -382,15 +386,10 @@ export default function DungeonShooter() {
       return false;
     };
 
-    const allDisposables: any[] = [];
-    const allEnemies: EnemyData[] = [];
-
-    path.forEach(({ gx, gz }, idx) => {
-      const o = openMap.get(`${gx},${gz}`)!;
-      const { enemies, disposables } = buildRoom(scene, gx, gz, o.n, o.s, o.e, o.w, idx);
-      allDisposables.push(...disposables);
-      allEnemies.push(...enemies);
-    });
+    // Pre-build a 5×5 starting area so the player never spawns into void
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dz = -2; dz <= 2; dz++) ensureRoom(dx, dz);
+    }
 
     // ── Input ──────────────────────────────────────────────────────────────
     const keys: Record<string, boolean> = {};
@@ -542,14 +541,18 @@ export default function DungeonShooter() {
         velY = Math.min(0, velY);
       }
 
-      // ── Track visited rooms ──────────────────────────────────────────────
+      // ── Track visited rooms + generate ahead ────────────────────────────
       const pgx = Math.floor(camera.position.x / RS);
       const pgz = Math.floor(camera.position.z / RS);
       const rk  = `${pgx},${pgz}`;
-      if (!visited.has(rk) && openMap.has(rk)) {
+      if (!visited.has(rk) && roomsBuilt.has(rk)) {
         visited.add(rk);
         setRoomsVisited(visited.size);
         scoreRef.current += 25; setScore(s => s + 25);
+        // Build rooms in a 4-room radius around the player so they never
+        // walk into ungenerated space; fog hides anything beyond ~5 rooms
+        for (let dx = -4; dx <= 4; dx++)
+          for (let dz = -4; dz <= 4; dz++) ensureRoom(pgx + dx, pgz + dz);
       }
 
       // ── Enemy AI ────────────────────────────────────────────────────────
