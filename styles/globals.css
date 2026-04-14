@@ -25,6 +25,12 @@ html {
 	scroll-behavior: smooth;
 }
 
+/* Easter egg pages that take over the full viewport */
+body.fullscreen-page #site-navbar,
+body.fullscreen-page #site-footer {
+	display: none !important;
+}
+
 body {
 	color: var(--foreground);
 	background: var(--background);
