@@ -5,7 +5,7 @@ import {
   Engine, Scene, UniversalCamera,
   Vector3, Color3, Color4,
   MeshBuilder, StandardMaterial, Texture, DynamicTexture,
-  HemisphericLight, SpotLight,
+  HemisphericLight, SpotLight, PointLight,
 } from '@babylonjs/core';
 
 // ─── Audio ────────────────────────────────────────────────────────────────────
@@ -28,13 +28,15 @@ function sndShot(ctx: AudioContext) {
 }
 function sndHit(ctx: AudioContext) {
   const t = ctx.currentTime;
-  [880, 1108, 1320].forEach((freq, i) => {
-    const osc = ctx.createOscillator(); const g = ctx.createGain();
-    osc.type = 'square'; osc.frequency.value = freq;
-    const at = t + i * 0.065;
-    g.gain.setValueAtTime(0.2, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.11);
-    osc.connect(g); g.connect(ctx.destination); osc.start(at); osc.stop(at + 0.12);
-  });
+  // Short percussive tap — noise burst low-passed for a dull impact thud
+  const n = Math.floor(ctx.sampleRate * 0.045);
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (n * 0.25));
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const flt = ctx.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = 1800;
+  const g = ctx.createGain(); g.gain.value = 0.75;
+  src.connect(flt); flt.connect(g); g.connect(ctx.destination); src.start(t);
 }
 function sndDamage(ctx: AudioContext) {
   const t = ctx.currentTime;
@@ -102,6 +104,16 @@ interface EnemyData {
   phaseUntil: number;  // ms timestamp when to flip phase
 }
 
+interface CeilingLightData {
+  light: PointLight;
+  bulbMat: StandardMaterial;
+  color: Color3;   // base tint
+  base: number;    // base intensity
+  phase: number;   // flicker phase offset
+  freq: number;    // flicker frequency (rad/ms)
+  style: 'warm' | 'cold' | 'dying';
+}
+
 // ─── Room builder ─────────────────────────────────────────────────────────────
 
 // diffuse=true → colour responds to lights (walls, floor, obstacles)
@@ -129,11 +141,12 @@ function buildRoom(
   n: boolean, s: boolean, e: boolean, w: boolean,
   roomIdx: number,
   avatarPool: { name: string; url: string }[]
-): { enemies: EnemyData[]; disposables: any[] } {
+): { enemies: EnemyData[]; lights: CeilingLightData[]; disposables: any[] } {
   const x0 = gx * RS, z0 = gz * RS;
   const cx  = x0 + RS / 2, cz = z0 + RS / 2;
   const disposables: any[] = [];
   const enemies: EnemyData[] = [];
+  const lights: CeilingLightData[] = [];
 
   // Diffuse materials — only lit by the player's flashlight
   const wallMat  = makeMat(scene, 0x2a2826, 1, true);
@@ -220,7 +233,45 @@ function buildRoom(
     }
   }
 
-  return { enemies, disposables };
+  // ── Ceiling lights — long fluorescent tubes ───────────────────────────────
+  // Spawn room: one guaranteed working light. Other rooms: ~30% chance of one.
+  const STYLES = ['warm', 'warm', 'dying'] as const;
+  const lightCount = roomIdx === 1 ? 1 : Math.random() < 0.30 ? 1 : 0;
+  for (let i = 0; i < lightCount; i++) {
+    const lx = cx + (Math.random() - 0.5) * (RS - WT * 2 - 2);
+    const lz = cz + (Math.random() - 0.5) * (RS - WT * 2 - 2);
+    const style = roomIdx === 1 ? 'warm' : STYLES[Math.floor(Math.random() * STYLES.length)];
+    // Cold clinical white — creepy institutional look
+    const col = new Color3(0.90, 0.95, 1.00);
+    const base = style === 'dying' ? 1.0 + Math.random() * 0.5
+               :                     6.0 + Math.random() * 2.0;
+
+    const pt = new PointLight('cl', new Vector3(lx, RH - 0.12, lz), scene);
+    pt.diffuse   = col;
+    pt.specular  = Color3.Black();
+    pt.intensity = base;
+    pt.range     = 40 + Math.random() * 10; // covers the full room and bleeds into neighbours
+
+    // Long rectangular fluorescent tube fixture
+    const tubeLen = 1.4 + Math.random() * 0.6;
+    const horizontal = Math.random() < 0.5;
+    const tube = MeshBuilder.CreateBox('fix', {
+      width:  horizontal ? tubeLen : 0.14,
+      height: 0.05,
+      depth:  horizontal ? 0.14   : tubeLen,
+    }, scene);
+    tube.position   = new Vector3(lx, RH - 0.025, lz);
+    tube.isPickable = false;
+    const bulbMat = new StandardMaterial('bm' + Math.random(), scene);
+    bulbMat.emissiveColor = col.clone();
+    bulbMat.specularColor = Color3.Black();
+    tube.material = bulbMat;
+
+    lights.push({ light: pt, bulbMat, color: col, base, phase: Math.random() * Math.PI * 2, freq: 0.0015 + Math.random() * 0.007, style });
+    disposables.push(pt, tube);
+  }
+
+  return { enemies, lights, disposables };
 }
 
 function buildEnemy(scene: Scene, pos: Vector3, avatarUrl: string | null, displayName: string): EnemyData {
@@ -392,27 +443,8 @@ export default function DungeonShooter() {
     flashlight.intensity  = 2.4;
     flashlight.range      = 40;
 
-    // ── Proximity audio — looping static that swells as enemies close in ─────
+    // ── Proximity audio — beep that speeds up as enemies close in ────────────
     const proxCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    // Two seconds of white noise in a loop
-    const noiseLen = proxCtx.sampleRate * 2;
-    const noiseBuf = proxCtx.createBuffer(1, noiseLen, proxCtx.sampleRate);
-    const noiseData = noiseBuf.getChannelData(0);
-    for (let i = 0; i < noiseLen; i++) noiseData[i] = Math.random() * 2 - 1;
-    const noiseSrc = proxCtx.createBufferSource();
-    noiseSrc.buffer = noiseBuf;
-    noiseSrc.loop   = true;
-    // Bandpass around 700 Hz → hissing static texture
-    const proxFilter = proxCtx.createBiquadFilter();
-    proxFilter.type            = 'bandpass';
-    proxFilter.frequency.value = 700;
-    proxFilter.Q.value         = 0.7;
-    const proxGain = proxCtx.createGain();
-    proxGain.gain.value = 0;
-    noiseSrc.connect(proxFilter);
-    proxFilter.connect(proxGain);
-    proxGain.connect(proxCtx.destination);
-    noiseSrc.start();
 
     // ── Infinite dungeon — rooms generated on-demand as player explores ────
     // roomsBuilt stores each room's opening flags once decided.
@@ -423,6 +455,7 @@ export default function DungeonShooter() {
 
     const allDisposables: any[] = [];
     const allEnemies: EnemyData[] = [];
+    const allLights: CeilingLightData[] = [];
 
     const ensureRoom = (gx: number, gz: number): void => {
       const key = `${gx},${gz}`;
@@ -453,9 +486,10 @@ export default function DungeonShooter() {
       roomsBuilt.set(key, flags);
 
       const roomIdx = roomsBuilt.size;
-      const { enemies, disposables } = buildRoom(scene, gx, gz, n, s, e, w, roomIdx, avatarPool);
+      const { enemies, lights, disposables } = buildRoom(scene, gx, gz, n, s, e, w, roomIdx, avatarPool);
       allDisposables.push(...disposables);
       allEnemies.push(...enemies);
+      allLights.push(...lights);
     };
 
     // Grid-based collision — true if world point (px,pz) is inside a wall
@@ -567,6 +601,7 @@ export default function DungeonShooter() {
       }
 
       if (ammoRef.current === 0) {
+        const rctx = getCtx(audioRef); if (rctx) sndReload(rctx);
         reloadRef.current = true; setIsReloading(true);
         setTimeout(() => {
           ammoRef.current = AMMO_MAX; setAmmo(AMMO_MAX);
@@ -723,6 +758,25 @@ export default function DungeonShooter() {
             enemy.hit = false;
           }
         }
+      }
+
+      // ── Ceiling light flicker ────────────────────────────────────────────
+      for (const cl of allLights) {
+        let intensity: number;
+        const t = now * cl.freq + cl.phase;
+        if (cl.style === 'dying') {
+          // Brief erratic bursts — mostly off
+          const burst = Math.sin(t * 9) > 0.75 && Math.random() > 0.35;
+          intensity = burst ? cl.base * (0.2 + Math.random() * 0.6) : 0;
+        } else {
+          // Organic flicker — sum of primes avoids periodicity
+          const f = Math.sin(t) * 0.22 + Math.sin(t * 2.7) * 0.11 + Math.sin(t * 0.43) * 0.07;
+          intensity = Math.max(0, cl.base * (0.88 + f));
+          if (Math.random() < 0.003) intensity = 0; // rare sudden blackout
+        }
+        cl.light.intensity = intensity;
+        const n = cl.base > 0 ? Math.min(1, intensity / cl.base) : 0;
+        cl.bulbMat.emissiveColor = new Color3(cl.color.r * n, cl.color.g * n, cl.color.b * n);
       }
 
       // ── Proximity audio — scale gain by nearest living enemy ────────────
