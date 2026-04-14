@@ -457,6 +457,38 @@ export default function DungeonShooter() {
     // ── Proximity audio — beep that speeds up as enemies close in ────────────
     const proxCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
 
+    // ── Gun viewmodel ─────────────────────────────────────────────────────────
+    // Simple pistol built from boxes — rendered in the same scene but always
+    // repositioned each frame to sit at a fixed offset from the camera.
+    const gunMat = new StandardMaterial('gunMat', scene);
+    gunMat.diffuseColor  = new Color3(0.10, 0.10, 0.10);
+    gunMat.specularColor = new Color3(0.4, 0.4, 0.4);
+    gunMat.specularPower = 32;
+
+    const gripMat = new StandardMaterial('gripMat', scene);
+    gripMat.diffuseColor  = new Color3(0.08, 0.08, 0.08);
+    gripMat.specularColor = new Color3(0.1, 0.1, 0.1);
+
+    // Slide / body — acts as the root; barrel and grip are parented to it
+    const gunBody = MeshBuilder.CreateBox('gunBody', { width: 0.044, height: 0.068, depth: 0.21 }, scene);
+    gunBody.material   = gunMat;
+    gunBody.isPickable = false;
+
+    // Barrel — parented to gunBody; local +Z = forward along barrel
+    const gunBarrel = MeshBuilder.CreateBox('gunBarrel', { width: 0.024, height: 0.024, depth: 0.10 }, scene);
+    gunBarrel.material   = gunMat;
+    gunBarrel.isPickable = false;
+    gunBarrel.parent     = gunBody;
+    gunBarrel.position.set(0, 0.022, 0.155); // forward and slightly above body centre
+
+    // Grip — parented to gunBody; hangs below the rear of the slide
+    const gunGrip = MeshBuilder.CreateBox('gunGrip', { width: 0.038, height: 0.09, depth: 0.056 }, scene);
+    gunGrip.material   = gripMat;
+    gunGrip.isPickable = false;
+    gunGrip.parent     = gunBody;
+    gunGrip.position.set(0, -0.08, -0.04);
+    gunGrip.rotation.x = 0.18; // slight forward angle on the grip
+
     // ── Infinite dungeon — rooms generated on-demand as player explores ────
     // roomsBuilt stores each room's opening flags once decided.
     // When a neighbour already exists its shared wall decision is honoured,
@@ -548,7 +580,7 @@ export default function DungeonShooter() {
       yaw   += mx * 0.002;                                          // right → +yaw (CW in Babylon left-hand)
       pitch  = Math.max(-1.2, Math.min(1.2, pitch + my * 0.002));  // up → negative pitch = look up
       camera.rotation.y = yaw;
-      camera.rotation.x = pitch;
+      // camera.rotation.x is set each frame in the render loop so recoil offset can be applied
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
@@ -583,6 +615,8 @@ export default function DungeonShooter() {
       }
       const ctx = getCtx(audioRef); if (ctx) sndShot(ctx);
       ammoRef.current--; setAmmo(a => a - 1);
+      recoilVel    = 10; // gun kick
+      camRecoilVel = 4;  // camera pitch kick upward
 
       // ── Babylon picking — cast ray from screen centre through scene ──────
       // scene.pick() uses display-pixel coordinates; clientWidth/2 = screen centre
@@ -640,6 +674,10 @@ export default function DungeonShooter() {
 
     // ── Game loop ──────────────────────────────────────────────────────────
     let velY = 0;
+    let recoilT   = 0; // gun recoil spring
+    let recoilVel = 0;
+    let camRecoilT   = 0; // camera pitch kick spring
+    let camRecoilVel = 0;
     let lastDmg = 0;
     let lastWarnTime = 0;
     let lastProxBeep = 0;
@@ -699,6 +737,35 @@ export default function DungeonShooter() {
       flashlight.direction.y = dirY;
       flashlight.direction.z = dirZ;
       flashlight.intensity = 2.4 + flicker;
+
+      // ── Camera pitch recoil spring ────────────────────────────────────────
+      camRecoilVel += (-camRecoilT * 30 - camRecoilVel * 10) * dt;
+      camRecoilT   += camRecoilVel * dt;
+      camRecoilT    = Math.max(0, camRecoilT);
+      camera.rotation.x = pitch - camRecoilT * 0.12; // negative = look up in Babylon
+
+      // ── Gun viewmodel ─────────────────────────────────────────────────────
+      // Gun recoil spring
+      recoilVel += (-recoilT * 28 - recoilVel * 11) * dt;
+      recoilT   += recoilVel * dt;
+      recoilT    = Math.max(0, recoilT);
+
+      // Horizontal forward and right vectors (yaw only — gun stays level with ground)
+      const hfx = Math.sin(yaw);
+      const hfz = Math.cos(yaw);
+      const rtx = Math.cos(yaw);
+      const rtz = -Math.sin(yaw);
+
+      // Gun base position: right of centre, below eye, slightly forward
+      // Recoil lifts the grip slightly — the rotation handles the muzzle-rise
+      const gx = camera.position.x + rtx * 0.20 + hfx * 0.26;
+      const gy = camera.position.y - 0.14 + recoilT * 0.03;
+      const gz = camera.position.z + rtz * 0.20 + hfz * 0.26;
+
+      // Only update gunBody — barrel and grip follow as parented children
+      // Negative pitch delta = muzzle rotates upward (Babylon: -x = look up)
+      gunBody.position.set(gx, gy, gz);
+      gunBody.rotation.set(pitch - recoilT * 0.38, yaw, 0);
 
       // ── Track visited rooms + generate ahead ────────────────────────────
       const pgx = Math.floor(camera.position.x / RS);
