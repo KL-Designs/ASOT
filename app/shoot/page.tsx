@@ -5,7 +5,7 @@ import {
   Engine, Scene, UniversalCamera,
   Vector3, Color3, Color4,
   MeshBuilder, StandardMaterial,
-  HemisphericLight,
+  HemisphericLight, SpotLight,
 } from '@babylonjs/core';
 
 // ─── Audio ────────────────────────────────────────────────────────────────────
@@ -90,13 +90,21 @@ interface EnemyData {
 
 // ─── Room builder ─────────────────────────────────────────────────────────────
 
-function makeMat(scene: Scene, hex: number, alpha = 1): StandardMaterial {
+// diffuse=true → colour responds to lights (walls, floor, obstacles)
+// diffuse=false → self-illuminating (enemies, neon accents)
+function makeMat(scene: Scene, hex: number, alpha = 1, diffuse = false): StandardMaterial {
   const r = ((hex >> 16) & 0xff) / 255;
   const g = ((hex >> 8)  & 0xff) / 255;
   const b = ( hex        & 0xff) / 255;
   const mat = new StandardMaterial('m' + Math.random(), scene);
-  mat.emissiveColor = new Color3(r * alpha, g * alpha, b * alpha);
-  mat.diffuseColor  = Color3.Black();
+  const col = new Color3(r * alpha, g * alpha, b * alpha);
+  if (diffuse) {
+    mat.diffuseColor  = col;
+    mat.emissiveColor = Color3.Black();
+  } else {
+    mat.emissiveColor = col;
+    mat.diffuseColor  = Color3.Black();
+  }
   mat.specularColor = Color3.Black();
   return mat;
 }
@@ -112,11 +120,12 @@ function buildRoom(
   const disposables: any[] = [];
   const enemies: EnemyData[] = [];
 
-  const wallMat  = makeMat(scene, 0x01111e);
-  const floorMat = makeMat(scene, 0x00080f);
-  const ceilMat  = makeMat(scene, 0x010a18);
+  // Diffuse materials — only lit by the player's flashlight
+  const wallMat  = makeMat(scene, 0x2a2826, 1, true);
+  const floorMat = makeMat(scene, 0x1c1410, 1, true);
+  const ceilMat  = makeMat(scene, 0x1a1a1a, 1, true);
 
-  const neonEdge = new Color4(0, 1, 0.8, 0.55);
+  const neonEdge = new Color4(0.55, 0, 0, 0.18);  // faint blood-red seams
   const edgeW    = 1.5;
 
   const addWall = (wcx: number, wcy: number, wcz: number, ww: number, wh: number, wd: number, solid = true) => {
@@ -137,7 +146,7 @@ function buildRoom(
   floor.material = floorMat;
   floor.enableEdgesRendering();
   floor.edgesWidth = edgeW;
-  floor.edgesColor = new Color4(0, 0.17, 0.13, 0.8);
+  floor.edgesColor = new Color4(0.35, 0, 0, 0.25);
   disposables.push(floor);
 
   // ── Ceiling ───────────────────────────────────────────────────────────────
@@ -149,6 +158,7 @@ function buildRoom(
   ceil.edgesWidth  = edgeW;
   ceil.edgesColor  = neonEdge;
   disposables.push(ceil);
+  // No overhead lights — the player's flashlight is the only source
 
   // ── Walls (BoxGeometry = thick, collision-safe, no see-through) ───────────
   // Extend each wall by WT on each perpendicular end to fill corners solid.
@@ -157,17 +167,7 @@ function buildRoom(
   if (!w) addWall(x0 + WT / 2,   RH / 2, cz,                 WT, RH, RS + WT * 2);
   if (!e) addWall(x0 + RS - WT / 2, RH / 2, cz,              WT, RH, RS + WT * 2);
 
-  // ── Neon ceiling strips ───────────────────────────────────────────────────
-  const stripMat = makeMat(scene, 0x00eedd, 0.7);
-  const strip = (ax: number, az: number, bx: number, bz: number) => {
-    const m = MeshBuilder.CreateLines('strip', {
-      points: [new Vector3(ax, RH - 0.06, az), new Vector3(bx, RH - 0.06, bz)],
-    }, scene);
-    m.color = new Color3(0, 0.93, 0.87);
-    disposables.push(m);
-  };
-  strip(x0 + 0.3, z0 + 0.3,       x0 + RS - 0.3, z0 + 0.3);
-  strip(x0 + 0.3, z0 + RS - 0.3,  x0 + RS - 0.3, z0 + RS - 0.3);
+  // No ceiling strip lights — darkness is intentional
 
   // ── Obstacles ─────────────────────────────────────────────────────────────
   if (roomIdx >= 2) {
@@ -180,11 +180,11 @@ function buildRoom(
       const oz = z0 + WT + 0.5 + Math.random() * inner;
       const obs = MeshBuilder.CreateBox('obs', { width: ow, height: oh, depth: ow }, scene);
       obs.position      = new Vector3(ox, oh / 2, oz);
-      obs.material      = makeMat(scene, 0x001422);
+      obs.material      = makeMat(scene, 0x252520, 1, true);
       obs.checkCollisions = true;
       obs.enableEdgesRendering();
       obs.edgesWidth    = edgeW;
-      obs.edgesColor    = new Color4(0, 0.33, 0.73, 0.7);
+      obs.edgesColor    = new Color4(0.5, 0, 0, 0.15);
       disposables.push(obs);
     }
   }
@@ -193,9 +193,9 @@ function buildRoom(
   if (roomIdx >= 2) {
     const inner = RS - WT * 2 - 1;
     const neonColors = [
-      new Color3(1, 0, 0.33),    // hot pink
-      new Color3(1, 0.4, 0),     // orange
-      new Color3(1, 0.93, 0),    // yellow
+      new Color3(0.9, 0, 0.05),   // blood red
+      new Color3(0.75, 0.9, 0.7), // sickly pale green
+      new Color3(0.85, 0.82, 0.75), // bone white
     ];
     const count = Math.floor(Math.random() * 3);
     for (let i = 0; i < count; i++) {
@@ -213,8 +213,8 @@ function buildRoom(
 
 function buildEnemy(scene: Scene, pos: Vector3, neonColor: Color3): EnemyData {
   const mat = new StandardMaterial('em' + Math.random(), scene);
-  mat.emissiveColor = neonColor.clone();
-  mat.diffuseColor  = Color3.Black();
+  mat.diffuseColor  = neonColor.clone();   // only lit by flashlight — dark outside it
+  mat.emissiveColor = Color3.Black();
   mat.specularColor = Color3.Black();
 
   const root = MeshBuilder.CreateBox('eroot', { size: 0.001 }, scene);
@@ -235,7 +235,8 @@ function buildEnemy(scene: Scene, pos: Vector3, neonColor: Color3): EnemyData {
 
   // Wireframe outline
   const outMat = new StandardMaterial('eo' + Math.random(), scene);
-  outMat.emissiveColor = new Color3(0.5, 0.5, 0.5);
+  outMat.diffuseColor  = new Color3(0.5, 0.5, 0.5);
+  outMat.emissiveColor = Color3.Black();
   outMat.wireframe = true;
   const outline = MeshBuilder.CreateBox('eo', { width: 0.72, height: 1.45, depth: 0.08 }, scene);
   outline.position = new Vector3(0, 0.68, 0);
@@ -304,15 +305,16 @@ export default function DungeonShooter() {
     engine.setHardwareScalingLevel(PIXEL);           // render at half-res → pixelated
 
     const scene = new Scene(engine);
-    scene.clearColor  = new Color4(0, 0.02, 0.03, 1);
+    scene.clearColor  = new Color4(0, 0, 0, 1);       // true black void
     scene.fogMode     = Scene.FOGMODE_EXP2;
-    scene.fogDensity  = 0.055;
-    scene.fogColor    = new Color3(0, 0.02, 0.03);
+    scene.fogDensity  = 0.09;                          // thicker — swallows far geometry
+    scene.fogColor    = new Color3(0, 0, 0);           // black fog
     scene.collisionsEnabled = true;
 
-    // Minimal ambient so Babylon doesn't complain about no light
+    // Negligible ambient — just enough to hint at room shapes beyond flashlight range
     const ambient = new HemisphericLight('amb', new Vector3(0, 1, 0), scene);
-    ambient.intensity = 0;
+    ambient.intensity  = 0.012;
+    ambient.diffuse    = new Color3(0.15, 0.05, 0.05); // faint reddish tint
 
     // ── FPS Camera ────────────────────────────────────────────────────────
     // We bypass attachControl entirely to avoid:
@@ -326,6 +328,23 @@ export default function DungeonShooter() {
     camera.applyGravity = false;
     // Clear all built-in inputs — we drive everything manually
     camera.inputs.clear();
+
+    // ── Flashlight ────────────────────────────────────────────────────────
+    // Single SpotLight — cone wider than the camera FOV so the hard boundary
+    // is never on screen. High exponent creates the natural bright-centre /
+    // dim-edge gradient without any visible circular cutoff.
+    const flashlight = new SpotLight(
+      'flash',
+      camera.position.clone(),
+      new Vector3(0, 0, 1),
+      Math.PI / 2.4,          // ~75° half-angle — wider than the diagonal FOV (~48°)
+      7,                      // high exponent = bright centre, smooth natural fade to edges
+      scene,
+    );
+    flashlight.diffuse    = new Color3(0.9, 0.8, 0.63);
+    flashlight.specular   = new Color3(0.15, 0.12, 0.08);
+    flashlight.intensity  = 2.4;
+    flashlight.range      = 40;
 
     // ── Infinite dungeon — rooms generated on-demand as player explores ────
     // roomsBuilt stores each room's opening flags once decided.
@@ -541,6 +560,20 @@ export default function DungeonShooter() {
         velY = Math.min(0, velY);
       }
 
+      // ── Flashlight — follow camera + subtle flicker ─────────────────────
+      const dirX = Math.sin(yaw) * Math.cos(pitch);
+      const dirY = -Math.sin(pitch);
+      const dirZ = Math.cos(yaw) * Math.cos(pitch);
+      const flicker = Math.sin(now * 0.0009) * 0.08
+        + Math.sin(now * 0.0031) * 0.04
+        + (Math.random() * 0.06 - 0.03);
+
+      flashlight.position.copyFrom(camera.position);
+      flashlight.direction.x = dirX;
+      flashlight.direction.y = dirY;
+      flashlight.direction.z = dirZ;
+      flashlight.intensity = 2.4 + flicker;
+
       // ── Track visited rooms + generate ahead ────────────────────────────
       const pgx = Math.floor(camera.position.x / RS);
       const pgz = Math.floor(camera.position.z / RS);
@@ -590,7 +623,7 @@ export default function DungeonShooter() {
         if (enemy.hit) {
           const elapsed = now - enemy.hitTime;
           if (elapsed > 160) {
-            enemy.mat.emissiveColor = enemy.neonColor.clone();
+            enemy.mat.emissiveColor = Color3.Black();
             enemy.hit = false;
           }
         }
