@@ -144,6 +144,12 @@ body {
 
 
 
+/* Reload blink */
+@keyframes reloadBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.25; }
+}
+
 /* Toast popup */
 @keyframes toastIn {
 	from { opacity: 0; transform: translateX(20px); }

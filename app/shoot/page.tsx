@@ -376,6 +376,7 @@ export default function DungeonShooter() {
   const [pointerLocked, setPointerLocked] = useState(false);
   const [feedback,      setFeedback]      = useState<{ text: string; color: string; key: number } | null>(null);
   const [roomsVisited,  setRoomsVisited]  = useState(0);
+  const [crosshairHit,  setCrosshairHit]  = useState<'hit' | 'kill' | null>(null);
 
   const scoreRef   = useRef(0);
   const hpRef      = useRef(MAX_HP);
@@ -640,8 +641,12 @@ export default function DungeonShooter() {
             scoreRef.current += 100; setScore(s => s + 100);
             showFeedback('+100 KILL', '#00ffcc');
             const killCtx = getCtx(audioRef); if (killCtx) sndKill(killCtx);
+            setCrosshairHit('kill');
+            setTimeout(() => setCrosshairHit(null), 220);
           } else {
             showFeedback('HIT', '#ffee00');
+            setCrosshairHit('hit');
+            setTimeout(() => setCrosshairHit(null), 150);
           }
         }
       }
@@ -678,7 +683,7 @@ export default function DungeonShooter() {
     let recoilVel = 0;
     let camRecoilT   = 0; // camera pitch kick spring
     let camRecoilVel = 0;
-    let lastDmg = 0;
+
     let lastWarnTime = 0;
     let lastProxBeep = 0;
     const visited = new Set<string>(['0,0']);
@@ -816,18 +821,19 @@ export default function DungeonShooter() {
           // else: frozen — stand completely still
         }
 
-        // Damage player on contact
-        if (dist < 1.1 && now - lastDmg > 200) {
-          lastDmg = now;
-          hpRef.current = Math.max(0, hpRef.current - 18 * dt);
-          setHp(Math.round(hpRef.current));
+        // Instant kill on contact — use XZ-only distance (camera Y ≠ enemy Y)
+        const xzDist = Math.hypot(
+          camera.position.x - enemy.root.position.x,
+          camera.position.z - enemy.root.position.z,
+        );
+        if (xzDist < 0.8) {
           const ctx = getCtx(audioRef); if (ctx) sndDamage(ctx);
-          if (hpRef.current <= 0) {
-            gsRef.current = 'ended';
-            setGameState('ended');
-            if (document.pointerLockElement) document.exitPointerLock();
-            return;
-          }
+          hpRef.current = 0;
+          setHp(0);
+          gsRef.current = 'ended';
+          setGameState('ended');
+          if (document.pointerLockElement) document.exitPointerLock();
+          return;
         }
 
         // Hit flash recovery
@@ -1053,13 +1059,41 @@ export default function DungeonShooter() {
       {/* ── PLAYING HUD ── */}
       {gameState === 'playing' && (
         <>
-          {/* Crosshair */}
-          <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 15 }}>
-            <div style={{ position: 'relative', width: 18, height: 18 }}>
-              <div style={{ position: 'absolute', top: '50%', left: 0, width: '100%', height: 1, background: pointerLocked ? '#00ffcc' : 'rgba(0,255,204,0.3)', transform: 'translateY(-50%)' }} />
-              <div style={{ position: 'absolute', left: '50%', top: 0, width: 1, height: '100%', background: pointerLocked ? '#00ffcc' : 'rgba(0,255,204,0.3)', transform: 'translateX(-50%)' }} />
+          {/* Crosshair / hit-marker */}
+          {(() => {
+            const locked = pointerLocked;
+            const hit    = crosshairHit === 'hit';
+            const kill   = crosshairHit === 'kill';
+            const color  = kill ? '#ffee00' : hit ? '#ff4444' : locked ? '#00ffcc' : 'rgba(0,255,204,0.3)';
+            const gap    = kill ? 7 : hit ? 6 : 3; // px from centre to arm start
+            const len    = kill ? 7 : hit ? 6 : 5; // arm length
+            const thick  = kill || hit ? 2 : 1;
+            const arm = (style: React.CSSProperties) => (
+              <div style={{ position: 'absolute', background: color, ...style }} />
+            );
+            return (
+              <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 15 }}>
+                <div style={{ position: 'relative', width: 1, height: 1 }}>
+                  {/* top */}   {arm({ width: thick, height: len, left: -thick/2, bottom: gap })}
+                  {/* bottom */}{arm({ width: thick, height: len, left: -thick/2, top:    gap })}
+                  {/* left */}  {arm({ height: thick, width: len, right: gap,    top: -thick/2 })}
+                  {/* right */} {arm({ height: thick, width: len, left:  gap,    top: -thick/2 })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Reload indicator */}
+          {isReloading && (
+            <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 15 }}>
+              <p style={{
+                marginLeft: 32, marginTop: 28,
+                fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.25em',
+                textTransform: 'uppercase', color: 'rgba(237,237,237,0.6)',
+                fontFamily: 'monospace', animation: 'reloadBlink 0.5s step-start infinite',
+              }}>RELOADING</p>
             </div>
-          </div>
+          )}
 
           {/* Top bar */}
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 15, background: 'linear-gradient(to bottom, rgba(0,0,0,0.72), transparent)' }}>
