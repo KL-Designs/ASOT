@@ -10,6 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@babylonjs/core": "^9.2.1",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -39,6 +40,7 @@
     "@tiptap/starter-kit": "^3.20.4",
     "@tiptap/y-tiptap": "^3.0.2",
     "@types/glob": "^8.1.0",
+    "@types/three": "^0.183.1",
     "archiver": "^7.0.1",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.19",
@@ -52,6 +54,7 @@
     "react-dom": "^19.2.3",
     "recharts": "^3.8.1",
     "sharp": "^0.33.5",
+    "three": "^0.183.2",
     "tiptap-extension-global-drag-handle": "^0.1.18",
     "turndown": "^7.2.2",
     "unzipper": "^0.12.3",

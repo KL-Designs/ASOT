@@ -25,6 +25,12 @@ html {
 	scroll-behavior: smooth;
 }
 
+/* Easter egg pages that take over the full viewport */
+body.fullscreen-page #site-navbar,
+body.fullscreen-page #site-footer {
+	display: none !important;
+}
+
 body {
 	color: var(--foreground);
 	background: var(--background);
@@ -137,6 +143,12 @@ body {
 }
 
 
+
+/* Reload blink */
+@keyframes reloadBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.25; }
+}
 
 /* Toast popup */
 @keyframes toastIn {
