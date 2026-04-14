@@ -317,7 +317,7 @@ function buildEnemy(scene: Scene, pos: Vector3, avatarUrl: string | null, displa
   const tagW = 512, tagH = 96;
   const nameTex = new DynamicTexture('nt' + Math.random(), { width: tagW, height: tagH }, scene, false);
   nameTex.hasAlpha = true;
-  const ctx2d = nameTex.getContext();
+  const ctx2d = nameTex.getContext() as unknown as CanvasRenderingContext2D;
   ctx2d.clearRect(0, 0, tagW, tagH);
   ctx2d.font = 'bold 52px Arial';
   ctx2d.textAlign = 'center';
