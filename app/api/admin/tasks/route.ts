@@ -3,6 +3,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { createNotification, createNotificationForRole } from '@/lib/notifications'
+import { sendTaskAssignedDM } from '@/lib/discord/bot'
 
 // GET /api/admin/tasks
 // ?view=mine|created|all  (default: mine)
@@ -113,24 +114,41 @@ export async function POST(req: NextRequest) {
     const result = await Db.tasks.insertOne(task as Task)
     const taskId = result.insertedId.toString()
 
-    // Notify assignee(s)
+    // Notify assignee(s) — in-app notification + Discord DM
+    const dmTitle = 'New task assigned to you'
+    const dmBody = title.trim()
+    const dmUrl = actionUrl ?? '/admin/tasks'
+
     if (assignedTo) {
         await createNotification({
             userId: assignedTo,
             type: 'task_assigned',
-            title: 'New task assigned to you',
-            body: title.trim(),
-            actionUrl: actionUrl ?? '/admin/tasks',
+            title: dmTitle,
+            body: dmBody,
+            actionUrl: dmUrl,
             relatedId: taskId,
         })
+        sendTaskAssignedDM(assignedTo, dmBody, description?.trim() ?? '', dmUrl).catch(err =>
+            console.error('[tasks] DM failed for', assignedTo, err)
+        )
     } else if (assignedRole) {
         await createNotificationForRole(assignedRole, {
             type: 'task_assigned',
             title: `New task assigned to ${assignedRole}`,
-            body: title.trim(),
-            actionUrl: actionUrl ?? '/admin/tasks',
+            body: dmBody,
+            actionUrl: dmUrl,
             relatedId: taskId,
         })
+        // DM everyone currently holding the role
+        const roleMembers = await Db.users
+            .find({ 'guild.roles': assignedRole })
+            .project<{ _id: string }>({ _id: 1 })
+            .toArray()
+        for (const u of roleMembers) {
+            sendTaskAssignedDM(u._id.toString(), dmBody, description?.trim() ?? '', dmUrl).catch(err =>
+                console.error('[tasks] DM failed for', u._id, err)
+            )
+        }
     }
 
     return NextResponse.json({ ok: true, id: taskId })

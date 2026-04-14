@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
+import { sendTaskAssignedDM } from '@/lib/discord/bot'
 
 // PATCH /api/admin/j1/applications/[id] — update status, notes, linked user, or assigned reviewer
 export async function PATCH(
@@ -94,14 +95,18 @@ export async function PATCH(
                 status: 'pending',
                 createdAt: new Date(),
             } as Task)
+            const notifBody = `${displayName} assigned you to review a J1 application from ${applicantName}.`
             await createNotification({
                 userId: assignedReviewerId,
                 type: 'task_assigned',
                 title: taskTitle,
-                body: `${displayName} assigned you to review a J1 application from ${applicantName}.`,
+                body: notifBody,
                 actionUrl: '/admin/j1',
                 relatedId: insertResult.insertedId.toString(),
             })
+            sendTaskAssignedDM(assignedReviewerId, taskTitle, notifBody, '/admin/j1').catch(err =>
+                console.error('[j1/applications] DM failed for', assignedReviewerId, err)
+            )
         } catch (err) {
             console.error('[j1/applications] Failed to create reviewer task:', err)
         }

@@ -113,3 +113,29 @@ export async function sendCalendarReminderDM(
 
     await sendDM(userId, { embeds: [embed] })
 }
+
+/**
+ * Send a task-assigned DM.
+ * Produces a consistently styled embed matching the site's branding.
+ */
+export async function sendTaskAssignedDM(
+    userId: string,
+    title: string,
+    description: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '📋 New Task Assigned',
+        description: `**${title}**\n${description}`,
+        color: 0xdb001d,
+        footer: { text: 'ASOT Member Portal' },
+        timestamp: new Date().toISOString(),
+    }
+
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields = [{ name: '\u200b', value: `[View Task](${base}${actionUrl})`, inline: false }]
+    }
+
+    await sendDM(userId, { embeds: [embed] })
+}

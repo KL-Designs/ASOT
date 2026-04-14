@@ -2,6 +2,7 @@ import type { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
 import { getSectionLeaders } from '@/lib/orbat'
+import { sendTaskAssignedDM } from '@/lib/discord/bot'
 
 /**
  * Creates attendance-confirmation tasks for every section leader
@@ -52,6 +53,9 @@ export async function createAttendanceTasksForOperation(
                 actionUrl,
                 relatedId: insertResult.insertedId.toString(),
             })
+            sendTaskAssignedDM(leader.userId, taskTitle, description, actionUrl).catch(err =>
+                console.error('[attendance-tasks] DM failed for', leader.userId, err)
+            )
         }
 
         console.log(
