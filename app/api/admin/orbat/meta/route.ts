@@ -30,9 +30,17 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
     if (!await authStructure()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { category, sectionTitle, color } = await request.json()
-    if (!category || typeof color !== 'string') {
-        return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+    const { category, sectionTitle, color, discordRoleId } = await request.json()
+    if (!category) {
+        return NextResponse.json({ error: 'Missing category' }, { status: 400 })
+    }
+
+    const setFields: Record<string, string> = {}
+    if (typeof color === 'string') setFields.color = color
+    if (typeof discordRoleId === 'string') setFields.discordRoleId = discordRoleId
+
+    if (Object.keys(setFields).length === 0) {
+        return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     }
 
     // Normalise: empty string sent from client means category-level (null in DB)
@@ -40,7 +48,7 @@ export async function PATCH(request: NextRequest) {
 
     await Db.orbatSectionMeta.updateOne(
         { category, sectionTitle: title },
-        { $set: { color } },
+        { $set: setFields },
         { upsert: true }
     )
 

@@ -184,9 +184,14 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         setMilpacLoading(false)
     }
 
-    // Section metadata (patch images + theme colors)
+    // Section metadata (patch images + theme colors + discord roles)
     const [sectionMeta, setSectionMeta] = useState<OrbatSectionMeta[]>([])
     const metaTargetRef = useRef<{ category: string; sectionTitle: string | null } | null>(null)
+
+    // Discord role picker
+    const [discordRoles, setDiscordRoles] = useState<Role[]>([])
+    const [rolePickerTarget, setRolePickerTarget] = useState<{ category: string; sectionTitle: string | null } | null>(null)
+    const [roleSearch, setRoleSearch] = useState('')
     const colorInputRef = useRef<HTMLInputElement>(null)
     const patchInputRef = useRef<HTMLInputElement>(null)
     const colorSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -198,14 +203,18 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
     const load = useCallback(async () => {
         setLoading(true)
-        const [posRes, metaRes] = await Promise.all([
-            fetch('/api/admin/orbat'),
-            fetch('/api/admin/orbat/meta'),
-        ])
-        if (posRes.ok) setPositions(await posRes.json())
-        if (metaRes.ok) setSectionMeta(await metaRes.json())
+        const fetches: Promise<void>[] = [
+            fetch('/api/admin/orbat').then(r => r.ok ? r.json() : null).then(d => { if (d) setPositions(d) }),
+            fetch('/api/admin/orbat/meta').then(r => r.ok ? r.json() : null).then(d => { if (d) setSectionMeta(d) }),
+        ]
+        if (canManageStructure) {
+            fetches.push(
+                fetch('/api/admin/orbat/discord-roles').then(r => r.ok ? r.json() : null).then(d => { if (d) setDiscordRoles(d.roles ?? []) })
+            )
+        }
+        await Promise.all(fetches)
         setLoading(false)
-    }, [])
+    }, [canManageStructure])
 
     useEffect(() => { load() }, [load])
 
@@ -216,7 +225,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         return sectionMeta.find(m => m.category === category && m.sectionTitle === sectionTitle) ?? null
     }
 
-    function updateMetaLocal(category: string, sectionTitle: string | null, patch: Partial<Pick<OrbatSectionMeta, 'color' | 'patch'>>) {
+    function updateMetaLocal(category: string, sectionTitle: string | null, patch: Partial<Pick<OrbatSectionMeta, 'color' | 'patch' | 'discordRoleId'>>) {
         setSectionMeta(prev => {
             const idx = prev.findIndex(m => m.category === category && m.sectionTitle === sectionTitle)
             if (idx >= 0) {
@@ -263,6 +272,44 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         if (res.ok) {
             const data = await res.json()
             updateMetaLocal(target.category, target.sectionTitle, { patch: data.filename })
+        }
+    }
+
+
+    function discordColor(colorInt: number): string {
+        if (!colorInt) return 'rgba(237,237,237,0.3)'
+        return `#${colorInt.toString(16).padStart(6, '0')}`
+    }
+
+    // Returns explicit color, or Discord role color if set, or null
+    function getEffectiveColor(meta: OrbatSectionMeta | null): string | null {
+        if (meta?.color) return meta.color
+        if (meta?.discordRoleId) {
+            const role = discordRoles.find(r => r.id === meta.discordRoleId)
+            if (role?.color) return `#${role.color.toString(16).padStart(6, '0')}`
+        }
+        return null
+    }
+
+    async function saveDiscordRole(roleId: string | null) {
+        const target = rolePickerTarget
+        if (!target) return
+        setRolePickerTarget(null)
+        setRoleSearch('')
+        if (roleId) {
+            updateMetaLocal(target.category, target.sectionTitle, { discordRoleId: roleId })
+            await fetch('/api/admin/orbat/meta', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category: target.category, sectionTitle: target.sectionTitle ?? '', discordRoleId: roleId }),
+            })
+        } else {
+            updateMetaLocal(target.category, target.sectionTitle, { discordRoleId: undefined })
+            await fetch('/api/admin/orbat/meta', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category: target.category, sectionTitle: target.sectionTitle ?? '', field: 'discordRoleId' }),
+            })
         }
     }
 
@@ -722,7 +769,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
     function renderSection(sec: Section, cat: string, sections: Section[], secIdx: number) {
         const sectionKey = `${cat}::${sec.title}`
         const secMeta = getMeta(cat, sec.title)
-        const secAccent = secMeta?.color ?? 'rgba(219,0,29,0.1)'
+        const secAccent = getEffectiveColor(secMeta) ?? 'rgba(219,0,29,0.1)'
         const secPatchUrl = secMeta?.patch
             ? `/api/orbat/patch?category=${cat}&section=${encodeURIComponent(sec.title)}&v=${secMeta.patch}`
             : null
@@ -768,6 +815,18 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                                         ×
                                     </button>
                                 )}
+                                {(() => {
+                                    const linkedRole = secMeta?.discordRoleId ? discordRoles.find(r => r.id === secMeta.discordRoleId) : null
+                                    return (
+                                        <button
+                                            title={linkedRole ? `Discord role: ${linkedRole.name}` : 'Set Discord role'}
+                                            onClick={() => { setRolePickerTarget({ category: cat, sectionTitle: sec.title }); setRoleSearch('') }}
+                                            style={{ background: 'none', border: linkedRole ? 'none' : '1px dashed rgba(255,255,255,0.1)', borderRadius: 3, padding: 1, cursor: 'pointer', flexShrink: 0, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 2 }}
+                                        >
+                                            <span style={{ fontSize: 8, fontWeight: 700, color: linkedRole ? discordColor(linkedRole.color) : 'rgba(255,255,255,0.18)', letterSpacing: 0 }}>@</span>
+                                        </button>
+                                    )
+                                })()}
                             </>
                         )}
 
@@ -893,8 +952,9 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
     function renderColumn(cat: { _id: string; label: string }, sections: Section[], canAddSection: boolean) {
         const catMeta = getMeta(cat._id, null)
-        const catColor = catMeta?.color ?? 'var(--red)'
-        const catColorAlpha = catMeta?.color ? `${catMeta.color}26` : 'rgba(219,0,29,0.12)'
+        const catEffective = getEffectiveColor(catMeta)
+        const catColor = catEffective ?? 'var(--red)'
+        const catColorAlpha = catEffective ? `${catEffective}26` : 'rgba(219,0,29,0.12)'
 
         const effectiveSections = sections.length === 0
             ? [{ title: '', sectionOrder: 0, positions: [] }]
@@ -937,6 +997,18 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                                     ×
                                 </button>
                             )}
+                            {(() => {
+                                const linkedRole = catMeta?.discordRoleId ? discordRoles.find(r => r.id === catMeta.discordRoleId) : null
+                                return (
+                                    <button
+                                        title={linkedRole ? `Discord role: ${linkedRole.name}` : 'Set Discord role'}
+                                        onClick={() => { setRolePickerTarget({ category: cat._id, sectionTitle: null }); setRoleSearch('') }}
+                                        style={{ background: 'none', border: linkedRole ? 'none' : '1px dashed rgba(255,255,255,0.1)', borderRadius: 3, padding: 1, cursor: 'pointer', flexShrink: 0, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 2 }}
+                                    >
+                                        <span style={{ fontSize: 8, fontWeight: 700, color: linkedRole ? discordColor(linkedRole.color) : 'rgba(255,255,255,0.18)', letterSpacing: 0 }}>@</span>
+                                    </button>
+                                )
+                            })()}
                         </>
                     )}
 
@@ -1003,14 +1075,15 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         const targetCat = isActive ? 'inactiveReservist' : 'activeReservist'
         const moveLabel = isActive ? 'Move to Inactive' : 'Move to Active'
         const catMeta = getMeta(cat._id, null)
-        const catColor = catMeta?.color ?? 'rgba(219,0,29,0.8)'
+        const catEffective = getEffectiveColor(catMeta)
+        const catColor = catEffective ?? 'rgba(219,0,29,0.8)'
         const catPatchUrl = catMeta?.patch ? `/api/orbat/patch?category=${cat._id}&v=${catMeta.patch}` : null
 
         return (
             <div key={cat._id} className='flex flex-col' style={tileStyle}>
 
                 {/* Header */}
-                <div className='px-3 py-2 flex items-center gap-2' style={{ borderBottom: `1px solid ${catMeta?.color ? `${catMeta.color}33` : 'rgba(219,0,29,0.12)'}` }}>
+                <div className='px-3 py-2 flex items-center gap-2' style={{ borderBottom: `1px solid ${catEffective ? `${catEffective}33` : 'rgba(219,0,29,0.12)'}` }}>
 
                     {/* Patch thumbnail */}
                     {canManageStructure && (
@@ -1047,6 +1120,18 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                                     ×
                                 </button>
                             )}
+                            {(() => {
+                                const linkedRole = catMeta?.discordRoleId ? discordRoles.find(r => r.id === catMeta.discordRoleId) : null
+                                return (
+                                    <button
+                                        title={linkedRole ? `Discord role: ${linkedRole.name}` : 'Set Discord role'}
+                                        onClick={() => { setRolePickerTarget({ category: cat._id, sectionTitle: null }); setRoleSearch('') }}
+                                        style={{ background: 'none', border: linkedRole ? 'none' : '1px dashed rgba(255,255,255,0.1)', borderRadius: 3, padding: 1, cursor: 'pointer', flexShrink: 0, width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 2 }}
+                                    >
+                                        <span style={{ fontSize: 8, fontWeight: 700, color: linkedRole ? discordColor(linkedRole.color) : 'rgba(255,255,255,0.18)', letterSpacing: 0 }}>@</span>
+                                    </button>
+                                )
+                            })()}
                         </>
                     )}
 
@@ -1430,6 +1515,88 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 </DialogContent>
                 <DialogActions>
                     <Button sx={ghostBtn} onClick={() => { setAddReservistCat(null); setAddReservistSearch('') }}>Cancel</Button>
+                </DialogActions>
+            </Dialog>
+
+
+            {/* ── Discord Role Picker Dialog ──────────────────────────────────── */}
+            <Dialog
+                open={!!rolePickerTarget}
+                onClose={() => { setRolePickerTarget(null); setRoleSearch('') }}
+                maxWidth='xs'
+                fullWidth
+                PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.32)' } }}
+            >
+                <DialogTitle style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>
+                    Set Discord Role
+                    {rolePickerTarget && (
+                        <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.35)', marginTop: 2 }}>
+                            {rolePickerTarget.sectionTitle ?? rolePickerTarget.category}
+                        </Typography>
+                    )}
+                </DialogTitle>
+                <DialogContent>
+                    <TextField
+                        autoFocus
+                        fullWidth
+                        size='small'
+                        placeholder='Search roles...'
+                        value={roleSearch}
+                        onChange={e => setRoleSearch(e.target.value)}
+                        sx={{ mb: 1.5 }}
+                        inputProps={{ style: { fontSize: '0.82rem' } }}
+                    />
+                    <div className='flex flex-col gap-1' style={{ maxHeight: 340, overflowY: 'auto' }}>
+                        {discordRoles
+                            .filter(r => r.name.toLowerCase().includes(roleSearch.toLowerCase()))
+                            .map(r => {
+                                const color = discordColor(r.color)
+                                const currentId = rolePickerTarget
+                                    ? getMeta(rolePickerTarget.category, rolePickerTarget.sectionTitle)?.discordRoleId
+                                    : undefined
+                                const isSelected = currentId === r.id
+                                return (
+                                    <button
+                                        key={r.id}
+                                        onClick={() => saveDiscordRole(r.id)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 10,
+                                            padding: '6px 10px',
+                                            background: isSelected ? 'rgba(219,0,29,0.1)' : 'rgba(255,255,255,0.03)',
+                                            border: isSelected ? '1px solid rgba(219,0,29,0.35)' : '1px solid rgba(255,255,255,0.05)',
+                                            borderRadius: 4,
+                                            cursor: 'pointer',
+                                            textAlign: 'left',
+                                            width: '100%',
+                                        }}
+                                    >
+                                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, flexShrink: 0, display: 'inline-block' }} />
+                                        <Typography fontSize='0.78rem' style={{ color: 'rgba(237,237,237,0.8)', flex: 1 }}>
+                                            {r.name}
+                                        </Typography>
+                                        {isSelected && (
+                                            <Typography fontSize='0.65rem' style={{ color: 'var(--red)' }}>✓</Typography>
+                                        )}
+                                    </button>
+                                )
+                            })
+                        }
+                        {discordRoles.filter(r => r.name.toLowerCase().includes(roleSearch.toLowerCase())).length === 0 && (
+                            <Typography fontSize='0.75rem' style={{ color: 'rgba(237,237,237,0.25)', textAlign: 'center', padding: 16 }}>
+                                No roles found
+                            </Typography>
+                        )}
+                    </div>
+                </DialogContent>
+                <DialogActions>
+                    {rolePickerTarget && getMeta(rolePickerTarget.category, rolePickerTarget.sectionTitle)?.discordRoleId && (
+                        <Button sx={{ ...ghostBtn, color: 'rgba(219,0,29,0.5)', '&:hover': { color: 'rgba(219,0,29,0.85)' } }} onClick={() => saveDiscordRole(null)}>
+                            Clear Role
+                        </Button>
+                    )}
+                    <Button sx={ghostBtn} onClick={() => { setRolePickerTarget(null); setRoleSearch('') }}>Cancel</Button>
                 </DialogActions>
             </Dialog>
 
