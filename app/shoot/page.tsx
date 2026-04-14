@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Engine, Scene, UniversalCamera,
   Vector3, Color3, Color4,
-  MeshBuilder, StandardMaterial,
+  MeshBuilder, StandardMaterial, Texture,
   HemisphericLight, SpotLight,
 } from '@babylonjs/core';
 
@@ -113,7 +113,8 @@ function buildRoom(
   scene: Scene,
   gx: number, gz: number,
   n: boolean, s: boolean, e: boolean, w: boolean,
-  roomIdx: number
+  roomIdx: number,
+  avatarPool: { name: string; url: string }[]
 ): { enemies: EnemyData[]; disposables: any[] } {
   const x0 = gx * RS, z0 = gz * RS;
   const cx  = x0 + RS / 2, cz = z0 + RS / 2;
@@ -192,17 +193,14 @@ function buildRoom(
   // ── Enemies ───────────────────────────────────────────────────────────────
   if (roomIdx >= 2) {
     const inner = RS - WT * 2 - 1;
-    const neonColors = [
-      new Color3(0.9, 0, 0.05),   // blood red
-      new Color3(0.75, 0.9, 0.7), // sickly pale green
-      new Color3(0.85, 0.82, 0.75), // bone white
-    ];
     const count = Math.floor(Math.random() * 3);
     for (let i = 0; i < count; i++) {
       const ex = x0 + WT + 0.5 + Math.random() * inner;
       const ez = z0 + WT + 0.5 + Math.random() * inner;
-      const col = neonColors[Math.floor(Math.random() * neonColors.length)];
-      const enemy = buildEnemy(scene, new Vector3(ex, 0, ez), col);
+      const av = avatarPool.length > 0
+        ? avatarPool[Math.floor(Math.random() * avatarPool.length)]
+        : null;
+      const enemy = buildEnemy(scene, new Vector3(ex, 0, ez), av?.url ?? null);
       enemies.push(enemy);
       disposables.push(enemy.root);
     }
@@ -211,48 +209,45 @@ function buildRoom(
   return { enemies, disposables };
 }
 
-function buildEnemy(scene: Scene, pos: Vector3, neonColor: Color3): EnemyData {
+function buildEnemy(scene: Scene, pos: Vector3, avatarUrl: string | null): EnemyData {
   const mat = new StandardMaterial('em' + Math.random(), scene);
-  mat.diffuseColor  = neonColor.clone();   // only lit by flashlight — dark outside it
   mat.emissiveColor = Color3.Black();
   mat.specularColor = Color3.Black();
+  mat.backFaceCulling = false;
 
+  if (avatarUrl) {
+    const tex = new Texture(avatarUrl, scene);
+    mat.diffuseTexture = tex;
+    mat.diffuseColor   = Color3.White();
+  } else {
+    // Fallback: flat bone-white if no avatar loaded yet
+    mat.diffuseColor = new Color3(0.85, 0.82, 0.75);
+  }
+
+  // Root — invisible anchor at ground level, drives AI position
   const root = MeshBuilder.CreateBox('eroot', { size: 0.001 }, scene);
-  root.position = pos.clone();
+  root.position  = pos.clone();
   root.isPickable = false;
+  root.isVisible  = false;
 
-  const part = (w: number, h: number, d: number, px: number, py: number, pz: number) => {
-    const m = MeshBuilder.CreateBox('ep', { width: w, height: h, depth: d }, scene);
-    m.position  = new Vector3(px, py, pz);
-    m.material  = mat;
-    m.parent    = root;
-    m.isPickable = false;
-  };
-  part(0.22, 0.5,  0.05, -0.13, 0.25, 0);
-  part(0.22, 0.5,  0.05,  0.13, 0.25, 0);
-  part(0.58, 0.7,  0.05,  0,    0.82, 0);
-  part(0.28, 0.28, 0.05,  0,    1.28, 0);
+  // Billboard plane — always faces camera on Y axis (Doom-sprite style)
+  const plane = MeshBuilder.CreatePlane('eplane', { width: 1.0, height: 1.0 }, scene);
+  plane.position   = new Vector3(0, 1.0, 0);
+  plane.material   = mat;
+  plane.parent     = root;
+  plane.isPickable = false;
+  plane.billboardMode = 2; // BILLBOARDMODE_Y — stays upright, rotates to face player
 
-  // Wireframe outline
-  const outMat = new StandardMaterial('eo' + Math.random(), scene);
-  outMat.diffuseColor  = new Color3(0.5, 0.5, 0.5);
-  outMat.emissiveColor = Color3.Black();
-  outMat.wireframe = true;
-  const outline = MeshBuilder.CreateBox('eo', { width: 0.72, height: 1.45, depth: 0.08 }, scene);
-  outline.position = new Vector3(0, 0.68, 0);
-  outline.material = outMat;
-  outline.parent   = root;
-  outline.isPickable = false;
-
-  // Invisible hitbox (only this is pickable)
-  const hitbox = MeshBuilder.CreateBox('hitbox', { width: 0.72, height: 1.45, depth: 0.8 }, scene);
-  hitbox.position  = new Vector3(0, 0.68, 0);
+  // Invisible hitbox (the only pickable mesh)
+  const hitbox = MeshBuilder.CreateBox('hitbox', { width: 0.9, height: 1.6, depth: 0.5 }, scene);
+  hitbox.position  = new Vector3(0, 0.8, 0);
   hitbox.parent    = root;
   hitbox.isVisible = false;
   hitbox.metadata  = { isEnemy: true };
 
   return {
-    root, hitbox, mat, neonColor,
+    root, hitbox, mat,
+    neonColor: Color3.White(),
     hp: 2, alive: true, hit: false, hitTime: 0,
     speed: 0.9 + Math.random() * 0.7,
   };
@@ -299,6 +294,11 @@ export default function DungeonShooter() {
 
     const canvas = canvasRef.current;
     if (!canvas) return;
+
+    // Fetch member avatars for enemy skins (fire-and-forget; empty array = fallback colours)
+    let avatarPool: { name: string; url: string }[] = [];
+    // Avatars are fetched async; rooms with enemies are built inside the callback
+    // so the pool is always populated before any enemy is spawned.
 
     // ── Engine + Scene ────────────────────────────────────────────────────
     const engine = new Engine(canvas, false);        // false = no antialiasing
@@ -385,7 +385,7 @@ export default function DungeonShooter() {
       roomsBuilt.set(key, flags);
 
       const roomIdx = roomsBuilt.size;
-      const { enemies, disposables } = buildRoom(scene, gx, gz, n, s, e, w, roomIdx);
+      const { enemies, disposables } = buildRoom(scene, gx, gz, n, s, e, w, roomIdx, avatarPool);
       allDisposables.push(...disposables);
       allEnemies.push(...enemies);
     };
@@ -405,10 +405,19 @@ export default function DungeonShooter() {
       return false;
     };
 
-    // Pre-build a 5×5 starting area so the player never spawns into void
-    for (let dx = -2; dx <= 2; dx++) {
-      for (let dz = -2; dz <= 2; dz++) ensureRoom(dx, dz);
-    }
+    // Build the spawn room immediately (roomIdx=1, no enemies) so the player
+    // has geometry to stand on; then fetch avatars and build the rest of the
+    // starting area once the pool is ready so enemies always get real textures.
+    ensureRoom(0, 0);
+
+    fetch('/api/shoot/avatars')
+      .then(r => r.ok ? r.json() : [])
+      .catch(() => [])
+      .then((data: { name: string; url: string }[]) => {
+        avatarPool = data;
+        for (let dx = -2; dx <= 2; dx++)
+          for (let dz = -2; dz <= 2; dz++) ensureRoom(dx, dz);
+      });
 
     // ── Input ──────────────────────────────────────────────────────────────
     const keys: Record<string, boolean> = {};
@@ -594,9 +603,6 @@ export default function DungeonShooter() {
 
         const toPlayer = camera.position.subtract(enemy.root.position);
         const dist     = toPlayer.length();
-
-        // Always face player
-        enemy.root.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
 
         // Chase within range
         if (dist < 14) {
