@@ -51,6 +51,16 @@ function sndEmpty(ctx: AudioContext) {
   g.gain.setValueAtTime(0.2, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
   osc.connect(g); g.connect(ctx.destination); osc.start(t); osc.stop(t + 0.07);
 }
+function sndWarning(ctx: AudioContext) {
+  const t = ctx.currentTime;
+  [1400, 900].forEach((freq, i) => {
+    const osc = ctx.createOscillator(); const g = ctx.createGain();
+    osc.type = 'square'; osc.frequency.value = freq;
+    const at = t + i * 0.09;
+    g.gain.setValueAtTime(0.38, at); g.gain.exponentialRampToValueAtTime(0.001, at + 0.07);
+    osc.connect(g); g.connect(ctx.destination); osc.start(at); osc.stop(at + 0.08);
+  });
+}
 function sndReload(ctx: AudioContext) {
   const t = ctx.currentTime;
   [261, 329, 392, 523].forEach((freq, i) => {
@@ -310,6 +320,7 @@ export default function DungeonShooter() {
   const ammoRef    = useRef(AMMO_MAX);
   const killsRef   = useRef(0);
   const reloadRef  = useRef(false);
+  const radarRef   = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     document.body.classList.add('fullscreen-page', 'suppress-custom-cursor');
@@ -380,6 +391,28 @@ export default function DungeonShooter() {
     flashlight.specular   = new Color3(0.15, 0.12, 0.08);
     flashlight.intensity  = 2.4;
     flashlight.range      = 40;
+
+    // ── Proximity audio — looping static that swells as enemies close in ─────
+    const proxCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    // Two seconds of white noise in a loop
+    const noiseLen = proxCtx.sampleRate * 2;
+    const noiseBuf = proxCtx.createBuffer(1, noiseLen, proxCtx.sampleRate);
+    const noiseData = noiseBuf.getChannelData(0);
+    for (let i = 0; i < noiseLen; i++) noiseData[i] = Math.random() * 2 - 1;
+    const noiseSrc = proxCtx.createBufferSource();
+    noiseSrc.buffer = noiseBuf;
+    noiseSrc.loop   = true;
+    // Bandpass around 700 Hz → hissing static texture
+    const proxFilter = proxCtx.createBiquadFilter();
+    proxFilter.type            = 'bandpass';
+    proxFilter.frequency.value = 700;
+    proxFilter.Q.value         = 0.7;
+    const proxGain = proxCtx.createGain();
+    proxGain.gain.value = 0;
+    noiseSrc.connect(proxFilter);
+    proxFilter.connect(proxGain);
+    proxGain.connect(proxCtx.destination);
+    noiseSrc.start();
 
     // ── Infinite dungeon — rooms generated on-demand as player explores ────
     // roomsBuilt stores each room's opening flags once decided.
@@ -561,6 +594,7 @@ export default function DungeonShooter() {
     // ── Game loop ──────────────────────────────────────────────────────────
     let velY = 0;
     let lastDmg = 0;
+    let lastWarnTime = 0;
     const visited = new Set<string>(['0,0']);
     const SPEED = 5; // units per second
 
@@ -691,6 +725,110 @@ export default function DungeonShooter() {
         }
       }
 
+      // ── Proximity audio — scale gain by nearest living enemy ────────────
+      let minDist = Infinity;
+      for (const enemy of allEnemies) {
+        if (!enemy.alive) continue;
+        const d = camera.position.subtract(enemy.root.position).length();
+        if (d < minDist) minDist = d;
+      }
+      const HEAR_RANGE = 18;
+      const targetVol = minDist < HEAR_RANGE
+        ? Math.pow(1 - minDist / HEAR_RANGE, 3) * 1.4
+        : 0;
+      proxGain.gain.setTargetAtTime(targetVol, proxCtx.currentTime, 0.08);
+
+      // Warning beep when an enemy is right on top of the player
+      const WARN_DIST = 2.5;
+      if (minDist < WARN_DIST && now - lastWarnTime > 500) {
+        lastWarnTime = now;
+        const warnCtx = getCtx(audioRef);
+        if (warnCtx) sndWarning(warnCtx);
+      }
+
+      // ── Radar ─────────────────────────────────────────────────────────
+      const rc = radarRef.current;
+      if (rc) {
+        const rctx = rc.getContext('2d')!;
+        const W = rc.width, H = rc.height, CX = W / 2, CY = H / 2, R = W / 2 - 2;
+        rctx.clearRect(0, 0, W, H);
+
+        // Circular background + border
+        rctx.beginPath(); rctx.arc(CX, CY, R, 0, Math.PI * 2);
+        rctx.fillStyle = 'rgba(4,4,4,0.82)'; rctx.fill();
+        rctx.strokeStyle = 'rgba(189,9,24,0.55)'; rctx.lineWidth = 1.5; rctx.stroke();
+
+        // Range rings
+        for (const frac of [0.33, 0.67]) {
+          rctx.beginPath(); rctx.arc(CX, CY, R * frac, 0, Math.PI * 2);
+          rctx.strokeStyle = 'rgba(189,9,24,0.18)'; rctx.lineWidth = 0.8; rctx.stroke();
+        }
+        // Cross-hairs
+        rctx.strokeStyle = 'rgba(189,9,24,0.18)'; rctx.lineWidth = 0.8;
+        rctx.beginPath(); rctx.moveTo(CX, CY - R); rctx.lineTo(CX, CY + R); rctx.stroke();
+        rctx.beginPath(); rctx.moveTo(CX - R, CY); rctx.lineTo(CX + R, CY); rctx.stroke();
+
+        // Clip subsequent draws to circle
+        rctx.save();
+        rctx.beginPath(); rctx.arc(CX, CY, R, 0, Math.PI * 2); rctx.clip();
+
+        // Enemy dots — rotated into player-space so forward is always up on radar
+        const RADAR_RANGE = 20;
+        const scale = R / RADAR_RANGE;
+        for (const enemy of allEnemies) {
+          if (!enemy.alive) continue;
+          const dx = enemy.root.position.x - camera.position.x;
+          const dz = enemy.root.position.z - camera.position.z;
+          // Project into player-relative axes:
+          //   forward = playerFacing · worldVec  → maps to radar UP   (−screenY)
+          //   right   = playerRight  · worldVec  → maps to radar RIGHT (+screenX)
+          // playerFacing = (sin(yaw), cos(yaw)),  playerRight = (cos(yaw), −sin(yaw))
+          const fwd   = dx * Math.sin(yaw) + dz * Math.cos(yaw);
+          const right = dx * Math.cos(yaw) - dz * Math.sin(yaw);
+          if (Math.hypot(fwd, right) > RADAR_RANGE) continue;
+          const sx = CX + right * scale;
+          const sy = CY - fwd   * scale;
+          rctx.beginPath(); rctx.arc(sx, sy, 3.5, 0, Math.PI * 2);
+          rctx.fillStyle = enemy.hit ? '#ff8888' : 'rgba(219,0,29,0.95)';
+          rctx.fill();
+        }
+
+          // Pulsing warning arrows for enemies right on top of the player
+          const WARN_DIST = 2.5;
+          for (const enemy of allEnemies) {
+            if (!enemy.alive) continue;
+            const wdx = enemy.root.position.x - camera.position.x;
+            const wdz = enemy.root.position.z - camera.position.z;
+            if (Math.hypot(wdx, wdz) > WARN_DIST) continue;
+            const wfwd   = wdx * Math.sin(yaw) + wdz * Math.cos(yaw);
+            const wright = wdx * Math.cos(yaw) - wdz * Math.sin(yaw);
+            const mag = Math.hypot(wright, wfwd) || 1;
+            const nx =  wright / mag;
+            const ny = -wfwd   / mag;
+            const arrowSize = 9;
+            const edgeX = CX + nx * (R - 10);
+            const edgeY = CY + ny * (R - 10);
+            const tipX  = edgeX - nx * arrowSize * 1.7;
+            const tipY  = edgeY - ny * arrowSize * 1.7;
+            const perpX = -ny * arrowSize * 0.8;
+            const perpY =  nx * arrowSize * 0.8;
+            const pulse = 0.55 + 0.45 * Math.sin(now * 0.018);
+            rctx.beginPath();
+            rctx.moveTo(tipX, tipY);
+            rctx.lineTo(edgeX + perpX, edgeY + perpY);
+            rctx.lineTo(edgeX - perpX, edgeY - perpY);
+            rctx.closePath();
+            rctx.fillStyle = `rgba(255,30,30,${pulse.toFixed(2)})`;
+            rctx.fill();
+          }
+
+        rctx.restore();
+
+        // Player dot (always dead-centre, drawn outside clip so it's always full)
+        rctx.beginPath(); rctx.arc(CX, CY, 3, 0, Math.PI * 2);
+        rctx.fillStyle = '#ffffff'; rctx.fill();
+      }
+
       scene.render();
     });
 
@@ -707,6 +845,8 @@ export default function DungeonShooter() {
       document.removeEventListener('pointerlockchange', onPLChange);
       window.removeEventListener('resize', onResize);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
+      noiseSrc.stop();
+      proxCtx.close();
       scene.dispose();
       engine.dispose();
     };
@@ -813,6 +953,13 @@ export default function DungeonShooter() {
               </div>
             </div>
           </div>
+
+          {/* Radar */}
+          <canvas
+            ref={radarRef}
+            width={150} height={150}
+            style={{ position: 'fixed', bottom: 88, right: 24, borderRadius: '50%', pointerEvents: 'none', zIndex: 15, imageRendering: 'pixelated' }}
+          />
 
           {feedback && (
             <div key={feedback.key} style={{ position: 'fixed', top: '42%', left: '50%', transform: 'translateX(-50%)', color: feedback.color, fontSize: '1.4rem', fontWeight: 800, fontFamily: 'monospace', letterSpacing: '0.15em', textTransform: 'uppercase', pointerEvents: 'none', zIndex: 20, textShadow: `0 0 20px ${feedback.color}` }}>
