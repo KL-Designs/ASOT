@@ -69,9 +69,16 @@ interface CsvFormat {
  * surrounding rows.
  *
  * Known formats:
- *   2026 — opStartCol=7,  sectionInOpsRow=true
- *   2025 — opStartCol=10, sectionInOpsRow=true
- *   2024 — opStartCol=10, sectionInOpsRow=false  (section name on dates row)
+ *   2026         — opStartCol=7,  sectionInOpsRow=true
+ *   2025         — opStartCol=10, sectionInOpsRow=true
+ *   2024 Part 2  — opStartCol=10, sectionInOpsRow=false  (section name on dates row)
+ *   2024 Part 1  — opStartCol=7,  sectionInOpsRow=true   (same as 2020–2023)
+ *   2020–2023    — opStartCol=7,  sectionInOpsRow=true
+ *
+ * Note on 2022 format: operations ran on Sundays but dates are stored in the
+ * Saturday column (col7) with Sunday column (col8) empty. All member attendance
+ * is recorded in the Sunday slot. The import route falls back from Sunday op to
+ * Saturday op when no Sunday date exists, recovering this attendance.
  */
 function detectFormat(rows: string[][]): CsvFormat {
     for (let i = 2; i < rows.length; i++) {
@@ -105,16 +112,16 @@ function detectFormat(rows: string[][]): CsvFormat {
 
 /**
  * Parse an Attendance Tracker CSV exported from the spreadsheet.
- * Handles 2024, 2025, and 2026 format variants automatically.
+ * Handles 2020–2026 format variants automatically.
  *
- * 2026/2025 section structure (repeats per section):
+ * 2020–2026 (Part 1) section structure — sectionInOpsRow=true (repeats per section):
  *   Row A: [unit name], ..., [op names at cols 7 or 10, stride 3]
  *   Row B: empty col0,  ..., [sat date, sun date, spacer, ...]
  *   Row C: Rank, Name, ... (column headers — skipped)
  *   Rows D+: member data rows
  *   [blank row — section separator]
  *
- * 2024 section structure:
+ * 2024 Part 2 section structure — sectionInOpsRow=false:
  *   Row A: empty col0,  ..., [op names at col 10, stride 3]
  *   Row B: [unit name], ..., [sat date, sun date, spacer, ...]  ← section header on dates row
  *   Row C: Rank, Name, ...

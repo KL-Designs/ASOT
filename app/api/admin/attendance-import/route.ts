@@ -194,9 +194,10 @@ export async function POST(req: NextRequest) {
                     }
                 }
 
-                // Sunday
+                // Sunday — fall back to Saturday op for single-day formats (e.g. 2022)
+                // where the date is stored in the Saturday column but attendance is in the Sunday column
                 if (att.sun) {
-                    const sunOpId = opIdMap.get(`${baseKey}|sun`)
+                    const sunOpId = opIdMap.get(`${baseKey}|sun`) ?? opIdMap.get(`${baseKey}|sat`)
                     if (sunOpId) {
                         upsertRecord(sunOpId, effectiveUserId, section.unit, member.rank,
                             att.sun === 'ATTENDED', att.sun)
