@@ -1,11 +1,9 @@
 import App from 'app'
-
 import Discord from 'discord.js'
+import { processMember } from '../../processMembers.ts'
 
 
 
-export default function (member: Discord.GuildMember) {
-
-
-
+export default async function (member: Discord.GuildMember) {
+    await processMember(member)
 }
