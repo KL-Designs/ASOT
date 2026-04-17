@@ -522,25 +522,6 @@ export default function AttendancePanel({
                     </Button>
                 )}
 
-                {/* HQ controls */}
-                {isHQ && (
-                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <Tooltip title={data?.rsvpOpen ? 'Close RSVP' : 'Open RSVP'}>
-                            <FormControlLabel
-                                control={<Switch checked={data?.rsvpOpen ?? false} onChange={e => handleRsvpToggle(e.target.checked)} size='small' sx={{ '& .MuiSwitch-thumb': { color: c(0.9) }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: c(0.4) } }} />}
-                                label={<Typography fontSize='0.65rem' letterSpacing={1.5} sx={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)' }}>RSVP</Typography>}
-                            />
-                        </Tooltip>
-                        {isCompleted && (
-                            <Tooltip title={data?.confirmationOpen ? 'Lock confirmation' : 'Open for confirmation'}>
-                                <FormControlLabel
-                                    control={<Switch checked={data?.confirmationOpen ?? false} onChange={e => handleConfirmToggle(e.target.checked)} size='small' sx={{ '& .MuiSwitch-thumb': { color: c(0.9) }, '& .Mui-checked + .MuiSwitch-track': { backgroundColor: c(0.4) } }} />}
-                                    label={<Typography fontSize='0.65rem' letterSpacing={1.5} sx={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)' }}>Confirm</Typography>}
-                                />
-                            </Tooltip>
-                        )}
-                    </Box>
-                )}
             </Box>
 
 
