@@ -1,6 +1,6 @@
 services:
   web:
-    image: ghcr.io/kl-designs/asot-site:latest
+    build: .
     container_name: asot-website
     ports:
       - "3000:3000"
