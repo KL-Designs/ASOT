@@ -497,7 +497,7 @@ export default function SnapshotsTab() {
             <div>
                 <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3}
                     style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 10 }}>
-                    Stored Snapshots ({snapshots.length} / {6})
+                    Stored Snapshots ({snapshots.length} / {5})
                 </Typography>
 
                 {loading && (
