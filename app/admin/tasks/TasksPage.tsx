@@ -9,7 +9,7 @@ import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'overdue'
-type TaskType   = 'manual' | 'attendance' | 'application_review'
+type TaskType   = 'manual' | 'attendance' | 'application_review' | 'extension_review'
 
 interface ExtensionRequest {
     requestedDate: string
