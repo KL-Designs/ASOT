@@ -12,7 +12,7 @@ RUN npm install
 COPY . .
 
 # Build Next.js app
-RUN npm run build
+RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
 
 # Expose the port your Next.js app runs on
 EXPOSE 3000
