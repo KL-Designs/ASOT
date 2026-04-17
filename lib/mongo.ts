@@ -33,6 +33,7 @@ const DbInterface = {
     meetings: client.db(process.env.MONGO_DB!).collection('meetings') as MongoCollection<Meeting>,
     actionLogs: client.db(process.env.MONGO_DB!).collection('action_logs') as MongoCollection<ActionLog>,
     errorLogs: client.db(process.env.MONGO_DB!).collection('error_logs') as MongoCollection<ErrorLog>,
+    discordLogs: client.db(process.env.MONGO_DB!).collection('discord_logs') as MongoCollection<DiscordLog>,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,

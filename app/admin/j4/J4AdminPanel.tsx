@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, Tabs, Tab } from '@mui/material'
 import { PeopleAlt, CalendarMonth, Assignment } from '@mui/icons-material'
 import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
@@ -412,6 +412,28 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
 
+    const [devMode, setDevMode]           = useState<boolean | null>(null)
+    const [devModeLoading, setDevModeLoading] = useState(false)
+
+    useEffect(() => {
+        fetch('/api/admin/discord-devmode')
+            .then(r => r.json())
+            .then(d => setDevMode(!!d.enabled))
+            .catch(() => setDevMode(false))
+    }, [])
+
+    async function toggleDevMode() {
+        if (devModeLoading) return
+        setDevModeLoading(true)
+        try {
+            const res = await fetch('/api/admin/discord-devmode', { method: 'POST' })
+            const data = await res.json()
+            setDevMode(!!data.enabled)
+        } finally {
+            setDevModeLoading(false)
+        }
+    }
+
     const tabSx = {
         fontSize: '0.72rem',
         fontWeight: 700,
@@ -533,6 +555,53 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                     >
                                         <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase', color: 'rgba(0,195,100,0.8)' }}>
                                             Reinstate<br />Member
+                                        </Typography>
+                                    </div>
+                                </button>
+
+                                {/* Discord Developer Mode toggle */}
+                                <button
+                                    onClick={toggleDevMode}
+                                    disabled={devModeLoading || devMode === null}
+                                    className='flex-1 min-w-[160px] max-w-[220px]'
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: devModeLoading || devMode === null ? 'default' : 'pointer', textAlign: 'left' }}
+                                >
+                                    <div
+                                        className='flex flex-col justify-center items-center gap-3 p-6 h-[160px] transition-colors duration-200'
+                                        style={{
+                                            background: devMode ? 'rgba(255,180,0,0.07)' : 'rgba(255,255,255,0.04)',
+                                            border: `1px solid ${devMode ? 'rgba(255,180,0,0.35)' : 'rgba(255,255,255,0.08)'}`,
+                                            borderTop: `2px solid ${devMode ? 'rgb(255,180,0)' : 'rgba(255,255,255,0.15)'}`,
+                                            opacity: devMode === null ? 0.4 : 1,
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: 32, height: 18, borderRadius: 9,
+                                            background: devMode ? 'rgba(255,180,0,0.9)' : 'rgba(255,255,255,0.15)',
+                                            border: `1px solid ${devMode ? 'rgba(255,180,0,0.6)' : 'rgba(255,255,255,0.1)'}`,
+                                            position: 'relative', transition: 'background 0.2s',
+                                            flexShrink: 0,
+                                        }}>
+                                            <div style={{
+                                                position: 'absolute', top: 2,
+                                                left: devMode ? 14 : 2,
+                                                width: 12, height: 12, borderRadius: '50%',
+                                                background: '#fff',
+                                                transition: 'left 0.2s',
+                                                boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                                            }} />
+                                        </div>
+                                        <Typography
+                                            fontWeight={700}
+                                            fontSize='0.78rem'
+                                            letterSpacing={3}
+                                            textAlign='center'
+                                            style={{ textTransform: 'uppercase', color: devMode ? 'rgb(255,180,0)' : 'rgba(237,237,237,0.5)' }}
+                                        >
+                                            Discord<br />Dev Mode
+                                        </Typography>
+                                        <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: devMode ? 'rgba(255,180,0,0.7)' : 'rgba(237,237,237,0.25)', textTransform: 'uppercase' }}>
+                                            {devMode === null ? 'Loading…' : devMode ? 'Active — msgs blocked' : 'Inactive'}
                                         </Typography>
                                     </div>
                                 </button>

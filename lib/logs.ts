@@ -21,3 +21,15 @@ export async function logError(entry: Omit<ErrorLog, '_id' | 'createdAt'>): Prom
         console.error('[logs] Failed to write error log:', err)
     }
 }
+
+/**
+ * Write a Discord action log entry. Fire-and-forget — never throws.
+ * Records every outbound Discord action (sent or blocked) with full payload.
+ */
+export async function logDiscord(entry: Omit<DiscordLog, '_id' | 'createdAt'>): Promise<void> {
+    try {
+        await Db.discordLogs.insertOne({ ...entry, createdAt: new Date() } as DiscordLog)
+    } catch (err) {
+        console.error('[logs] Failed to write discord log:', err)
+    }
+}

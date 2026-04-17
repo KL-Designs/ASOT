@@ -3,7 +3,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 
-// GET /api/admin/logs?type=action|error&page=1&limit=50&category=orbat|calendar|member|operation|system
+// GET /api/admin/logs?type=action|error|discord&page=1&limit=50&category=...&status=sent|blocked|failed
 // J4-Administration only.
 export async function GET(req: NextRequest) {
     let me: User
@@ -27,6 +27,20 @@ export async function GET(req: NextRequest) {
         const [logs, total] = await Promise.all([
             Db.errorLogs.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
             Db.errorLogs.countDocuments({}),
+        ])
+        const serialised = logs.map(l => ({ ...l, _id: l._id.toString(), createdAt: l.createdAt instanceof Date ? l.createdAt.toISOString() : l.createdAt }))
+        return NextResponse.json({ logs: serialised, total, page, limit })
+    }
+
+    // discord logs
+    if (type === 'discord') {
+        const status = req.nextUrl.searchParams.get('status')
+        const filter: Record<string, unknown> = {}
+        if (status) filter.status = status
+
+        const [logs, total] = await Promise.all([
+            Db.discordLogs.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
+            Db.discordLogs.countDocuments(filter),
         ])
         const serialised = logs.map(l => ({ ...l, _id: l._id.toString(), createdAt: l.createdAt instanceof Date ? l.createdAt.toISOString() : l.createdAt }))
         return NextResponse.json({ logs: serialised, total, page, limit })

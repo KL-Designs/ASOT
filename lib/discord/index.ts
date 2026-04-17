@@ -1,24 +1,12 @@
 import { cookies } from 'next/headers'
 import { GenerateToken } from '@/lib/encryption'
 import Db from '@/lib/mongo'
+import { botRequest } from '@/lib/discord/bot'
 
-
-
-async function request(route: 'members' | 'roles' | (string & {}), route2?: string): Promise<any> {
-    let endpoint = `https://discord.com/api/guilds/${process.env.DISCORD_GUILD_ID}/${route}`
-    if (route2) endpoint += `/${route2}`
-
-    return await fetch(endpoint, {
-        headers: {
-            'authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
-            'Content-Type': 'application/json'
-        }
-    })
-        .then(res => res.json())
-        .then(data => {
-            if (data.error) throw new Error(data)
-            return data
-        })
+// Guild-scoped helper — wraps botRequest for /guilds/:id/... endpoints
+function guildRequest<T = unknown>(route: string, route2?: string): Promise<T> {
+    const path = `/guilds/${process.env.DISCORD_GUILD_ID}/${route}${route2 ? `/${route2}` : ''}`
+    return botRequest<T>('GET', path)
 }
 
 

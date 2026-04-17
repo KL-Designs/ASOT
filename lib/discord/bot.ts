@@ -1,11 +1,24 @@
 /**
  * lib/discord/bot.ts
  *
- * Low-level Discord Bot REST API helpers.
- * Uses the bot token from DISCORD_BOT_TOKEN — no Discord.js dependency.
+ * Single source of truth for all outbound Discord actions (DMs, and future
+ * role / nickname mutations). Every action passes through checkDiscordGate()
+ * which enforces developer mode and logs every attempt — sent or blocked.
  *
- * Extend this file for future bot-driven features (role updates, guild queries, etc.)
+ * Developer mode
+ * ──────────────
+ * When enabled (toggled via J4 → Tools → Discord Dev Mode), all Discord
+ * actions are suppressed EXCEPT for user IDs listed in the OVERRIDE env var.
+ * Blocked attempts are still logged so they can be reviewed in J4 Logs.
+ *
+ * Adding new Discord actions
+ * ──────────────────────────
+ * 1. Use botRequest() for the raw API call.
+ * 2. Call checkDiscordGate(userId) and return early if !gate.allowed.
+ * 3. Call logDiscordAction() for both the blocked and sent paths.
  */
+
+import { logDiscord } from '@/lib/logs'
 
 const BASE = 'https://discord.com/api'
 
@@ -26,9 +39,9 @@ export interface MessagePayload {
     embeds?: DiscordEmbed[]
 }
 
-// ─── Internal request helper ──────────────────────────────────────────────────
+// ─── Core HTTP helper (exported for reuse in index.ts) ────────────────────────
 
-async function botRequest<T = unknown>(
+export async function botRequest<T = unknown>(
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     path: string,
     body?: unknown,
@@ -61,7 +74,6 @@ async function botRequest<T = unknown>(
 
 const dmChannelCache = new Map<string, string>() // userId → channelId
 
-/** Opens (or returns a cached) DM channel with a Discord user. */
 async function openDMChannel(userId: string): Promise<string> {
     const cached = dmChannelCache.get(userId)
     if (cached) return cached
@@ -74,18 +86,143 @@ async function openDMChannel(userId: string): Promise<string> {
     return channel.id
 }
 
+// ─── Developer mode gate ──────────────────────────────────────────────────────
+
+let devModeCache: { enabled: boolean; ts: number } | null = null
+const DEV_MODE_TTL_MS = 30_000 // 30 seconds
+
+async function isDevModeEnabled(): Promise<boolean> {
+    const now = Date.now()
+    if (devModeCache && now - devModeCache.ts < DEV_MODE_TTL_MS) {
+        return devModeCache.enabled
+    }
+    try {
+        // Dynamic import avoids a circular-dep risk at module initialisation time
+        const Db = (await import('@/lib/mongo')).default
+        const setting = await Db.siteSettings.findOne({ _id: 'discordDevMode' })
+        const enabled = !!(setting as Record<string, unknown> | null)?.enabled
+        devModeCache = { enabled, ts: now }
+        return enabled
+    } catch {
+        // Fail open — never silently break Discord features due to a DB error
+        devModeCache = { enabled: false, ts: Date.now() }
+        return false
+    }
+}
+
+/** Invalidate the in-process cache immediately (called after toggling dev mode). */
+export function invalidateDevModeCache(): void {
+    devModeCache = null
+}
+
+function isOverrideUser(userId: string): boolean {
+    return (process.env.OVERRIDE?.split(',').map(s => s.trim()) ?? []).includes(userId)
+}
+
+/**
+ * Check whether a Discord action targeting `userId` should proceed.
+ *
+ * Use this at the top of every Discord mutation helper (DMs, role updates,
+ * nickname changes, etc.) so dev mode is enforced consistently.
+ *
+ * @returns `{ allowed, devMode, override }`
+ */
+export async function checkDiscordGate(userId: string): Promise<{
+    allowed: boolean
+    devMode: boolean
+    override: boolean
+}> {
+    const devMode = await isDevModeEnabled()
+    if (!devMode) return { allowed: true, devMode: false, override: false }
+    const override = isOverrideUser(userId)
+    return { allowed: override, devMode: true, override }
+}
+
+// ─── Internal action logger ───────────────────────────────────────────────────
+
+/** Best-effort user name lookup — falls back to userId if not found. */
+async function resolveUserName(userId: string): Promise<string> {
+    try {
+        const Db = (await import('@/lib/mongo')).default
+        const user = await Db.users.findOne({ _id: userId })
+        return (user as User | null)?.name ?? (user as User | null)?.globalName ?? userId
+    } catch {
+        return userId
+    }
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
  * Send a plain-text or embed DM to a Discord user by their user ID.
+ * Respects developer mode — blocked messages are logged but not sent.
+ * All attempts (sent or blocked) are written to the discord_logs collection.
+ *
+ * @param messageType  Label stored in the log: 'task' | 'calendar' | 'raw'
  *
  * @example
  * await sendDM('123456789', { content: 'Hello!' })
- * await sendDM('123456789', { embeds: [{ title: 'Reminder', description: 'Op starts in 1 hour' }] })
+ * await sendDM('123456789', { embeds: [{ title: 'Reminder' }] }, 'calendar')
  */
-export async function sendDM(userId: string, payload: MessagePayload): Promise<void> {
-    const channelId = await openDMChannel(userId)
-    await botRequest('POST', `/channels/${channelId}/messages`, payload)
+export async function sendDM(
+    userId: string,
+    payload: MessagePayload,
+    messageType = 'raw',
+): Promise<void> {
+    const [gate, targetUserName] = await Promise.all([
+        checkDiscordGate(userId),
+        resolveUserName(userId),
+    ])
+
+    const preview = payload.content ?? payload.embeds?.[0]?.title ?? '(embed)'
+
+    if (!gate.allowed) {
+        await logDiscord({
+            action: 'dm',
+            status: 'blocked',
+            targetUserId: userId,
+            targetUserName,
+            messageType,
+            preview,
+            embeds: payload.embeds as DiscordLog['embeds'],
+            content: payload.content,
+            devMode: true,
+            override: false,
+        })
+        return
+    }
+
+    try {
+        const channelId = await openDMChannel(userId)
+        await botRequest('POST', `/channels/${channelId}/messages`, payload)
+
+        await logDiscord({
+            action: 'dm',
+            status: 'sent',
+            targetUserId: userId,
+            targetUserName,
+            messageType,
+            preview,
+            embeds: payload.embeds as DiscordLog['embeds'],
+            content: payload.content,
+            devMode: gate.devMode,
+            override: gate.override,
+        })
+    } catch (err) {
+        await logDiscord({
+            action: 'dm',
+            status: 'failed',
+            targetUserId: userId,
+            targetUserName,
+            messageType,
+            preview,
+            embeds: payload.embeds as DiscordLog['embeds'],
+            content: payload.content,
+            devMode: gate.devMode,
+            override: gate.override,
+        })
+        throw err
+    }
 }
 
 /**
@@ -111,7 +248,7 @@ export async function sendCalendarReminderDM(
         embed.fields = [{ name: '\u200b', value: `[View Calendar](${base}${actionUrl})`, inline: false }]
     }
 
-    await sendDM(userId, { embeds: [embed] })
+    await sendDM(userId, { embeds: [embed] }, 'calendar')
 }
 
 /**
@@ -137,5 +274,5 @@ export async function sendTaskAssignedDM(
         embed.fields = [{ name: '\u200b', value: `[View Task](${base}${actionUrl})`, inline: false }]
     }
 
-    await sendDM(userId, { embeds: [embed] })
+    await sendDM(userId, { embeds: [embed] }, 'task')
 }
