@@ -15,7 +15,7 @@ import { MongoClient } from 'mongodb'
 
 export const SNAPSHOTS_DIR = resolve('./snapshots')
 export const STATUS_FILE   = join(SNAPSHOTS_DIR, '.status.json')
-export const MAX_SNAPSHOTS = 6
+export const MAX_SNAPSHOTS = 5
 export const GALLERY_DIR   = resolve('./gallery')
 export const UPLOADS_DIR   = resolve('./uploads')
 
