@@ -373,7 +373,7 @@ httpServer.listen(port, '0.0.0.0', () => {
     console.log(`> Collab WebSocket on ws://0.0.0.0:${port}/collab`)
 })
 
-// ── Operations cron (every 5 minutes) ────────────────────────────────────────
+// ── Operations cron (every 1 minute) ─────────────────────────────────────────
 
 async function triggerOperationsCron() {
     try {

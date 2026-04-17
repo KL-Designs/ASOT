@@ -31,6 +31,15 @@ export async function createAttendanceTasksForOperation(
 
         for (const leader of leaders) {
             if (!leader.userId) continue
+
+            // Skip if an attendance task for this operation already exists for this leader
+            const existing = await Db.tasks.findOne({
+                type: 'attendance',
+                relatedId: operation._id.toString(),
+                assignedTo: leader.userId,
+            })
+            if (existing) continue
+
             const description = `Attendance confirmations are open for ${leader.sectionTitle}. Please confirm your section's attendance before the window closes.`
             const insertResult = await Db.tasks.insertOne({
                 title: taskTitle,
