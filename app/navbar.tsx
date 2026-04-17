@@ -160,12 +160,12 @@ export default function Navbar() {
 
                         {user && (user as any).isStaff && (
                             <div className='self-center hidden md:flex items-center gap-x-3'>
-                                <NotificationBell />
                                 <Link href='/admin' title='Member Portal'>
                                     <div className={Navigation['nav-button']} style={{ color: '#00c3ff', borderColor: 'rgba(0,195,255,0.4)', filter: 'drop-shadow(0 0 4px rgba(0,195,255,0.3))' }}>
                                         <AdminPanelSettings style={{ fontSize: 20 }} />
                                     </div>
                                 </Link>
+                                <NotificationBell />
                             </div>
                         )}
 
@@ -356,11 +356,21 @@ function ProfileDropdown({ user }: { user: User }) {
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
     const [orbatEntry, setOrbatEntry] = React.useState<{ role: string; section: string } | null | undefined>(undefined)
     const [avatarHovered, setAvatarHovered] = React.useState(false)
+    const [isImpersonating, setIsImpersonating] = React.useState(false)
     const open = Boolean(anchorEl)
+
+    React.useEffect(() => {
+        setIsImpersonating(document.cookie.split(';').some(c => c.trim().startsWith('is_impersonating=')))
+    }, [])
 
     async function handleLogout() {
         await fetch('/api/logout', { method: 'POST' })
         window.location.href = '/'
+    }
+
+    async function handleReturnToMyAccount() {
+        await fetch('/api/admin/impersonate/return', { method: 'POST' })
+        window.location.href = '/me'
     }
 
     const userRoles = (user as any).roles as Role[] | undefined
@@ -489,6 +499,19 @@ function ProfileDropdown({ user }: { user: User }) {
                                     <span style={{ fontSize: '0.80rem', fontWeight: 600, letterSpacing: '0.06em', color: '#00c3ff', textShadow: '0 0 8px rgba(0,195,255,0.5)' }}>MEMBER PORTAL</span>
                                 </MenuItem>
                             </Link>
+                        </>
+                    )}
+                    {isImpersonating && (
+                        <>
+                            <div style={{ borderTop: '1px solid rgba(255,165,0,0.2)', margin: '6px 0' }} />
+                            <MenuItem
+                                onClick={handleReturnToMyAccount}
+                                style={{ gap: 10, borderRadius: 4, padding: '8px 10px', background: 'rgba(255,165,0,0.04)' }}
+                                sx={{ '&:hover': { backgroundColor: 'rgba(255,165,0,0.1) !important' } }}
+                            >
+                                <Person style={{ fontSize: 17, color: 'rgba(255,165,0,0.8)' }} />
+                                <span style={{ fontSize: '0.80rem', fontWeight: 600, letterSpacing: '0.06em', color: 'rgba(255,165,0,0.9)' }}>RETURN TO MY ACCOUNT</span>
+                            </MenuItem>
                         </>
                     )}
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', margin: '6px 0' }} />
