@@ -11,6 +11,13 @@ import CornerBrackets from '@/app/admin/_components/CornerBrackets'
 type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'overdue'
 type TaskType   = 'manual' | 'attendance' | 'application_review'
 
+interface ExtensionRequest {
+    requestedDate: string
+    reason: string
+    requestedAt: string
+    status: 'pending' | 'approved' | 'denied'
+}
+
 interface TaskItem {
     _id: string
     title: string
@@ -30,6 +37,7 @@ interface TaskItem {
     actionUrl?: string
     relatedId?: string
     createdAt: string
+    extensionRequest?: ExtensionRequest
 }
 
 interface MemberOption {
@@ -43,6 +51,7 @@ interface MemberOption {
 function typeBadge(type?: TaskType): { label: string; color: string } {
     if (type === 'attendance')         return { label: 'ATT', color: '#f97316' }
     if (type === 'application_review') return { label: 'APP', color: '#3b82f6' }
+    if (type === 'extension_review')   return { label: 'EXT', color: '#f59e0b' }
     return { label: 'TSK', color: 'rgba(237,237,237,0.3)' }
 }
 
@@ -90,6 +99,9 @@ function TaskCard({
     const [confirmingComplete, setConfirmingComplete] = useState(false)
     const [extending, setExtending] = useState(false)
     const [newDueDate, setNewDueDate] = useState('')
+    const [requestingExtension, setRequestingExtension] = useState(false)
+    const [extReqDate, setExtReqDate] = useState('')
+    const [extReqReason, setExtReqReason] = useState('')
     const badge = typeBadge(task.type)
     const overdue = isOverdue(task.dueDate) && task.status !== 'completed'
 
@@ -178,79 +190,164 @@ function TaskCard({
                         </div>
                     )}
 
-                    {/* Action buttons */}
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {task.actionUrl && (
-                            <ActionBtn
-                                label='Open'
-                                icon={<OpenInNew sx={{ fontSize: '0.75rem' }} />}
-                                color='rgba(219,0,29,0.7)'
-                                onClick={() => (window.location.href = task.actionUrl!)}
-                            />
-                        )}
+                    {/* Extension request banner (creator view) */}
+                    {showAssignee && task.extensionRequest?.status === 'pending' && (
+                        <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(245,158,11,0.8)' }}>EXTENSION REQUEST</div>
+                            <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.6)' }}>
+                                <span style={{ color: 'rgba(237,237,237,0.4)' }}>New date: </span>
+                                {formatDate(task.extensionRequest.requestedDate)}
+                                <span style={{ color: 'rgba(237,237,237,0.4)', marginLeft: 12 }}>Reason: </span>
+                                {task.extensionRequest.reason}
+                            </div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                                <ActionBtn label='Approve' color='rgba(34,197,94,0.7)' onClick={() => onAction(task._id, 'approve_extension')} />
+                                <ActionBtn label='Deny' color='rgba(219,0,29,0.6)' onClick={() => onAction(task._id, 'deny_extension')} />
+                            </div>
+                        </div>
+                    )}
 
-                        {task.status !== 'completed' && (
-                            <>
-                                {task.status === 'pending' && (
-                                    <ActionBtn label='Start' color='#f59e0b' onClick={() => onAction(task._id, 'start')} />
+                    {/* Extension review task — Approve / Deny */}
+                    {task.type === 'extension_review' ? (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            <ActionBtn label='Approve' color='rgba(34,197,94,0.7)' onClick={() => onAction(task._id, 'approve_extension_review')} />
+                            <ActionBtn label='Deny' color='rgba(219,0,29,0.6)' onClick={() => onAction(task._id, 'deny_extension_review')} />
+                        </div>
+                    ) : (
+                        <>
+                            {/* Action buttons */}
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                {task.actionUrl && (
+                                    <ActionBtn
+                                        label='Open'
+                                        icon={<OpenInNew sx={{ fontSize: '0.75rem' }} />}
+                                        color='rgba(219,0,29,0.7)'
+                                        onClick={() => (window.location.href = task.actionUrl!)}
+                                    />
                                 )}
 
-                                {!confirmingComplete ? (
-                                    <ActionBtn label='Complete' color='rgba(34,197,94,0.7)' onClick={() => setConfirmingComplete(true)} />
-                                ) : (
-                                    <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                                        <TextField
-                                            label='Completion notes (optional)'
-                                            size='small'
-                                            value={completingNotes}
-                                            onChange={e => setCompletingNotes(e.target.value)}
-                                            multiline
-                                            rows={2}
-                                            sx={{ ...inputSx, minWidth: 240 }}
-                                        />
-                                        <ActionBtn label='Confirm' color='rgba(34,197,94,0.7)' onClick={() => {
-                                            onAction(task._id, 'complete', { notes: completingNotes })
-                                            setConfirmingComplete(false)
-                                        }} />
-                                        <ActionBtn label='Cancel' color='rgba(237,237,237,0.3)' onClick={() => setConfirmingComplete(false)} />
-                                    </div>
+                                {task.status !== 'completed' && (
+                                    <>
+                                        {task.status === 'pending' && (
+                                            <ActionBtn label='Start' color='#f59e0b' onClick={() => onAction(task._id, 'start')} />
+                                        )}
+
+                                        {!confirmingComplete ? (
+                                            <ActionBtn label='Complete' color='rgba(34,197,94,0.7)' onClick={() => setConfirmingComplete(true)} />
+                                        ) : (
+                                            <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                                <TextField
+                                                    label='Completion notes (optional)'
+                                                    size='small'
+                                                    value={completingNotes}
+                                                    onChange={e => setCompletingNotes(e.target.value)}
+                                                    multiline
+                                                    rows={2}
+                                                    sx={{ ...inputSx, minWidth: 240 }}
+                                                />
+                                                <ActionBtn label='Confirm' color='rgba(34,197,94,0.7)' onClick={() => {
+                                                    onAction(task._id, 'complete', { notes: completingNotes })
+                                                    setConfirmingComplete(false)
+                                                }} />
+                                                <ActionBtn label='Cancel' color='rgba(237,237,237,0.3)' onClick={() => setConfirmingComplete(false)} />
+                                            </div>
+                                        )}
+
+                                        {/* Creator view: direct Extend + inline approve/deny pending requests */}
+                                        {showAssignee && (
+                                            !extending ? (
+                                                <ActionBtn label='Extend' color='rgba(237,237,237,0.4)' onClick={() => setExtending(true)} />
+                                            ) : (
+                                                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                                    <input
+                                                        type='date'
+                                                        value={newDueDate}
+                                                        onChange={e => setNewDueDate(e.target.value)}
+                                                        style={{
+                                                            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(219,0,29,0.25)',
+                                                            color: 'rgba(237,237,237,0.8)', padding: '4px 8px', fontSize: '0.72rem',
+                                                            borderRadius: 2, outline: 'none',
+                                                            colorScheme: 'dark',
+                                                        }}
+                                                    />
+                                                    <ActionBtn label='Save' color='rgba(34,197,94,0.7)' onClick={() => {
+                                                        if (newDueDate) { onAction(task._id, 'extend', { dueDate: newDueDate }); setExtending(false) }
+                                                    }} />
+                                                    <ActionBtn label='Cancel' color='rgba(237,237,237,0.3)' onClick={() => setExtending(false)} />
+                                                </div>
+                                            )
+                                        )}
+
+                                        {/* Assignee view: Request Extension */}
+                                        {!showAssignee && (
+                                            task.extensionRequest?.status === 'pending' ? (
+                                                <span style={{ fontSize: '0.6rem', color: 'rgba(245,158,11,0.7)', fontWeight: 600, letterSpacing: '0.06em', padding: '4px 0', alignSelf: 'center' }}>
+                                                    ⏳ Extension requested
+                                                </span>
+                                            ) : !requestingExtension ? (
+                                                <ActionBtn label='Request Extension' color='rgba(245,158,11,0.6)' onClick={() => setRequestingExtension(true)} />
+                                            ) : (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                                        <div>
+                                                            <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', marginBottom: 4 }}>NEW DATE</div>
+                                                            <input
+                                                                type='date'
+                                                                value={extReqDate}
+                                                                onChange={e => setExtReqDate(e.target.value)}
+                                                                style={{
+                                                                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(245,158,11,0.3)',
+                                                                    color: 'rgba(237,237,237,0.8)', padding: '4px 8px', fontSize: '0.72rem',
+                                                                    borderRadius: 2, outline: 'none',
+                                                                    colorScheme: 'dark',
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div style={{ flex: 1, minWidth: 180 }}>
+                                                            <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', marginBottom: 4 }}>REASON</div>
+                                                            <textarea
+                                                                value={extReqReason}
+                                                                onChange={e => setExtReqReason(e.target.value)}
+                                                                rows={2}
+                                                                placeholder='Explain why you need an extension…'
+                                                                style={{
+                                                                    width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(245,158,11,0.3)',
+                                                                    color: 'rgba(237,237,237,0.8)', padding: '4px 8px', fontSize: '0.7rem',
+                                                                    borderRadius: 2, outline: 'none', resize: 'vertical', boxSizing: 'border-box',
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 6 }}>
+                                                        <ActionBtn label='Submit Request' color='rgba(245,158,11,0.7)' onClick={() => {
+                                                            if (extReqDate && extReqReason.trim()) {
+                                                                onAction(task._id, 'request_extension', { requestedDate: extReqDate, reason: extReqReason.trim() })
+                                                                setRequestingExtension(false)
+                                                                setExtReqDate('')
+                                                                setExtReqReason('')
+                                                            }
+                                                        }} />
+                                                        <ActionBtn label='Cancel' color='rgba(237,237,237,0.3)' onClick={() => { setRequestingExtension(false); setExtReqDate(''); setExtReqReason('') }} />
+                                                    </div>
+                                                </div>
+                                            )
+                                        )}
+                                    </>
                                 )}
 
-                                {!extending ? (
-                                    <ActionBtn label='Extend' color='rgba(237,237,237,0.4)' onClick={() => setExtending(true)} />
-                                ) : (
-                                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                        <input
-                                            type='date'
-                                            value={newDueDate}
-                                            onChange={e => setNewDueDate(e.target.value)}
-                                            style={{
-                                                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(219,0,29,0.25)',
-                                                color: 'rgba(237,237,237,0.8)', padding: '4px 8px', fontSize: '0.72rem',
-                                                borderRadius: 2, outline: 'none',
-                                                colorScheme: 'dark',
-                                            }}
-                                        />
-                                        <ActionBtn label='Save' color='rgba(34,197,94,0.7)' onClick={() => {
-                                            if (newDueDate) { onAction(task._id, 'extend', { dueDate: newDueDate }); setExtending(false) }
-                                        }} />
-                                        <ActionBtn label='Cancel' color='rgba(237,237,237,0.3)' onClick={() => setExtending(false)} />
-                                    </div>
+                                {task.status === 'completed' && (
+                                    <ActionBtn label='Re-open' color='rgba(237,237,237,0.4)' onClick={() => onAction(task._id, 'reopen')} />
                                 )}
-                            </>
-                        )}
 
-                        {task.status === 'completed' && (
-                            <ActionBtn label='Re-open' color='rgba(237,237,237,0.4)' onClick={() => onAction(task._id, 'reopen')} />
-                        )}
-
-                        <ActionBtn
-                            label='Delete'
-                            icon={<Delete sx={{ fontSize: '0.75rem' }} />}
-                            color='rgba(219,0,29,0.5)'
-                            onClick={() => onAction(task._id, 'delete')}
-                        />
-                    </div>
+                                <ActionBtn
+                                    label='Delete'
+                                    icon={<Delete sx={{ fontSize: '0.75rem' }} />}
+                                    color='rgba(219,0,29,0.5)'
+                                    onClick={() => onAction(task._id, 'delete')}
+                                />
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
         </div>

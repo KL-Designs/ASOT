@@ -276,3 +276,84 @@ export async function sendTaskAssignedDM(
 
     await sendDM(userId, { embeds: [embed] }, 'task')
 }
+
+/**
+ * Notify a task creator that the assignee has requested a due-date extension.
+ */
+export async function sendTaskExtensionRequestDM(
+    creatorId: string,
+    taskTitle: string,
+    requesterName: string,
+    requestedDate: string,
+    reason: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '⏳ Extension Request',
+        description: `**${requesterName}** has requested a due-date extension for:\n**${taskTitle}**`,
+        color: 0xf59e0b,
+        fields: [
+            { name: 'Requested date', value: requestedDate, inline: true },
+            { name: 'Reason', value: reason, inline: false },
+        ],
+        footer: { text: 'ASOT Member Portal — approve or deny in Tasks' },
+        timestamp: new Date().toISOString(),
+    }
+
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields!.push({ name: '\u200b', value: `[View Task](${base}${actionUrl})`, inline: false })
+    }
+
+    await sendDM(creatorId, { embeds: [embed] }, 'task')
+}
+
+/**
+ * Notify an assignee that their extension request was approved.
+ */
+export async function sendTaskExtensionApprovedDM(
+    userId: string,
+    taskTitle: string,
+    newDate: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '✅ Extension Approved',
+        description: `Your extension request for **${taskTitle}** has been approved.`,
+        color: 0x22c55e,
+        fields: [{ name: 'New due date', value: newDate, inline: true }],
+        footer: { text: 'ASOT Member Portal' },
+        timestamp: new Date().toISOString(),
+    }
+
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields!.push({ name: '\u200b', value: `[View Task](${base}${actionUrl})`, inline: false })
+    }
+
+    await sendDM(userId, { embeds: [embed] }, 'task')
+}
+
+/**
+ * Notify an assignee that their extension request was denied.
+ */
+export async function sendTaskExtensionDeniedDM(
+    userId: string,
+    taskTitle: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '❌ Extension Denied',
+        description: `Your extension request for **${taskTitle}** was denied.`,
+        color: 0xdb001d,
+        footer: { text: 'ASOT Member Portal' },
+        timestamp: new Date().toISOString(),
+    }
+
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields = [{ name: '\u200b', value: `[View Task](${base}${actionUrl})`, inline: false }]
+    }
+
+    await sendDM(userId, { embeds: [embed] }, 'task')
+}

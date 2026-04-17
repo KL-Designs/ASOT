@@ -34,6 +34,9 @@ const TYPE_LABELS: Record<string, string> = {
     task_assigned:  'Task',
     task_extended:  'Extension',
     task_completed: 'Completed',
+    task_extension_requested: 'Ext. Request',
+    task_extension_approved:  'Ext. Approved',
+    task_extension_denied:    'Ext. Denied',
     calendar_reminder: 'Reminder',
     system: 'System',
 }
@@ -42,6 +45,9 @@ const TYPE_COLORS: Record<string, string> = {
     task_assigned:  '#3b82f6',
     task_extended:  '#f59e0b',
     task_completed: '#10b981',
+    task_extension_requested: '#f59e0b',
+    task_extension_approved:  '#10b981',
+    task_extension_denied:    'rgba(219,0,29,0.85)',
     calendar_reminder: 'rgba(219,0,29,0.85)',
     system: 'rgba(237,237,237,0.4)',
 }
@@ -58,7 +64,7 @@ function timeAgo(iso: string) {
 }
 
 export default function NotificationBell() {
-    const { notifications, newArrivals, unreadCount, markRead, markAllRead, dismiss } = useNotifications()
+    const { notifications, newArrivals, unreadCount, markRead, markAllRead, dismiss, dismissAll } = useNotifications()
     const [open, setOpen] = useState(false)
     const [toasts, setToasts] = useState<Toast[]>([])
     const ref = useRef<HTMLDivElement>(null)
@@ -194,6 +200,16 @@ export default function NotificationBell() {
                                     onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,237,237,0.35)' }}
                                 >
                                     Mark all read
+                                </button>
+                            )}
+                            {notifications.length > 0 && (
+                                <button
+                                    onClick={dismissAll}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.55rem', color: 'rgba(237,237,237,0.35)', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'monospace', transition: 'color 0.12s' }}
+                                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(219,0,29,0.8)' }}
+                                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,237,237,0.35)' }}
+                                >
+                                    Clear all
                                 </button>
                             )}
                             <button

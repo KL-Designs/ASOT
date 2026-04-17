@@ -15,11 +15,14 @@ type NotificationType =
     | 'task_assigned'
     | 'task_extended'
     | 'task_completed'
+    | 'task_extension_requested'
+    | 'task_extension_approved'
+    | 'task_extension_denied'
     | 'calendar_reminder'
     | 'meeting_task_assigned'
     | 'system'
 
-type TaskType = 'manual' | 'attendance' | 'application_review'
+type TaskType = 'manual' | 'attendance' | 'application_review' | 'extension_review'
 
 interface Task {
     _id?: import('mongodb').ObjectId
@@ -34,6 +37,12 @@ interface Task {
     originalDueDate?: Date      // Set when due date is extended
     extendedAt?: Date
     completedAt?: Date
+    extensionRequest?: {
+        requestedDate: Date
+        reason: string
+        requestedAt: Date
+        status: 'pending' | 'approved' | 'denied'
+    }
     createdAt: Date
     status: TaskStatus
     department?: string         // Optional department tag (j1, j2, etc.)

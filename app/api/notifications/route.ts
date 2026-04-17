@@ -71,6 +71,23 @@ export async function GET() {
     return NextResponse.json({ notifications })
 }
 
+// DELETE /api/notifications — dismiss all notifications
+export async function DELETE() {
+    let me: User
+    try {
+        me = await client.fetchMe()
+    } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    await Db.notifications.updateMany(
+        { userId: me.id, dismissedAt: { $exists: false } },
+        { $set: { dismissedAt: new Date() } }
+    )
+
+    return NextResponse.json({ ok: true })
+}
+
 // PATCH /api/notifications — mark all as read
 export async function PATCH() {
     let me: User

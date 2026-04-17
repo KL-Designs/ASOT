@@ -72,5 +72,10 @@ export function useNotifications() {
         await fetch(`/api/notifications/${id}`, { method: 'DELETE' })
     }
 
-    return { notifications, newArrivals, unreadCount, loading, markRead, markAllRead, dismiss, refresh: fetch_ }
+    async function dismissAll() {
+        setNotifications([])
+        await fetch('/api/notifications', { method: 'DELETE' })
+    }
+
+    return { notifications, newArrivals, unreadCount, loading, markRead, markAllRead, dismiss, dismissAll, refresh: fetch_ }
 }
