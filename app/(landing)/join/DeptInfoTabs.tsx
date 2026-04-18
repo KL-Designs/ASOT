@@ -5,31 +5,31 @@ import { useState } from 'react'
 const DEPTS = [
     {
         id: 'J1', label: 'J1 — Recruitment',
-        summary: 'Responsible for the full recruitment pipeline — processing applications, running inductions, and onboarding new members. If you enjoy welcoming people and managing records, J1 is for you.',
+        summary: 'J1 are our gatekeepers to the unit. Their role is to interview potential recruits and determine if they are going to be suitable for the community. If successful, J1 will then process them into the unit.',
     },
     {
         id: 'J2', label: 'J2 — Mission Making',
-        summary: 'Designs and builds our operations. J2 members write mission briefs, create ARMA 3 mission files, and work closely with J6 Zeus operators to deliver dynamic gameplay.',
+        summary: 'J2 are our dedicated team who bring mission and campaign ideas to life. They are responsible for creating our weekly ARMA missions, as well as creating other ARMA mid-week missions and events.',
     },
     {
         id: 'J3', label: 'J3 — Training',
-        summary: 'Runs training sessions for new recruits and existing members. Covers infantry tactics, certifications, vehicle operations, and role-specific qualifications.',
+        summary: 'J3 are our team of trainers who ensure all new members are to the standard required to join our operations. They also create and run unit trainings for general and specialist skills and roles, covering anything from medical, to advanced CQB courses.',
     },
     {
-        id: 'J4', label: 'J4 — Administration',
-        summary: 'Handles member management and unit-wide administrative tasks — including discharge processing, record keeping, and supporting command with day-to-day operations.',
+        id: 'J4', label: 'J4 — Company Headquarters',
+        summary: 'J4 are the head administrators and commanding officers of the unit. They hold overall command of the unit and oversee all administration within the community.',
     },
     {
         id: 'J5', label: 'J5 — Media',
-        summary: 'Manages the community\'s public image. J5 runs the Shot of the Month competition, produces promotional screenshots and videos, and handles community outreach.',
+        summary: 'J5 are our media creation and management team. Although anyone can share media with the unit, J5 focuses on creating, sharing and promoting unit content to increase publicity and interest. They also manage the unit\'s MILPACs, social media accounts and more.',
     },
     {
-        id: 'J6', label: 'J6 — Game Masters',
-        summary: 'Zeus operators who control in-mission events, enemy forces, and dynamic scenarios. J6 members ensure every op has depth and unpredictability. Requires experience and trust.',
+        id: 'J6', label: 'J6 — Gamemasters (Zeus)',
+        summary: 'J6 is a vital asset to the successful conduct and standard of our missions and events. The Zeus team is responsible for taking the mission maker\'s vision, and executing it for all of our members to enjoy. There is a full-time team, and a part-time team who assist when required.',
     },
     {
-        id: 'J7', label: 'J7 — Development',
-        summary: 'Maintains and develops the unit website, internal tools, and technical infrastructure. If you have web development or scripting skills, J7 wants to hear from you.',
+        id: 'J7', label: 'J7 — Community Development',
+        summary: 'J7 are our fantastic team who provides a lot of our amazing features, in-game assets, modding, script creation and more. They also assist in managing the dedicated server for ARMA and all other game servers. They are also responsible for things such as the website config and other admin assistants like our MILPAC and ticket bot.',
     },
 ]
 

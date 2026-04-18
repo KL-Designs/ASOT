@@ -23,8 +23,8 @@ const PRIMARY_ROLES = [
 const ADDITIONAL_ROLES = PRIMARY_ROLES
 const DEPARTMENTS = [
     'J1 — Recruitment', 'J2 — Mission Making', 'J3 — Training',
-    'J4 — Administration', 'J5 — Media',
-    'J6 — Game Masters', 'J7 — Development',
+    'J4 — Company Headquarters', 'J5 — Media',
+    'J6 — Gamemasters (Zeus)', 'J7 — Community Development',
 ]
 
 const REGION_LATENCY: Record<string, number> = {
@@ -60,18 +60,38 @@ function LatencyBadge({ ms }: { ms: number }) {
 }
 
 function OpTimesDisplay() {
-    const [localFrom, setLocalFrom] = useState('')
-    const [localTo,   setLocalTo]   = useState('')
-    const [tz,        setTz]        = useState('')
+    const [loadIn, setLoadIn] = useState('')
+    const [end,    setEnd]    = useState('')
+    const [tz,     setTz]     = useState('')
 
     useEffect(() => {
         const userTZ = Intl.DateTimeFormat().resolvedOptions().timeZone
-        const toLocal = (utcHour: number, utcMin: number) =>
+
+        // Detect if Australia/Sydney is currently in DST (AEDT, UTC+11) or standard (AEST, UTC+10)
+        const nowOffset = -new Date().getTimezoneOffset() // user offset doesn't help; use Sydney directly
+        const sydneyOffset = (() => {
+            const parts = new Intl.DateTimeFormat('en', {
+                timeZone: 'Australia/Sydney', timeZoneName: 'shortOffset',
+            }).formatToParts(new Date())
+            const raw = parts.find(p => p.type === 'timeZoneName')?.value ?? 'GMT+10'
+            const m = raw.match(/GMT([+-])(\d+)(?::(\d+))?/)
+            if (!m) return 10
+            return (m[1] === '-' ? -1 : 1) * (parseInt(m[2]) + (parseInt(m[3] ?? '0') / 60))
+        })()
+        const isDst = sydneyOffset === 11
+
+        // Standard (AEST UTC+10): load-in 18:00 → UTC 08:00, end 21:00 → UTC 11:00
+        // Daylight (AEDT UTC+11): load-in 18:30 → UTC 07:30, end 21:00 → UTC 10:00
+        const [liH, liM] = isDst ? [7, 30] : [8, 0]
+        const [enH, enM] = isDst ? [10, 0] : [11, 0]
+
+        const fmt = (h: number, m: number) =>
             new Intl.DateTimeFormat('en', {
                 hour: 'numeric', minute: '2-digit', hour12: true, timeZone: userTZ,
-            }).format(new Date(Date.UTC(2025, 5, 7, utcHour, utcMin)))
-        setLocalFrom(toLocal(8, 0))
-        setLocalTo(toLocal(10, 30))
+            }).format(new Date(Date.UTC(2025, 5, 7, h, m)))
+
+        setLoadIn(fmt(liH, liM))
+        setEnd(fmt(enH, enM))
         setTz(
             new Intl.DateTimeFormat('en', { timeZoneName: 'short', timeZone: userTZ })
                 .formatToParts(new Date())
@@ -79,7 +99,7 @@ function OpTimesDisplay() {
         )
     }, [])
 
-    if (!localFrom) return null
+    if (!loadIn) return null
     return (
         <div style={{
             fontSize: '0.73rem', color: 'rgba(237,237,237,0.45)',
@@ -88,9 +108,10 @@ function OpTimesDisplay() {
             border: '1px solid rgba(255,255,255,0.06)',
             lineHeight: 1.6,
         }}>
-            Our ops run <strong style={{ color: 'rgba(237,237,237,0.7)' }}>Saturday & Sunday nights</strong>, typically{' '}
-            <strong style={{ color: 'rgba(237,237,237,0.7)' }}>{localFrom} – {localTo} {tz}</strong>.
-            {' '}Platoon 1 on Saturdays, Platoon 2 on Sundays.
+            Ops run <strong style={{ color: 'rgba(237,237,237,0.7)' }}>Saturday & Sunday nights</strong>.{' '}
+            Members load in at <strong style={{ color: 'rgba(237,237,237,0.7)' }}>{loadIn}</strong>, mission ends around{' '}
+            <strong style={{ color: 'rgba(237,237,237,0.7)' }}>{end} {tz}</strong>.{' '}
+            Platoon 1 operates Saturdays, Platoon 2 on Sundays. 3 Platoon supports both nights.
         </div>
     )
 }
@@ -342,7 +363,7 @@ export default function JoinForm() {
             case 2: return true
             case 3: return !!fields.inGameName.trim() && nameStatus === 'available' && !nameOffensive
             case 4: return !!fields.age && !!fields.region && fields.ownsArma
-            case 5: return !!fields.availableNights
+            case 5: return !!fields.availableNights && !!fields.opsPerMonth
             case 6: return !!fields.primaryRole
             default: return false
         }
@@ -640,7 +661,7 @@ export default function JoinForm() {
                                 {NIGHTS.map(n => <MenuItem key={n} value={n}>{n}</MenuItem>)}
                             </Select>
                         </FormControl>
-                        <FormControl sx={inputSx}>
+                        <FormControl required sx={inputSx}>
                             <InputLabel>Operations per month (approx.)</InputLabel>
                             <Select value={fields.opsPerMonth} label='Operations per month (approx.)' onChange={e => setSelect('opsPerMonth')(e.target.value)}>
                                 {OPS_PER_MONTH.map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
