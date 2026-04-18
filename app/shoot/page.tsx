@@ -94,8 +94,12 @@ const EYE     = 1.65;  // eye height
 const GRAV    = -22;
 const JUMP    = 8.5;
 const PIXEL   = 2;     // render at half-res for retro look
-const AMMO_MAX = 10;
-const MAX_HP   = 100;
+const AMMO_MAX      = 10;
+const MAX_HP        = 100;
+const STAMINA_MAX   = 100;
+const STAMINA_DRAIN = 35;   // per second while sprinting
+const STAMINA_REGEN = 18;   // per second while walking/idle
+const SPRINT_MULT   = 1.85;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -168,17 +172,11 @@ function buildRoom(
   applyTex(floorMat, '/textures/backrooms/floor.png', 4, 4);
   applyTex(ceilMat,  '/textures/backrooms/roof.png',  3, 3);
 
-  const neonEdge = new Color4(0.28, 0.22, 0.10, 0.10);  // barely-there warm seam
-  const edgeW    = 1.2;
-
   const addWall = (wcx: number, wcy: number, wcz: number, ww: number, wh: number, wd: number, solid = true) => {
     const mesh = MeshBuilder.CreateBox('wall', { width: ww, height: wh, depth: wd }, scene);
     mesh.position = new Vector3(wcx, wcy, wcz);
     mesh.material = wallMat;
     if (solid) mesh.checkCollisions = true;
-    mesh.enableEdgesRendering();
-    mesh.edgesWidth = edgeW;
-    mesh.edgesColor = neonEdge;
     disposables.push(mesh);
     return mesh;
   };
@@ -187,9 +185,6 @@ function buildRoom(
   const floor = MeshBuilder.CreateGround('floor', { width: RS, height: RS, subdivisions: RS }, scene);
   floor.position = new Vector3(cx, 0, cz);
   floor.material = floorMat;
-  floor.enableEdgesRendering();
-  floor.edgesWidth = edgeW;
-  floor.edgesColor = new Color4(0.35, 0, 0, 0.25);
   disposables.push(floor);
 
   // ── Ceiling ───────────────────────────────────────────────────────────────
@@ -197,9 +192,6 @@ function buildRoom(
   ceil.position    = new Vector3(cx, RH, cz);
   ceil.rotation.x  = Math.PI; // flip to face downward
   ceil.material    = ceilMat;
-  ceil.enableEdgesRendering();
-  ceil.edgesWidth  = edgeW;
-  ceil.edgesColor  = neonEdge;
   disposables.push(ceil);
   // No overhead lights — the player's flashlight is the only source
 
@@ -223,11 +215,8 @@ function buildRoom(
       const oz = z0 + WT + 0.5 + Math.random() * inner;
       const obs = MeshBuilder.CreateBox('obs', { width: ow, height: oh, depth: ow }, scene);
       obs.position      = new Vector3(ox, oh / 2, oz);
-      obs.material      = mkDiffuse(0xd4c490); // cream backrooms pillar
+      obs.material        = mkDiffuse(0xd4c490); // cream backrooms pillar
       obs.checkCollisions = true;
-      obs.enableEdgesRendering();
-      obs.edgesWidth    = edgeW;
-      obs.edgesColor    = new Color4(0.5, 0, 0, 0.15);
       disposables.push(obs);
     }
   }
@@ -372,12 +361,14 @@ export default function DungeonShooter() {
   const [feedback,      setFeedback]      = useState<{ text: string; color: string; key: number } | null>(null);
   const [roomsVisited,  setRoomsVisited]  = useState(0);
   const [crosshairHit,  setCrosshairHit]  = useState<'hit' | 'kill' | null>(null);
+  const [stamina,       setStamina]       = useState(STAMINA_MAX);
 
   const scoreRef   = useRef(0);
   const hpRef      = useRef(MAX_HP);
   const ammoRef    = useRef(AMMO_MAX);
   const killsRef   = useRef(0);
-  const reloadRef  = useRef(false);
+  const reloadRef   = useRef(false);
+  const staminaRef  = useRef(STAMINA_MAX);
   const radarRef   = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -418,8 +409,10 @@ export default function DungeonShooter() {
     // Negligible ambient — just enough to hint at room shapes beyond flashlight range
     // Backrooms: well-lit and unsettling, not dark horror
     const ambient = new HemisphericLight('amb', new Vector3(0, 1, 0), scene);
-    ambient.intensity  = 1.1;
-    ambient.diffuse    = new Color3(0.95, 0.88, 0.65); // warm fluorescent yellow
+    ambient.intensity   = 1.1;
+    ambient.diffuse     = new Color3(0.95, 0.88, 0.65); // warm fluorescent yellow from above
+    ambient.groundColor = new Color3(0.72, 0.65, 0.42); // fill from below — lights vertical walls and enemies
+    ambient.specular    = Color3.Black();                // no specular shimmer from ambient
 
     // ── FPS Camera ────────────────────────────────────────────────────────
     // We bypass attachControl entirely to avoid:
@@ -713,6 +706,10 @@ export default function DungeonShooter() {
     let recoilVel = 0;
     let camRecoilT   = 0; // camera pitch kick spring
     let camRecoilVel = 0;
+    let bobT         = 0;
+    let bobSmooth    = 0;
+    let sprintLower  = 0;
+    let lastStaminaFlush = 0;
 
     let lastWarnTime = 0;
     let lastProxBeep = 0;
@@ -735,14 +732,14 @@ export default function DungeonShooter() {
       if (keys['KeyS'] || keys['ArrowDown'])  mv.subtractInPlace(fwd);
       if (keys['KeyA'] || keys['ArrowLeft'])  mv.subtractInPlace(rgt);
       if (keys['KeyD'] || keys['ArrowRight']) mv.addInPlace(rgt);
-      if (mv.lengthSquared() > 0) {
-        mv.normalize().scaleInPlace(SPEED * dt);
-        const R  = 0.35; // player collision radius
+      const isMoving    = mv.lengthSquared() > 0;
+      const isSprinting = isMoving && (keys['ShiftLeft'] || keys['ShiftRight']) && staminaRef.current > 0;
+      if (isMoving) {
+        mv.normalize().scaleInPlace(SPEED * (isSprinting ? SPRINT_MULT : 1) * dt);
+        const R  = 0.35;
         const cx = camera.position.x, cz = camera.position.z;
         const nx = cx + mv.x, nz = cz + mv.z;
-        // Try X independently (wall-sliding)
         if (!isWall(nx + R, cz) && !isWall(nx - R, cz)) camera.position.x = nx;
-        // Try Z independently (wall-sliding)
         if (!isWall(camera.position.x, nz + R) && !isWall(camera.position.x, nz - R)) camera.position.z = nz;
       }
 
@@ -758,6 +755,23 @@ export default function DungeonShooter() {
         camera.position.y = RH - 0.3;
         velY = Math.min(0, velY);
       }
+
+      // ── Sprint stamina ────────────────────────────────────────────────────
+      if (isSprinting) {
+        staminaRef.current = Math.max(0, staminaRef.current - STAMINA_DRAIN * dt);
+      } else {
+        staminaRef.current = Math.min(STAMINA_MAX, staminaRef.current + STAMINA_REGEN * dt);
+      }
+      if (now - lastStaminaFlush > 80) {
+        lastStaminaFlush = now;
+        setStamina(Math.round(staminaRef.current));
+      }
+
+      // ── Head bob ──────────────────────────────────────────────────────────
+      const targetBobAmp = isMoving ? (isSprinting ? 0.018 : 0.008) : 0;
+      bobSmooth += (targetBobAmp - bobSmooth) * Math.min(1, dt * 10);
+      if (isMoving) bobT += dt * (isSprinting ? 14 : 9);
+      camera.position.y += Math.sin(bobT) * bobSmooth;
 
       // ── Flashlight — follow camera + subtle flicker ─────────────────────
       const dirX = Math.sin(yaw) * Math.cos(pitch);
@@ -794,13 +808,15 @@ export default function DungeonShooter() {
       // Gun base position: right of centre, below eye, slightly forward
       // Recoil lifts the grip slightly — the rotation handles the muzzle-rise
       const gx = camera.position.x + rtx * 0.20 + hfx * 0.26;
-      const gy = camera.position.y - 0.14 + recoilT * 0.03;
+      const targetLower = isSprinting ? 1.0 : 0.0;
+      sprintLower += (targetLower - sprintLower) * Math.min(1, dt * 10);
+      const gy = camera.position.y - 0.14 + recoilT * 0.03 - sprintLower * 0.13;
       const gz = camera.position.z + rtz * 0.20 + hfz * 0.26;
 
       // Only update gunBody — barrel and grip follow as parented children
       // Negative pitch delta = muzzle rotates upward (Babylon: -x = look up)
       gunBody.position.set(gx, gy, gz);
-      gunBody.rotation.set(pitch - recoilT * 0.38, yaw, 0);
+      gunBody.rotation.set(pitch - recoilT * 0.38 + sprintLower * 0.3, yaw, sprintLower * 0.15);
 
       // ── Track visited rooms + generate ahead ────────────────────────────
       const pgx = Math.floor(camera.position.x / RS);
@@ -1035,9 +1051,9 @@ export default function DungeonShooter() {
   // ─── Reset ────────────────────────────────────────────────────────────────
 
   const resetGame = useCallback(() => {
-    hpRef.current = MAX_HP; ammoRef.current = AMMO_MAX;
+    hpRef.current = MAX_HP; ammoRef.current = AMMO_MAX; staminaRef.current = STAMINA_MAX;
     killsRef.current = 0; scoreRef.current = 0; reloadRef.current = false;
-    setHp(MAX_HP); setAmmo(AMMO_MAX); setKills(0); setScore(0);
+    setHp(MAX_HP); setAmmo(AMMO_MAX); setStamina(STAMINA_MAX); setKills(0); setScore(0);
     setIsReloading(false); setPointerLocked(false); setFeedback(null); setRoomsVisited(0);
     gsRef.current = 'intro';
     setGameState('intro');
@@ -1068,7 +1084,7 @@ export default function DungeonShooter() {
             <h1 style={{ color: '#ededed', fontSize: '2.2rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>SECTOR ZERO</h1>
             <p style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.75rem', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: 32 }}>TUNNEL CLEARANCE PROTOCOL</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 32, textAlign: 'left' }}>
-              {[['MOVE','WASD'],['LOOK','MOUSE'],['JUMP','SPACE'],['SHOOT','CLICK'],['RELOAD','R'],['FLASHLIGHT','F']].map(([a, k]) => (
+              {[['MOVE','WASD'],['SPRINT','SHIFT'],['LOOK','MOUSE'],['JUMP','SPACE'],['SHOOT','CLICK'],['RELOAD','R'],['FLASHLIGHT','F']].map(([a, k]) => (
                 <div key={a} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 6 }}>
                   <span style={{ color: 'rgba(237,237,237,0.4)', fontSize: '0.72rem', letterSpacing: '0.2em' }}>{a}</span>
                   <span style={{ color: '#00ffcc', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.15em', fontFamily: 'monospace' }}>{k}</span>
@@ -1148,6 +1164,10 @@ export default function DungeonShooter() {
                 <div style={{ height: '100%', width: `${hp}%`, background: hp > 50 ? '#00ffcc' : hp > 25 ? '#ffee00' : '#ff0055', transition: 'width 0.1s, background 0.3s' }} />
               </div>
               <p style={{ color: hp > 50 ? '#00ffcc' : hp > 25 ? '#ffee00' : '#ff0055', fontSize: '0.7rem', fontFamily: 'monospace', fontWeight: 700 }}>{Math.round(hp)} / {MAX_HP}</p>
+              <p style={{ color: 'rgba(237,237,237,0.4)', fontSize: '0.55rem', letterSpacing: '0.25em', textTransform: 'uppercase', marginTop: 5 }}>STAMINA</p>
+              <div style={{ width: 140, height: 4, background: 'rgba(255,255,255,0.1)' }}>
+                <div style={{ height: '100%', width: `${stamina}%`, background: stamina > 50 ? '#facc15' : stamina > 20 ? '#fb923c' : '#ef4444', transition: 'width 0.08s, background 0.3s' }} />
+              </div>
             </div>
             {!pointerLocked && (
               <p style={{ color: 'rgba(0,255,204,0.6)', fontSize: '0.65rem', letterSpacing: '0.2em', textTransform: 'uppercase' }}>CLICK TO LOCK MOUSE</p>
