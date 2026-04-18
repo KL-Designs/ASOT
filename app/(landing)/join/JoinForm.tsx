@@ -157,7 +157,6 @@ function SteamHelp() {
 
 export default function JoinForm() {
     const [fields, setFields] = useState({
-        discordUsername: '',
         inGameName: '',
         steamUrl: '',
         steamId64: '',
@@ -182,13 +181,47 @@ export default function JoinForm() {
     const [error,    setError]    = useState<string | null>(null)
     const [success,  setSuccess]  = useState(false)
 
+    // Discord session
+    const [discord,      setDiscord]      = useState<{ id: string; username: string; globalName: string; avatar: string } | null>(null)
+    const [discordError, setDiscordError] = useState<string | null>(null)
+
     // Steam OpenID sign-in
     const searchParams = useSearchParams()
     const [steamAuthError, setSteamAuthError] = useState<string | null>(null)
 
+    // On mount — check for existing Discord session
     useEffect(() => {
-        const steamId64 = searchParams.get('steamId64')
-        const steamErr  = searchParams.get('steam_error')
+        fetch('/api/applications/discord-session')
+            .then(r => r.json())
+            .then(d => { if (d.verified) setDiscord(d) })
+            .catch(() => {})
+    }, [])
+
+    // Handle return from Discord / Steam OAuth redirects
+    useEffect(() => {
+        const discordVerified = searchParams.get('discord_verified')
+        const discordErr      = searchParams.get('discord_error')
+        const steamId64       = searchParams.get('steamId64')
+        const steamErr        = searchParams.get('steam_error')
+
+        if (discordVerified) {
+            fetch('/api/applications/discord-session')
+                .then(r => r.json())
+                .then(d => { if (d.verified) setDiscord(d) })
+                .catch(() => {})
+            window.history.replaceState({}, '', '/join')
+        }
+        if (discordErr) {
+            const msg = discordErr === 'not_member'
+                ? 'You must join the ASOT Discord server (discord.gg/asot) before applying.'
+                : discordErr === 'already_member'
+                ? 'You are already a member of ASOT. If you need help, contact a J1 staff member on Discord.'
+                : discordErr === 'cancelled'
+                ? 'Discord sign-in was cancelled.'
+                : 'Discord sign-in failed. Please try again.'
+            setDiscordError(msg)
+            window.history.replaceState({}, '', '/join')
+        }
         if (steamId64) {
             const url = `https://steamcommunity.com/profiles/${steamId64}`
             setFields(prev => ({ ...prev, steamUrl: url, steamId64 }))
@@ -288,7 +321,7 @@ const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAr
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
-        if (nameStatus === 'taken' || nameOffensive) return
+        if (!discord || nameStatus === 'taken' || nameOffensive) return
         setLoading(true)
         setError(null)
         try {
@@ -375,16 +408,131 @@ const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAr
             {/* Honeypot */}
             <input type='text' name='website' value={fields.website} onChange={set('website')} style={{ display: 'none' }} tabIndex={-1} autoComplete='off' />
 
-            {/* ── Identity ── */}
-            {sectionLabel('Identity', 'Enter your Discord username exactly as it appears. Your in-game name must be unique within the unit — it\'s how you\'ll be known in ops.')}
+            {/* ── Step progress bar ── */}
+            {(() => {
+                const steps = [
+                    { label: 'Discord',     done: !!discord },
+                    { label: 'Identity',    done: !!discord && nameStatus === 'available' },
+                    { label: 'Background',  done: !!discord && !!fields.region && !!fields.age },
+                    { label: 'Availability', done: !!discord && !!fields.availableNights },
+                    { label: 'Roles',       done: !!discord && !!fields.primaryRole },
+                    { label: 'About You',   done: !!discord && fields.experience.length > 20 },
+                ]
+                const currentStep = steps.findIndex(s => !s.done)
+                return (
+                    <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                        {steps.map((step, i) => {
+                            const isActive = i === currentStep
+                            const isDone   = step.done
+                            const isFirst  = i === 0
+                            const isLast   = i === steps.length - 1
+                            return (
+                                <div key={step.label} style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                                    {/* Left connector (half-width spacer for first item) */}
+                                    <div style={{
+                                        height: 1, flex: 1, marginBottom: 18,
+                                        background: isFirst ? 'transparent' : isDone || steps[i - 1]?.done ? 'rgba(0,195,100,0.4)' : 'rgba(255,255,255,0.07)',
+                                    }} />
+                                    {/* Step circle + label */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
+                                        <div style={{
+                                            width: 24, height: 24, borderRadius: '50%',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: '0.65rem', fontWeight: 700,
+                                            background: isDone ? '#00c364' : isActive ? 'rgba(219,0,29,0.15)' : 'rgba(255,255,255,0.05)',
+                                            border: isDone ? '1px solid #00c364' : isActive ? '1px solid var(--red)' : '1px solid rgba(255,255,255,0.1)',
+                                            color: isDone ? '#fff' : isActive ? 'var(--red)' : 'rgba(237,237,237,0.25)',
+                                        }}>
+                                            {isDone ? '✓' : i + 1}
+                                        </div>
+                                        <span style={{
+                                            fontSize: '0.58rem', fontWeight: 600, letterSpacing: '0.06em',
+                                            textTransform: 'uppercase', whiteSpace: 'nowrap',
+                                            color: isDone ? '#00c364' : isActive ? 'rgba(237,237,237,0.7)' : 'rgba(237,237,237,0.2)',
+                                        }}>
+                                            {step.label}
+                                        </span>
+                                    </div>
+                                    {/* Right connector (half-width spacer for last item) */}
+                                    <div style={{
+                                        height: 1, flex: 1, marginBottom: 18,
+                                        background: isLast ? 'transparent' : isDone ? 'rgba(0,195,100,0.4)' : 'rgba(255,255,255,0.07)',
+                                    }} />
+                                </div>
+                            )
+                        })}
+                    </div>
+                )
+            })()}
+
+            {/* ── Step 1: Discord Verification ── */}
+            {sectionLabel('Step 1 — Discord', 'Sign in with Discord to verify you\'ve joined the ASOT server before continuing.')}
+            {!discord ? (
+                <div style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+                    padding: '16px', background: 'rgba(88,101,242,0.04)',
+                    border: '1px solid rgba(88,101,242,0.2)',
+                }}>
+                    <div style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.6, textAlign: 'center' }}>
+                        You must be a member of the{' '}
+                        <a href='https://discord.gg/asot' target='_blank' rel='noreferrer' style={{ color: '#5865f2', textDecoration: 'none', fontWeight: 600 }}>
+                            ASOT Discord server
+                        </a>
+                        {' '}before applying. Click below to verify your membership.
+                    </div>
+                    {discordError && (
+                        <div style={{ fontSize: '0.75rem', color: '#ef4444' }}>{discordError}</div>
+                    )}
+                    <a
+                        href='/api/applications/discord-login'
+                        style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 8,
+                            padding: '8px 16px',
+                            background: '#5865f2', color: '#fff',
+                            fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.06em',
+                            textDecoration: 'none',
+                        }}
+                    >
+                        <svg width='16' height='12' viewBox='0 0 71 55' fill='white' xmlns='http://www.w3.org/2000/svg'>
+                            <path d='M60.1 4.9A58.5 58.5 0 0 0 45.5.4a.2.2 0 0 0-.2.1 40.8 40.8 0 0 0-1.8 3.7 54 54 0 0 0-16.2 0A37.7 37.7 0 0 0 25.4.5a.2.2 0 0 0-.2-.1A58.4 58.4 0 0 0 10.5 4.9a.2.2 0 0 0-.1.1C1.5 18.1-.9 31 .3 43.6a.2.2 0 0 0 .1.2 58.8 58.8 0 0 0 17.7 8.9.2.2 0 0 0 .2-.1 42 42 0 0 0 3.6-5.9.2.2 0 0 0-.1-.3 38.7 38.7 0 0 1-5.5-2.6.2.2 0 0 1 0-.4l1.1-.8a.2.2 0 0 1 .2 0c11.5 5.3 24 5.3 35.4 0a.2.2 0 0 1 .2 0l1.1.8a.2.2 0 0 1 0 .4 36.1 36.1 0 0 1-5.5 2.6.2.2 0 0 0-.1.3 47.1 47.1 0 0 0 3.6 5.9.2.2 0 0 0 .2.1 58.6 58.6 0 0 0 17.8-8.9.2.2 0 0 0 .1-.2c1.4-14.8-2.4-27.6-10-39a.2.2 0 0 0-.1 0zM23.7 36c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 4-2.8 7.1-6.4 7.1zm23.6 0c-3.5 0-6.4-3.2-6.4-7.1s2.8-7.1 6.4-7.1c3.6 0 6.5 3.2 6.4 7.1 0 4-2.8 7.1-6.4 7.1z'/>
+                        </svg>
+                        SIGN IN WITH DISCORD
+                    </a>
+                </div>
+            ) : (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    background: 'rgba(0,195,100,0.04)',
+                    border: '1px solid rgba(0,195,100,0.2)',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {discord.avatar && (
+                            <img src={discord.avatar} alt='' style={{ width: 32, height: 32, borderRadius: '50%' }} />
+                        )}
+                        <div>
+                            <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)' }}>{discord.globalName}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)' }}>@{discord.username}</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: '#00c364', marginLeft: 6 }}>
+                            <CheckCircle style={{ fontSize: 14 }} />
+                            ASOT server verified
+                        </div>
+                    </div>
+                    <button
+                        type='button'
+                        onClick={async () => { await fetch('/api/applications/discord-session', { method: 'DELETE' }); setDiscord(null) }}
+                        style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', background: 'none', border: 'none', cursor: 'pointer' }}
+                    >
+                        Sign out
+                    </button>
+                </div>
+            )}
+
+            {/* ── Step 2: Application (only shown once Discord is verified) ── */}
+            {discord && (<>
+            {sectionLabel('Step 2 — Identity', 'Your in-game name must be unique within the unit — it\'s how you\'ll be known in ops.')}
             <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                <TextField
-                    label='Discord Username'
-                    placeholder='e.g. username'
-                    value={fields.discordUsername}
-                    onChange={set('discordUsername')}
-                    required fullWidth sx={inputSx}
-                />
                 <TextField
                     label='In-Game Name'
                     placeholder='e.g. Thomas, Six, Yoshi'
@@ -656,6 +804,7 @@ const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAr
             >
                 {loading ? 'SUBMITTING...' : 'SUBMIT APPLICATION'}
             </Button>
+            </>)}
         </form>
     )
 }

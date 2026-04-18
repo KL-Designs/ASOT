@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import Db from '@/lib/mongo'
 import { createNotificationForRole } from '@/lib/notifications'
 
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const {
-        discordUsername, inGameName, age, experience, website,
+        inGameName, age, experience, website,
         steamUrl, steamId64, region, armaHours, priorMilsim, dualClan,
         previousUnits, currentUnit, availableNights, opsPerMonth, primaryRole,
         additionalRoles, departmentInterest, ownsArma,
@@ -31,8 +32,19 @@ export async function POST(request: NextRequest) {
     // Honeypot — silently accept but discard
     if (website) return NextResponse.json({ ok: true })
 
+    // Verify Discord session from httpOnly cookie
+    const cookieStore = await cookies()
+    const discordRaw  = cookieStore.get('discord_join_session')?.value
+    if (!discordRaw) return NextResponse.json({ error: 'Discord verification required. Please sign in with Discord first.' }, { status: 400 })
+    let discordSession: { id: string; username: string; globalName: string; avatar: string }
+    try {
+        discordSession = JSON.parse(discordRaw)
+        if (!discordSession.id) throw new Error()
+    } catch {
+        return NextResponse.json({ error: 'Invalid Discord session. Please sign in with Discord again.' }, { status: 400 })
+    }
+
     // Required field validation
-    if (!String(discordUsername ?? '').trim()) return NextResponse.json({ error: 'Discord username is required.' }, { status: 400 })
     if (!String(inGameName ?? '').trim()) return NextResponse.json({ error: 'In-game name is required.' }, { status: 400 })
     const ageNum = parseInt(String(age), 10)
     if (isNaN(ageNum) || ageNum < 13 || ageNum > 100) return NextResponse.json({ error: 'Please enter a valid age (13–100).' }, { status: 400 })
@@ -42,7 +54,6 @@ export async function POST(request: NextRequest) {
     if (!primaryRole || !VALID_ROLES.includes(String(primaryRole))) return NextResponse.json({ error: 'Please select a primary role.' }, { status: 400 })
 
     // Length limits
-    if (String(discordUsername).length > 100) return NextResponse.json({ error: 'Discord username is too long.' }, { status: 400 })
     if (String(inGameName).length > 12) return NextResponse.json({ error: 'In-game name must be 12 characters or fewer.' }, { status: 400 })
     if (String(experience).length > 2000) return NextResponse.json({ error: 'Experience field is too long (max 2000 characters).' }, { status: 400 })
     if (steamUrl && String(steamUrl).length > 200) return NextResponse.json({ error: 'Steam URL is too long.' }, { status: 400 })
@@ -64,7 +75,9 @@ export async function POST(request: NextRequest) {
     }
 
     await Db.j1Applications.insertOne({
-        discordUsername: String(discordUsername).trim(),
+        discordId:       discordSession.id,
+        discordUsername: discordSession.username,
+        discordName:     discordSession.globalName,
         inGameName: String(inGameName).trim(),
         age: ageNum,
         experience: String(experience).trim(),
@@ -104,5 +117,7 @@ export async function POST(request: NextRequest) {
         }),
     ])
 
-    return NextResponse.json({ ok: true })
+    const res = NextResponse.json({ ok: true })
+    res.cookies.delete('discord_join_session')
+    return res
 }
