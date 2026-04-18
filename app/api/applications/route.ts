@@ -9,8 +9,8 @@ const VALID_REGIONS = null // kept for reference, no longer a fixed enum
 const VALID_NIGHTS  = ['Saturday', 'Sunday', 'Both', 'Flexible']
 const VALID_OPS     = ['1+', '2+', '3+', '4+']
 const VALID_ROLES   = [
-    'Infantry', 'Section Medic', 'Advanced Medic', 'Rotary Aviation',
-    'Fixed Wing Aviation', 'Armored Crew', 'Machine Gunner', 'Medium Anti-Tank',
+    'Infantry', 'Combat First Aider (CFA)', 'Advanced Medic', 'Rotary Aviation',
+    'Armoured Crew', 'Machine Gunner', 'Medium Anti-Tank',
     'Engineer', 'Logistics', 'Indirect Fire', 'Heavy Weapons',
 ]
 

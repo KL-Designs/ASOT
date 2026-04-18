@@ -15,8 +15,8 @@ const REGIONS = ['Oceania', 'Asia', 'Europe', 'North America', 'South America', 
 const NIGHTS = ['Saturday', 'Sunday', 'Both', 'Flexible']
 const OPS_PER_MONTH = ['1+', '2+', '3+', '4+']
 const PRIMARY_ROLES = [
-    'Infantry', 'Section Medic', 'Advanced Medic',
-    'Rotary Aviation', 'Fixed Wing Aviation', 'Armored Crew',
+    'Infantry', 'Combat First Aider (CFA)', 'Advanced Medic',
+    'Rotary Aviation', 'Armoured Crew',
     'Machine Gunner', 'Medium Anti-Tank', 'Engineer',
     'Logistics', 'Indirect Fire', 'Heavy Weapons',
 ]
