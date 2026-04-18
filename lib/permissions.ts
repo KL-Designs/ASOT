@@ -336,6 +336,20 @@ const PERMISSIONS = {
         manage: ['J4-Administration'],
     },
 
+    // ── Feedback (bug reports & feature requests) ─────────────────────────────
+
+    feedback: {
+        /**
+         * Set the status on a feedback submission (open, in_progress, priority,
+         * fixed, implemented, wont_fix). J4-Administration bypasses all checks
+         * globally, so this is effectively J4-only.
+         *
+         * Used by:
+         *  - `app/api/feedback/[id]/status/route.ts` (PATCH)
+         */
+        manageStatus: ['J4-Administration'],
+    },
+
     // ── Gallery ───────────────────────────────────────────────────────────────
 
     gallery: {

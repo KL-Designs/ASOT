@@ -34,6 +34,8 @@ const DbInterface = {
     actionLogs: client.db(process.env.MONGO_DB!).collection('action_logs') as MongoCollection<ActionLog>,
     errorLogs: client.db(process.env.MONGO_DB!).collection('error_logs') as MongoCollection<ErrorLog>,
     discordLogs: client.db(process.env.MONGO_DB!).collection('discord_logs') as MongoCollection<DiscordLog>,
+    feedback: client.db(process.env.MONGO_DB!).collection('feedback') as MongoCollection<Feedback>,
+    feedbackComments: client.db(process.env.MONGO_DB!).collection('feedback_comments') as MongoCollection<FeedbackComment>,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,

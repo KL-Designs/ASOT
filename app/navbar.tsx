@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse } from '@mui/material'
-import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, AdminPanelSettings, Api, Tune } from '@mui/icons-material'
+import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, AdminPanelSettings, Api, Tune, BugReport } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import { rankNameFromAbbr } from '@/lib/ranks'
@@ -252,6 +252,22 @@ export default function Navbar() {
                     ))}
                 </div>
 
+                {user && (
+                    <>
+                        <Divider style={{ borderColor: 'rgba(255,255,255,0.06)' }} />
+                        <Link href='/feedback' onClick={() => setSideMenuOpen(false)}>
+                            <div
+                                className='flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors'
+                                style={{ color: 'rgba(237,237,237,0.6)' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >
+                                <BugReport style={{ fontSize: 20, color: 'rgba(237,237,237,0.4)' }} />
+                                <span style={{ fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.08em' }}>FEEDBACK</span>
+                            </div>
+                        </Link>
+                    </>
+                )}
                 {(user as any)?.isStaff && (
                     <>
                         <Divider style={{ borderColor: 'rgba(0,195,255,0.2)' }} />
@@ -487,6 +503,13 @@ function ProfileDropdown({ user }: { user: User }) {
                             sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
                             <Tune style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
                             <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>OPTIONALS</span>
+                        </MenuItem>
+                    </Link>
+                    <Link href='/feedback'>
+                        <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
+                            sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
+                            <BugReport style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
+                            <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>FEEDBACK</span>
                         </MenuItem>
                     </Link>
                     {isAdmin && (
