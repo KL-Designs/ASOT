@@ -531,7 +531,9 @@ export default function DungeonShooter() {
   const activeIdxRef = useRef(0);
   const lastShotRef  = useRef(0);
   const mouseHeldRef = useRef(false);
-  const radarRef   = useRef<HTMLCanvasElement>(null);
+  const radarRef      = useRef<HTMLCanvasElement>(null);
+  const minimapRef    = useRef<HTMLCanvasElement>(null);
+  const minimapZoomRef = useRef(20); // pixels per cell (8–44)
 
   useEffect(() => {
     document.body.classList.add('fullscreen-page', 'suppress-custom-cursor');
@@ -769,6 +771,8 @@ export default function DungeonShooter() {
     const onKeyDown = (e: KeyboardEvent) => {
       keys[e.code] = true;
       if (e.code === 'KeyF') { flashOn = !flashOn; return; }
+      if (e.code === 'Minus' || e.code === 'NumpadSubtract') { minimapZoomRef.current = Math.max(6, minimapZoomRef.current - 4); return; }
+      if (e.code === 'Equal' || e.code === 'NumpadAdd')      { minimapZoomRef.current = Math.min(44, minimapZoomRef.current + 4); return; }
       if (e.code === 'KeyR' && !reloadRef.current) {
         const w = equippedRef.current[activeIdxRef.current];
         if (!w) return;
@@ -1301,6 +1305,70 @@ export default function DungeonShooter() {
         rctx.fillStyle = '#ffffff'; rctx.fill();
       }
 
+      // ── Minimap ────────────────────────────────────────────────────────────
+      const mc = minimapRef.current;
+      if (mc) {
+        const mctx = mc.getContext('2d')!;
+        const MW = mc.width, MH = mc.height;
+        const MCX = MW / 2, MCY = MH / 2;
+        const cellPx = minimapZoomRef.current;
+
+        mctx.clearRect(0, 0, MW, MH);
+        mctx.fillStyle = 'rgba(4,6,10,0.88)';
+        mctx.fillRect(0, 0, MW, MH);
+        mctx.strokeStyle = 'rgba(0,255,204,0.3)';
+        mctx.lineWidth = 1;
+        mctx.strokeRect(0.5, 0.5, MW - 1, MH - 1);
+
+        const playerGx = Math.floor(camera.position.x / RS);
+        const playerGz = Math.floor(camera.position.z / RS);
+
+        for (const [key, flags] of roomsBuilt) {
+          const [gxStr, gzStr] = key.split(',');
+          const rx = parseInt(gxStr), rz = parseInt(gzStr);
+          const sx = MCX + (rx - playerGx) * cellPx;
+          const sy = MCY - (rz - playerGz) * cellPx; // +Z = up on screen
+          if (sx < -cellPx || sx > MW + cellPx || sy < -cellPx || sy > MH + cellPx) continue;
+
+          const isVis = visited.has(key);
+          mctx.fillStyle = isVis ? 'rgba(50,44,30,0.95)' : roomsMeshed.has(key) ? 'rgba(22,20,14,0.9)' : 'rgba(10,9,6,0.85)';
+          mctx.fillRect(sx - cellPx / 2, sy - cellPx / 2, cellPx, cellPx);
+
+          mctx.strokeStyle = isVis ? 'rgba(210,185,120,0.9)' : 'rgba(90,80,50,0.55)';
+          mctx.lineWidth = Math.max(1, cellPx / 9);
+          mctx.lineCap = 'round';
+          const x0 = sx - cellPx / 2, x1 = sx + cellPx / 2;
+          const y0 = sy - cellPx / 2, y1 = sy + cellPx / 2;
+          const wall = (ax: number, ay: number, bx: number, by: number) => {
+            mctx.beginPath(); mctx.moveTo(ax, ay); mctx.lineTo(bx, by); mctx.stroke();
+          };
+          if (!flags.n) wall(x0, y0, x1, y0);
+          if (!flags.s) wall(x0, y1, x1, y1);
+          if (!flags.e) wall(x1, y0, x1, y1);
+          if (!flags.w) wall(x0, y0, x0, y1);
+        }
+
+        // Player arrow — rotates with yaw (yaw=0 faces +Z = screen up)
+        const as = Math.max(4, cellPx * 0.45);
+        mctx.save();
+        mctx.translate(MCX, MCY);
+        mctx.rotate(yaw);
+        mctx.beginPath();
+        mctx.moveTo(0, -as * 1.4);
+        mctx.lineTo(-as * 0.65, as * 0.8);
+        mctx.lineTo(0, as * 0.35);
+        mctx.lineTo(as * 0.65, as * 0.8);
+        mctx.closePath();
+        mctx.fillStyle = '#00ffcc';
+        mctx.fill();
+        mctx.restore();
+
+        mctx.fillStyle = 'rgba(0,255,204,0.35)';
+        mctx.font = '8px monospace';
+        mctx.textAlign = 'left';
+        mctx.fillText('MAP', 4, 12);
+      }
+
       // Auto-fire for weapons with auto: true (e.g. SMG)
       if (mouseHeldRef.current) {
         const aw = equippedRef.current[activeIdxRef.current];
@@ -1368,7 +1436,7 @@ export default function DungeonShooter() {
             <h1 style={{ color: '#ededed', fontSize: '2.2rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>SECTOR ZERO</h1>
             <p style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.75rem', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: 32 }}>TUNNEL CLEARANCE PROTOCOL</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 32, textAlign: 'left' }}>
-              {[['MOVE','WASD'],['SPRINT','SHIFT'],['LOOK','MOUSE'],['JUMP','SPACE'],['SHOOT','CLICK'],['RELOAD','R'],['FLASHLIGHT','F'],['WEAPON','SCROLL']].map(([a, k]) => (
+              {[['MOVE','WASD'],['SPRINT','SHIFT'],['LOOK','MOUSE'],['JUMP','SPACE'],['SHOOT','CLICK'],['RELOAD','R'],['FLASHLIGHT','F'],['WEAPON','SCROLL'],['MAP ZOOM','-/+']].map(([a, k]) => (
                 <div key={a} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 6 }}>
                   <span style={{ color: 'rgba(237,237,237,0.4)', fontSize: '0.72rem', letterSpacing: '0.2em' }}>{a}</span>
                   <span style={{ color: '#00ffcc', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.15em', fontFamily: 'monospace' }}>{k}</span>
@@ -1471,6 +1539,13 @@ export default function DungeonShooter() {
               )}
             </div>
           </div>
+
+          {/* Minimap — top-left top-down map view */}
+          <canvas
+            ref={minimapRef}
+            width={200} height={200}
+            style={{ position: 'fixed', top: 64, left: 16, pointerEvents: 'none', zIndex: 15, imageRendering: 'pixelated' }}
+          />
 
           {/* Radar */}
           <canvas
