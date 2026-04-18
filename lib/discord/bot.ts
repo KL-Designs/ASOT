@@ -42,7 +42,7 @@ export interface MessagePayload {
 // ─── Core HTTP helper (exported for reuse in index.ts) ────────────────────────
 
 export async function botRequest<T = unknown>(
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE' | 'PUT',
     path: string,
     body?: unknown,
 ): Promise<T> {

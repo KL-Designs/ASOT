@@ -1,6 +1,7 @@
 interface J1Application {
     _id?: import('mongodb').ObjectId
     discordUsername: string
+    discordName?: string
     discordId?: string
     inGameName: string
     age: number
