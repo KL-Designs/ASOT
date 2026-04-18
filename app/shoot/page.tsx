@@ -103,20 +103,44 @@ const SPRINT_MULT   = 1.85;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type EnemyType = 'wanderer' | 'stalker' | 'shambler' | 'brute';
+
+interface EnemyConfig {
+  label: string;
+  maxHp: number;
+  speed: number;
+  movement: 'smooth' | 'stagger';
+  barColor: string;
+  diffuse: Color3;
+  scoreValue: number;
+}
+
+const ENEMY_CONFIGS: Record<EnemyType, EnemyConfig> = {
+  wanderer: { label: 'WANDERER', maxHp: 2, speed: 0.9,  movement: 'smooth',  barColor: '#88ccff', diffuse: new Color3(0.80, 0.78, 0.72), scoreValue: 100 },
+  stalker:  { label: 'STALKER',  maxHp: 3, speed: 2.0,  movement: 'smooth',  barColor: '#cc44ff', diffuse: new Color3(0.55, 0.35, 0.75), scoreValue: 175 },
+  shambler: { label: 'SHAMBLER', maxHp: 5, speed: 0.55, movement: 'stagger', barColor: '#ffaa22', diffuse: new Color3(0.75, 0.60, 0.25), scoreValue: 225 },
+  brute:    { label: 'BRUTE',    maxHp: 8, speed: 0.75, movement: 'stagger', barColor: '#ff4444', diffuse: new Color3(0.30, 0.15, 0.15), scoreValue: 400 },
+};
+
 interface EnemyData {
   root: any;
   hitbox: any;
   mat: StandardMaterial;
+  hpBarTex: DynamicTexture;
   neonColor: Color3;
   hp: number;
+  maxHp: number;
+  enemyType: EnemyType;
+  movement: 'smooth' | 'stagger';
+  scoreValue: number;
   alive: boolean;
   hit: boolean;
   hitTime: number;
   speed: number;
-  strafePhase: number; // random phase offset for sideways oscillation
-  strafeFreq: number;  // oscillation rate (rad/ms) — varies per enemy for unpredictability
-  lunging: boolean;    // true = sprinting burst; false = frozen
-  phaseUntil: number;  // ms timestamp when to flip phase
+  strafePhase: number;
+  strafeFreq: number;
+  lunging: boolean;
+  phaseUntil: number;
 }
 
 interface CeilingLightData {
@@ -126,6 +150,24 @@ interface CeilingLightData {
   phase: number;
   freq: number;
   style: 'warm' | 'cold' | 'dying';
+}
+
+// ─── HP bar renderer ──────────────────────────────────────────────────────────
+
+function drawHpBar(tex: DynamicTexture, label: string, hp: number, maxHp: number, barColor: string): void {
+  const W = 256, H = 44;
+  const ctx = tex.getContext() as unknown as CanvasRenderingContext2D;
+  ctx.clearRect(0, 0, W, H);
+  ctx.font = 'bold 18px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.fillText(label, W / 2, 18);
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(4, 26, W - 8, 12);
+  const pct = Math.max(0, hp / maxHp);
+  ctx.fillStyle = barColor;
+  ctx.fillRect(4, 26, (W - 8) * pct, 12);
+  tex.update();
 }
 
 // ─── Room builder ─────────────────────────────────────────────────────────────
@@ -222,16 +264,25 @@ function buildRoom(
   }
 
   // ── Enemies ───────────────────────────────────────────────────────────────
-  if (roomIdx >= 2) {
+  // No spawns near the player's starting area (Manhattan distance < 3 from origin)
+  const distFromOrigin = Math.abs(gx) + Math.abs(gz);
+  if (roomIdx >= 2 && distFromOrigin >= 3) {
     const inner = RS - WT * 2 - 1;
-    const count = Math.floor(Math.random() * 3);
+    // Fewer enemies — skew toward 0–1 per room
+    const roll = Math.random();
+    const count = roll < 0.35 ? 0 : roll < 0.82 ? 1 : 2;
     for (let i = 0; i < count; i++) {
       const ex = x0 + WT + 0.5 + Math.random() * inner;
       const ez = z0 + WT + 0.5 + Math.random() * inner;
       const av = avatarPool.length > 0
         ? avatarPool[Math.floor(Math.random() * avatarPool.length)]
         : null;
-      const enemy = buildEnemy(scene, new Vector3(ex, 0, ez), av?.url ?? null, av?.name ?? '');
+      const r = Math.random();
+      const type: EnemyType = r < 0.40 ? 'wanderer'
+        : r < 0.65 ? 'stalker'
+        : r < 0.85 ? 'shambler'
+        : 'brute';
+      const enemy = buildEnemy(scene, new Vector3(ex, 0, ez), av?.url ?? null, av?.name ?? '', type);
       enemies.push(enemy);
       disposables.push(enemy.root);
     }
@@ -269,35 +320,36 @@ function buildRoom(
   return { enemies, lights, disposables };
 }
 
-function buildEnemy(scene: Scene, pos: Vector3, avatarUrl: string | null, displayName: string): EnemyData {
+function buildEnemy(scene: Scene, pos: Vector3, avatarUrl: string | null, displayName: string, type: EnemyType): EnemyData {
+  const cfg = ENEMY_CONFIGS[type];
+
   const mat = new StandardMaterial('em' + Math.random(), scene);
-  mat.emissiveColor = Color3.Black();
-  mat.specularColor = Color3.Black();
+  mat.emissiveColor   = Color3.Black();
+  mat.specularColor   = Color3.Black();
   mat.backFaceCulling = false;
 
   if (avatarUrl) {
-    const tex = new Texture(avatarUrl, scene);
-    mat.diffuseTexture = tex;
+    mat.diffuseTexture = new Texture(avatarUrl, scene);
     mat.diffuseColor   = Color3.White();
   } else {
-    mat.diffuseColor = new Color3(0.85, 0.82, 0.75);
+    mat.diffuseColor = cfg.diffuse.clone();
   }
 
-  // Root — invisible anchor at ground level, drives AI position
+  // Root anchor
   const root = MeshBuilder.CreateBox('eroot', { size: 0.001 }, scene);
   root.position   = pos.clone();
   root.isPickable = false;
   root.isVisible  = false;
 
-  // Billboard plane — avatar (Doom-sprite style)
+  // Billboard sprite
   const plane = MeshBuilder.CreatePlane('eplane', { width: 1.0, height: 1.0 }, scene);
   plane.position      = new Vector3(0, 1.0, 0);
   plane.material      = mat;
   plane.parent        = root;
   plane.isPickable    = false;
-  plane.billboardMode = 2; // BILLBOARDMODE_Y
+  plane.billboardMode = 2;
 
-  // Name tag above avatar — drawn onto a DynamicTexture canvas
+  // Name tag
   const tagW = 512, tagH = 96;
   const nameTex = new DynamicTexture('nt' + Math.random(), { width: tagW, height: tagH }, scene, false);
   nameTex.hasAlpha = true;
@@ -311,21 +363,41 @@ function buildEnemy(scene: Scene, pos: Vector3, avatarUrl: string | null, displa
   nameTex.update();
 
   const nameMat = new StandardMaterial('nm' + Math.random(), scene);
-  nameMat.diffuseTexture  = nameTex;
-  nameMat.diffuseColor    = Color3.White();
-  nameMat.emissiveColor   = Color3.Black();
-  nameMat.specularColor   = Color3.Black();
-  nameMat.backFaceCulling = false;
+  nameMat.diffuseTexture             = nameTex;
+  nameMat.diffuseColor               = Color3.White();
+  nameMat.emissiveColor              = Color3.Black();
+  nameMat.specularColor              = Color3.Black();
+  nameMat.backFaceCulling            = false;
   nameMat.useAlphaFromDiffuseTexture = true;
 
   const nameTag = MeshBuilder.CreatePlane('ntag', { width: 1.2, height: 1.2 * (tagH / tagW) }, scene);
-  nameTag.position      = new Vector3(0, 1.68, 0); // sits just above the avatar plane
+  nameTag.position      = new Vector3(0, 1.68, 0);
   nameTag.material      = nameMat;
   nameTag.parent        = root;
   nameTag.isPickable    = false;
   nameTag.billboardMode = 2;
 
-  // Invisible hitbox (the only pickable mesh) — cylinder so hits register from any angle
+  // HP bar — thin plane above the name tag, always faces camera
+  const hpBarTex = new DynamicTexture('hpb' + Math.random(), { width: 256, height: 44 }, scene, false);
+  hpBarTex.hasAlpha = true;
+  drawHpBar(hpBarTex, cfg.label, cfg.maxHp, cfg.maxHp, cfg.barColor);
+
+  const hpBarMat = new StandardMaterial('hbm' + Math.random(), scene);
+  hpBarMat.diffuseTexture             = hpBarTex;
+  hpBarMat.diffuseColor               = Color3.White();
+  hpBarMat.emissiveColor              = Color3.White();
+  hpBarMat.specularColor              = Color3.Black();
+  hpBarMat.backFaceCulling            = false;
+  hpBarMat.useAlphaFromDiffuseTexture = true;
+
+  const hpBar = MeshBuilder.CreatePlane('hpbar', { width: 1.1, height: 1.1 * (44 / 256) }, scene);
+  hpBar.position      = new Vector3(0, 2.1, 0);
+  hpBar.material      = hpBarMat;
+  hpBar.parent        = root;
+  hpBar.isPickable    = false;
+  hpBar.billboardMode = 2;
+
+  // Hitbox
   const hitbox = MeshBuilder.CreateCylinder('hitbox', { height: 1.6, diameter: 0.9, tessellation: 8 }, scene);
   hitbox.position  = new Vector3(0, 0.8, 0);
   hitbox.parent    = root;
@@ -333,12 +405,17 @@ function buildEnemy(scene: Scene, pos: Vector3, avatarUrl: string | null, displa
   hitbox.metadata  = { isEnemy: true };
 
   return {
-    root, hitbox, mat,
-    neonColor: Color3.White(),
-    hp: 2, alive: true, hit: false, hitTime: 0,
-    speed: 0.9 + Math.random() * 0.7,
+    root, hitbox, mat, hpBarTex,
+    neonColor:   Color3.White(),
+    hp:          cfg.maxHp,
+    maxHp:       cfg.maxHp,
+    enemyType:   type,
+    movement:    cfg.movement,
+    scoreValue:  cfg.scoreValue,
+    alive: true, hit: false, hitTime: 0,
+    speed:       cfg.speed,
     strafePhase: Math.random() * Math.PI * 2,
-    strafeFreq:  0.0008 + Math.random() * 0.0012, // oscillation period 500–1250ms
+    strafeFreq:  0.0008 + Math.random() * 0.0012,
     lunging:     false,
     phaseUntil:  0,
   };
@@ -653,12 +730,14 @@ export default function DungeonShooter() {
           enemy.hp--;
           enemy.hit = true; enemy.hitTime = performance.now();
           enemy.mat.emissiveColor = new Color3(1, 1, 1);
+          const cfg = ENEMY_CONFIGS[enemy.enemyType];
+          drawHpBar(enemy.hpBarTex, cfg.label, enemy.hp, enemy.maxHp, cfg.barColor);
           if (enemy.hp <= 0) {
             enemy.alive = false;
             enemy.root.setEnabled(false);
             killsRef.current++; setKills(k => k + 1);
-            scoreRef.current += 100; setScore(s => s + 100);
-            showFeedback('+100 KILL', '#00ffcc');
+            scoreRef.current += enemy.scoreValue; setScore(s => s + enemy.scoreValue);
+            showFeedback(`+${enemy.scoreValue} KILL`, '#00ffcc');
             const killCtx = getCtx(audioRef); if (killCtx) sndKill(killCtx);
             setCrosshairHit('kill');
             setTimeout(() => setCrosshairHit(null), 220);
@@ -838,32 +917,43 @@ export default function DungeonShooter() {
         const toPlayer = camera.position.subtract(enemy.root.position);
         const dist     = toPlayer.length();
 
-        // Freeze-lunge horror movement — snap between frozen and sprinting phases
         if (dist < 14) {
-          // Flip phase when timer expires
-          if (now >= enemy.phaseUntil) {
-            enemy.lunging = !enemy.lunging;
-            enemy.phaseUntil = enemy.lunging
-              ? now + 150 + Math.random() * 280  // lunge: 150–430 ms burst
-              : now + 350 + Math.random() * 600; // freeze: 350–950 ms pause
-          }
-
-          if (enemy.lunging) {
+          const ER = 0.3;
+          if (enemy.movement === 'smooth') {
+            // Continuous approach with gentle strafe weave
             const dir = toPlayer.normalize();
             dir.y = 0;
-            // Strafe weave during lunge only — makes the sprint feel erratic
             const strafe = new Vector3(dir.z, 0, -dir.x);
-            const sw = Math.sin(now * enemy.strafeFreq + enemy.strafePhase) * enemy.speed * 0.45;
-            const move = dir.scale(enemy.speed * 3.8 * dt).addInPlace(strafe.scale(sw * dt));
-            // Wall collision — slide along walls (same X/Z split as the player)
-            const ER = 0.3;
+            const sw = Math.sin(now * enemy.strafeFreq + enemy.strafePhase) * enemy.speed * 0.35;
+            const move = dir.scale(enemy.speed * dt).addInPlace(strafe.scale(sw * dt));
             const ex = enemy.root.position.x, ez = enemy.root.position.z;
             const nx = ex + move.x, nz = ez + move.z;
             if (!isWall(nx + ER, ez) && !isWall(nx - ER, ez)) enemy.root.position.x = nx;
             const fx = enemy.root.position.x;
             if (!isWall(fx, nz + ER) && !isWall(fx, nz - ER)) enemy.root.position.z = nz;
+          } else {
+            // Stagger — long freeze then lurching burst toward player
+            if (now >= enemy.phaseUntil) {
+              enemy.lunging = !enemy.lunging;
+              enemy.phaseUntil = enemy.lunging
+                ? now + 200 + Math.random() * 350   // burst: 200–550 ms
+                : now + 600 + Math.random() * 1000; // freeze: 600–1600 ms
+            }
+            if (enemy.lunging) {
+              const dir = toPlayer.normalize();
+              dir.y = 0;
+              // Random jitter per frame gives a stumbling look
+              dir.x += (Math.random() - 0.5) * 0.45;
+              dir.z += (Math.random() - 0.5) * 0.45;
+              dir.normalize();
+              const move = dir.scale(enemy.speed * 4.2 * dt);
+              const ex = enemy.root.position.x, ez = enemy.root.position.z;
+              const nx = ex + move.x, nz = ez + move.z;
+              if (!isWall(nx + ER, ez) && !isWall(nx - ER, ez)) enemy.root.position.x = nx;
+              const fx = enemy.root.position.x;
+              if (!isWall(fx, nz + ER) && !isWall(fx, nz - ER)) enemy.root.position.z = nz;
+            }
           }
-          // else: frozen — stand completely still
         }
 
         // Instant kill on contact — use XZ-only distance (camera Y ≠ enemy Y)
