@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     // Length limits
     if (String(discordUsername).length > 100) return NextResponse.json({ error: 'Discord username is too long.' }, { status: 400 })
-    if (String(inGameName).length > 16) return NextResponse.json({ error: 'In-game name must be 16 characters or fewer.' }, { status: 400 })
+    if (String(inGameName).length > 12) return NextResponse.json({ error: 'In-game name must be 12 characters or fewer.' }, { status: 400 })
     if (String(experience).length > 2000) return NextResponse.json({ error: 'Experience field is too long (max 2000 characters).' }, { status: 400 })
     if (steamUrl && String(steamUrl).length > 200) return NextResponse.json({ error: 'Steam URL is too long.' }, { status: 400 })
     if (previousUnits && String(previousUnits).length > 500) return NextResponse.json({ error: 'Previous units field is too long.' }, { status: 400 })

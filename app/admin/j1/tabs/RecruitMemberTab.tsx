@@ -8,6 +8,7 @@ import {
 } from '@mui/material'
 import { PersonAdd, CheckCircle, Warning, HelpOutline } from '@mui/icons-material'
 import { Typography } from '@mui/material'
+import { containsOffensiveWord } from '@/lib/offensive-words'
 
 const REGIONS = ['Oceania', 'Asia', 'Europe', 'North America', 'South America', 'Middle East', 'Africa', 'Other']
 const OCEANIA_ASIA = new Set(['Oceania', 'Asia'])
@@ -22,7 +23,6 @@ const HEARD_ABOUT_OPTIONS = [
     'Friend / Referral', 'Discord Server', 'Reddit',
     'Social Media', 'YouTube', 'Google / Web Search', 'Other',
 ]
-const OFFENSIVE_WORDS = ['nigger', 'faggot', 'retard', 'chink', 'kike', 'spic', 'cunt', 'coon']
 
 interface MemberOption {
     id: string
@@ -100,7 +100,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         if (!name || name.length < 2) { setNameStatus('idle'); setNameOffensive(false); setNameSimilar([]); return }
 
         const lower = name.toLowerCase()
-        setNameOffensive(OFFENSIVE_WORDS.some(w => lower.includes(w)))
+        setNameOffensive(containsOffensiveWord(name))
 
         setNameStatus('checking')
         if (nameCheckTimer.current) clearTimeout(nameCheckTimer.current)

@@ -8,6 +8,7 @@ import {
 } from '@mui/material'
 import { Send, CheckCircle, Warning } from '@mui/icons-material'
 import DeptInfoTabs from './DeptInfoTabs'
+import { containsOffensiveWord } from '@/lib/offensive-words'
 
 const REGIONS = ['Oceania', 'Asia', 'Europe', 'North America', 'South America', 'Middle East', 'Africa']
 const NIGHTS = ['Saturday', 'Sunday', 'Both', 'Flexible']
@@ -181,7 +182,9 @@ export default function JoinForm() {
     const [success,  setSuccess]  = useState(false)
 
     // Name availability check
-    const [nameStatus, setNameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
+    const [nameStatus,    setNameStatus]    = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
+    const [nameOffensive, setNameOffensive] = useState(false)
+    const [nameSimilar,   setNameSimilar]   = useState<string[]>([])
     const nameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     // Steam ID64 resolution
@@ -220,7 +223,10 @@ export default function JoinForm() {
     // Name check
     useEffect(() => {
         const name = fields.inGameName.trim()
-        if (name.length < 2) { setNameStatus('idle'); return }
+        if (name.length < 2) { setNameStatus('idle'); setNameOffensive(false); setNameSimilar([]); return }
+
+        setNameOffensive(containsOffensiveWord(name))
+
         setNameStatus('checking')
         if (nameCheckTimer.current) clearTimeout(nameCheckTimer.current)
         nameCheckTimer.current = setTimeout(async () => {
@@ -228,6 +234,7 @@ export default function JoinForm() {
                 const res = await fetch(`/api/applications/check-name?name=${encodeURIComponent(name)}`)
                 const data = await res.json()
                 setNameStatus(data.available ? 'available' : 'taken')
+                setNameSimilar(data.similar ?? [])
             } catch { setNameStatus('idle') }
         }, 500)
     }, [fields.inGameName])
@@ -247,7 +254,7 @@ const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAr
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
-        if (nameStatus === 'taken') return
+        if (nameStatus === 'taken' || nameOffensive) return
         setLoading(true)
         setError(null)
         try {
@@ -292,12 +299,16 @@ const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAr
         )
     }
 
-    const nameHelperText = nameStatus === 'checking' ? 'Checking availability...'
+    const nameHelperText = nameOffensive ? 'This name contains offensive language.'
+        : nameStatus === 'checking' ? 'Checking availability...'
         : nameStatus === 'available' ? '✓ Name is available'
         : nameStatus === 'taken' ? 'This name is already in use.'
         : undefined
 
-    const nameColor = nameStatus === 'available' ? '#00c364' : nameStatus === 'taken' ? '#db001d' : undefined
+    const nameColor = nameOffensive ? '#f59e0b'
+        : nameStatus === 'available' ? '#00c364'
+        : nameStatus === 'taken' ? '#db001d'
+        : undefined
 
     const inputSx = {
         '& .MuiOutlinedInput-root': {
@@ -346,23 +357,37 @@ const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAr
                     value={fields.inGameName}
                     onChange={set('inGameName')}
                     required fullWidth
-                    inputProps={{ maxLength: 16 }}
+                    inputProps={{ maxLength: 12 }}
                     helperText={nameHelperText}
                     FormHelperTextProps={{ style: { color: nameColor, fontSize: '0.75rem', marginTop: 4 } }}
                     InputProps={{
                         endAdornment: nameStatus === 'checking'
                             ? <CircularProgress size={14} style={{ color: 'rgba(237,237,237,0.3)' }} />
+                            : nameOffensive             ? <Warning     style={{ fontSize: 16, color: '#f59e0b' }} />
                             : nameStatus === 'available' ? <CheckCircle style={{ fontSize: 16, color: '#00c364' }} />
                             : nameStatus === 'taken'     ? <Warning     style={{ fontSize: 16, color: '#db001d' }} />
                             : undefined,
                     }}
                     sx={{
                         ...inputSx,
-                        ...(nameStatus === 'available' && { '& .MuiOutlinedInput-root fieldset': { borderColor: 'rgba(0,195,100,0.5)' } }),
+                        ...(nameOffensive              && { '& .MuiOutlinedInput-root fieldset': { borderColor: 'rgba(245,158,11,0.6)' } }),
+                        ...(nameStatus === 'available' && !nameOffensive && { '& .MuiOutlinedInput-root fieldset': { borderColor: 'rgba(0,195,100,0.5)' } }),
                         ...(nameStatus === 'taken'     && { '& .MuiOutlinedInput-root fieldset': { borderColor: 'rgba(219,0,29,0.7)'  } }),
                     }}
                 />
             </div>
+
+            {/* Similar name warning */}
+            {nameSimilar.length > 0 && nameStatus !== 'taken' && (
+                <div style={{
+                    fontSize: '0.75rem', color: '#f59e0b',
+                    padding: '6px 10px',
+                    background: 'rgba(245,158,11,0.06)',
+                    border: '1px solid rgba(245,158,11,0.25)',
+                }}>
+                    Your name is very similar to an existing member: <strong>{nameSimilar.join(', ')}</strong>. Please choose a more distinct name.
+                </div>
+            )}
 
             {/* Steam */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
