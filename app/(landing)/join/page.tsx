@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { Suspense } from 'react'
 import Container from '@/components/container'
 import JoinForm from './JoinForm'
 import db from '@/lib/mongo'
@@ -55,7 +56,7 @@ export default async function JoinPage() {
                     </div>
                 </div>
 
-                <JoinForm />
+                <Suspense><JoinForm /></Suspense>
             </div>
         </Container>
     )

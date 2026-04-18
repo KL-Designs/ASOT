@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
     TextField, Button, CircularProgress, Alert,
     Select, MenuItem, FormControl, InputLabel,
@@ -132,7 +133,7 @@ function SteamHelp() {
             {open && (
                 <div style={{
                     position: 'absolute', left: 0, top: 20, zIndex: 10,
-                    width: 260, padding: '10px 12px',
+                    width: 360, padding: '10px 12px',
                     background: '#1c1c1c', border: '1px solid rgba(219,0,29,0.3)',
                     fontSize: '0.72rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6,
                 }}>
@@ -180,6 +181,39 @@ export default function JoinForm() {
     const [loading,  setLoading]  = useState(false)
     const [error,    setError]    = useState<string | null>(null)
     const [success,  setSuccess]  = useState(false)
+
+    // Steam OpenID sign-in
+    const searchParams = useSearchParams()
+    const [steamAuthError, setSteamAuthError] = useState<string | null>(null)
+
+    useEffect(() => {
+        const steamId64 = searchParams.get('steamId64')
+        const steamErr  = searchParams.get('steam_error')
+        if (steamId64) {
+            const url = `https://steamcommunity.com/profiles/${steamId64}`
+            setFields(prev => ({ ...prev, steamUrl: url, steamId64 }))
+            setSteamStatus('resolved')
+            window.history.replaceState({}, '', '/join')
+        }
+        if (steamErr) {
+            setSteamAuthError(steamErr === 'cancelled' ? 'Steam sign-in was cancelled.' : 'Steam sign-in failed. Please try again or paste your URL manually.')
+            window.history.replaceState({}, '', '/join')
+        }
+    }, [searchParams])
+
+    const handleSteamSignIn = useCallback(() => {
+        const returnTo = `${window.location.origin}/api/applications/steam-callback`
+        const realm    = window.location.origin
+        const params = new URLSearchParams({
+            'openid.ns':         'http://specs.openid.net/auth/2.0',
+            'openid.mode':       'checkid_setup',
+            'openid.return_to':  returnTo,
+            'openid.realm':      realm,
+            'openid.identity':   'http://specs.openid.net/auth/2.0/identifier_select',
+            'openid.claimed_id': 'http://specs.openid.net/auth/2.0/identifier_select',
+        })
+        window.location.href = `https://steamcommunity.com/openid/login?${params}`
+    }, [])
 
     // Name availability check
     const [nameStatus,    setNameStatus]    = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
@@ -395,19 +429,39 @@ const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAr
                     <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.35)' }}>Steam Profile URL or SteamID64</span>
                     <SteamHelp />
                 </div>
-                <TextField
-                    placeholder='https://steamcommunity.com/id/yourprofile'
-                    value={fields.steamUrl}
-                    onChange={e => setFields(prev => ({ ...prev, steamId64: '', steamUrl: e.target.value }))}
-                    fullWidth sx={inputSx}
-                    InputProps={{
-                        endAdornment: steamStatus === 'resolving'
-                            ? <CircularProgress size={14} style={{ color: 'rgba(237,237,237,0.3)' }} />
-                            : steamStatus === 'resolved'
-                            ? <CheckCircle style={{ fontSize: 16, color: '#00c364' }} />
-                            : undefined,
-                    }}
-                />
+                {steamAuthError && (
+                    <div style={{ fontSize: '0.72rem', color: '#ef4444' }}>{steamAuthError}</div>
+                )}
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <TextField
+                        placeholder='https://steamcommunity.com/id/yourprofile'
+                        value={fields.steamUrl}
+                        onChange={e => setFields(prev => ({ ...prev, steamId64: '', steamUrl: e.target.value }))}
+                        fullWidth sx={inputSx}
+                        InputProps={{
+                            endAdornment: steamStatus === 'resolving'
+                                ? <CircularProgress size={14} style={{ color: 'rgba(237,237,237,0.3)' }} />
+                                : steamStatus === 'resolved'
+                                ? <CheckCircle style={{ fontSize: 16, color: '#00c364' }} />
+                                : undefined,
+                        }}
+                    />
+                    <button
+                        type='button'
+                        onClick={handleSteamSignIn}
+                        style={{
+                            display: 'flex', alignItems: 'center',
+                            padding: '0 12px', flexShrink: 0,
+                            background: 'transparent',
+                            border: '1px solid rgba(255,255,255,0.12)',
+                            color: 'rgba(237,237,237,0.5)',
+                            fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.08em',
+                            cursor: 'pointer', whiteSpace: 'nowrap',
+                        }}
+                    >
+                        SIGN IN WITH STEAM
+                    </button>
+                </div>
                 {steamStatus === 'resolved' && (
                     <div style={{ fontSize: '0.72rem', color: '#00c364', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <CheckCircle style={{ fontSize: 14 }} />
