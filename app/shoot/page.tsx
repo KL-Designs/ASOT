@@ -94,7 +94,6 @@ const EYE     = 1.65;  // eye height
 const GRAV    = -22;
 const JUMP    = 8.5;
 const PIXEL   = 2;     // render at half-res for retro look
-const AMMO_MAX      = 10;
 const MAX_HP        = 100;
 const STAMINA_MAX   = 100;
 const STAMINA_DRAIN = 35;   // per second while sprinting
@@ -121,6 +120,39 @@ const ENEMY_CONFIGS: Record<EnemyType, EnemyConfig> = {
   shambler: { label: 'SHAMBLER', maxHp: 5, speed: 0.55, movement: 'stagger', barColor: '#ffaa22', diffuse: new Color3(0.75, 0.60, 0.25), scoreValue: 225 },
   brute:    { label: 'BRUTE',    maxHp: 8, speed: 0.75, movement: 'stagger', barColor: '#ff4444', diffuse: new Color3(0.30, 0.15, 0.15), scoreValue: 400 },
 };
+
+type WeaponId = 'pistol' | 'shotgun' | 'smg' | 'rifle';
+
+interface WeaponDef {
+  label: string;
+  ammoMax: number;
+  damage: number;
+  pellets: number;
+  fireRate: number;
+  reloadTime: number;
+  pickupColor: Color3;
+  recoilMult: number;
+  bodyScale: [number, number, number];
+  auto: boolean;
+}
+
+const WEAPON_DEFS: Record<WeaponId, WeaponDef> = {
+  pistol:  { label: 'PISTOL',  ammoMax: 10, damage: 1, pellets: 1, fireRate: 250, reloadTime: 1800, pickupColor: new Color3(0.5, 0.7, 1.0), recoilMult: 1.0, bodyScale: [1.0, 1.0, 1.0], auto: false },
+  shotgun: { label: 'SHOTGUN', ammoMax:  6, damage: 2, pellets: 5, fireRate: 700, reloadTime: 2500, pickupColor: new Color3(1.0, 0.5, 0.1), recoilMult: 2.5, bodyScale: [1.2, 1.2, 1.5], auto: false },
+  smg:     { label: 'SMG',     ammoMax: 30, damage: 1, pellets: 1, fireRate:  90, reloadTime: 1500, pickupColor: new Color3(0.2, 1.0, 0.3), recoilMult: 0.5, bodyScale: [0.9, 0.9, 1.1], auto: true  },
+  rifle:   { label: 'RIFLE',   ammoMax: 20, damage: 3, pellets: 1, fireRate: 450, reloadTime: 2000, pickupColor: new Color3(1.0, 0.9, 0.1), recoilMult: 1.8, bodyScale: [0.8, 0.8, 1.7], auto: false },
+};
+
+interface CarriedWeapon { id: WeaponId; ammo: number; }
+
+interface WeaponPickup {
+  mesh: any;
+  labelPlane: any;
+  weaponId: WeaponId;
+  ammoCount: number;
+  collected: boolean;
+  bobPhase: number;
+}
 
 interface EnemyData {
   root: any;
@@ -179,12 +211,13 @@ function buildRoom(
   n: boolean, s: boolean, e: boolean, w: boolean,
   roomIdx: number,
   avatarPool: { name: string; url: string }[]
-): { enemies: EnemyData[]; lights: CeilingLightData[]; disposables: any[] } {
+): { enemies: EnemyData[]; lights: CeilingLightData[]; disposables: any[]; pickups: WeaponPickup[] } {
   const x0 = gx * RS, z0 = gz * RS;
   const cx  = x0 + RS / 2, cz = z0 + RS / 2;
   const disposables: any[] = [];
   const enemies: EnemyData[] = [];
   const lights: CeilingLightData[] = [];
+  const pickups: WeaponPickup[] = [];
 
   // Backrooms materials — cream wallpaper, tan carpet, drop-tile ceiling
   const mkDiffuse = (hex: number) => {
@@ -288,6 +321,52 @@ function buildRoom(
     }
   }
 
+  // ── Weapon pickups ─────────────────────────────────────────────────────────
+  if (distFromOrigin >= 2 && Math.random() < 0.22) {
+    const inner = RS - WT * 2 - 1;
+    const px = x0 + WT + 0.5 + Math.random() * inner;
+    const pz = z0 + WT + 0.5 + Math.random() * inner;
+    const weaponPool: WeaponId[] = ['pistol', 'shotgun', 'smg', 'rifle'];
+    const wid: WeaponId = weaponPool[Math.floor(Math.random() * weaponPool.length)];
+    const wdef = WEAPON_DEFS[wid];
+
+    const pkMat = new StandardMaterial('pkm' + Math.random(), scene);
+    pkMat.emissiveColor = wdef.pickupColor.scale(0.7);
+    pkMat.diffuseColor  = wdef.pickupColor;
+    pkMat.specularColor = Color3.Black();
+
+    const pkMesh = MeshBuilder.CreateBox('pk_' + wid, { width: 0.32, height: 0.32, depth: 0.32 }, scene);
+    pkMesh.position   = new Vector3(px, 0.75, pz);
+    pkMesh.material   = pkMat;
+    pkMesh.isPickable = false;
+
+    const lTex = new DynamicTexture('plt' + Math.random(), { width: 256, height: 64 }, scene, false);
+    lTex.hasAlpha = true;
+    const lctx = lTex.getContext() as unknown as CanvasRenderingContext2D;
+    lctx.clearRect(0, 0, 256, 64);
+    lctx.font = 'bold 24px Arial';
+    lctx.textAlign = 'center';
+    lctx.fillStyle = 'rgba(255,255,255,0.92)';
+    lctx.fillText(wdef.label, 128, 40);
+    lTex.update();
+
+    const lMat = new StandardMaterial('plm' + Math.random(), scene);
+    lMat.diffuseTexture             = lTex;
+    lMat.emissiveColor              = Color3.White();
+    lMat.specularColor              = Color3.Black();
+    lMat.backFaceCulling            = false;
+    lMat.useAlphaFromDiffuseTexture = true;
+
+    const lPlane = MeshBuilder.CreatePlane('plp' + Math.random(), { width: 0.9, height: 0.9 * (64 / 256) }, scene);
+    lPlane.position      = new Vector3(px, 1.22, pz);
+    lPlane.billboardMode = 2;
+    lPlane.material      = lMat;
+    lPlane.isPickable    = false;
+
+    pickups.push({ mesh: pkMesh, labelPlane: lPlane, weaponId: wid, ammoCount: wdef.ammoMax, collected: false, bobPhase: Math.random() * Math.PI * 2 });
+    disposables.push(pkMesh, lPlane);
+  }
+
   // ── Ceiling lights — evenly spaced 2×2 grid of square panels ────────────
   const GRID_OFFSETS = [-RS / 4, RS / 4] as const;
   for (const dx of GRID_OFFSETS) {
@@ -317,7 +396,7 @@ function buildRoom(
     }
   }
 
-  return { enemies, lights, disposables };
+  return { enemies, lights, disposables, pickups };
 }
 
 function buildEnemy(scene: Scene, pos: Vector3, avatarUrl: string | null, displayName: string, type: EnemyType): EnemyData {
@@ -431,7 +510,9 @@ export default function DungeonShooter() {
   const [gameState,     setGameState]     = useState<'intro' | 'playing' | 'ended'>('intro');
   const [score,         setScore]         = useState(0);
   const [hp,            setHp]            = useState(MAX_HP);
-  const [ammo,          setAmmo]          = useState(AMMO_MAX);
+  const [ammo,          setAmmo]          = useState(0);
+  const [weaponAmmoMax, setWeaponAmmoMax] = useState(0);
+  const [weaponName,    setWeaponName]    = useState<string | null>(null);
   const [kills,         setKills]         = useState(0);
   const [isReloading,   setIsReloading]   = useState(false);
   const [pointerLocked, setPointerLocked] = useState(false);
@@ -442,10 +523,14 @@ export default function DungeonShooter() {
 
   const scoreRef   = useRef(0);
   const hpRef      = useRef(MAX_HP);
-  const ammoRef    = useRef(AMMO_MAX);
-  const killsRef   = useRef(0);
-  const reloadRef   = useRef(false);
-  const staminaRef  = useRef(STAMINA_MAX);
+  const ammoRef      = useRef(0);
+  const killsRef     = useRef(0);
+  const reloadRef    = useRef(false);
+  const staminaRef   = useRef(STAMINA_MAX);
+  const equippedRef  = useRef<CarriedWeapon[]>([]);
+  const activeIdxRef = useRef(0);
+  const lastShotRef  = useRef(0);
+  const mouseHeldRef = useRef(false);
   const radarRef   = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -575,6 +660,7 @@ export default function DungeonShooter() {
     const allDisposables: any[] = [];
     const allEnemies: EnemyData[] = [];
     const allLights: CeilingLightData[] = [];
+    const allPickups: WeaponPickup[] = [];
     const roomsMeshed = new Set<string>();
     const buildQueue: Array<[number, number]> = [];
 
@@ -619,10 +705,11 @@ export default function DungeonShooter() {
         roomsMeshed.add(key);
         const f = roomsBuilt.get(key)!;
         const roomIdx = roomsMeshed.size;
-        const { enemies, lights, disposables } = buildRoom(scene, gx, gz, f.n, f.s, f.e, f.w, roomIdx, avatarPool);
+        const { enemies, lights, disposables, pickups } = buildRoom(scene, gx, gz, f.n, f.s, f.e, f.w, roomIdx, avatarPool);
         allDisposables.push(...disposables);
         allEnemies.push(...enemies);
         allLights.push(...lights);
+        allPickups.push(...pickups);
         return; // one room per frame — come back next tick
       }
     };
@@ -646,8 +733,8 @@ export default function DungeonShooter() {
     registerFlags(0, 0);
     roomsMeshed.add('0,0');
     const sf = roomsBuilt.get('0,0')!;
-    { const { enemies, lights, disposables } = buildRoom(scene, 0, 0, sf.n, sf.s, sf.e, sf.w, 1, avatarPool);
-      allDisposables.push(...disposables); allEnemies.push(...enemies); allLights.push(...lights); }
+    { const { enemies, lights, disposables, pickups } = buildRoom(scene, 0, 0, sf.n, sf.s, sf.e, sf.w, 1, avatarPool);
+      allDisposables.push(...disposables); allEnemies.push(...enemies); allLights.push(...lights); allPickups.push(...pickups); }
 
     fetch('/api/shoot/avatars')
       .then(r => r.ok ? r.json() : [])
@@ -682,87 +769,139 @@ export default function DungeonShooter() {
     const onKeyDown = (e: KeyboardEvent) => {
       keys[e.code] = true;
       if (e.code === 'KeyF') { flashOn = !flashOn; return; }
-      if (e.code === 'KeyR' && !reloadRef.current && ammoRef.current < AMMO_MAX) {
+      if (e.code === 'KeyR' && !reloadRef.current) {
+        const w = equippedRef.current[activeIdxRef.current];
+        if (!w) return;
+        const wdef = WEAPON_DEFS[w.id];
+        if (w.ammo >= wdef.ammoMax) return;
         const ctx = getCtx(audioRef); if (ctx) sndReload(ctx);
         reloadRef.current = true; setIsReloading(true);
         setTimeout(() => {
-          ammoRef.current = AMMO_MAX; setAmmo(AMMO_MAX);
+          const cw = equippedRef.current[activeIdxRef.current];
+          if (cw) { cw.ammo = WEAPON_DEFS[cw.id].ammoMax; ammoRef.current = cw.ammo; setAmmo(cw.ammo); }
           reloadRef.current = false; setIsReloading(false);
-        }, 2000);
+        }, wdef.reloadTime);
       }
     };
     const onKeyUp = (e: KeyboardEvent) => { keys[e.code] = false; };
 
+    const onWheel = (e: WheelEvent) => {
+      if (gsRef.current !== 'playing') return;
+      const count = equippedRef.current.length;
+      if (count < 2) return;
+      const dir = e.deltaY > 0 ? 1 : -1;
+      const newIdx = ((activeIdxRef.current + dir) + count) % count;
+      activeIdxRef.current = newIdx;
+      const w = equippedRef.current[newIdx];
+      const wdef = WEAPON_DEFS[w.id];
+      ammoRef.current = w.ammo;
+      setAmmo(w.ammo);
+      setWeaponAmmoMax(wdef.ammoMax);
+      setWeaponName(wdef.label);
+      showFeedback(wdef.label, '#ffffff');
+    };
+
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
+    document.addEventListener('wheel', onWheel);
 
     // Pointer lock + shoot on click
     const doShoot = () => {
       if (gsRef.current !== 'playing') return;
       if (reloadRef.current) return;
-      if (ammoRef.current <= 0) {
+
+      const activeWeapon = equippedRef.current[activeIdxRef.current];
+      if (!activeWeapon) {
+        const ctx = getCtx(audioRef); if (ctx) sndEmpty(ctx);
+        showFeedback('NO WEAPON', '#ff4444');
+        return;
+      }
+
+      const wdef = WEAPON_DEFS[activeWeapon.id];
+      const nowShoot = performance.now();
+      if (nowShoot - lastShotRef.current < wdef.fireRate) return;
+      lastShotRef.current = nowShoot;
+
+      if (activeWeapon.ammo <= 0) {
         const ctx = getCtx(audioRef); if (ctx) sndEmpty(ctx);
         reloadRef.current = true; setIsReloading(true);
         setTimeout(() => {
-          ammoRef.current = AMMO_MAX; setAmmo(AMMO_MAX);
+          const cw = equippedRef.current[activeIdxRef.current];
+          if (cw) { cw.ammo = WEAPON_DEFS[cw.id].ammoMax; ammoRef.current = cw.ammo; setAmmo(cw.ammo); }
           reloadRef.current = false; setIsReloading(false);
-        }, 2000);
+        }, wdef.reloadTime);
         return;
       }
+
       const ctx = getCtx(audioRef); if (ctx) sndShot(ctx);
-      ammoRef.current--; setAmmo(a => a - 1);
-      recoilVel    = 10; // gun kick
-      camRecoilVel = 4;  // camera pitch kick upward
+      activeWeapon.ammo--;
+      ammoRef.current = activeWeapon.ammo;
+      setAmmo(activeWeapon.ammo);
+      recoilVel    = 10 * wdef.recoilMult;
+      camRecoilVel =  4 * wdef.recoilMult;
 
-      // ── Babylon picking — cast ray from screen centre through scene ──────
-      // scene.pick() uses display-pixel coordinates; clientWidth/2 = screen centre
-      const pick = scene.pick(
-        canvas.clientWidth / 2,
-        canvas.clientHeight / 2,
-        (mesh) => mesh.metadata?.isEnemy === true,
-      );
-
-      if (pick?.hit && pick.pickedMesh) {
-        const enemy = allEnemies.find(e => e.hitbox === pick.pickedMesh);
-        if (enemy && enemy.alive) {
-          const ctx2 = getCtx(audioRef); if (ctx2) sndHit(ctx2);
-          enemy.hp--;
-          enemy.hit = true; enemy.hitTime = performance.now();
-          enemy.mat.emissiveColor = new Color3(1, 1, 1);
-          const cfg = ENEMY_CONFIGS[enemy.enemyType];
-          drawHpBar(enemy.hpBarTex, cfg.label, enemy.hp, enemy.maxHp, cfg.barColor);
-          if (enemy.hp <= 0) {
-            enemy.alive = false;
-            enemy.root.setEnabled(false);
-            killsRef.current++; setKills(k => k + 1);
-            scoreRef.current += enemy.scoreValue; setScore(s => s + enemy.scoreValue);
-            showFeedback(`+${enemy.scoreValue} KILL`, '#00ffcc');
-            const killCtx = getCtx(audioRef); if (killCtx) sndKill(killCtx);
-            setCrosshairHit('kill');
-            setTimeout(() => setCrosshairHit(null), 220);
-          } else {
-            showFeedback('HIT', '#ffee00');
-            setCrosshairHit('hit');
-            setTimeout(() => setCrosshairHit(null), 150);
+      // ── Fire all pellets (shotgun = 5 with spread, others = 1 centre) ────
+      let hitAny = false, killAny = false, killScore = 0;
+      for (let p = 0; p < wdef.pellets; p++) {
+        const spread = wdef.pellets > 1 ? 0.065 : 0;
+        const offX = (Math.random() - 0.5) * spread * canvas.clientWidth;
+        const offY = (Math.random() - 0.5) * spread * canvas.clientHeight;
+        const pick = scene.pick(
+          canvas.clientWidth / 2 + offX,
+          canvas.clientHeight / 2 + offY,
+          (mesh) => mesh.metadata?.isEnemy === true,
+        );
+        if (pick?.hit && pick.pickedMesh) {
+          const enemy = allEnemies.find(en => en.hitbox === pick.pickedMesh);
+          if (enemy && enemy.alive) {
+            const ctx2 = getCtx(audioRef); if (ctx2) sndHit(ctx2);
+            enemy.hp -= wdef.damage;
+            enemy.hit = true; enemy.hitTime = performance.now();
+            enemy.mat.emissiveColor = new Color3(1, 1, 1);
+            const ecfg = ENEMY_CONFIGS[enemy.enemyType];
+            drawHpBar(enemy.hpBarTex, ecfg.label, enemy.hp, enemy.maxHp, ecfg.barColor);
+            if (enemy.hp <= 0) {
+              enemy.alive = false;
+              enemy.root.setEnabled(false);
+              killsRef.current++; setKills(k => k + 1);
+              killScore += enemy.scoreValue;
+              scoreRef.current += enemy.scoreValue; setScore(s => s + enemy.scoreValue);
+              const killCtx = getCtx(audioRef); if (killCtx) sndKill(killCtx);
+              killAny = true;
+            } else { hitAny = true; }
           }
         }
       }
 
-      if (ammoRef.current === 0) {
+      if (killAny) {
+        showFeedback(`+${killScore} KILL`, '#00ffcc');
+        setCrosshairHit('kill'); setTimeout(() => setCrosshairHit(null), 220);
+      } else if (hitAny) {
+        showFeedback('HIT', '#ffee00');
+        setCrosshairHit('hit'); setTimeout(() => setCrosshairHit(null), 150);
+      }
+
+      if (activeWeapon.ammo === 0) {
         const rctx = getCtx(audioRef); if (rctx) sndReload(rctx);
         reloadRef.current = true; setIsReloading(true);
         setTimeout(() => {
-          ammoRef.current = AMMO_MAX; setAmmo(AMMO_MAX);
+          const cw = equippedRef.current[activeIdxRef.current];
+          if (cw) { cw.ammo = WEAPON_DEFS[cw.id].ammoMax; ammoRef.current = cw.ammo; setAmmo(cw.ammo); }
           reloadRef.current = false; setIsReloading(false);
-        }, 2000);
+        }, wdef.reloadTime);
       }
     };
 
     scene.onPointerDown = (evt) => {
       if (evt.button !== 0) return;
       if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
+      mouseHeldRef.current = true;
       doShoot();
+    };
+    scene.onPointerUp = (evt) => {
+      if (evt.button !== 0) return;
+      mouseHeldRef.current = false;
     };
 
     const onPLChange = () => {
@@ -897,6 +1036,20 @@ export default function DungeonShooter() {
       gunBody.position.set(gx, gy, gz);
       gunBody.rotation.set(pitch - recoilT * 0.38 + sprintLower * 0.3, yaw, sprintLower * 0.15);
 
+      // Show/hide gun + update appearance based on active weapon
+      const activeW = equippedRef.current[activeIdxRef.current];
+      gunBody.setEnabled(!!activeW);
+      if (activeW) {
+        const wd = WEAPON_DEFS[activeW.id];
+        const [sx, sy, sz] = wd.bodyScale;
+        gunBody.scaling.set(sx, sy, sz);
+        gunMat.diffuseColor = new Color3(
+          wd.pickupColor.r * 0.35 + 0.06,
+          wd.pickupColor.g * 0.35 + 0.06,
+          wd.pickupColor.b * 0.35 + 0.06,
+        );
+      }
+
       // ── Track visited rooms + generate ahead ────────────────────────────
       const pgx = Math.floor(camera.position.x / RS);
       const pgz = Math.floor(camera.position.z / RS);
@@ -977,6 +1130,39 @@ export default function DungeonShooter() {
           if (elapsed > 160) {
             enemy.mat.emissiveColor = Color3.Black();
             enemy.hit = false;
+          }
+        }
+      }
+
+      // ── Weapon pickup bob + collection ──────────────────────────────────
+      for (const pickup of allPickups) {
+        if (pickup.collected) continue;
+        pickup.mesh.position.y = 0.75 + Math.sin(now * 0.002 + pickup.bobPhase) * 0.1;
+        pickup.mesh.rotation.y += dt * 1.2;
+        pickup.labelPlane.position.y = pickup.mesh.position.y + 0.47;
+        const pdx = camera.position.x - pickup.mesh.position.x;
+        const pdz = camera.position.z - pickup.mesh.position.z;
+        if (Math.hypot(pdx, pdz) < 1.0) {
+          pickup.collected = true;
+          pickup.mesh.setEnabled(false);
+          pickup.labelPlane.setEnabled(false);
+          const existing = equippedRef.current.find(w => w.id === pickup.weaponId);
+          const wdef = WEAPON_DEFS[pickup.weaponId];
+          if (existing) {
+            const added = Math.min(pickup.ammoCount, wdef.ammoMax - existing.ammo);
+            existing.ammo += added;
+            if (equippedRef.current[activeIdxRef.current] === existing) {
+              ammoRef.current = existing.ammo; setAmmo(existing.ammo);
+            }
+            showFeedback(`+${added} ${wdef.label} AMMO`, '#ffee00');
+          } else {
+            const newWeapon: CarriedWeapon = { id: pickup.weaponId, ammo: pickup.ammoCount };
+            equippedRef.current.push(newWeapon);
+            activeIdxRef.current = equippedRef.current.length - 1;
+            ammoRef.current = newWeapon.ammo; setAmmo(newWeapon.ammo);
+            setWeaponAmmoMax(wdef.ammoMax);
+            setWeaponName(wdef.label);
+            showFeedback(`PICKED UP ${wdef.label}`, '#00ffcc');
           }
         }
       }
@@ -1115,6 +1301,12 @@ export default function DungeonShooter() {
         rctx.fillStyle = '#ffffff'; rctx.fill();
       }
 
+      // Auto-fire for weapons with auto: true (e.g. SMG)
+      if (mouseHeldRef.current) {
+        const aw = equippedRef.current[activeIdxRef.current];
+        if (aw && WEAPON_DEFS[aw.id].auto) doShoot();
+      }
+
       scene.render();
     });
 
@@ -1128,6 +1320,7 @@ export default function DungeonShooter() {
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('keydown', onKeyDown);
       document.removeEventListener('keyup', onKeyUp);
+      document.removeEventListener('wheel', onWheel);
       document.removeEventListener('pointerlockchange', onPLChange);
       window.removeEventListener('resize', onResize);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
@@ -1141,9 +1334,10 @@ export default function DungeonShooter() {
   // ─── Reset ────────────────────────────────────────────────────────────────
 
   const resetGame = useCallback(() => {
-    hpRef.current = MAX_HP; ammoRef.current = AMMO_MAX; staminaRef.current = STAMINA_MAX;
+    hpRef.current = MAX_HP; ammoRef.current = 0; staminaRef.current = STAMINA_MAX;
     killsRef.current = 0; scoreRef.current = 0; reloadRef.current = false;
-    setHp(MAX_HP); setAmmo(AMMO_MAX); setStamina(STAMINA_MAX); setKills(0); setScore(0);
+    equippedRef.current = []; activeIdxRef.current = 0; lastShotRef.current = 0;
+    setHp(MAX_HP); setAmmo(0); setWeaponAmmoMax(0); setWeaponName(null); setStamina(STAMINA_MAX); setKills(0); setScore(0);
     setIsReloading(false); setPointerLocked(false); setFeedback(null); setRoomsVisited(0);
     gsRef.current = 'intro';
     setGameState('intro');
@@ -1174,7 +1368,7 @@ export default function DungeonShooter() {
             <h1 style={{ color: '#ededed', fontSize: '2.2rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>SECTOR ZERO</h1>
             <p style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.75rem', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: 32 }}>TUNNEL CLEARANCE PROTOCOL</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 32, textAlign: 'left' }}>
-              {[['MOVE','WASD'],['SPRINT','SHIFT'],['LOOK','MOUSE'],['JUMP','SPACE'],['SHOOT','CLICK'],['RELOAD','R'],['FLASHLIGHT','F']].map(([a, k]) => (
+              {[['MOVE','WASD'],['SPRINT','SHIFT'],['LOOK','MOUSE'],['JUMP','SPACE'],['SHOOT','CLICK'],['RELOAD','R'],['FLASHLIGHT','F'],['WEAPON','SCROLL']].map(([a, k]) => (
                 <div key={a} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 6 }}>
                   <span style={{ color: 'rgba(237,237,237,0.4)', fontSize: '0.72rem', letterSpacing: '0.2em' }}>{a}</span>
                   <span style={{ color: '#00ffcc', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.15em', fontFamily: 'monospace' }}>{k}</span>
@@ -1263,12 +1457,18 @@ export default function DungeonShooter() {
               <p style={{ color: 'rgba(0,255,204,0.6)', fontSize: '0.65rem', letterSpacing: '0.2em', textTransform: 'uppercase' }}>CLICK TO LOCK MOUSE</p>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-              <p style={{ color: 'rgba(237,237,237,0.4)', fontSize: '0.55rem', letterSpacing: '0.25em', textTransform: 'uppercase' }}>{isReloading ? 'RELOADING...' : 'AMMO'}</p>
-              <div style={{ display: 'flex', gap: 3 }}>
-                {Array.from({ length: AMMO_MAX }).map((_, i) => (
-                  <div key={i} style={{ width: 8, height: 18, background: i < ammo ? '#ffee00' : 'rgba(255,255,255,0.08)', transition: 'background 0.1s' }} />
-                ))}
-              </div>
+              {weaponName ? (
+                <>
+                  <p style={{ color: 'rgba(237,237,237,0.4)', fontSize: '0.55rem', letterSpacing: '0.25em', textTransform: 'uppercase' }}>{isReloading ? 'RELOADING...' : weaponName}</p>
+                  <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', maxWidth: 220, justifyContent: 'flex-end' }}>
+                    {Array.from({ length: weaponAmmoMax }).map((_, i) => (
+                      <div key={i} style={{ width: 8, height: 18, background: i < ammo ? '#ffee00' : 'rgba(255,255,255,0.08)', transition: 'background 0.1s' }} />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p style={{ color: 'rgba(255,68,68,0.7)', fontSize: '0.6rem', letterSpacing: '0.2em', textTransform: 'uppercase', fontFamily: 'monospace' }}>NO WEAPON — EXPLORE</p>
+              )}
             </div>
           </div>
 
