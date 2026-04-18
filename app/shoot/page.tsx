@@ -88,7 +88,7 @@ function sndReload(ctx: AudioContext) {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const RS      = 8;     // room size (world units)
-const RH      = 3.5;   // room height
+const RH      = 2.8;   // room height — low backrooms ceiling
 const WT      = 0.6;   // wall thickness
 const EYE     = 1.65;  // eye height
 const GRAV    = -22;
@@ -127,24 +127,6 @@ interface CeilingLightData {
 
 // ─── Room builder ─────────────────────────────────────────────────────────────
 
-// diffuse=true → colour responds to lights (walls, floor, obstacles)
-// diffuse=false → self-illuminating (enemies, neon accents)
-function makeMat(scene: Scene, hex: number, alpha = 1, diffuse = false): StandardMaterial {
-  const r = ((hex >> 16) & 0xff) / 255;
-  const g = ((hex >> 8)  & 0xff) / 255;
-  const b = ( hex        & 0xff) / 255;
-  const mat = new StandardMaterial('m' + Math.random(), scene);
-  const col = new Color3(r * alpha, g * alpha, b * alpha);
-  if (diffuse) {
-    mat.diffuseColor  = col;
-    mat.emissiveColor = Color3.Black();
-  } else {
-    mat.emissiveColor = col;
-    mat.diffuseColor  = Color3.Black();
-  }
-  mat.specularColor = Color3.Black();
-  return mat;
-}
 
 function buildRoom(
   scene: Scene,
@@ -159,13 +141,34 @@ function buildRoom(
   const enemies: EnemyData[] = [];
   const lights: CeilingLightData[] = [];
 
-  // Diffuse materials — only lit by the player's flashlight
-  const wallMat  = makeMat(scene, 0x2a2826, 1, true);
-  const floorMat = makeMat(scene, 0x1c1410, 1, true);
-  const ceilMat  = makeMat(scene, 0x1a1a1a, 1, true);
+  // Backrooms materials — cream wallpaper, tan carpet, drop-tile ceiling
+  const mkDiffuse = (hex: number) => {
+    const r = ((hex >> 16) & 0xff) / 255;
+    const g = ((hex >> 8)  & 0xff) / 255;
+    const b = ( hex        & 0xff) / 255;
+    const mat = new StandardMaterial('bm' + Math.random(), scene);
+    mat.diffuseColor  = new Color3(r, g, b);
+    mat.specularColor = new Color3(0.04, 0.03, 0.01);
+    return mat;
+  };
 
-  const neonEdge = new Color4(0.55, 0, 0, 0.18);  // faint blood-red seams
-  const edgeW    = 1.5;
+  const wallMat  = mkDiffuse(0xe8d5a3); // cream-yellow wallpaper
+  const floorMat = mkDiffuse(0xa89060); // tan/brown carpet
+  const ceilMat  = mkDiffuse(0xe0ddd0); // off-white drop tiles
+
+  // Wire up textures when present in public/textures/backrooms/
+  const applyTex = (mat: StandardMaterial, url: string, u: number, v: number) => {
+    const tex = new Texture(url, scene, false, true, Texture.TRILINEAR_SAMPLINGMODE,
+      null, () => { mat.diffuseTexture = null; }); // silently remove on 404
+    tex.uScale = u; tex.vScale = v;
+    mat.diffuseTexture = tex;
+  };
+  applyTex(wallMat,  '/textures/backrooms/wall.png',  3, 2);
+  applyTex(floorMat, '/textures/backrooms/floor.png', 4, 4);
+  applyTex(ceilMat,  '/textures/backrooms/roof.png',  3, 3);
+
+  const neonEdge = new Color4(0.28, 0.22, 0.10, 0.10);  // barely-there warm seam
+  const edgeW    = 1.2;
 
   const addWall = (wcx: number, wcy: number, wcz: number, ww: number, wh: number, wd: number, solid = true) => {
     const mesh = MeshBuilder.CreateBox('wall', { width: ww, height: wh, depth: wd }, scene);
@@ -219,7 +222,7 @@ function buildRoom(
       const oz = z0 + WT + 0.5 + Math.random() * inner;
       const obs = MeshBuilder.CreateBox('obs', { width: ow, height: oh, depth: ow }, scene);
       obs.position      = new Vector3(ox, oh / 2, oz);
-      obs.material      = makeMat(scene, 0x252520, 1, true);
+      obs.material      = mkDiffuse(0xd4c490); // cream backrooms pillar
       obs.checkCollisions = true;
       obs.enableEdgesRendering();
       obs.edgesWidth    = edgeW;
@@ -246,16 +249,16 @@ function buildRoom(
 
   // ── Ceiling lights — long fluorescent tubes ───────────────────────────────
   // Spawn room: one guaranteed working light. Other rooms: ~30% chance of one.
-  const STYLES = ['warm', 'warm', 'dying'] as const;
-  const lightCount = roomIdx === 1 ? 1 : Math.random() < 0.30 ? 1 : 0;
+  // Backrooms: fluorescent lights in almost every room, warm yellowy-white
+  const STYLES = ['warm', 'warm', 'warm', 'cold', 'dying'] as const;
+  const lightCount = roomIdx === 1 ? 2 : Math.random() < 0.80 ? 1 : 0;
   for (let i = 0; i < lightCount; i++) {
     const lx = cx + (Math.random() - 0.5) * (RS - WT * 2 - 2);
     const lz = cz + (Math.random() - 0.5) * (RS - WT * 2 - 2);
     const style = roomIdx === 1 ? 'warm' : STYLES[Math.floor(Math.random() * STYLES.length)];
-    // Cold clinical white — creepy institutional look
-    const col = new Color3(0.90, 0.95, 1.00);
-    const base = style === 'dying' ? 1.0 + Math.random() * 0.5
-               :                     6.0 + Math.random() * 2.0;
+    const col = new Color3(0.98, 0.94, 0.76); // warm fluorescent yellow-white
+    const base = style === 'dying' ? 1.2 + Math.random() * 0.6
+               :                     9.0 + Math.random() * 3.0;
 
     const pt = new PointLight('cl', new Vector3(lx, RH - 0.12, lz), scene);
     pt.diffuse   = col;
@@ -414,16 +417,17 @@ export default function DungeonShooter() {
     engine.setHardwareScalingLevel(PIXEL);           // render at half-res → pixelated
 
     const scene = new Scene(engine);
-    scene.clearColor  = new Color4(0, 0, 0, 1);       // true black void
+    scene.clearColor  = new Color4(0.05, 0.04, 0.02, 1);
     scene.fogMode     = Scene.FOGMODE_EXP2;
-    scene.fogDensity  = 0.09;                          // thicker — swallows far geometry
-    scene.fogColor    = new Color3(0, 0, 0);           // black fog
+    scene.fogDensity  = 0.055;                         // backrooms haze — visible but not oppressive
+    scene.fogColor    = new Color3(0.72, 0.65, 0.44);  // warm yellow haze
     scene.collisionsEnabled = true;
 
     // Negligible ambient — just enough to hint at room shapes beyond flashlight range
+    // Backrooms: well-lit and unsettling, not dark horror
     const ambient = new HemisphericLight('amb', new Vector3(0, 1, 0), scene);
-    ambient.intensity  = 0.012;
-    ambient.diffuse    = new Color3(0.15, 0.05, 0.05); // faint reddish tint
+    ambient.intensity  = 0.55;
+    ambient.diffuse    = new Color3(0.95, 0.88, 0.65); // warm fluorescent yellow
 
     // ── FPS Camera ────────────────────────────────────────────────────────
     // We bypass attachControl entirely to avoid:
@@ -450,13 +454,22 @@ export default function DungeonShooter() {
       7,                      // high exponent = bright centre, smooth natural fade to edges
       scene,
     );
-    flashlight.diffuse    = new Color3(0.9, 0.8, 0.63);
-    flashlight.specular   = new Color3(0.15, 0.12, 0.08);
-    flashlight.intensity  = 2.4;
-    flashlight.range      = 40;
+    flashlight.diffuse    = new Color3(0.98, 0.94, 0.76); // warm yellow, matches ceiling lights
+    flashlight.specular   = new Color3(0.08, 0.07, 0.04);
+    flashlight.intensity  = 1.4; // supplemental only — rooms are already lit
+    flashlight.range      = 35;
 
     // ── Proximity audio — beep that speeds up as enemies close in ────────────
     const proxCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+    // Constant fluorescent hum — the signature backrooms sound
+    const humOsc  = proxCtx.createOscillator();
+    const humGain = proxCtx.createGain();
+    humOsc.type = 'sawtooth';
+    humOsc.frequency.value = 120; // 120 Hz = 2× mains frequency
+    humGain.gain.value = 0.022;
+    humOsc.connect(humGain); humGain.connect(proxCtx.destination);
+    humOsc.start();
 
     // ── Gun viewmodel ─────────────────────────────────────────────────────────
     // Simple pistol built from boxes — rendered in the same scene but always
@@ -584,8 +597,11 @@ export default function DungeonShooter() {
       // camera.rotation.x is set each frame in the render loop so recoil offset can be applied
     };
 
+    let flashOn = true;
+
     const onKeyDown = (e: KeyboardEvent) => {
       keys[e.code] = true;
+      if (e.code === 'KeyF') { flashOn = !flashOn; return; }
       if (e.code === 'KeyR' && !reloadRef.current && ammoRef.current < AMMO_MAX) {
         const ctx = getCtx(audioRef); if (ctx) sndReload(ctx);
         reloadRef.current = true; setIsReloading(true);
@@ -745,7 +761,7 @@ export default function DungeonShooter() {
       flashlight.direction.x = dirX;
       flashlight.direction.y = dirY;
       flashlight.direction.z = dirZ;
-      flashlight.intensity = 2.4 + flicker;
+      flashlight.intensity = flashOn ? 1.4 + flicker : 0;
 
       // ── Camera pitch recoil spring ────────────────────────────────────────
       camRecoilVel += (-camRecoilT * 30 - camRecoilVel * 10) * dt;
@@ -1001,6 +1017,7 @@ export default function DungeonShooter() {
       document.removeEventListener('pointerlockchange', onPLChange);
       window.removeEventListener('resize', onResize);
       if (document.pointerLockElement === canvas) document.exitPointerLock();
+      try { humOsc.stop(); } catch {}
       proxCtx.close();
       scene.dispose();
       engine.dispose();
@@ -1043,7 +1060,7 @@ export default function DungeonShooter() {
             <h1 style={{ color: '#ededed', fontSize: '2.2rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>SECTOR ZERO</h1>
             <p style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.75rem', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: 32 }}>TUNNEL CLEARANCE PROTOCOL</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 32, textAlign: 'left' }}>
-              {[['MOVE','WASD'],['LOOK','MOUSE'],['JUMP','SPACE'],['SHOOT','CLICK'],['RELOAD','R']].map(([a, k]) => (
+              {[['MOVE','WASD'],['LOOK','MOUSE'],['JUMP','SPACE'],['SHOOT','CLICK'],['RELOAD','R'],['FLASHLIGHT','F']].map(([a, k]) => (
                 <div key={a} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 6 }}>
                   <span style={{ color: 'rgba(237,237,237,0.4)', fontSize: '0.72rem', letterSpacing: '0.2em' }}>{a}</span>
                   <span style={{ color: '#00ffcc', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.15em', fontFamily: 'monospace' }}>{k}</span>
