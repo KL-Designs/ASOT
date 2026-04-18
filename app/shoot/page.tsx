@@ -5,7 +5,7 @@ import {
   Engine, Scene, UniversalCamera,
   Vector3, Color3, Color4,
   MeshBuilder, StandardMaterial, Texture, DynamicTexture,
-  HemisphericLight, SpotLight, PointLight,
+  HemisphericLight, SpotLight,
 } from '@babylonjs/core';
 
 // ─── Audio ────────────────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ function sndReload(ctx: AudioContext) {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const RS      = 8;     // room size (world units)
-const RH      = 2.8;   // room height — low backrooms ceiling
+const RH      = 3.8;   // room height
 const WT      = 0.6;   // wall thickness
 const EYE     = 1.65;  // eye height
 const GRAV    = -22;
@@ -116,12 +116,11 @@ interface EnemyData {
 }
 
 interface CeilingLightData {
-  light: PointLight;
   bulbMat: StandardMaterial;
-  color: Color3;   // base tint
-  base: number;    // base intensity
-  phase: number;   // flicker phase offset
-  freq: number;    // flicker frequency (rad/ms)
+  color: Color3;
+  base: number;
+  phase: number;
+  freq: number;
   style: 'warm' | 'cold' | 'dying';
 }
 
@@ -147,14 +146,16 @@ function buildRoom(
     const g = ((hex >> 8)  & 0xff) / 255;
     const b = ( hex        & 0xff) / 255;
     const mat = new StandardMaterial('bm' + Math.random(), scene);
-    mat.diffuseColor  = new Color3(r, g, b);
-    mat.specularColor = new Color3(0.04, 0.03, 0.01);
+    mat.diffuseColor          = new Color3(r, g, b);
+    mat.specularColor         = new Color3(0.04, 0.03, 0.01);
+    mat.maxSimultaneousLights = 8;
     return mat;
   };
 
   const wallMat  = mkDiffuse(0xe8d5a3); // cream-yellow wallpaper
   const floorMat = mkDiffuse(0xa89060); // tan/brown carpet
   const ceilMat  = mkDiffuse(0xe0ddd0); // off-white drop tiles
+  ceilMat.emissiveColor = new Color3(0.55, 0.53, 0.48); // self-lit so downward face stays visible
 
   // Wire up textures when present in public/textures/backrooms/
   const applyTex = (mat: StandardMaterial, url: string, u: number, v: number) => {
@@ -247,42 +248,33 @@ function buildRoom(
     }
   }
 
-  // ── Ceiling lights — long fluorescent tubes ───────────────────────────────
-  // Spawn room: one guaranteed working light. Other rooms: ~30% chance of one.
-  // Backrooms: fluorescent lights in almost every room, warm yellowy-white
-  const STYLES = ['warm', 'warm', 'warm', 'cold', 'dying'] as const;
-  const lightCount = roomIdx === 1 ? 2 : Math.random() < 0.80 ? 1 : 0;
-  for (let i = 0; i < lightCount; i++) {
-    const lx = cx + (Math.random() - 0.5) * (RS - WT * 2 - 2);
-    const lz = cz + (Math.random() - 0.5) * (RS - WT * 2 - 2);
-    const style = roomIdx === 1 ? 'warm' : STYLES[Math.floor(Math.random() * STYLES.length)];
-    const col = new Color3(0.98, 0.94, 0.76); // warm fluorescent yellow-white
-    const base = style === 'dying' ? 1.2 + Math.random() * 0.6
-               :                     9.0 + Math.random() * 3.0;
+  // ── Ceiling lights — evenly spaced 2×2 grid of square panels ────────────
+  const GRID_OFFSETS = [-RS / 4, RS / 4] as const;
+  for (const dx of GRID_OFFSETS) {
+    for (const dz of GRID_OFFSETS) {
+      const lx = cx + dx;
+      const lz = cz + dz;
+      const style: 'warm' | 'cold' | 'dying' =
+        roomIdx === 1 ? 'warm'
+        : Math.random() < 0.10 ? 'dying'
+        : Math.random() < 0.06 ? 'cold'
+        : 'warm';
+      const col = new Color3(0.98, 0.94, 0.76);
+      const base = style === 'dying' ? 1.2 + Math.random() * 0.6
+                 :                     9.0 + Math.random() * 3.0;
 
-    const pt = new PointLight('cl', new Vector3(lx, RH - 0.12, lz), scene);
-    pt.diffuse   = col;
-    pt.specular  = Color3.Black();
-    pt.intensity = base;
-    pt.range     = 40 + Math.random() * 10; // covers the full room and bleeds into neighbours
+      // Square recessed panel flush with ceiling — emissive only, no PointLight
+      const panel = MeshBuilder.CreateBox('fix', { width: 0.85, height: 0.04, depth: 0.85 }, scene);
+      panel.position   = new Vector3(lx, RH - 0.02, lz);
+      panel.isPickable = false;
+      const bulbMat = new StandardMaterial('bm' + Math.random(), scene);
+      bulbMat.emissiveColor = col.clone();
+      bulbMat.specularColor = Color3.Black();
+      panel.material = bulbMat;
 
-    // Long rectangular fluorescent tube fixture
-    const tubeLen = 1.4 + Math.random() * 0.6;
-    const horizontal = Math.random() < 0.5;
-    const tube = MeshBuilder.CreateBox('fix', {
-      width:  horizontal ? tubeLen : 0.14,
-      height: 0.05,
-      depth:  horizontal ? 0.14   : tubeLen,
-    }, scene);
-    tube.position   = new Vector3(lx, RH - 0.025, lz);
-    tube.isPickable = false;
-    const bulbMat = new StandardMaterial('bm' + Math.random(), scene);
-    bulbMat.emissiveColor = col.clone();
-    bulbMat.specularColor = Color3.Black();
-    tube.material = bulbMat;
-
-    lights.push({ light: pt, bulbMat, color: col, base, phase: Math.random() * Math.PI * 2, freq: 0.0015 + Math.random() * 0.007, style });
-    disposables.push(pt, tube);
+      lights.push({ bulbMat, color: col, base, phase: Math.random() * Math.PI * 2, freq: 0.0015 + Math.random() * 0.007, style });
+      disposables.push(panel);
+    }
   }
 
   return { enemies, lights, disposables };
@@ -426,7 +418,7 @@ export default function DungeonShooter() {
     // Negligible ambient — just enough to hint at room shapes beyond flashlight range
     // Backrooms: well-lit and unsettling, not dark horror
     const ambient = new HemisphericLight('amb', new Vector3(0, 1, 0), scene);
-    ambient.intensity  = 0.55;
+    ambient.intensity  = 1.1;
     ambient.diffuse    = new Color3(0.95, 0.88, 0.65); // warm fluorescent yellow
 
     // ── FPS Camera ────────────────────────────────────────────────────────
@@ -513,24 +505,23 @@ export default function DungeonShooter() {
     const allDisposables: any[] = [];
     const allEnemies: EnemyData[] = [];
     const allLights: CeilingLightData[] = [];
+    const roomsMeshed = new Set<string>();
+    const buildQueue: Array<[number, number]> = [];
 
-    const ensureRoom = (gx: number, gz: number): void => {
+    // Register wall-collision flags immediately (cheap) without building geometry.
+    // Flags must exist before the player can reach a room so isWall works correctly.
+    const registerFlags = (gx: number, gz: number): void => {
       const key = `${gx},${gz}`;
       if (roomsBuilt.has(key)) return;
-
-      // Respect any already-built neighbours so shared walls always agree
       const nbN = roomsBuilt.get(`${gx},${gz + 1}`);
       const nbS = roomsBuilt.get(`${gx},${gz - 1}`);
       const nbE = roomsBuilt.get(`${gx + 1},${gz}`);
       const nbW = roomsBuilt.get(`${gx - 1},${gz}`);
-
-      // 65 % chance of an opening on each free side; guarantee ≥1 opening
       let n = nbN ? nbN.s : Math.random() < 0.65;
       let s = nbS ? nbS.n : Math.random() < 0.65;
       let e = nbE ? nbE.w : Math.random() < 0.65;
       let w = nbW ? nbW.e : Math.random() < 0.65;
       if (!n && !s && !e && !w) {
-        // Force a random side open so rooms are never dead-end islands
         const sides = ['n', 's', 'e', 'w'] as const;
         const pick = sides[Math.floor(Math.random() * 4)];
         if (pick === 'n') n = true;
@@ -538,15 +529,32 @@ export default function DungeonShooter() {
         else if (pick === 'e') e = true;
         else w = true;
       }
+      roomsBuilt.set(key, { n, s, e, w });
+    };
 
-      const flags: RoomFlags = { n, s, e, w };
-      roomsBuilt.set(key, flags);
+    // Queue a room for deferred geometry building (1 per frame via buildNextQueued).
+    const ensureRoom = (gx: number, gz: number): void => {
+      registerFlags(gx, gz);
+      const key = `${gx},${gz}`;
+      if (!roomsMeshed.has(key) && !buildQueue.some(([x, z]) => x === gx && z === gz))
+        buildQueue.push([gx, gz]);
+    };
 
-      const roomIdx = roomsBuilt.size;
-      const { enemies, lights, disposables } = buildRoom(scene, gx, gz, n, s, e, w, roomIdx, avatarPool);
-      allDisposables.push(...disposables);
-      allEnemies.push(...enemies);
-      allLights.push(...lights);
+    // Called once per frame from the render loop — builds one room from the queue.
+    const buildNextQueued = (): void => {
+      while (buildQueue.length > 0) {
+        const [gx, gz] = buildQueue.shift()!;
+        const key = `${gx},${gz}`;
+        if (roomsMeshed.has(key)) continue;
+        roomsMeshed.add(key);
+        const f = roomsBuilt.get(key)!;
+        const roomIdx = roomsMeshed.size;
+        const { enemies, lights, disposables } = buildRoom(scene, gx, gz, f.n, f.s, f.e, f.w, roomIdx, avatarPool);
+        allDisposables.push(...disposables);
+        allEnemies.push(...enemies);
+        allLights.push(...lights);
+        return; // one room per frame — come back next tick
+      }
     };
 
     // Grid-based collision — true if world point (px,pz) is inside a wall
@@ -564,10 +572,12 @@ export default function DungeonShooter() {
       return false;
     };
 
-    // Build the spawn room immediately (roomIdx=1, no enemies) so the player
-    // has geometry to stand on; then fetch avatars and build the rest of the
-    // starting area once the pool is ready so enemies always get real textures.
-    ensureRoom(0, 0);
+    // Build spawn room synchronously so the player has geometry immediately.
+    registerFlags(0, 0);
+    roomsMeshed.add('0,0');
+    const sf = roomsBuilt.get('0,0')!;
+    { const { enemies, lights, disposables } = buildRoom(scene, 0, 0, sf.n, sf.s, sf.e, sf.w, 1, avatarPool);
+      allDisposables.push(...disposables); allEnemies.push(...enemies); allLights.push(...lights); }
 
     fetch('/api/shoot/avatars')
       .then(r => r.ok ? r.json() : [])
@@ -597,7 +607,7 @@ export default function DungeonShooter() {
       // camera.rotation.x is set each frame in the render loop so recoil offset can be applied
     };
 
-    let flashOn = true;
+    let flashOn = false;
 
     const onKeyDown = (e: KeyboardEvent) => {
       keys[e.code] = true;
@@ -800,11 +810,10 @@ export default function DungeonShooter() {
         visited.add(rk);
         setRoomsVisited(visited.size);
         scoreRef.current += 25; setScore(s => s + 25);
-        // Build rooms in a 4-room radius around the player so they never
-        // walk into ungenerated space; fog hides anything beyond ~5 rooms
-        for (let dx = -4; dx <= 4; dx++)
-          for (let dz = -4; dz <= 4; dz++) ensureRoom(pgx + dx, pgz + dz);
+        for (let dx = -3; dx <= 3; dx++)
+          for (let dz = -3; dz <= 3; dz++) ensureRoom(pgx + dx, pgz + dz);
       }
+      buildNextQueued();
 
       // ── Enemy AI ────────────────────────────────────────────────────────
       for (const enemy of allEnemies) {
@@ -880,7 +889,6 @@ export default function DungeonShooter() {
           intensity = Math.max(0, cl.base * (0.88 + f));
           if (Math.random() < 0.003) intensity = 0; // rare sudden blackout
         }
-        cl.light.intensity = intensity;
         const n = cl.base > 0 ? Math.min(1, intensity / cl.base) : 0;
         cl.bulbMat.emissiveColor = new Color3(cl.color.r * n, cl.color.g * n, cl.color.b * n);
       }
