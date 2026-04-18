@@ -341,8 +341,8 @@ function buildEnemy(scene: Scene, pos: Vector3, avatarUrl: string | null, displa
   nameTag.isPickable    = false;
   nameTag.billboardMode = 2;
 
-  // Invisible hitbox (the only pickable mesh)
-  const hitbox = MeshBuilder.CreateBox('hitbox', { width: 0.9, height: 1.6, depth: 0.5 }, scene);
+  // Invisible hitbox (the only pickable mesh) — cylinder so hits register from any angle
+  const hitbox = MeshBuilder.CreateCylinder('hitbox', { height: 1.6, diameter: 0.9, tessellation: 8 }, scene);
   hitbox.position  = new Vector3(0, 0.8, 0);
   hitbox.parent    = root;
   hitbox.isVisible = false;
@@ -663,11 +663,8 @@ export default function DungeonShooter() {
 
     scene.onPointerDown = (evt) => {
       if (evt.button !== 0) return;
-      if (document.pointerLockElement !== canvas) {
-        canvas.requestPointerLock();
-      } else {
-        doShoot();
-      }
+      if (document.pointerLockElement !== canvas) canvas.requestPointerLock();
+      doShoot();
     };
 
     const onPLChange = () => {
@@ -676,6 +673,13 @@ export default function DungeonShooter() {
       if (locked) lockGraceUntil = performance.now() + 150; // ignore first 150ms of input
     };
     document.addEventListener('pointerlockchange', onPLChange);
+    // Lock may have been granted before listener attached (requested from button click)
+    if (document.pointerLockElement === canvas) {
+      setPointerLocked(true);
+      lockGraceUntil = performance.now() + 150;
+    } else {
+      canvas.requestPointerLock();
+    }
 
     // ── Game loop ──────────────────────────────────────────────────────────
     let velY = 0;
@@ -1047,7 +1051,7 @@ export default function DungeonShooter() {
               ))}
             </div>
             <button
-              onClick={() => { gsRef.current = 'playing'; setGameState('playing'); }}
+              onClick={() => { gsRef.current = 'playing'; setGameState('playing'); canvasRef.current?.requestPointerLock(); }}
               style={{ background: 'transparent', border: '1px solid #00ffcc', color: '#00ffcc', fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', padding: '12px 32px', cursor: 'pointer', transition: 'all 0.15s' }}
               onMouseEnter={e => { (e.target as HTMLElement).style.background = '#00ffcc'; (e.target as HTMLElement).style.color = '#000'; }}
               onMouseLeave={e => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#00ffcc'; }}
@@ -1168,7 +1172,7 @@ export default function DungeonShooter() {
               ))}
             </div>
             <button
-              onClick={resetGame}
+              onClick={() => { resetGame(); canvasRef.current?.requestPointerLock(); }}
               style={{ background: 'transparent', border: '1px solid rgba(255,0,85,0.6)', color: '#ff0055', fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', padding: '12px 32px', cursor: 'pointer', transition: 'all 0.15s' }}
               onMouseEnter={e => { (e.target as HTMLElement).style.background = '#ff0055'; (e.target as HTMLElement).style.color = '#000'; }}
               onMouseLeave={e => { (e.target as HTMLElement).style.background = 'transparent'; (e.target as HTMLElement).style.color = '#ff0055'; }}
