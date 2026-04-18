@@ -335,6 +335,118 @@ export async function sendTaskExtensionApprovedDM(
 }
 
 /**
+ * Add a Discord guild role to a member.
+ * Respects developer mode — blocked attempts are logged but not applied.
+ */
+export async function addGuildRole(userId: string, roleId: string): Promise<void> {
+    const guildId = process.env.DISCORD_GUILD_ID
+    if (!guildId) throw new Error('[discord/bot] DISCORD_GUILD_ID is not set')
+
+    const [gate, targetUserName] = await Promise.all([
+        checkDiscordGate(userId),
+        resolveUserName(userId),
+    ])
+
+    const preview = `Add role ${roleId}`
+
+    if (!gate.allowed) {
+        await logDiscord({
+            action: 'role',
+            status: 'blocked',
+            targetUserId: userId,
+            targetUserName,
+            messageType: 'role',
+            preview,
+            devMode: true,
+            override: false,
+        })
+        return
+    }
+
+    try {
+        await botRequest('PUT', `/guilds/${guildId}/members/${userId}/roles/${roleId}`)
+        await logDiscord({
+            action: 'role',
+            status: 'sent',
+            targetUserId: userId,
+            targetUserName,
+            messageType: 'role',
+            preview,
+            devMode: gate.devMode,
+            override: gate.override,
+        })
+    } catch (err) {
+        await logDiscord({
+            action: 'role',
+            status: 'failed',
+            targetUserId: userId,
+            targetUserName,
+            messageType: 'role',
+            preview,
+            devMode: gate.devMode,
+            override: gate.override,
+        })
+        throw err
+    }
+}
+
+/**
+ * Set a guild member's Discord nickname.
+ * Respects developer mode — blocked attempts are logged but not applied.
+ */
+export async function setGuildNickname(userId: string, nick: string): Promise<void> {
+    const guildId = process.env.DISCORD_GUILD_ID
+    if (!guildId) throw new Error('[discord/bot] DISCORD_GUILD_ID is not set')
+
+    const [gate, targetUserName] = await Promise.all([
+        checkDiscordGate(userId),
+        resolveUserName(userId),
+    ])
+
+    const preview = `Set nickname → ${nick}`
+
+    if (!gate.allowed) {
+        await logDiscord({
+            action: 'nickname',
+            status: 'blocked',
+            targetUserId: userId,
+            targetUserName,
+            messageType: 'nickname',
+            preview,
+            devMode: true,
+            override: false,
+        })
+        return
+    }
+
+    try {
+        await botRequest('PATCH', `/guilds/${guildId}/members/${userId}`, { nick })
+        await logDiscord({
+            action: 'nickname',
+            status: 'sent',
+            targetUserId: userId,
+            targetUserName,
+            messageType: 'nickname',
+            preview,
+            devMode: gate.devMode,
+            override: gate.override,
+        })
+    } catch (err) {
+        await logDiscord({
+            action: 'nickname',
+            status: 'failed',
+            targetUserId: userId,
+            targetUserName,
+            messageType: 'nickname',
+            preview,
+            devMode: gate.devMode,
+            override: gate.override,
+        })
+        throw err
+    }
+}
+
+/**
  * Notify an assignee that their extension request was denied.
  */
 export async function sendTaskExtensionDeniedDM(

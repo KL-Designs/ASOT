@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import Db from '@/lib/mongo'
 import { createNotificationForRole } from '@/lib/notifications'
+import { addGuildRole, setGuildNickname } from '@/lib/discord/bot'
 
 // Country is now a free-form string (full country list in the form)
 const VALID_REGIONS = null // kept for reference, no longer a fixed enum
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
         ownsArma: ownsArma === true || ownsArma === 'true',
     })
 
-    // Notify all J1 members of the new application
+    // Notify all J1 members of the new application and assign Applicant role
     const applicantName = String(inGameName).trim()
     await Promise.all([
         createNotificationForRole('J1-Recruiting', {
@@ -115,6 +116,16 @@ export async function POST(request: NextRequest) {
             body: `${applicantName} has submitted a recruitment application`,
             actionUrl: '/admin/j1',
         }),
+        Db.roles.findOne({ name: 'Applicant' })
+            .then(role =>
+                role?.id
+                    ? addGuildRole(discordSession.id, role.id)
+                    : console.warn('[applications] Applicant role not found in roles DB')
+            )
+            .catch(err => console.error('[applications] Failed to assign Applicant role:', err)),
+        setGuildNickname(discordSession.id, applicantName).catch(err =>
+            console.error('[applications] Failed to set Discord nickname:', err)
+        ),
     ])
 
     const res = NextResponse.json({ ok: true })
