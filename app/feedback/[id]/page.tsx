@@ -54,7 +54,7 @@ function avatarUrl(authorId: string, authorAvatarId?: string): string {
         return `https://cdn.discordapp.com/avatars/${authorId}/${authorAvatarId}.png?size=40`
     }
     try {
-        return `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(authorId) % 6n)}.png`
+        return `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(authorId) % BigInt(6))}.png`
     } catch {
         return `https://cdn.discordapp.com/embed/avatars/0.png`
     }
