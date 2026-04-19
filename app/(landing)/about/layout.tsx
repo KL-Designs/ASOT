@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { StaticImageData } from 'next/image'
+import Image, { StaticImageData } from 'next/image'
 import Link from "next/link"
 import React from 'react'
 
@@ -68,8 +68,15 @@ export default function AboutLayout({ children }: Readonly<{ children: React.Rea
 	const pathname = usePathname()
 	const page = Pages.find(page => page.href === pathname)
 
+	// Preload sibling page images so navigation feels instant
+	const others = Pages.filter(p => p.href !== pathname)
+
 	return (
 		<Container title={page?.title.toUpperCase()} subtitle={page?.subtitle} background={page?.background} sx={{ bannerHeight: 'md', maxWidth: 'max-w-md' }}>
+			{others.map(p => (
+				<Image key={p.href} src={p.background} alt='' width={1} height={1} priority aria-hidden
+					style={{ position: 'fixed', opacity: 0, pointerEvents: 'none' }} />
+			))}
 
 			<div className='w-full flex flex-row flex-wrap justify-center gap-[2px]' style={{ borderBottom: '1px solid rgba(219, 0, 29, 0.25)' }}>
 				{Pages.map((p, i) => {

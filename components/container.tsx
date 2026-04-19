@@ -35,7 +35,7 @@ export default function Container({ children, title, subtitle, background, backg
                 {backgroundUrl
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={backgroundUrl} alt='Banner' className='absolute inset-0 w-full h-full object-cover object-center' />
-                    : <Image src={background || '/images/fallback.webp'} alt='Banner' fill className='object-cover object-center' loading='eager' />
+                    : <Image src={background || '/images/fallback.webp'} alt='Banner' fill className='object-cover object-center' priority placeholder={background ? 'blur' : 'empty'} />
                 }
 
                 {/* Gradient overlay — dark top edge, heavy fade to page bg at bottom */}
