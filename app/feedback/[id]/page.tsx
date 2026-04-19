@@ -184,7 +184,6 @@ export default function FeedbackDetailPage() {
 
                     {/* Submission card */}
                     <div style={{
-                        borderLeft: `3px solid ${statusCol}`,
                         background: STATUS_BG[status],
                         border: `1px solid rgba(255,255,255,0.07)`,
                         borderLeft: `3px solid ${statusCol}`,
@@ -325,7 +324,6 @@ export default function FeedbackDetailPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                             {data.comments.map((c, i) => (
                                 <div key={c._id.toString()} style={{
-                                    borderLeft: '2px solid rgba(255,255,255,0.08)',
                                     background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
                                     border: '1px solid rgba(255,255,255,0.05)',
                                     borderLeft: '2px solid rgba(255,255,255,0.1)',
