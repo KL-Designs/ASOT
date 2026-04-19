@@ -469,3 +469,59 @@ export async function sendTaskExtensionDeniedDM(
 
     await sendDM(userId, { embeds: [embed] }, 'task')
 }
+
+const FEEDBACK_STATUS_LABELS: Record<string, string> = {
+    open: 'Open',
+    in_progress: 'In Progress',
+    priority: 'Priority',
+    investigating: 'Investigating',
+    fixed: 'Fixed',
+    implemented: 'Implemented',
+    wont_fix: "Won't Fix",
+}
+
+/**
+ * Notify a feedback author that someone commented on their submission.
+ */
+export async function sendFeedbackCommentDM(
+    userId: string,
+    feedbackTitle: string,
+    commenterName: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '💬 New Comment on Your Feedback',
+        description: `**${commenterName}** commented on: **${feedbackTitle}**`,
+        color: 0x3b82f6,
+        footer: { text: 'ASOT Member Portal' },
+        timestamp: new Date().toISOString(),
+    }
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields = [{ name: '\u200b', value: `[View Feedback](${base}${actionUrl})`, inline: false }]
+    }
+    await sendDM(userId, { embeds: [embed] }, 'feedback')
+}
+
+/**
+ * Notify a feedback author that the status of their submission changed.
+ */
+export async function sendFeedbackStatusDM(
+    userId: string,
+    feedbackTitle: string,
+    newStatus: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '📢 Feedback Status Updated',
+        description: `Your feedback **${feedbackTitle}** has been updated to **${FEEDBACK_STATUS_LABELS[newStatus] ?? newStatus}**.`,
+        color: 0xdb001d,
+        footer: { text: 'ASOT Member Portal' },
+        timestamp: new Date().toISOString(),
+    }
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields = [{ name: '\u200b', value: `[View Feedback](${base}${actionUrl})`, inline: false }]
+    }
+    await sendDM(userId, { embeds: [embed] }, 'feedback')
+}

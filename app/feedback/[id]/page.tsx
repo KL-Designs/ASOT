@@ -8,7 +8,7 @@ import {
 } from '@mui/icons-material'
 import { CircularProgress } from '@mui/material'
 
-type Status = 'open' | 'in_progress' | 'priority' | 'fixed' | 'implemented' | 'wont_fix'
+type Status = 'open' | 'in_progress' | 'priority' | 'investigating' | 'fixed' | 'implemented' | 'wont_fix'
 
 interface DetailData extends Omit<Feedback, '_id'> {
     _id: string
@@ -21,21 +21,44 @@ const STATUS_LABELS: Record<Status, string> = {
     open: 'Open',
     in_progress: 'In Progress',
     priority: 'Priority',
+    investigating: 'Investigating',
     fixed: 'Fixed',
     implemented: 'Implemented',
     wont_fix: "Won't Fix",
 }
 
 const STATUS_COLOURS: Record<Status, string> = {
-    open: 'rgba(237,237,237,0.5)',
-    in_progress: 'rgba(0,195,255,0.8)',
-    priority: 'rgba(255,160,0,0.8)',
-    fixed: 'rgba(80,200,80,0.8)',
-    implemented: 'rgba(80,200,80,0.8)',
-    wont_fix: 'rgba(219,0,29,0.7)',
+    open: 'rgba(237,237,237,0.55)',
+    in_progress: 'rgba(0,195,255,0.85)',
+    priority: 'rgba(255,160,0,0.85)',
+    investigating: 'rgba(167,139,250,0.9)',
+    fixed: 'rgba(74,222,128,0.85)',
+    implemented: 'rgba(74,222,128,0.85)',
+    wont_fix: 'rgba(219,0,29,0.75)',
 }
 
-const ALL_STATUSES: Status[] = ['open', 'in_progress', 'priority', 'fixed', 'implemented', 'wont_fix']
+const STATUS_BG: Record<Status, string> = {
+    open: 'rgba(255,255,255,0.03)',
+    in_progress: 'rgba(0,195,255,0.06)',
+    priority: 'rgba(255,160,0,0.07)',
+    investigating: 'rgba(167,139,250,0.07)',
+    fixed: 'rgba(74,222,128,0.06)',
+    implemented: 'rgba(74,222,128,0.06)',
+    wont_fix: 'rgba(219,0,29,0.06)',
+}
+
+const ALL_STATUSES: Status[] = ['open', 'in_progress', 'priority', 'investigating', 'fixed', 'implemented', 'wont_fix']
+
+function avatarUrl(authorId: string, authorAvatarId?: string): string {
+    if (authorAvatarId) {
+        return `https://cdn.discordapp.com/avatars/${authorId}/${authorAvatarId}.png?size=40`
+    }
+    try {
+        return `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(authorId) % 6n)}.png`
+    } catch {
+        return `https://cdn.discordapp.com/embed/avatars/0.png`
+    }
+}
 
 
 export default function FeedbackDetailPage() {
@@ -53,6 +76,7 @@ export default function FeedbackDetailPage() {
     const [posting, setPosting] = useState(false)
     const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
     const [deleting, setDeleting] = useState(false)
+    const [avatarErr, setAvatarErr] = useState(false)
 
     const load = useCallback(() => {
         setLoading(true)
@@ -72,7 +96,6 @@ export default function FeedbackDetailPage() {
     async function handleVote() {
         if (voting) return
         setVoting(true)
-        // Optimistic update
         const wasVoted = voted
         setVoted(!wasVoted)
         setUpvoteCount(c => wasVoted ? c - 1 : c + 1)
@@ -140,21 +163,37 @@ export default function FeedbackDetailPage() {
             </Link>
 
             {/* Main card */}
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '20px 22px' }}>
+            <div style={{
+                background: STATUS_BG[status],
+                border: `1px solid ${STATUS_COLOURS[status]}33`,
+                borderRadius: 10, padding: '20px 22px',
+            }}>
 
                 {/* Header row */}
                 <div className='flex items-start gap-3 flex-wrap'>
-                    <div style={{ paddingTop: 3 }}>
-                        {data.type === 'bug'
-                            ? <BugReport style={{ fontSize: 20, color: 'rgba(219,0,29,0.8)' }} />
-                            : <Lightbulb style={{ fontSize: 20, color: 'rgba(255,160,0,0.8)' }} />}
+
+                    {/* Author avatar */}
+                    <div style={{ flexShrink: 0, paddingTop: 2 }}>
+                        {!avatarErr ? (
+                            <img
+                                src={avatarUrl(data.authorId, data.authorAvatarId)}
+                                alt={data.authorName}
+                                onError={() => setAvatarErr(true)}
+                                style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }}
+                            />
+                        ) : (
+                            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'rgba(237,237,237,0.6)', fontWeight: 700 }}>
+                                {data.authorName.charAt(0).toUpperCase()}
+                            </div>
+                        )}
                     </div>
+
                     <div className='flex-1 min-w-0'>
                         <div className='flex items-center gap-2 flex-wrap'>
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.07em', padding: '2px 7px', borderRadius: 4, border: '1px solid', color: data.type === 'bug' ? 'rgba(219,0,29,0.8)' : 'rgba(255,160,0,0.8)', borderColor: data.type === 'bug' ? 'rgba(219,0,29,0.3)' : 'rgba(255,160,0,0.3)', background: data.type === 'bug' ? 'rgba(219,0,29,0.06)' : 'rgba(255,160,0,0.06)' }}>
-                                {data.type === 'bug' ? 'BUG' : 'FEATURE REQUEST'}
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.07em', padding: '2px 7px', borderRadius: 4, border: '1px solid', color: data.type === 'bug' ? 'rgba(219,0,29,0.8)' : 'rgba(255,160,0,0.8)', borderColor: data.type === 'bug' ? 'rgba(219,0,29,0.3)' : 'rgba(255,160,0,0.3)', background: data.type === 'bug' ? 'rgba(219,0,29,0.07)' : 'rgba(255,160,0,0.07)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                {data.type === 'bug' ? <><BugReport style={{ fontSize: 10 }} /> BUG</> : <><Lightbulb style={{ fontSize: 10 }} /> FEATURE REQUEST</>}
                             </span>
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.07em', padding: '2px 7px', borderRadius: 4, border: '1px solid rgba(255,255,255,0.1)', color: STATUS_COLOURS[status], background: 'rgba(255,255,255,0.03)' }}>
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.07em', padding: '2px 7px', borderRadius: 4, border: `1px solid ${STATUS_COLOURS[status]}44`, color: STATUS_COLOURS[status], background: STATUS_BG[status] }}>
                                 {STATUS_LABELS[status]}
                             </span>
                         </div>
@@ -216,7 +255,7 @@ export default function FeedbackDetailPage() {
                                 onChange={e => handleStatus(e.target.value)}
                                 disabled={statusUpdating}
                                 style={{
-                                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)',
+                                    background: STATUS_BG[status], border: `1px solid ${STATUS_COLOURS[status]}55`,
                                     borderRadius: 5, color: STATUS_COLOURS[status], fontSize: '0.78rem',
                                     fontWeight: 600, padding: '5px 10px', cursor: 'pointer', outline: 'none',
                                 }}

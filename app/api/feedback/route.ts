@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
         status: 'open',
         authorId: me.id,
         authorName: me.guild.displayName ?? me.username,
+        authorAvatarId: me.guild?.avatar ?? me.avatar ?? undefined,
         createdAt: now,
         updatedAt: now,
         attachments: [],

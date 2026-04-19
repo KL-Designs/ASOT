@@ -9,9 +9,10 @@ declare global {
         title: string
         type: 'bug' | 'feature'
         description: string
-        status: 'open' | 'in_progress' | 'priority' | 'fixed' | 'implemented' | 'wont_fix'
+        status: 'open' | 'in_progress' | 'priority' | 'investigating' | 'fixed' | 'implemented' | 'wont_fix'
         authorId: string
         authorName: string
+        authorAvatarId?: string
         createdAt: Date
         updatedAt: Date
         attachments: string[]
