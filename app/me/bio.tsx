@@ -79,8 +79,10 @@ export function BioSections({ canUploadImage, isHQ }: { canUploadImage?: boolean
                         rows={6}
                         placeholder='Type your bio here...'
                         value={bio || ''}
-                        onChange={(e) => setBio(e.currentTarget.value)}
+                        onChange={(e) => setBio(e.currentTarget.value.slice(0, 2000))}
                         onBlur={() => bio !== null && save({ content: bio })}
+                        slotProps={{ htmlInput: { maxLength: 2000 }, formHelperText: { style: { textAlign: 'right', fontFamily: 'monospace', fontSize: '0.65rem', color: (bio || '').length >= 2000 ? 'rgba(219,0,29,0.7)' : 'rgba(237,237,237,0.2)', margin: '4px 0 0' } } }}
+                        helperText={`${(bio || '').length}/2000`}
                         sx={{
                             '& .MuiOutlinedInput-root': {
                                 borderRadius: 0,

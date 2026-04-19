@@ -40,9 +40,10 @@ export function BiographyEditor({ initial, accent }: { initial: string | null; a
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <textarea
                     value={value}
-                    onChange={e => setValue(e.target.value)}
+                    onChange={e => setValue(e.target.value.slice(0, 2000))}
                     rows={5}
                     autoFocus
+                    maxLength={2000}
                     style={{
                         width: '100%',
                         background: 'rgba(255,255,255,0.04)',
@@ -90,6 +91,9 @@ export function BiographyEditor({ initial, accent }: { initial: string | null; a
                     >
                         Cancel
                     </button>
+                    <span style={{ marginLeft: 'auto', fontSize: '0.65rem', fontFamily: 'monospace', color: value.length >= 2000 ? 'rgba(219,0,29,0.7)' : 'rgba(237,237,237,0.2)' }}>
+                        {value.length}/2000
+                    </span>
                     {error && <span style={{ fontSize: '0.75rem', color: 'rgba(219,0,29,0.8)' }}>{error}</span>}
                 </div>
             </div>
