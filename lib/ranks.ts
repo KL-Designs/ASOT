@@ -117,7 +117,7 @@ export const RANK_GROUPS: RankGroup[] = [
             { name: 'Officer Cadet',                    abbr: 'OCDT'    },
             { name: '2nd Lieutenant',                   abbr: '2LT'     },
             { name: 'Lieutenant',                       abbr: 'LT'      },
-            { name: 'Senior Lieutenant',                abbr: 'SLT'     },
+            { name: 'Senior Lieutenant',                abbr: 'LT(S)'     },
             { name: 'Commanding Lieutenant',            abbr: 'CLT'     },
         ],
     },
