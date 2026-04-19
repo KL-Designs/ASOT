@@ -48,38 +48,50 @@ export async function POST(request: NextRequest) {
     const {
         discordUsername, discordId, joiningName, recruiter, notes,
         steamId64, region, regionCustom, armaHours, primaryRole, availableNights,
-        heardAbout, heardAboutOther,
-    } = body
+        heardAbout, heardAboutOther, age, experience, opsPerMonth,
+        ownsArma, priorMilsim, dualClan, previousUnits, currentUnit,
+        additionalRoles, departmentInterest,
+    } = body as Record<string, string | string[] | boolean>
 
-    if (!discordUsername?.trim()) return NextResponse.json({ error: 'Discord username is required.' }, { status: 400 })
-    if (!discordId?.trim()) return NextResponse.json({ error: 'Discord ID is required.' }, { status: 400 })
-    if (!joiningName?.trim()) return NextResponse.json({ error: 'Joining name is required.' }, { status: 400 })
-    if (joiningName.trim().length > 12) return NextResponse.json({ error: 'Joining name must be 12 characters or fewer.' }, { status: 400 })
-    if (!steamId64?.trim()) return NextResponse.json({ error: 'Steam ID64 is required.' }, { status: 400 })
+    if (!discordUsername?.toString().trim()) return NextResponse.json({ error: 'Discord username is required.' }, { status: 400 })
+    if (!discordId?.toString().trim()) return NextResponse.json({ error: 'Discord ID is required.' }, { status: 400 })
+    if (!joiningName?.toString().trim()) return NextResponse.json({ error: 'Joining name is required.' }, { status: 400 })
+    if (joiningName.toString().trim().length > 12) return NextResponse.json({ error: 'Joining name must be 12 characters or fewer.' }, { status: 400 })
+    if (!steamId64?.toString().trim()) return NextResponse.json({ error: 'Steam account is required.' }, { status: 400 })
 
     const displayName = me.guild?.nickname || me.globalName || me.username || 'Unknown'
-    const effectiveRegion = region === 'Other' && regionCustom?.trim() ? regionCustom.trim() : region?.trim()
+    const regionStr = region?.toString().trim() ?? ''
+    const regionCustomStr = regionCustom?.toString().trim() ?? ''
+    const effectiveRegion = regionStr === 'Other' && regionCustomStr ? regionCustomStr : regionStr
 
     await Db.j1Applications.insertOne({
-        discordUsername: discordUsername.trim(),
-        discordId: discordId.trim(),
-        inGameName: joiningName.trim(),
-        age: 0,
-        experience: '',
+        discordUsername: discordUsername.toString().trim(),
+        discordId: discordId.toString().trim(),
+        inGameName: joiningName.toString().trim(),
+        age: age ? Number(age) : 0,
+        experience: experience?.toString().trim() || '',
         status: 'accepted',
         submittedAt: new Date(),
         isDirectRecruit: true,
-        recruiter: recruiter?.trim() || displayName,
-        notes: notes?.trim() || '',
+        recruiter: recruiter?.toString().trim() || displayName,
+        notes: notes?.toString().trim() || '',
         reviewedBy: displayName,
         reviewedAt: new Date(),
-        steamId64: steamId64.trim(),
+        steamId64: steamId64.toString().trim(),
         region: effectiveRegion || undefined,
-        armaHours: armaHours?.trim() || undefined,
-        primaryRole: primaryRole?.trim() || undefined,
-        availableNights: availableNights?.trim() || undefined,
-        heardAbout: heardAbout?.trim() || undefined,
-        heardAboutOther: heardAboutOther?.trim() || undefined,
+        armaHours: armaHours?.toString().trim() || undefined,
+        primaryRole: primaryRole?.toString().trim() || undefined,
+        availableNights: availableNights?.toString().trim() || undefined,
+        opsPerMonth: opsPerMonth?.toString().trim() || undefined,
+        heardAbout: heardAbout?.toString().trim() || undefined,
+        heardAboutOther: heardAboutOther?.toString().trim() || undefined,
+        ownsArma: ownsArma === true || ownsArma === 'true',
+        priorMilsim: priorMilsim === true || priorMilsim === 'true',
+        dualClan: dualClan === true || dualClan === 'true',
+        previousUnits: previousUnits?.toString().trim() || undefined,
+        currentUnit: currentUnit?.toString().trim() || undefined,
+        additionalRoles: Array.isArray(additionalRoles) ? additionalRoles : undefined,
+        departmentInterest: Array.isArray(departmentInterest) ? departmentInterest : undefined,
     })
 
     // Notify J1 leads to sign off on the new recruit

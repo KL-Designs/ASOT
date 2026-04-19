@@ -17,16 +17,20 @@ export async function GET() {
     }
 
     const users = await Db.users
-        .find({ isSkeletonAccount: { $ne: true } })
-        .project({ id: 1, globalName: 1, username: 1, name: 1, 'guild.nickname': 1, 'guild.displayName': 1, discharged: 1 })
+        .find({})
+        .project({ id: 1, globalName: 1, username: 1, name: 1, csvName: 1, 'guild.nickname': 1, 'guild.displayName': 1, 'guild.roles': 1, discharged: 1, isSkeletonAccount: 1 })
         .toArray()
 
     const members = users.map(u => ({
         id: u.id,
-        displayName: u.guild?.nickname || u.guild?.displayName || u.globalName || u.username || u.id,
+        displayName: u.isSkeletonAccount
+            ? (u.csvName || u.id)
+            : (u.guild?.nickname || u.guild?.displayName || u.globalName || u.username || u.id),
         username: u.username || null,
         inGameName: u.name || null,
         discharged: u.discharged ? true : false,
+        isSkeleton: u.isSkeletonAccount ? true : false,
+        isActiveMember: client.hasRoles(u as User, ['ASOT Member']),
     }))
 
     return NextResponse.json({ members })

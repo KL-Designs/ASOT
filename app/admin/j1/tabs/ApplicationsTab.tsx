@@ -29,8 +29,7 @@ const STATUS_COLORS: Record<string, 'warning' | 'info' | 'success' | 'error' | '
     rejected: 'error',
 }
 
-// Applications tab only shows non-accepted applications
-const FILTERS = ['all', 'pending', 'reviewing', 'rejected'] as const
+const FILTERS = ['all', 'pending', 'reviewing', 'accepted', 'rejected'] as const
 type Filter = typeof FILTERS[number]
 
 type SortKey = 'discordUsername' | 'inGameName' | 'submittedAt' | 'status'
@@ -442,11 +441,13 @@ export default function ApplicationsTab() {
         if (selected?._id === id) setSelected(prev => prev ? { ...prev, ...patch } : null)
     }
 
-    // Only non-accepted in this tab
     const nonAccepted = useMemo(() => applications.filter(a => a.status !== 'accepted'), [applications])
 
     const filtered = useMemo(() => {
-        let list = filter === 'all' ? nonAccepted : nonAccepted.filter(a => a.status === filter)
+        let list: Application[]
+        if (filter === 'all') list = nonAccepted
+        else if (filter === 'accepted') list = applications.filter(a => a.status === 'accepted')
+        else list = nonAccepted.filter(a => a.status === filter)
         if (search.trim()) {
             const q = search.toLowerCase()
             list = list.filter(a =>
@@ -469,8 +470,8 @@ export default function ApplicationsTab() {
         })
     }, [nonAccepted, filter, search, sortKey, sortDir])
 
-    const counts = (['pending', 'reviewing', 'rejected'] as const).reduce(
-        (acc, s) => ({ ...acc, [s]: nonAccepted.filter(a => a.status === s).length }), {} as Record<string, number>
+    const counts = (['pending', 'reviewing', 'accepted', 'rejected'] as const).reduce(
+        (acc, s) => ({ ...acc, [s]: applications.filter(a => a.status === s).length }), {} as Record<string, number>
     )
 
     const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
