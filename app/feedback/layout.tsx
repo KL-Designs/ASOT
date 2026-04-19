@@ -15,8 +15,8 @@ export default async function Layout({ children }: { children: React.ReactNode }
     await client.fetchMe().catch(() => redirect('/login'))
 
     return (
-        <div className='h-full w-full p-8 md:p-10 flex flex-col justify-center'>
-            <div className='w-full max-w-5xl mx-auto'>
+        <div className='h-full w-full p-6 md:p-8'>
+            <div className='w-full max-w-screen-2xl mx-auto'>
                 {children}
             </div>
         </div>
