@@ -373,6 +373,25 @@ httpServer.listen(port, '0.0.0.0', () => {
     console.log(`> Collab WebSocket on ws://0.0.0.0:${port}/collab`)
 })
 
+// ── Calendar reminders cron (every 1 minute) ─────────────────────────────────
+
+async function triggerCalendarRemindersCron() {
+    try {
+        const res = await fetch(`http://localhost:${port}/api/cron/calendar-reminders?secret=${process.env.CRON_SECRET}`)
+        if (!res.ok) {
+            console.error(`[cron/calendar-reminders] HTTP ${res.status} — check CRON_SECRET`)
+            return
+        }
+        const data = await res.json()
+        console.log(`[cron/calendar-reminders] tick — fired=${data.fired ?? 0}`)
+    } catch (e) {
+        console.error('[cron/calendar-reminders] Error:', e.message)
+    }
+}
+
+setInterval(triggerCalendarRemindersCron, 60 * 1000)
+triggerCalendarRemindersCron()
+
 // ── Operations cron (every 1 minute) ─────────────────────────────────────────
 
 async function triggerOperationsCron() {
