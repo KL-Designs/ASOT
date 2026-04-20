@@ -110,8 +110,8 @@ function OpTimesDisplay() {
         }}>
             Ops run <strong style={{ color: 'rgba(237,237,237,0.7)' }}>Saturday & Sunday nights</strong>.{' '}
             Members load in at <strong style={{ color: 'rgba(237,237,237,0.7)' }}>{loadIn}</strong>, mission ends around{' '}
-            <strong style={{ color: 'rgba(237,237,237,0.7)' }}>{end} {tz}</strong>.{' '}
-            Platoon 1 operates Saturdays, Platoon 2 on Sundays. 3 Platoon supports both nights.
+            <strong style={{ color: 'rgba(237,237,237,0.7)' }}>{end} {tz}</strong>.{' '}<br/>
+            1 Platoon operates Saturdays, 2 Platoon operates on Sundays. 3 Platoon supports both nights.
         </div>
     )
 }
