@@ -19,7 +19,11 @@ type Application = J1Application & { _id: string }
 interface DiscordMember {
     id: string
     displayName: string
+    username: string | null
     inGameName: string | null
+    discharged: boolean
+    isSkeleton: boolean
+    isActiveMember: boolean
 }
 
 const STATUS_COLORS: Record<string, 'warning' | 'info' | 'success' | 'error' | 'default'> = {
@@ -41,11 +45,13 @@ function formatDate(date: string | Date) {
     })
 }
 
-function ApplicationModal({ app, members, onClose, onUpdate }: {
+function ApplicationModal({ app, members, isJ4, onClose, onUpdate, onDelete }: {
     app: Application
     members: DiscordMember[]
+    isJ4: boolean
     onClose: () => void
     onUpdate: (id: string, patch: Partial<Application>) => void
+    onDelete: (id: string) => void
 }) {
     const [status, setStatus] = useState(app.status)
     const [notes, setNotes] = useState(app.notes || '')
@@ -57,6 +63,8 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
     )
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
+    const [confirmDelete, setConfirmDelete] = useState(false)
+    const [deleting, setDeleting] = useState(false)
 
     useEffect(() => {
         if (app.linkedUserId && members.length > 0) {
@@ -95,6 +103,17 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
             setTimeout(() => setSaved(false), 2000)
         } finally {
             setSaving(false)
+        }
+    }
+
+    async function handleDelete() {
+        setDeleting(true)
+        try {
+            await fetch(`/api/admin/j1/applications/${app._id}`, { method: 'DELETE' })
+            onDelete(app._id)
+            onClose()
+        } finally {
+            setDeleting(false)
         }
     }
 
@@ -389,6 +408,39 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
                                     </span>
                                 )}
                             </div>
+
+                            {isJ4 && (
+                                <div style={{ marginTop: 8, borderTop: '1px solid rgba(239,68,68,0.15)', paddingTop: 12 }}>
+                                    {!confirmDelete ? (
+                                        <button
+                                            type='button'
+                                            onClick={() => setConfirmDelete(true)}
+                                            style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(239,68,68,0.5)', background: 'none', border: '1px solid rgba(239,68,68,0.2)', padding: '4px 12px', cursor: 'pointer' }}
+                                        >
+                                            Delete Application
+                                        </button>
+                                    ) : (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <span style={{ fontSize: '0.72rem', color: 'rgba(239,68,68,0.7)' }}>Permanently delete this application?</span>
+                                            <button
+                                                type='button'
+                                                onClick={handleDelete}
+                                                disabled={deleting}
+                                                style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fff', background: '#ef4444', border: 'none', padding: '4px 12px', cursor: 'pointer' }}
+                                            >
+                                                {deleting ? 'Deleting...' : 'Confirm Delete'}
+                                            </button>
+                                            <button
+                                                type='button'
+                                                onClick={() => setConfirmDelete(false)}
+                                                style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', background: 'none', border: 'none', cursor: 'pointer' }}
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -399,7 +451,7 @@ function ApplicationModal({ app, members, onClose, onUpdate }: {
 
 const PAGE_SIZE = 50
 
-export default function ApplicationsTab() {
+export default function ApplicationsTab({ isJ4 = false }: { isJ4?: boolean }) {
     const [applications, setApplications] = useState<Application[]>([])
     const [members, setMembers] = useState<DiscordMember[]>([])
     const [loading, setLoading] = useState(true)
@@ -437,8 +489,11 @@ export default function ApplicationsTab() {
 
     function handleUpdate(id: string, patch: Partial<Application>) {
         setApplications(prev => prev.map(a => a._id === id ? { ...a, ...patch } : a))
-        // If status changed to accepted, update selected too but it'll leave this tab's list on next filter
         if (selected?._id === id) setSelected(prev => prev ? { ...prev, ...patch } : null)
+    }
+
+    function handleDelete(id: string) {
+        setApplications(prev => prev.filter(a => a._id !== id))
     }
 
     const nonAccepted = useMemo(() => applications.filter(a => a.status !== 'accepted'), [applications])
@@ -682,8 +737,10 @@ export default function ApplicationsTab() {
                 <ApplicationModal
                     app={selected}
                     members={members}
+                    isJ4={isJ4}
                     onClose={() => setSelected(null)}
                     onUpdate={handleUpdate}
+                    onDelete={handleDelete}
                 />
             )}
         </div>

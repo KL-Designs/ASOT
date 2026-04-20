@@ -114,3 +114,37 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true })
 }
+
+// DELETE /api/admin/j1/applications/[id] — permanently delete an application (J4 only)
+export async function DELETE(
+    _request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    let me: User
+    try {
+        me = await client.fetchMe()
+    } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const { id } = await params
+
+    let objectId: ObjectId
+    try {
+        objectId = new ObjectId(id)
+    } catch {
+        return NextResponse.json({ error: 'Invalid application ID.' }, { status: 400 })
+    }
+
+    const result = await Db.j1Applications.deleteOne({ _id: objectId })
+
+    if (result.deletedCount === 0) {
+        return NextResponse.json({ error: 'Application not found.' }, { status: 404 })
+    }
+
+    return NextResponse.json({ ok: true })
+}

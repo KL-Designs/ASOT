@@ -101,7 +101,7 @@ const PERMISSIONS = {
          *  - `app/admin/j1/page.tsx` (page gate)
          *  - `app/admin/page.tsx` + `layout.tsx` (sidebar `canSeeJ1` flag)
          *  - `app/admin/unit/tickets/page.tsx` (`canSeeJ1` — read-only ticket visibility)
-         *  - `app/api/admin/j1/applications/route.ts` + `[id]/route.ts`
+         *  - `app/api/admin/j1/applications/route.ts` + `[id]/route.ts` (DELETE requires J4)
          *  - `app/api/admin/j1/members/route.ts`
          *  - `app/api/admin/j1/import/route.ts`
          */
