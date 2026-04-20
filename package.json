@@ -67,6 +67,7 @@
     "yjs": "^13.6.30"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
     "@types/archiver": "^7.0.0",
     "@types/luxon": "^3.7.1",
     "@types/node": "^20",
