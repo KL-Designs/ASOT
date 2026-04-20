@@ -579,6 +579,7 @@ export default function TicketsPanel({
             if (q && ![t.targetUserName, t.qualification, t.issuedByName, t.awardName, t.proposedRank, t.fromSectionTitle, t.toSectionTitle, t.disciplineReason].some(v => v?.toLowerCase().includes(q))) return false
             return true
         })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- canSee* are permission props stable for the session
     }, [tickets, deptFilter, statusFilter, search, canActionJ3, canActionJ4, canActionMoveRequest, canActionDiscipline])
 
     const canAction = (t: TicketRow) =>

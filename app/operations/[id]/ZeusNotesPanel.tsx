@@ -49,7 +49,7 @@ export default function ZeusNotesPanel({ operationId, initialNotes }: { operatio
                             Zeus Notes
                         </span>
                         <span style={{ fontSize: '0.55rem', fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(0,195,255,0.35)' }}>
-                            // J6 Only
+                            {'// J6 Only'}
                         </span>
                     </div>
                     {!editing && (

@@ -464,6 +464,7 @@ function MonthlyMissionsPanel({
     useEffect(() => {
         setMissions([])
         load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load omitted to avoid infinite re-render; reruns on year/month change
     }, [year, month])
 
     return (

@@ -25,14 +25,12 @@ export function useTabState(defaultTab = 0, defaultView: View = 'dept') {
         const params = new URLSearchParams(searchParams.toString())
         params.set('tab', String(n))
         params.set('view', 'dept')
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         router.replace(`${pathname}?${params.toString()}` as any)
     }, [searchParams, router, pathname])
 
     const setView = useCallback((v: View) => {
         const params = new URLSearchParams(searchParams.toString())
         params.set('view', v)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         router.replace(`${pathname}?${params.toString()}` as any)
     }, [searchParams, router, pathname])
 

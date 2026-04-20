@@ -130,6 +130,7 @@ export default function OperationEditor({ operationId, initialContent, initialMe
             meta.unobserve(onObserve)
             if (metaHandleRef) metaHandleRef.current = null
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialMeta/metaHandleRef are refs; onSaveStatusChange excluded (wrap in useCallback in parent if needed)
     }, [operationId, ydoc])
 
     if (!ready) {

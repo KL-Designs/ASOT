@@ -51,6 +51,7 @@ export default function OperationStatusBar({ operationId, operationDate: initial
         fetchStatus()
         const id = setInterval(fetchStatus, 30_000)
         return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchStatus omitted to avoid infinite re-render; reruns on operationId change
     }, [operationId])
 
     useEffect(() => {

@@ -189,7 +189,7 @@ export default function NotificationBell() {
                         flexShrink: 0,
                     }}>
                         <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.75)', fontFamily: 'monospace' }}>
-                            // NOTIFICATIONS {unreadCount > 0 ? `[${unreadCount}]` : ''}
+                            {'// NOTIFICATIONS '}{unreadCount > 0 ? `[${unreadCount}]` : ''}
                         </span>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                             {unreadCount > 0 && (

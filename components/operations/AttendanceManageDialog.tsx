@@ -213,6 +213,7 @@ export default function AttendanceManageDialog({ open, onClose, operationId, sec
             .then(d => setMemberOptions(d.members ?? []))
             .catch(() => {})
             .finally(() => setLoadingMembers(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- memberOptions.length is a guard to skip re-fetch, not a trigger
     }, [open])
 
     // ── DnD ─────────────────────────────────────────────────────────────────────

@@ -174,6 +174,7 @@ export default function ActivityLog({ operationId, onClose }: { operationId: str
         fetchLogs()
         intervalRef.current = setInterval(fetchLogs, 30_000)
         return () => clearInterval(intervalRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchLogs omitted to avoid infinite re-render; reruns on operationId change
     }, [operationId])
 
     return (

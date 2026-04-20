@@ -52,7 +52,7 @@ function LocalClock() {
 function SectionLabel({ label }: { label: string }) {
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
-            <span style={{ fontFamily: 'monospace', fontSize: '0.55rem', color: 'rgba(219,0,29,0.4)', lineHeight: 1 }}>//</span>
+            <span style={{ fontFamily: 'monospace', fontSize: '0.55rem', color: 'rgba(219,0,29,0.4)', lineHeight: 1 }}>{'//'}</span>
             <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>
                 {label}
             </span>
@@ -453,7 +453,7 @@ export default function DashboardOverview({
                 <div>
                     <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                         <span style={{ color: 'rgba(219,0,29,0.4)' }}>ASOT</span>
-                        <span style={{ color: 'rgba(219,0,29,0.25)' }}>//</span>
+                        <span style={{ color: 'rgba(219,0,29,0.25)' }}>{'//'}</span>
                         <span>UNIT</span>
                     </div>
                     <Typography fontWeight={700} fontSize='1.1rem' letterSpacing={3} style={{ textTransform: 'uppercase', lineHeight: 1.1, marginBottom: 6 }}>

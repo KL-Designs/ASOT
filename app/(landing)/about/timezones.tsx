@@ -67,6 +67,7 @@ export default function TimeZones() {
     useEffect(() => {
         setLocalStandardTimes(convertToLocal(standardTimes, true))
         setLocalDaylightTimes(convertToLocal(daylightTimes))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- convert once on mount; prop values are static schedule data
     }, [])
 
     return (

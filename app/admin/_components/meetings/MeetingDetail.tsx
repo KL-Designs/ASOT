@@ -179,7 +179,7 @@ export default function MeetingDetail({ meeting, userId, isLead, onUpdate, onDel
 
             {/* Notes */}
             <div>
-                <div style={SECTION_LABEL}>// Notes</div>
+                <div style={SECTION_LABEL}>{'// Notes'}</div>
                 <textarea
                     value={notes}
                     disabled={locked}
@@ -200,7 +200,7 @@ export default function MeetingDetail({ meeting, userId, isLead, onUpdate, onDel
 
             {/* Tasks */}
             <div>
-                <div style={SECTION_LABEL}>// Tasks</div>
+                <div style={SECTION_LABEL}>{'// Tasks'}</div>
                 <MeetingTaskList
                     meetingId={id}
                     tasks={meeting.tasks}
@@ -213,7 +213,7 @@ export default function MeetingDetail({ meeting, userId, isLead, onUpdate, onDel
 
             {/* Attachments */}
             <div>
-                <div style={SECTION_LABEL}>// Attachments</div>
+                <div style={SECTION_LABEL}>{'// Attachments'}</div>
                 <MeetingAttachments
                     meetingId={id}
                     attachments={meeting.attachments}

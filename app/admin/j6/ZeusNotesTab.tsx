@@ -212,7 +212,7 @@ export default function ZeusNotesTab() {
                                     {selectedOp.title}
                                 </span>
                                 <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(0,195,255,0.45)', flexShrink: 0 }}>
-                                    // Zeus Notes
+                                    {'// Zeus Notes'}
                                 </span>
                             </div>
                             {!editing && (

@@ -95,6 +95,7 @@ export default function Page() {
 
     useEffect(() => {
         router.push(`?year=${year}&operation=${operation}&stage=${stage}`)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- router from useRouter() is stable
     }, [year, operation, stage])
 
     useEffect(() => {
@@ -104,12 +105,14 @@ export default function Page() {
 
         setOperation(operation)
         setStage(stage)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally resets selections only on year change, not on every data/ready update
     }, [year])
 
     useEffect(() => {
         if (!ready) return
         const stage = data.find(y => y.year === year)?.operations[0].stages[0].stage || ''
         setStage(stage)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally resets stage only on operation change
     }, [operation])
 
     const currentMedia = data.find(g => g.year === year)?.operations.find(op => op.operation === operation)?.stages.find(s => s.stage === stage)?.media ?? []

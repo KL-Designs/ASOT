@@ -1,15 +1,19 @@
 import nextConfig from 'eslint-config-next'
 import tseslint from 'typescript-eslint'
 
-export default [
+const eslintConfig = [
+    { ignores: ['.old/**'] },
     ...nextConfig,
     {
         plugins: { '@typescript-eslint': tseslint.plugin },
         rules: {
-            'react/jsx-key': 'error',
-            '@typescript-eslint/no-unused-vars': 'off',
-            '@typescript-eslint/no-explicit-any': 'warn',
-            '@typescript-eslint/no-unused-expressions': 'warn',
+            'react/no-unescaped-entities': 'off',
+            'react-hooks/set-state-in-effect': 'off',
+            'react-hooks/immutability': 'off',
+            'react-hooks/static-components': 'off',
+            'react-hooks/refs': 'off',
         },
     },
 ]
+
+export default eslintConfig

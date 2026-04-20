@@ -233,7 +233,6 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 next[idx] = { ...next[idx], ...patch }
                 return next
             }
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             return [...prev, { _id: {} as any, category, sectionTitle, ...patch } as OrbatSectionMeta]
         })
     }

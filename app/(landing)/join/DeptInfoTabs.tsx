@@ -44,7 +44,7 @@ export default function DeptInfoTabs() {
                 textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)',
                 fontFamily: 'monospace', marginBottom: 10, textAlign: 'center',
             }}>
-                // DEPARTMENTS
+                {'// DEPARTMENTS'}
             </div>
 
             {/* Tab buttons — centered, wrapping */}

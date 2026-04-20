@@ -316,7 +316,7 @@ function PinnedSection({ onNavigate }: { onNavigate?: () => void }) {
                 style={{ background: 'none', border: 'none', cursor: 'pointer' }}
             >
                 <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ color: 'rgba(219,0,29,0.45)', fontFamily: 'monospace' }}>//</span>
+                    <span style={{ color: 'rgba(219,0,29,0.45)', fontFamily: 'monospace' }}>{'//'}</span>
                     PINNED
                 </span>
                 <span style={{ fontSize: '0.62rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.25)', lineHeight: 1 }}>
@@ -570,7 +570,7 @@ export default function StaffSidebar({
                                 gap: 5,
                                 transition: 'color 0.15s',
                             }}>
-                                <span style={{ fontFamily: 'monospace', color: isAnyActive ? 'rgba(219,0,29,0.5)' : 'rgba(237,237,237,0.15)' }}>//</span>
+                                <span style={{ fontFamily: 'monospace', color: isAnyActive ? 'rgba(219,0,29,0.5)' : 'rgba(237,237,237,0.15)' }}>{'//'}</span>
                                 {section.label.toUpperCase()}
                             </span>
                             <span style={{ fontSize: '0.62rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.2)', lineHeight: 1 }}>

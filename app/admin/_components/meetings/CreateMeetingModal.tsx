@@ -46,7 +46,7 @@ export default function CreateMeetingModal({ department, onClose, onCreate }: Pr
             >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', fontFamily: 'monospace' }}>
-                        // New Meeting
+                        {'// New Meeting'}
                     </span>
                     <button onClick={onClose} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.4)' }}>
                         <Close sx={{ fontSize: 16 }} />

@@ -30,7 +30,7 @@ export default function Page() {
 					'simpsons.gif',
 					'image.png',
 				].map((image, i) => (
-					<img key={i} src={`/thomo/${image}`} className='m-auto' />
+					<img key={i} src={`/thomo/${image}`} className='m-auto' alt='' />
 				))}
 			</div>
 

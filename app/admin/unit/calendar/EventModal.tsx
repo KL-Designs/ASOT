@@ -61,6 +61,8 @@ function formatDisplay(iso: string, allDay?: boolean) {
     return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+const LEAD_UP_PRESETS = [15, 30, 60, 120, 360, 1440]
+
 const inputSx = {
     '& .MuiOutlinedInput-root': {
         borderRadius: 0,
@@ -111,8 +113,6 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
     const [customUnit, setCustomUnit] = useState<'minutes' | 'hours' | 'days'>('minutes')
     const [reminderLoading, setReminderLoading] = useState(false)
     const [reminderSaving, setReminderSaving] = useState(false)
-
-    const LEAD_UP_PRESETS = [15, 30, 60, 120, 360, 1440]
 
     function computeCustomMinutes(amount: number, unit: 'minutes' | 'hours' | 'days') {
         if (unit === 'hours') return amount * 60

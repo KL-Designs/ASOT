@@ -693,6 +693,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
             if (av > bv) return sortDir === 'asc' ? 1 : -1
             return 0
         })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- applications is captured transitively via nonAccepted
     }, [nonAccepted, filter, search, sortKey, sortDir])
 
     const counts = (['pending', 'reviewing', 'accepted', 'rejected'] as const).reduce(

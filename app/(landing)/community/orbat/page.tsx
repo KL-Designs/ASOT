@@ -120,7 +120,6 @@ function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: st
 				<>
 					<SectionHeader color={meta?.color}>{section.title}</SectionHeader>
 					<div className='flex items-stretch'>
-						{/* eslint-disable-next-line @next/next/no-img-element */}
 						<div style={{
 							width: 64,
 							flexShrink: 0,
@@ -437,7 +436,10 @@ export default async function Page() {
 						overflow: 'hidden',
 					}}>
 						{hqPatchUrl
-							? /* eslint-disable-next-line @next/next/no-img-element */ <img src={hqPatchUrl} alt='' style={{ width: 60, height: 60, objectFit: 'contain' }} />
+							? (
+								// eslint-disable-next-line @next/next/no-img-element
+								<img src={hqPatchUrl} alt='' style={{ width: 60, height: 60, objectFit: 'contain' }} />
+							)
 							: <Stars style={{ fontSize: 36, color: `${hqColor}d9` }} />
 						}
 					</div>

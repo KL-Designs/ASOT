@@ -349,7 +349,7 @@ export default function SnapshotsTab() {
                 <div>
                     <Typography fontSize='0.52rem' fontWeight={700} letterSpacing={3}
                         style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 2, fontFamily: 'monospace' }}>
-                        <span style={{ color: 'rgba(219,0,29,0.35)' }}>//</span> J4 — Administration
+                        <span style={{ color: 'rgba(219,0,29,0.35)' }}>{'//'}</span> J4 — Administration
                     </Typography>
                     <Typography fontWeight={700} fontSize='0.9rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
                         Snapshots

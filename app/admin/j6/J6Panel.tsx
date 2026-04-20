@@ -60,7 +60,7 @@ export default function J6Panel({
                 <CornerBrackets />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ color: 'rgba(219,0,29,0.35)' }}>//</span> DEPARTMENTS
+                            <span style={{ color: 'rgba(219,0,29,0.35)' }}>{'//'}</span> DEPARTMENTS
                         </span>
                     <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
                         [J6] Game Masters

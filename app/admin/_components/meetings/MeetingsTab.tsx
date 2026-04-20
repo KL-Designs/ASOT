@@ -54,7 +54,7 @@ export default function MeetingsTab({ department, userId, isLead }: MeetingsTabP
                 background: 'rgba(255,255,255,0.02)',
             }}>
                 <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace' }}>
-                    // MEETINGS
+                    {'// MEETINGS'}
                 </span>
                 <button
                     onClick={() => setCreating(true)}

@@ -879,7 +879,7 @@ export default function Page() {
                                 {/* Operation Date */}
                                 <div>
                                     <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
-                                        // OPERATION DATE
+                                        {'// OPERATION DATE'}
                                     </div>
                                     <LocalizationProvider dateAdapter={AdapterDayjs}>
                                         <DateTimePicker
@@ -895,7 +895,7 @@ export default function Page() {
                                 {/* RSVP Open */}
                                 <div>
                                     <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
-                                        // RSVP OPEN
+                                        {'// RSVP OPEN'}
                                     </div>
                                     <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
                                         <button
@@ -962,7 +962,7 @@ export default function Page() {
                                 {/* RSVP Close */}
                                 <div>
                                     <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
-                                        // RSVP CLOSE
+                                        {'// RSVP CLOSE'}
                                     </div>
                                     <select
                                         value={draftRsvpCloseOffsetMins}
@@ -996,7 +996,7 @@ export default function Page() {
                             {/* ── Status column ── */}
                             <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: 0 }}>
                                 <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 14, fontFamily: 'monospace' }}>
-                                    // STATUS
+                                    {'// STATUS'}
                                 </div>
                                 {([
                                     {
