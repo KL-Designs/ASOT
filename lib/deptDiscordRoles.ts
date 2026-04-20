@@ -5,12 +5,12 @@ import { buildNickname } from '@/lib/buildNickname'
 // Maps dept code → Discord role names to grant/revoke on membership changes.
 // member: role given when a user is added to the dept (revoked on removal)
 // lead:   role given when a user becomes team lead (revoked on remove-lead); also revoked on full dept removal
-const DEPT_ROLES: Record<string, { member: string; lead?: string }> = {
+export const DEPT_ROLES: Record<string, { member: string; lead?: string }> = {
     j1: { member: 'J1-Recruitment', lead: 'J1-Staff' },
     j2: { member: 'J2-Mission Making', lead: 'J2-Team Lead' },
     j3: { member: 'J3-Training', lead: 'J3-Team Lead' },
     j4: { member: 'J4-Administration' },
-    j5: { member: 'J5-Media' },
+    j5: { member: 'J5-Media', lead: 'J5-Team Lead' },
     j6: { member: 'J6 - Game Master', lead: 'J6-Department Lead' },
     j7: { member: 'J7 Community Development', lead: 'J7 Staff' },
 }

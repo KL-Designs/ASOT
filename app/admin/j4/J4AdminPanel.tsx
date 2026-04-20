@@ -479,7 +479,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                     </div>
             </div>
 
-            {view === 'members'   && <DeptMembersTab department='j4' displayName={displayName} userId={userId} canManage={true} />}
+            {view === 'members'   && <DeptMembersTab department='j4' displayName={displayName} userId={userId} canManage={true} isJ4={true} />}
             {view === 'calendar'  && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
             {view === 'logs'      && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '16px 0 0' }}>

@@ -66,7 +66,7 @@ export default function J7Panel({
             </div>
 
             {view === 'members' && (
-                <DeptMembersTab department='j7' displayName={displayName} userId={userId} canManage={canManageMembers} />
+                <DeptMembersTab department='j7' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j7' userId={userId} isJ4={isJ4} />

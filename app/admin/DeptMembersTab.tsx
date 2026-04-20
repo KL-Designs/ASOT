@@ -55,11 +55,13 @@ export default function DeptMembersTab({
     displayName,
     userId,
     canManage,
+    isJ4 = false,
 }: {
     department: string
     displayName: string
     userId: string
     canManage: boolean
+    isJ4?: boolean
 }) {
     const [deptMembers, setDeptMembers] = useState<MemberOption[]>([])
     const [allMembers, setAllMembers] = useState<MemberOption[]>([])
@@ -72,6 +74,7 @@ export default function DeptMembersTab({
     const [removingId, setRemovingId] = useState<string | null>(null)
     const [leadActionId, setLeadActionId] = useState<string | null>(null)
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+    const [syncing, setSyncing] = useState(false)
 
     const fetchDeptMembers = useCallback(async () => {
         setLoading(true)
@@ -98,6 +101,28 @@ export default function DeptMembersTab({
     function showFeedback(type: 'success' | 'error', msg: string) {
         setFeedback({ type, msg })
         setTimeout(() => setFeedback(null), 5000)
+    }
+
+    async function handleSyncDiscord() {
+        setSyncing(true)
+        try {
+            const res = await fetch('/api/admin/members/sync-dept', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ department }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Sync failed')
+            const msg = data.membersAdded === 0 && data.leadsAdded === 0
+                ? `Sync complete — no new members found (${data.scanned} Discord members scanned).`
+                : `Sync complete — added ${data.membersAdded} member(s), ${data.leadsAdded} lead(s) from Discord.`
+            showFeedback('success', msg)
+            if (data.membersAdded > 0 || data.leadsAdded > 0) fetchDeptMembers()
+        } catch (e: unknown) {
+            showFeedback('error', e instanceof Error ? e.message : 'Sync failed')
+        } finally {
+            setSyncing(false)
+        }
     }
 
     async function postMemberAction(targetUserId: string, targetUserName: string, memberAction: string) {
@@ -177,7 +202,26 @@ export default function DeptMembersTab({
 
             {/* Team Lead */}
             <div style={cardStyle}>
-                <Typography style={labelStyle}>Team Lead</Typography>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <Typography style={{ ...labelStyle, marginBottom: 0 }}>Team Lead</Typography>
+                    {isJ4 && (
+                        <button
+                            onClick={handleSyncDiscord}
+                            disabled={syncing}
+                            style={{
+                                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
+                                textTransform: 'uppercase', padding: '4px 14px',
+                                background: syncing ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.2)',
+                                border: '1px solid rgba(59,130,246,0.4)',
+                                color: syncing ? 'rgba(59,130,246,0.4)' : 'rgba(59,130,246,0.9)',
+                                cursor: syncing ? 'not-allowed' : 'pointer',
+                                flexShrink: 0,
+                            }}
+                        >
+                            {syncing ? '⟳ Syncing…' : '⟳ Sync Discord'}
+                        </button>
+                    )}
+                </div>
 
                 {feedback && (
                     <div style={{

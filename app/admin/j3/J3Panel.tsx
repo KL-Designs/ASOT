@@ -98,7 +98,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
             </div>
 
             {view === 'members' && (
-                <DeptMembersTab department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} />
+                <DeptMembersTab department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j3' userId={userId} isJ4={isJ4} />

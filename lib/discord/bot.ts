@@ -503,6 +503,33 @@ export async function removeGuildRole(userId: string, roleId: string): Promise<v
 }
 
 /**
+ * Fetch all guild members from Discord, paginated.
+ * Returns an array of { userId, roleIds } for every member in the guild.
+ * This is a read-only call — not gated by developer mode.
+ */
+export async function fetchAllGuildMembers(): Promise<Array<{ userId: string; roleIds: string[] }>> {
+    const guildId = process.env.DISCORD_GUILD_ID
+    if (!guildId) throw new Error('[discord/bot] DISCORD_GUILD_ID is not set')
+
+    const results: Array<{ userId: string; roleIds: string[] }> = []
+    let after = '0'
+
+    while (true) {
+        const page = await botRequest<Array<{ user: { id: string }; roles: string[] }>>(
+            'GET', `/guilds/${guildId}/members?limit=1000&after=${after}`
+        )
+        if (!page.length) break
+        for (const m of page) {
+            results.push({ userId: m.user.id, roleIds: m.roles })
+        }
+        if (page.length < 1000) break
+        after = page[page.length - 1].user.id
+    }
+
+    return results
+}
+
+/**
  * Notify an assignee that their extension request was denied.
  */
 export async function sendTaskExtensionDeniedDM(

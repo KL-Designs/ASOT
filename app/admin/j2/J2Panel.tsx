@@ -77,7 +77,7 @@ export default function J2Panel({
             </div>
 
             {view === 'members' && (
-                <DeptMembersTab department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} />
+                <DeptMembersTab department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j2' userId={userId} isJ4={isJ4} />
