@@ -134,7 +134,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                                     background: 'rgba(255,255,255,0.01)',
                                 }}
                             >
-                                <ApplicationsTab isJ4={isJ4} />
+                                <ApplicationsTab isJ4={isJ4} isLead={canManageMembers} userId={userId} />
                             </div>
                         )}
                         {tab === 2 && (

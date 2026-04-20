@@ -447,6 +447,62 @@ export async function setGuildNickname(userId: string, nick: string): Promise<vo
 }
 
 /**
+ * Remove a Discord guild role from a member.
+ * Respects developer mode — blocked attempts are logged but not applied.
+ */
+export async function removeGuildRole(userId: string, roleId: string): Promise<void> {
+    const guildId = process.env.DISCORD_GUILD_ID
+    if (!guildId) throw new Error('[discord/bot] DISCORD_GUILD_ID is not set')
+
+    const [gate, targetUserName] = await Promise.all([
+        checkDiscordGate(userId),
+        resolveUserName(userId),
+    ])
+
+    const preview = `Remove role ${roleId}`
+
+    if (!gate.allowed) {
+        await logDiscord({
+            action: 'role',
+            status: 'blocked',
+            targetUserId: userId,
+            targetUserName,
+            messageType: 'role',
+            preview,
+            devMode: true,
+            override: false,
+        })
+        return
+    }
+
+    try {
+        await botRequest('DELETE', `/guilds/${guildId}/members/${userId}/roles/${roleId}`)
+        await logDiscord({
+            action: 'role',
+            status: 'sent',
+            targetUserId: userId,
+            targetUserName,
+            messageType: 'role',
+            preview,
+            devMode: gate.devMode,
+            override: gate.override,
+        })
+    } catch (err) {
+        await logDiscord({
+            action: 'role',
+            status: 'failed',
+            targetUserId: userId,
+            targetUserName,
+            messageType: 'role',
+            preview,
+            devMode: gate.devMode,
+            override: gate.override,
+        })
+        throw err
+    }
+}
+
+/**
  * Notify an assignee that their extension request was denied.
  */
 export async function sendTaskExtensionDeniedDM(

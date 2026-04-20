@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
     Chip, CircularProgress, Alert, Button,
     TextField, Select, MenuItem, FormControl, InputLabel,
@@ -45,33 +46,40 @@ function formatDate(date: string | Date) {
     })
 }
 
-function ApplicationModal({ app, members, isJ4, onClose, onUpdate, onDelete }: {
+function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdate, onDelete }: {
     app: Application
     members: DiscordMember[]
     isJ4: boolean
+    isLead: boolean
+    userId: string
     onClose: () => void
     onUpdate: (id: string, patch: Partial<Application>) => void
     onDelete: (id: string) => void
 }) {
-    const [status, setStatus] = useState(app.status)
     const [notes, setNotes] = useState(app.notes || '')
     const [linkedMember, setLinkedMember] = useState<DiscordMember | null>(
         app.linkedUserId ? (members.find(m => m.id === app.linkedUserId) ?? null) : null
     )
-    const [reviewer, setReviewer] = useState<DiscordMember | null>(
+    const [recruiter, setRecruiter] = useState<DiscordMember | null>(
         app.assignedReviewerId ? (members.find(m => m.id === app.assignedReviewerId) ?? null) : null
     )
+    const [recruiterNote, setRecruiterNote] = useState(app.recruiterNote ?? '')
+    const [reviewHours, setReviewHours] = useState(72)
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
+    const [statusChanging, setStatusChanging] = useState(false)
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [deleting, setDeleting] = useState(false)
+
+    const isAssignedRecruiter = userId === app.assignedReviewerId
+    const canChangeStatus = isLead || isAssignedRecruiter
 
     useEffect(() => {
         if (app.linkedUserId && members.length > 0) {
             setLinkedMember(members.find(m => m.id === app.linkedUserId) ?? null)
         }
         if (app.assignedReviewerId && members.length > 0) {
-            setReviewer(members.find(m => m.id === app.assignedReviewerId) ?? null)
+            setRecruiter(members.find(m => m.id === app.assignedReviewerId) ?? null)
         }
     }, [members, app.linkedUserId, app.assignedReviewerId])
 
@@ -79,30 +87,51 @@ function ApplicationModal({ app, members, isJ4, onClose, onUpdate, onDelete }: {
         setSaving(true)
         setSaved(false)
         try {
+            const body: Record<string, unknown> = {
+                notes,
+                linkedUserId: linkedMember?.id ?? null,
+                linkedUserDisplayName: linkedMember?.displayName ?? null,
+            }
+            if (isLead) {
+                body.assignedReviewerId = recruiter?.id ?? null
+                body.assignedReviewerName = recruiter?.displayName ?? null
+                body.recruiterNote = recruiterNote
+                if (recruiter && recruiter.id !== app.assignedReviewerId) {
+                    body.reviewHours = reviewHours
+                }
+            }
             await fetch(`/api/admin/j1/applications/${app._id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    status,
-                    notes,
-                    linkedUserId: linkedMember?.id ?? null,
-                    linkedUserDisplayName: linkedMember?.displayName ?? null,
-                    assignedReviewerId: reviewer?.id ?? null,
-                    assignedReviewerName: reviewer?.displayName ?? null,
-                }),
+                body: JSON.stringify(body),
             })
             onUpdate(app._id, {
-                status,
                 notes,
                 linkedUserId: linkedMember?.id,
                 linkedUserDisplayName: linkedMember?.displayName,
-                assignedReviewerId: reviewer?.id,
-                assignedReviewerName: reviewer?.displayName,
+                assignedReviewerId: recruiter?.id,
+                assignedReviewerName: recruiter?.displayName,
+                recruiterNote,
             })
             setSaved(true)
             setTimeout(() => setSaved(false), 2000)
         } finally {
             setSaving(false)
+        }
+    }
+
+    async function handleStatusChange(newStatus: Application['status']) {
+        setStatusChanging(true)
+        try {
+            await fetch(`/api/admin/j1/applications/${app._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus }),
+            })
+            onUpdate(app._id, { status: newStatus })
+            onClose()
+        } finally {
+            setStatusChanging(false)
         }
     }
 
@@ -272,32 +301,152 @@ function ApplicationModal({ app, members, isJ4, onClose, onUpdate, onDelete }: {
                             Review
                         </div>
                         <div className='flex flex-col gap-3'>
-                            <div className='grid grid-cols-1 md:grid-cols-[200px_1fr] gap-3 items-start'>
-                                <FormControl size='small' sx={inputSx}>
-                                    <InputLabel>Status</InputLabel>
-                                    <Select
-                                        value={status}
-                                        label='Status'
-                                        onChange={e => setStatus(e.target.value as Application['status'])}
-                                    >
-                                        <MenuItem value='pending'>Pending</MenuItem>
-                                        <MenuItem value='reviewing'>Reviewing</MenuItem>
-                                        <MenuItem value='accepted'>Accepted</MenuItem>
-                                        <MenuItem value='rejected'>Rejected</MenuItem>
-                                    </Select>
-                                </FormControl>
-                                <TextField
-                                    label='Reviewer Notes'
-                                    value={notes}
-                                    onChange={e => setNotes(e.target.value)}
-                                    multiline
-                                    minRows={2}
-                                    fullWidth
-                                    size='small'
-                                    inputProps={{ maxLength: 1000 }}
-                                    sx={inputSx}
-                                />
-                            </div>
+                            <TextField
+                                label='Notes'
+                                value={notes}
+                                onChange={e => setNotes(e.target.value)}
+                                multiline
+                                minRows={2}
+                                fullWidth
+                                size='small'
+                                inputProps={{ maxLength: 1000 }}
+                                sx={inputSx}
+                            />
+
+                            {/* Recruiter assignment + decision — grouped */}
+                            {app.status !== 'accepted' && app.status !== 'rejected' && (
+                                <div style={{ border: '1px solid rgba(219,0,29,0.18)', background: 'rgba(255,255,255,0.02)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                                    {/* Assign Recruiter (J1 Lead only) */}
+                                    {isLead && (
+                                        <div>
+                                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 8 }}>
+                                                Assign Recruiter
+                                            </div>
+                                            <div className='flex items-center gap-2'>
+                                                <Autocomplete
+                                                    size='small'
+                                                    options={members}
+                                                    value={recruiter}
+                                                    onChange={(_, val) => setRecruiter(val)}
+                                                    getOptionLabel={m => m.displayName + (m.inGameName ? ` (${m.inGameName})` : '')}
+                                                    getOptionKey={m => m.id}
+                                                    isOptionEqualToValue={(a, b) => a.id === b.id}
+                                                    renderInput={params => (
+                                                        <TextField {...params} label='Recruiter (J1 member)' placeholder='Search by display name...' sx={inputSx} />
+                                                    )}
+                                                    noOptionsText={<span style={{ fontSize: '0.8rem' }}>No members found</span>}
+                                                    sx={{ flex: 1, maxWidth: 320 }}
+                                                    ListboxProps={{ style: { fontSize: '0.82rem' } }}
+                                                />
+                                                {recruiter && (
+                                                    <button
+                                                        onClick={() => setRecruiter(null)}
+                                                        title='Remove recruiter'
+                                                        style={{ background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
+                                                    >
+                                                        <LinkOff style={{ fontSize: 16 }} />
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Deadline & note — shown when assigning a new recruiter */}
+                                            {recruiter && recruiter.id !== app.assignedReviewerId && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+                                                    <div style={{ fontSize: '0.72rem', color: '#f59e0b' }}>
+                                                        ● Will assign <strong>{recruiter.displayName}</strong> — they'll receive a task notification
+                                                    </div>
+                                                    <div className='flex items-center gap-2'>
+                                                        <FormControl size='small' sx={{ ...inputSx, minWidth: 160 }}>
+                                                            <InputLabel>Review deadline</InputLabel>
+                                                            <Select
+                                                                value={reviewHours}
+                                                                label='Review deadline'
+                                                                onChange={e => setReviewHours(Number(e.target.value))}
+                                                            >
+                                                                <MenuItem value={24}>24 hours</MenuItem>
+                                                                <MenuItem value={48}>48 hours</MenuItem>
+                                                                <MenuItem value={72}>72 hours</MenuItem>
+                                                                <MenuItem value={120}>5 days</MenuItem>
+                                                                <MenuItem value={168}>7 days</MenuItem>
+                                                            </Select>
+                                                        </FormControl>
+                                                    </div>
+                                                    <TextField
+                                                        label='Note for recruiter'
+                                                        value={recruiterNote}
+                                                        onChange={e => setRecruiterNote(e.target.value)}
+                                                        multiline
+                                                        minRows={2}
+                                                        fullWidth
+                                                        size='small'
+                                                        placeholder='Optional guidance for the assigned recruiter...'
+                                                        inputProps={{ maxLength: 500 }}
+                                                        sx={inputSx}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {recruiter && recruiter.id === app.assignedReviewerId && (
+                                                <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', marginTop: 6 }}>
+                                                    Currently assigned to <strong>{recruiter.displayName}</strong>
+                                                    {app.assignedByLeadName && ` (by ${app.assignedByLeadName})`}
+                                                </div>
+                                            )}
+                                            {recruiter && recruiter.id === app.assignedReviewerId && app.recruiterNote && (
+                                                <div style={{ marginTop: 6, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)', whiteSpace: 'pre-wrap' }}>
+                                                    {app.recruiterNote}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Show assigned recruiter info to non-leads */}
+                                    {!isLead && app.assignedReviewerName && (
+                                        <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.4)' }}>
+                                            Assigned recruiter: <span style={{ color: '#f59e0b' }}>{app.assignedReviewerName}</span>
+                                            {app.recruiterNote && (
+                                                <div style={{ marginTop: 4, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.5)', whiteSpace: 'pre-wrap' }}>
+                                                    {app.recruiterNote}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Approve / Reject */}
+                                    {(() => {
+                                        const hasRecruiter = !!app.assignedReviewerId
+                                        const normalCanAct = hasRecruiter && canChangeStatus
+                                        const j4Override = !hasRecruiter && isJ4
+                                        if (!normalCanAct && !j4Override) return null
+                                        return (
+                                            <div style={{ borderTop: isLead || app.assignedReviewerName ? '1px solid rgba(219,0,29,0.15)' : undefined, paddingTop: isLead || app.assignedReviewerName ? 10 : 0 }}>
+                                                {j4Override && (
+                                                    <div style={{ fontSize: '0.65rem', color: '#f59e0b', marginBottom: 8, letterSpacing: '0.05em' }}>
+                                                        ⚠ No recruiter assigned — J4 override
+                                                    </div>
+                                                )}
+                                                <div style={{ display: 'flex', gap: 8 }}>
+                                                    <button
+                                                        onClick={() => handleStatusChange('accepted')}
+                                                        disabled={statusChanging}
+                                                        style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(0,195,100,0.15)', border: '1px solid rgba(0,195,100,0.4)', color: '#00c364', opacity: statusChanging ? 0.5 : 1 }}
+                                                    >
+                                                        ✓ Approve
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleStatusChange('rejected')}
+                                                        disabled={statusChanging}
+                                                        style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'var(--red)', opacity: statusChanging ? 0.5 : 1 }}
+                                                    >
+                                                        ✗ Reject
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )
+                                    })()}
+                                </div>
+                            )}
 
                             {/* Discord linking */}
                             <div>
@@ -330,7 +479,8 @@ function ApplicationModal({ app, members, isJ4, onClose, onUpdate, onDelete }: {
                                         <button
                                             onClick={() => setLinkedMember(null)}
                                             title='Unlink'
-                                            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', color: 'rgba(237,237,237,0.35)', padding: '5px 8px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                                            disabled={app.status === 'accepted' || app.status === 'rejected'}
+                                            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', cursor: app.status === 'accepted' || app.status === 'rejected' ? 'default' : 'pointer', color: 'rgba(237,237,237,0.35)', padding: '5px 8px', display: 'flex', alignItems: 'center', flexShrink: 0, opacity: app.status === 'accepted' || app.status === 'rejected' ? 0.3 : 1 }}
                                         >
                                             <LinkOff style={{ fontSize: 15 }} />
                                         </button>
@@ -390,49 +540,6 @@ function ApplicationModal({ app, members, isJ4, onClose, onUpdate, onDelete }: {
                                             </div>
                                         )}
                                     />
-                                )}
-                            </div>
-
-                            {/* Assign reviewer */}
-                            <div>
-                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 8 }}>
-                                    Assign Reviewer
-                                </div>
-                                <div className='flex items-center gap-2'>
-                                    <Autocomplete
-                                        size='small'
-                                        options={members}
-                                        value={reviewer}
-                                        onChange={(_, val) => setReviewer(val)}
-                                        getOptionLabel={m => m.displayName + (m.inGameName ? ` (${m.inGameName})` : '')}
-                                        getOptionKey={m => m.id}
-                                        isOptionEqualToValue={(a, b) => a.id === b.id}
-                                        renderInput={params => (
-                                            <TextField {...params} label='Reviewer (J1 member)' placeholder='Search by display name...' sx={inputSx} />
-                                        )}
-                                        noOptionsText={<span style={{ fontSize: '0.8rem' }}>No members found</span>}
-                                        sx={{ flex: 1, maxWidth: 380 }}
-                                        ListboxProps={{ style: { fontSize: '0.82rem' } }}
-                                    />
-                                    {reviewer && (
-                                        <button
-                                            onClick={() => setReviewer(null)}
-                                            title='Remove reviewer'
-                                            style={{ background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
-                                        >
-                                            <LinkOff style={{ fontSize: 16 }} />
-                                        </button>
-                                    )}
-                                </div>
-                                {reviewer && reviewer.id !== app.assignedReviewerId && (
-                                    <div style={{ fontSize: '0.72rem', color: '#f59e0b', marginTop: 6 }}>
-                                        ● Will assign <strong>{reviewer.displayName}</strong> — they'll receive a task notification
-                                    </div>
-                                )}
-                                {reviewer && reviewer.id === app.assignedReviewerId && (
-                                    <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', marginTop: 6 }}>
-                                        Currently assigned to <strong>{reviewer.displayName}</strong>
-                                    </div>
                                 )}
                             </div>
 
@@ -500,7 +607,7 @@ function ApplicationModal({ app, members, isJ4, onClose, onUpdate, onDelete }: {
 
 const PAGE_SIZE = 50
 
-export default function ApplicationsTab({ isJ4 = false }: { isJ4?: boolean }) {
+export default function ApplicationsTab({ isJ4 = false, isLead = false, userId = '' }: { isJ4?: boolean; isLead?: boolean; userId?: string }) {
     const [applications, setApplications] = useState<Application[]>([])
     const [members, setMembers] = useState<DiscordMember[]>([])
     const [loading, setLoading] = useState(true)
@@ -511,6 +618,10 @@ export default function ApplicationsTab({ isJ4 = false }: { isJ4?: boolean }) {
     const [sortDir, setSortDir] = useState<SortDir>('desc')
     const [page, setPage] = useState(0)
     const [selected, setSelected] = useState<Application | null>(null)
+
+    const searchParams = useSearchParams()
+    const deepLinkAppId = searchParams.get('app')
+    const deepLinkHandled = useRef(false)
 
     const fetchApps = useCallback(async () => {
         setLoading(true)
@@ -535,6 +646,16 @@ export default function ApplicationsTab({ isJ4 = false }: { isJ4?: boolean }) {
     }, [])
 
     useEffect(() => { fetchApps() }, [fetchApps])
+
+    useEffect(() => {
+        if (!deepLinkAppId || deepLinkHandled.current || applications.length === 0) return
+        const target = applications.find(a => a._id === deepLinkAppId)
+        if (target) {
+            deepLinkHandled.current = true
+            setFilter('all')
+            setSelected(target)
+        }
+    }, [deepLinkAppId, applications])
 
     function handleUpdate(id: string, patch: Partial<Application>) {
         setApplications(prev => prev.map(a => a._id === id ? { ...a, ...patch } : a))
@@ -628,7 +749,7 @@ export default function ApplicationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                             transition: 'all 0.15s',
                         }}
                     >
-                        {f === 'all' ? `All (${nonAccepted.length})` : `${f} (${counts[f] ?? 0})`}
+                        {f === 'all' ? `All (${applications.length})` : `${f} (${counts[f] ?? 0})`}
                     </button>
                 ))}
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -787,6 +908,8 @@ export default function ApplicationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                     app={selected}
                     members={members}
                     isJ4={isJ4}
+                    isLead={isLead}
+                    userId={userId}
                     onClose={() => setSelected(null)}
                     onUpdate={handleUpdate}
                     onDelete={handleDelete}

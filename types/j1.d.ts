@@ -35,4 +35,9 @@ interface J1Application {
     ownsArma?: boolean
     assignedReviewerId?: string
     assignedReviewerName?: string
+    assignedByLeadId?: string
+    assignedByLeadName?: string
+    recruiterNote?: string
+    reviewDueAt?: Date
+    overdueReminderSentAt?: Date
 }
