@@ -445,7 +445,7 @@ export default function ApplicationsTab() {
 
     const filtered = useMemo(() => {
         let list: Application[]
-        if (filter === 'all') list = nonAccepted
+        if (filter === 'all') list = applications
         else if (filter === 'accepted') list = applications.filter(a => a.status === 'accepted')
         else list = nonAccepted.filter(a => a.status === filter)
         if (search.trim()) {

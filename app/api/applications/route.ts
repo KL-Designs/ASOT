@@ -76,8 +76,10 @@ export async function POST(request: NextRequest) {
     }
 
     await Db.j1Applications.insertOne({
-        discordId:       discordSession.id,
-        discordUsername: discordSession.username,
+        discordId:             discordSession.id,
+        discordUsername:       discordSession.username,
+        linkedUserId:          discordSession.id,
+        linkedUserDisplayName: discordSession.globalName || discordSession.username,
         inGameName: String(inGameName).trim(),
         age: ageNum,
         experience: String(experience).trim(),
