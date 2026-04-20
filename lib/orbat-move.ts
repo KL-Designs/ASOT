@@ -1,5 +1,6 @@
 import Db from './mongo'
 import { RESERVIST_CATEGORY_IDS } from './orbat-constants'
+import { syncOrbatDiscordRoles } from './orbat-discord'
 
 /**
  * Applies an ORBAT position swap when a move request is approved.
@@ -20,6 +21,10 @@ export async function applyOrbatMove({
         // FROM reservist → TO section: clear reservist slot, assign destination
         await Db.orbatPositions.updateOne({ _id: fromPos._id }, { $set: { userId: null } })
         await Db.orbatPositions.updateOne({ _id: toPos!._id }, { $set: { userId: targetUserId } })
+        Promise.allSettled([
+            syncOrbatDiscordRoles(targetUserId, 'remove', fromPos.category, fromPos.sectionTitle),
+            syncOrbatDiscordRoles(targetUserId, 'add', toPos!.category, toPos!.sectionTitle),
+        ]).catch(err => console.error('[orbat-move] Discord role sync failed:', err))
     } else if (toIsReservist) {
         // FROM section → TO reservist: clear source, find/create activeReservist slot
         await Db.orbatPositions.updateOne({ _id: fromPos._id }, { $set: { userId: null } })
@@ -37,9 +42,17 @@ export async function applyOrbatMove({
                 positionOrder: count,
             } as OrbatPosition)
         }
+        Promise.allSettled([
+            syncOrbatDiscordRoles(targetUserId, 'remove', fromPos.category, fromPos.sectionTitle),
+            syncOrbatDiscordRoles(targetUserId, 'add', 'activeReservist', ''),
+        ]).catch(err => console.error('[orbat-move] Discord role sync failed:', err))
     } else {
-        // Section → section
+        // Section → section: remove old roles, add new roles
         await Db.orbatPositions.updateOne({ _id: fromPos._id }, { $set: { userId: null } })
         await Db.orbatPositions.updateOne({ _id: toPos!._id }, { $set: { userId: targetUserId } })
+        Promise.allSettled([
+            syncOrbatDiscordRoles(targetUserId, 'remove', fromPos.category, fromPos.sectionTitle),
+            syncOrbatDiscordRoles(targetUserId, 'add', toPos!.category, toPos!.sectionTitle),
+        ]).catch(err => console.error('[orbat-move] Discord role swap failed:', err))
     }
 }

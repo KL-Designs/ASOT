@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
+import { syncOrbatDiscordRoles } from '@/lib/orbat-discord'
 
 
 async function auth() {
@@ -55,6 +56,9 @@ export async function POST(request: NextRequest) {
             positionOrder,
         }
         await Db.orbatPositions.insertOne(newPosition)
+        syncOrbatDiscordRoles(userId, 'add', category, '').catch(err =>
+            console.error('[orbat/reservists] Discord role add failed:', err),
+        )
 
         return NextResponse.json({ position: JSON.parse(JSON.stringify(newPosition)) })
     }
@@ -70,6 +74,12 @@ export async function POST(request: NextRequest) {
     }
 
     await Db.orbatPositions.updateOne({ _id: objectId }, { $set: { category: targetCategory } })
+    if (pos.userId) {
+        Promise.allSettled([
+            syncOrbatDiscordRoles(pos.userId, 'remove', pos.category, ''),
+            syncOrbatDiscordRoles(pos.userId, 'add', targetCategory, ''),
+        ]).catch(err => console.error('[orbat/reservists] Discord role swap failed:', err))
+    }
     return NextResponse.json({ success: true })
 }
 
@@ -91,5 +101,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     await Db.orbatPositions.deleteOne({ _id: objectId })
+    if (pos.userId) {
+        syncOrbatDiscordRoles(pos.userId, 'remove', pos.category, '').catch(err =>
+            console.error('[orbat/reservists] Discord role remove failed:', err),
+        )
+    }
     return NextResponse.json({ success: true })
 }

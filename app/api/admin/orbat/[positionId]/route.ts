@@ -5,6 +5,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
 import { logAction } from '@/lib/logs'
+import { syncOrbatDiscordRoles } from '@/lib/orbat-discord'
 
 
 async function authStructure() {
@@ -84,6 +85,20 @@ export async function PATCH(
 
         await Db.orbatPositions.updateOne({ _id: objectId }, { $set: { userId: userId ?? null } })
         if (reservistPosition) await Db.orbatPositions.insertOne(reservistPosition)
+
+        // Sync Discord roles for section + platoon
+        if (isUnassign && position.userId) {
+            const evictedId = position.userId
+            Promise.allSettled([
+                syncOrbatDiscordRoles(evictedId, 'remove', position.category, position.sectionTitle),
+                // Add reservist role if they were auto-moved there
+                reservistPosition ? syncOrbatDiscordRoles(evictedId, 'add', 'activeReservist', '') : Promise.resolve(),
+            ]).catch(err => console.error('[orbat] Discord role sync failed:', err))
+        } else if (!isUnassign && userId) {
+            syncOrbatDiscordRoles(userId, 'add', position.category, position.sectionTitle).catch(err =>
+                console.error('[orbat] Discord role add failed:', err),
+            )
+        }
 
         // Resolve display name of the member being assigned/unassigned
         const targetUserId = isUnassign ? position.userId : userId

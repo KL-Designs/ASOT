@@ -285,7 +285,7 @@ const PERMISSIONS = {
          *  - `app/api/operations/[id]/attendance/platoons/route.ts`
          *  - `app/api/operations/[id]/attendance/manage/route.ts`
          */
-        manageOrbat: ['HQ Staff'],
+        manageOrbat: ['J4-Administration'],
 
         /**
          * ORBAT structural edits — create, rename, delete, and reorder
@@ -308,7 +308,7 @@ const PERMISSIONS = {
          *  - `app/api/admin/orbat/[positionId]/route.ts` (member assign/unassign)
          *  - `app/api/admin/orbat/reservists/route.ts`
          */
-        manageOrbatMembers: ['HQ Staff'],
+        manageOrbatMembers: ['J4-Administration'],
 
         /**
          * Mass import — wipe and replace all milpac and ORBAT data from CSV files.
