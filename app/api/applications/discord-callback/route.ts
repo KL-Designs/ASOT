@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
+import { botRequest } from '@/lib/discord/bot'
 
 export async function GET(request: NextRequest) {
     const code  = request.nextUrl.searchParams.get('code')
@@ -56,10 +57,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(`${base}/join?discord_error=not_member`)
     }
 
-    // Block existing members from applying again (in ORBAT = confirmed member)
-    const inOrbat = await Db.orbatPositions.findOne({ userId: user.id })
-    if (inOrbat) {
-        return NextResponse.redirect(`${base}/join?discord_error=already_member`)
+    // Block existing members from applying again (has ASOT Member role = confirmed member)
+    const asotMemberRole = await Db.roles.findOne({ name: 'ASOT Member' })
+    if (asotMemberRole) {
+        const guildMember = await botRequest<{ roles: string[] }>('GET', `/guilds/${guildId}/members/${user.id}`)
+            .catch(() => null)
+        if (guildMember?.roles.includes(asotMemberRole.id)) {
+            return NextResponse.redirect(`${base}/join?discord_error=already_member`)
+        }
     }
 
     // Store verified Discord identity in a short-lived httpOnly cookie

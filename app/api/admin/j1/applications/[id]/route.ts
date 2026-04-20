@@ -5,6 +5,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
 import { addGuildRole, removeGuildRole, setGuildNickname, sendTaskAssignedDM, sendDM } from '@/lib/discord/bot'
+import { buildNickname } from '@/lib/buildNickname'
 
 // PATCH /api/admin/j1/applications/[id] — update status, notes, linked user, or assigned recruiter
 export async function PATCH(
@@ -192,6 +193,9 @@ export async function PATCH(
             // Add ASOT Member role
             Db.roles.findOne({ name: 'ASOT Member' })
                 .then(role => role?.id ? addGuildRole(memberId, role.id) : null),
+            // Add Reservist role
+            Db.roles.findOne({ name: 'Reservist' })
+                .then(role => role?.id ? addGuildRole(memberId, role.id) : null),
             // Remove Applicant role
             Db.roles.findOne({ name: 'Applicant' })
                 .then(role => role?.id ? removeGuildRole(memberId, role.id) : null),
@@ -219,7 +223,7 @@ export async function PATCH(
                     positionOrder: count,
                 } as OrbatPosition)),
             // Set Discord nickname
-            setGuildNickname(memberId, `REC ${igName}`),
+            setGuildNickname(memberId, buildNickname('REC', igName)),
         ]).then(results => {
             results.forEach((r, i) => {
                 if (r.status === 'rejected') console.error(`[j1/applications] Onboarding step ${i} failed:`, r.reason)

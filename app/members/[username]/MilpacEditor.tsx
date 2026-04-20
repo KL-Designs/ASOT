@@ -460,7 +460,7 @@ function SortableItem({ id, children }: { id: string; children: (listeners: Reco
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange, canEditRestricted = false, canEditStandard = false, canImpersonate = false }: { member: User; confirmedOps?: ConfirmedOp[]; onDirtyChange?: (dirty: boolean) => void; canEditRestricted?: boolean; canEditStandard?: boolean; canImpersonate?: boolean }) {
+export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange, canEditRestricted = false, canEditStandard = false, canImpersonate = false, nameReadOnly = false }: { member: User; confirmedOps?: ConfirmedOp[]; onDirtyChange?: (dirty: boolean) => void; canEditRestricted?: boolean; canEditStandard?: boolean; canImpersonate?: boolean; nameReadOnly?: boolean }) {
     const strippedNickname = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
     const fullDisplay = strippedNickname || member.globalName || member.username
     const nameParts = fullDisplay.split(' ')
@@ -541,7 +541,7 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
         setError(null)
         try {
             const body: Record<string, any> = {}
-            if (canEditStandard) {
+            if (canEditStandard && !nameReadOnly) {
                 body.name = memberName.trim() || null
                 body.promotions = promotions.map(({ _key, ...rest }) => rest)
                 body.awards = awards.map(({ _key, ...rest }) => rest)
@@ -743,7 +743,7 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
 
             {/* Basic Info */}
             <SectionCard title='Basic Info'>
-                {canEditStandard && (
+                {canEditStandard && !nameReadOnly && (
                     <div className='flex flex-col gap-2'>
                         <Label>Name</Label>
                         <input

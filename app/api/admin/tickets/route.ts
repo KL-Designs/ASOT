@@ -8,6 +8,7 @@ import { RANK_GROUPS } from '@/lib/ranks'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
 import { applyOrbatMove } from '@/lib/orbat-move'
 import { createNotification, createNotificationForRole } from '@/lib/notifications'
+import { syncDeptDiscordRole } from '@/lib/deptDiscordRoles'
 
 // Maps ticket department → role(s) that should be notified
 const TICKET_NOTIFY_ROLES: Record<string, string[]> = {
@@ -358,6 +359,10 @@ export async function POST(req: NextRequest) {
         } else if (memberAction === 'remove-lead') {
             await Db.users.updateOne({ id: targetUserId }, { $pull: { teamLeadDepts: deptCode } })
         }
+
+        syncDeptDiscordRole(targetUserId, deptCode, memberAction as 'add' | 'remove' | 'set-lead' | 'remove-lead').catch(err =>
+            console.error('[tickets] dept Discord role sync failed:', err)
+        )
 
         // Log as pre-actioned ticket
         const ticket: Omit<Ticket, '_id'> = {
