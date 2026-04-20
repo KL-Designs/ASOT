@@ -304,37 +304,92 @@ function ApplicationModal({ app, members, isJ4, onClose, onUpdate, onDelete }: {
                                 <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 8 }}>
                                     Link Discord Account
                                 </div>
-                                <div className='flex items-center gap-2'>
+
+                                {linkedMember ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(0,195,100,0.04)', border: '1px solid rgba(0,195,100,0.2)' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                                <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'rgba(237,237,237,0.9)' }}>{linkedMember.displayName}</span>
+                                                {linkedMember.username && (
+                                                    <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)' }}>@{linkedMember.username}</span>
+                                                )}
+                                                {linkedMember.discharged && (
+                                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', padding: '1px 5px' }}>DISCHARGED</span>
+                                                )}
+                                                {linkedMember.isSkeleton && (
+                                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 5px' }}>CSV</span>
+                                                )}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 12, fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)' }}>
+                                                <span style={{ fontFamily: 'monospace' }}>{linkedMember.id}</span>
+                                                {linkedMember.inGameName && (
+                                                    <span>In-game: <strong style={{ color: 'rgba(237,237,237,0.5)' }}>{linkedMember.inGameName}</strong></span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setLinkedMember(null)}
+                                            title='Unlink'
+                                            style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', color: 'rgba(237,237,237,0.35)', padding: '5px 8px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                                        >
+                                            <LinkOff style={{ fontSize: 15 }} />
+                                        </button>
+                                    </div>
+                                ) : (
                                     <Autocomplete
                                         size='small'
                                         options={members}
                                         value={linkedMember}
                                         onChange={(_, val) => setLinkedMember(val)}
-                                        getOptionLabel={m => m.displayName + (m.inGameName ? ` (${m.inGameName})` : '')}
+                                        getOptionLabel={m => m.displayName + (m.username ? ` @${m.username}` : '') + (m.inGameName ? ` (${m.inGameName})` : '')}
                                         getOptionKey={m => m.id}
                                         isOptionEqualToValue={(a, b) => a.id === b.id}
+                                        filterOptions={(options, { inputValue }) => {
+                                            const q = inputValue.toLowerCase().trim()
+                                            if (!q) return options
+                                            return options.filter(o =>
+                                                o.displayName.toLowerCase().includes(q) ||
+                                                (o.username && o.username.toLowerCase().includes(q)) ||
+                                                o.id.includes(q) ||
+                                                (o.inGameName && o.inGameName.toLowerCase().includes(q))
+                                            )
+                                        }}
+                                        renderOption={(props, option) => {
+                                            const { key, ...liProps } = props
+                                            return (
+                                                <li key={option.id} {...liProps} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', padding: '6px 12px' }}>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            <span>{option.displayName}</span>
+                                                            {option.username && (
+                                                                <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)' }}>@{option.username}</span>
+                                                            )}
+                                                            {option.discharged && (
+                                                                <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', padding: '1px 4px' }}>DISCHARGED</span>
+                                                            )}
+                                                            {option.isSkeleton && (
+                                                                <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 4px' }}>CSV</span>
+                                                            )}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)', fontFamily: 'monospace', marginTop: 1 }}>{option.id}</div>
+                                                    </div>
+                                                    {option.inGameName && (
+                                                        <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)', fontFamily: 'monospace', flexShrink: 0 }}>{option.inGameName}</span>
+                                                    )}
+                                                </li>
+                                            )
+                                        }}
                                         renderInput={params => (
-                                            <TextField {...params} label='Discord Member' placeholder='Search by display name...' sx={inputSx} />
+                                            <TextField {...params} label='Search Discord member' placeholder='Name, @username, or Discord ID...' sx={inputSx} />
                                         )}
                                         noOptionsText={<span style={{ fontSize: '0.8rem' }}>No members found</span>}
-                                        sx={{ flex: 1, maxWidth: 380 }}
-                                        ListboxProps={{ style: { fontSize: '0.82rem' } }}
+                                        fullWidth
+                                        PaperComponent={({ children, ...props }) => (
+                                            <div {...props as React.HTMLAttributes<HTMLDivElement>} style={{ background: '#1a1a1a', border: '1px solid rgba(219,0,29,0.32)', borderRadius: 0, marginTop: 2 }}>
+                                                {children}
+                                            </div>
+                                        )}
                                     />
-                                    {linkedMember && (
-                                        <button
-                                            onClick={() => setLinkedMember(null)}
-                                            title='Unlink'
-                                            style={{ background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
-                                        >
-                                            <LinkOff style={{ fontSize: 16 }} />
-                                        </button>
-                                    )}
-                                </div>
-                                {linkedMember && (
-                                    <div style={{ fontSize: '0.72rem', color: '#00c364', marginTop: 6 }}>
-                                        ✓ Will be linked to <strong>{linkedMember.displayName}</strong>
-                                        {linkedMember.inGameName && ` — current in-game name: ${linkedMember.inGameName}`}
-                                    </div>
                                 )}
                             </div>
 
@@ -401,12 +456,6 @@ function ApplicationModal({ app, members, isJ4, onClose, onUpdate, onDelete }: {
 
                             <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.25)', marginTop: 2 }}>
                                 Submitted {formatDate(app.submittedAt)}
-                                {app.linkedUserId && (
-                                    <span style={{ marginLeft: 10, color: '#00c364' }}>
-                                        <LinkIcon style={{ fontSize: 11, verticalAlign: 'middle', marginRight: 3 }} />
-                                        Linked to {app.linkedUserDisplayName}
-                                    </span>
-                                )}
                             </div>
 
                             {isJ4 && (
