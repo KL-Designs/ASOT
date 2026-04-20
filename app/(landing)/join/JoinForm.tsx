@@ -252,8 +252,9 @@ export default function JoinForm() {
     }, [searchParams])
 
     const handleSteamSignIn = useCallback(() => {
-        const returnTo = `${window.location.origin}/api/applications/steam-callback`
-        const realm    = window.location.origin
+        const base     = process.env.NEXT_PUBLIC_BASEURL ?? window.location.origin
+        const returnTo = `${base}/api/applications/steam-callback`
+        const realm    = base
         const params   = new URLSearchParams({
             'openid.ns':         'http://specs.openid.net/auth/2.0',
             'openid.mode':       'checkid_setup',
@@ -360,7 +361,7 @@ export default function JoinForm() {
     const canAdvance = (): boolean => {
         switch (step) {
             case 1: return !!discord
-            case 2: return true
+            case 2: return steamStatus === 'resolved'
             case 3: return !!fields.inGameName.trim() && nameStatus === 'available' && !nameOffensive
             case 4: return !!fields.age && !!fields.region && fields.ownsArma
             case 5: return !!fields.availableNights && !!fields.opsPerMonth
@@ -434,7 +435,7 @@ export default function JoinForm() {
                 '&.Mui-disabled': { background: 'rgba(219,0,29,0.3)', color: 'rgba(237,237,237,0.3)' },
             }}
         >
-            {step === 2 && !fields.steamId64 ? 'SKIP' : 'CONTINUE'}
+            CONTINUE
         </Button>
     )
 
@@ -519,7 +520,7 @@ export default function JoinForm() {
             {/* ── Step 2: Steam ── */}
             {step === 2 && (
                 <div className='flex flex-col gap-4'>
-                    {sectionLabel('Step 2 — Steam Account', 'Optionally link your Steam account. This helps us verify your ARMA 3 hours. You can skip this step.')}
+                    {sectionLabel('Step 2 — Steam Account', 'Link your Steam account to verify your ARMA 3 hours. This is required to continue.')}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.35)' }}>Steam Profile URL or SteamID64</span>
