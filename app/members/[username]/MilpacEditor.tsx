@@ -1082,11 +1082,18 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                                     </div>
                                                     <DeleteBtn onClick={() => removePromotion(i)} />
                                                 </div>
-                                                {p.issuedByName && (
-                                                    <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)', marginTop: 5, paddingLeft: 28 }}>
-                                                        Issued by {p.issuedByName}
-                                                    </div>
-                                                )}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 28 }}>
+                                                    <Label>Issued By</Label>
+                                                    <input
+                                                        value={p.issuedByName ?? ''}
+                                                        onChange={e => {
+                                                            markDirty()
+                                                            setPromotions(prev => prev.map((x, idx) => idx === i ? { ...x, issuedByName: e.target.value, issuedById: undefined } : x))
+                                                        }}
+                                                        placeholder='e.g. CO Smith'
+                                                        style={{ ...inputStyle, fontSize: '0.72rem', padding: '3px 8px', flex: 1 }}
+                                                    />
+                                                </div>
                                             </div>
                                         )}
                                     </SortableItem>
@@ -1173,11 +1180,18 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                                     </div>
                                                     <DeleteBtn onClick={() => removeQualification(i)} />
                                                 </div>
-                                                {q.issuedByName && (
-                                                    <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)', marginTop: 5, paddingLeft: 28 }}>
-                                                        Issued by {q.issuedByName}
-                                                    </div>
-                                                )}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 28 }}>
+                                                    <Label>Issued By</Label>
+                                                    <input
+                                                        value={q.issuedByName ?? ''}
+                                                        onChange={e => {
+                                                            markDirty()
+                                                            setQualifications(prev => prev.map((x, idx) => idx === i ? { ...x, issuedByName: e.target.value, issuedById: undefined } : x))
+                                                        }}
+                                                        placeholder='e.g. CO Smith'
+                                                        style={{ ...inputStyle, fontSize: '0.72rem', padding: '3px 8px', flex: 1 }}
+                                                    />
+                                                </div>
                                             </div>
                                         )}
                                     </SortableItem>
@@ -1280,11 +1294,18 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                                     </div>
                                                     <DeleteBtn onClick={() => removeAward(i)} />
                                                 </div>
-                                                {a.issuedByName && (
-                                                    <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)', marginTop: 5, paddingLeft: 28 }}>
-                                                        Issued by {a.issuedByName}
-                                                    </div>
-                                                )}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 28 }}>
+                                                    <Label>Issued By</Label>
+                                                    <input
+                                                        value={a.issuedByName ?? ''}
+                                                        onChange={e => {
+                                                            markDirty()
+                                                            setAwards(prev => prev.map((x, idx) => idx === i ? { ...x, issuedByName: e.target.value, issuedById: undefined } : x))
+                                                        }}
+                                                        placeholder='e.g. CO Smith'
+                                                        style={{ ...inputStyle, fontSize: '0.72rem', padding: '3px 8px', flex: 1 }}
+                                                    />
+                                                </div>
                                             </div>
                                         )}
                                     </SortableItem>
