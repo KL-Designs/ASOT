@@ -14,12 +14,14 @@ export default async function Page() {
     const canEditRestricted = client.hasRoles(me, PERMISSIONS.members.editRestricted)
     const canEditStandard   = client.hasRoles(me, PERMISSIONS.members.editStandard)
     const canImpersonate    = client.hasRoles(me, PERMISSIONS.admin.impersonate)
+    const isJ4              = client.hasRoles(me, PERMISSIONS.departments.j4)
 
     return (
         <AllMembersPanel
             canEditRestricted={canEditRestricted}
             canEditStandard={canEditStandard}
             canImpersonate={canImpersonate}
+            isJ4={isJ4}
         />
     )
 }

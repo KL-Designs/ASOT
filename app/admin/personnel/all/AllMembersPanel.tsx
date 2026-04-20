@@ -33,10 +33,12 @@ export default function AllMembersPanel({
     canEditRestricted,
     canEditStandard,
     canImpersonate,
+    isJ4,
 }: {
     canEditRestricted: boolean
     canEditStandard: boolean
     canImpersonate: boolean
+    isJ4: boolean
 }) {
     const [members, setMembers] = useState<MemberRow[]>([])
     const [total, setTotal] = useState(0)
@@ -50,6 +52,9 @@ export default function AllMembersPanel({
     const [loadingMember, setLoadingMember] = useState(false)
     const [loadError, setLoadError] = useState<string | null>(null)
     const [dirty, setDirty] = useState(false)
+    const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
+    const [deleteStage, setDeleteStage] = useState<'idle' | 'confirm'>('idle')
+    const [deleting, setDeleting] = useState(false)
 
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const totalPages = Math.ceil(total / PAGE_SIZE)
@@ -98,6 +103,8 @@ export default function AllMembersPanel({
         setLoadError(null)
         setLoadingMember(true)
         setDirty(false)
+        setDeleteStage('idle')
+        setDeleteConfirmInput('')
         try {
             const [memberRes, opsRes] = await Promise.all([
                 fetch(`/api/members/${username}`),
@@ -113,6 +120,22 @@ export default function AllMembersPanel({
             setLoadingMember(false)
         }
     }, [selectedUsername, dirty])
+
+    async function handleDeleteMember() {
+        if (!memberData) return
+        setDeleting(true)
+        try {
+            const res = await fetch(`/api/admin/members/${memberData.id}`, { method: 'DELETE' })
+            if (!res.ok) throw new Error('Delete failed')
+            setSelectedUsername(null)
+            setMemberData(null)
+            setDeleteStage('idle')
+            setDeleteConfirmInput('')
+            fetchMembers(page, search)
+        } finally {
+            setDeleting(false)
+        }
+    }
 
     const start = page * PAGE_SIZE + 1
     const end   = Math.min((page + 1) * PAGE_SIZE, total)
@@ -263,7 +286,7 @@ export default function AllMembersPanel({
             </div>
 
             {/* ── Right: milpac editor ── */}
-            <div className='flex-1 min-w-0 overflow-y-auto'>
+            <div className='flex-1 min-w-0 flex flex-col min-h-0'>
                 {!selectedUsername && (
                     <div className='flex items-center justify-center h-full' style={{ color: 'rgba(237,237,237,0.18)', fontSize: '0.82rem', fontStyle: 'italic' }}>
                         Select a member to edit their milpac
@@ -283,15 +306,66 @@ export default function AllMembersPanel({
                 )}
 
                 {memberData && !loadingMember && (
-                    <MilpacEditor
-                        key={memberData.username}
-                        member={memberData}
-                        confirmedOps={confirmedOps}
-                        canEditRestricted={canEditRestricted}
-                        canEditStandard={canEditStandard}
-                        canImpersonate={canImpersonate}
-                        onDirtyChange={setDirty}
-                    />
+                    <>
+                        {/* Editor fills remaining space and scrolls internally */}
+                        <div className='flex-1 overflow-y-auto min-h-0'>
+                            <MilpacEditor
+                                key={memberData.username}
+                                member={memberData}
+                                confirmedOps={confirmedOps}
+                                canEditRestricted={canEditRestricted}
+                                canEditStandard={canEditStandard}
+                                canImpersonate={canImpersonate}
+                                onDirtyChange={setDirty}
+                            />
+                        </div>
+
+                        {/* J4 delete — sits below the scroll area, always visible */}
+                        {isJ4 && (
+                            <div style={{ flexShrink: 0, padding: '14px 24px', borderTop: '1px solid rgba(239,68,68,0.15)' }}>
+                                {deleteStage === 'idle' ? (
+                                    <button
+                                        onClick={() => setDeleteStage('confirm')}
+                                        style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(239,68,68,0.5)', background: 'none', border: '1px solid rgba(239,68,68,0.2)', padding: '5px 14px', cursor: 'pointer' }}
+                                    >
+                                        Delete Member Account
+                                    </button>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 400 }}>
+                                        <div style={{ fontSize: '0.72rem', color: 'rgba(239,68,68,0.8)', fontWeight: 700, letterSpacing: '0.05em' }}>
+                                            ⚠ This will permanently delete {getDisplayName(memberData as unknown as MemberRow)}&apos;s account from the database. This cannot be undone.
+                                        </div>
+                                        <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.4)' }}>
+                                            Type <strong style={{ color: 'rgba(237,237,237,0.7)', fontFamily: 'monospace' }}>{memberData.username}</strong> to confirm:
+                                        </div>
+                                        <input
+                                            type='text'
+                                            value={deleteConfirmInput}
+                                            onChange={e => setDeleteConfirmInput(e.target.value)}
+                                            placeholder={memberData.username}
+                                            autoFocus
+                                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(239,68,68,0.35)', color: 'rgba(237,237,237,0.9)', padding: '6px 10px', fontSize: '0.82rem', outline: 'none', fontFamily: 'monospace', width: '100%' }}
+                                        />
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <button
+                                                onClick={handleDeleteMember}
+                                                disabled={deleteConfirmInput !== memberData.username || deleting}
+                                                style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '6px 16px', cursor: deleteConfirmInput === memberData.username && !deleting ? 'pointer' : 'default', background: deleteConfirmInput === memberData.username ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.4)', color: deleteConfirmInput === memberData.username ? '#ef4444' : 'rgba(239,68,68,0.3)', transition: 'all 0.15s' }}
+                                            >
+                                                {deleting ? 'Deleting…' : 'Confirm Delete'}
+                                            </button>
+                                            <button
+                                                onClick={() => { setDeleteStage('idle'); setDeleteConfirmInput('') }}
+                                                style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.4)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 10px' }}
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>
