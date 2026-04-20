@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { setGuildNickname } from '@/lib/discord/bot'
+import { buildNickname } from '@/lib/buildNickname'
 
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
@@ -72,6 +74,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const result = await Db.users.updateOne({ username }, { $set: update })
     if (result.matchedCount === 0) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+
+    Db.users.findOne({ username }).then(updated => {
+        if (!updated?.id) return
+        const nick = buildNickname(updated.milpac?.currentRank, updated.name || updated.username || '', updated.departments, updated.isChaplain)
+        return setGuildNickname(updated.id, nick)
+    }).catch(err => console.error('[members/PUT] nickname update failed:', err))
 
     return NextResponse.json({ success: true })
 }
