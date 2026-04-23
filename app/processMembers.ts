@@ -13,6 +13,8 @@ export async function processMember(member: Discord.GuildMember) {
         { $set: userJson },
         { upsert: true }
     )
+
+    console.log(`Processed member: ${user.tag}`)
 }
 
 export default async function processMembers() {
