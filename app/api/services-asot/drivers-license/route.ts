@@ -49,7 +49,7 @@ export async function GET() {
     const count = await Db.driversLicense.countDocuments()
     if (count === 0) {
         const now = new Date()
-        await Db.driversLicense.insertMany(SEED_DATA.map(d => ({ ...d, updatedAt: now })))
+        await Db.driversLicense.insertMany(SEED_DATA.map(d => ({ ...d, updatedAt: now })) as any[])
     }
 
     const entries = await Db.driversLicense.find({}, { sort: { section: 1, name: 1 } }).toArray()
