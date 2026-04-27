@@ -187,10 +187,12 @@ export default function JoinForm() {
         primaryRole: '',
         additionalRoles: [] as string[],
         departmentInterest: [] as string[],
-        ownsArma: false,
+        ownsArma: true,
         experience: '',
         website: '',
     })
+
+    const isDev = process.env.NODE_ENV === 'development'
 
     const [loading,      setLoading]      = useState(false)
     const [error,        setError]        = useState<string | null>(null)
@@ -204,8 +206,10 @@ export default function JoinForm() {
     const [steamStatus,  setSteamStatus]  = useState<'idle' | 'resolving' | 'resolved' | 'error'>('idle')
     const [steamError,   setSteamError]   = useState<string | null>(null)
 
-    const nameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const steamTimer     = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const nameCheckTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const steamTimer      = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const armaHoursTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const [armaHoursAlert, setArmaHoursAlert] = useState(false)
     const searchParams   = useSearchParams()
 
     // Restore existing Discord session on mount
@@ -363,7 +367,7 @@ export default function JoinForm() {
             case 1: return !!discord
             case 2: return steamStatus === 'resolved'
             case 3: return !!fields.inGameName.trim() && nameStatus === 'available' && !nameOffensive
-            case 4: return !!fields.age && !!fields.region && fields.ownsArma
+            case 4: return !!fields.age && !!fields.region
             case 5: return !!fields.availableNights && !!fields.opsPerMonth
             case 6: return !!fields.primaryRole
             default: return false
@@ -447,7 +451,7 @@ export default function JoinForm() {
                 <Button
                     type='submit'
                     variant='contained'
-                    disabled={loading || nameStatus === 'taken' || nameStatus === 'checking' || !fields.ownsArma}
+                    disabled={loading || nameStatus === 'taken' || nameStatus === 'checking'}
                     endIcon={loading ? <CircularProgress size={16} color='inherit' /> : <Send />}
                     sx={{
                         borderRadius: 0, background: 'var(--red)',
@@ -494,6 +498,23 @@ export default function JoinForm() {
                                 </svg>
                                 SIGN IN WITH DISCORD
                             </a>
+                            {isDev && (
+                                <div style={{ width: '100%', borderTop: '1px dashed rgba(255,165,0,0.25)', paddingTop: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ fontSize: '0.6rem', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,165,0,0.5)', fontWeight: 700 }}>Dev Mode</span>
+                                    <button
+                                        type='button'
+                                        onClick={async () => {
+                                            const res  = await fetch('/api/applications/dev-login')
+                                            const data = await res.json()
+                                            if (data.ok) setDiscord({ id: data.id, username: data.username, globalName: data.globalName, avatar: data.avatar })
+                                            else setDiscordError(data.error ?? 'Dev login failed.')
+                                        }}
+                                        style={{ padding: '6px 16px', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', cursor: 'pointer', background: 'rgba(255,165,0,0.08)', border: '1px dashed rgba(255,165,0,0.4)', color: 'rgba(255,165,0,0.8)' }}
+                                    >
+                                        USE ADMIN SESSION
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(0,195,100,0.04)', border: '1px solid rgba(0,195,100,0.2)' }}>
@@ -551,6 +572,21 @@ export default function JoinForm() {
                         )}
                         {steamStatus === 'error' && <div style={{ fontSize: '0.72rem', color: '#ef4444' }}>{steamError}</div>}
                     </div>
+                    {isDev && steamStatus !== 'resolved' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 4, borderTop: '1px dashed rgba(255,165,0,0.2)' }}>
+                            <span style={{ fontSize: '0.6rem', letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(255,165,0,0.5)', fontWeight: 700, flexShrink: 0 }}>Dev Mode</span>
+                            <button
+                                type='button'
+                                onClick={() => {
+                                    setFields(prev => ({ ...prev, steamUrl: 'https://steamcommunity.com/profiles/76561198000000001', steamId64: '76561198000000001' }))
+                                    setSteamStatus('resolved')
+                                }}
+                                style={{ padding: '5px 14px', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', cursor: 'pointer', background: 'rgba(255,165,0,0.08)', border: '1px dashed rgba(255,165,0,0.4)', color: 'rgba(255,165,0,0.8)' }}
+                            >
+                                MOCK STEAM
+                            </button>
+                        </div>
+                    )}
                     {nav}
                 </div>
             )}
@@ -604,7 +640,25 @@ export default function JoinForm() {
                                 {REGIONS.map(r => <MenuItem key={r} value={r} style={{ fontSize: '0.85rem' }}>{r}</MenuItem>)}
                             </Select>
                         </FormControl>
-                        <TextField label='ARMA 3 Hours' placeholder='e.g. 500' value={fields.armaHours} onChange={set('armaHours')} sx={inputSx} />
+                        <TextField
+                            label='ARMA 3 Hours'
+                            placeholder='e.g. 500'
+                            value={fields.armaHours}
+                            onChange={set('armaHours')}
+                            onKeyDown={e => {
+                                const allowed = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab', 'Home', 'End', 'Enter']
+                                if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) {
+                                    e.preventDefault()
+                                    setArmaHoursAlert(true)
+                                    if (armaHoursTimer.current) clearTimeout(armaHoursTimer.current)
+                                    armaHoursTimer.current = setTimeout(() => setArmaHoursAlert(false), 2000)
+                                }
+                            }}
+                            inputProps={{ inputMode: 'numeric', maxLength: 6 }}
+                            helperText={armaHoursAlert ? 'Numbers only' : undefined}
+                            FormHelperTextProps={{ style: { color: '#f59e0b', fontSize: '0.7rem', marginTop: 3 } }}
+                            sx={inputSx}
+                        />
                         <FormControl sx={inputSx}>
                             <InputLabel>Own ARMA 3?</InputLabel>
                             <Select value={fields.ownsArma ? 'yes' : 'no'} label='Own ARMA 3?' onChange={e => setFields(prev => ({ ...prev, ownsArma: e.target.value === 'yes' }))}>
@@ -614,8 +668,9 @@ export default function JoinForm() {
                         </FormControl>
                     </div>
                     {!fields.ownsArma && (
-                        <div style={{ padding: '10px 14px', fontSize: '0.78rem', color: '#ef4444', lineHeight: 1.5, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.25)', borderLeft: '3px solid #ef4444' }}>
-                            A legitimate copy of ARMA 3 is required to join ASOT. Applications cannot be submitted without it.
+                        <div style={{ padding: '10px 14px', fontSize: '0.78rem', color: '#f59e0b', lineHeight: 1.6, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <Warning style={{ fontSize: 16, color: '#f59e0b', flexShrink: 0, marginTop: 2 }} />
+                            <span>Be advised - you can continue your application, but you will need to purchase a legal copy of ARMA 3 before you can officially join the unit.</span>
                         </div>
                     )}
                     {latency !== null && (

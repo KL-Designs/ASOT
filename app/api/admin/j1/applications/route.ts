@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         steamId64, region, regionCustom, armaHours, primaryRole, availableNights,
         heardAbout, heardAboutOther, age, experience, opsPerMonth,
         ownsArma, priorMilsim, dualClan, previousUnits, currentUnit,
-        additionalRoles, departmentInterest,
+        additionalRoles, departmentInterest, ageExemptionNote,
     } = body as Record<string, string | string[] | boolean>
 
     if (!discordUsername?.toString().trim()) return NextResponse.json({ error: 'Discord username is required.' }, { status: 400 })
@@ -70,13 +70,15 @@ export async function POST(request: NextRequest) {
         inGameName: joiningName.toString().trim(),
         age: age ? Number(age) : 0,
         experience: experience?.toString().trim() || '',
-        status: 'accepted',
+        status: 'pending',
         submittedAt: new Date(),
         isDirectRecruit: true,
         recruiter: recruiter?.toString().trim() || displayName,
         notes: notes?.toString().trim() || '',
-        reviewedBy: displayName,
-        reviewedAt: new Date(),
+        assignedReviewerId: me._id,
+        assignedReviewerName: displayName,
+        assignedByLeadId: me._id,
+        assignedByLeadName: displayName,
         steamId64: steamId64.toString().trim(),
         region: effectiveRegion || undefined,
         armaHours: armaHours?.toString().trim() || undefined,
@@ -92,6 +94,7 @@ export async function POST(request: NextRequest) {
         currentUnit: currentUnit?.toString().trim() || undefined,
         additionalRoles: Array.isArray(additionalRoles) ? additionalRoles : undefined,
         departmentInterest: Array.isArray(departmentInterest) ? departmentInterest : undefined,
+        ageExemptionNote: ageExemptionNote?.toString().trim() || undefined,
     })
 
     // Notify J1 leads to sign off on the new recruit
