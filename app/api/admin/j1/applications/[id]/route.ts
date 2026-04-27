@@ -40,7 +40,7 @@ export async function PATCH(
     }
 
     const { status, notes, linkedUserId, linkedUserDisplayName, assignedReviewerId, assignedReviewerName, recruiterNote, reviewHours } = body as Record<string, string>
-    const validStatuses = ['pending', 'reviewing', 'accepted', 'rejected']
+    const validStatuses = ['pending', 'reviewing', 'accepted', 'rejected', 'returned']
 
     if (status && !validStatuses.includes(status)) {
         return NextResponse.json({ error: 'Invalid status value.' }, { status: 400 })
@@ -60,15 +60,30 @@ export async function PATCH(
         if (!isJ1Lead && !isAssignedRecruiter) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
-        // Recruiters can only approve/reject their assigned app
-        if (!isJ1Lead && isAssignedRecruiter && !['accepted', 'rejected'].includes(status)) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        // Recruiters can approve/reject, or resubmit a returned application back to the lead
+        if (!isJ1Lead && isAssignedRecruiter) {
+            const recruiterAllowed =
+                ['accepted', 'rejected'].includes(status) ||
+                (status === 'pending' && app.status === 'returned')
+            if (!recruiterAllowed) {
+                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            }
         }
     }
 
     // Recruiter assignment: J1 Lead only
     if (assigningReviewer && !isJ1Lead) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // Sending back requires a recruiter note and an assigned recruiter
+    if (status === 'returned') {
+        if (!recruiterNote?.toString().trim()) {
+            return NextResponse.json({ error: 'A note for the recruiter is required when sending back for review.' }, { status: 400 })
+        }
+        if (!app.assignedReviewerId) {
+            return NextResponse.json({ error: 'No recruiter is assigned to this application.' }, { status: 400 })
+        }
     }
 
     const displayName = me.guild?.nickname || me.globalName || me.username || 'Unknown'
@@ -110,8 +125,8 @@ export async function PATCH(
     const applicantName = app.inGameName?.trim() || app.discordUsername || 'Unknown Applicant'
     const effectiveStatus = (status || (assigningReviewer && app.status === 'pending' ? 'reviewing' : null)) as string | null
 
-    // DM the applicant when status changes
-    if (effectiveStatus && app.linkedUserId && effectiveStatus !== app.status) {
+    // DM the applicant when status changes (not for internal workflow statuses)
+    if (effectiveStatus && app.linkedUserId && effectiveStatus !== app.status && effectiveStatus !== 'returned') {
         const statusLabels: Record<string, string> = { reviewing: 'Under Review', accepted: 'Accepted', rejected: 'Rejected' }
         const label = statusLabels[effectiveStatus] ?? effectiveStatus
         sendDM(app.linkedUserId, {
@@ -123,6 +138,51 @@ export async function PATCH(
                 timestamp: new Date().toISOString(),
             }],
         }, 'raw').catch(err => console.error('[j1/applications] Applicant DM failed', err))
+    }
+
+    // Notify assigned recruiter when application is sent back for review
+    if (status === 'returned' && app.assignedReviewerId) {
+        const noteText = recruiterNote?.toString().trim() ?? ''
+        createNotification({
+            userId: app.assignedReviewerId,
+            type: 'task_assigned',
+            title: `Application returned — ${applicantName}`,
+            body: `${displayName} has sent the application for ${applicantName} back for your review. Check the notes for details.`,
+            actionUrl: `/admin/j1?tab=1&app=${id}`,
+            relatedId: id,
+        }).catch(err => console.error('[j1/applications] Recruiter return notification failed', err))
+        sendDM(app.assignedReviewerId, {
+            embeds: [{
+                title: '↩ Application Returned for Review',
+                description: `**${displayName}** has sent the application for **${applicantName}** back to you for review.\n\n**Note from lead:**\n${noteText}`,
+                color: 0xf59e0b,
+                footer: { text: 'ASOT Member Portal' },
+                timestamp: new Date().toISOString(),
+            }],
+        }, 'raw').catch(err => console.error('[j1/applications] Recruiter return DM failed', err))
+    }
+
+    // Notify J1 lead when recruiter resubmits a returned application
+    if (status === 'pending' && isAssignedRecruiter && app.status === 'returned' && app.assignedByLeadId) {
+        createNotification({
+            userId: app.assignedByLeadId,
+            type: 'task_assigned',
+            title: `Application resubmitted — ${applicantName}`,
+            body: `${displayName} has reviewed and resubmitted the application for ${applicantName}.`,
+            actionUrl: `/admin/j1?tab=1&app=${id}`,
+            relatedId: id,
+        }).catch(err => console.error('[j1/applications] Lead resubmit notification failed', err))
+        if (app.assignedByLeadId !== me.id) {
+            sendDM(app.assignedByLeadId, {
+                embeds: [{
+                    title: '📋 Application Resubmitted',
+                    description: `**${displayName}** has reviewed and resubmitted the application for **${applicantName}**.`,
+                    color: 0x3b82f6,
+                    footer: { text: 'ASOT Member Portal' },
+                    timestamp: new Date().toISOString(),
+                }],
+            }, 'raw').catch(err => console.error('[j1/applications] Lead resubmit DM failed', err))
+        }
     }
 
     // Notify J1 Lead when recruiter finishes review

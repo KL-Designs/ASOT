@@ -6,7 +6,7 @@ interface J1Application {
     inGameName: string
     age: number
     experience: string
-    status: 'pending' | 'reviewing' | 'accepted' | 'rejected'
+    status: 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'returned'
     submittedAt: Date
     submittedIp?: string
     reviewedBy?: string
@@ -40,4 +40,5 @@ interface J1Application {
     recruiterNote?: string
     reviewDueAt?: Date
     overdueReminderSentAt?: Date
+    ageExemptionNote?: string
 }

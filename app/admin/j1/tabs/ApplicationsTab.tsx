@@ -10,7 +10,7 @@ import {
 } from '@mui/material'
 import {
     Refresh, LinkOff, Link as LinkIcon, Close,
-    Search, ArrowUpward, ArrowDownward, UnfoldMore,
+    Search, ArrowUpward, ArrowDownward, UnfoldMore, Warning,
 } from '@mui/icons-material'
 import { Typography } from '@mui/material'
 import TacticalSkeleton from '@/app/admin/_components/TacticalSkeleton'
@@ -32,9 +32,10 @@ const STATUS_COLORS: Record<string, 'warning' | 'info' | 'success' | 'error' | '
     reviewing: 'info',
     accepted: 'success',
     rejected: 'error',
+    returned: 'warning',
 }
 
-const FILTERS = ['all', 'pending', 'reviewing', 'accepted', 'rejected'] as const
+const FILTERS = ['all', 'pending', 'reviewing', 'returned', 'accepted', 'rejected'] as const
 type Filter = typeof FILTERS[number]
 
 type SortKey = 'discordUsername' | 'inGameName' | 'submittedAt' | 'status'
@@ -58,7 +59,11 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
 }) {
     const [notes, setNotes] = useState(app.notes || '')
     const [linkedMember, setLinkedMember] = useState<DiscordMember | null>(
-        app.linkedUserId ? (members.find(m => m.id === app.linkedUserId) ?? null) : null
+        app.linkedUserId
+            ? (members.find(m => m.id === app.linkedUserId) ?? null)
+            : app.discordId
+            ? (members.find(m => m.id === app.discordId) ?? null)
+            : null
     )
     const [recruiter, setRecruiter] = useState<DiscordMember | null>(
         app.assignedReviewerId ? (members.find(m => m.id === app.assignedReviewerId) ?? null) : null
@@ -75,13 +80,16 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
     const canChangeStatus = isLead || isAssignedRecruiter
 
     useEffect(() => {
-        if (app.linkedUserId && members.length > 0) {
+        if (members.length === 0) return
+        if (app.linkedUserId) {
             setLinkedMember(members.find(m => m.id === app.linkedUserId) ?? null)
+        } else if (app.discordId) {
+            setLinkedMember(prev => prev ?? (members.find(m => m.id === app.discordId) ?? null))
         }
-        if (app.assignedReviewerId && members.length > 0) {
+        if (app.assignedReviewerId) {
             setRecruiter(members.find(m => m.id === app.assignedReviewerId) ?? null)
         }
-    }, [members, app.linkedUserId, app.assignedReviewerId])
+    }, [members, app.linkedUserId, app.assignedReviewerId, app.discordId])
 
     async function handleSave() {
         setSaving(true)
@@ -129,6 +137,37 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                 body: JSON.stringify({ status: newStatus }),
             })
             onUpdate(app._id, { status: newStatus })
+            onClose()
+        } finally {
+            setStatusChanging(false)
+        }
+    }
+
+    async function handleSendBack() {
+        if (!recruiterNote.trim()) return
+        setStatusChanging(true)
+        try {
+            await fetch(`/api/admin/j1/applications/${app._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'returned', recruiterNote: recruiterNote.trim() }),
+            })
+            onUpdate(app._id, { status: 'returned', recruiterNote: recruiterNote.trim() })
+            onClose()
+        } finally {
+            setStatusChanging(false)
+        }
+    }
+
+    async function handleResubmit() {
+        setStatusChanging(true)
+        try {
+            await fetch(`/api/admin/j1/applications/${app._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'pending' }),
+            })
+            onUpdate(app._id, { status: 'pending' })
             onClose()
         } finally {
             setStatusChanging(false)
@@ -221,7 +260,18 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                     {/* Identity & Background */}
                     <div className='grid grid-cols-2 md:grid-cols-3 gap-4'>
                         <Field label='In-Game Name' value={app.inGameName} />
-                        <Field label='Age' value={app.age || null} />
+                        {app.age && app.age < 17 ? (
+                            <div>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 3 }}>
+                                    Age ⚠
+                                </div>
+                                <div style={{ fontSize: '0.82rem', color: '#f59e0b', fontWeight: 700 }}>
+                                    {app.age} <span style={{ fontSize: '0.68rem', fontWeight: 400, color: 'rgba(245,158,11,0.7)' }}>— Under 17</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <Field label='Age' value={app.age || null} />
+                        )}
                         <Field label='Region' value={app.region} />
                         <Field label='ARMA 3 Hours' value={app.armaHours} />
                         <Field label='Available Nights' value={app.availableNights} />
@@ -231,6 +281,23 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                         <Field label='Prior Milsim' value={app.priorMilsim ? 'Yes' : (app.priorMilsim === false ? 'No' : null)} />
                         <Field label='Dual Clan' value={app.dualClan ? 'Yes' : (app.dualClan === false ? 'No' : null)} />
                     </div>
+
+                    {app.ownsArma === false && (
+                        <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', borderLeft: '3px solid #f59e0b', fontSize: '0.78rem', color: '#f59e0b', lineHeight: 1.6 }}>
+                            ⚠ Applicant does not currently own ARMA 3 — must purchase before officially joining.
+                        </div>
+                    )}
+
+                    {app.ageExemptionNote && (
+                        <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', borderLeft: '3px solid #f59e0b' }}>
+                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 5 }}>
+                                Age Exemption / Vouch Note
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                                {app.ageExemptionNote}
+                            </div>
+                        </div>
+                    )}
 
                     {app.additionalRoles && app.additionalRoles.length > 0 && (
                         <div>
@@ -350,7 +417,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                 )}
                                             </div>
 
-                                            {/* Deadline & note — shown when assigning a new recruiter */}
+                                            {/* New assignment: deadline + notification notice */}
                                             {recruiter && recruiter.id !== app.assignedReviewerId && (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
                                                     <div style={{ fontSize: '0.72rem', color: '#f59e0b' }}>
@@ -372,31 +439,31 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                             </Select>
                                                         </FormControl>
                                                     </div>
-                                                    <TextField
-                                                        label='Note for recruiter'
-                                                        value={recruiterNote}
-                                                        onChange={e => setRecruiterNote(e.target.value)}
-                                                        multiline
-                                                        minRows={2}
-                                                        fullWidth
-                                                        size='small'
-                                                        placeholder='Optional guidance for the assigned recruiter...'
-                                                        inputProps={{ maxLength: 500 }}
-                                                        sx={inputSx}
-                                                    />
                                                 </div>
                                             )}
 
+                                            {/* Existing assignment: show who is assigned */}
                                             {recruiter && recruiter.id === app.assignedReviewerId && (
                                                 <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', marginTop: 6 }}>
                                                     Currently assigned to <strong>{recruiter.displayName}</strong>
                                                     {app.assignedByLeadName && ` (by ${app.assignedByLeadName})`}
                                                 </div>
                                             )}
-                                            {recruiter && recruiter.id === app.assignedReviewerId && app.recruiterNote && (
-                                                <div style={{ marginTop: 6, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)', whiteSpace: 'pre-wrap' }}>
-                                                    {app.recruiterNote}
-                                                </div>
+
+                                            {/* Note for recruiter — always visible to lead when a recruiter is assigned */}
+                                            {recruiter && (
+                                                <TextField
+                                                    label='Note for recruiter'
+                                                    value={recruiterNote}
+                                                    onChange={e => setRecruiterNote(e.target.value)}
+                                                    multiline
+                                                    minRows={2}
+                                                    fullWidth
+                                                    size='small'
+                                                    placeholder='Enter a note for the recruiter (required to send back for review)...'
+                                                    inputProps={{ maxLength: 500 }}
+                                                    sx={inputSx}
+                                                />
                                             )}
                                         </div>
                                     )}
@@ -405,43 +472,79 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                     {!isLead && app.assignedReviewerName && (
                                         <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.4)' }}>
                                             Assigned recruiter: <span style={{ color: '#f59e0b' }}>{app.assignedReviewerName}</span>
+                                        </div>
+                                    )}
+
+                                    {/* Action Required banner — shown to recruiter when application is returned */}
+                                    {isAssignedRecruiter && !isLead && app.status === 'returned' && (
+                                        <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                                <Warning style={{ fontSize: 15, color: '#f59e0b', flexShrink: 0 }} />
+                                                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f59e0b' }}>Action Required — Sent Back for Review</div>
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.6 }}>
+                                                A J1 lead has reviewed this application and sent it back. Review the note below, make any necessary changes, then resubmit.
+                                            </div>
                                             {app.recruiterNote && (
-                                                <div style={{ marginTop: 4, padding: '6px 10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.5)', whiteSpace: 'pre-wrap' }}>
+                                                <div style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.78rem', color: 'rgba(237,237,237,0.75)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
                                                     {app.recruiterNote}
                                                 </div>
                                             )}
                                         </div>
                                     )}
 
-                                    {/* Approve / Reject */}
+                                    {/* Approve / Reject / Send Back / Resubmit */}
                                     {(() => {
                                         const hasRecruiter = !!app.assignedReviewerId
                                         const normalCanAct = hasRecruiter && canChangeStatus
                                         const j4Override = !hasRecruiter && isJ4
                                         if (!normalCanAct && !j4Override) return null
+                                        const dividerStyle = { borderTop: isLead || app.assignedReviewerName ? '1px solid rgba(219,0,29,0.15)' : undefined, paddingTop: isLead || app.assignedReviewerName ? 10 : 0 }
                                         return (
-                                            <div style={{ borderTop: isLead || app.assignedReviewerName ? '1px solid rgba(219,0,29,0.15)' : undefined, paddingTop: isLead || app.assignedReviewerName ? 10 : 0 }}>
+                                            <div style={dividerStyle}>
                                                 {j4Override && (
                                                     <div style={{ fontSize: '0.65rem', color: '#f59e0b', marginBottom: 8, letterSpacing: '0.05em' }}>
                                                         ⚠ No recruiter assigned — J4 override
                                                     </div>
                                                 )}
-                                                <div style={{ display: 'flex', gap: 8 }}>
+
+                                                {/* Recruiter resubmit (returned status only) */}
+                                                {isAssignedRecruiter && !isLead && app.status === 'returned' ? (
                                                     <button
-                                                        onClick={() => handleStatusChange('accepted')}
+                                                        onClick={handleResubmit}
                                                         disabled={statusChanging}
-                                                        style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(0,195,100,0.15)', border: '1px solid rgba(0,195,100,0.4)', color: '#00c364', opacity: statusChanging ? 0.5 : 1 }}
+                                                        style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(0,195,255,0.1)', border: '1px solid rgba(0,195,255,0.35)', color: '#00c3ff', opacity: statusChanging ? 0.5 : 1 }}
                                                     >
-                                                        ✓ Approve
+                                                        ↩ Resubmit to J1 Lead
                                                     </button>
-                                                    <button
-                                                        onClick={() => handleStatusChange('rejected')}
-                                                        disabled={statusChanging}
-                                                        style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'var(--red)', opacity: statusChanging ? 0.5 : 1 }}
-                                                    >
-                                                        ✗ Reject
-                                                    </button>
-                                                </div>
+                                                ) : (
+                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                        <button
+                                                            onClick={() => handleStatusChange('accepted')}
+                                                            disabled={statusChanging}
+                                                            style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(0,195,100,0.15)', border: '1px solid rgba(0,195,100,0.4)', color: '#00c364', opacity: statusChanging ? 0.5 : 1 }}
+                                                        >
+                                                            ✓ Approve
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleStatusChange('rejected')}
+                                                            disabled={statusChanging}
+                                                            style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'var(--red)', opacity: statusChanging ? 0.5 : 1 }}
+                                                        >
+                                                            ✗ Reject
+                                                        </button>
+                                                        {isLead && (
+                                                            <button
+                                                                onClick={handleSendBack}
+                                                                disabled={statusChanging || !recruiterNote.trim()}
+                                                                title={!recruiterNote.trim() ? 'Enter a note for the recruiter before sending back' : 'Send back to recruiter for review'}
+                                                                style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: !recruiterNote.trim() ? 'not-allowed' : 'pointer', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', color: '#f59e0b', opacity: statusChanging || !recruiterNote.trim() ? 0.45 : 1 }}
+                                                            >
+                                                                ↩ Send Back
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         )
                                     })()}
@@ -696,7 +799,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
     // eslint-disable-next-line react-hooks/exhaustive-deps -- applications is captured transitively via nonAccepted
     }, [nonAccepted, filter, search, sortKey, sortDir])
 
-    const counts = (['pending', 'reviewing', 'accepted', 'rejected'] as const).reduce(
+    const counts = (['pending', 'reviewing', 'returned', 'accepted', 'rejected'] as const).reduce(
         (acc, s) => ({ ...acc, [s]: applications.filter(a => a.status === s).length }), {} as Record<string, number>
     )
 

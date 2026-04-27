@@ -60,7 +60,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         regionCustom: '',
         age: '',
         armaHours: '',
-        ownsArma: false,
+        ownsArma: true,
         priorMilsim: false,
         dualClan: false,
         previousUnits: '',
@@ -74,6 +74,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         heardAboutOther: '',
         experience: '',
         notes: '',
+        ageExemptionNote: '',
     })
 
     const [loading,  setLoading]  = useState(false)
@@ -95,6 +96,10 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
     const [nameSimilar,   setNameSimilar]   = useState<string[]>([])
     const [nameOffensive, setNameOffensive] = useState(false)
     const nameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    const [armaHoursAlert, setArmaHoursAlert] = useState(false)
+    const armaHoursTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const [ownsArmaTouched, setOwnsArmaTouched] = useState(false)
 
     // Steam resolution
     const [steamStatus, setSteamStatus] = useState<'idle' | 'resolving' | 'resolved' | 'error'>('idle')
@@ -172,10 +177,10 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         setFields({
             discordUsername: '', discordId: '', joiningName: '', recruiter: displayName,
             steamUrl: '', steamId64: '', region: '', regionCustom: '',
-            age: '', armaHours: '', ownsArma: false, priorMilsim: false, dualClan: false,
+            age: '', armaHours: '', ownsArma: true, priorMilsim: false, dualClan: false,
             previousUnits: '', currentUnit: '', availableNights: '', opsPerMonth: '',
             primaryRole: '', additionalRoles: [], departmentInterest: [],
-            heardAbout: '', heardAboutOther: '', experience: '', notes: '',
+            heardAbout: '', heardAboutOther: '', experience: '', notes: '', ageExemptionNote: '',
         })
         setSelectedMember(null)
         setManualEntry(false)
@@ -186,6 +191,8 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         setNameStatus('idle')
         setNameOffensive(false)
         setNameSimilar([])
+        setArmaHoursAlert(false)
+        setOwnsArmaTouched(false)
         setError(null)
     }
 
@@ -219,7 +226,11 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
             case 1: return !!fields.discordId.trim()
             case 2: return steamStatus === 'resolved'
             case 3: return !!fields.joiningName.trim() && nameStatus === 'available' && !nameOffensive
-            case 4: return !!fields.age && !!fields.region
+            case 4: {
+                if (!fields.age || !fields.region) return false
+                if (Number(fields.age) < 17 && !fields.ageExemptionNote.trim()) return false
+                return true
+            }
             case 5: return !!fields.availableNights && !!fields.opsPerMonth
             case 6: return !!fields.primaryRole
             default: return false
@@ -346,8 +357,8 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
             >
                 <CheckCircle style={{ fontSize: 20, color: '#00c364', flexShrink: 0 }} />
                 <div>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)', marginBottom: 2 }}>Recruit logged successfully</div>
-                    <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.4)' }}>The record is now visible in the Applications tab.</div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)', marginBottom: 2 }}>Recruit logged — pending J1 lead approval</div>
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.4)' }}>The record is in the Applications tab and awaits sign-off from a J1 lead.</div>
                 </div>
             </div>
             <Button
@@ -640,19 +651,41 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                 placeholder='e.g. 500'
                                 value={fields.armaHours}
                                 onChange={set('armaHours')}
+                                onKeyDown={e => {
+                                    const allowed = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Tab', 'Home', 'End', 'Enter']
+                                    if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) {
+                                        e.preventDefault()
+                                        setArmaHoursAlert(true)
+                                        if (armaHoursTimer.current) clearTimeout(armaHoursTimer.current)
+                                        armaHoursTimer.current = setTimeout(() => setArmaHoursAlert(false), 2000)
+                                    }
+                                }}
+                                inputProps={{ inputMode: 'numeric', maxLength: 6 }}
+                                helperText={armaHoursAlert ? 'Numbers only' : undefined}
+                                FormHelperTextProps={{ style: { color: '#f59e0b', fontSize: '0.7rem', marginTop: 3 } }}
                                 sx={inputSx}
                             />
                             <FormControl sx={inputSx}>
                                 <InputLabel>Owns ARMA 3?</InputLabel>
                                 <Select
                                     value={fields.ownsArma ? 'yes' : 'no'} label='Owns ARMA 3?'
-                                    onChange={e => setFields(prev => ({ ...prev, ownsArma: e.target.value === 'yes' }))}
+                                    onChange={e => {
+                                        setOwnsArmaTouched(true)
+                                        setFields(prev => ({ ...prev, ownsArma: e.target.value === 'yes' }))
+                                    }}
                                 >
                                     <MenuItem value='yes' style={{ fontSize: '0.85rem' }}>Yes</MenuItem>
                                     <MenuItem value='no' style={{ fontSize: '0.85rem' }}>No</MenuItem>
                                 </Select>
                             </FormControl>
                         </div>
+
+                        {ownsArmaTouched && !fields.ownsArma && (
+                            <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b', fontSize: '0.78rem', color: '#f59e0b', lineHeight: 1.6 }}>
+                                <Warning style={{ fontSize: 14, verticalAlign: 'middle', marginRight: 6 }} />
+                                The applicant will need to purchase ARMA 3 before officially joining. You may continue with the application — this will be flagged for the J1 lead.
+                            </div>
+                        )}
 
                         {fields.region === 'Other' && (
                             <TextField
@@ -714,6 +747,43 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                 sx={inputSx}
                             />
                         )}
+
+                        {Number(fields.age) > 0 && Number(fields.age) < 17 && (
+                            <div style={{ padding: '12px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                    <Warning style={{ fontSize: 16, color: '#f59e0b', flexShrink: 0, marginTop: 2 }} />
+                                    <div>
+                                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f59e0b', marginBottom: 3 }}>
+                                            Applicant is under 17 — age restriction applies
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.6 }}>
+                                            To proceed, confirm that this applicant is vouched for by a current member, or that you are requesting an exemption to the age restriction. Name the vouching member or state the reason for the exemption below.
+                                        </div>
+                                    </div>
+                                </div>
+                                <TextField
+                                    label='Vouch / Exemption Note'
+                                    placeholder='e.g. "Vouched for by Cpl. Smith" or "Requesting exemption — mature applicant with prior milsim leadership experience"'
+                                    value={fields.ageExemptionNote}
+                                    onChange={set('ageExemptionNote')}
+                                    required
+                                    fullWidth
+                                    multiline
+                                    minRows={2}
+                                    inputProps={{ maxLength: 500 }}
+                                    helperText={`${fields.ageExemptionNote.length} / 500`}
+                                    FormHelperTextProps={{ style: { fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', marginTop: 3 } }}
+                                    sx={{
+                                        ...inputSx,
+                                        '& .MuiOutlinedInput-root fieldset': { borderColor: 'rgba(245,158,11,0.4)' },
+                                        '& .MuiOutlinedInput-root:hover fieldset': { borderColor: 'rgba(245,158,11,0.6)' },
+                                        '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#f59e0b' },
+                                        '& .MuiInputLabel-root.Mui-focused': { color: '#f59e0b' },
+                                    }}
+                                />
+                            </div>
+                        )}
+
                         {nav()}
                     </div>
                 )}
