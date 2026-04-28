@@ -478,8 +478,8 @@ export default function StaffSidebar({
                 { label: 'Calendar',      href: '/dashboard/unit/calendar',      visible: true,                    icon: <CalendarMonth sx={{ fontSize: 14 }} /> },
                 { label: 'Training Docs', href: '/dashboard/unit/training-docs', visible: true,                    icon: <MenuBook sx={{ fontSize: 14 }} /> },
                 { label: 'SOPs',          href: '/dashboard/unit/sops',          visible: true,                    icon: <Policy sx={{ fontSize: 14 }} /> },
-                { label: 'Tickets',       href: '/dashboard/unit/tickets',       visible: true,                    icon: <ConfirmationNumber sx={{ fontSize: 14 }} /> },
-                { label: 'Tasks',         href: '/dashboard/tasks',              visible: true,                    icon: <TaskAlt sx={{ fontSize: 14 }} /> },
+                { label: 'Tickets',       href: '/dashboard/unit/tickets',       visible: permissions.isStaff,     icon: <ConfirmationNumber sx={{ fontSize: 14 }} /> },
+                { label: 'Tasks',         href: '/dashboard/tasks',              visible: permissions.isStaff,     icon: <TaskAlt sx={{ fontSize: 14 }} /> },
             ],
         },
     ]
@@ -516,7 +516,7 @@ export default function StaffSidebar({
 
                 {/* Portal title */}
                 <div style={{ fontSize: '0.82rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: 1.1, marginBottom: 10 }}>
-                    Member Portal
+                    Dashboard
                 </div>
 
                 {/* Divider */}
@@ -602,7 +602,7 @@ export default function StaffSidebar({
             {/* ── Footer ──────────────────────────────────────────────────── */}
             <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid rgba(219,0,29,0.22)' }}>
                 <div style={{ fontSize: '0.5rem', fontFamily: 'monospace', letterSpacing: '0.15em', color: 'rgba(237,237,237,0.12)', textTransform: 'uppercase', lineHeight: 1.8 }}>
-                    <div>SYS // MEMBER-PORTAL</div>
+                    <div>SYS // DASHBOARD</div>
                     <div>AUTH // DISCORD-SSO</div>
                 </div>
             </div>

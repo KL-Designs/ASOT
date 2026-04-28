@@ -6,6 +6,7 @@ import StaffSidebar from './StaffSidebar'
 
 export interface DashboardPermissions {
     displayName: string
+    isStaff: boolean
     canSeeJ1: boolean
     canSeeJ2: boolean
     canSeeJ3: boolean

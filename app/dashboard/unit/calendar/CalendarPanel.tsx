@@ -40,7 +40,7 @@ type RbcEvent = {
     resource: CalendarEventRow
 }
 
-export default function CalendarPanel({ userId, displayName, isJ4 }: { userId: string; displayName: string; isJ4: boolean }) {
+export default function CalendarPanel({ userId, displayName, isJ4, canWrite }: { userId: string; displayName: string; isJ4: boolean; canWrite: boolean }) {
     const [events, setEvents] = useState<RbcEvent[]>([])
     const [loading, setLoading] = useState(true)
     const [modalOpen, setModalOpen] = useState(false)
@@ -135,23 +135,25 @@ export default function CalendarPanel({ userId, displayName, isJ4 }: { userId: s
                         All department events
                     </Typography>
                 </div>
-                <Button
-                    variant='outlined'
-                    size='small'
-                    startIcon={<Add sx={{ fontSize: 14 }} />}
-                    onClick={handleAddClick}
-                    sx={{
-                        borderRadius: 0,
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
-                        letterSpacing: '0.1em',
-                        borderColor: 'rgba(219,0,29,0.27)',
-                        color: 'var(--red)',
-                        '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.06)' },
-                    }}
-                >
-                    Add Event
-                </Button>
+                {canWrite && (
+                    <Button
+                        variant='outlined'
+                        size='small'
+                        startIcon={<Add sx={{ fontSize: 14 }} />}
+                        onClick={handleAddClick}
+                        sx={{
+                            borderRadius: 0,
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.1em',
+                            borderColor: 'rgba(219,0,29,0.27)',
+                            color: 'var(--red)',
+                            '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.06)' },
+                        }}
+                    >
+                        Add Event
+                    </Button>
+                )}
             </div>
 
             {/* Legend / filters */}

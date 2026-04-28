@@ -457,7 +457,7 @@ export default function DashboardOverview({
                         <span>UNIT</span>
                     </div>
                     <Typography fontWeight={700} fontSize='1.1rem' letterSpacing={3} style={{ textTransform: 'uppercase', lineHeight: 1.1, marginBottom: 6 }}>
-                        Member Portal
+                        Dashboard
                     </Typography>
                     <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.4)', letterSpacing: '0.04em' }}>
                         Welcome back, {displayName}

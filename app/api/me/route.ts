@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
     try {
         const me = await client.fetchMe()
         const isStaff = client.hasRoles(me, PERMISSIONS.pages.admin)
-        return NextResponse.json({ ...me, isStaff }, { status: 200 })
+        const isMember = client.hasRoles(me, PERMISSIONS.pages.member)
+        return NextResponse.json({ ...me, isStaff, isMember }, { status: 200 })
     }
 
     catch (err: any) {

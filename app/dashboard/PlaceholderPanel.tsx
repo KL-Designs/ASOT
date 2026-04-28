@@ -19,7 +19,7 @@ export default function PlaceholderPanel({
                 }}
             >
                 <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
-                    Member Portal
+                    Dashboard
                 </Typography>
                 <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
                     {title}

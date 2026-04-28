@@ -9,7 +9,7 @@ export default async function Page() {
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) redirect('/login')
-    if (!client.hasRoles(me, PERMISSIONS.pages.admin)) redirect('/me')
+    if (!client.hasRoles(me, PERMISSIONS.pages.member)) redirect('/me')
 
     return (
         <PlaceholderPanel
