@@ -1,0 +1,102 @@
+﻿'use client'
+
+import { Typography, Tabs, Tab } from '@mui/material'
+import { PeopleAlt, CalendarMonth } from '@mui/icons-material'
+import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
+import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
+import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
+import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
+import { useTabState } from '@/app/dashboard/_components/useTabState'
+import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
+
+export default function J7Panel({
+    displayName,
+    userId,
+    canManageMembers,
+    isJ4,
+}: {
+    displayName: string
+    userId: string
+    canManageMembers: boolean
+    isJ4: boolean
+}) {
+    const { tab, setTab, view, setView } = useTabState(0, 'dept')
+
+    const btnSx = (active: boolean): React.CSSProperties => ({
+        fontSize: '0.62rem',
+        fontWeight: 700,
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        padding: '5px 14px',
+        background: active ? 'rgba(219,0,29,0.35)' : 'rgba(255,255,255,0.06)',
+        border: '1px solid rgba(219,0,29,0.25)',
+        color: active ? 'var(--foreground)' : 'rgba(237,237,237,0.55)',
+        cursor: 'pointer',
+        borderRadius: 999,
+    })
+
+    return (
+        <div className='h-full w-full flex flex-col max-w-[1100px]'>
+            <div
+                className='flex items-center justify-between px-5 py-3 mx-6 mt-6'
+                style={{
+                    position: 'relative',
+                    border: '1px solid rgba(219,0,29,0.42)',
+                    borderTop: '2px solid var(--red)',
+                    background: 'rgba(255,255,255,0.04)',
+                }}
+            >
+                <CornerBrackets />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ color: 'rgba(219,0,29,0.35)' }}>{'//'}</span> DEPARTMENTS
+                        </span>
+                    <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
+                        [J7] Development
+                    </Typography>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button style={{ ...btnSx(view === 'members'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>
+                            <PeopleAlt sx={{ fontSize: '0.85rem' }} />Members
+                        </button>
+                        <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
+                            <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
+                        </button>
+                    </div>
+            </div>
+
+            {view === 'members' && (
+                <DeptMembersTab department='j7' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
+            )}
+            {view === 'calendar' && (
+                <DeptCalendarTab department='j7' userId={userId} isJ4={isJ4} />
+            )}
+            {view === 'dept' && (
+                <>
+                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+                        <Tabs
+                            value={tab}
+                            onChange={(_, v) => setTab(v)}
+                            TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
+                            sx={{ minHeight: 40 }}
+                        >
+                            <Tab label={<PinTabLabel label='Meetings' pinLabel='J7 — Meetings' href='/dashboard/j7' tabIndex={0} />} sx={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                letterSpacing: '0.1em',
+                                minHeight: 40,
+                                padding: '8px 16px',
+                                color: 'rgba(237,237,237,0.5)',
+                                '&.Mui-selected': { color: 'var(--foreground)' },
+                            }} />
+                        </Tabs>
+                    </div>
+
+                    <div className='flex-1 min-h-0 mt-0'>
+                        {tab === 0 && <MeetingsTab department='j7' userId={userId} isLead={canManageMembers} />}
+                    </div>
+                </>
+            )}
+        </div>
+    )
+}

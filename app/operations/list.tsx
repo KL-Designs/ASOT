@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -542,7 +542,7 @@ function MissionRow({ mission, hasAccess }: { mission: Operation; hasAccess: boo
                 <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     {hasAccess && (
                         <>
-                            <Link href='/admin/j2' title='Manage in J2 Dashboard' style={{ textDecoration: 'none' }}>
+                            <Link href='/dashboard/j2' title='Manage in J2 Dashboard' style={{ textDecoration: 'none' }}>
                                 <div
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: 4,

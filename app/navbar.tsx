@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React from 'react'
 import Link from 'next/link'
@@ -13,7 +13,7 @@ import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collect
 import Navigation from '@/styles/navigation.module.css'
 import { rankNameFromAbbr } from '@/lib/ranks'
 import Avatar from '@/components/member/avatar'
-import NotificationBell from '@/app/admin/_components/NotificationBell'
+import NotificationBell from '@/app/dashboard/_components/NotificationBell'
 
 import Logo from '@/public/logo.png'
 import MapBg from '@/public/designs/map.png'
@@ -160,7 +160,7 @@ export default function Navbar() {
 
                         {user && (user as any).isStaff && (
                             <div className='self-center hidden md:flex items-center gap-x-3'>
-                                <Link href='/admin' title='Member Portal'>
+                                <Link href='/dashboard' title='Member Portal'>
                                     <div className={Navigation['nav-button']} style={{ color: '#00c3ff', borderColor: 'rgba(0,195,255,0.4)', filter: 'drop-shadow(0 0 4px rgba(0,195,255,0.3))' }}>
                                         <AdminPanelSettings style={{ fontSize: 20 }} />
                                     </div>
@@ -271,7 +271,7 @@ export default function Navbar() {
                 {(user as any)?.isStaff && (
                     <>
                         <Divider style={{ borderColor: 'rgba(0,195,255,0.2)' }} />
-                        <Link href='/admin' onClick={() => setSideMenuOpen(false)}>
+                        <Link href='/dashboard' onClick={() => setSideMenuOpen(false)}>
                             <div
                                 className='flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors'
                                 style={{
@@ -515,7 +515,7 @@ function ProfileDropdown({ user }: { user: User }) {
                     {isAdmin && (
                         <>
                             <div style={{ borderTop: '1px solid rgba(0,195,255,0.15)', margin: '6px 0' }} />
-                            <Link href='/admin'>
+                            <Link href='/dashboard'>
                                 <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px', background: 'rgba(0,195,255,0.04)' }}
                                     sx={{ '&:hover': { backgroundColor: 'rgba(0,195,255,0.1) !important' } }}>
                                     <AdminPanelSettings style={{ fontSize: 17, color: '#00c3ff', filter: 'drop-shadow(0 0 4px #00c3ff)' }} />

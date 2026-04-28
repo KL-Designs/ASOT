@@ -1,4 +1,4 @@
-import { Metadata } from "next"
+﻿import { Metadata } from "next"
 import {
 	Shield, Engineering, GpsFixed, Flight,
 	LocalHospital, DirectionsCar, Groups, SportsEsports,
@@ -354,7 +354,7 @@ export default async function Page() {
 		>
 			{canManageOrbat && (
 				<div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-					<Link href='/admin/orbat' style={{
+					<Link href='/dashboard/orbat' style={{
 						fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
 						color: 'rgba(219,0,29,0.85)', background: 'rgba(219,0,29,0.08)',
 						border: '1px solid rgba(219,0,29,0.3)', padding: '6px 16px', textDecoration: 'none',

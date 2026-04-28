@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         type: 'task_assigned',
         title: 'New recruit requires sign-off',
         body: `${displayName} logged ${joiningName.toString().trim()} as a new recruit`,
-        actionUrl: '/admin/j1',
+        actionUrl: '/dashboard/j1',
     })
 
     return NextResponse.json({ ok: true })

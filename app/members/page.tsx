@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+﻿import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { connection } from 'next/server'
 import client from '@/lib/discord'
@@ -32,7 +32,7 @@ export default async function Page() {
             {/* Header */}
             <div className='flex items-center gap-4'>
                 <Link
-                    href='/admin'
+                    href='/dashboard'
                     style={{
                         fontSize: '0.7rem',
                         fontWeight: 600,
