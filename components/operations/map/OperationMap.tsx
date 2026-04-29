@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import type { MapLayer, MapAnnotation, MapPresenceUser, DrawingTool, AnnotationProperties, MapWorld, MapMode } from './types'
+import type { MapLayer, MapAnnotation, MapPresenceUser, DrawingTool, AnnotationProperties, MapWorld, MapMode, A3ToolProps } from './types'
+import { Symbol as MilSymbol } from 'milsymbol'
 
 // ── GeoJSON layer definitions (rendered in order, back → front) ──────────────
 // detail:true layers only appear at DETAIL_MIN_ZOOM or closer to avoid rendering
@@ -66,6 +67,7 @@ interface Props {
     activeTool: DrawingTool
     activeLayerId: string | null
     activeColor: string
+    activeA3Props: A3ToolProps
     canEdit: boolean
     onAnnotationAdd: (type: DrawingTool, geometry: number[][], properties: Partial<AnnotationProperties>) => void
     onAnnotationUpdate: (id: string, geometry: number[][]) => void
@@ -105,6 +107,7 @@ export default function OperationMap({
     activeTool,
     activeLayerId,
     activeColor,
+    activeA3Props,
     canEdit,
     onAnnotationAdd,
     onAnnotationUpdate,
@@ -128,6 +131,8 @@ export default function OperationMap({
     worldRef.current = world
     const mapModeRef = useRef(mapMode)
     mapModeRef.current = mapMode
+    const activeA3PropsRef = useRef(activeA3Props)
+    activeA3PropsRef.current = activeA3Props
 
     // Drawing state
     const drawingRef = useRef<{
@@ -475,6 +480,52 @@ export default function OperationMap({
                         leafletLayer = L.marker([lat, lng], { icon })
                         break
                     }
+                    case 'a3icon': {
+                        const [[lat, lng]] = geo
+                        const mtype = ann.properties.a3MarkerType ?? 'hd_dot'
+                        const imgUrl = `/markers/icons/${mtype}.png`
+                        const label = ann.properties.label ?? ''
+                        const html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+                            <img src="${imgUrl}" width="24" height="24" style="image-rendering:pixelated;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+                            <div style="display:flex;width:20px;height:20px;background:${opts.color};border-radius:50%;border:2px solid rgba(255,255,255,0.8);align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;"></div>
+                            ${label ? `<span style="font-size:9px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap;margin-top:1px;">${label}</span>` : ''}
+                        </div>`
+                        const icon = L.divIcon({ className: '', html, iconAnchor: [12, 12] })
+                        leafletLayer = L.marker([lat, lng], { icon })
+                        break
+                    }
+                    case 'a3metis': {
+                        const [[lat, lng]] = geo
+                        const side = ann.properties.a3SideId ?? 'blu'
+                        const designation = ann.properties.a3Designation ?? ''
+                        const affil: Record<string, string> = { blu: 'F', red: 'H', grn: 'N', unk: 'U' }
+                        const status = ann.properties.a3Dashed ? 'A' : 'P'
+                        const a = affil[side] ?? 'F'
+                        const sIDCMap: Record<number, string> = {
+                            0: 'GPI', 1: 'GPIM', 2: 'GPIMR', 3: 'GPA',
+                            4: 'GPAT', 5: 'GPAF', 6: 'GPAD',
+                            7: 'APMFH', 8: 'APMFF', 9: 'SP',
+                            10: 'GPUSS', 11: 'GPUSM', 12: 'GPUSR',
+                        }
+                        const fnFrag = sIDCMap[ann.properties.a3Icon ?? 0] ?? 'GP'
+                        const isMaritime = fnFrag.startsWith('SP')
+                        const isAir = fnFrag.startsWith('AP')
+                        const dim = isMaritime ? 'S' : isAir ? 'A' : 'G'
+                        const sidc = `S${a}${dim}${status}${fnFrag}`.padEnd(15, '-').slice(0, 15)
+                        let svgHtml = ''
+                        try {
+                            svgHtml = new MilSymbol(sidc, { size: 28 }).asSVG()
+                        } catch {
+                            svgHtml = `<div style="width:28px;height:28px;background:#0055aa;border:2px solid #fff;border-radius:2px;"></div>`
+                        }
+                        const html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+                            ${svgHtml}
+                            ${designation ? `<span style="font-size:9px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap;margin-top:1px;">${designation}</span>` : ''}
+                        </div>`
+                        const icon = L.divIcon({ className: '', html, iconAnchor: [14, 14] })
+                        leafletLayer = L.marker([lat, lng], { icon })
+                        break
+                    }
                 }
 
                 if (!leafletLayer) continue
@@ -562,6 +613,33 @@ export default function OperationMap({
                     const label = ds.tool === 'text' ? window.prompt('Label:') ?? '' : ''
                     onAnnotationAdd(ds.tool, [[e.latlng.lat, e.latlng.lng]], { color: activeColor, label })
                     onToolDone()
+                    break
+                }
+                case 'a3icon': {
+                    const a3 = activeA3PropsRef.current
+                    onAnnotationAdd('a3icon', [[e.latlng.lat, e.latlng.lng]], {
+                        color: activeColor,
+                        a3MarkerType: a3.markerType,
+                        a3MarkerColor: a3.markerColor,
+                        a3MarkerDir: a3.markerDir,
+                        a3MarkerScale: a3.markerScale,
+                        label: a3.markerType,
+                    })
+                    break
+                }
+                case 'a3metis': {
+                    const a3 = activeA3PropsRef.current
+                    onAnnotationAdd('a3metis', [[e.latlng.lat, e.latlng.lng]], {
+                        color: activeColor,
+                        a3SideId: a3.sideId,
+                        a3Dashed: a3.dashed,
+                        a3Icon: a3.icon,
+                        a3Mod1: a3.mod1,
+                        a3Mod2: a3.mod2,
+                        a3Size: a3.size,
+                        a3Designation: a3.designation,
+                        a3MetisScale: a3.metisScale,
+                    })
                     break
                 }
                 case 'circle': {

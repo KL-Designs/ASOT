@@ -97,6 +97,7 @@ export default function MapViewer({ world }: { world: MapWorld }) {
                     activeLayerId={null}
                     activeColor="#db001d"
                     canEdit={false}
+                    activeA3Props={{ markerType: 'hd_dot', markerColor: 'ColorBlack', markerDir: 0, markerScale: 1, sideId: 'blu', dashed: false, icon: 0, mod1: 0, mod2: 0, size: 1, designation: '', metisScale: 1 }}
                     onAnnotationAdd={() => {}}
                     onAnnotationUpdate={() => {}}
                     onAnnotationRemove={() => {}}

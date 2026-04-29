@@ -4,7 +4,9 @@ import { useState, useCallback, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { useMapYjs } from './useMapYjs'
 import LayersPanel from './LayersPanel'
-import type { DrawingTool, MapMode, MapWorld } from './types'
+import type { DrawingTool, MapMode, MapWorld, A3ToolProps } from './types'
+import { DEFAULT_A3_PROPS } from './types'
+import { buildSqf, downloadSqf } from '@/lib/sqf-export'
 
 const OperationMap = dynamic(() => import('./OperationMap'), { ssr: false })
 
@@ -20,6 +22,11 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
     const [activeTool, setActiveTool] = useState<DrawingTool>(null)
     const [activeColor, setActiveColor] = useState('#db001d')
     const [mapMode, setMapMode] = useState<MapMode>('map')
+    const [activeA3Props, setActiveA3Props] = useState<A3ToolProps>(DEFAULT_A3_PROPS)
+
+    const handleA3PropsChange = useCallback((patch: Partial<A3ToolProps>) => {
+        setActiveA3Props(prev => ({ ...prev, ...patch }))
+    }, [])
 
     // Auto-select first layer when layers load
     useEffect(() => {
@@ -96,6 +103,27 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
 
                 <div style={{ flex: 1 }} />
 
+                {/* Export SQF */}
+                {canEdit && (
+                    <button
+                        onClick={() => downloadSqf(buildSqf(state.annotations, state.layers))}
+                        title="Export markers as init.sqf"
+                        style={{
+                            background: 'rgba(34,197,94,0.12)',
+                            border: '1px solid rgba(34,197,94,0.35)',
+                            color: '#4ade80',
+                            borderRadius: 4,
+                            padding: '3px 10px',
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: '0.05em',
+                        }}
+                    >
+                        EXPORT SQF
+                    </button>
+                )}
+
                 {/* Presence indicators */}
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                     {state.peers.map(peer => (
@@ -162,6 +190,7 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
                         activeTool={canEdit ? activeTool : null}
                         activeLayerId={activeLayerId}
                         activeColor={activeColor}
+                        activeA3Props={activeA3Props}
                         canEdit={canEdit}
                         onAnnotationAdd={handleAnnotationAdd}
                         onAnnotationUpdate={handleAnnotationUpdate}
@@ -176,11 +205,13 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
                     activeLayerId={activeLayerId}
                     activeTool={activeTool}
                     activeColor={activeColor}
+                    activeA3Props={activeA3Props}
                     canEdit={canEdit}
                     actions={actions}
                     onLayerSelect={setActiveLayerId}
                     onToolChange={setActiveTool}
                     onColorChange={setActiveColor}
+                    onA3PropsChange={handleA3PropsChange}
                 />
             </div>
         </div>
