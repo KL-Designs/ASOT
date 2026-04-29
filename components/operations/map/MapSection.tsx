@@ -4,7 +4,11 @@ import { useState, useCallback, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { useMapYjs } from './useMapYjs'
 import LayersPanel from './LayersPanel'
-import type { DrawingTool, MapMode, MapWorld } from './types'
+import type { DrawingTool, MapMode, MapWorld, A3ToolProps } from './types'
+import { DEFAULT_A3_PROPS } from './types'
+import { buildSqf } from '@/lib/sqf-export'
+import SqfExportModal from './SqfExportModal'
+import AnnotationEditor from './AnnotationEditor'
 
 const OperationMap = dynamic(() => import('./OperationMap'), { ssr: false })
 
@@ -20,6 +24,13 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
     const [activeTool, setActiveTool] = useState<DrawingTool>(null)
     const [activeColor, setActiveColor] = useState('#db001d')
     const [mapMode, setMapMode] = useState<MapMode>('map')
+    const [activeA3Props, setActiveA3Props] = useState<A3ToolProps>(DEFAULT_A3_PROPS)
+    const [sqfModal, setSqfModal] = useState(false)
+    const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
+
+    const handleA3PropsChange = useCallback((patch: Partial<A3ToolProps>) => {
+        setActiveA3Props(prev => ({ ...prev, ...patch }))
+    }, [])
 
     // Auto-select first layer when layers load
     useEffect(() => {
@@ -28,9 +39,22 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
         }
     }, [state.layers, activeLayerId])
 
-    const handleAnnotationAdd = useCallback((type: DrawingTool, geometry: number[][], properties: any) => {
-        if (!activeLayerId || !type) return
-        actions.addAnnotation(activeLayerId, type, geometry, properties)
+    // Undo / redo
+    useEffect(() => {
+        if (!canEdit) return
+        const handler = (e: KeyboardEvent) => {
+            if (!e.ctrlKey || e.key !== 'z') return
+            e.preventDefault()
+            if (e.shiftKey) actions.redo()
+            else actions.undo()
+        }
+        window.addEventListener('keydown', handler)
+        return () => window.removeEventListener('keydown', handler)
+    }, [canEdit, actions])
+
+    const handleAnnotationAdd = useCallback((type: DrawingTool, geometry: number[][], properties: any): string => {
+        if (!activeLayerId || !type) return ''
+        return actions.addAnnotation(activeLayerId, type, geometry, properties)
     }, [activeLayerId, actions])
 
     const handleAnnotationUpdate = useCallback((id: string, geometry: number[][]) => {
@@ -64,12 +88,10 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
                 color: '#eee',
                 flexShrink: 0,
             }}>
-                {/* World label */}
                 <span style={{ fontSize: 12, color: world ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)', fontWeight: 600, letterSpacing: '0.04em' }}>
                     {world?.displayName ?? 'No map configured'}
                 </span>
 
-                {/* MAP / SAT / TERRAIN toggle */}
                 {world?.hasGeoJSON && (
                     <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 4, padding: 2 }}>
                         {(['map', 'sat', ...(world.hasTerrain ? ['terrain'] : [])] as MapMode[]).map(m => (
@@ -96,7 +118,26 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
 
                 <div style={{ flex: 1 }} />
 
-                {/* Presence indicators */}
+                {canEdit && (
+                    <button
+                        onClick={() => setSqfModal(true)}
+                        title="Export markers as SQF"
+                        style={{
+                            background: 'rgba(34,197,94,0.12)',
+                            border: '1px solid rgba(34,197,94,0.35)',
+                            color: '#4ade80',
+                            borderRadius: 4,
+                            padding: '3px 10px',
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: '0.05em',
+                        }}
+                    >
+                        EXPORT SQF
+                    </button>
+                )}
+
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                     {state.peers.map(peer => (
                         <div
@@ -123,7 +164,6 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
                     ))}
                 </div>
 
-                {/* Connection status */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
                     <div style={{
                         width: 7,
@@ -138,6 +178,16 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
             {/* Map + Layers panel */}
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
                 <div style={{ flex: 1, position: 'relative' }}>
+                    {selectedAnnotationId && (() => {
+                        const ann = state.annotations.find(a => a.id === selectedAnnotationId)
+                        return ann ? (
+                            <AnnotationEditor
+                                annotation={ann}
+                                actions={actions}
+                                onClose={() => setSelectedAnnotationId(null)}
+                            />
+                        ) : null
+                    })()}
                     {!world && (
                         <div style={{
                             position: 'absolute',
@@ -162,10 +212,13 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
                         activeTool={canEdit ? activeTool : null}
                         activeLayerId={activeLayerId}
                         activeColor={activeColor}
+                        activeA3Props={activeA3Props}
                         canEdit={canEdit}
+                        selectedAnnotationId={selectedAnnotationId}
                         onAnnotationAdd={handleAnnotationAdd}
                         onAnnotationUpdate={handleAnnotationUpdate}
                         onAnnotationRemove={handleAnnotationRemove}
+                        onAnnotationSelect={setSelectedAnnotationId}
                         onCursorMove={handleCursorMove}
                         onToolDone={handleToolDone}
                     />
@@ -176,13 +229,22 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
                     activeLayerId={activeLayerId}
                     activeTool={activeTool}
                     activeColor={activeColor}
+                    activeA3Props={activeA3Props}
                     canEdit={canEdit}
                     actions={actions}
                     onLayerSelect={setActiveLayerId}
                     onToolChange={setActiveTool}
                     onColorChange={setActiveColor}
+                    onA3PropsChange={handleA3PropsChange}
                 />
             </div>
+
+            {sqfModal && (
+                <SqfExportModal
+                    code={buildSqf(state.annotations, state.layers)}
+                    onClose={() => setSqfModal(false)}
+                />
+            )}
         </div>
     )
 }

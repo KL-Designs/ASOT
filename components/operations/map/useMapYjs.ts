@@ -27,6 +27,8 @@ export interface MapYjsActions {
     updateAnnotation: (id: string, patch: { geometry?: number[][], properties?: Partial<AnnotationProperties> }) => void
     removeAnnotation: (id: string) => void
     broadcastCursor: (pos: [number, number] | null) => void
+    undo: () => void
+    redo: () => void
 }
 
 function readLayers(ydoc: Y.Doc): MapLayer[] {
@@ -74,6 +76,15 @@ export function useMapYjs(operationId: string, canEdit: boolean): [MapYjsState, 
         connected: false,
     })
     const providerRef = useRef<HocuspocusProvider | null>(null)
+    const undoManagerRef = useRef<Y.UndoManager | null>(null)
+
+    useEffect(() => {
+        const annotations = ydoc.getMap<Y.Map<unknown>>('mapAnnotations')
+        const layers     = ydoc.getMap<Y.Map<unknown>>('mapLayers')
+        const layerOrder = ydoc.getArray<string>('mapLayerOrder')
+        undoManagerRef.current = new Y.UndoManager([annotations, layers, layerOrder], { captureTimeout: 500 })
+        return () => { undoManagerRef.current?.destroy(); undoManagerRef.current = null }
+    }, [ydoc])
 
     // Sync Yjs state → React state
     const sync = useCallback(() => {
@@ -237,6 +248,9 @@ export function useMapYjs(operationId: string, canEdit: boolean): [MapYjsState, 
             if (!canEdit) return
             ydoc.getMap('mapAnnotations').delete(id)
         },
+
+        undo() { if (canEdit) undoManagerRef.current?.undo() },
+        redo() { if (canEdit) undoManagerRef.current?.redo() },
 
         broadcastCursor(pos) {
             const provider = providerRef.current
