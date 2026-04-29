@@ -70,6 +70,9 @@ export default function OperationMap({
     const satOverlaysRef = useRef<L.ImageOverlay[]>([])
     const annotationLayersRef = useRef<Map<string, L.Layer>>(new Map())
     const peerMarkersRef = useRef<Map<string, L.Marker>>(new Map())
+    // Always-current world ref so the init callback can read it without a dep
+    const worldRef = useRef(world)
+    worldRef.current = world
 
     // Drawing state
     const drawingRef = useRef<{
@@ -100,15 +103,23 @@ export default function OperationMap({
 
             const map = L.map(containerRef.current, {
                 crs: L.CRS.Simple,
-                zoom: 2,
-                minZoom: 0,
-                maxZoom: 8,
+                // minZoom must be negative: at zoom 0, 1 world-unit = 1px.
+                // A 30 720 m world needs ~zoom -5 to fit a ~1 200 px viewport.
+                minZoom: -6,
+                maxZoom: 4,
                 zoomControl: true,
                 attributionControl: false,
             })
 
-            map.setView([0, 0], 2)
             mapRef.current = map
+
+            // Apply world immediately if it was already set before the map was ready
+            const w = worldRef.current
+            if (w) {
+                applySatOverlays(L, map, w)
+            } else {
+                map.setView([0, 0], 0)
+            }
         })
 
         return () => {
@@ -121,38 +132,39 @@ export default function OperationMap({
     // ── Sat image overlays — swap when world changes ─────────────────────────
     useEffect(() => {
         const map = mapRef.current
-        if (!map) return
+        if (!map) return  // map not ready yet; init callback will handle it
 
         import('leaflet').then(mod => {
-            const L = mod.default ?? mod
-
-            // Remove previous overlays
-            satOverlaysRef.current.forEach(o => map.removeLayer(o))
-            satOverlaysRef.current = []
-
-            if (!world) return
-
-            const { worldSize, satTiles: n, name } = world
-            const tileM = worldSize / n  // metres per tile
-
-            // GRAD Meh exports sat/{col}/{row}.png where row 0 = northernmost.
-            // In Leaflet CRS.Simple lat increases upward, so row 0 → highest lat.
-            for (let col = 0; col < n; col++) {
-                for (let row = 0; row < n; row++) {
-                    const southLat = worldSize - (row + 1) * tileM
-                    const northLat = worldSize - row * tileM
-                    const westLng  = col * tileM
-                    const eastLng  = (col + 1) * tileM
-                    const bounds: L.LatLngBoundsLiteral = [[southLat, westLng], [northLat, eastLng]]
-                    const overlay = L.imageOverlay(`/maps/${name}/sat/${col}/${row}.png`, bounds)
-                    overlay.addTo(map)
-                    satOverlaysRef.current.push(overlay)
-                }
-            }
-
-            map.fitBounds([[0, 0], [worldSize, worldSize]])
+            applySatOverlays(mod.default ?? mod, map, world)
         })
     }, [world])
+
+    function applySatOverlays(L: typeof import('leaflet'), map: L.Map, w: typeof world) {
+        satOverlaysRef.current.forEach(o => map.removeLayer(o))
+        satOverlaysRef.current = []
+
+        if (!w) return
+
+        const { worldSize, satTiles: n, name } = w
+        const tileM = worldSize / n
+
+        // GRAD Meh exports sat/{col}/{row}.png where row 0 = northernmost.
+        // In Leaflet CRS.Simple lat increases upward, so row 0 → highest lat.
+        for (let col = 0; col < n; col++) {
+            for (let row = 0; row < n; row++) {
+                const southLat = worldSize - (row + 1) * tileM
+                const northLat = worldSize - row * tileM
+                const westLng  = col * tileM
+                const eastLng  = (col + 1) * tileM
+                const bounds: L.LatLngBoundsLiteral = [[southLat, westLng], [northLat, eastLng]]
+                const overlay = L.imageOverlay(`/maps/${name}/sat/${col}/${row}.png`, bounds)
+                overlay.addTo(map)
+                satOverlaysRef.current.push(overlay)
+            }
+        }
+
+        map.fitBounds([[0, 0], [worldSize, worldSize]])
+    }
 
     // ── Render annotations ───────────────────────────────────────────────────
     useEffect(() => {
