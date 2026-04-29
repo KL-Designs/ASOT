@@ -80,7 +80,7 @@ export default function Page() {
     const router = useRouter()
 
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
-    const metaHandleRef = useRef<{ set: (key: keyof MetaFields, value: string) => void } | null>(null)
+    const metaHandleRef = useRef<{ set: (key: string, value: string) => void } | null>(null)
     const previewIframeRef = useRef<HTMLIFrameElement>(null)
 
     useEffect(() => {
