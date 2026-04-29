@@ -32,6 +32,7 @@ const GEO_LAYERS: Array<{ path: string; style: Record<string, unknown>; detail?:
     { path: 'locations/hill',            style: {}, detail: true, labelStyle: { fontSize: 10, color: '#4a3a2a', fontWeight: 400, outlineColor: '#d8cfa8' } },
 ]
 
+
 async function fetchGzJson(url: string): Promise<unknown> {
     try {
         const res = await fetch(url)
@@ -118,6 +119,10 @@ export default function OperationMap({
     const lastFitWorldRef = useRef<string | null>(null)
     const annotationLayersRef = useRef<Map<string, L.Layer>>(new Map())
     const peerMarkersRef = useRef<Map<string, L.Marker>>(new Map())
+    const spotHeightsCacheRef = useRef<Map<string, Array<{ latlng: any; elev: number }>>>(new Map())
+    const spotHeightsDataRef = useRef<Array<{ latlng: any; elev: number }>>([])
+    const spotHeightGroupRef = useRef<any>(null)
+    const updateSpotHeightsRef = useRef<(() => void) | null>(null)
     // Always-current refs so the async init callback can read them without deps
     const worldRef = useRef(world)
     worldRef.current = world
@@ -142,6 +147,30 @@ export default function OperationMap({
             if (destroyed || mapRef.current || !containerRef.current) return
 
             const L = mod.default ?? mod
+
+            function updateSpotHeights() {
+                const map = mapRef.current
+                if (!map) return
+                if (spotHeightGroupRef.current) {
+                    map.removeLayer(spotHeightGroupRef.current)
+                    spotHeightGroupRef.current = null
+                }
+                if (map.getZoom() < DETAIL_MIN_ZOOM || spotHeightsDataRef.current.length === 0) return
+                let bounds: L.LatLngBounds
+                try { bounds = map.getBounds() } catch { return }
+                const inBounds = spotHeightsDataRef.current.filter(p => bounds.contains(p.latlng))
+                if (inBounds.length === 0) return
+                inBounds.sort((a, b) => b.elev - a.elev)
+                const selected = inBounds.slice(0, Math.ceil(inBounds.length / 2))
+                const group = L.layerGroup()
+                for (const p of selected) {
+                    const html = `<div style="position:relative;pointer-events:none;"><div style="width:3px;height:3px;background:#5a4838;border-radius:50%;"></div><span style="position:absolute;top:-8px;left:5px;font-size:9px;color:#5a4838;white-space:nowrap;font-family:sans-serif;line-height:1;">${p.elev}</span></div>`
+                    L.marker(p.latlng, { icon: L.divIcon({ className: '', html, iconAnchor: [1, 2] }), interactive: false }).addTo(group)
+                }
+                group.addTo(map)
+                spotHeightGroupRef.current = group
+            }
+            updateSpotHeightsRef.current = updateSpotHeights
 
             delete (L.Icon.Default.prototype as any)._getIconUrl
             L.Icon.Default.mergeOptions({
@@ -173,6 +202,11 @@ export default function OperationMap({
                 const show = map.getZoom() >= DETAIL_MIN_ZOOM
                 if (show && !map.hasLayer(cached.detail)) cached.detail.addTo(map)
                 else if (!show && map.hasLayer(cached.detail)) map.removeLayer(cached.detail)
+                updateSpotHeights()
+            })
+            map.on('moveend', () => {
+                if (mapModeRef.current === 'sat') return
+                updateSpotHeights()
             })
 
             const w = worldRef.current
@@ -214,7 +248,15 @@ export default function OperationMap({
             if (map.hasLayer(c.detail)) map.removeLayer(c.detail)
         })
 
+        // Remove spot height layer (raw data stays cached per world)
+        if (spotHeightGroupRef.current) {
+            map.removeLayer(spotHeightGroupRef.current)
+            spotHeightGroupRef.current = null
+        }
+
         if (!w) return
+
+        spotHeightsDataRef.current = spotHeightsCacheRef.current.get(w.name) ?? []
 
         if (mode === 'sat') {
             // GRAD Meh: sat/{col}/{row}.png, row 0 = northernmost
@@ -285,42 +327,54 @@ export default function OperationMap({
                     }
                 }
 
+                const newSpotHeights: Array<{ latlng: L.LatLng; elev: number }> = []
+
                 await Promise.all(GEO_LAYERS.map(async ({ path, style, detail: isDetail, labelStyle, spotHeight }) => {
                     const data = await fetchGzJson(`/maps/${w.name}/geojson/${path}.geojson.gz`)
-                    if (data) {
-                        const target = isDetail ? detail : all
-                        const ls = labelStyle
-                        L.geoJSON(
-                            data as GeoJSON.FeatureCollection,
-                            Object.assign({} as L.GeoJSONOptions, {
-                                renderer,
-                                style: style as L.PathOptions,
-                                pointToLayer: (feature: unknown, latlng: L.LatLng) => {
-                                    if (ls) {
-                                        const name = (feature as GeoJSON.Feature)?.properties?.name ?? ''
-                                        if (!name) return L.circleMarker(latlng, { renderer, radius: 0, opacity: 0, fillOpacity: 0 })
-                                        const shadow = `0 0 3px ${ls.outlineColor ?? '#fff'},0 0 3px ${ls.outlineColor ?? '#fff'}`
-                                        const html = `<span style="color:${ls.color};font-size:${ls.fontSize}px;font-weight:${ls.fontWeight ?? 500};text-shadow:${shadow};white-space:nowrap;pointer-events:none;font-family:sans-serif;">${name}</span>`
-                                        const icon = L.divIcon({ className: '', html, iconAnchor: [0, ls.fontSize / 2] })
-                                        return L.marker(latlng, { icon, interactive: false })
-                                    }
-                                    if (spotHeight) {
-                                        const elev = Math.round((feature as GeoJSON.Feature)?.properties?.elevation ?? 0)
-                                        if (!elev) return L.circleMarker(latlng, { renderer, radius: 0, opacity: 0, fillOpacity: 0 })
-                                        const html = `<div style="position:relative;pointer-events:none;"><div style="width:3px;height:3px;background:#5a4838;border-radius:50%;"></div><span style="position:absolute;top:-8px;left:5px;font-size:9px;color:#5a4838;white-space:nowrap;font-family:sans-serif;line-height:1;">${elev}</span></div>`
-                                        return L.marker(latlng, { icon: L.divIcon({ className: '', html, iconAnchor: [1, 2] }), interactive: false })
-                                    }
-                                    return L.circleMarker(latlng, Object.assign({ renderer, radius: 2 }, style as L.CircleMarkerOptions))
-                                },
-                            }),
-                        ).addTo(target)
+                    if (!data) return
+
+                    if (spotHeight) {
+                        // Use Leaflet's own GeoJSON parser to collect latlng+elev without adding visible markers
+                        L.geoJSON(data as GeoJSON.FeatureCollection, {
+                            pointToLayer: (feature: unknown, latlng: L.LatLng) => {
+                                const elev = Math.round((feature as GeoJSON.Feature)?.properties?.elevation ?? 0)
+                                if (elev > 0) newSpotHeights.push({ latlng, elev })
+                                return L.circleMarker(latlng, { radius: 0, opacity: 0, fillOpacity: 0 })
+                            },
+                        })
+                        return
                     }
+
+                    const target = isDetail ? detail : all
+                    const ls = labelStyle
+                    L.geoJSON(
+                        data as GeoJSON.FeatureCollection,
+                        Object.assign({} as L.GeoJSONOptions, {
+                            renderer,
+                            style: style as L.PathOptions,
+                            pointToLayer: (feature: unknown, latlng: L.LatLng) => {
+                                if (ls) {
+                                    const name = (feature as GeoJSON.Feature)?.properties?.name ?? ''
+                                    if (!name) return L.circleMarker(latlng, { renderer, radius: 0, opacity: 0, fillOpacity: 0 })
+                                    const shadow = `0 0 3px ${ls.outlineColor ?? '#fff'},0 0 3px ${ls.outlineColor ?? '#fff'}`
+                                    const html = `<span style="color:${ls.color};font-size:${ls.fontSize}px;font-weight:${ls.fontWeight ?? 500};text-shadow:${shadow};white-space:nowrap;pointer-events:none;font-family:sans-serif;">${name}</span>`
+                                    const icon = L.divIcon({ className: '', html, iconAnchor: [0, ls.fontSize / 2] })
+                                    return L.marker(latlng, { icon, interactive: false })
+                                }
+                                return L.circleMarker(latlng, Object.assign({ renderer, radius: 2 }, style as L.CircleMarkerOptions))
+                            },
+                        }),
+                    ).addTo(target)
                 }))
+
+                spotHeightsCacheRef.current.set(w.name, newSpotHeights)
+                spotHeightsDataRef.current = newSpotHeights
                 cached = { all, detail }
                 geoJsonCacheRef.current.set(cacheKey, cached)
             }
             cached.all.addTo(map)
             if (map.getZoom() >= DETAIL_MIN_ZOOM) cached.detail.addTo(map)
+            updateSpotHeightsRef.current?.()
         }
 
         // Only re-fit when the world changes, not on mode toggle

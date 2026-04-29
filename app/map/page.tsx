@@ -1,17 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import dynamic from 'next/dynamic'
-import Link from 'next/link'
-import type { MapWorld, MapMode } from '@/components/operations/map/types'
-import FullscreenPage from '@/components/FullscreenPage'
-
-const OperationMap = dynamic(() => import('@/components/operations/map/OperationMap'), { ssr: false })
+import { useRouter } from 'next/navigation'
+import type { MapWorld } from '@/components/operations/map/types'
 
 export default function InteractiveMapPage() {
+    const router = useRouter()
     const [worlds, setWorlds] = useState<MapWorld[]>([])
-    const [selected, setSelected] = useState<MapWorld | null>(null)
-    const [mapMode, setMapMode] = useState<MapMode>('map')
     const [hovered, setHovered] = useState<string | null>(null)
 
     useEffect(() => {
@@ -20,111 +15,10 @@ export default function InteractiveMapPage() {
             .then(data => Array.isArray(data) && setWorlds(data))
     }, [])
 
-    if (selected) {
-        const modes: MapMode[] = [
-            'sat',
-            ...(selected.hasGeoJSON ? ['map' as MapMode] : []),
-            ...(selected.hasTerrain ? ['terrain' as MapMode] : []),
-        ]
-
-        return (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0d0d0d' }}>
-                <FullscreenPage />
-
-                {/* Toolbar */}
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    padding: '6px 16px',
-                    background: 'rgba(10,10,10,0.95)',
-                    borderBottom: '1px solid rgba(255,255,255,0.07)',
-                    flexShrink: 0,
-                    zIndex: 10,
-                }}>
-                    <button
-                        onClick={() => setSelected(null)}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 6,
-                            background: 'none',
-                            border: 'none',
-                            color: 'rgba(255,255,255,0.45)',
-                            cursor: 'pointer',
-                            fontSize: 12,
-                            fontWeight: 600,
-                            letterSpacing: '0.08em',
-                            textTransform: 'uppercase',
-                            padding: 0,
-                        }}
-                    >
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <path d="M9 2L4 7l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        Maps
-                    </button>
-
-                    <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
-
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.8)', letterSpacing: '0.03em' }}>
-                        {selected.displayName}
-                    </span>
-
-                    <div style={{ flex: 1 }} />
-
-                    {/* Mode toggle */}
-                    <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 4, padding: 2 }}>
-                        {modes.map(m => (
-                            <button
-                                key={m}
-                                onClick={() => setMapMode(m)}
-                                style={{
-                                    background: mapMode === m ? 'rgba(255,255,255,0.14)' : 'transparent',
-                                    border: 'none',
-                                    color: mapMode === m ? '#fff' : 'rgba(255,255,255,0.5)',
-                                    borderRadius: 3,
-                                    padding: '3px 10px',
-                                    cursor: 'pointer',
-                                    fontSize: 11,
-                                    fontWeight: mapMode === m ? 600 : 400,
-                                    letterSpacing: '0.05em',
-                                }}
-                            >
-                                {m.toUpperCase()}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Map */}
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                    <OperationMap
-                        world={selected}
-                        mapMode={mapMode}
-                        layers={[]}
-                        annotations={[]}
-                        peers={[]}
-                        activeTool={null}
-                        activeLayerId={null}
-                        activeColor="#db001d"
-                        canEdit={false}
-                        onAnnotationAdd={() => {}}
-                        onAnnotationUpdate={() => {}}
-                        onAnnotationRemove={() => {}}
-                        onCursorMove={() => {}}
-                        onToolDone={() => {}}
-                    />
-                </div>
-            </div>
-        )
-    }
-
     return (
         <div style={{ minHeight: '60vh', padding: '48px 32px' }}>
             <div style={{ maxWidth: 960, margin: '0 auto' }}>
 
-                {/* Header */}
                 <div style={{ marginBottom: 40 }}>
                     <h1 style={{
                         fontSize: '1.75rem',
@@ -140,7 +34,6 @@ export default function InteractiveMapPage() {
                     </p>
                 </div>
 
-                {/* World grid */}
                 {worlds.length === 0 ? (
                     <div style={{
                         textAlign: 'center',
@@ -159,7 +52,7 @@ export default function InteractiveMapPage() {
                         {worlds.map(world => (
                             <div
                                 key={world.name}
-                                onClick={() => { setSelected(world); setMapMode(world.hasGeoJSON ? 'map' : 'sat') }}
+                                onClick={() => router.push(`/map/${world.name}`)}
                                 onMouseEnter={() => setHovered(world.name)}
                                 onMouseLeave={() => setHovered(null)}
                                 style={{
@@ -177,7 +70,6 @@ export default function InteractiveMapPage() {
                                     transform: hovered === world.name ? 'translateY(-3px)' : 'none',
                                 }}
                             >
-                                {/* Preview image */}
                                 {world.hasPreview ? (
                                     <img
                                         src={`/maps/${world.name}/preview.png`}
@@ -200,7 +92,6 @@ export default function InteractiveMapPage() {
                                     </div>
                                 )}
 
-                                {/* Name + size */}
                                 <div style={{ padding: '10px 14px 12px' }}>
                                     <div style={{
                                         fontWeight: 600,
