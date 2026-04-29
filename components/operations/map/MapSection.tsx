@@ -118,10 +118,10 @@ export default function MapSection({ operationId, canEdit, availableWorlds }: Pr
                     )}
                 </div>
 
-                {/* SAT / MAP toggle */}
+                {/* SAT / MAP / TERRAIN toggle */}
                 {currentWorld?.hasGeoJSON && (
                     <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 4, padding: 2 }}>
-                        {(['sat', 'map'] as MapMode[]).map(m => (
+                        {(['sat', 'map', ...(currentWorld.hasTerrain ? ['terrain'] : [])] as MapMode[]).map(m => (
                             <button
                                 key={m}
                                 onClick={() => setMapMode(m)}

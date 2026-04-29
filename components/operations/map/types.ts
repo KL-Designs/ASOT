@@ -29,7 +29,7 @@ export interface MapAnnotation {
     properties: AnnotationProperties
 }
 
-export type MapMode = 'sat' | 'map'
+export type MapMode = 'sat' | 'map' | 'terrain'
 
 export interface MapWorld {
     name: string          // directory key, e.g. "altis"
@@ -37,6 +37,9 @@ export interface MapWorld {
     worldSize: number     // metres, e.g. 30720
     satTiles: number      // number of sat tiles per side (e.g. 4 = 4×4 grid)
     hasGeoJSON: boolean
+    hasTerrain: boolean    // terrain.png generated from DEM
+    hasCoastline: boolean  // coastline.png — binary land/ocean mask for map mode
+    hasContours: boolean   // contours.geojson.gz generated from DEM
     colorOutside?: [number, number, number, number]  // RGBA 0–1, used as bg in map mode
 }
 

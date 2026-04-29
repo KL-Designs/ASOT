@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "generate-terrain": "node scripts/generate-terrain.mjs",
+    "generate-terrain:force": "node scripts/generate-terrain.mjs --force",
     "dev": "next dev",
     "dev-collab": "node --max-old-space-size=4096 --env-file=.env server.mjs",
     "build": "next build",

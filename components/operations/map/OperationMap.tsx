@@ -8,7 +8,9 @@ import type { MapLayer, MapAnnotation, MapPresenceUser, DrawingTool, AnnotationP
 // thousands of features when zoomed out
 const DETAIL_MIN_ZOOM = -2
 
-const GEO_LAYERS: Array<{ path: string; style: Record<string, unknown>; detail?: boolean }> = [
+interface LabelStyle { fontSize: number; color: string; fontWeight?: number; outlineColor?: string }
+
+const GEO_LAYERS: Array<{ path: string; style: Record<string, unknown>; detail?: boolean; labelStyle?: LabelStyle }> = [
     { path: 'forest',                 style: { fillColor: '#2a4019', color: '#1e3010', weight: 0.3, fillOpacity: 0.55 } },
     { path: 'mounts',                 style: { fillColor: '#3a3228', color: '#2a2218', weight: 0.5, fillOpacity: 0.25 } },
     { path: 'runway',                 style: { fillColor: '#4a4848', color: '#2a2828', weight: 0.5, fillOpacity: 0.8 } },
@@ -21,6 +23,13 @@ const GEO_LAYERS: Array<{ path: string; style: Record<string, unknown>; detail?:
     { path: 'roads/track',            style: { color: '#a09070', weight: 1,   dashArray: '4,3', fill: false }, detail: true },
     { path: 'roads/track-bridge',     style: { color: '#a09070', weight: 1,   fill: false }, detail: true },
     { path: 'powerline',              style: { color: '#606060', weight: 0.8, dashArray: '4,4', fill: false }, detail: true },
+    // Location labels — point features rendered as divIcon text markers
+    { path: 'locations/namecitycapital', style: {}, labelStyle: { fontSize: 14, color: '#1a1a2e', fontWeight: 700, outlineColor: '#d8cfa8' } },
+    { path: 'locations/namecity',        style: {}, labelStyle: { fontSize: 12, color: '#1a1a2e', fontWeight: 600, outlineColor: '#d8cfa8' } },
+    { path: 'locations/namemarine',      style: {}, labelStyle: { fontSize: 11, color: '#1a3a5e', fontWeight: 500, outlineColor: '#c8dff0' } },
+    { path: 'locations/namevillage',     style: {}, detail: true, labelStyle: { fontSize: 11, color: '#2a2a2e', fontWeight: 500, outlineColor: '#d8cfa8' } },
+    { path: 'locations/namelocal',       style: {}, detail: true, labelStyle: { fontSize: 10, color: '#3a3a4e', fontWeight: 400, outlineColor: '#d8cfa8' } },
+    { path: 'locations/hill',            style: {}, detail: true, labelStyle: { fontSize: 10, color: '#4a3a2a', fontWeight: 400, outlineColor: '#d8cfa8' } },
 ]
 
 async function fetchGzJson(url: string): Promise<unknown> {
@@ -151,10 +160,15 @@ export default function OperationMap({
 
             mapRef.current = map
 
+            // Terrain image pane sits below vector overlays
+            const tPane = map.createPane('terrainPane')
+            tPane.style.zIndex = '350'
+            tPane.style.pointerEvents = 'none'
+
             // Toggle detail group visibility on zoom
             map.on('zoomend', () => {
-                if (mapModeRef.current !== 'map') return
-                const cached = geoJsonCacheRef.current.get(worldRef.current?.name ?? '')
+                if (mapModeRef.current === 'sat') return
+                const cached = geoJsonCacheRef.current.get(`${worldRef.current?.name ?? ''}-${mapModeRef.current}`)
                 if (!cached) return
                 const show = map.getZoom() >= DETAIL_MIN_ZOOM
                 if (show && !map.hasLayer(cached.detail)) cached.detail.addTo(map)
@@ -217,30 +231,87 @@ export default function OperationMap({
                 }
             }
         } else {
-            // mode === 'map': load GeoJSON layers (cached per world)
-            let cached = geoJsonCacheRef.current.get(w.name)
+            // mode === 'map' (simplified topo) or 'terrain' (coloured DEM) — cached per world+mode
+            const cacheKey = `${w.name}-${mode}`
+            let cached = geoJsonCacheRef.current.get(cacheKey)
             if (!cached) {
                 const renderer = L.canvas()
                 const all = L.featureGroup()
                 const detail = L.featureGroup()
-                await Promise.all(GEO_LAYERS.map(async ({ path, style, detail: isDetail }) => {
+
+                // Base layer
+                if (mode === 'terrain') {
+                    if (w.hasTerrain) {
+                        L.imageOverlay(
+                            `/maps/${w.name}/terrain.png`,
+                            [[0, 0], [w.worldSize, w.worldSize]],
+                            { pane: 'terrainPane', interactive: false },
+                        ).addTo(all)
+                    } else {
+                        L.rectangle(
+                            [[0, 0], [w.worldSize, w.worldSize]],
+                            Object.assign({ color: 'transparent', weight: 0, fillColor: '#5e7048', fillOpacity: 1, interactive: false }, { renderer }),
+                        ).addTo(all)
+                    }
+                } else {
+                    // map mode: coastline.png shows real land/ocean shape; fallback to solid rect
+                    if (w.hasCoastline) {
+                        L.imageOverlay(
+                            `/maps/${w.name}/coastline.png`,
+                            [[0, 0], [w.worldSize, w.worldSize]],
+                            { pane: 'terrainPane', interactive: false },
+                        ).addTo(all)
+                    } else {
+                        L.rectangle(
+                            [[0, 0], [w.worldSize, w.worldSize]],
+                            Object.assign({ color: '#8aaa78', weight: 1.5, fillColor: '#f5f0e8', fillOpacity: 1, interactive: false }, { renderer }),
+                        ).addTo(all)
+                    }
+                }
+
+                // Contour lines
+                if (w.hasContours) {
+                    const contourData = await fetchGzJson(`/maps/${w.name}/contours.geojson.gz`)
+                    if (contourData) {
+                        L.geoJSON(contourData as GeoJSON.FeatureCollection, Object.assign({} as L.GeoJSONOptions, {
+                            renderer,
+                            style: (feature: unknown) => {
+                                const major = (feature as GeoJSON.Feature)?.properties?.major as boolean
+                                return mode === 'terrain'
+                                    ? { color: '#8a7055', weight: major ? 1.2 : 0.5, opacity: major ? 0.75 : 0.45, fill: false }
+                                    : { color: '#b08040', weight: major ? 1.0 : 0.4, opacity: major ? 0.9 : 0.6, fill: false }
+                            },
+                        })).addTo(all)
+                    }
+                }
+
+                await Promise.all(GEO_LAYERS.map(async ({ path, style, detail: isDetail, labelStyle }) => {
                     const data = await fetchGzJson(`/maps/${w.name}/geojson/${path}.geojson.gz`)
                     if (data) {
                         const target = isDetail ? detail : all
+                        const ls = labelStyle
                         L.geoJSON(
                             data as GeoJSON.FeatureCollection,
                             Object.assign({} as L.GeoJSONOptions, {
                                 renderer,
                                 style: style as L.PathOptions,
-                                // Prevent default DOM markers — render points as canvas circles instead
-                                pointToLayer: (_: unknown, latlng: L.LatLng) =>
-                                    L.circleMarker(latlng, Object.assign({ renderer, radius: 2 }, style as L.CircleMarkerOptions)),
+                                pointToLayer: (feature: unknown, latlng: L.LatLng) => {
+                                    if (ls) {
+                                        const name = (feature as GeoJSON.Feature)?.properties?.name ?? ''
+                                        if (!name) return L.circleMarker(latlng, { renderer, radius: 0, opacity: 0, fillOpacity: 0 })
+                                        const shadow = `0 0 3px ${ls.outlineColor ?? '#fff'},0 0 3px ${ls.outlineColor ?? '#fff'}`
+                                        const html = `<span style="color:${ls.color};font-size:${ls.fontSize}px;font-weight:${ls.fontWeight ?? 500};text-shadow:${shadow};white-space:nowrap;pointer-events:none;font-family:sans-serif;">${name}</span>`
+                                        const icon = L.divIcon({ className: '', html, iconAnchor: [0, ls.fontSize / 2] })
+                                        return L.marker(latlng, { icon, interactive: false })
+                                    }
+                                    return L.circleMarker(latlng, Object.assign({ renderer, radius: 2 }, style as L.CircleMarkerOptions))
+                                },
                             }),
                         ).addTo(target)
                     }
                 }))
                 cached = { all, detail }
-                geoJsonCacheRef.current.set(w.name, cached)
+                geoJsonCacheRef.current.set(cacheKey, cached)
             }
             cached.all.addTo(map)
             if (map.getZoom() >= DETAIL_MIN_ZOOM) cached.detail.addTo(map)
@@ -549,7 +620,9 @@ export default function OperationMap({
         }
     }, [activeTool])
 
-    const bg = mapMode === 'map' ? outsideBg(world?.colorOutside) : '#1a1a1a'
+    const bg = mapMode === 'sat' ? '#1a1a1a'
+             : mapMode === 'terrain' ? outsideBg(world?.colorOutside)
+             : '#b0d8e8'  // map mode: light blue ocean
 
     return (
         <div
