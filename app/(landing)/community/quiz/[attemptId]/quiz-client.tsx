@@ -185,7 +185,7 @@ export default function QuizClient({ quiz, initialAttempt }: Props) {
                             textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)',
                             fontFamily: 'monospace', marginBottom: 12,
                         }}>
-                            // CONFIRM SUBMISSION
+                            {'// CONFIRM SUBMISSION'}
                         </div>
                         {confirmDialog.type === 'unanswered' ? (
                             <>

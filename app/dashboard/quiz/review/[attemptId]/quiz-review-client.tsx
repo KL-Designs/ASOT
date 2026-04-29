@@ -382,7 +382,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                         <div style={{ marginTop: 32, border: '1px solid rgba(255,255,255,0.1)', borderTop: `2px solid ${RED}` }}>
                             <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.35)' }}>
                                 <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>
-                                    // DECISION
+                                    {'// DECISION'}
                                 </span>
                             </div>
                             <ReviewActionPanel />
@@ -400,7 +400,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                     {/* Time taken */}
                     <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)' }}>
                         <div style={{ fontSize: '0.47rem', fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', fontFamily: 'monospace', color: 'rgba(237,237,237,0.3)', marginBottom: 8 }}>
-                            // TIME TAKEN
+                            {'// TIME TAKEN'}
                         </div>
                         <div style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: '0.06em', fontFamily: 'monospace', color: 'rgba(237,237,237,0.85)', lineHeight: 1 }}>
                             {attempt.timeTakenSeconds !== undefined ? formatTime(attempt.timeTakenSeconds) : '——:——'}

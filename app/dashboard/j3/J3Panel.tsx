@@ -6,12 +6,12 @@ import { Construction } from '@mui/icons-material'
 import QualificationTicketsTab from './tabs/QualificationTicketsTab'
 import PromotionTicketsTab from './tabs/PromotionTicketsTab'
 import TrainingRecordsTab from './tabs/TrainingRecordsTab'
-import DeptMembersTab from '@/app/admin/DeptMembersTab'
-import DeptCalendarTab from '@/app/admin/unit/calendar/DeptCalendarTab'
-import PinTabLabel from '@/app/admin/_components/PinTabLabel'
-import CornerBrackets from '@/app/admin/_components/CornerBrackets'
-import { useTabState } from '@/app/admin/_components/useTabState'
-import MeetingsTab from '@/app/admin/_components/meetings/MeetingsTab'
+import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
+import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
+import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
+import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
+import { useTabState } from '@/app/dashboard/_components/useTabState'
+import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 
 interface J3PanelProps {
     displayName: string

@@ -47,7 +47,7 @@ export default function QuizInstructionModal({ title, instructions, timeLimitMin
                         textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)',
                         fontFamily: 'monospace', marginBottom: 6,
                     }}>
-                        // ASSESSMENT
+                        {'// ASSESSMENT'}
                     </div>
                     <h1 style={{
                         margin: 0, fontSize: '1rem', fontWeight: 800,

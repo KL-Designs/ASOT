@@ -99,7 +99,7 @@ export default function AssignQuizModal({ onClose, onAssigned }: Props) {
                 }}>
                     <div>
                         <div style={{ fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', fontFamily: 'monospace', marginBottom: 4 }}>
-                            // J3 TRAINING
+                            {'// J3 TRAINING'}
                         </div>
                         <span style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
                             Assign BCT Quiz

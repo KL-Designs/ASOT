@@ -50,7 +50,7 @@ export default async function Page({ params }: Props) {
                         color: attempt.status === 'passed' ? 'rgba(34,197,94,0.6)' : 'rgba(219,0,29,0.6)',
                         marginBottom: 12,
                     }}>
-                        // RESULT
+                        {'// RESULT'}
                     </div>
                     <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'rgba(237,237,237,0.88)', lineHeight: 1.6, margin: 0 }}>
                         {attempt.status === 'passed'
@@ -80,7 +80,7 @@ export default async function Page({ params }: Props) {
                         textTransform: 'uppercase', fontFamily: 'monospace',
                         color: 'rgba(245,158,11,0.6)', marginBottom: 12,
                     }}>
-                        // UNDER REVIEW
+                        {'// UNDER REVIEW'}
                     </div>
                     <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'rgba(237,237,237,0.88)', lineHeight: 1.6, margin: 0 }}>
                         Your quiz requires further review. Your result may be delayed. We appreciate your patience.
