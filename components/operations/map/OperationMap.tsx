@@ -51,7 +51,6 @@ function outsideBg(rgba?: [number, number, number, number]): string {
     return `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, mode: MapMode): void {
     const size = map.getSize() as { x: number; y: number }
     if (canvas.width !== size.x || canvas.height !== size.y) {
@@ -162,7 +161,6 @@ function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, 
     }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function makeA3IconDivIcon(L: any, ann: MapAnnotation, selected = false): any {
     const mtype = ann.properties.a3MarkerType ?? 'hd_dot'
     const imgUrl = `/markers/icons/${mtype}.png`
@@ -180,7 +178,6 @@ function makeA3IconDivIcon(L: any, ann: MapAnnotation, selected = false): any {
     return L.divIcon({ className: '', html, iconSize: [48, 48], iconAnchor: [24, 24] })
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function makeA3MetisDivIcon(L: any, ann: MapAnnotation, selected = false): any {
     const p = ann.properties
     const sk = METIS_SIDE_KEY[p.a3SideId ?? 'blu'] ?? 'blu'
@@ -467,7 +464,7 @@ export default function OperationMap({
             mapRef.current?.remove()
             mapRef.current = null
         }
-    }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+    }, [])
 
     // ── Swap content when world or mode changes ──────────────────────────────
     useEffect(() => {
@@ -476,7 +473,7 @@ export default function OperationMap({
         import('leaflet').then(async mod => {
             await applyContent(mod.default ?? mod, map, world, mapMode)
         })
-    }, [world, mapMode])  // eslint-disable-line react-hooks/exhaustive-deps
+    }, [world, mapMode])
 
     async function applyContent(
         L: typeof import('leaflet'),

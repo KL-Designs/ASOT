@@ -701,10 +701,10 @@ function VoteButton({ dir, active, count, voting, onClick }: {
 function ExtendedFields({ data }: { data: DetailData }) {
     const fields: [string, React.ReactNode][] = []
 
-    if (data.modLink) fields.push(['MOD LINK', <a href={data.modLink} target='_blank' rel='noopener noreferrer' style={{ color: 'rgba(0,195,255,0.8)', fontSize: '0.82rem', wordBreak: 'break-all' }}>{data.modLink}</a>])
+    if (data.modLink) fields.push(['MOD LINK', <a key="modLink" href={data.modLink} target='_blank' rel='noopener noreferrer' style={{ color: 'rgba(0,195,255,0.8)', fontSize: '0.82rem', wordBreak: 'break-all' }}>{data.modLink}</a>])
     if (data.game) fields.push(['GAME', data.game + (data.gameOther ? ` — ${data.gameOther}` : '')])
     if (data.featureCategory) fields.push(['CATEGORY', data.featureCategory])
-    if (data.weblink) fields.push(['URL', <a href={data.weblink} target='_blank' rel='noopener noreferrer' style={{ color: 'rgba(0,195,255,0.8)', fontSize: '0.82rem', wordBreak: 'break-all' }}>{data.weblink}</a>])
+    if (data.weblink) fields.push(['URL', <a key="weblink" href={data.weblink} target='_blank' rel='noopener noreferrer' style={{ color: 'rgba(0,195,255,0.8)', fontSize: '0.82rem', wordBreak: 'break-all' }}>{data.weblink}</a>])
     if (data.justification) fields.push(['JUSTIFICATION', data.justification])
     if (data.stepsToReproduce) fields.push(['STEPS TO REPRODUCE', data.stepsToReproduce])
     if (data.expectedResult) fields.push(['EXPECTED RESULT', data.expectedResult])
@@ -716,7 +716,7 @@ function ExtendedFields({ data }: { data: DetailData }) {
     if (data.missionPlayerExperience) fields.push(['PLAYER EXPERIENCE', data.missionPlayerExperience])
     if (data.missionMechanics) fields.push(['MECHANICS', data.missionMechanics])
     if (data.feedbackCategories?.length) fields.push(['FEEDBACK AREAS', data.feedbackCategories.join(', ')])
-    if (data.feedbackType) fields.push(['TYPE', <span style={{ color: FB_TYPE_COLOURS[data.feedbackType], fontWeight: 700, textTransform: 'capitalize' }}>{data.feedbackType}</span>])
+    if (data.feedbackType) fields.push(['TYPE', <span key="feedbackType" style={{ color: FB_TYPE_COLOURS[data.feedbackType], fontWeight: 700, textTransform: 'capitalize' }}>{data.feedbackType}</span>])
     if (data.nomineeName) fields.push(['NOMINEE', `${data.nomineeRank ? data.nomineeRank + ' ' : ''}${data.nomineeName}`])
     if (data.nominatorName) fields.push(['NOMINATED BY', data.nominatorName])
     if (data.awardType) fields.push(['AWARD TYPE', data.awardType])

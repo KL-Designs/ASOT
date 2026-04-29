@@ -468,7 +468,7 @@ export default function NewTicketPage() {
                     <aside>
                         <div style={{ background: `${catColor}0d`, border: `1px solid ${catColor}33`, padding: '14px 16px', marginBottom: 8 }}>
                             <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.18em', color: catColor, marginBottom: 4 }}>
-                                {catDef?.label.toUpperCase()} // TYPE
+                                {`${catDef?.label.toUpperCase()} // TYPE`}
                             </div>
                             <div style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '0.12em' }}>SELECT SUBTYPE</div>
                         </div>
@@ -983,7 +983,7 @@ export default function NewTicketPage() {
                         }}>
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: '0.65rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.06em' }}>
-                                    {catDef?.label.toUpperCase()} // {SUBTYPES[category].find(s => s.value === subtype)?.label.toUpperCase()}
+                                    {`${catDef?.label.toUpperCase()} // ${SUBTYPES[category].find(s => s.value === subtype)?.label.toUpperCase()}`}
                                 </div>
                                 {title && (
                                     <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>

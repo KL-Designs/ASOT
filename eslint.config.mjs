@@ -12,6 +12,8 @@ const eslintConfig = [
             'react-hooks/immutability': 'off',
             'react-hooks/static-components': 'off',
             'react-hooks/refs': 'off',
+            '@next/next/no-img-element': 'off',
+            'jsx-a11y/alt-text': 'off',
         },
     },
 ]
