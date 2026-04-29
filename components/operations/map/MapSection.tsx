@@ -20,7 +20,7 @@ export default function MapSection({ operationId, canEdit, availableWorlds }: Pr
     const [activeTool, setActiveTool] = useState<DrawingTool>(null)
     const [activeColor, setActiveColor] = useState('#db001d')
     const [worldPickerOpen, setWorldPickerOpen] = useState(false)
-    const [mapMode, setMapMode] = useState<MapMode>('sat')
+    const [mapMode, setMapMode] = useState<MapMode>('map')
 
     // Auto-select first layer when layers load
     useEffect(() => {
@@ -121,7 +121,7 @@ export default function MapSection({ operationId, canEdit, availableWorlds }: Pr
                 {/* SAT / MAP / TERRAIN toggle */}
                 {currentWorld?.hasGeoJSON && (
                     <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 4, padding: 2 }}>
-                        {(['sat', 'map', ...(currentWorld.hasTerrain ? ['terrain'] : [])] as MapMode[]).map(m => (
+                        {(['map', 'sat', ...(currentWorld.hasTerrain ? ['terrain'] : [])] as MapMode[]).map(m => (
                             <button
                                 key={m}
                                 onClick={() => setMapMode(m)}
