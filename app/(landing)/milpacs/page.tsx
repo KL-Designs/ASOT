@@ -1,4 +1,4 @@
-import Image from 'next/image'
+﻿import Image from 'next/image'
 import Link from 'next/link'
 import { connection } from 'next/server'
 import Banner from '@/public/images/home/Droneteam7.png'
@@ -83,7 +83,7 @@ export default async function Page() {
 					</div>
 					<p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.8, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.8)' }}>Military Personnel Accounting Centre</p>
 					{canManageOrbat && (
-						<Link href='/admin/orbat' style={{
+						<Link href='/dashboard/orbat' style={{
 							fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
 							color: 'rgba(219,0,29,0.85)', background: 'rgba(0,0,0,0.45)',
 							border: '1px solid rgba(219,0,29,0.35)', padding: '6px 16px', textDecoration: 'none',

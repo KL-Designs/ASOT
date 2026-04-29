@@ -134,7 +134,7 @@ export async function PATCH(
                 title: '📋 Application Status Update',
                 description: `Your ASOT recruitment application status has been updated to **${label}**.`,
                 color: effectiveStatus === 'accepted' ? 0x00c364 : effectiveStatus === 'rejected' ? 0xdb001d : 0x3b82f6,
-                footer: { text: 'ASOT Member Portal' },
+                footer: { text: 'ASOT Dashboard' },
                 timestamp: new Date().toISOString(),
             }],
         }, 'raw').catch(err => console.error('[j1/applications] Applicant DM failed', err))
@@ -156,7 +156,7 @@ export async function PATCH(
                 title: '↩ Application Returned for Review',
                 description: `**${displayName}** has sent the application for **${applicantName}** back to you for review.\n\n**Note from lead:**\n${noteText}`,
                 color: 0xf59e0b,
-                footer: { text: 'ASOT Member Portal' },
+                footer: { text: 'ASOT Dashboard' },
                 timestamp: new Date().toISOString(),
             }],
         }, 'raw').catch(err => console.error('[j1/applications] Recruiter return DM failed', err))
@@ -178,7 +178,7 @@ export async function PATCH(
                     title: '📋 Application Resubmitted',
                     description: `**${displayName}** has reviewed and resubmitted the application for **${applicantName}**.`,
                     color: 0x3b82f6,
-                    footer: { text: 'ASOT Member Portal' },
+                    footer: { text: 'ASOT Dashboard' },
                     timestamp: new Date().toISOString(),
                 }],
             }, 'raw').catch(err => console.error('[j1/applications] Lead resubmit DM failed', err))
@@ -201,7 +201,7 @@ export async function PATCH(
                     title: status === 'accepted' ? '✅ Application Approved' : '❌ Application Rejected',
                     description: `**${displayName}** has **${status}** the application from **${applicantName}**.`,
                     color: status === 'accepted' ? 0x00c364 : 0xdb001d,
-                    footer: { text: 'ASOT Member Portal' },
+                    footer: { text: 'ASOT Dashboard' },
                     timestamp: new Date().toISOString(),
                 }],
             }, 'raw').catch(err => console.error('[j1/applications] Lead DM failed', err))

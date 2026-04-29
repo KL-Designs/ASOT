@@ -239,7 +239,7 @@ export async function sendCalendarReminderDM(
         title: '🔔 Event Reminder',
         description: `**${eventTitle}** ${label}.`,
         color: 0xdb001d,   // site red
-        footer: { text: 'ASOT Member Portal' },
+        footer: { text: 'ASOT Dashboard' },
         timestamp: new Date().toISOString(),
     }
 
@@ -265,7 +265,7 @@ export async function sendTaskAssignedDM(
         title: '📋 New Task Assigned',
         description: `**${title}**\n${description}`,
         color: 0xdb001d,
-        footer: { text: 'ASOT Member Portal' },
+        footer: { text: 'ASOT Dashboard' },
         timestamp: new Date().toISOString(),
     }
 
@@ -296,7 +296,7 @@ export async function sendTaskExtensionRequestDM(
             { name: 'Requested date', value: requestedDate, inline: true },
             { name: 'Reason', value: reason, inline: false },
         ],
-        footer: { text: 'ASOT Member Portal — approve or deny in Tasks' },
+        footer: { text: 'ASOT Dashboard — approve or deny in Tasks' },
         timestamp: new Date().toISOString(),
     }
 
@@ -322,7 +322,7 @@ export async function sendTaskExtensionApprovedDM(
         description: `Your extension request for **${taskTitle}** has been approved.`,
         color: 0x22c55e,
         fields: [{ name: 'New due date', value: newDate, inline: true }],
-        footer: { text: 'ASOT Member Portal' },
+        footer: { text: 'ASOT Dashboard' },
         timestamp: new Date().toISOString(),
     }
 
@@ -541,7 +541,7 @@ export async function sendTaskExtensionDeniedDM(
         title: '❌ Extension Denied',
         description: `Your extension request for **${taskTitle}** was denied.`,
         color: 0xdb001d,
-        footer: { text: 'ASOT Member Portal' },
+        footer: { text: 'ASOT Dashboard' },
         timestamp: new Date().toISOString(),
     }
 
@@ -576,7 +576,7 @@ export async function sendFeedbackCommentDM(
         title: '💬 New Comment on Your Feedback',
         description: `**${commenterName}** commented on: **${feedbackTitle}**`,
         color: 0x3b82f6,
-        footer: { text: 'ASOT Member Portal' },
+        footer: { text: 'ASOT Dashboard' },
         timestamp: new Date().toISOString(),
     }
     if (actionUrl) {
@@ -599,7 +599,7 @@ export async function sendFeedbackStatusDM(
         title: '📢 Feedback Status Updated',
         description: `Your feedback **${feedbackTitle}** has been updated to **${FEEDBACK_STATUS_LABELS[newStatus] ?? newStatus}**.`,
         color: 0xdb001d,
-        footer: { text: 'ASOT Member Portal' },
+        footer: { text: 'ASOT Dashboard' },
         timestamp: new Date().toISOString(),
     }
     if (actionUrl) {

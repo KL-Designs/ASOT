@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
             type: 'task_assigned',
             title: 'New promotion ticket',
             body: `${action === 'promote' ? 'Promotion' : 'Demotion'} request for ${targetUserName} — ${proposedRank}`,
-            actionUrl: '/admin/unit/tickets',
+            actionUrl: '/dashboard/unit/tickets',
             relatedId: result.insertedId.toString(),
         })
         return NextResponse.json({ ok: true, id: result.insertedId.toString() })
@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
                 type: 'task_assigned',
                 title: 'Move request requires your approval',
                 body: `${displayName} submitted a move request for ${targetUserName}`,
-                actionUrl: '/admin/unit/tickets',
+                actionUrl: '/dashboard/unit/tickets',
                 relatedId: result.insertedId.toString(),
             })
         }
@@ -290,7 +290,7 @@ export async function POST(req: NextRequest) {
             type: 'task_assigned',
             title: 'New discharge ticket',
             body: `${dischargeType === 'honorable' ? 'Honourable' : 'Dishonourable'} discharge request for ${targetUserName}`,
-            actionUrl: '/admin/unit/tickets',
+            actionUrl: '/dashboard/unit/tickets',
             relatedId: result.insertedId.toString(),
         })
         return NextResponse.json({ ok: true, id: result.insertedId.toString() })
@@ -326,7 +326,7 @@ export async function POST(req: NextRequest) {
             type: 'task_assigned',
             title: 'New discipline ticket',
             body: `Discipline report filed against ${targetUserName} by ${displayName}`,
-            actionUrl: '/admin/unit/tickets',
+            actionUrl: '/dashboard/unit/tickets',
             relatedId: result.insertedId.toString(),
         })
         return NextResponse.json({ ok: true, id: result.insertedId.toString() })
@@ -413,7 +413,7 @@ export async function POST(req: NextRequest) {
             type: 'task_assigned',
             title: 'New performance report',
             body: `Performance report filed against ${targetUserName} by ${displayName}`,
-            actionUrl: '/admin/unit/tickets',
+            actionUrl: '/dashboard/unit/tickets',
             relatedId: result.insertedId.toString(),
         })
         return NextResponse.json({ ok: true, id: result.insertedId.toString() })
@@ -457,7 +457,7 @@ export async function POST(req: NextRequest) {
         type: 'task_assigned',
         title: `New qualification ticket`,
         body: `${action === 'add' ? 'Add' : 'Remove'} ${qualification} for ${targetUserName}`,
-        actionUrl: '/admin/unit/tickets',
+        actionUrl: '/dashboard/unit/tickets',
         relatedId: result.insertedId.toString(),
     })
 

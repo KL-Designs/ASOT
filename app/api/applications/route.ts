@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import Db from '@/lib/mongo'
 import { createNotificationForRole } from '@/lib/notifications'
@@ -109,13 +109,13 @@ export async function POST(request: NextRequest) {
             type: 'task_assigned',
             title: 'New member application',
             body: `${applicantName} has submitted a recruitment application`,
-            actionUrl: '/admin/j1',
+            actionUrl: '/dashboard/j1',
         }),
         createNotificationForRole('J1-Staff', {
             type: 'task_assigned',
             title: 'New member application',
             body: `${applicantName} has submitted a recruitment application`,
-            actionUrl: '/admin/j1',
+            actionUrl: '/dashboard/j1',
         }),
         Db.roles.findOne({ name: 'Applicant' })
             .then(role =>

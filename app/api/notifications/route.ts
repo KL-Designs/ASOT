@@ -1,4 +1,4 @@
-import { ObjectId } from 'mongodb'
+﻿import { ObjectId } from 'mongodb'
 import { NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import { sendCalendarReminderDM } from '@/lib/discord/bot'
@@ -41,10 +41,10 @@ export async function GET() {
                     type: 'calendar_reminder',
                     title: 'Event Reminder',
                     body: `${reminder.eventTitle} ${label}.`,
-                    actionUrl: '/admin/unit/calendar',
+                    actionUrl: '/dashboard/unit/calendar',
                     relatedId: reminder.eventId,
                 }),
-                sendCalendarReminderDM(reminder.userId, reminder.eventTitle, label, '/admin/unit/calendar')
+                sendCalendarReminderDM(reminder.userId, reminder.eventTitle, label, '/dashboard/unit/calendar')
                     .catch(err => console.error('[reminder] Discord DM failed:', err)),
             ])
 

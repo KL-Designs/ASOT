@@ -32,15 +32,29 @@ const PERMISSIONS = {
 
     pages: {
         /**
-         * Staff dashboard — `/admin` and all sub-routes under it.
+         * Member dashboard — `/dashboard` layout gate.
+         * Any ASOT member can enter the dashboard; they see only Calendar,
+         * Training Docs, and SOPs. J-department and staff-only sections are
+         * hidden in the sidebar and page-gated individually.
          *
          * Used by:
-         *  - `app/admin/layout.tsx` (layout-level redirect gate)
-         *  - `app/admin/page.tsx` (sidebar visibility flags)
-         *  - `app/admin/unit/tickets/page.tsx`, `calendar/page.tsx`, `sops/page.tsx`, `training-docs/page.tsx`
-         *  - `app/admin/personnel/all-staff/page.tsx`
+         *  - `app/dashboard/layout.tsx`
+         *  - `app/dashboard/page.tsx`
+         *  - `app/dashboard/unit/calendar/page.tsx`
+         *  - `app/dashboard/unit/sops/page.tsx`
+         *  - `app/dashboard/unit/training-docs/page.tsx`
+         */
+        member: ['ASOT Member'],
+
+        /**
+         * Staff dashboard — full access to staff-only sections.
+         *
+         * Used by:
+         *  - `app/dashboard/unit/tickets/page.tsx`
+         *  - `app/dashboard/tasks/page.tsx`
+         *  - `app/dashboard/personnel/all-staff/page.tsx`
          *  - `app/api/admin/tickets/route.ts` (GET + POST)
-         *  - `app/api/admin/calendar/route.ts` (GET + POST)
+         *  - `app/api/admin/calendar/route.ts` (POST — write)
          *  - `app/api/admin/members/route.ts`
          *  - `app/api/admin/orbat/for-move/route.ts`
          *  - `app/api/me/route.ts` (sets `isStaff` flag)

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React from 'react'
 import Link from 'next/link'
@@ -8,12 +8,12 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse } from '@mui/material'
-import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, AdminPanelSettings, Api, Tune, BugReport } from '@mui/icons-material'
+import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, Dashboard as DashboardIcon, Api, Tune, BugReport, MapOutlined } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import { rankNameFromAbbr } from '@/lib/ranks'
 import Avatar from '@/components/member/avatar'
-import NotificationBell from '@/app/admin/_components/NotificationBell'
+import NotificationBell from '@/app/dashboard/_components/NotificationBell'
 
 import Logo from '@/public/logo.png'
 import MapBg from '@/public/designs/map.png'
@@ -72,7 +72,13 @@ export default function Navbar() {
                 // { name: 'Hall of Fame', link: '/community/hof', icon: <EmojiEvents />, description: 'Honoured unit members' },
             ]
         },
-        { name: 'Operations', href: '/operations', icon: <TrackChanges /> },
+        {
+            name: 'Operations', href: '/operations', icon: <TrackChanges />,
+            subLinks: [
+                { name: 'Operations', link: '/operations', icon: <TrackChanges />, description: 'Browse all unit operations' },
+                { name: 'Interactive Map', link: '/map', icon: <MapOutlined />, description: 'Explore available maps interactively' },
+            ]
+        },
         { name: 'Gallery', href: '/gallery', icon: <Collections /> },
         { name: 'Partners', href: '/partnerships', icon: <Handshake /> },
         { name: 'Support', href: '/support', icon: <Support /> },
@@ -159,11 +165,11 @@ export default function Navbar() {
                             </div>
                         </Link>
 
-                        {user && (user as any).isStaff && (
+                        {user && (user as any).isMember && (
                             <div className='self-center hidden md:flex items-center gap-x-3'>
-                                <Link href='/admin' title='Member Portal'>
+                                <Link href='/dashboard' title='Dashboard'>
                                     <div className={Navigation['nav-button']} style={{ color: '#00c3ff', borderColor: 'rgba(0,195,255,0.4)', filter: 'drop-shadow(0 0 4px rgba(0,195,255,0.3))' }}>
-                                        <AdminPanelSettings style={{ fontSize: 20 }} />
+                                        <DashboardIcon style={{ fontSize: 20 }} />
                                     </div>
                                 </Link>
                                 <NotificationBell />
@@ -269,10 +275,10 @@ export default function Navbar() {
                         </Link>
                     </>
                 )}
-                {(user as any)?.isStaff && (
+                {(user as any)?.isMember && (
                     <>
                         <Divider style={{ borderColor: 'rgba(0,195,255,0.2)' }} />
-                        <Link href='/admin' onClick={() => setSideMenuOpen(false)}>
+                        <Link href='/dashboard' onClick={() => setSideMenuOpen(false)}>
                             <div
                                 className='flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors'
                                 style={{
@@ -282,13 +288,13 @@ export default function Navbar() {
                                 onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,195,255,0.1)')}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,195,255,0.05)')}
                             >
-                                <AdminPanelSettings style={{ fontSize: 20, filter: 'drop-shadow(0 0 6px #00c3ff)' }} />
+                                <DashboardIcon style={{ fontSize: 20, filter: 'drop-shadow(0 0 6px #00c3ff)' }} />
                                 <div className='flex flex-col'>
                                     <span style={{ fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.1em', textShadow: '0 0 10px rgba(0,195,255,0.6)' }}>
-                                        MEMBER PORTAL
+                                        DASHBOARD
                                     </span>
                                     <span style={{ fontSize: '0.65rem', color: 'rgba(0,195,255,0.5)', letterSpacing: '0.05em' }}>
-                                        Admin access
+                                        Member access
                                     </span>
                                 </div>
                             </div>
@@ -391,7 +397,7 @@ function ProfileDropdown({ user }: { user: User }) {
     }
 
     const userRoles = (user as any).roles as Role[] | undefined
-    const isAdmin = !!(user as any).isStaff
+    const isAdmin = !!(user as any).isMember
 
     const accent = user.hexAccentColor ? `#${user.hexAccentColor.replace('#', '')}` : '#DB001D'
     const strippedNickname = user.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
@@ -516,11 +522,11 @@ function ProfileDropdown({ user }: { user: User }) {
                     {isAdmin && (
                         <>
                             <div style={{ borderTop: '1px solid rgba(0,195,255,0.15)', margin: '6px 0' }} />
-                            <Link href='/admin'>
+                            <Link href='/dashboard'>
                                 <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px', background: 'rgba(0,195,255,0.04)' }}
                                     sx={{ '&:hover': { backgroundColor: 'rgba(0,195,255,0.1) !important' } }}>
-                                    <AdminPanelSettings style={{ fontSize: 17, color: '#00c3ff', filter: 'drop-shadow(0 0 4px #00c3ff)' }} />
-                                    <span style={{ fontSize: '0.80rem', fontWeight: 600, letterSpacing: '0.06em', color: '#00c3ff', textShadow: '0 0 8px rgba(0,195,255,0.5)' }}>MEMBER PORTAL</span>
+                                    <DashboardIcon style={{ fontSize: 17, color: '#00c3ff', filter: 'drop-shadow(0 0 4px #00c3ff)' }} />
+                                    <span style={{ fontSize: '0.80rem', fontWeight: 600, letterSpacing: '0.06em', color: '#00c3ff', textShadow: '0 0 8px rgba(0,195,255,0.5)' }}>DASHBOARD</span>
                                 </MenuItem>
                             </Link>
                         </>

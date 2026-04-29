@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
                     type: 'task_assigned',
                     title: `Overdue: Review application — ${applicantName}`,
                     body: `Your application review for ${applicantName} is overdue. Please complete it as soon as possible.`,
-                    actionUrl: `/admin/j1?tab=1&app=${appId}`,
+                    actionUrl: `/dashboard/j1?tab=1&app=${appId}`,
                     relatedId: appId,
                 }),
                 sendDM(app.assignedReviewerId, {
@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
                         title: '⚠️ Overdue Application Review',
                         description: `Your application review for **${applicantName}** is overdue. Please action it as soon as possible.`,
                         color: 0xf59e0b,
-                        footer: { text: 'ASOT Member Portal' },
-                        fields: [{ name: '\u200b', value: `[View Application](/admin/j1)`, inline: false }],
+                        footer: { text: 'ASOT Dashboard' },
+                        fields: [{ name: '\u200b', value: `[View Application](/dashboard/j1)`, inline: false }],
                         timestamp: now.toISOString(),
                     }],
                 }, 'task'),
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
                     type: 'task_assigned',
                     title: `Recruiter overdue — ${applicantName}`,
                     body: `${recruiterName} has not completed the application review for ${applicantName} yet. The deadline has passed.`,
-                    actionUrl: `/admin/j1?tab=1&app=${appId}`,
+                    actionUrl: `/dashboard/j1?tab=1&app=${appId}`,
                     relatedId: appId,
                 }),
                 sendDM(app.assignedByLeadId, {
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
                         title: '⚠️ Recruiter Has Not Completed Review',
                         description: `**${recruiterName}** has not completed the application review for **${applicantName}**. The deadline has passed.`,
                         color: 0xf59e0b,
-                        footer: { text: 'ASOT Member Portal' },
+                        footer: { text: 'ASOT Dashboard' },
                         timestamp: now.toISOString(),
                     }],
                 }, 'task'),
