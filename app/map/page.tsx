@@ -13,6 +13,9 @@ export default function InteractiveMapPage() {
         fetch('/api/maps/worlds')
             .then(r => r.json())
             .then(data => Array.isArray(data) && setWorlds(data))
+        // Warm up the Leaflet + OperationMap bundle while the user browses the
+        // world selector, so it's already parsed by the time they click through.
+        import('@/components/operations/map/OperationMap').catch(() => {})
     }, [])
 
     return (
