@@ -163,7 +163,21 @@ export default function OperationMap({
                 inBounds.sort((a, b) => b.elev - a.elev)
                 const zoom = map.getZoom()
                 const cap = Math.max(5, Math.min(100, Math.round(5 * Math.pow(2, zoom + 3))))
-                const selected = inBounds.slice(0, cap)
+                const MIN_PX = 40
+                const MIN_PX_SAME_ELEV = 100
+                const selected: typeof inBounds = []
+                for (const point of inBounds) {
+                    if (selected.length >= cap) break
+                    const pt = map.latLngToContainerPoint(point.latlng)
+                    let tooClose = false
+                    for (const s of selected) {
+                        const sp = map.latLngToContainerPoint(s.latlng)
+                        const dx = pt.x - sp.x, dy = pt.y - sp.y
+                        const threshold = s.elev === point.elev ? MIN_PX_SAME_ELEV : MIN_PX
+                        if (dx * dx + dy * dy < threshold * threshold) { tooClose = true; break }
+                    }
+                    if (!tooClose) selected.push(point)
+                }
                 const group = L.layerGroup()
                 for (const p of selected) {
                     const html = `<div style="position:relative;pointer-events:none;"><div style="width:3px;height:3px;background:#5a4838;border-radius:50%;"></div><span style="position:absolute;top:-8px;left:5px;font-size:9px;color:#5a4838;white-space:nowrap;font-family:sans-serif;line-height:1;">${p.elev}</span></div>`
