@@ -12,7 +12,7 @@ import ConfirmDialog from '@/components/confirm-dialog'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 15
+//const PAGE_SIZE = 15
 
 const STATUS_COLORS: Record<string, string> = {
     'Active':         'rgba(0,200,80,0.9)',
