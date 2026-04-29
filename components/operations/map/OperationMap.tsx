@@ -4,19 +4,23 @@ import { useEffect, useRef } from 'react'
 import type { MapLayer, MapAnnotation, MapPresenceUser, DrawingTool, AnnotationProperties, MapWorld, MapMode } from './types'
 
 // ── GeoJSON layer definitions (rendered in order, back → front) ──────────────
-const GEO_LAYERS: Array<{ path: string; style: Record<string, unknown> }> = [
+// detail:true layers only appear at DETAIL_MIN_ZOOM or closer to avoid rendering
+// thousands of features when zoomed out
+const DETAIL_MIN_ZOOM = -2
+
+const GEO_LAYERS: Array<{ path: string; style: Record<string, unknown>; detail?: boolean }> = [
     { path: 'forest',                 style: { fillColor: '#2a4019', color: '#1e3010', weight: 0.3, fillOpacity: 0.55 } },
     { path: 'mounts',                 style: { fillColor: '#3a3228', color: '#2a2218', weight: 0.5, fillOpacity: 0.25 } },
     { path: 'runway',                 style: { fillColor: '#4a4848', color: '#2a2828', weight: 0.5, fillOpacity: 0.8 } },
-    { path: 'house',                  style: { fillColor: '#6a5a4a', color: '#3a2e24', weight: 0.3, fillOpacity: 0.85 } },
-    { path: 'ruin',                   style: { fillColor: '#4a3a2a', color: '#2a1a0a', weight: 0.3, fillOpacity: 0.5 } },
+    { path: 'house',                  style: { fillColor: '#6a5a4a', color: '#3a2e24', weight: 0.3, fillOpacity: 0.85 }, detail: true },
+    { path: 'ruin',                   style: { fillColor: '#4a3a2a', color: '#2a1a0a', weight: 0.3, fillOpacity: 0.5 }, detail: true },
     { path: 'roads/main_road',        style: { color: '#9a8d6a', weight: 3,   fill: false } },
     { path: 'roads/main_road-bridge', style: { color: '#9a8d6a', weight: 3,   fill: false } },
-    { path: 'roads/road',             style: { color: '#b0a07a', weight: 1.5, fill: false } },
-    { path: 'roads/road-bridge',      style: { color: '#b0a07a', weight: 1.5, fill: false } },
-    { path: 'roads/track',            style: { color: '#a09070', weight: 1,   dashArray: '4,3', fill: false } },
-    { path: 'roads/track-bridge',     style: { color: '#a09070', weight: 1,   fill: false } },
-    { path: 'powerline',              style: { color: '#606060', weight: 0.8, dashArray: '4,4', fill: false } },
+    { path: 'roads/road',             style: { color: '#b0a07a', weight: 1.5, fill: false }, detail: true },
+    { path: 'roads/road-bridge',      style: { color: '#b0a07a', weight: 1.5, fill: false }, detail: true },
+    { path: 'roads/track',            style: { color: '#a09070', weight: 1,   dashArray: '4,3', fill: false }, detail: true },
+    { path: 'roads/track-bridge',     style: { color: '#a09070', weight: 1,   fill: false }, detail: true },
+    { path: 'powerline',              style: { color: '#606060', weight: 0.8, dashArray: '4,4', fill: false }, detail: true },
 ]
 
 async function fetchGzJson(url: string): Promise<unknown> {
@@ -101,7 +105,7 @@ export default function OperationMap({
     const containerRef = useRef<HTMLDivElement>(null)
     const mapRef = useRef<L.Map | null>(null)
     const satOverlaysRef = useRef<L.ImageOverlay[]>([])
-    const geoJsonCacheRef = useRef<Map<string, L.FeatureGroup>>(new Map())
+    const geoJsonCacheRef = useRef<Map<string, { all: L.FeatureGroup; detail: L.FeatureGroup }>>(new Map())
     const lastFitWorldRef = useRef<string | null>(null)
     const annotationLayersRef = useRef<Map<string, L.Layer>>(new Map())
     const peerMarkersRef = useRef<Map<string, L.Marker>>(new Map())
@@ -147,6 +151,16 @@ export default function OperationMap({
 
             mapRef.current = map
 
+            // Toggle detail group visibility on zoom
+            map.on('zoomend', () => {
+                if (mapModeRef.current !== 'map') return
+                const cached = geoJsonCacheRef.current.get(worldRef.current?.name ?? '')
+                if (!cached) return
+                const show = map.getZoom() >= DETAIL_MIN_ZOOM
+                if (show && !map.hasLayer(cached.detail)) cached.detail.addTo(map)
+                else if (!show && map.hasLayer(cached.detail)) map.removeLayer(cached.detail)
+            })
+
             const w = worldRef.current
             if (w) {
                 await applyContent(L, map, w, mapModeRef.current)
@@ -181,7 +195,10 @@ export default function OperationMap({
         satOverlaysRef.current.forEach(o => map.removeLayer(o))
         satOverlaysRef.current = []
         // Hide all cached GeoJSON groups (don't destroy — keep for re-use)
-        geoJsonCacheRef.current.forEach(g => { if (map.hasLayer(g)) map.removeLayer(g) })
+        geoJsonCacheRef.current.forEach(c => {
+            if (map.hasLayer(c.all)) map.removeLayer(c.all)
+            if (map.hasLayer(c.detail)) map.removeLayer(c.detail)
+        })
 
         if (!w) return
 
@@ -201,23 +218,32 @@ export default function OperationMap({
             }
         } else {
             // mode === 'map': load GeoJSON layers (cached per world)
-            let group = geoJsonCacheRef.current.get(w.name)
-            if (!group) {
+            let cached = geoJsonCacheRef.current.get(w.name)
+            if (!cached) {
                 const renderer = L.canvas()
-                group = L.featureGroup()
-                await Promise.all(GEO_LAYERS.map(async ({ path, style }) => {
+                const all = L.featureGroup()
+                const detail = L.featureGroup()
+                await Promise.all(GEO_LAYERS.map(async ({ path, style, detail: isDetail }) => {
                     const data = await fetchGzJson(`/maps/${w.name}/geojson/${path}.geojson.gz`)
                     if (data) {
+                        const target = isDetail ? detail : all
                         L.geoJSON(
                             data as GeoJSON.FeatureCollection,
-                            // renderer isn't in @types/leaflet GeoJSONOptions but works at runtime
-                            Object.assign({} as L.GeoJSONOptions, { renderer, style: style as L.PathOptions }),
-                        ).addTo(group!)
+                            Object.assign({} as L.GeoJSONOptions, {
+                                renderer,
+                                style: style as L.PathOptions,
+                                // Prevent default DOM markers — render points as canvas circles instead
+                                pointToLayer: (_: unknown, latlng: L.LatLng) =>
+                                    L.circleMarker(latlng, Object.assign({ renderer, radius: 2 }, style as L.CircleMarkerOptions)),
+                            }),
+                        ).addTo(target)
                     }
                 }))
-                geoJsonCacheRef.current.set(w.name, group)
+                cached = { all, detail }
+                geoJsonCacheRef.current.set(w.name, cached)
             }
-            group.addTo(map)
+            cached.all.addTo(map)
+            if (map.getZoom() >= DETAIL_MIN_ZOOM) cached.detail.addTo(map)
         }
 
         // Only re-fit when the world changes, not on mode toggle
