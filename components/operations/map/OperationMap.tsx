@@ -10,9 +10,9 @@ const DETAIL_MIN_ZOOM = -2
 
 interface LabelStyle { fontSize: number; color: string; fontWeight?: number; outlineColor?: string }
 
-const GEO_LAYERS: Array<{ path: string; style: Record<string, unknown>; detail?: boolean; labelStyle?: LabelStyle }> = [
+const GEO_LAYERS: Array<{ path: string; style: Record<string, unknown>; detail?: boolean; labelStyle?: LabelStyle; spotHeight?: boolean }> = [
     { path: 'forest',                 style: { fillColor: '#2a4019', color: '#1e3010', weight: 0.3, fillOpacity: 0.55 } },
-    { path: 'mounts',                 style: { fillColor: '#3a3228', color: '#2a2218', weight: 0.5, fillOpacity: 0.25 } },
+    { path: 'mounts',                 style: {}, detail: true, spotHeight: true },
     { path: 'runway',                 style: { fillColor: '#4a4848', color: '#2a2828', weight: 0.5, fillOpacity: 0.8 } },
     { path: 'house',                  style: { fillColor: '#6a5a4a', color: '#3a2e24', weight: 0.3, fillOpacity: 0.85 }, detail: true },
     { path: 'ruin',                   style: { fillColor: '#4a3a2a', color: '#2a1a0a', weight: 0.3, fillOpacity: 0.5 }, detail: true },
@@ -285,7 +285,7 @@ export default function OperationMap({
                     }
                 }
 
-                await Promise.all(GEO_LAYERS.map(async ({ path, style, detail: isDetail, labelStyle }) => {
+                await Promise.all(GEO_LAYERS.map(async ({ path, style, detail: isDetail, labelStyle, spotHeight }) => {
                     const data = await fetchGzJson(`/maps/${w.name}/geojson/${path}.geojson.gz`)
                     if (data) {
                         const target = isDetail ? detail : all
@@ -303,6 +303,12 @@ export default function OperationMap({
                                         const html = `<span style="color:${ls.color};font-size:${ls.fontSize}px;font-weight:${ls.fontWeight ?? 500};text-shadow:${shadow};white-space:nowrap;pointer-events:none;font-family:sans-serif;">${name}</span>`
                                         const icon = L.divIcon({ className: '', html, iconAnchor: [0, ls.fontSize / 2] })
                                         return L.marker(latlng, { icon, interactive: false })
+                                    }
+                                    if (spotHeight) {
+                                        const elev = Math.round((feature as GeoJSON.Feature)?.properties?.elevation ?? 0)
+                                        if (!elev) return L.circleMarker(latlng, { renderer, radius: 0, opacity: 0, fillOpacity: 0 })
+                                        const html = `<div style="position:relative;pointer-events:none;"><div style="width:3px;height:3px;background:#5a4838;border-radius:50%;"></div><span style="position:absolute;top:-8px;left:5px;font-size:9px;color:#5a4838;white-space:nowrap;font-family:sans-serif;line-height:1;">${elev}</span></div>`
+                                        return L.marker(latlng, { icon: L.divIcon({ className: '', html, iconAnchor: [1, 2] }), interactive: false })
                                     }
                                     return L.circleMarker(latlng, Object.assign({ renderer, radius: 2 }, style as L.CircleMarkerOptions))
                                 },
