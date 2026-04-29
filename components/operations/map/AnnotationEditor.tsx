@@ -25,8 +25,8 @@ const METIS_MOD2 = [
 // ── METIS image helpers ───────────────────────────────────────────────────────
 
 const BASE = '/markers/metis'
-const METIS_W = 180
-const METIS_H = 225
+const METIS_W = 214
+const METIS_H = 264
 const ls: React.CSSProperties = { position: 'absolute', inset: 0, width: '100%', height: '100%' }
 
 function MetisFilterDefs() {

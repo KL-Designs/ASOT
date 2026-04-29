@@ -16,8 +16,8 @@ const BASE = '/markers/metis'
 const layerStyle: React.CSSProperties = { position: 'absolute', inset: 0, width: '100%', height: '100%' }
 
 // Images are 180x225px — use this ratio for containers so compositing is undistorted
-const METIS_W = 180
-const METIS_H = 225
+const METIS_W = 214
+const METIS_H = 264
 
 // SVG feColorMatrix tints: maps black → faction color, white stays white
 // Each filter ID is metis-tint-{sideKey}
