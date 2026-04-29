@@ -13,8 +13,6 @@ import PERMISSIONS from '@/lib/permissions'
 import AttendanceDrawer from '@/components/operations/AttendanceDrawer'
 import ZeusNotesPanel from './ZeusNotesPanel'
 import OperationStatusBar from '@/components/operations/OperationStatusBar'
-import MapSection from '@/components/operations/map/MapSection'
-import { getAvailableWorlds } from '@/lib/maps'
 
 
 function hexToRgb(hex: string) {
@@ -34,7 +32,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         Db.operations.findOne({ _id: new ObjectId(id) }),
         client.fetchMe().catch(() => null),
     ])
-    const availableWorlds = getAvailableWorlds()
     const isLoggedIn = !!me
     const isHQ = me ? client.hasRoles(me, PERMISSIONS.pages.operationsEdit) : false
     const isAllStaff = me ? client.hasRoles(me, PERMISSIONS.attendance.confirm) : false
@@ -696,33 +693,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 isAllStaff={isAllStaff}
                 themeColor={operation.themeColor || '#db001d'}
             />
-            </div>
-
-            {/* Map section — full width below the orders + sidebar row */}
-            <div className='print-hide w-full max-w-[1800px] mx-auto px-4 md:px-8 pb-16'>
-                <div style={{
-                    borderTop: `1px solid ${c(0.15)}`,
-                    paddingTop: 32,
-                    marginTop: 16,
-                }}>
-                    <div style={{
-                        fontSize: '0.6rem',
-                        fontWeight: 700,
-                        letterSpacing: '0.22em',
-                        textTransform: 'uppercase',
-                        color: c(0.45),
-                        marginBottom: 12,
-                    }}>
-                        Operation Map
-                    </div>
-                    <div style={{ height: '70vh', border: `1px solid ${c(0.18)}`, borderRadius: 4, overflow: 'hidden' }}>
-                        <MapSection
-                            operationId={id}
-                            canEdit={isHQ}
-                            availableWorlds={availableWorlds}
-                        />
-                    </div>
-                </div>
             </div>
 
         </div>

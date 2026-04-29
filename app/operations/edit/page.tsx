@@ -13,7 +13,6 @@ import PERMISSIONS from '@/lib/permissions'
 import { type MetaFields } from './editor'
 import ActivityLog from './activity-log'
 const OperationEditor = dynamic(() => import('./editor'), { ssr: false })
-const MapSection = dynamic(() => import('@/components/operations/map/MapSection'), { ssr: false })
 
 type AttendanceStage = 'preparing' | 'rsvp_open' | 'rsvp_closed' | 'op_running' | 'confirmations_open' | 'completed'
 
@@ -74,8 +73,6 @@ export default function Page() {
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [previewOpen, setPreviewOpen] = useState(false)
     const [activityOpen, setActivityOpen] = useState(false)
-    const [editTab, setEditTab] = useState<'orders' | 'map'>('orders')
-    const [availableWorlds, setAvailableWorlds] = useState<import('@/components/operations/map/types').MapWorld[]>([])
     const router = useRouter()
 
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
@@ -162,10 +159,6 @@ export default function Page() {
             .then(r => r.json())
             .then(json => { if (!json.error) setIsHQ(json.access) })
 
-        fetch('/api/operations/maps')
-            .then(r => r.json())
-            .then(worlds => setAvailableWorlds(worlds))
-            .catch(() => {})
 
         fetch(`/api/operations?id=${id}`)
             .then(r => r.json())
@@ -445,27 +438,28 @@ export default function Page() {
                             </Link>
                         </>
                     )}
-                    <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
-                    {(['orders', 'map'] as const).map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => setEditTab(tab)}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                padding: '2px 0',
-                                fontSize: '0.68rem',
-                                fontWeight: 700,
-                                letterSpacing: '0.14em',
-                                textTransform: 'uppercase',
-                                color: editTab === tab ? c(0.9) : 'rgba(237,237,237,0.3)',
-                                cursor: 'pointer',
-                                borderBottom: editTab === tab ? `2px solid ${c(0.7)}` : '2px solid transparent',
-                            }}
-                        >
-                            {tab === 'orders' ? 'Orders' : 'Map'}
-                        </button>
-                    ))}
+                    {opID && (
+                        <>
+                            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
+                            <Link
+                                href={`/operations/${opID}/map`}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: '2px 0',
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    letterSpacing: '0.14em',
+                                    textTransform: 'uppercase',
+                                    color: 'rgba(237,237,237,0.3)',
+                                    textDecoration: 'none',
+                                    borderBottom: '2px solid transparent',
+                                }}
+                            >
+                                Map ↗
+                            </Link>
+                        </>
+                    )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor }}>
@@ -1083,16 +1077,8 @@ export default function Page() {
                 )
             })()}
 
-            {/* Document sections / Map */}
-            {editTab === 'map' && opID ? (
-                <div style={{ height: '75vh', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-                    <MapSection
-                        operationId={opID}
-                        canEdit={isHQ}
-                        availableWorlds={availableWorlds}
-                    />
-                </div>
-            ) : loaded ? (
+            {/* Document sections */}
+            {loaded ? (
                 <OperationEditor
                     operationId={opID}
                     initialContent={initialContent}
