@@ -13,7 +13,6 @@ function uid() {
 const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS_URL || 'ws://localhost:3000/collab'
 
 export interface MapYjsState {
-    worldName: string | null
     layers: MapLayer[]
     annotations: MapAnnotation[]
     peers: MapPresenceUser[]
@@ -21,7 +20,6 @@ export interface MapYjsState {
 }
 
 export interface MapYjsActions {
-    setWorldName: (name: string | null) => void
     addLayer: (name: string, color?: string) => string
     updateLayer: (id: string, patch: Partial<Omit<MapLayer, 'id'>>) => void
     removeLayer: (id: string) => void
@@ -70,7 +68,6 @@ function readAnnotations(ydoc: Y.Doc): MapAnnotation[] {
 export function useMapYjs(operationId: string, canEdit: boolean): [MapYjsState, MapYjsActions] {
     const [ydoc] = useState(() => new Y.Doc())
     const [state, setState] = useState<MapYjsState>({
-        worldName: null,
         layers: [],
         annotations: [],
         peers: [],
@@ -80,10 +77,8 @@ export function useMapYjs(operationId: string, canEdit: boolean): [MapYjsState, 
 
     // Sync Yjs state → React state
     const sync = useCallback(() => {
-        const meta = ydoc.getMap<string>('mapMeta')
         setState(prev => ({
             ...prev,
-            worldName: meta.get('worldName') ?? null,
             layers: readLayers(ydoc),
             annotations: readAnnotations(ydoc),
         }))
@@ -92,12 +87,10 @@ export function useMapYjs(operationId: string, canEdit: boolean): [MapYjsState, 
     useEffect(() => {
         let destroyed = false
 
-        const meta = ydoc.getMap('mapMeta')
         const layers = ydoc.getMap('mapLayers')
         const layerOrder = ydoc.getArray('mapLayerOrder')
         const annotations = ydoc.getMap('mapAnnotations')
 
-        meta.observe(sync)
         layers.observeDeep(sync)
         layerOrder.observe(sync)
         annotations.observeDeep(sync)
@@ -154,7 +147,6 @@ export function useMapYjs(operationId: string, canEdit: boolean): [MapYjsState, 
 
         return () => {
             destroyed = true
-            meta.unobserve(sync)
             layers.unobserveDeep(sync)
             layerOrder.unobserve(sync)
             annotations.unobserveDeep(sync)
@@ -166,11 +158,6 @@ export function useMapYjs(operationId: string, canEdit: boolean): [MapYjsState, 
     // ── Actions ────────────────────────────────────────────────────────────────
 
     const actions: MapYjsActions = {
-        setWorldName(name) {
-            if (!canEdit) return
-            ydoc.getMap<string>('mapMeta').set('worldName', name ?? '')
-        },
-
         addLayer(name, color = '#3498db') {
             if (!canEdit) return ''
             const id = uid()

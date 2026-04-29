@@ -11,15 +11,14 @@ const OperationMap = dynamic(() => import('./OperationMap'), { ssr: false })
 interface Props {
     operationId: string
     canEdit: boolean
-    availableWorlds: MapWorld[]
+    world: MapWorld | null
 }
 
-export default function MapSection({ operationId, canEdit, availableWorlds }: Props) {
+export default function MapSection({ operationId, canEdit, world }: Props) {
     const [state, actions] = useMapYjs(operationId, canEdit)
     const [activeLayerId, setActiveLayerId] = useState<string | null>(null)
     const [activeTool, setActiveTool] = useState<DrawingTool>(null)
     const [activeColor, setActiveColor] = useState('#db001d')
-    const [worldPickerOpen, setWorldPickerOpen] = useState(false)
     const [mapMode, setMapMode] = useState<MapMode>('map')
 
     // Auto-select first layer when layers load
@@ -28,8 +27,6 @@ export default function MapSection({ operationId, canEdit, availableWorlds }: Pr
             setActiveLayerId(state.layers[0].id)
         }
     }, [state.layers, activeLayerId])
-
-    const currentWorld = availableWorlds.find(w => w.name === state.worldName) ?? null
 
     const handleAnnotationAdd = useCallback((type: DrawingTool, geometry: number[][], properties: any) => {
         if (!activeLayerId || !type) return
@@ -67,59 +64,13 @@ export default function MapSection({ operationId, canEdit, availableWorlds }: Pr
                 color: '#eee',
                 flexShrink: 0,
             }}>
-                {/* World selector */}
-                <div style={{ position: 'relative' }}>
-                    <button
-                        onClick={() => canEdit && setWorldPickerOpen(v => !v)}
-                        style={{
-                            background: 'rgba(255,255,255,0.06)',
-                            border: '1px solid rgba(255,255,255,0.12)',
-                            color: '#eee',
-                            borderRadius: 4,
-                            padding: '4px 10px',
-                            cursor: canEdit ? 'pointer' : 'default',
-                            fontSize: 12,
-                        }}
-                    >
-                        {currentWorld?.displayName ?? 'No map selected'} {canEdit ? '▾' : ''}
-                    </button>
-                    {worldPickerOpen && canEdit && (
-                        <div style={{
-                            position: 'absolute',
-                            top: '100%',
-                            left: 0,
-                            marginTop: 4,
-                            background: '#1a1a1a',
-                            border: '1px solid rgba(255,255,255,0.12)',
-                            borderRadius: 4,
-                            zIndex: 1000,
-                            minWidth: 160,
-                        }}>
-                            {availableWorlds.map(w => (
-                                <div
-                                    key={w.name}
-                                    onClick={() => { actions.setWorldName(w.name); setWorldPickerOpen(false) }}
-                                    style={{
-                                        padding: '7px 12px',
-                                        cursor: 'pointer',
-                                        background: state.worldName === w.name ? 'rgba(255,255,255,0.08)' : 'transparent',
-                                        fontSize: 13,
-                                    }}
-                                >
-                                    {w.displayName}
-                                </div>
-                            ))}
-                            {availableWorlds.length === 0 && (
-                                <div style={{ padding: '7px 12px', color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-                                    No maps available — add tile folders to /public/maps/
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
+                {/* World label */}
+                <span style={{ fontSize: 12, color: world ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)', fontWeight: 600, letterSpacing: '0.04em' }}>
+                    {world?.displayName ?? 'No map configured'}
+                </span>
 
-                {/* SAT / MAP / TERRAIN toggle */}
-                {currentWorld?.hasGeoJSON && (
+                {/* MAP / SAT / TERRAIN toggle */}
+                {world?.hasGeoJSON && (
                     <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 4, padding: 2 }}>
                         {(['map', 'sat', ...(currentWorld.hasTerrain ? ['terrain'] : [])] as MapMode[]).map(m => (
                             <button
@@ -187,7 +138,7 @@ export default function MapSection({ operationId, canEdit, availableWorlds }: Pr
             {/* Map + Layers panel */}
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
                 <div style={{ flex: 1, position: 'relative' }}>
-                    {!currentWorld && (
+                    {!world && (
                         <div style={{
                             position: 'absolute',
                             inset: 0,
@@ -199,11 +150,11 @@ export default function MapSection({ operationId, canEdit, availableWorlds }: Pr
                             zIndex: 10,
                             pointerEvents: 'none',
                         }}>
-                            {canEdit ? 'Select a map world using the dropdown above' : 'No map configured for this operation'}
+                            No map configured for this operation
                         </div>
                     )}
                     <OperationMap
-                        world={currentWorld}
+                        world={world}
                         mapMode={mapMode}
                         layers={state.layers}
                         annotations={state.annotations}

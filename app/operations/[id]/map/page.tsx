@@ -13,11 +13,12 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
     await connection()
 
     const [operation, me] = await Promise.all([
-        Db.operations.findOne({ _id: new ObjectId(id) }, { projection: { title: 1, themeColor: 1 } }),
+        Db.operations.findOne({ _id: new ObjectId(id) }, { projection: { title: 1, themeColor: 1, mapWorld: 1 } }),
         client.fetchMe().catch(() => null),
     ])
 
     const availableWorlds = getAvailableWorlds()
+    const world = availableWorlds.find(w => w.name === (operation?.mapWorld ?? '')) ?? null
     const isHQ = me ? client.hasRoles(me, PERMISSIONS.pages.operationsEdit) : false
     const themeColor = operation?.themeColor || '#db001d'
 
@@ -72,7 +73,7 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
                 <MapSection
                     operationId={id}
                     canEdit={isHQ}
-                    availableWorlds={availableWorlds}
+                    world={world}
                 />
             </div>
         </div>

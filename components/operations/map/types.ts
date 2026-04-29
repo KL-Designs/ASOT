@@ -40,6 +40,7 @@ export interface MapWorld {
     hasTerrain: boolean    // terrain.png generated from DEM
     hasCoastline: boolean  // coastline.png — binary land/ocean mask for map mode
     hasContours: boolean   // contours.geojson.gz generated from DEM
+    hasPreview: boolean    // preview.png — thumbnail shown in the edit page selector
     colorOutside?: [number, number, number, number]  // RGBA 0–1, used as bg in map mode
 }
 

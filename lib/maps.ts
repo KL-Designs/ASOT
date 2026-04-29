@@ -23,6 +23,7 @@ export function getAvailableWorlds(): MapWorld[] {
         const hasTerrain    = existsSync(join(worldDir, 'terrain.png'))
         const hasCoastline  = existsSync(join(worldDir, 'coastline.png'))
         const hasContours   = existsSync(join(worldDir, 'contours.geojson.gz'))
+        const hasPreview    = existsSync(join(worldDir, 'preview.png'))
 
         const metaPath = join(worldDir, 'meta.json')
         let displayName = entry.name
@@ -38,7 +39,7 @@ export function getAvailableWorlds(): MapWorld[] {
                 }
             } catch {}
         }
-        worlds.push({ name: entry.name, displayName, worldSize, satTiles, hasGeoJSON, hasTerrain, hasCoastline, hasContours, colorOutside })
+        worlds.push({ name: entry.name, displayName, worldSize, satTiles, hasGeoJSON, hasTerrain, hasCoastline, hasContours, hasPreview, colorOutside })
     }
     return worlds
 }

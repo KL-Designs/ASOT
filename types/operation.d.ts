@@ -159,6 +159,7 @@ declare global {
         themeColor?: string
         pageTheme?: 'modern' | 'oldfashioned' | 'scifi'
         coverImage?: string
+        mapWorld?: string
 
         // Convenience mirror of OperationAttendance.assignedPlatoons
         assignedPlatoons?: string[]
