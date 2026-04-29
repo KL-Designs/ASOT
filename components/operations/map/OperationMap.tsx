@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { MapLayer, MapAnnotation, MapPresenceUser, DrawingTool, AnnotationProperties, MapWorld, MapMode, A3ToolProps } from './types'
-import { A3_MARKER_COLORS, METIS_ECHELONS, METIS_ICONS, METIS_SIDE_KEY } from './types'
+import { A3_MARKER_COLORS, METIS_ICONS, METIS_SIDE_KEY } from './types'
 
 // ── GeoJSON layer definitions (rendered in order, back → front) ──────────────
 // detail:true layers only appear at DETAIL_MIN_ZOOM or closer to avoid rendering
@@ -49,6 +49,117 @@ function outsideBg(rgba?: [number, number, number, number]): string {
     if (!rgba) return '#2a3040'
     const [r, g, b] = rgba
     return `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, mode: MapMode): void {
+    const size = map.getSize() as { x: number; y: number }
+    if (canvas.width !== size.x || canvas.height !== size.y) {
+        canvas.width  = size.x
+        canvas.height = size.y
+    }
+    const ctx = canvas.getContext('2d')!
+    if (!ctx) return
+    ctx.clearRect(0, 0, size.x, size.y)
+
+    const zoom   = map.getZoom() as number
+    const bounds = map.getBounds()
+    const minX   = bounds.getWest()  as number
+    const maxX   = bounds.getEast()  as number
+    const minY   = bounds.getSouth() as number
+    const maxY   = bounds.getNorth() as number
+
+    const isSat     = mode === 'sat'
+    const lineColor = isSat ? '#ffffff' : '#444444'
+    const showMinor = zoom >= -2
+    const showMicro = zoom >= 1
+
+    // ── Grid lines (extend across full canvas — visually infinite) ──────────────
+    function drawTier(interval: number, skip: number, alpha: number, lw: number, dash: number[]) {
+        ctx.save()
+        ctx.globalAlpha = alpha
+        ctx.strokeStyle = lineColor
+        ctx.lineWidth   = lw
+        ctx.setLineDash(dash)
+        ctx.beginPath()
+        for (let x = Math.floor(minX / interval) * interval; x <= maxX + interval; x += interval) {
+            if (skip > 0 && x % skip === 0) continue
+            const px = (map.latLngToContainerPoint([0, x]) as { x: number }).x
+            ctx.moveTo(px, 0); ctx.lineTo(px, size.y)
+        }
+        for (let y = Math.floor(minY / interval) * interval; y <= maxY + interval; y += interval) {
+            if (skip > 0 && y % skip === 0) continue
+            const py = (map.latLngToContainerPoint([y, 0]) as { y: number }).y
+            ctx.moveTo(0, py); ctx.lineTo(size.x, py)
+        }
+        ctx.stroke()
+        ctx.restore()
+    }
+
+    drawTier(10000, 0,     0.55, 1.4, [])
+    if (showMinor) drawTier(1000, 10000, 0.55, 0.9, [4, 6])
+    if (showMicro) drawTier(100,  1000,  0.42, 0.5, [2, 5])
+
+    // ── Map border ─────────────────────────────────────────────────────────────
+    {
+        const sw = map.latLngToContainerPoint([0, 0])                 as { x: number; y: number }
+        const ne = map.latLngToContainerPoint([worldSize, worldSize]) as { x: number; y: number }
+        ctx.save()
+        ctx.strokeStyle = isSat ? 'rgba(255,255,255,0.9)' : 'rgba(50,50,50,0.9)'
+        ctx.lineWidth   = 2.5
+        ctx.globalAlpha = 1
+        ctx.setLineDash([])
+        ctx.strokeRect(ne.x, ne.y, sw.x - ne.x, sw.y - ne.y)
+        ctx.restore()
+    }
+
+    // ── Edge labels (Arma 3 style grid coords, no background strip) ───────────
+    {
+        const li  = showMicro ? 100 : showMinor ? 1000 : 10000
+        const LH  = 7    // half-height offset from edge
+        const LW  = 12   // half-width offset from edge
+        const FS  = 9
+        const fg  = isSat ? '#ddeeff' : '#111111'
+        const out = isSat ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.75)'
+
+        ctx.save()
+        ctx.font         = `bold ${FS}px monospace`
+        ctx.textBaseline = 'middle'
+        ctx.lineWidth    = 2.5
+        ctx.lineJoin     = 'round'
+
+        function drawLabel(text: string, x: number, y: number) {
+            ctx.strokeStyle = out
+            ctx.strokeText(text, x, y)
+            ctx.fillStyle = fg
+            ctx.fillText(text, x, y)
+        }
+
+        function fmt(v: number): string {
+            return li < 1000
+                ? Math.round(v / 100).toString().padStart(3, '0')
+                : Math.round(v / 1000).toString().padStart(2, '0')
+        }
+
+        // X axis labels — top + bottom edges
+        ctx.textAlign = 'center'
+        for (let x = Math.floor(minX / li) * li; x <= maxX + li; x += li) {
+            const px = (map.latLngToContainerPoint([0, x]) as { x: number }).x
+            if (px < LW || px > size.x - LW) continue
+            drawLabel(fmt(x), px, LH)
+            drawLabel(fmt(x), px, size.y - LH)
+        }
+
+        // Y axis labels — left + right edges
+        for (let y = Math.floor(minY / li) * li; y <= maxY + li; y += li) {
+            const py = (map.latLngToContainerPoint([y, 0]) as { y: number }).y
+            if (py < LH || py > size.y - LH) continue
+            drawLabel(fmt(y), LW, py)
+            drawLabel(fmt(y), size.x - LW, py)
+        }
+
+        ctx.restore()
+    }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -121,13 +232,6 @@ function makeA3MetisDivIcon(L: any, ann: MapAnnotation, selected = false): any {
     return L.divIcon({ className: '', html, iconSize: [w, h], iconAnchor: [Math.round(w / 2), Math.round(h / 2)] })
 }
 
-const DEFAULT_PROPS: AnnotationProperties = {
-    color: '#db001d',
-    weight: 2,
-    fillColor: '#db001d',
-    fillOpacity: 0.2,
-}
-
 interface Props {
     world: MapWorld | null
     mapMode: MapMode
@@ -146,16 +250,6 @@ interface Props {
     onAnnotationSelect: (id: string | null) => void
     onCursorMove: (pos: [number, number] | null) => void
     onToolDone: () => void
-}
-
-// Converts Arma3 coords to Leaflet LatLng (metres → degrees using Simple CRS scaling)
-// Leaflet CRS.Simple treats lat/lng as direct pixel coords, so we use [y, x] (lat = northing = y)
-function armaToLatLng(x: number, y: number): [number, number] {
-    return [y, x]
-}
-
-function latLngToArma(lat: number, lng: number): [number, number] {
-    return [lng, lat]
 }
 
 // Build Leaflet path options from annotation properties and layer color
@@ -177,7 +271,6 @@ export default function OperationMap({
     annotations,
     peers,
     activeTool,
-    activeLayerId,
     activeColor,
     activeA3Props,
     canEdit,
@@ -200,6 +293,8 @@ export default function OperationMap({
     const spotHeightsDataRef = useRef<Array<{ latlng: any; elev: number }>>([])
     const spotHeightGroupRef = useRef<any>(null)
     const updateSpotHeightsRef = useRef<(() => void) | null>(null)
+    const gridCanvasRef = useRef<HTMLCanvasElement | null>(null)
+    const syncGridRef   = useRef<(() => void) | null>(null)
     // Always-current refs so the async init callback can read them without deps
     const worldRef = useRef(world)
     worldRef.current = world
@@ -302,6 +397,26 @@ export default function OperationMap({
             mapRef.current = map
             if (canEditRef.current) map.doubleClickZoom.disable()
 
+            L.control.scale({ imperial: false, metric: true, position: 'bottomright' }).addTo(map)
+
+            // Grid canvas is React-rendered as a DOM sibling after the map div,
+            // so it naturally stacks above Leaflet's stacking contexts.
+            function redrawGrid() {
+                const c = gridCanvasRef.current
+                const m = mapRef.current
+                if (!c || !m) return
+                const w = worldRef.current
+                if (!w) {
+                    const s = m.getSize() as { x: number; y: number }
+                    if (c.width !== s.x || c.height !== s.y) { c.width = s.x; c.height = s.y }
+                    c.getContext('2d')?.clearRect(0, 0, c.width, c.height)
+                    return
+                }
+                drawGridCanvas(c, m, w.worldSize, mapModeRef.current)
+            }
+            syncGridRef.current = redrawGrid
+            map.on('move zoomend resize', redrawGrid)
+
             // Right-click: delete hovered annotation (suppress browser context menu)
             const el = containerRef.current
             el.addEventListener('contextmenu', e => {
@@ -313,10 +428,16 @@ export default function OperationMap({
                 }
             })
 
-            // Terrain image pane sits below vector overlays
+            // terrainPane (350): base images (terrain.png, coastline.png)
+            // mapContent  (360): sat tiles + GeoJSON canvas renderer
+            // grid canvas (395): drawn directly on container — above map, below annotations
+            // overlay pane(400): annotations (default Leaflet)
             const tPane = map.createPane('terrainPane')
             tPane.style.zIndex = '350'
             tPane.style.pointerEvents = 'none'
+            const mcPane = map.createPane('mapContent')
+            mcPane.style.zIndex = '360'
+            mcPane.style.pointerEvents = 'none'
 
             // Toggle detail group visibility on zoom
             map.on('zoomend', () => {
@@ -378,7 +499,12 @@ export default function OperationMap({
             spotHeightGroupRef.current = null
         }
 
-        if (!w) return
+        if (!w) { syncGridRef.current?.(); return }
+
+        if (w.name !== lastFitWorldRef.current) {
+            map.fitBounds([[0, 0], [w.worldSize, w.worldSize]])
+            lastFitWorldRef.current = w.name
+        }
 
         spotHeightsDataRef.current = spotHeightsCacheRef.current.get(w.name) ?? []
 
@@ -391,7 +517,7 @@ export default function OperationMap({
                     const southLat = worldSize - (row + 1) * tileM
                     const northLat = worldSize - row * tileM
                     const bounds: L.LatLngBoundsLiteral = [[southLat, col * tileM], [northLat, (col + 1) * tileM]]
-                    const overlay = L.imageOverlay(`/maps/${name}/sat/${col}/${row}.png`, bounds)
+                    const overlay = L.imageOverlay(`/maps/${name}/sat/${col}/${row}.png`, bounds, { pane: 'mapContent' })
                     overlay.addTo(map)
                     satOverlaysRef.current.push(overlay)
                 }
@@ -401,7 +527,7 @@ export default function OperationMap({
             const cacheKey = `${w.name}-${mode}`
             let cached = geoJsonCacheRef.current.get(cacheKey)
             if (!cached) {
-                const renderer = L.canvas()
+                const renderer = L.canvas({ pane: 'mapContent' })
                 const all = L.featureGroup()
                 const detail = L.featureGroup()
 
@@ -501,11 +627,8 @@ export default function OperationMap({
             updateSpotHeightsRef.current?.()
         }
 
-        // Only re-fit when the world changes, not on mode toggle
-        if (w.name !== lastFitWorldRef.current) {
-            map.fitBounds([[0, 0], [w.worldSize, w.worldSize]])
-            lastFitWorldRef.current = w.name
-        }
+        // Sync grid pane visibility now that zoom is settled
+        syncGridRef.current?.()
     }
 
     // ── Render annotations ───────────────────────────────────────────────────
@@ -868,7 +991,7 @@ export default function OperationMap({
 
     const bg = mapMode === 'sat' ? '#1a1a1a'
              : mapMode === 'terrain' ? outsideBg(world?.colorOutside)
-             : '#b0d8e8'  // map mode: light blue ocean
+             : '#3a6a8a'  // map mode: ocean blue
 
     const isDrawingMode = activeTool && activeTool !== 'a3icon' && activeTool !== 'a3metis'
 
@@ -923,11 +1046,22 @@ export default function OperationMap({
                 <filter id="metis-tint-unk"><feColorMatrix type="matrix" values="1.000 0 0 0 0  1.000 0 0 0 0  0.502 0 0 0 0  0 0 0 1 0" /></filter>
             </defs>
         </svg>
-        <div
-            ref={containerRef}
-            onDragOver={e => e.preventDefault()}
-            onDrop={handleDrop}
-            style={{ width: '100%', height: '100%', background: bg, cursor: isDrawingMode ? 'crosshair' : undefined }}
-        />
+        {/* Wrapper provides the stacking context. The canvas comes after the map div
+            in DOM order, so it naturally paints above all Leaflet panes. */}
+        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            {/* zIndex:0 creates a stacking context that contains all Leaflet panes,
+                including .leaflet-map-pane's GPU compositing layer (created by transform).
+                The canvas at zIndex:1 then unambiguously paints above the entire Leaflet tree. */}
+            <div
+                ref={containerRef}
+                onDragOver={e => e.preventDefault()}
+                onDrop={handleDrop}
+                style={{ position: 'absolute', inset: 0, zIndex: 0, background: bg, cursor: isDrawingMode ? 'crosshair' : undefined }}
+            />
+            <canvas
+                ref={gridCanvasRef}
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1 }}
+            />
+        </div>
     </>)
 }
