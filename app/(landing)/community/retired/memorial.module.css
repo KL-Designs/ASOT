@@ -1,0 +1,232 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&display=swap');
+
+/* ── Small member plaque ─────────────────────────────────────────────────── */
+.plaque {
+  position: relative;
+  background-image: url('/memorial/plaque-sm.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-color: #7a5530;
+  box-shadow: 2px 3px 10px rgba(0,0,0,0.50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  /* Force GPU compositing so the plaque image renders crisp during parent zoom */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition: box-shadow .16s ease;   /* only box-shadow transitions; transform managed separately */
+}
+
+.plaque:hover {
+  transform: translateY(-2px) translateZ(0);
+  -webkit-transform: translateY(-2px) translateZ(0);
+  box-shadow: 3px 6px 16px rgba(0,0,0,0.60);
+}
+
+/* ── Large centre plaque ─────────────────────────────────────────────────── */
+.centrePlaque {
+  position: relative;
+  background-image: url('/memorial/plaque-lg.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-color: #7a5530;
+  box-shadow: 4px 6px 22px rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  flex-shrink: 0;
+  /* Same GPU compositing fix */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* ── Plaque text — engraved serif, black, centred ────────────────────────── */
+.plaqueText {
+  font-family: 'Cinzel', 'Trajan Pro', 'Times New Roman', serif;
+  text-align: center;
+  text-transform: uppercase;
+  color: #000000 !important;
+  text-shadow:
+    0 1px 0 rgba(255,255,255,0.15),
+    0 -1px 1px rgba(0,0,0,0.80);
+  line-height: 1.3;
+  padding: 0 8px;
+  pointer-events: none;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Member name — same weight as centre plaque body (not bold) */
+.plaqueName {
+  display: block;
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 0.10em;
+  line-height: 1.2;
+  text-align: center;
+  width: 100%;
+  color: #000000 !important;
+  /* Tighter shadow for small text — mirrors the centre plaque at proportional scale */
+  text-shadow:
+    0 0.5px 0 rgba(255,255,255,0.14),
+    0 -0.5px 0.5px rgba(0,0,0,0.80);
+}
+
+.plaqueYears {
+  display: block;
+  font-size: 6.5px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  margin-top: 3px;
+  text-align: center;
+  width: 100%;
+  color: #000000 !important;
+  text-shadow:
+    0 0.5px 0 rgba(255,255,255,0.14),
+    0 -0.5px 0.5px rgba(0,0,0,0.80);
+}
+
+/* ── Centre plaque text — three lines, centred ───────────────────────────── */
+.centrePlaqueText {
+  font-family: 'Cinzel', 'Trajan Pro', 'Times New Roman', serif;
+  text-align: center;
+  text-transform: uppercase;
+  color: #000000 !important;
+  pointer-events: none;
+  /* Fill the plaque with safe inset for border/rivet area */
+  width: 80%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  /* Box-sizing so width calculation is predictable */
+  box-sizing: border-box;
+}
+
+/* "ASOT" — same weight as body, slightly larger */
+.centrePlaqueTitle {
+  display: block;
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: 0.28em;
+  line-height: 1;
+  text-align: center;
+  width: 100%;
+  color: #000000 !important;
+  text-shadow:
+    0 1px 0 rgba(255,255,255,0.15),
+    0 -1px 1px rgba(0,0,0,0.80);
+}
+
+/* Body lines */
+.centrePlaqueBody {
+  display: block;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.10em;
+  line-height: 1.4;
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  color: #000000 !important;
+  text-shadow:
+    0 1px 0 rgba(255,255,255,0.15),
+    0 -1px 1px rgba(0,0,0,0.80);
+}
+
+/* ── Edge-scroll arrow hints ─────────────────────────────────────────────── */
+.edgeHint {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 20;
+  font-size: 1.2rem;
+  color: rgba(38,28,16,.16);
+  transition: color .25s;
+}
+
+.edgeHintActive {
+  color: rgba(38,28,16,.50);
+}
+
+.edgeLeft  { left: 0;  }
+.edgeRight { right: 0; }
+
+/* ── Hint bar ────────────────────────────────────────────────────────────── */
+.hintBar {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 0.56rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* ── MilPAC modal ────────────────────────────────────────────────────────── */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.58);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 100;
+}
+
+.modalBox {
+  width: min(560px, 100%);
+  max-height: 80vh;
+  overflow-y: auto;
+  background: #f2ede3;
+  border: 1px solid rgba(50,38,26,0.36);
+  box-shadow: 0 24px 72px rgba(0,0,0,0.55);
+  padding: 28px 32px;
+  color: #1a140c;
+}
+
+.modalName {
+  font-family: 'Cinzel', serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: #17120d;
+  text-shadow:
+    0 1px 0 rgba(255,255,255,0.15),
+    0 -1px 1px rgba(0,0,0,0.40);
+  margin: 0 0 4px;
+}
+
+.modalYears {
+  font-family: 'Cinzel', serif;
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0.10em;
+  color: rgba(26,20,12,0.48);
+  margin-bottom: 20px;
+  text-transform: uppercase;
+}
+
+.noMilpac {
+  font-size: 0.80rem;
+  color: rgba(26,20,12,0.42);
+  font-style: italic;
+  padding: 24px 0;
+  text-align: center;
+  font-family: system-ui, sans-serif;
+}

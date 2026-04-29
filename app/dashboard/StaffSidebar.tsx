@@ -426,10 +426,11 @@ export default function StaffSidebar({
                 {
                     label: '[J3] Training', href: '/dashboard/j3', visible: permissions.canSeeJ3, icon: <School sx={{ fontSize: 14 }} />,
                     tabs: [
-                        { label: 'Qual Tickets',   tab: 0 },
-                        { label: 'Promo Tickets',  tab: 1 },
-                        { label: 'Training Sched', tab: 2 },
-                        { label: 'Meetings',       tab: 3 },
+                        { label: 'Qual Tickets',      tab: 0 },
+                        { label: 'Promo Tickets',     tab: 1 },
+                        { label: 'Training Sched',    tab: 2 },
+                        { label: 'Training Records',  tab: 3 },
+                        { label: 'Meetings',          tab: 4 },
                     ],
                 },
                 {
@@ -478,7 +479,7 @@ export default function StaffSidebar({
                 { label: 'Calendar',      href: '/dashboard/unit/calendar',      visible: true,                    icon: <CalendarMonth sx={{ fontSize: 14 }} /> },
                 { label: 'Training Docs', href: '/dashboard/unit/training-docs', visible: true,                    icon: <MenuBook sx={{ fontSize: 14 }} /> },
                 { label: 'SOPs',          href: '/dashboard/unit/sops',          visible: true,                    icon: <Policy sx={{ fontSize: 14 }} /> },
-                { label: 'Tickets',       href: '/dashboard/unit/tickets',       visible: permissions.isStaff,     icon: <ConfirmationNumber sx={{ fontSize: 14 }} /> },
+                { label: 'Tickets',       href: '/community/tickets',            visible: true,                    icon: <ConfirmationNumber sx={{ fontSize: 14 }} /> },
                 { label: 'Tasks',         href: '/dashboard/tasks',              visible: permissions.isStaff,     icon: <TaskAlt sx={{ fontSize: 14 }} /> },
             ],
         },

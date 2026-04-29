@@ -37,6 +37,10 @@ const DbInterface = {
     feedback: client.db(process.env.MONGO_DB!).collection('feedback') as MongoCollection<Feedback>,
     feedbackComments: client.db(process.env.MONGO_DB!).collection('feedback_comments') as MongoCollection<FeedbackComment>,
     driversLicense: client.db(process.env.MONGO_DB!).collection('drivers_license') as MongoCollection<DriverLicenseEntry>,
+    retiredMembers: client.db(process.env.MONGO_DB!).collection('retired_members') as MongoCollection<RetiredMember>,
+    quizAttempts: client.db(process.env.MONGO_DB!).collection('quiz_attempts') as MongoCollection<QuizAttempt>,
+    communityTickets: client.db(process.env.MONGO_DB!).collection('community_tickets') as MongoCollection<CommunityTicket>,
+    communityTicketComments: client.db(process.env.MONGO_DB!).collection('community_ticket_comments') as MongoCollection<CommunityTicketComment>,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,

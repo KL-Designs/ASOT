@@ -1,0 +1,144 @@
+import { ObjectId } from 'mongodb'
+
+export { }
+
+declare global {
+
+    type CommunityTicketCategory =
+        | 'request'
+        | 'bug'
+        | 'mission'
+        | 'campaign'
+        | 'unit-feedback'
+        | 'complaint'
+        | 'award'
+
+    type CommunityTicketSubtype =
+        | 'mod-request'
+        | 'feature-request'
+        | 'bug-arma'
+        | 'bug-discord'
+        | 'bug-website'
+        | 'bug-milpack'
+        | 'bug-teamspeak'
+        | 'bug-other-game'
+        | 'bug-other'
+        | 'mission'
+        | 'campaign'
+        | 'unit-feedback'
+        | 'complaint-individual'
+        | 'complaint-group'
+        | 'complaint-department'
+        | 'award-nomination'
+        | 'award-creation'
+
+    type CommunityTicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
+
+    type CommunityTicketVisibility = 'public' | 'private'
+
+    interface CommunityTicket {
+        _id: ObjectId
+        category: CommunityTicketCategory
+        subtype: CommunityTicketSubtype
+        visibility: CommunityTicketVisibility
+        status: CommunityTicketStatus
+        title: string
+        description: string
+        authorId: string
+        authorName: string
+        authorAvatarId?: string
+        isAnonymous: boolean
+        createdAt: Date
+        updatedAt: Date
+        isDeleted: boolean
+        deletedAt?: Date
+        deletedById?: string
+        deletedByName?: string
+
+        upvotes: string[]
+        downvotes: string[]
+        voteScore: number
+        commentCount: number
+
+        department: string
+
+        // Request fields
+        modLink?: string
+        game?: string
+        gameOther?: string
+        featureCategory?: string
+        weblink?: string
+        justification?: string
+
+        // Bug fields
+        stepsToReproduce?: string
+        expectedResult?: string
+        actualResult?: string
+        severity?: 'low' | 'medium' | 'high' | 'critical'
+        bugPlatformDetail?: string
+
+        // Mission fields
+        missionForces?: string
+        missionObjectives?: string
+        missionStory?: string
+        missionPlayerExperience?: string
+        missionMechanics?: string
+
+        // Campaign fields
+        campaignPhases?: CampaignPhase[]
+
+        // Unit Feedback fields (private)
+        feedbackCategories?: string[]
+        feedbackType?: 'positive' | 'neutral' | 'negative'
+
+        // Complaint fields (private)
+        complainantName?: string
+        membersInvolved?: string[]
+        isStaffComplaint?: boolean
+        desiredOutcome?: string
+        evidenceAcknowledged?: boolean
+
+        // Award fields (private)
+        nomineeName?: string
+        nomineeRank?: string
+        nominatorName?: string
+        awardType?: string
+        awardCategory?: string
+        awardRequirements?: string
+        awardDesignRef?: string
+
+        attachments: string[]
+        mediaLinks?: string[]
+        otherComments?: string
+
+        activityLog: CommunityTicketActivity[]
+    }
+
+    interface CampaignPhase {
+        title: string
+        description: string
+    }
+
+    interface CommunityTicketComment {
+        _id: ObjectId
+        ticketId: ObjectId
+        authorId: string
+        authorName: string
+        authorAvatarId?: string
+        content: string
+        createdAt: Date
+        updatedAt?: Date
+        isEdited: boolean
+        isDeleted: boolean
+    }
+
+    interface CommunityTicketActivity {
+        action: 'created' | 'edited' | 'deleted' | 'restored' | 'status_changed' | 'reassigned' | 'comment_added' | 'comment_edited' | 'comment_deleted'
+        actorId: string
+        actorName: string
+        timestamp: Date
+        oldValue?: string
+        newValue?: string
+    }
+
+}
