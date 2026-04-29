@@ -44,10 +44,14 @@ export function buildSqf(annotations: MapAnnotation[], layers: MapLayer[]): stri
             const icon = ann.properties.a3Icon ?? 0
             const mod1 = ann.properties.a3Mod1 ?? 0
             const mod2 = ann.properties.a3Mod2 ?? 0
-            const size = ann.properties.a3Size ?? 1
+            const size = ann.properties.a3Size ?? 0
+            // hqTf: 1,2 → HQ; 3,4 → TF; 5,6 → HQ+TF; 7 → feint only
+            const hqTf = ann.properties.a3HqTf ?? 0
+            const isHQ = [1, 2, 5, 6].includes(hqTf) ? 'true' : 'false'
+            const isTF = [3, 4, 5, 6].includes(hqTf) ? 'true' : 'false'
             const designation = ann.properties.a3Designation ?? ''
             const scale = ann.properties.a3MetisScale ?? 1
-            metis.push(`["${id}",${x},${y},"${side}",${dashed},${icon},${mod1},${mod2},${size},"${designation}",${scale}]`)
+            metis.push(`["${id}",${x},${y},"${side}",${dashed},${icon},${mod1},${mod2},${size},${isHQ},${isTF},"${designation}",${scale}]`)
 
         } else if (ann.type === 'polyline') {
             // Flatten to [x1,y1,x2,y2,...] for SQF polyline format
@@ -102,8 +106,8 @@ gtd_map_allMetisMarkers = [];
 } forEach _poly;
 
 {
-  _x params ['_id', '_mx', '_my', '_sideid', '_dashed', '_icon', '_mod1', '_mod2', '_size', '_designation', ['_scale', 1]];
-  private _m = [[_mx,_my], 0, true, [[_sideid, _dashed], [_icon, _mod1, _mod2], [_size, false, false], [], _designation], _scale * 1.3] call mts_markers_fnc_createMarker;
+  _x params ['_id', '_mx', '_my', '_sideid', '_dashed', '_icon', '_mod1', '_mod2', '_size', '_isHQ', '_isTF', '_designation', ['_scale', 1]];
+  private _m = [[_mx,_my], 0, true, [[_sideid, _dashed], [_icon, _mod1, _mod2], [_size, _isHQ, _isTF], [], _designation], _scale * 1.3] call mts_markers_fnc_createMarker;
   gtd_map_allMetisMarkers pushBack _m;
 } forEach _metis;
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { MapLayer, MapAnnotation, MapPresenceUser, DrawingTool, AnnotationProperties, MapWorld, MapMode, A3ToolProps } from './types'
-import { A3_MARKER_COLORS } from './types'
+import { A3_MARKER_COLORS, METIS_ECHELONS, METIS_HQTF } from './types'
 import ms from 'milsymbol'
 
 // ── GeoJSON layer definitions (rendered in order, back → front) ──────────────
@@ -52,6 +52,75 @@ function outsideBg(rgba?: [number, number, number, number]): string {
     return `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function makeA3IconDivIcon(L: any, ann: MapAnnotation, selected = false): any {
+    const mtype = ann.properties.a3MarkerType ?? 'hd_dot'
+    const imgUrl = `/markers/icons/${mtype}.png`
+    const label = (ann.properties.label && ann.properties.label !== mtype) ? ann.properties.label : ''
+    const hexColor = A3_MARKER_COLORS.find(c => c.key === (ann.properties.a3MarkerColor ?? 'ColorWhite'))?.hex ?? '#ffffff'
+    const fid = `a3f-${ann.id.replace(/[^a-z0-9]/gi, '_')}`
+    const ring = selected ? `<div style="position:absolute;inset:-5px;border:2px solid #fff;border-radius:4px;box-shadow:0 0 0 1px rgba(255,255,255,0.25),0 0 10px rgba(255,255,255,0.6);pointer-events:none;"></div>` : ''
+    const html = `<div style="position:relative;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+        ${ring}
+        <svg width="0" height="0" style="position:absolute;overflow:hidden"><defs><filter id="${fid}"><feFlood flood-color="${hexColor}" result="c"/><feComposite in="c" in2="SourceAlpha" operator="in"/></filter></defs></svg>
+        <img src="${imgUrl}" width="24" height="24" style="image-rendering:pixelated;filter:url(#${fid});" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+        <div style="display:none;width:20px;height:20px;background:${hexColor};border-radius:50%;border:2px solid rgba(255,255,255,0.8);align-items:center;justify-content:center;"></div>
+        ${label ? `<span style="font-size:9px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap;margin-top:1px;">${label}</span>` : ''}
+    </div>`
+    return L.divIcon({ className: '', html, iconSize: [48, 48], iconAnchor: [24, 24] })
+}
+
+const A3_METIS_MIL_MAP: Record<number, { dim: string; fn: string }> = {
+    0:  { dim: 'G', fn: 'UCI'   },
+    1:  { dim: 'G', fn: 'UCIM'  },
+    2:  { dim: 'G', fn: 'UCIMR' },
+    3:  { dim: 'G', fn: 'UCA'   },
+    4:  { dim: 'G', fn: 'UCAT'  },
+    5:  { dim: 'G', fn: 'UCF'   },
+    6:  { dim: 'G', fn: 'UCD'   },
+    7:  { dim: 'A', fn: 'MFH'   },
+    8:  { dim: 'A', fn: 'MFF'   },
+    9:  { dim: 'S', fn: 'C'     },
+    10: { dim: 'G', fn: 'US'    },
+    11: { dim: 'G', fn: 'USM'   },
+    12: { dim: 'G', fn: 'UCR'   },
+    13: { dim: 'G', fn: 'UCE'   },
+    14: { dim: 'G', fn: 'USS'   },
+    15: { dim: 'G', fn: 'UCFM'  },
+    16: { dim: 'G', fn: 'USF'   },
+    17: { dim: 'G', fn: 'USMP'  },
+    37: { dim: 'G', fn: ''      },
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function makeA3MetisDivIcon(L: any, ann: MapAnnotation, selected = false): any {
+    const side = ann.properties.a3SideId ?? 'blu'
+    const designation = ann.properties.a3Designation ?? ''
+    const assumedFriend = ann.properties.a3AssumedFriend ?? false
+    const affil: Record<string, string> = { blu: assumedFriend ? 'G' : 'F', red: 'H', grn: 'N', unk: 'U' }
+    const status = ann.properties.a3Dashed ? 'A' : 'P'
+    const a = affil[side] ?? 'F'
+    const { dim, fn } = A3_METIS_MIL_MAP[ann.properties.a3Icon ?? 0] ?? { dim: 'G', fn: '' }
+    const echelonChar = METIS_ECHELONS.find(e => e.size === (ann.properties.a3Size ?? 0))?.milChar ?? '-'
+    const mod11 = METIS_HQTF.find(h => h.index === (ann.properties.a3HqTf ?? 0))?.mod11 ?? '-'
+    const base = `S${a}${dim}${status}${fn}`.padEnd(15, '-')
+    const sidc = (base.slice(0, 10) + mod11 + echelonChar + base.slice(12)).slice(0, 15)
+    let svgHtml = ''
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        svgHtml = new ms.Symbol(sidc, { size: 28, reinforced: ann.properties.a3Reinforced ? 1 : 0, reduced: ann.properties.a3Reduced ? 1 : 0 } as any).asSVG()
+    } catch {
+        svgHtml = `<div style="width:28px;height:28px;background:#0055aa;border:2px solid #fff;border-radius:2px;"></div>`
+    }
+    const ring = selected ? `<div style="position:absolute;inset:-5px;border:2px solid #fff;border-radius:3px;box-shadow:0 0 0 1px rgba(255,255,255,0.25),0 0 10px rgba(255,255,255,0.6);pointer-events:none;"></div>` : ''
+    const html = `<div style="position:relative;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+        ${ring}
+        ${svgHtml}
+        ${designation ? `<span style="font-size:9px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap;margin-top:1px;">${designation}</span>` : ''}
+    </div>`
+    return L.divIcon({ className: '', html, iconSize: [48, 48], iconAnchor: [24, 24] })
+}
+
 const DEFAULT_PROPS: AnnotationProperties = {
     color: '#db001d',
     weight: 2,
@@ -70,9 +139,11 @@ interface Props {
     activeColor: string
     activeA3Props: A3ToolProps
     canEdit: boolean
-    onAnnotationAdd: (type: DrawingTool, geometry: number[][], properties: Partial<AnnotationProperties>) => void
+    selectedAnnotationId: string | null
+    onAnnotationAdd: (type: DrawingTool, geometry: number[][], properties: Partial<AnnotationProperties>) => string
     onAnnotationUpdate: (id: string, geometry: number[][]) => void
     onAnnotationRemove: (id: string) => void
+    onAnnotationSelect: (id: string | null) => void
     onCursorMove: (pos: [number, number] | null) => void
     onToolDone: () => void
 }
@@ -88,11 +159,11 @@ function latLngToArma(lat: number, lng: number): [number, number] {
 }
 
 // Build Leaflet path options from annotation properties and layer color
-function pathOptions(ann: MapAnnotation, layer: MapLayer | undefined) {
+function pathOptions(ann: MapAnnotation, layer: MapLayer | undefined, selected = false) {
     const color = ann.properties.color || layer?.color || '#db001d'
     return {
-        color,
-        weight: ann.properties.weight ?? 2,
+        color: selected ? '#fff' : color,
+        weight: (ann.properties.weight ?? 2) + (selected ? 3 : 0),
         fillColor: ann.properties.fillColor || color,
         fillOpacity: ann.properties.fillOpacity ?? 0.2,
         interactive: true,
@@ -110,9 +181,11 @@ export default function OperationMap({
     activeColor,
     activeA3Props,
     canEdit,
+    selectedAnnotationId,
     onAnnotationAdd,
     onAnnotationUpdate,
     onAnnotationRemove,
+    onAnnotationSelect,
     onCursorMove,
     onToolDone,
 }: Props) {
@@ -134,6 +207,22 @@ export default function OperationMap({
     mapModeRef.current = mapMode
     const activeA3PropsRef = useRef(activeA3Props)
     activeA3PropsRef.current = activeA3Props
+    const activeColorRef = useRef(activeColor)
+    activeColorRef.current = activeColor
+    const canEditRef = useRef(canEdit)
+    canEditRef.current = canEdit
+    const onAnnotationRemoveRef = useRef(onAnnotationRemove)
+    onAnnotationRemoveRef.current = onAnnotationRemove
+    const onAnnotationSelectRef = useRef(onAnnotationSelect)
+    onAnnotationSelectRef.current = onAnnotationSelect
+    const onAnnotationAddRef = useRef(onAnnotationAdd)
+    onAnnotationAddRef.current = onAnnotationAdd
+    const onAnnotationUpdateRef = useRef(onAnnotationUpdate)
+    onAnnotationUpdateRef.current = onAnnotationUpdate
+    const leafletRef = useRef<typeof import('leaflet') | null>(null)
+    const hoveredAnnotationIdRef = useRef<string | null>(null)
+    const selectedAnnotationIdRef = useRef(selectedAnnotationId)
+    selectedAnnotationIdRef.current = selectedAnnotationId
 
     // Drawing state
     const drawingRef = useRef<{
@@ -148,13 +237,12 @@ export default function OperationMap({
         if (!containerRef.current || mapRef.current) return
 
         let destroyed = false
-        let onRightMove: ((e: MouseEvent) => void) | null = null
-        let onRightUp:   ((e: MouseEvent) => void) | null = null
 
         import('leaflet').then(async mod => {
             if (destroyed || mapRef.current || !containerRef.current) return
 
             const L = mod.default ?? mod
+            leafletRef.current = L
 
             function updateSpotHeights() {
                 const map = mapRef.current
@@ -212,30 +300,18 @@ export default function OperationMap({
             })
 
             mapRef.current = map
+            if (canEditRef.current) map.doubleClickZoom.disable()
 
-            // Right-click drag + suppress context menu
+            // Right-click: delete hovered annotation (suppress browser context menu)
             const el = containerRef.current
-            el.addEventListener('contextmenu', e => e.preventDefault())
-
-            let rightDrag: { screenX: number; screenY: number; center: L.LatLng } | null = null
-
-            const onRightDown = (e: MouseEvent) => {
-                if (e.button !== 2) return
+            el.addEventListener('contextmenu', e => {
                 e.preventDefault()
-                rightDrag = { screenX: e.screenX, screenY: e.screenY, center: map.getCenter() }
-            }
-            onRightMove = (e: MouseEvent) => {
-                if (!rightDrag) return
-                const dx = e.screenX - rightDrag.screenX
-                const dy = e.screenY - rightDrag.screenY
-                const startPt = map.latLngToContainerPoint(rightDrag.center)
-                map.setView(map.containerPointToLatLng(L.point(startPt.x - dx, startPt.y - dy)), map.getZoom(), { animate: false })
-            }
-            onRightUp = (e: MouseEvent) => { if (e.button === 2) rightDrag = null }
-
-            el.addEventListener('mousedown', onRightDown)
-            window.addEventListener('mousemove', onRightMove)
-            window.addEventListener('mouseup', onRightUp)
+                const hovId = hoveredAnnotationIdRef.current
+                if (hovId && canEditRef.current) {
+                    onAnnotationRemoveRef.current(hovId)
+                    hoveredAnnotationIdRef.current = null
+                }
+            })
 
             // Terrain image pane sits below vector overlays
             const tPane = map.createPane('terrainPane')
@@ -267,8 +343,6 @@ export default function OperationMap({
 
         return () => {
             destroyed = true
-            if (onRightMove) window.removeEventListener('mousemove', onRightMove)
-            if (onRightUp)   window.removeEventListener('mouseup', onRightUp)
             mapRef.current?.remove()
             mapRef.current = null
         }
@@ -456,7 +530,8 @@ export default function OperationMap({
             for (const ann of annotations) {
                 const layer = layerById.get(ann.layerId)
                 const visible = layer?.visible !== false
-                const opts = pathOptions(ann, layer)
+                const isSelected = ann.id === selectedAnnotationIdRef.current
+                const opts = pathOptions(ann, layer, isSelected)
                 const existing = annotationLayersRef.current.get(ann.id)
 
                 if (existing) {
@@ -465,6 +540,11 @@ export default function OperationMap({
                     if (!visible && map.hasLayer(existing)) map.removeLayer(existing)
                     // Update style for path types
                     if ('setStyle' in existing) (existing as L.Path).setStyle(opts)
+                    // Refresh icon for a3 marker types when properties or selection changes
+                    if (ann.type === 'a3icon' && 'setIcon' in existing)
+                        (existing as L.Marker).setIcon(makeA3IconDivIcon(L, ann, isSelected))
+                    else if (ann.type === 'a3metis' && 'setIcon' in existing)
+                        (existing as L.Marker).setIcon(makeA3MetisDivIcon(L, ann, isSelected))
                     continue
                 }
 
@@ -511,71 +591,35 @@ export default function OperationMap({
                     }
                     case 'a3icon': {
                         const [[lat, lng]] = geo
-                        const mtype = ann.properties.a3MarkerType ?? 'hd_dot'
-                        const imgUrl = `/markers/icons/${mtype}.png`
-                        const label = (ann.properties.label && ann.properties.label !== mtype) ? ann.properties.label : ''
-                        const hexColor = A3_MARKER_COLORS.find(c => c.key === (ann.properties.a3MarkerColor ?? 'ColorWhite'))?.hex ?? '#ffffff'
-                        const fid = `a3f-${ann.id.replace(/[^a-z0-9]/gi, '_')}`
-                        const html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
-                            <svg width="0" height="0" style="position:absolute;overflow:hidden"><defs><filter id="${fid}"><feFlood flood-color="${hexColor}" result="c"/><feComposite in="c" in2="SourceAlpha" operator="in"/></filter></defs></svg>
-                            <img src="${imgUrl}" width="24" height="24" style="image-rendering:pixelated;filter:url(#${fid});" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
-                            <div style="display:none;width:20px;height:20px;background:${hexColor};border-radius:50%;border:2px solid rgba(255,255,255,0.8);align-items:center;justify-content:center;"></div>
-                            ${label ? `<span style="font-size:9px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap;margin-top:1px;">${label}</span>` : ''}
-                        </div>`
-                        const icon = L.divIcon({ className: '', html, iconSize: [48, 48], iconAnchor: [24, 24] })
-                        leafletLayer = L.marker([lat, lng], { icon })
+                        leafletLayer = L.marker([lat, lng], { icon: makeA3IconDivIcon(L, ann, isSelected) })
                         break
                     }
                     case 'a3metis': {
                         const [[lat, lng]] = geo
-                        const side = ann.properties.a3SideId ?? 'blu'
-                        const designation = ann.properties.a3Designation ?? ''
-                        const affil: Record<string, string> = { blu: 'F', red: 'H', grn: 'N', unk: 'U' }
-                        const status = ann.properties.a3Dashed ? 'A' : 'P'
-                        const a = affil[side] ?? 'F'
-                        const sIDCMap: Record<number, string> = {
-                            0: 'GPI', 1: 'GPIM', 2: 'GPIMR', 3: 'GPA',
-                            4: 'GPAT', 5: 'GPAF', 6: 'GPAD',
-                            7: 'APMFH', 8: 'APMFF', 9: 'SP',
-                            10: 'GPUSS', 11: 'GPUSM', 12: 'GPUSR',
-                        }
-                        const fnFrag = sIDCMap[ann.properties.a3Icon ?? 0] ?? 'GP'
-                        const isMaritime = fnFrag.startsWith('SP')
-                        const isAir = fnFrag.startsWith('AP')
-                        const dim = isMaritime ? 'S' : isAir ? 'A' : 'G'
-                        const sidc = `S${a}${dim}${status}${fnFrag}`.padEnd(15, '-').slice(0, 15)
-                        let svgHtml = ''
-                        try {
-                            svgHtml = new ms.Symbol(sidc, { size: 28 }).asSVG()
-                        } catch {
-                            svgHtml = `<div style="width:28px;height:28px;background:#0055aa;border:2px solid #fff;border-radius:2px;"></div>`
-                        }
-                        const html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
-                            ${svgHtml}
-                            ${designation ? `<span style="font-size:9px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap;margin-top:1px;">${designation}</span>` : ''}
-                        </div>`
-                        const icon = L.divIcon({ className: '', html, iconSize: [48, 48], iconAnchor: [24, 24] })
-                        leafletLayer = L.marker([lat, lng], { icon })
+                        leafletLayer = L.marker([lat, lng], { icon: makeA3MetisDivIcon(L, ann, isSelected) })
                         break
                     }
                 }
 
                 if (!leafletLayer) continue
 
-                if (canEdit) {
+                {
                     const annId = ann.id
-                    const onKeyDown = (e: KeyboardEvent) => {
-                        if (e.key === 'Delete') onAnnotationRemove(annId)
-                    }
-                    leafletLayer.on('mouseover', () => window.addEventListener('keydown', onKeyDown))
-                    leafletLayer.on('mouseout',  () => window.removeEventListener('keydown', onKeyDown))
+                    // Hover tracking for right-click delete
+                    leafletLayer.on('mouseover', () => { hoveredAnnotationIdRef.current = annId })
+                    leafletLayer.on('mouseout',  () => { if (hoveredAnnotationIdRef.current === annId) hoveredAnnotationIdRef.current = null })
+                    // Click to select annotation
+                    leafletLayer.on('click', (e: any) => {
+                        e.originalEvent?.stopPropagation()
+                        onAnnotationSelectRef.current(annId)
+                    })
                 }
 
                 if (visible) leafletLayer.addTo(map)
                 annotationLayersRef.current.set(ann.id, leafletLayer)
             }
         })
-    }, [annotations, layers, canEdit, onAnnotationRemove])
+    }, [annotations, layers, canEdit, onAnnotationRemove, selectedAnnotationId])
 
     // ── Peer cursors ─────────────────────────────────────────────────────────
     useEffect(() => {
@@ -639,7 +683,11 @@ export default function OperationMap({
 
         const onMapClick = (e: L.LeafletMouseEvent) => {
             const ds = drawingRef.current
-            if (!ds.tool) return
+            if (!ds.tool) {
+                // Deselect when clicking empty map
+                onAnnotationSelectRef.current(null)
+                return
+            }
 
             switch (ds.tool) {
                 case 'marker':
@@ -649,33 +697,10 @@ export default function OperationMap({
                     onToolDone()
                     break
                 }
-                case 'a3icon': {
-                    const a3 = activeA3PropsRef.current
-                    onAnnotationAdd('a3icon', [[e.latlng.lat, e.latlng.lng]], {
-                        color: activeColor,
-                        a3MarkerType: a3.markerType,
-                        a3MarkerColor: a3.markerColor,
-                        a3MarkerDir: a3.markerDir,
-                        a3MarkerScale: a3.markerScale,
-                        label: '',
-                    })
+                // a3icon and a3metis are placed via drag-drop from the panel, not click
+                case 'a3icon':
+                case 'a3metis':
                     break
-                }
-                case 'a3metis': {
-                    const a3 = activeA3PropsRef.current
-                    onAnnotationAdd('a3metis', [[e.latlng.lat, e.latlng.lng]], {
-                        color: activeColor,
-                        a3SideId: a3.sideId,
-                        a3Dashed: a3.dashed,
-                        a3Icon: a3.icon,
-                        a3Mod1: a3.mod1,
-                        a3Mod2: a3.mod2,
-                        a3Size: a3.size,
-                        a3Designation: a3.designation,
-                        a3MetisScale: a3.metisScale,
-                    })
-                    break
-                }
                 case 'circle': {
                     if (!ds.startLatLng) {
                         ds.startLatLng = e.latlng
@@ -714,6 +739,25 @@ export default function OperationMap({
                 clearPreview()
                 ds.points = []
                 onToolDone()
+            } else if (!ds.tool) {
+                const a3 = activeA3PropsRef.current
+                const newId = onAnnotationAddRef.current('a3metis', [[e.latlng.lat, e.latlng.lng]], {
+                    a3SideId: a3.sideId,
+                    a3Dashed: a3.dashed,
+                    a3Icon: a3.icon,
+                    a3Mod1: a3.mod1,
+                    a3Mod2: a3.mod2,
+                    a3Size: a3.size,
+                    a3HqTf: a3.hqTf,
+                    a3Designation: a3.designation,
+                    a3MetisScale: a3.metisScale,
+                    a3AssumedFriend: a3.assumedFriend,
+                    a3Reinforced: a3.reinforced,
+                    a3Reduced: a3.reduced,
+                    a3HigherFormation: a3.higherFormation,
+                    a3AdditionalInfo: a3.additionalInfo,
+                })
+                if (newId) onAnnotationSelectRef.current(newId)
             }
         }
 
@@ -787,7 +831,6 @@ export default function OperationMap({
     useEffect(() => {
         const ds = drawingRef.current
         if (ds.tool !== activeTool) {
-            // Reset state when tool changes
             ds.points = []
             ds.startLatLng = null
             if (ds.previewLayer && mapRef.current) {
@@ -796,26 +839,73 @@ export default function OperationMap({
             }
         }
         ds.tool = activeTool
-        // Toggle dragging based on tool
+        // a3icon/a3metis use drag-to-place — don't disable map dragging for them
+        const isDrawingMode = activeTool && activeTool !== 'a3icon' && activeTool !== 'a3metis'
         if (mapRef.current) {
-            if (activeTool) {
+            if (isDrawingMode) {
                 mapRef.current.dragging.disable()
                 mapRef.current.doubleClickZoom.disable()
             } else {
                 mapRef.current.dragging.enable()
-                mapRef.current.doubleClickZoom.enable()
+                if (!canEdit) mapRef.current.doubleClickZoom.enable()
             }
         }
-    }, [activeTool])
+    }, [activeTool, canEdit])
 
     const bg = mapMode === 'sat' ? '#1a1a1a'
              : mapMode === 'terrain' ? outsideBg(world?.colorOutside)
              : '#b0d8e8'  // map mode: light blue ocean
 
+    const isDrawingMode = activeTool && activeTool !== 'a3icon' && activeTool !== 'a3metis'
+
+    function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+        e.preventDefault()
+        const type = e.dataTransfer.getData('map-marker-type') as 'a3icon' | 'a3metis'
+        if (type !== 'a3icon' && type !== 'a3metis') return
+        const L = leafletRef.current
+        const map = mapRef.current
+        if (!L || !map || !containerRef.current) return
+        const rect = containerRef.current.getBoundingClientRect()
+        const containerPoint = L.point(e.clientX - rect.left, e.clientY - rect.top)
+        const latlng = map.containerPointToLatLng(containerPoint)
+        const a3 = activeA3PropsRef.current
+        const color = activeColorRef.current
+        if (type === 'a3icon') {
+            onAnnotationAddRef.current('a3icon', [[latlng.lat, latlng.lng]], {
+                color,
+                a3MarkerType: a3.markerType,
+                a3MarkerColor: a3.markerColor,
+                a3MarkerDir: a3.markerDir,
+                a3MarkerScale: a3.markerScale,
+                label: '',
+            })
+        } else {
+            onAnnotationAddRef.current('a3metis', [[latlng.lat, latlng.lng]], {
+                color,
+                a3SideId: a3.sideId,
+                a3Dashed: a3.dashed,
+                a3Icon: a3.icon,
+                a3Mod1: a3.mod1,
+                a3Mod2: a3.mod2,
+                a3Size: a3.size,
+                a3HqTf: a3.hqTf,
+                a3Designation: a3.designation,
+                a3MetisScale: a3.metisScale,
+                a3AssumedFriend: a3.assumedFriend,
+                a3Reinforced: a3.reinforced,
+                a3Reduced: a3.reduced,
+                a3HigherFormation: a3.higherFormation,
+                a3AdditionalInfo: a3.additionalInfo,
+            })
+        }
+    }
+
     return (
         <div
             ref={containerRef}
-            style={{ width: '100%', height: '100%', background: bg, cursor: activeTool ? 'crosshair' : undefined }}
+            onDragOver={e => e.preventDefault()}
+            onDrop={handleDrop}
+            style={{ width: '100%', height: '100%', background: bg, cursor: isDrawingMode ? 'crosshair' : undefined }}
         />
     )
 }

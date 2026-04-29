@@ -8,6 +8,7 @@ import type { DrawingTool, MapMode, MapWorld, A3ToolProps } from './types'
 import { DEFAULT_A3_PROPS } from './types'
 import { buildSqf } from '@/lib/sqf-export'
 import SqfExportModal from './SqfExportModal'
+import AnnotationEditor from './AnnotationEditor'
 
 const OperationMap = dynamic(() => import('./OperationMap'), { ssr: false })
 
@@ -25,6 +26,7 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
     const [mapMode, setMapMode] = useState<MapMode>('map')
     const [activeA3Props, setActiveA3Props] = useState<A3ToolProps>(DEFAULT_A3_PROPS)
     const [sqfModal, setSqfModal] = useState(false)
+    const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
 
     const handleA3PropsChange = useCallback((patch: Partial<A3ToolProps>) => {
         setActiveA3Props(prev => ({ ...prev, ...patch }))
@@ -50,9 +52,9 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
         return () => window.removeEventListener('keydown', handler)
     }, [canEdit, actions])
 
-    const handleAnnotationAdd = useCallback((type: DrawingTool, geometry: number[][], properties: any) => {
-        if (!activeLayerId || !type) return
-        actions.addAnnotation(activeLayerId, type, geometry, properties)
+    const handleAnnotationAdd = useCallback((type: DrawingTool, geometry: number[][], properties: any): string => {
+        if (!activeLayerId || !type) return ''
+        return actions.addAnnotation(activeLayerId, type, geometry, properties)
     }, [activeLayerId, actions])
 
     const handleAnnotationUpdate = useCallback((id: string, geometry: number[][]) => {
@@ -176,6 +178,16 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
             {/* Map + Layers panel */}
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
                 <div style={{ flex: 1, position: 'relative' }}>
+                    {selectedAnnotationId && (() => {
+                        const ann = state.annotations.find(a => a.id === selectedAnnotationId)
+                        return ann ? (
+                            <AnnotationEditor
+                                annotation={ann}
+                                actions={actions}
+                                onClose={() => setSelectedAnnotationId(null)}
+                            />
+                        ) : null
+                    })()}
                     {!world && (
                         <div style={{
                             position: 'absolute',
@@ -202,9 +214,11 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
                         activeColor={activeColor}
                         activeA3Props={activeA3Props}
                         canEdit={canEdit}
+                        selectedAnnotationId={selectedAnnotationId}
                         onAnnotationAdd={handleAnnotationAdd}
                         onAnnotationUpdate={handleAnnotationUpdate}
                         onAnnotationRemove={handleAnnotationRemove}
+                        onAnnotationSelect={setSelectedAnnotationId}
                         onCursorMove={handleCursorMove}
                         onToolDone={handleToolDone}
                     />

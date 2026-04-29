@@ -84,20 +84,67 @@ export const A3_ICON_TYPES = [
 
 // METIS icon index → label + milsymbol function ID
 export const METIS_ICONS = [
-    { index: 0,  label: 'Infantry',     sidc: 'GPI' },
-    { index: 1,  label: 'Mech Inf',     sidc: 'GPIM' },
-    { index: 2,  label: 'Motor Inf',    sidc: 'GPIMR' },
-    { index: 3,  label: 'Armor',        sidc: 'GPA' },
-    { index: 4,  label: 'Anti-Tank',    sidc: 'GPAT' },
-    { index: 5,  label: 'Artillery',    sidc: 'GPAF' },
-    { index: 6,  label: 'Air Defense',  sidc: 'GPAD' },
-    { index: 7,  label: 'Helicopter',   sidc: 'APMFH' },
-    { index: 8,  label: 'Fixed Wing',   sidc: 'APMFF' },
-    { index: 9,  label: 'Naval',        sidc: 'SP' },
-    { index: 10, label: 'Support',      sidc: 'GPUSS' },
-    { index: 11, label: 'Medical',      sidc: 'GPUSM' },
-    { index: 12, label: 'Recon',        sidc: 'GPUSR' },
-    { index: 37, label: 'Unknown',      sidc: 'GP' },
+    { index: 0,  label: 'Infantry',      sidc: 'GPI'   },
+    { index: 1,  label: 'Mech. Inf.',    sidc: 'GPIM'  },
+    { index: 2,  label: 'Motor Inf.',    sidc: 'GPIMR' },
+    { index: 3,  label: 'Armor',         sidc: 'GPA'   },
+    { index: 4,  label: 'Anti-Tank',     sidc: 'GPAT'  },
+    { index: 5,  label: 'Artillery',     sidc: 'GPAF'  },
+    { index: 6,  label: 'Air Defense',   sidc: 'GPAD'  },
+    { index: 7,  label: 'Helicopter',    sidc: 'APMFH' },
+    { index: 8,  label: 'Fixed Wing',    sidc: 'APMFF' },
+    { index: 9,  label: 'Naval',         sidc: 'SP'    },
+    { index: 10, label: 'Support',       sidc: 'GPUSS' },
+    { index: 11, label: 'Medical',       sidc: 'GPUSM' },
+    { index: 12, label: 'Recon',         sidc: 'GPUSR' },
+    { index: 13, label: 'Engineer',      sidc: 'GPE'   },
+    { index: 14, label: 'Signal',        sidc: 'GPS'   },
+    { index: 15, label: 'Mortar',        sidc: 'GPWM'  },
+    { index: 16, label: 'Spec. Ops.',    sidc: 'GPSF'  },
+    { index: 17, label: 'Mil. Police',   sidc: 'GPUMP' },
+    { index: 37, label: 'Unknown',       sidc: 'GP'    },
+] as const
+
+// METIS size value → echelon label + milsymbol SIDC char (goes at SIDC position 11, index 11)
+export const METIS_ECHELONS = [
+    { size: 0, label: 'None',      milChar: '-', nato: '—'   },
+    { size: 1, label: 'Team',      milChar: 'A', nato: '●'   },
+    { size: 2, label: 'Squad',     milChar: 'B', nato: '●●'  },
+    { size: 3, label: 'Section',   milChar: 'C', nato: '●●●' },
+    { size: 4, label: 'Platoon',   milChar: 'D', nato: 'I'   },
+    { size: 5, label: 'Company',   milChar: 'E', nato: 'II'  },
+    { size: 6, label: 'Battalion', milChar: 'F', nato: 'III' },
+    { size: 7, label: 'Regiment',  milChar: 'G', nato: 'X'   },
+    { size: 8, label: 'Brigade',   milChar: 'H', nato: 'XX'  },
+    { size: 9, label: 'Division',  milChar: 'I', nato: 'XXX' },
+] as const
+
+// HQ / Task Force / Feint-Dummy combinations (SIDC position 10, index 10)
+export const METIS_HQTF = [
+    { index: 0, label: 'None',                           mod11: '-' },
+    { index: 1, label: 'Headquarters',                   mod11: 'A' },
+    { index: 2, label: 'Feint/Dummy Headquarters',       mod11: 'C' },
+    { index: 3, label: 'Task Force',                     mod11: 'E' },
+    { index: 4, label: 'Feint/Dummy Task Force',         mod11: 'G' },
+    { index: 5, label: 'Task Force Headquarters',        mod11: 'B' },
+    { index: 6, label: 'Feint/Dummy Task Force HQ',      mod11: 'D' },
+    { index: 7, label: 'Feint/Dummy',                    mod11: 'F' },
+] as const
+
+// Mobility modifiers for mod1 (SIDC: 'M' at index 10, char at index 11)
+export const METIS_MOB = [
+    { index: 0,  label: 'None',             mobChar: ''  },
+    { index: 1,  label: 'Wheeled (limited)', mobChar: 'O' },
+    { index: 2,  label: 'Wheeled',           mobChar: 'P' },
+    { index: 3,  label: 'Tracked',           mobChar: 'Q' },
+    { index: 4,  label: 'Wh. + Tracked',    mobChar: 'R' },
+    { index: 5,  label: 'Towed',             mobChar: 'S' },
+    { index: 6,  label: 'Rail',              mobChar: 'T' },
+    { index: 7,  label: 'Over Snow',         mobChar: 'U' },
+    { index: 8,  label: 'Sled',              mobChar: 'V' },
+    { index: 9,  label: 'Pack Animals',      mobChar: 'W' },
+    { index: 10, label: 'Barge',             mobChar: 'X' },
+    { index: 11, label: 'Amphibious',        mobChar: 'Y' },
 ] as const
 
 export interface MapLayer {
@@ -128,8 +175,14 @@ export interface AnnotationProperties {
     a3Mod1?: number
     a3Mod2?: number
     a3Size?: number
+    a3HqTf?: number          // index into METIS_HQTF
     a3Designation?: string
     a3MetisScale?: number
+    a3AssumedFriend?: boolean
+    a3Reinforced?: boolean
+    a3Reduced?: boolean
+    a3HigherFormation?: string
+    a3AdditionalInfo?: string
 }
 
 export interface MapAnnotation {
@@ -168,8 +221,14 @@ export interface A3ToolProps {
     mod1: number
     mod2: number
     size: number
+    hqTf: number             // index into METIS_HQTF
     designation: string
     metisScale: number
+    assumedFriend: boolean
+    reinforced: boolean
+    reduced: boolean
+    higherFormation: string
+    additionalInfo: string
 }
 
 export const DEFAULT_A3_PROPS: A3ToolProps = {
@@ -182,9 +241,15 @@ export const DEFAULT_A3_PROPS: A3ToolProps = {
     icon: 0,
     mod1: 0,
     mod2: 0,
-    size: 1,
+    size: 0,
+    hqTf: 0,
     designation: '',
     metisScale: 1,
+    assumedFriend: false,
+    reinforced: false,
+    reduced: false,
+    higherFormation: '',
+    additionalInfo: '',
 }
 
 export interface MapPresenceUser {
@@ -193,4 +258,12 @@ export interface MapPresenceUser {
     avatar: string | null
     // null when not hovering over the map
     cursor: [number, number] | null
+}
+
+export interface MapMarkerPreset {
+    _id: string
+    name: string
+    type: 'a3icon' | 'a3metis'
+    a3Props: Partial<A3ToolProps>
+    createdAt: string
 }
