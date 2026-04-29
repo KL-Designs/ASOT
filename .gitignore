@@ -46,3 +46,5 @@ config.ts
 /.backup
 /.test
 /snapshots
+/.claude
+/public/maps

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import ConfirmDialog from '@/components/confirm-dialog'
 import dayjs, { Dayjs } from 'dayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
@@ -10,9 +10,10 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dynamic from 'next/dynamic'
 import PERMISSIONS from '@/lib/permissions'
-import { type MetaFields } from './editor'
 import ActivityLog from './activity-log'
-const OperationEditor = dynamic(() => import('./editor'), { ssr: false })
+const OperationEditor = dynamic(() => import('@/components/editor/CollabEditor'), { ssr: false })
+
+interface MetaFields { title: string; department: string; date: string; loreDate: string }
 
 type AttendanceStage = 'preparing' | 'rsvp_open' | 'rsvp_closed' | 'op_running' | 'confirmations_open' | 'completed'
 
@@ -36,8 +37,9 @@ function hexToRgb(hex: string) {
 
 
 export default function Page() {
+    const { id: routeId } = useParams<{ id: string }>()
 
-    const [opID, setOpID] = useState('')
+    const [opID, setOpID] = useState(routeId || '')
     const [title, setTitle] = useState('')
     const [date, setDate] = useState<Dayjs | null>(null)
     const [loreDate, setLoreDate] = useState<string>('')
@@ -47,6 +49,8 @@ export default function Page() {
     const [status, setStatus] = useState<string>('Upcoming')
     const [coverImage, setCoverImage] = useState<string | null>(null)
     const [coverUploading, setCoverUploading] = useState(false)
+    const [mapWorld, setMapWorld] = useState<string>('')
+    const [availableWorlds, setAvailableWorlds] = useState<{ name: string; displayName: string; hasPreview: boolean }[]>([])
     const [isHQ, setIsHQ] = useState(false)
     const [initialContent, setInitialContent] = useState<any>(undefined)
     const [loaded, setLoaded] = useState(false)
@@ -76,7 +80,7 @@ export default function Page() {
     const router = useRouter()
 
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
-    const metaHandleRef = useRef<{ set: (key: keyof MetaFields, value: string) => void } | null>(null)
+    const metaHandleRef = useRef<{ set: (key: string, value: string) => void } | null>(null)
     const previewIframeRef = useRef<HTMLIFrameElement>(null)
 
     useEffect(() => {
@@ -148,16 +152,18 @@ export default function Page() {
     }, [tickNow])
 
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search)
-        const id = params.get('op') || ''
+        const id = routeId || ''
         setOpID(id)
-
 
         if (!id) return
 
         fetch(`/api/me/roles?has=${PERMISSIONS.pages.operationsEdit.join(',')}`)
             .then(r => r.json())
             .then(json => { if (!json.error) setIsHQ(json.access) })
+
+        fetch('/api/maps/worlds')
+            .then(r => r.json())
+            .then(worlds => { if (Array.isArray(worlds)) setAvailableWorlds(worlds) })
 
         fetch(`/api/operations?id=${id}`)
             .then(r => r.json())
@@ -174,6 +180,7 @@ export default function Page() {
                 setPageTheme((op.pageTheme as any) || 'modern')
                 setStatus(op.status || 'Upcoming')
                 setCoverImage(op.coverImage || null)
+                setMapWorld(op.mapWorld || '')
                 setInitialContent(op.content ?? null)
                 setLoaded(true)
             })
@@ -196,7 +203,7 @@ export default function Page() {
                 // so the close→re-open bounce can't happen.
                 if (json.rsvpOpen && openAt) autoOpenFiredRef.current = openAt
             })
-    }, [])
+    }, [routeId])
 
 
     function scheduleSave(updates: Record<string, string>) {
@@ -204,11 +211,9 @@ export default function Page() {
         clearTimeout(metaSaveTimer.current)
         metaSaveTimer.current = setTimeout(async () => {
             setSaveStatus('saving')
-            const params = new URLSearchParams(window.location.search)
-            const id = params.get('op') || ''
             const qs = Object.entries(updates).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')
             try {
-                await fetch(`/api/operations/update?id=${id}&${qs}`)
+                await fetch(`/api/operations/update?id=${opID}&${qs}`)
                 setSaveStatus('saved')
             } catch {
                 setSaveStatus('unsaved')
@@ -225,9 +230,7 @@ export default function Page() {
             const json = await res.json()
             if (json.url) {
                 setCoverImage(json.url)
-                const params = new URLSearchParams(window.location.search)
-                const id = params.get('op') || ''
-                await fetch(`/api/operations/update?id=${id}&coverImage=${encodeURIComponent(json.url)}`)
+                await fetch(`/api/operations/update?id=${opID}&coverImage=${encodeURIComponent(json.url)}`)
             }
         } finally {
             setCoverUploading(false)
@@ -235,18 +238,14 @@ export default function Page() {
     }
 
     async function handleDelete() {
-        const params = new URLSearchParams(window.location.search)
-        const id = params.get('op') || ''
-        const json = await fetch(`/api/operations/delete?id=${id}`).then(r => r.json())
+        const json = await fetch(`/api/operations/delete?id=${opID}`).then(r => r.json())
         if (json.error) { alert(json.error); return }
         router.push('/operations')
     }
 
     async function removeCover() {
         setCoverImage(null)
-        const params = new URLSearchParams(window.location.search)
-        const id = params.get('op') || ''
-        await fetch(`/api/operations/update?id=${id}&coverImage=`)
+        await fetch(`/api/operations/update?id=${opID}&coverImage=`)
     }
 
     async function saveAttendanceSettings(updates: {
@@ -437,6 +436,28 @@ export default function Page() {
                             </Link>
                         </>
                     )}
+                    {opID && (
+                        <>
+                            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
+                            <Link
+                                href={`/operations/${opID}/map`}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: '2px 0',
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    letterSpacing: '0.14em',
+                                    textTransform: 'uppercase',
+                                    color: 'rgba(237,237,237,0.3)',
+                                    textDecoration: 'none',
+                                    borderBottom: '2px solid transparent',
+                                }}
+                            >
+                                Map ↗
+                            </Link>
+                        </>
+                    )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor }}>
@@ -612,6 +633,13 @@ export default function Page() {
                             <option value='oldfashioned' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Old Fashioned</option>
                             <option value='scifi' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Sci-Fi</option>
                         </select>
+                        {/* Map World */}
+                        <MapWorldPicker
+                            value={mapWorld}
+                            worlds={availableWorlds}
+                            onChange={w => { setMapWorld(w); scheduleSave({ mapWorld: w }) }}
+                            themeColor={themeColor}
+                        />
                     </div>
                     {/* In-Game (lore) date — free text, auto-saves */}
                     <input
@@ -1057,7 +1085,9 @@ export default function Page() {
             {/* Document sections */}
             {loaded ? (
                 <OperationEditor
-                    operationId={opID}
+                    documentId={opID}
+                    uploadUrl='/api/operations/upload'
+                    defaultSectionTitle='Orders'
                     initialContent={initialContent}
                     themeColor={themeColor}
                     initialMeta={{ title, department, date: date?.toISOString() ?? '', loreDate: loreDate ?? '' }}
@@ -1183,6 +1213,111 @@ export default function Page() {
                 </div>
             )}
 
+        </div>
+    )
+}
+
+// ─── Map World Picker ─────────────────────────────────────────────────────────
+
+function MapWorldPicker({
+    value,
+    worlds,
+    onChange,
+    themeColor,
+}: {
+    value: string
+    worlds: { name: string; displayName: string; hasPreview: boolean }[]
+    onChange: (name: string) => void
+    themeColor: string
+}) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
+    const selected = worlds.find(w => w.name === value) ?? null
+
+    useEffect(() => {
+        if (!open) return
+        const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [open])
+
+    return (
+        <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+            <button
+                type='button'
+                onClick={() => setOpen(v => !v)}
+                style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    background: 'rgba(0,0,0,0.4)',
+                    border: `1px solid ${open ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)'}`,
+                    color: selected ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.3)',
+                    fontSize: '0.8rem', letterSpacing: '0.06em',
+                    padding: '6px 10px', cursor: 'pointer', minWidth: 160,
+                    transition: 'border-color 0.15s',
+                }}
+            >
+                {selected?.hasPreview && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={`/maps/${selected.name}/preview.png`} alt='' style={{ width: 28, height: 20, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }} />
+                )}
+                <span style={{ flex: 1, textAlign: 'left' }}>{selected?.displayName ?? 'No Map'}</span>
+                <span style={{ fontSize: '0.6rem', opacity: 0.4 }}>▾</span>
+            </button>
+
+            {open && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 200,
+                    background: 'rgb(14,14,14)', border: '1px solid rgba(255,255,255,0.12)',
+                    minWidth: 220, maxHeight: 320, overflowY: 'auto',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.7)',
+                }}>
+                    {/* No map option */}
+                    <div
+                        onClick={() => { onChange(''); setOpen(false) }}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '8px 12px', cursor: 'pointer',
+                            background: !value ? 'rgba(255,255,255,0.06)' : 'transparent',
+                            borderBottom: '1px solid rgba(255,255,255,0.06)',
+                            fontSize: '0.8rem', color: 'rgba(237,237,237,0.35)',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = !value ? 'rgba(255,255,255,0.06)' : 'transparent' }}
+                    >
+                        <div style={{ width: 42, height: 30, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>—</span>
+                        </div>
+                        No Map
+                    </div>
+                    {worlds.map(w => {
+                        const isActive = w.name === value
+                        return (
+                            <div
+                                key={w.name}
+                                onClick={() => { onChange(w.name); setOpen(false) }}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 10,
+                                    padding: '8px 12px', cursor: 'pointer',
+                                    background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
+                                    borderLeft: isActive ? `2px solid ${themeColor}` : '2px solid transparent',
+                                    fontSize: '0.8rem', color: isActive ? 'rgba(237,237,237,0.95)' : 'rgba(237,237,237,0.6)',
+                                    transition: 'background 0.1s',
+                                }}
+                                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                                onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+                            >
+                                {w.hasPreview ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={`/maps/${w.name}/preview.png`} alt='' style={{ width: 42, height: 30, objectFit: 'cover', flexShrink: 0, border: `1px solid ${isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}` }} />
+                                ) : (
+                                    <div style={{ width: 42, height: 30, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }} />
+                                )}
+                                {w.displayName}
+                            </div>
+                        )
+                    })}
+                </div>
+            )}
         </div>
     )
 }

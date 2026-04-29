@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse } from '@mui/material'
-import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, Dashboard as DashboardIcon, Api, Tune, BugReport } from '@mui/icons-material'
+import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, Dashboard as DashboardIcon, Api, Tune, BugReport, MapOutlined } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import { rankNameFromAbbr } from '@/lib/ranks'
@@ -71,7 +71,13 @@ export default function Navbar() {
                 // { name: 'Hall of Fame', link: '/community/hof', icon: <EmojiEvents />, description: 'Honoured unit members' },
             ]
         },
-        { name: 'Operations', href: '/operations', icon: <TrackChanges /> },
+        {
+            name: 'Operations', href: '/operations', icon: <TrackChanges />,
+            subLinks: [
+                { name: 'Operations', link: '/operations', icon: <TrackChanges />, description: 'Browse all unit operations' },
+                { name: 'Interactive Map', link: '/map', icon: <MapOutlined />, description: 'Explore available maps interactively' },
+            ]
+        },
         { name: 'Gallery', href: '/gallery', icon: <Collections /> },
         { name: 'Partners', href: '/partnerships', icon: <Handshake /> },
         { name: 'Support', href: '/support', icon: <Support /> },

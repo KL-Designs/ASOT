@@ -11,6 +11,9 @@ RUN npm install
 # Copy the rest of the project
 COPY . .
 
+# Generate terrain assets for all maps that have a DEM
+RUN node scripts/generate-terrain.mjs
+
 # Build Next.js app
 RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
 

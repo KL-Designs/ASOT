@@ -71,7 +71,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
                 body: JSON.stringify({ templateId }),
             })
             const data = await res.json()
-            if (data.id) { window.open(`/operations/edit?op=${data.id}`, '_blank'); onClose() }
+            if (data.id) { window.open(`/operations/${data.id}/edit`, '_blank'); onClose() }
         } finally { setApplying(null) }
     }
 
@@ -361,7 +361,7 @@ function OpRow({ op, onDelete, onDuplicate, onNotesSaved, onTemplateSaved, onAss
                 </div>
                 <StatusBadge status={op.status} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
-                    <a href={`/operations/edit?op=${id}`} target='_blank' rel='noreferrer' title='Edit mission'>
+                    <a href={`/operations/${id}/edit`} target='_blank' rel='noreferrer' title='Edit mission'>
                         <button style={iconBtn()} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.3)')}><Edit style={{ fontSize: 15 }} /></button>
                     </a>
                     <button onClick={duplicate} disabled={duplicating} title='Duplicate' style={iconBtn()} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.3)')}><ContentCopy style={{ fontSize: 14 }} /></button>
@@ -712,7 +712,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
             const data = await res.json()
             if (data.id) {
                 fetchMissions()
-                window.open(`/operations/edit?op=${data.id}`, '_blank')
+                window.open(`/operations/${data.id}/edit`, '_blank')
             }
         } finally { setCreating(false) }
     }

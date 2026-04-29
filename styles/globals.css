@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import 'leaflet/dist/leaflet.css';
+
 :root {
 	--background: rgb(10, 10, 10);
 	--workspace: rgb(16, 16, 16);
@@ -478,4 +480,15 @@ body {
     float: left;
     height: 0;
     font-style: italic;
+}
+
+/* ── Leaflet zoom control (dark theme) ───────────────────────────────────── */
+.leaflet-control-zoom a {
+    background: rgba(15, 15, 15, 0.88) !important;
+    color: rgba(255, 255, 255, 0.75) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+.leaflet-control-zoom a:hover {
+    background: rgba(35, 35, 35, 0.95) !important;
+    color: #fff !important;
 }
