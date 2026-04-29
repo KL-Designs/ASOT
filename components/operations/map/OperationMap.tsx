@@ -173,7 +173,7 @@ export default function OperationMap({
                     for (const s of selected) {
                         const sp = map.latLngToContainerPoint(s.latlng)
                         const dx = pt.x - sp.x, dy = pt.y - sp.y
-                        const threshold = s.elev === point.elev ? MIN_PX_SAME_ELEV : MIN_PX
+                        const threshold = Math.abs(s.elev - point.elev) <= 10 ? MIN_PX_SAME_ELEV : MIN_PX
                         if (dx * dx + dy * dy < threshold * threshold) { tooClose = true; break }
                     }
                     if (!tooClose) selected.push(point)
