@@ -5,6 +5,7 @@ import { PeopleAlt, CalendarMonth } from '@mui/icons-material'
 import { Construction } from '@mui/icons-material'
 import QualificationTicketsTab from './tabs/QualificationTicketsTab'
 import PromotionTicketsTab from './tabs/PromotionTicketsTab'
+import TrainingRecordsTab from './tabs/TrainingRecordsTab'
 import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
@@ -113,10 +114,11 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Qualification Tickets' pinLabel='J3 — Qual Tickets'  href='/dashboard/j3' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Promotion Tickets'     pinLabel='J3 — Promo Tickets' href='/dashboard/j3' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Training Schedule'     pinLabel='J3 — Schedule'      href='/dashboard/j3' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'              pinLabel='J3 — Meetings'      href='/dashboard/j3' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Qualification Tickets' pinLabel='J3 — Qual Tickets'     href='/admin/j3' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Promotion Tickets'     pinLabel='J3 — Promo Tickets'  href='/admin/j3' tabIndex={1} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Training Schedule'     pinLabel='J3 — Schedule'       href='/admin/j3' tabIndex={2} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Training Records'      pinLabel='J3 — Training Rec.'  href='/admin/j3' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'              pinLabel='J3 — Meetings'       href='/admin/j3' tabIndex={4} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -145,7 +147,8 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                             </div>
                         )}
                         {tab === 2 && <WipTab title='Training Schedule' description='Training schedule management and documentation tools are coming soon.' />}
-                        {tab === 3 && <MeetingsTab department='j3' userId={userId} isLead={canManageMembers} />}
+                        {tab === 3 && <TrainingRecordsTab userId={userId} canManageMembers={canManageMembers} />}
+                        {tab === 4 && <MeetingsTab department='j3' userId={userId} isLead={canManageMembers} />}
                     </div>
                 </>
             )}

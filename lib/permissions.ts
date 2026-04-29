@@ -364,6 +364,21 @@ const PERMISSIONS = {
         manageStatus: ['J4-Administration'],
     },
 
+    // ── Community Tickets ─────────────────────────────────────────────────────
+
+    communityTickets: {
+        /**
+         * J4-only: manage all community tickets including private ones
+         * (unit-feedback, complaints, awards) and soft-deleted tickets.
+         * Also controls status changes, reassignments, and activity log access.
+         *
+         * Used by:
+         *  - `app/api/community/tickets/route.ts`
+         *  - `app/api/community/tickets/[id]/route.ts`
+         */
+        manage: ['J4-Administration'],
+    },
+
     // ── Gallery ───────────────────────────────────────────────────────────────
 
     gallery: {
@@ -502,6 +517,27 @@ const PERMISSIONS = {
         lockJ5: ['J5-Media'],
         lockJ6: ['J6-Department Lead'],
         lockJ7: ['J7 Staff'],
+    },
+
+    // ── Quiz / Training ───────────────────────────────────────────────────────
+
+    quiz: {
+        /**
+         * Assign a BCT quiz to a recruit and view training records.
+         * All J3 trainers can assign; J3 leads and J4 can also review escalations.
+         */
+        assign: ['J3-Training', 'J3-Team Lead'],
+
+        /**
+         * Review a submitted quiz attempt and issue a Pass, Fail, or escalation.
+         */
+        review: ['J3-Training', 'J3-Team Lead'],
+
+        /**
+         * Escalated review — available to J3 leads when a trainer sends for review,
+         * and to J4 when a J3 lead escalates further.
+         */
+        reviewEscalated: ['J3-Team Lead', 'J4-Administration'],
     },
 
     tickets: {

@@ -20,9 +20,13 @@ type NotificationType =
     | 'task_extension_denied'
     | 'calendar_reminder'
     | 'meeting_task_assigned'
+    | 'quiz_assigned'
+    | 'quiz_submitted'
+    | 'quiz_result'
+    | 'quiz_review_requested'
     | 'system'
 
-type TaskType = 'manual' | 'attendance' | 'application_review' | 'extension_review'
+type TaskType = 'manual' | 'attendance' | 'application_review' | 'extension_review' | 'quiz_assigned'
 
 interface Task {
     _id?: import('mongodb').ObjectId

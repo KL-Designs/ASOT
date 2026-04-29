@@ -38,6 +38,8 @@ const TYPE_LABELS: Record<string, string> = {
     task_extension_approved:  'Ext. Approved',
     task_extension_denied:    'Ext. Denied',
     calendar_reminder: 'Reminder',
+    quiz_result:         'Assessment',
+    quiz_review_requested: 'Quiz Review',
     system: 'System',
 }
 
@@ -49,6 +51,8 @@ const TYPE_COLORS: Record<string, string> = {
     task_extension_approved:  '#10b981',
     task_extension_denied:    'rgba(219,0,29,0.85)',
     calendar_reminder: 'rgba(219,0,29,0.85)',
+    quiz_result:         '#60a5fa',
+    quiz_review_requested: '#a78bfa',
     system: 'rgba(237,237,237,0.4)',
 }
 
@@ -233,6 +237,7 @@ export default function NotificationBell() {
                             notifications.map(n => {
                                 const color = TYPE_COLORS[n.type] ?? 'rgba(237,237,237,0.4)'
                                 const isUnread = !n.readAt
+                                const isQuizResult = n.type === 'quiz_result'
                                 return (
                                     <div
                                         key={n._id}
@@ -261,22 +266,41 @@ export default function NotificationBell() {
                                         </div>
 
                                         {/* Content */}
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                                                <span style={{ fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color, fontFamily: 'monospace' }}>
-                                                    {TYPE_LABELS[n.type] ?? n.type}
-                                                </span>
-                                                <span style={{ fontSize: '0.48rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>
-                                                    {timeAgo(n.createdAt)}
-                                                </span>
+                                        {isQuizResult ? (
+                                            <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+                                                <div style={{ marginBottom: 4 }}>
+                                                    <span style={{ fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color, fontFamily: 'monospace' }}>
+                                                        {TYPE_LABELS[n.type]}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.48rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace', marginLeft: 6 }}>
+                                                        {timeAgo(n.createdAt)}
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: '0.88rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: isUnread ? 'rgba(237,237,237,0.92)' : 'rgba(237,237,237,0.6)', lineHeight: 1.2, marginBottom: 6 }}>
+                                                    {n.title}
+                                                </div>
+                                                <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.45)', lineHeight: 1.5 }}>
+                                                    {n.body}
+                                                </div>
                                             </div>
-                                            <div style={{ fontSize: '0.62rem', fontWeight: isUnread ? 700 : 400, color: isUnread ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.55)', lineHeight: 1.3, marginBottom: 2 }}>
-                                                {n.title}
+                                        ) : (
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                                                    <span style={{ fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color, fontFamily: 'monospace' }}>
+                                                        {TYPE_LABELS[n.type] ?? n.type}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.48rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>
+                                                        {timeAgo(n.createdAt)}
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: '0.62rem', fontWeight: isUnread ? 700 : 400, color: isUnread ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.55)', lineHeight: 1.3, marginBottom: 2 }}>
+                                                    {n.title}
+                                                </div>
+                                                <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.35)', lineHeight: 1.4 }}>
+                                                    {n.body}
+                                                </div>
                                             </div>
-                                            <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.35)', lineHeight: 1.4 }}>
-                                                {n.body}
-                                            </div>
-                                        </div>
+                                        )}
 
                                         {/* Dismiss */}
                                         <button
