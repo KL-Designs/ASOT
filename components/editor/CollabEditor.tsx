@@ -16,7 +16,7 @@ import * as Y from 'yjs'
 
 import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
-import PageSidebar from './page-sidebar'
+import PageSidebar from './PageSidebar'
 import {
     Undo, Redo,
     FormatBold, FormatItalic, FormatUnderlined, StrikethroughS,
@@ -29,19 +29,14 @@ import {
 
 const ThemeContext = React.createContext('#db001d')
 
-export interface MetaFields {
-    title: string
-    department: string
-    date: string
-    loreDate: string
-}
-
 interface Props {
-    operationId: string
+    documentId: string
+    uploadUrl?: string
+    defaultSectionTitle?: string
     initialContent?: any
-    initialMeta?: Partial<MetaFields>
-    onMetaChange?: (fields: Partial<MetaFields>) => void
-    metaHandleRef?: React.MutableRefObject<{ set: (key: keyof MetaFields, value: string) => void } | null>
+    initialMeta?: Record<string, string>
+    onMetaChange?: (fields: Record<string, string>) => void
+    metaHandleRef?: React.MutableRefObject<{ set: (key: string, value: string) => void } | null>
     onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
     themeColor?: string
 }
@@ -74,10 +69,18 @@ interface ReadyState {
 const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS_URL || 'ws://localhost:3000/collab'
 
 // ─── Outer shell ─────────────────────────────────────────────────────────────
-// Handles the async token fetch + provider creation. Only renders the real
-// editor once the provider is live.
 
-export default function OperationEditor({ operationId, initialContent, initialMeta, onMetaChange, metaHandleRef, onSaveStatusChange, themeColor = '#db001d' }: Props) {
+export default function CollabEditor({
+    documentId,
+    uploadUrl = '/api/upload',
+    defaultSectionTitle = 'Section',
+    initialContent,
+    initialMeta,
+    onMetaChange,
+    metaHandleRef,
+    onSaveStatusChange,
+    themeColor = '#db001d',
+}: Props) {
     const [ydoc] = useState(() => new Y.Doc())
     const [ready, setReady] = useState<ReadyState | null>(null)
     const onMetaChangeRef = useRef(onMetaChange)
@@ -89,8 +92,8 @@ export default function OperationEditor({ operationId, initialContent, initialMe
 
         const meta = ydoc.getMap<string>('meta')
         const onObserve = () => {
-            const fields: Partial<MetaFields> = {}
-            meta.forEach((v, k) => { (fields as Record<string, string>)[k] = v })
+            const fields: Record<string, string> = {}
+            meta.forEach((v, k) => { fields[k] = v })
             onMetaChangeRef.current?.(fields)
         }
         meta.observe(onObserve)
@@ -103,7 +106,7 @@ export default function OperationEditor({ operationId, initialContent, initialMe
                 const user: PresenceUser = { name: name || 'Unknown', color: color || '#db001d', avatar: avatar || null }
                 p = new HocuspocusProvider({
                     url: COLLAB_WS_URL,
-                    name: operationId,
+                    name: documentId,
                     document: ydoc,
                     token,
                     onSynced: () => {
@@ -130,8 +133,8 @@ export default function OperationEditor({ operationId, initialContent, initialMe
             meta.unobserve(onObserve)
             if (metaHandleRef) metaHandleRef.current = null
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialMeta/metaHandleRef are refs; onSaveStatusChange excluded (wrap in useCallback in parent if needed)
-    }, [operationId, ydoc])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [documentId, ydoc])
 
     if (!ready) {
         const { r: sr, g: sg, b: sb } = hexToRgb(themeColor)
@@ -171,6 +174,8 @@ export default function OperationEditor({ operationId, initialContent, initialMe
             ydoc={ready.ydoc}
             provider={ready.provider}
             user={ready.user}
+            uploadUrl={uploadUrl}
+            defaultSectionTitle={defaultSectionTitle}
             initialContent={initialContent}
             onSaveStatusChange={onSaveStatusChange}
             themeColor={themeColor}
@@ -178,7 +183,6 @@ export default function OperationEditor({ operationId, initialContent, initialMe
     )
 }
 
-// Build a cursor extension using @tiptap/y-tiptap's yCursorPlugin
 function buildCursorExtension(provider: HocuspocusProvider, user: PresenceUser) {
     return Extension.create({
         name: 'collaborationCursor',
@@ -245,28 +249,15 @@ function ResizableImageView({ node, selected, updateAttributes }: {
     return (
         <NodeViewWrapper style={{ display: 'flex', justifyContent: justifyMap[align] || 'center', margin: '1.5em 0', lineHeight: 0 }}>
             <div ref={containerRef} style={{ position: 'relative', display: 'inline-block', width: width ? `${width}px` : undefined, maxWidth: '100%' }}>
-
                 {selected && (
                     <div
                         onMouseDown={e => e.preventDefault()}
-                        style={{
-                            position: 'absolute', top: -36, left: '50%', transform: 'translateX(-50%)',
-                            display: 'flex', alignItems: 'center', gap: 2,
-                            background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: 4, padding: '3px 5px', zIndex: 20, whiteSpace: 'nowrap',
-                        }}
+                        style={{ position: 'absolute', top: -36, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, padding: '3px 5px', zIndex: 20, whiteSpace: 'nowrap' }}
                     >
                         {(['left', 'center', 'right'] as const).map(a => (
-                            <button
-                                key={a} type='button' title={`Align ${a}`}
+                            <button key={a} type='button' title={`Align ${a}`}
                                 onMouseDown={e => { e.preventDefault(); updateAttributes({ align: a }) }}
-                                style={{
-                                    padding: '3px 5px', borderRadius: 2, cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center',
-                                    background: align === a ? c(0.2) : 'transparent',
-                                    border: align === a ? `1px solid ${c(0.4)}` : '1px solid transparent',
-                                    color: align === a ? c(0.9) : 'rgba(237,237,237,0.5)',
-                                }}
+                                style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', background: align === a ? c(0.2) : 'transparent', border: align === a ? `1px solid ${c(0.4)}` : '1px solid transparent', color: align === a ? c(0.9) : 'rgba(237,237,237,0.5)' }}
                             >
                                 {a === 'left' && <FormatAlignLeft style={{ fontSize: 14 }} />}
                                 {a === 'center' && <FormatAlignCenter style={{ fontSize: 14 }} />}
@@ -274,39 +265,20 @@ function ResizableImageView({ node, selected, updateAttributes }: {
                             </button>
                         ))}
                         <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
-                        <button
-                            type='button' title='Reset to full width'
+                        <button type='button' title='Reset to full width'
                             onMouseDown={e => { e.preventDefault(); updateAttributes({ width: null }) }}
-                            style={{
-                                padding: '3px 6px', borderRadius: 2, cursor: 'pointer',
-                                background: !width ? c(0.2) : 'transparent',
-                                border: !width ? `1px solid ${c(0.4)}` : '1px solid transparent',
-                                color: 'rgba(237,237,237,0.5)', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em',
-                            }}
+                            style={{ padding: '3px 6px', borderRadius: 2, cursor: 'pointer', background: !width ? c(0.2) : 'transparent', border: !width ? `1px solid ${c(0.4)}` : '1px solid transparent', color: 'rgba(237,237,237,0.5)', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em' }}
                         >
                             FIT
                         </button>
                     </div>
                 )}
-
-                <img
-                    src={src} alt={alt || ''} title={title || ''} draggable={false}
-                    style={{
-                        display: 'block', width: width ? `${width}px` : '100%',
-                        maxWidth: '100%', height: 'auto',
-                        border: selected ? `2px solid ${c(0.6)}` : '1px solid rgba(255,255,255,0.06)',
-                    }}
+                <img src={src} alt={alt || ''} title={title || ''} draggable={false}
+                    style={{ display: 'block', width: width ? `${width}px` : '100%', maxWidth: '100%', height: 'auto', border: selected ? `2px solid ${c(0.6)}` : '1px solid rgba(255,255,255,0.06)' }}
                 />
-
                 {selected && (
-                    <div
-                        onMouseDown={onResizeStart}
-                        style={{
-                            position: 'absolute', bottom: 4, right: 4,
-                            width: 12, height: 12,
-                            background: c(0.85), border: '2px solid rgba(255,255,255,0.7)',
-                            borderRadius: 2, cursor: 'se-resize', zIndex: 10,
-                        }}
+                    <div onMouseDown={onResizeStart}
+                        style={{ position: 'absolute', bottom: 4, right: 4, width: 12, height: 12, background: c(0.85), border: '2px solid rgba(255,255,255,0.7)', borderRadius: 2, cursor: 'se-resize', zIndex: 10 }}
                     />
                 )}
             </div>
@@ -338,24 +310,25 @@ const ResizableImage = Image.extend({
     },
 })
 
-// ─── Active Editor (sections manager) ─────────────────────────────────────────
+// ─── Active Editor ────────────────────────────────────────────────────────────
 
 interface ActiveEditorProps {
     ydoc: Y.Doc
     provider: HocuspocusProvider
     user: PresenceUser
+    uploadUrl: string
+    defaultSectionTitle: string
     initialContent?: any
     onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
     themeColor?: string
 }
 
-function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange, themeColor = '#db001d' }: ActiveEditorProps) {
+function ActiveEditor({ ydoc, provider, user, uploadUrl, defaultSectionTitle, initialContent, onSaveStatusChange, themeColor = '#db001d' }: ActiveEditorProps) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
     const [activePage, setActivePage] = useState<string>('main')
     const [sectionIds, setSectionIds] = useState<string[]>([])
-    // ID of a newly-created default section that should receive initialContent
     const [seedSectionId, setSeedSectionId] = useState<string | null>(null)
     const [peers, setPeers] = useState<Peer[]>([])
     const [isMobile, setIsMobile] = useState(false)
@@ -378,7 +351,6 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
         }
     }
 
-    // Observe sectionOrder for the active page
     useEffect(() => {
         const { orderKey } = getPageKeys(activePage)
         const order = ydoc.getArray<string>(orderKey)
@@ -388,7 +360,6 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
         return () => order.unobserve(handler)
     }, [ydoc, activePage])
 
-    // On first sync: if no sections exist yet on the main page, create a default "Orders" section
     useEffect(() => {
         const onSynced = () => {
             const order = ydoc.getArray<string>('sectionOrder')
@@ -397,7 +368,7 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                 ydoc.transact(() => {
                     order.push([id])
                     const smeta = ydoc.getMap<string>('smeta-' + id)
-                    smeta.set('title', 'Orders')
+                    smeta.set('title', defaultSectionTitle)
                     smeta.set('isPublic', 'true')
                 })
                 setSeedSectionId(id)
@@ -405,9 +376,8 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
         }
         provider.on('synced', onSynced)
         return () => { provider.off('synced', onSynced) }
-    }, [ydoc, provider])
+    }, [ydoc, provider, defaultSectionTitle])
 
-    // Track presence
     useEffect(() => {
         const awareness = provider.awareness
         if (!awareness) return
@@ -462,8 +432,6 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
     return (
         <ThemeContext.Provider value={themeColor}>
             <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 20, alignItems: 'flex-start' }}>
-
-                {/* Page sidebar / top strip */}
                 <PageSidebar
                     ydoc={ydoc}
                     activePage={activePage}
@@ -471,20 +439,16 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                     themeColor={themeColor}
                     orientation={isMobile ? 'top' : 'sidebar'}
                 />
-
-                {/* Main editor column */}
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-                    {/* Presence avatars */}
-                    {peers.length > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                            {peers.map(peer => (
-                                <PresenceAvatar key={peer.clientId} peer={peer} />
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Section editors */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                        <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)', marginRight: 2 }}>
+                            Editing
+                        </span>
+                        <PresenceAvatar key='self' peer={{ clientId: -1, ...user }} self />
+                        {peers.map(peer => (
+                            <PresenceAvatar key={peer.clientId} peer={peer} />
+                        ))}
+                    </div>
                     {sectionIds.map((id, idx) => (
                         <SectionEditor
                             key={`${activePage}-${id}`}
@@ -493,6 +457,7 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                             pageId={activePage}
                             provider={provider}
                             user={user}
+                            uploadUrl={uploadUrl}
                             onRemove={() => removeSection(id)}
                             onMoveUp={() => moveSection(id, 'up')}
                             onMoveDown={() => moveSection(id, 'down')}
@@ -502,27 +467,14 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
                             seedContent={activePage === 'main' && id === seedSectionId ? initialContent : undefined}
                         />
                     ))}
-
-                    {/* Add section button */}
-                    <button
-                        type='button'
-                        onClick={addSection}
-                        style={{
-                            alignSelf: 'flex-start',
-                            padding: '7px 16px',
-                            background: 'transparent',
-                            border: `1px dashed ${c(0.3)}`,
-                            color: c(0.55),
-                            fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-                            cursor: 'pointer', transition: 'all 0.15s',
-                        }}
+                    <button type='button' onClick={addSection}
+                        style={{ alignSelf: 'flex-start', padding: '7px 16px', background: 'transparent', border: `1px dashed ${c(0.3)}`, color: c(0.55), fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.15s' }}
                         onMouseEnter={e => { e.currentTarget.style.borderColor = c(0.7); e.currentTarget.style.color = c(0.9) }}
                         onMouseLeave={e => { e.currentTarget.style.borderColor = c(0.3); e.currentTarget.style.color = c(0.55) }}
                     >
                         + Add Section
                     </button>
                 </div>
-
             </div>
         </ThemeContext.Provider>
     )
@@ -533,19 +485,20 @@ function ActiveEditor({ ydoc, provider, user, initialContent, onSaveStatusChange
 interface SectionEditorProps {
     ydoc: Y.Doc
     sectionId: string
-    pageId?: string  // 'main' or page slug; omit for legacy single-page behaviour
+    pageId?: string
     provider: HocuspocusProvider
     user: PresenceUser
+    uploadUrl: string
     onRemove: () => void
     onMoveUp: () => void
     onMoveDown: () => void
     canMoveUp: boolean
     canMoveDown: boolean
     themeColor?: string
-    seedContent?: any  // seed this section's content on first load
+    seedContent?: any
 }
 
-function SectionEditor({ ydoc, sectionId, pageId, provider, user, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, themeColor = '#db001d', seedContent }: SectionEditorProps) {
+function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, themeColor = '#db001d', seedContent }: SectionEditorProps) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
@@ -577,7 +530,6 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, onRemove, onMo
     const [linkUrl, setLinkUrl] = useState('')
     const linkInputRef = useRef<HTMLInputElement>(null)
 
-    // Observe this section's metadata
     useEffect(() => {
         const smeta = ydoc.getMap<string>(metaKey)
         const handler = () => {
@@ -631,10 +583,8 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, onRemove, onMo
         },
     })
 
-    // Seed content for the auto-created default section (backward compat)
     useEffect(() => {
         if (!editor || !seedContent || seededRef.current) return
-        // Provider may already be synced when SectionEditor mounts; seed directly if empty
         const trySeek = () => {
             if (!seededRef.current && editor.isEmpty) {
                 editor.commands.setContent(seedContent)
@@ -642,7 +592,6 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, onRemove, onMo
             }
         }
         provider.on('synced', trySeek)
-        // Also try immediately in case sync already happened
         trySeek()
         return () => { provider.off('synced', trySeek) }
     }, [editor, provider, seedContent])
@@ -663,7 +612,7 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, onRemove, onMo
         try {
             const formData = new FormData()
             formData.append('file', file)
-            const res = await fetch('/api/operations/upload', { method: 'POST', body: formData })
+            const res = await fetch(uploadUrl, { method: 'POST', body: formData })
             const json = await res.json()
             if (json.url) editor.chain().focus().setImage({ src: json.url }).run()
             else alert(json.error || 'Upload failed')
@@ -681,96 +630,40 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, onRemove, onMo
             <style>{themeCSS}</style>
 
             {/* Section header */}
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 12px',
-                borderBottom: '1px solid rgba(255,255,255,0.05)',
-                background: 'rgba(0,0,0,0.25)',
-            }}>
-                {/* Title input */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.25)' }}>
                 <input
                     value={title}
                     onChange={e => updateMeta({ title: e.target.value })}
                     placeholder='Section Title'
-                    style={{
-                        flex: 1,
-                        background: 'transparent', border: 'none',
-                        borderBottom: '1px solid rgba(255,255,255,0.1)',
-                        color: 'rgba(237,237,237,0.85)',
-                        fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                        outline: 'none', padding: '2px 0',
-                    }}
+                    style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', outline: 'none', padding: '2px 0' }}
                 />
-
-                {/* Public / private toggle */}
-                <button
-                    type='button'
+                <button type='button'
                     title={isPublic ? 'Publicly visible — click to make private' : 'Members only — click to make public'}
                     onClick={() => updateMeta({ isPublic: !isPublic })}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 5,
-                        padding: '4px 10px',
-                        background: isPublic ? 'rgba(100,220,100,0.07)' : 'rgba(219,180,0,0.07)',
-                        border: `1px solid ${isPublic ? 'rgba(100,220,100,0.25)' : 'rgba(219,180,0,0.3)'}`,
-                        color: isPublic ? 'rgba(100,220,100,0.8)' : 'rgba(219,180,0,0.8)',
-                        fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                        cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s',
-                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: isPublic ? 'rgba(100,220,100,0.07)' : 'rgba(219,180,0,0.07)', border: `1px solid ${isPublic ? 'rgba(100,220,100,0.25)' : 'rgba(219,180,0,0.3)'}`, color: isPublic ? 'rgba(100,220,100,0.8)' : 'rgba(219,180,0,0.8)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}
                 >
-                    {isPublic
-                        ? <><LockOpen style={{ fontSize: 12 }} /> Public</>
-                        : <><Lock style={{ fontSize: 12 }} /> Members Only</>
-                    }
+                    {isPublic ? <><LockOpen style={{ fontSize: 12 }} /> Public</> : <><Lock style={{ fontSize: 12 }} /> Members Only</>}
                 </button>
-
-                {/* Move up / down */}
                 <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                    <button
-                        type='button'
-                        title='Move section up'
-                        onClick={onMoveUp}
-                        disabled={!canMoveUp}
+                    <button type='button' title='Move section up' onClick={onMoveUp} disabled={!canMoveUp}
                         style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: canMoveUp ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.08)', cursor: canMoveUp ? 'pointer' : 'default', padding: '2px 4px', fontSize: '0.75rem', lineHeight: 1, transition: 'color 0.15s' }}
                         onMouseEnter={e => { if (canMoveUp) e.currentTarget.style.color = 'rgba(237,237,237,0.8)' }}
                         onMouseLeave={e => { if (canMoveUp) e.currentTarget.style.color = 'rgba(237,237,237,0.3)' }}
-                    >
-                        ▲
-                    </button>
-                    <button
-                        type='button'
-                        title='Move section down'
-                        onClick={onMoveDown}
-                        disabled={!canMoveDown}
+                    >▲</button>
+                    <button type='button' title='Move section down' onClick={onMoveDown} disabled={!canMoveDown}
                         style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: canMoveDown ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.08)', cursor: canMoveDown ? 'pointer' : 'default', padding: '2px 4px', fontSize: '0.75rem', lineHeight: 1, transition: 'color 0.15s' }}
                         onMouseEnter={e => { if (canMoveDown) e.currentTarget.style.color = 'rgba(237,237,237,0.8)' }}
                         onMouseLeave={e => { if (canMoveDown) e.currentTarget.style.color = 'rgba(237,237,237,0.3)' }}
-                    >
-                        ▼
-                    </button>
+                    >▼</button>
                 </div>
-
-                {/* Remove section */}
                 {confirmingRemove ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                         <span style={{ fontSize: '0.6rem', color: 'rgba(219,0,29,0.7)', letterSpacing: '0.08em' }}>Remove section?</span>
-                        <button
-                            type='button' onClick={onRemove}
-                            style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.9)', background: 'rgba(219,0,29,0.1)', border: '1px solid rgba(219,0,29,0.3)', padding: '3px 8px', cursor: 'pointer' }}
-                        >
-                            Yes
-                        </button>
-                        <button
-                            type='button' onClick={() => setConfirmingRemove(false)}
-                            style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', background: 'none', border: '1px solid rgba(255,255,255,0.1)', padding: '3px 8px', cursor: 'pointer' }}
-                        >
-                            No
-                        </button>
+                        <button type='button' onClick={onRemove} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.9)', background: 'rgba(219,0,29,0.1)', border: '1px solid rgba(219,0,29,0.3)', padding: '3px 8px', cursor: 'pointer' }}>Yes</button>
+                        <button type='button' onClick={() => setConfirmingRemove(false)} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', background: 'none', border: '1px solid rgba(255,255,255,0.1)', padding: '3px 8px', cursor: 'pointer' }}>No</button>
                     </div>
                 ) : (
-                    <button
-                        type='button'
-                        title='Remove section'
-                        onClick={() => setConfirmingRemove(true)}
+                    <button type='button' title='Remove section' onClick={() => setConfirmingRemove(true)}
                         style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'rgba(237,237,237,0.2)', cursor: 'pointer', padding: 4, flexShrink: 0, transition: 'color 0.15s' }}
                         onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.7)')}
                         onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.2)')}
@@ -781,270 +674,101 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, onRemove, onMo
             </div>
 
             {/* Toolbar */}
-            <div style={{
-                display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2,
-                padding: '7px 10px',
-                background: 'rgb(10,10,10)',
-                borderBottom: '1px solid rgba(255,255,255,0.08)',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
-                position: 'sticky', top: 0, zIndex: 20,
-            }}>
-                <TBtn title='Undo' onClick={() => editor.chain().focus().undo().run()}>
-                    <Undo style={{ fontSize: 16 }} />
-                </TBtn>
-                <TBtn title='Redo' onClick={() => editor.chain().focus().redo().run()}>
-                    <Redo style={{ fontSize: 16 }} />
-                </TBtn>
-
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, padding: '7px 10px', background: 'rgb(10,10,10)', borderBottom: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 2px 8px rgba(0,0,0,0.6)', position: 'sticky', top: 0, zIndex: 20 }}>
+                <TBtn title='Undo' onClick={() => editor.chain().focus().undo().run()}><Undo style={{ fontSize: 16 }} /></TBtn>
+                <TBtn title='Redo' onClick={() => editor.chain().focus().redo().run()}><Redo style={{ fontSize: 16 }} /></TBtn>
                 <TDivider />
-
                 {([1, 2, 3] as const).map(level => (
-                    <TBtn
-                        key={level}
-                        title={`Heading ${level}`}
-                        active={editor.isActive('heading', { level })}
-                        onClick={() => editor.chain().focus().toggleHeading({ level }).run()}
-                    >
+                    <TBtn key={level} title={`Heading ${level}`} active={editor.isActive('heading', { level })} onClick={() => editor.chain().focus().toggleHeading({ level }).run()}>
                         <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.05em' }}>H{level}</span>
                     </TBtn>
                 ))}
-
                 <TDivider />
-
-                <TBtn title='Bold' active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
-                    <FormatBold style={{ fontSize: 17 }} />
-                </TBtn>
-                <TBtn title='Italic' active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>
-                    <FormatItalic style={{ fontSize: 17 }} />
-                </TBtn>
-                <TBtn title='Underline' active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>
-                    <FormatUnderlined style={{ fontSize: 17 }} />
-                </TBtn>
-                <TBtn title='Strikethrough' active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}>
-                    <StrikethroughS style={{ fontSize: 17 }} />
-                </TBtn>
-                <TBtn title='Highlight' active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}>
-                    <FormatColorFill style={{ fontSize: 17 }} />
-                </TBtn>
-
+                <TBtn title='Bold' active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}><FormatBold style={{ fontSize: 17 }} /></TBtn>
+                <TBtn title='Italic' active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><FormatItalic style={{ fontSize: 17 }} /></TBtn>
+                <TBtn title='Underline' active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}><FormatUnderlined style={{ fontSize: 17 }} /></TBtn>
+                <TBtn title='Strikethrough' active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}><StrikethroughS style={{ fontSize: 17 }} /></TBtn>
+                <TBtn title='Highlight' active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}><FormatColorFill style={{ fontSize: 17 }} /></TBtn>
                 <TDivider />
-
-                <TBtn title='Align Left' active={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()}>
-                    <FormatAlignLeft style={{ fontSize: 17 }} />
-                </TBtn>
-                <TBtn title='Align Centre' active={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()}>
-                    <FormatAlignCenter style={{ fontSize: 17 }} />
-                </TBtn>
-                <TBtn title='Align Right' active={editor.isActive({ textAlign: 'right' })} onClick={() => editor.chain().focus().setTextAlign('right').run()}>
-                    <FormatAlignRight style={{ fontSize: 17 }} />
-                </TBtn>
-
+                <TBtn title='Align Left' active={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()}><FormatAlignLeft style={{ fontSize: 17 }} /></TBtn>
+                <TBtn title='Align Centre' active={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()}><FormatAlignCenter style={{ fontSize: 17 }} /></TBtn>
+                <TBtn title='Align Right' active={editor.isActive({ textAlign: 'right' })} onClick={() => editor.chain().focus().setTextAlign('right').run()}><FormatAlignRight style={{ fontSize: 17 }} /></TBtn>
                 <TDivider />
-
-                <TBtn title='Bullet List' active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}>
-                    <FormatListBulleted style={{ fontSize: 17 }} />
-                </TBtn>
-                <TBtn title='Numbered List' active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
-                    <FormatListNumbered style={{ fontSize: 17 }} />
-                </TBtn>
-
+                <TBtn title='Bullet List' active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}><FormatListBulleted style={{ fontSize: 17 }} /></TBtn>
+                <TBtn title='Numbered List' active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><FormatListNumbered style={{ fontSize: 17 }} /></TBtn>
                 <TDivider />
-
-                <TBtn title='Quote' active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
-                    <FormatQuote style={{ fontSize: 17 }} />
-                </TBtn>
-                <TBtn title='Section Divider' onClick={() => editor.chain().focus().setHorizontalRule().run()}>
-                    <HorizontalRule style={{ fontSize: 17 }} />
-                </TBtn>
-
+                <TBtn title='Quote' active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}><FormatQuote style={{ fontSize: 17 }} /></TBtn>
+                <TBtn title='Section Divider' onClick={() => editor.chain().focus().setHorizontalRule().run()}><HorizontalRule style={{ fontSize: 17 }} /></TBtn>
                 <TDivider />
-
-                <TBtn
-                    title={uploadingImage ? 'Uploading...' : 'Insert Image'}
-                    onClick={() => imageInputRef.current?.click()}
-                    active={uploadingImage}
-                >
+                <TBtn title={uploadingImage ? 'Uploading...' : 'Insert Image'} onClick={() => imageInputRef.current?.click()} active={uploadingImage}>
                     <AddPhotoAlternate style={{ fontSize: 17, opacity: uploadingImage ? 0.4 : 1 }} />
                 </TBtn>
-
-                {/* Link button + inline popover */}
                 <div style={{ position: 'relative' }}>
-                    <TBtn
-                        title={editor.isActive('link') ? 'Edit Link' : 'Insert Link'}
-                        active={editor.isActive('link')}
-                        onClick={() => {
-                            const existing = editor.getAttributes('link').href || ''
-                            setLinkUrl(existing)
-                            setLinkPopover(v => !v)
-                            setTimeout(() => linkInputRef.current?.focus(), 40)
-                        }}
+                    <TBtn title={editor.isActive('link') ? 'Edit Link' : 'Insert Link'} active={editor.isActive('link')}
+                        onClick={() => { const existing = editor.getAttributes('link').href || ''; setLinkUrl(existing); setLinkPopover(v => !v); setTimeout(() => linkInputRef.current?.focus(), 40) }}
                     >
                         <InsertLink style={{ fontSize: 17 }} />
                     </TBtn>
                     {linkPopover && (
-                        <div
-                            {...{ [`data-link-popover-${sectionId}`]: true }}
-                            onMouseDown={e => e.stopPropagation()}
-                            style={{
-                                position: 'absolute', top: '110%', left: 0, zIndex: 50,
-                                background: 'rgba(14,14,14,0.97)', border: '1px solid rgba(255,255,255,0.12)',
-                                borderRadius: 4, padding: '8px 10px',
-                                display: 'flex', alignItems: 'center', gap: 6,
-                                minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
-                            }}
+                        <div {...{ [`data-link-popover-${sectionId}`]: true }} onMouseDown={e => e.stopPropagation()}
+                            style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'rgba(14,14,14,0.97)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 6, minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
                         >
-                            <input
-                                ref={linkInputRef}
-                                value={linkUrl}
-                                onChange={e => setLinkUrl(e.target.value)}
-                                placeholder='https://…'
+                            <input ref={linkInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
                                 onKeyDown={e => {
-                                    if (e.key === 'Enter') {
-                                        e.preventDefault()
-                                        if (linkUrl.trim()) editor.chain().focus().setLink({ href: linkUrl.trim() }).run()
-                                        else editor.chain().focus().unsetLink().run()
-                                        setLinkPopover(false)
-                                    }
+                                    if (e.key === 'Enter') { e.preventDefault(); if (linkUrl.trim()) editor.chain().focus().setLink({ href: linkUrl.trim() }).run(); else editor.chain().focus().unsetLink().run(); setLinkPopover(false) }
                                     if (e.key === 'Escape') setLinkPopover(false)
                                 }}
-                                style={{
-                                    flex: 1, background: 'transparent', border: 'none',
-                                    borderBottom: '1px solid rgba(255,255,255,0.15)',
-                                    color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem',
-                                    letterSpacing: '0.02em', outline: 'none', padding: '3px 2px',
-                                }}
+                                style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
                             />
-                            <button
-                                type='button'
-                                onClick={() => {
-                                    if (linkUrl.trim()) editor.chain().focus().setLink({ href: linkUrl.trim() }).run()
-                                    else editor.chain().focus().unsetLink().run()
-                                    setLinkPopover(false)
-                                }}
-                                style={{
-                                    fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
-                                    textTransform: 'uppercase', color: `rgba(${r},${g},${b},0.85)`,
-                                    background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0,
-                                }}
+                            <button type='button' onClick={() => { if (linkUrl.trim()) editor.chain().focus().setLink({ href: linkUrl.trim() }).run(); else editor.chain().focus().unsetLink().run(); setLinkPopover(false) }}
+                                style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: `rgba(${r},${g},${b},0.85)`, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
                             >Apply</button>
                         </div>
                     )}
                 </div>
-                <TBtn
-                    title='Remove Link'
-                    onClick={() => { editor.chain().focus().unsetLink().run(); setLinkPopover(false) }}
-                >
+                <TBtn title='Remove Link' onClick={() => { editor.chain().focus().unsetLink().run(); setLinkPopover(false) }}>
                     <LinkOff style={{ fontSize: 17 }} />
                 </TBtn>
-
                 <TDivider />
-
                 <TBtn title='Clear Formatting' onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>
                     <FormatClear style={{ fontSize: 17 }} />
                 </TBtn>
             </div>
 
-            {/* Editor content */}
             <EditorContent editor={editor} />
 
-            {/* Hidden image input */}
-            <input
-                ref={imageInputRef}
-                type='file'
-                accept='image/*'
-                style={{ display: 'none' }}
-                onChange={e => {
-                    const file = e.target.files?.[0]
-                    if (file) handleImageUpload(file)
-                    e.target.value = ''
-                }}
+            <input ref={imageInputRef} type='file' accept='image/*' style={{ display: 'none' }}
+                onChange={e => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); e.target.value = '' }}
             />
         </div>
     )
 }
 
-
-function PresenceAvatar({ peer }: { peer: Peer }) {
+function PresenceAvatar({ peer, self }: { peer: Peer; self?: boolean }) {
     const [hovered, setHovered] = useState(false)
     return (
-        <div
-            style={{ position: 'relative', flexShrink: 0 }}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-        >
-            <div style={{
-                width: 26, height: 26,
-                borderRadius: '50%',
-                background: peer.color,
-                border: `2px solid ${peer.color}`,
-                overflow: 'hidden',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 10, fontWeight: 700, color: '#fff',
-                textTransform: 'uppercase',
-                cursor: 'default',
-                flexShrink: 0,
-            }}>
-                {peer.avatar
-                    ? <img src={peer.avatar} alt={peer.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    : peer.name.charAt(0)
-                }
+        <div style={{ position: 'relative', flexShrink: 0 }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+            <div style={{ width: 26, height: 26, borderRadius: '50%', background: peer.color, border: `2px solid ${self ? 'rgba(255,255,255,0.5)' : peer.color}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', cursor: 'default', flexShrink: 0, opacity: self ? 0.85 : 1 }}>
+                {peer.avatar ? <img src={peer.avatar} alt={peer.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : peer.name.charAt(0)}
             </div>
             {hovered && (
-                <div style={{
-                    position: 'absolute',
-                    bottom: '120%',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    background: peer.color,
-                    color: '#fff',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    padding: '3px 8px',
-                    borderRadius: 3,
-                    whiteSpace: 'nowrap',
-                    pointerEvents: 'none',
-                    zIndex: 100,
-                }}>
-                    {peer.name}
+                <div style={{ position: 'absolute', bottom: '120%', left: '50%', transform: 'translateX(-50%)', background: peer.color, color: '#fff', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 3, whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 100 }}>
+                    {self ? `${peer.name} (you)` : peer.name}
                 </div>
             )}
         </div>
     )
 }
 
-
 function TBtn({ onClick, active, title, children }: { onClick: () => void; active?: boolean; title: string; children: React.ReactNode }) {
     const themeColor = useContext(ThemeContext)
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
     return (
-        <button
-            type='button'
-            title={title}
-            onClick={onClick}
-            style={{
-                padding: '4px 7px',
-                background: active ? c(0.15) : 'transparent',
-                border: active ? `1px solid ${c(0.3)}` : '1px solid transparent',
-                color: active ? c(0.9) : 'rgba(237,237,237,0.5)',
-                cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                borderRadius: 2,
-                transition: 'all 0.15s',
-                minWidth: 28, height: 28,
-            }}
-            onMouseEnter={e => {
-                if (!active) {
-                    e.currentTarget.style.color = 'rgba(237,237,237,0.9)'
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
-                }
-            }}
-            onMouseLeave={e => {
-                if (!active) {
-                    e.currentTarget.style.color = 'rgba(237,237,237,0.5)'
-                    e.currentTarget.style.background = 'transparent'
-                }
-            }}
+        <button type='button' title={title} onClick={onClick}
+            style={{ padding: '4px 7px', background: active ? c(0.15) : 'transparent', border: active ? `1px solid ${c(0.3)}` : '1px solid transparent', color: active ? c(0.9) : 'rgba(237,237,237,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, transition: 'all 0.15s', minWidth: 28, height: 28 }}
+            onMouseEnter={e => { if (!active) { e.currentTarget.style.color = 'rgba(237,237,237,0.9)'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)' } }}
+            onMouseLeave={e => { if (!active) { e.currentTarget.style.color = 'rgba(237,237,237,0.5)'; e.currentTarget.style.background = 'transparent' } }}
         >
             {children}
         </button>

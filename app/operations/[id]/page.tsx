@@ -190,7 +190,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                             <>
                                 <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.1)' }} />
                                 <Link
-                                    href={`/operations/edit?op=${id}`}
+                                    href={`/operations/${id}/edit`}
                                     style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: c(0.55), textDecoration: 'none' }}
                                 >
                                     Edit

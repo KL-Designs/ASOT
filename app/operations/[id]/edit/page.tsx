@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import ConfirmDialog from '@/components/confirm-dialog'
 import dayjs, { Dayjs } from 'dayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
@@ -10,9 +10,10 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dynamic from 'next/dynamic'
 import PERMISSIONS from '@/lib/permissions'
-import { type MetaFields } from './editor'
 import ActivityLog from './activity-log'
-const OperationEditor = dynamic(() => import('./editor'), { ssr: false })
+const OperationEditor = dynamic(() => import('@/components/editor/CollabEditor'), { ssr: false })
+
+interface MetaFields { title: string; department: string; date: string; loreDate: string }
 
 type AttendanceStage = 'preparing' | 'rsvp_open' | 'rsvp_closed' | 'op_running' | 'confirmations_open' | 'completed'
 
@@ -36,8 +37,9 @@ function hexToRgb(hex: string) {
 
 
 export default function Page() {
+    const { id: routeId } = useParams<{ id: string }>()
 
-    const [opID, setOpID] = useState('')
+    const [opID, setOpID] = useState(routeId || '')
     const [title, setTitle] = useState('')
     const [date, setDate] = useState<Dayjs | null>(null)
     const [loreDate, setLoreDate] = useState<string>('')
@@ -148,17 +150,14 @@ export default function Page() {
     }, [tickNow])
 
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search)
-        const id = params.get('op') || ''
+        const id = routeId || ''
         setOpID(id)
-
 
         if (!id) return
 
         fetch(`/api/me/roles?has=${PERMISSIONS.pages.operationsEdit.join(',')}`)
             .then(r => r.json())
             .then(json => { if (!json.error) setIsHQ(json.access) })
-
 
         fetch(`/api/operations?id=${id}`)
             .then(r => r.json())
@@ -197,7 +196,7 @@ export default function Page() {
                 // so the close→re-open bounce can't happen.
                 if (json.rsvpOpen && openAt) autoOpenFiredRef.current = openAt
             })
-    }, [])
+    }, [routeId])
 
 
     function scheduleSave(updates: Record<string, string>) {
@@ -205,11 +204,9 @@ export default function Page() {
         clearTimeout(metaSaveTimer.current)
         metaSaveTimer.current = setTimeout(async () => {
             setSaveStatus('saving')
-            const params = new URLSearchParams(window.location.search)
-            const id = params.get('op') || ''
             const qs = Object.entries(updates).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')
             try {
-                await fetch(`/api/operations/update?id=${id}&${qs}`)
+                await fetch(`/api/operations/update?id=${opID}&${qs}`)
                 setSaveStatus('saved')
             } catch {
                 setSaveStatus('unsaved')
@@ -226,9 +223,7 @@ export default function Page() {
             const json = await res.json()
             if (json.url) {
                 setCoverImage(json.url)
-                const params = new URLSearchParams(window.location.search)
-                const id = params.get('op') || ''
-                await fetch(`/api/operations/update?id=${id}&coverImage=${encodeURIComponent(json.url)}`)
+                await fetch(`/api/operations/update?id=${opID}&coverImage=${encodeURIComponent(json.url)}`)
             }
         } finally {
             setCoverUploading(false)
@@ -236,18 +231,14 @@ export default function Page() {
     }
 
     async function handleDelete() {
-        const params = new URLSearchParams(window.location.search)
-        const id = params.get('op') || ''
-        const json = await fetch(`/api/operations/delete?id=${id}`).then(r => r.json())
+        const json = await fetch(`/api/operations/delete?id=${opID}`).then(r => r.json())
         if (json.error) { alert(json.error); return }
         router.push('/operations')
     }
 
     async function removeCover() {
         setCoverImage(null)
-        const params = new URLSearchParams(window.location.search)
-        const id = params.get('op') || ''
-        await fetch(`/api/operations/update?id=${id}&coverImage=`)
+        await fetch(`/api/operations/update?id=${opID}&coverImage=`)
     }
 
     async function saveAttendanceSettings(updates: {
@@ -1080,7 +1071,9 @@ export default function Page() {
             {/* Document sections */}
             {loaded ? (
                 <OperationEditor
-                    operationId={opID}
+                    documentId={opID}
+                    uploadUrl='/api/operations/upload'
+                    defaultSectionTitle='Orders'
                     initialContent={initialContent}
                     themeColor={themeColor}
                     initialMeta={{ title, department, date: date?.toISOString() ?? '', loreDate: loreDate ?? '' }}

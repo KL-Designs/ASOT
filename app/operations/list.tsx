@@ -202,7 +202,7 @@ export function CreateButton() {
             .then(res => res.json())
             .then(json => {
                 if (json.error) { alert(json.error); setActive(false); return }
-                router.push(`/operations/edit?op=${json.id}`)
+                router.push(`/operations/${json.id}/edit`)
             })
             .catch(err => { alert(err); setActive(false) })
     }
@@ -559,7 +559,7 @@ function MissionRow({ mission, hasAccess }: { mission: Operation; hasAccess: boo
                                     <Dashboard style={{ fontSize: 11 }} /> J2
                                 </div>
                             </Link>
-                            <Link href={`/operations/edit?op=${id}`} title='Edit' style={{ textDecoration: 'none' }}>
+                            <Link href={`/operations/${id}/edit`} title='Edit' style={{ textDecoration: 'none' }}>
                                 <div
                                     style={{
                                         display: 'flex', alignItems: 'center', gap: 4,
