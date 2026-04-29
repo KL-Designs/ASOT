@@ -116,7 +116,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ at
                 type: 'quiz_submitted',
                 title: 'Quiz submitted for review',
                 body: `${attempt.userName} has submitted the BCT Confirmation Quiz.`,
-                actionUrl: `/admin/quiz/review/${attemptId}`,
+                actionUrl: `/dashboard/quiz/review/${attemptId}`,
                 relatedId: attemptId,
                 createdAt: new Date(),
             } as Notification)

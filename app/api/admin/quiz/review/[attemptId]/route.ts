@@ -204,7 +204,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ att
             type: 'quiz_review_requested',
             title: 'Quiz sent for review',
             body: `${reviewerName} has sent ${attempt.userName}'s BCT quiz for your review. Notes: ${notes}`,
-            actionUrl: `/admin/quiz/review/${attemptId}`,
+            actionUrl: `/dashboard/quiz/review/${attemptId}`,
             relatedId: attemptId,
         })
 

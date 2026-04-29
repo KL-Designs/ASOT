@@ -4,8 +4,9 @@ const BCT_QUIZ: QuizDefinition = {
     id: 'bct-quiz',
     title: 'ASOT | BCT Confirmation Quiz',
     timeLimitMinutes: 10,
+    passMarkPoints: 27,
     instructions: [
-        'You have 10 minutes to complete this quiz.',
+        'You have {TIME_LIMIT} minutes to complete this quiz.',
         'Do not search for answers.',
         'All control-related questions refer to default controls.',
     ],
@@ -24,7 +25,7 @@ const BCT_QUIZ: QuizDefinition = {
             id: 'grid-refs',
             title: 'Grid References and Maps',
             questions: [
-                { id: 'gr-1', type: 'text', question: 'What are the 3 different sizes of grid references mostly used?' },
+                { id: 'gr-1', type: 'text', question: 'What are the 3 different sizes of grid references mostly used?', answerBoxes: 3 },
                 { id: 'gr-2', type: 'image_question', question: 'What is the 4-figure grid reference for the highlighted square?', image: 'grid_ref_image_1' },
                 { id: 'gr-3', type: 'image_question', question: 'What is the 6-figure grid reference for the highlighted square?', image: 'grid_ref_image_2' },
                 { id: 'gr-4', type: 'image_question', question: 'What is the 8-figure grid reference for the highlighted square?', image: 'grid_ref_image_3' },
@@ -34,7 +35,7 @@ const BCT_QUIZ: QuizDefinition = {
             id: 'tfar',
             title: 'TFAR (Task Force Arrowhead Radio)',
             questions: [
-                { id: 'tf-1', type: 'image_question', question: 'Describe what each labelled control does/displays on the infantry radio (1–6).', image: 'radio_diagram' },
+                { id: 'tf-1', type: 'image_question', question: 'Describe what each labelled control does/displays on the infantry radio (1–6).', image: 'radio_diagram', answerBoxes: 6 },
                 { id: 'tf-2', type: 'text', question: 'Explain how you set up channel/frequency on the infantry radio.' },
                 { id: 'tf-3', type: 'text', question: 'What additional equipment is required to set radio frequency?' },
                 { id: 'tf-4', type: 'text', question: 'What category is that equipment found in within the arsenal?' },
@@ -44,7 +45,7 @@ const BCT_QUIZ: QuizDefinition = {
             id: 'ace-medical',
             title: 'ACE Medical',
             questions: [
-                { id: 'am-1', type: 'text', question: 'What are the 2 ways you can access the medical menu?' },
+                { id: 'am-1', type: 'text', question: 'What are the 2 ways you can access the medical menu?', answerBoxes: 2 },
                 { id: 'am-2', type: 'text', question: 'What is used to stop bleeding immediately?' },
             ],
         },
@@ -72,8 +73,8 @@ const BCT_QUIZ: QuizDefinition = {
                 { id: 'wk-1', type: 'text', question: 'How do you check your magazine round count?' },
                 { id: 'wk-2', type: 'text', question: 'What controls clear a weapon jam?' },
                 { id: 'wk-3', type: 'text', question: 'What tool is required to dig trenches?' },
-                { id: 'wk-4', type: 'text', question: "What is back blast and why must you call 'Back blast clear'?" },
-                { id: 'wk-5', type: 'text', question: 'What are the 2 ways you can throw grenades?' },
+                { id: 'wk-4', type: 'text', question: "What is back blast and why must you call 'Back blast clear'?", answerBoxes: 2 },
+                { id: 'wk-5', type: 'text', question: 'What are the 2 ways you can throw grenades?', answerBoxes: 2 },
             ],
         },
         {

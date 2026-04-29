@@ -364,6 +364,21 @@ const PERMISSIONS = {
         manageStatus: ['J4-Administration'],
     },
 
+    // ── Community Tickets ─────────────────────────────────────────────────────
+
+    communityTickets: {
+        /**
+         * J4-only: manage all community tickets including private ones
+         * (unit-feedback, complaints, awards) and soft-deleted tickets.
+         * Also controls status changes, reassignments, and activity log access.
+         *
+         * Used by:
+         *  - `app/api/community/tickets/route.ts`
+         *  - `app/api/community/tickets/[id]/route.ts`
+         */
+        manage: ['J4-Administration'],
+    },
+
     // ── Gallery ───────────────────────────────────────────────────────────────
 
     gallery: {

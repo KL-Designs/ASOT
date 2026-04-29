@@ -5,28 +5,20 @@ const GREEN = 'rgba(34,197,94,0.85)'
 const GREEN_BORDER = 'rgba(34,197,94,0.6)'
 const RED_BORDER = 'rgba(239,68,68,0.6)'
 
-// Labels for the 6 TFAR radio controls (question tf-1)
-const TFAR_LABELS = [
-    'Control 1',
-    'Control 2',
-    'Control 3',
-    'Control 4',
-    'Control 5',
-    'Control 6',
-]
+// Named labels for the TFAR radio question boxes
+const TFAR_LABELS = ['Control 1', 'Control 2', 'Control 3', 'Control 4', 'Control 5', 'Control 6']
 
-function parseTfarValue(raw: string | null): string[] {
-    if (!raw) return ['', '', '', '', '', '']
+function parseMultiBoxValue(raw: string | null, count: number): string[] {
+    if (!raw) return Array(count).fill('')
     try {
         const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed) && parsed.length === 6) return parsed.map(String)
+        if (Array.isArray(parsed)) return Array.from({ length: count }, (_, i) => String(parsed[i] ?? ''))
     } catch { /* fall through */ }
-    // Legacy: newline-delimited
     const lines = raw.split('\n')
-    return Array.from({ length: 6 }, (_, i) => lines[i] ?? '')
+    return Array.from({ length: count }, (_, i) => lines[i] ?? '')
 }
 
-function encodeTfarValue(parts: string[]): string {
+function encodeMultiBoxValue(parts: string[]): string {
     return JSON.stringify(parts)
 }
 
@@ -37,17 +29,24 @@ interface Props {
     value: string | null
     onChange?: (value: string) => void
     readOnly?: boolean
-    // Review mode
+    // Single-answer review
     reviewState?: 'correct' | 'needs_review' | 'incorrect' | null
     onReviewDecision?: (decision: 'correct' | 'incorrect') => void
+    // Multi-box review (used when question.answerBoxes > 1)
+    boxReviewStates?: ('correct' | 'incorrect' | null)[]
+    onBoxReviewDecision?: (boxIndex: number, decision: 'correct' | 'incorrect') => void
 }
 
 export default function QuizQuestionCard({
-    questionIndex, question, value, onChange, readOnly, reviewState, onReviewDecision,
+    questionIndex, question, value, onChange, readOnly,
+    reviewState, onReviewDecision,
+    boxReviewStates, onBoxReviewDecision,
 }: Props) {
     const questionNumber = questionIndex + 1
-    const isTfarRadio = question.id === 'tf-1'
-    const tfarParts = isTfarRadio ? parseTfarValue(value) : null
+    const boxes = question.answerBoxes ?? 1
+    const isMultiBox = boxes > 1
+    const multiParts = isMultiBox ? parseMultiBoxValue(value, boxes) : null
+    const boxLabels = question.id === 'tf-1' ? TFAR_LABELS : null
 
     // Review border styling
     let reviewBorder = 'rgba(255,255,255,0.07)'
@@ -107,6 +106,15 @@ export default function QuizQuestionCard({
                 }}>
                     {question.type === 'multiple_choice' ? 'Multiple Choice' : question.type === 'image_question' ? 'Image' : 'Written'}
                 </span>
+                {isMultiBox && (
+                    <span style={{
+                        fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.12em',
+                        textTransform: 'uppercase', color: 'rgba(219,0,29,0.45)',
+                        fontFamily: 'monospace',
+                    }}>
+                        {boxes} pts
+                    </span>
+                )}
                 {reviewState && (
                     <span style={{
                         marginLeft: 'auto',
@@ -201,29 +209,29 @@ export default function QuizQuestionCard({
                             )
                         })}
                     </div>
-                ) : isTfarRadio && tfarParts ? (
-                    /* TFAR Radio — 6 numbered inputs */
+                ) : isMultiBox && multiParts ? (
+                    /* Multi-box answer inputs */
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {tfarParts.map((part, i) => (
+                        {multiParts.map((part, i) => (
                             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                                 <div style={{
-                                    flexShrink: 0, width: 72,
+                                    flexShrink: 0,
                                     fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em',
                                     color: 'rgba(219,0,29,0.7)', fontFamily: 'monospace',
-                                    paddingTop: 10,
+                                    paddingTop: 10, whiteSpace: 'nowrap',
                                 }}>
-                                    {String(i + 1).padStart(2, '0')} — {TFAR_LABELS[i]}
+                                    {boxLabels ? `${String(i + 1).padStart(2, '0')} — ${boxLabels[i]}` : String(i + 1).padStart(2, '0')}
                                 </div>
                                 <textarea
                                     value={part}
                                     readOnly={readOnly}
                                     onChange={e => {
                                         if (readOnly || !onChange) return
-                                        const next = [...tfarParts]
+                                        const next = [...multiParts]
                                         next[i] = e.target.value
-                                        onChange(encodeTfarValue(next))
+                                        onChange(encodeMultiBoxValue(next))
                                     }}
-                                    placeholder={readOnly ? '' : `Describe control ${i + 1}…`}
+                                    placeholder={readOnly ? '' : `Answer ${i + 1}…`}
                                     rows={2}
                                     style={{
                                         flex: 1, boxSizing: 'border-box',
@@ -262,8 +270,8 @@ export default function QuizQuestionCard({
                 )}
             </div>
 
-            {/* Reviewer Correct / Incorrect toggles — written + image questions only */}
-            {onReviewDecision && question.type !== 'multiple_choice' && (
+            {/* Single-answer reviewer toggle */}
+            {onReviewDecision && question.type !== 'multiple_choice' && !isMultiBox && (
                 <div style={{
                     padding: '8px 16px 14px',
                     borderTop: '1px solid rgba(255,255,255,0.06)',
@@ -302,6 +310,69 @@ export default function QuizQuestionCard({
                     >
                         ✗ Incorrect
                     </button>
+                </div>
+            )}
+
+            {/* Multi-box reviewer toggles — one per answer box */}
+            {onBoxReviewDecision && question.type !== 'multiple_choice' && isMultiBox && (
+                <div style={{
+                    padding: '8px 16px 14px',
+                    borderTop: '1px solid rgba(255,255,255,0.06)',
+                }}>
+                    <div style={{
+                        fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.18em',
+                        textTransform: 'uppercase', color: 'rgba(237,237,237,0.28)',
+                        fontFamily: 'monospace', marginBottom: 8,
+                    }}>
+                        Mark each answer:
+                    </div>
+                    {Array.from({ length: boxes }, (_, i) => {
+                        const state = boxReviewStates?.[i] ?? null
+                        return (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: i < boxes - 1 ? 6 : 0 }}>
+                                <span style={{
+                                    fontSize: '0.52rem', fontWeight: 700, color: 'rgba(219,0,29,0.5)',
+                                    fontFamily: 'monospace', letterSpacing: '0.1em', minWidth: 20,
+                                }}>
+                                    {String(i + 1).padStart(2, '0')}
+                                </span>
+                                <button
+                                    onClick={() => onBoxReviewDecision(i, 'correct')}
+                                    style={{
+                                        all: 'unset', cursor: 'pointer', padding: '3px 10px',
+                                        border: state === 'correct' ? `1px solid ${GREEN_BORDER}` : '1px solid rgba(255,255,255,0.1)',
+                                        background: state === 'correct' ? 'rgba(34,197,94,0.18)' : 'transparent',
+                                        fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                                        color: state === 'correct' ? 'rgba(34,197,94,0.9)' : 'rgba(237,237,237,0.4)',
+                                        transition: 'all 0.12s',
+                                    }}
+                                >
+                                    ✓
+                                </button>
+                                <button
+                                    onClick={() => onBoxReviewDecision(i, 'incorrect')}
+                                    style={{
+                                        all: 'unset', cursor: 'pointer', padding: '3px 10px',
+                                        border: state === 'incorrect' ? `1px solid ${RED_BORDER}` : '1px solid rgba(255,255,255,0.1)',
+                                        background: state === 'incorrect' ? 'rgba(239,68,68,0.18)' : 'transparent',
+                                        fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                                        color: state === 'incorrect' ? 'rgba(239,68,68,0.9)' : 'rgba(237,237,237,0.4)',
+                                        transition: 'all 0.12s',
+                                    }}
+                                >
+                                    ✗
+                                </button>
+                                {state && (
+                                    <span style={{
+                                        fontSize: '0.5rem', color: state === 'correct' ? 'rgba(34,197,94,0.6)' : 'rgba(239,68,68,0.6)',
+                                        fontFamily: 'monospace',
+                                    }}>
+                                        1 pt
+                                    </span>
+                                )}
+                            </div>
+                        )
+                    })}
                 </div>
             )}
         </div>

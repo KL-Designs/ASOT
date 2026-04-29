@@ -24,14 +24,55 @@ function formatTime(seconds: number): string {
     return `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
 }
 
-/** Auto-grade multiple-choice; return null for written/image (requires manual mark) */
-function autoReviewState(question: QuizQuestion, answers: Record<string, string | null>): 'correct' | null {
+/** Returns total possible points for the quiz (each answerBox = 1 pt). */
+function computeTotal(quiz: QuizDefinition): number {
+    return quiz.sections.flatMap(s => s.questions).reduce((sum, q) => sum + (q.answerBoxes ?? 1), 0)
+}
+
+/** Auto-grade multiple-choice; 1 if correct, 0 otherwise. */
+function autoScore(question: QuizQuestion, answers: Record<string, string | null>): number {
     const value = answers[question.id]
-    if (!value || value.trim() === '') return null
+    if (!value || value.trim() === '') return 0
     if (question.type === 'multiple_choice' && question.correctOption !== undefined && question.options) {
-        return value === question.options[question.correctOption] ? 'correct' : null
+        return value === question.options[question.correctOption] ? 1 : 0
     }
-    return null
+    return 0
+}
+
+/** Compute earned points from reviewer decisions + auto-graded MC. */
+function computeScore(
+    quiz: QuizDefinition,
+    answers: Record<string, string | null>,
+    reviewDecisions: Record<string, 'correct' | 'incorrect'>,
+): number {
+    let earned = 0
+    for (const section of quiz.sections) {
+        for (const q of section.questions) {
+            const boxes = q.answerBoxes ?? 1
+            if (q.type === 'multiple_choice') {
+                earned += autoScore(q, answers)
+            } else if (boxes > 1) {
+                for (let i = 0; i < boxes; i++) {
+                    if (reviewDecisions[`${q.id}[${i}]`] === 'correct') earned++
+                }
+            } else {
+                if (reviewDecisions[q.id] === 'correct') earned++
+            }
+        }
+    }
+    return earned
+}
+
+/** Overall reviewState for a multi-box question card border. */
+function multiBoxReviewState(
+    qId: string,
+    boxes: number,
+    reviewDecisions: Record<string, 'correct' | 'incorrect'>,
+): 'correct' | 'needs_review' | 'incorrect' {
+    const decisions = Array.from({ length: boxes }, (_, i) => reviewDecisions[`${qId}[${i}]`] ?? null)
+    if (decisions.some(d => !d)) return 'needs_review'
+    if (decisions.every(d => d === 'incorrect')) return 'incorrect'
+    return 'correct'
 }
 
 export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: Props) {
@@ -43,7 +84,9 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
     const [submitted, setSubmitted] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
-    // Per-question reviewer marks (written/image only)
+    // Unified decisions map:
+    //   single-answer written/image  → key: q.id
+    //   multi-box written/image       → key: `${q.id}[${boxIndex}]`
     const [reviewDecisions, setReviewDecisions] = useState<Record<string, 'correct' | 'incorrect'>>({})
 
     const isClosed = ['passed', 'failed'].includes(attempt.status)
@@ -54,10 +97,13 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
     }
     for (const a of attempt.answers) answers[a.questionId] = a.value
 
+    const totalPoints = computeTotal(quiz)
+    const passMarkPoints = quiz.passMarkPoints ?? Math.ceil(totalPoints * 0.75)
+    const earnedPoints = computeScore(quiz, answers, reviewDecisions)
+    const isPassing = earnedPoints >= passMarkPoints
+
     // All written/image questions that require manual marking
-    const writtenQuestions = quiz.sections
-        .flatMap(s => s.questions)
-        .filter(q => q.type !== 'multiple_choice')
+    const writtenQuestions = quiz.sections.flatMap(s => s.questions).filter(q => q.type !== 'multiple_choice')
 
     // IntersectionObserver for active section
     useEffect(() => {
@@ -86,11 +132,19 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
     async function handleDecision() {
         if (!decision) return
 
-        // Validate: all written questions must be marked before submitting
         if (decision !== 'send_for_review') {
-            const unmarked = writtenQuestions.filter(q => !reviewDecisions[q.id])
+            const unmarked = writtenQuestions.filter(q => {
+                const boxes = q.answerBoxes ?? 1
+                if (boxes > 1) {
+                    for (let i = 0; i < boxes; i++) {
+                        if (!reviewDecisions[`${q.id}[${i}]`]) return true
+                    }
+                    return false
+                }
+                return !reviewDecisions[q.id]
+            })
             if (unmarked.length > 0) {
-                setError(`Please mark all written questions as Correct or Incorrect before submitting. ${unmarked.length} question(s) still need to be marked.`)
+                setError(`Please mark all written questions before submitting. ${unmarked.length} question(s) still need marking.`)
                 return
             }
         }
@@ -110,6 +164,8 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                     action: decision,
                     notes: notes.trim(),
                     questionDecisions: reviewDecisions,
+                    score: earnedPoints,
+                    totalPoints,
                 }),
             })
             const data = await res.json()
@@ -117,10 +173,20 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                 setError(data.error ?? 'Failed to submit decision.')
             } else {
                 setSubmitted(true)
-                setTimeout(() => router.push('/admin/j3'), 1500)
+                setTimeout(() => router.push('/dashboard/j3'), 1500)
             }
         } finally {
             setSubmitting(false)
+        }
+    }
+
+    // For the sidebar tick logic: multi-box questions tick when all boxes are decided
+    const sidebarReviewDecisions = { ...reviewDecisions }
+    for (const q of writtenQuestions) {
+        const boxes = q.answerBoxes ?? 1
+        if (boxes > 1) {
+            const allMarked = Array.from({ length: boxes }, (_, i) => reviewDecisions[`${q.id}[${i}]`]).every(Boolean)
+            if (allMarked) sidebarReviewDecisions[q.id] = 'correct'
         }
     }
 
@@ -130,36 +196,31 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
         questions: s.questions.map(q => ({ id: q.id })),
     }))
 
-    // Button style helper
-    const decisionBtnSx = (active: boolean, variant: 'pass' | 'fail' | 'review') => ({
-        all: 'unset' as const,
-        cursor: 'pointer' as const,
-        padding: '8px 14px',
-        border: active
-            ? variant === 'pass'   ? '1px solid rgba(34,197,94,0.7)'
-            : variant === 'fail'   ? '1px solid rgba(239,68,68,0.7)'
-            :                        '1px solid rgba(245,158,11,0.7)'
-            : '1px solid rgba(255,255,255,0.12)',
-        background: active
-            ? variant === 'pass'   ? 'rgba(34,197,94,0.18)'
-            : variant === 'fail'   ? 'rgba(239,68,68,0.18)'
-            :                        'rgba(245,158,11,0.12)'
-            : 'transparent',
-        fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const,
-        color: active
-            ? variant === 'pass'   ? 'rgba(34,197,94,0.9)'
-            : variant === 'fail'   ? 'rgba(239,68,68,0.9)'
-            :                        'rgba(245,158,11,0.9)'
-            : 'rgba(237,237,237,0.5)',
-        transition: 'all 0.12s',
-        flex: 1, textAlign: 'center' as const,
-    })
+    // Button style: faint colour by default, bright when selected
+    const decisionBtnSx = (active: boolean, variant: 'pass' | 'fail' | 'review') => {
+        const colors = {
+            pass:   { faint: 'rgba(34,197,94,0.25)',  bright: 'rgba(34,197,94,0.7)',  faintBg: 'rgba(34,197,94,0.05)',  brightBg: 'rgba(34,197,94,0.18)',  text: 'rgba(34,197,94,0.9)'  },
+            fail:   { faint: 'rgba(239,68,68,0.25)',  bright: 'rgba(239,68,68,0.7)',  faintBg: 'rgba(239,68,68,0.05)',  brightBg: 'rgba(239,68,68,0.18)',  text: 'rgba(239,68,68,0.9)'  },
+            review: { faint: 'rgba(245,158,11,0.25)', bright: 'rgba(245,158,11,0.7)', faintBg: 'rgba(245,158,11,0.05)', brightBg: 'rgba(245,158,11,0.12)', text: 'rgba(245,158,11,0.9)' },
+        }
+        const c = colors[variant]
+        return {
+            all: 'unset' as const,
+            cursor: 'pointer' as const,
+            padding: '8px 14px',
+            border: `1px solid ${active ? c.bright : c.faint}`,
+            background: active ? c.brightBg : c.faintBg,
+            fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' as const,
+            color: active ? c.text : c.text.replace('0.9', '0.5'),
+            transition: 'all 0.12s',
+            flex: 1, textAlign: 'center' as const,
+        }
+    }
 
     const ReviewActionPanel = () => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {!isClosed && !submitted && (
                 <>
-                    {/* Pass / Fail / Send for Review — J4 now also gets Send for Review */}
                     <div style={{
                         display: 'flex', gap: 6, padding: '14px 16px',
                         borderBottom: '1px solid rgba(255,255,255,0.06)',
@@ -300,7 +361,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                     activeSectionId={activeSectionId}
                     onScrollTo={scrollToSection}
                     reviewMode
-                    reviewDecisions={reviewDecisions}
+                    reviewDecisions={sidebarReviewDecisions}
                 />
 
                 {/* Centre: questions */}
@@ -319,7 +380,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                             <span><span style={{ color: 'rgba(219,0,29,0.55)' }}>Time taken:</span> {formatTime(attempt.timeTakenSeconds)}</span>
                         )}
                         {attempt.submittedAt && (
-                            <span><span style={{ color: 'rgba(219,0,29,0.55)' }}>Submitted:</span> {new Date(attempt.submittedAt).toLocaleString()}</span>
+                            <span><span style={{ color: 'rgba(219,0,29,0.55)' }}>Submitted:</span> {new Date(attempt.submittedAt).toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                         )}
                     </div>
 
@@ -347,13 +408,20 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                             {section.questions.map((q, qi) => {
                                                 const isWritten = q.type !== 'multiple_choice'
-                                                // MC: auto-grade; written: use reviewer's manual decision
-                                                const rsAuto = autoReviewState(q, answers)
-                                                const rsManual = reviewDecisions[q.id]
-                                                const reviewState: 'correct' | 'needs_review' | 'incorrect' | null =
-                                                    isWritten
-                                                        ? rsManual ?? 'needs_review'
-                                                        : rsAuto ?? 'needs_review'
+                                                const boxes = q.answerBoxes ?? 1
+                                                const isMultiBox = boxes > 1
+
+                                                // Derive review state for card border
+                                                let reviewState: 'correct' | 'needs_review' | 'incorrect' | null
+                                                if (!isWritten) {
+                                                    const sc = autoScore(q, answers)
+                                                    reviewState = answers[q.id] ? (sc > 0 ? 'correct' : 'incorrect') : 'needs_review'
+                                                } else if (isMultiBox) {
+                                                    reviewState = multiBoxReviewState(q.id, boxes, reviewDecisions)
+                                                } else {
+                                                    reviewState = reviewDecisions[q.id] ?? 'needs_review'
+                                                }
+
                                                 return (
                                                     <QuizQuestionCard
                                                         key={q.id}
@@ -362,9 +430,21 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                                                         value={answers[q.id] ?? null}
                                                         readOnly
                                                         reviewState={reviewState}
+                                                        // Single-answer written
                                                         onReviewDecision={
-                                                            isWritten && !isClosed
+                                                            isWritten && !isMultiBox && !isClosed
                                                                 ? (d) => setReviewDecisions(prev => ({ ...prev, [q.id]: d }))
+                                                                : undefined
+                                                        }
+                                                        // Multi-box written
+                                                        boxReviewStates={
+                                                            isWritten && isMultiBox
+                                                                ? Array.from({ length: boxes }, (_, i) => reviewDecisions[`${q.id}[${i}]`] ?? null)
+                                                                : undefined
+                                                        }
+                                                        onBoxReviewDecision={
+                                                            isWritten && isMultiBox && !isClosed
+                                                                ? (boxIdx, d) => setReviewDecisions(prev => ({ ...prev, [`${q.id}[${boxIdx}]`]: d }))
                                                                 : undefined
                                                         }
                                                     />
@@ -390,7 +470,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                     )}
                 </div>
 
-                {/* Right: time taken + decision panel */}
+                {/* Right panel: time, score, status, decision */}
                 <div style={{
                     width: 210, flexShrink: 0,
                     position: 'sticky', top: 80,
@@ -398,7 +478,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                     borderLeft: '1px solid rgba(255,255,255,0.07)',
                 }}>
                     {/* Time taken */}
-                    <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)' }}>
+                    <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.2)' }}>
                         <div style={{ fontSize: '0.47rem', fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', fontFamily: 'monospace', color: 'rgba(237,237,237,0.3)', marginBottom: 8 }}>
                             {'// TIME TAKEN'}
                         </div>
@@ -407,6 +487,39 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                         </div>
                         <div style={{ marginTop: 6, fontSize: '0.55rem', color: 'rgba(237,237,237,0.25)' }}>
                             of {attempt.timeLimitMinutes}m allowed
+                        </div>
+                    </div>
+
+                    {/* Score */}
+                    <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize: '0.47rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', fontFamily: 'monospace', color: 'rgba(237,237,237,0.25)', marginBottom: 8 }}>
+                            {'// SCORE'}
+                        </div>
+                        <div style={{
+                            fontSize: '1.4rem', fontWeight: 800, letterSpacing: '0.04em', fontFamily: 'monospace', lineHeight: 1,
+                            color: isClosed
+                                ? attempt.status === 'passed' ? 'rgba(34,197,94,0.85)' : 'rgba(239,68,68,0.85)'
+                                : isPassing ? 'rgba(34,197,94,0.85)' : 'rgba(239,68,68,0.75)',
+                        }}>
+                            {earnedPoints} <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>/ {totalPoints}</span>
+                        </div>
+                        <div style={{ marginTop: 6, fontSize: '0.55rem', color: 'rgba(237,237,237,0.25)' }}>
+                            Pass mark: {passMarkPoints} / {totalPoints}
+                        </div>
+                        {/* Progress bar */}
+                        <div style={{ marginTop: 8, height: 3, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', position: 'relative' }}>
+                            <div style={{
+                                position: 'absolute', left: 0, top: 0, height: '100%',
+                                width: `${Math.min(100, (earnedPoints / totalPoints) * 100)}%`,
+                                background: isPassing ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.6)',
+                                transition: 'width 0.3s, background 0.3s',
+                            }} />
+                            {/* Pass mark indicator */}
+                            <div style={{
+                                position: 'absolute', top: 0, height: '100%', width: 1,
+                                left: `${(passMarkPoints / totalPoints) * 100}%`,
+                                background: 'rgba(255,255,255,0.4)',
+                            }} />
                         </div>
                     </div>
 

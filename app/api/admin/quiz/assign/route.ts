@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
             type: 'system',
             title: 'Quiz timer modified',
             body: `${trainerName} assigned the BCT quiz to ${userName} with a modified timer (${resolvedTime} min instead of ${defaultTime} min). Reason: ${timerModifiedReason?.trim()}`,
-            actionUrl: `/admin/quiz/review/${attemptId}`,
+            actionUrl: `/dashboard/quiz/review/${attemptId}`,
             relatedId: attemptId,
         })
     }

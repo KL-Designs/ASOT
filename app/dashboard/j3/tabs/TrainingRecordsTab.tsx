@@ -160,7 +160,7 @@ export default function TrainingRecordsTab({ userId, canManageMembers }: Props) 
                         return (
                             <div
                                 key={a._id}
-                                onClick={() => canReview && router.push(`/admin/quiz/review/${a._id}`)}
+                                onClick={() => canReview && router.push(`/dashboard/quiz/review/${a._id}`)}
                                 style={{
                                     display: 'grid',
                                     gridTemplateColumns: '1fr 1fr 1fr 100px 80px 120px',

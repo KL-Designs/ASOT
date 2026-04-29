@@ -17,20 +17,20 @@ export default async function Page({ params }: Props) {
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) redirect('/login')
-    if (!client.hasRoles(me, PERMISSIONS.quiz.review)) redirect('/admin')
+    if (!client.hasRoles(me, PERMISSIONS.quiz.review)) redirect('/dashboard')
 
     let oid: ObjectId
     try {
         oid = new ObjectId(attemptId)
     } catch {
-        redirect('/admin/j3')
+        redirect('/dashboard/j3')
     }
 
     const attempt = await Db.quizAttempts.findOne({ _id: oid })
-    if (!attempt) redirect('/admin/j3')
+    if (!attempt) redirect('/dashboard/j3')
 
     const quiz = getQuizById(attempt.quizId)
-    if (!quiz) redirect('/admin/j3')
+    if (!quiz) redirect('/dashboard/j3')
 
     const canEscalate = client.hasRoles(me, PERMISSIONS.quiz.reviewEscalated)
     const isJ4 = client.hasRoles(me, PERMISSIONS.departments.j4)

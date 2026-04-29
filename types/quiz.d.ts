@@ -9,6 +9,7 @@ declare global {
         options?: string[]      // multiple_choice only
         correctOption?: number  // multiple_choice only (0-indexed)
         image?: string          // image_question only — key maps to /quiz-images/{key}.png
+        answerBoxes?: number    // written/image only — number of answer inputs (default 1); each box = 1 point
     }
 
     interface QuizSection {
@@ -23,6 +24,7 @@ declare global {
         timeLimitMinutes: number
         instructions: string[]
         sections: QuizSection[]
+        passMarkPoints?: number  // required points to pass (default: derived from quiz)
     }
 
     type QuizAttemptStatus =

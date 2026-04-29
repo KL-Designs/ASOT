@@ -159,7 +159,9 @@ export default function QuizClient({ quiz, initialAttempt }: Props) {
             {!started && (
                 <QuizInstructionModal
                     title={quiz.title}
-                    instructions={quiz.instructions}
+                    instructions={quiz.instructions.map(line =>
+                        line.replace('{TIME_LIMIT}', String(initialAttempt.timeLimitMinutes))
+                    )}
                     timeLimitMinutes={initialAttempt.timeLimitMinutes}
                     onStart={handleStart}
                     starting={starting}

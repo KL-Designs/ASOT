@@ -131,15 +131,16 @@ export default function AssignQuizModal({ onClose, onAssigned }: Props) {
                                 onChange={e => setSelectedId(e.target.value || null)}
                                 style={{
                                     width: '100%', boxSizing: 'border-box',
-                                    background: 'rgba(255,255,255,0.05)',
+                                    background: '#0d0d0d',
                                     border: '1px solid rgba(255,255,255,0.12)',
                                     color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem',
                                     padding: '9px 12px', outline: 'none', fontFamily: 'inherit',
+                                    colorScheme: 'dark',
                                 }}
                             >
-                                <option value=''>— Choose a recruit —</option>
+                                <option value='' style={{ background: '#0d0d0d', color: 'rgba(237,237,237,0.85)' }}>— Choose a recruit —</option>
                                 {recruits.map(r => (
-                                    <option key={r.id} value={r.id}>{r.displayName}</option>
+                                    <option key={r.id} value={r.id} style={{ background: '#0d0d0d', color: 'rgba(237,237,237,0.85)' }}>{r.displayName}</option>
                                 ))}
                             </select>
                         )}
