@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { Edit, ArrowForward, Add, ChevronLeft, ChevronRight, Search, Dashboard } from '@mui/icons-material'
+import { Edit, ArrowForward, Add, ChevronLeft, ChevronRight, Search, Dashboard, Map } from '@mui/icons-material'
 import { useRef } from 'react'
 
 
@@ -579,6 +579,23 @@ function MissionRow({ mission, hasAccess }: { mission: Operation; hasAccess: boo
                             <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)' }} />
                         </>
                     )}
+                    <Link href={`/operations/${mission._id.toString()}/map`} title='View Map' style={{ textDecoration: 'none' }}>
+                        <div
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 4,
+                                padding: '5px 10px',
+                                background: 'rgba(34,197,94,0.07)',
+                                border: '1px solid rgba(34,197,94,0.35)',
+                                color: 'rgba(34,197,94,0.8)',
+                                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                                cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+                            }}
+                            onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(34,197,94,0.16)'; el.style.color = 'rgba(34,197,94,1)'; el.style.borderColor = 'rgba(34,197,94,0.65)' }}
+                            onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(34,197,94,0.07)'; el.style.color = 'rgba(34,197,94,0.8)'; el.style.borderColor = 'rgba(34,197,94,0.35)' }}
+                        >
+                            <Map style={{ fontSize: 11 }} /> Map
+                        </div>
+                    </Link>
                     <Link href={`/operations/${mission._id.toString()}`} title='View Mission' style={{ textDecoration: 'none' }}>
                         <div
                             style={{
