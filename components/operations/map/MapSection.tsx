@@ -6,7 +6,8 @@ import { useMapYjs } from './useMapYjs'
 import LayersPanel from './LayersPanel'
 import type { DrawingTool, MapMode, MapWorld, A3ToolProps } from './types'
 import { DEFAULT_A3_PROPS } from './types'
-import { buildSqf, downloadSqf } from '@/lib/sqf-export'
+import { buildSqf } from '@/lib/sqf-export'
+import SqfExportModal from './SqfExportModal'
 
 const OperationMap = dynamic(() => import('./OperationMap'), { ssr: false })
 
@@ -23,6 +24,7 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
     const [activeColor, setActiveColor] = useState('#db001d')
     const [mapMode, setMapMode] = useState<MapMode>('map')
     const [activeA3Props, setActiveA3Props] = useState<A3ToolProps>(DEFAULT_A3_PROPS)
+    const [sqfModal, setSqfModal] = useState(false)
 
     const handleA3PropsChange = useCallback((patch: Partial<A3ToolProps>) => {
         setActiveA3Props(prev => ({ ...prev, ...patch }))
@@ -34,6 +36,19 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
             setActiveLayerId(state.layers[0].id)
         }
     }, [state.layers, activeLayerId])
+
+    // Undo / redo
+    useEffect(() => {
+        if (!canEdit) return
+        const handler = (e: KeyboardEvent) => {
+            if (!e.ctrlKey || e.key !== 'z') return
+            e.preventDefault()
+            if (e.shiftKey) actions.redo()
+            else actions.undo()
+        }
+        window.addEventListener('keydown', handler)
+        return () => window.removeEventListener('keydown', handler)
+    }, [canEdit, actions])
 
     const handleAnnotationAdd = useCallback((type: DrawingTool, geometry: number[][], properties: any) => {
         if (!activeLayerId || !type) return
@@ -71,12 +86,10 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
                 color: '#eee',
                 flexShrink: 0,
             }}>
-                {/* World label */}
                 <span style={{ fontSize: 12, color: world ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)', fontWeight: 600, letterSpacing: '0.04em' }}>
                     {world?.displayName ?? 'No map configured'}
                 </span>
 
-                {/* MAP / SAT / TERRAIN toggle */}
                 {world?.hasGeoJSON && (
                     <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 4, padding: 2 }}>
                         {(['map', 'sat', ...(world.hasTerrain ? ['terrain'] : [])] as MapMode[]).map(m => (
@@ -103,11 +116,10 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
 
                 <div style={{ flex: 1 }} />
 
-                {/* Export SQF */}
                 {canEdit && (
                     <button
-                        onClick={() => downloadSqf(buildSqf(state.annotations, state.layers))}
-                        title="Export markers as init.sqf"
+                        onClick={() => setSqfModal(true)}
+                        title="Export markers as SQF"
                         style={{
                             background: 'rgba(34,197,94,0.12)',
                             border: '1px solid rgba(34,197,94,0.35)',
@@ -124,7 +136,6 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
                     </button>
                 )}
 
-                {/* Presence indicators */}
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                     {state.peers.map(peer => (
                         <div
@@ -151,7 +162,6 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
                     ))}
                 </div>
 
-                {/* Connection status */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
                     <div style={{
                         width: 7,
@@ -214,6 +224,13 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
                     onA3PropsChange={handleA3PropsChange}
                 />
             </div>
+
+            {sqfModal && (
+                <SqfExportModal
+                    code={buildSqf(state.annotations, state.layers)}
+                    onClose={() => setSqfModal(false)}
+                />
+            )}
         </div>
     )
 }

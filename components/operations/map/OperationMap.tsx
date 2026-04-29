@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import type { MapLayer, MapAnnotation, MapPresenceUser, DrawingTool, AnnotationProperties, MapWorld, MapMode, A3ToolProps } from './types'
-import { Symbol as MilSymbol } from 'milsymbol'
+import { A3_MARKER_COLORS } from './types'
+import ms from 'milsymbol'
 
 // ── GeoJSON layer definitions (rendered in order, back → front) ──────────────
 // detail:true layers only appear at DETAIL_MIN_ZOOM or closer to avoid rendering
@@ -147,6 +148,8 @@ export default function OperationMap({
         if (!containerRef.current || mapRef.current) return
 
         let destroyed = false
+        let onRightMove: ((e: MouseEvent) => void) | null = null
+        let onRightUp:   ((e: MouseEvent) => void) | null = null
 
         import('leaflet').then(async mod => {
             if (destroyed || mapRef.current || !containerRef.current) return
@@ -210,6 +213,30 @@ export default function OperationMap({
 
             mapRef.current = map
 
+            // Right-click drag + suppress context menu
+            const el = containerRef.current
+            el.addEventListener('contextmenu', e => e.preventDefault())
+
+            let rightDrag: { screenX: number; screenY: number; center: L.LatLng } | null = null
+
+            const onRightDown = (e: MouseEvent) => {
+                if (e.button !== 2) return
+                e.preventDefault()
+                rightDrag = { screenX: e.screenX, screenY: e.screenY, center: map.getCenter() }
+            }
+            onRightMove = (e: MouseEvent) => {
+                if (!rightDrag) return
+                const dx = e.screenX - rightDrag.screenX
+                const dy = e.screenY - rightDrag.screenY
+                const startPt = map.latLngToContainerPoint(rightDrag.center)
+                map.setView(map.containerPointToLatLng(L.point(startPt.x - dx, startPt.y - dy)), map.getZoom(), { animate: false })
+            }
+            onRightUp = (e: MouseEvent) => { if (e.button === 2) rightDrag = null }
+
+            el.addEventListener('mousedown', onRightDown)
+            window.addEventListener('mousemove', onRightMove)
+            window.addEventListener('mouseup', onRightUp)
+
             // Terrain image pane sits below vector overlays
             const tPane = map.createPane('terrainPane')
             tPane.style.zIndex = '350'
@@ -240,6 +267,8 @@ export default function OperationMap({
 
         return () => {
             destroyed = true
+            if (onRightMove) window.removeEventListener('mousemove', onRightMove)
+            if (onRightUp)   window.removeEventListener('mouseup', onRightUp)
             mapRef.current?.remove()
             mapRef.current = null
         }
@@ -484,13 +513,16 @@ export default function OperationMap({
                         const [[lat, lng]] = geo
                         const mtype = ann.properties.a3MarkerType ?? 'hd_dot'
                         const imgUrl = `/markers/icons/${mtype}.png`
-                        const label = ann.properties.label ?? ''
+                        const label = (ann.properties.label && ann.properties.label !== mtype) ? ann.properties.label : ''
+                        const hexColor = A3_MARKER_COLORS.find(c => c.key === (ann.properties.a3MarkerColor ?? 'ColorWhite'))?.hex ?? '#ffffff'
+                        const fid = `a3f-${ann.id.replace(/[^a-z0-9]/gi, '_')}`
                         const html = `<div style="display:flex;flex-direction:column;align-items:center;pointer-events:none;">
-                            <img src="${imgUrl}" width="24" height="24" style="image-rendering:pixelated;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
-                            <div style="display:flex;width:20px;height:20px;background:${opts.color};border-radius:50%;border:2px solid rgba(255,255,255,0.8);align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;"></div>
+                            <svg width="0" height="0" style="position:absolute;overflow:hidden"><defs><filter id="${fid}"><feFlood flood-color="${hexColor}" result="c"/><feComposite in="c" in2="SourceAlpha" operator="in"/></filter></defs></svg>
+                            <img src="${imgUrl}" width="24" height="24" style="image-rendering:pixelated;filter:url(#${fid});" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+                            <div style="display:none;width:20px;height:20px;background:${hexColor};border-radius:50%;border:2px solid rgba(255,255,255,0.8);align-items:center;justify-content:center;"></div>
                             ${label ? `<span style="font-size:9px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap;margin-top:1px;">${label}</span>` : ''}
                         </div>`
-                        const icon = L.divIcon({ className: '', html, iconAnchor: [12, 12] })
+                        const icon = L.divIcon({ className: '', html, iconSize: [48, 48], iconAnchor: [24, 24] })
                         leafletLayer = L.marker([lat, lng], { icon })
                         break
                     }
@@ -514,7 +546,7 @@ export default function OperationMap({
                         const sidc = `S${a}${dim}${status}${fnFrag}`.padEnd(15, '-').slice(0, 15)
                         let svgHtml = ''
                         try {
-                            svgHtml = new MilSymbol(sidc, { size: 28 }).asSVG()
+                            svgHtml = new ms.Symbol(sidc, { size: 28 }).asSVG()
                         } catch {
                             svgHtml = `<div style="width:28px;height:28px;background:#0055aa;border:2px solid #fff;border-radius:2px;"></div>`
                         }
@@ -522,7 +554,7 @@ export default function OperationMap({
                             ${svgHtml}
                             ${designation ? `<span style="font-size:9px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap;margin-top:1px;">${designation}</span>` : ''}
                         </div>`
-                        const icon = L.divIcon({ className: '', html, iconAnchor: [14, 14] })
+                        const icon = L.divIcon({ className: '', html, iconSize: [48, 48], iconAnchor: [24, 24] })
                         leafletLayer = L.marker([lat, lng], { icon })
                         break
                     }
@@ -531,10 +563,12 @@ export default function OperationMap({
                 if (!leafletLayer) continue
 
                 if (canEdit) {
-                    leafletLayer.on('contextmenu', (e: L.LeafletMouseEvent) => {
-                        L.DomEvent.stopPropagation(e)
-                        onAnnotationRemove(ann.id)
-                    })
+                    const annId = ann.id
+                    const onKeyDown = (e: KeyboardEvent) => {
+                        if (e.key === 'Delete') onAnnotationRemove(annId)
+                    }
+                    leafletLayer.on('mouseover', () => window.addEventListener('keydown', onKeyDown))
+                    leafletLayer.on('mouseout',  () => window.removeEventListener('keydown', onKeyDown))
                 }
 
                 if (visible) leafletLayer.addTo(map)
@@ -623,7 +657,7 @@ export default function OperationMap({
                         a3MarkerColor: a3.markerColor,
                         a3MarkerDir: a3.markerDir,
                         a3MarkerScale: a3.markerScale,
-                        label: a3.markerType,
+                        label: '',
                     })
                     break
                 }

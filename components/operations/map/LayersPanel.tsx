@@ -1,9 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import ms from 'milsymbol'
 import type { MapLayer, DrawingTool, A3ToolProps } from './types'
 import { A3_ICON_TYPES, METIS_ICONS, A3_MARKER_COLORS } from './types'
 import type { MapYjsActions } from './useMapYjs'
+
+function buildMetisSvg(sIDCFrag: string, sideId: string, size: number): string {
+    const affil: Record<string, string> = { blu: 'F', red: 'H', grn: 'N', unk: 'U' }
+    const a = affil[sideId] ?? 'F'
+    const isMaritime = sIDCFrag.startsWith('SP')
+    const isAir = sIDCFrag.startsWith('AP')
+    const dim = isMaritime ? 'S' : isAir ? 'A' : 'G'
+    const sidc = `S${a}${dim}P${sIDCFrag}`.padEnd(15, '-').slice(0, 15)
+    try { return new ms.Symbol(sidc, { size }).asSVG() } catch { return '' }
+}
 
 interface Props {
     layers: MapLayer[]
@@ -278,20 +289,30 @@ export default function LayersPanel({
                             <div style={{ marginBottom: 6 }}>
                                 <div style={{ ...label, marginBottom: 4 }}>Icon</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                                    {METIS_ICONS.map(ic => (
-                                        <button
-                                            key={ic.index}
-                                            onClick={() => onA3PropsChange({ icon: ic.index })}
-                                            style={{
-                                                fontSize: 9, padding: '2px 4px', borderRadius: 3, cursor: 'pointer',
-                                                background: activeA3Props.icon === ic.index ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
-                                                border: `1px solid ${activeA3Props.icon === ic.index ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                                                color: activeA3Props.icon === ic.index ? '#fff' : 'rgba(255,255,255,0.6)',
-                                            }}
-                                        >
-                                            {ic.label}
-                                        </button>
-                                    ))}
+                                    {METIS_ICONS.map(ic => {
+                                        const svgHtml = buildMetisSvg(ic.sidc, activeA3Props.sideId, 18)
+                                        return (
+                                            <button
+                                                key={ic.index}
+                                                onClick={() => onA3PropsChange({ icon: ic.index })}
+                                                style={{
+                                                    fontSize: 9, padding: '2px 4px', borderRadius: 3, cursor: 'pointer',
+                                                    background: activeA3Props.icon === ic.index ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
+                                                    border: `1px solid ${activeA3Props.icon === ic.index ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                                                    color: activeA3Props.icon === ic.index ? '#fff' : 'rgba(255,255,255,0.6)',
+                                                    display: 'flex', alignItems: 'center', gap: 3,
+                                                }}
+                                            >
+                                                {svgHtml && (
+                                                    <span
+                                                        dangerouslySetInnerHTML={{ __html: svgHtml }}
+                                                        style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0, lineHeight: 0 }}
+                                                    />
+                                                )}
+                                                {ic.label}
+                                            </button>
+                                        )
+                                    })}
                                 </div>
                             </div>
                             {/* Mod1, Mod2, Size */}
