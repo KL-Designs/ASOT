@@ -426,10 +426,11 @@ export default function StaffSidebar({
                 {
                     label: '[J3] Training', href: '/admin/j3', visible: permissions.canSeeJ3, icon: <School sx={{ fontSize: 14 }} />,
                     tabs: [
-                        { label: 'Qual Tickets',   tab: 0 },
-                        { label: 'Promo Tickets',  tab: 1 },
-                        { label: 'Training Sched', tab: 2 },
-                        { label: 'Meetings',       tab: 3 },
+                        { label: 'Qual Tickets',      tab: 0 },
+                        { label: 'Promo Tickets',     tab: 1 },
+                        { label: 'Training Sched',    tab: 2 },
+                        { label: 'Training Records',  tab: 3 },
+                        { label: 'Meetings',          tab: 4 },
                     ],
                 },
                 {

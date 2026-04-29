@@ -109,8 +109,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ att
         await createNotification({
             userId: attempt.userId,
             type: 'quiz_result',
-            title: 'Quiz result: Passed',
-            body: 'Congratulations, you have passed the quiz.',
+            title: 'BCT Quiz Result',
+            body: 'Congratulations, you have passed the BCT Confirmation Quiz. Your J3 trainer will be in touch with you shortly.',
             actionUrl: `/community/quiz/${attemptId}`,
             relatedId: attemptId,
         })
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ att
         await createNotification({
             userId: attempt.userId,
             type: 'quiz_result',
-            title: 'Quiz result: Not passed',
+            title: 'BCT Quiz Result',
             body: 'Unfortunately, you did not meet the requirements for this quiz. Your J3 trainer will be in touch with you shortly.',
             actionUrl: `/community/quiz/${attemptId}`,
             relatedId: attemptId,
