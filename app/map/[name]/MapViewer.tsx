@@ -99,7 +99,7 @@ export default function MapViewer({ world }: { world: MapWorld }) {
                     canEdit={false}
                     selectedAnnotationId={null}
                     activeA3Props={{ markerType: 'hd_dot', markerColor: 'ColorBlack', markerDir: 0, markerScale: 1, sideId: 'blu', dashed: false, icon: 0, mod1: 0, mod2: 0, size: 0, hqTf: 0, designation: '', metisScale: 1, assumedFriend: false, reinforced: false, reduced: false, higherFormation: '', additionalInfo: '' }}
-                    onAnnotationAdd={() => {}}
+                    onAnnotationAdd={() => ''}
                     onAnnotationUpdate={() => {}}
                     onAnnotationRemove={() => {}}
                     onAnnotationSelect={() => {}}

@@ -82,41 +82,53 @@ export const A3_ICON_TYPES = [
     { key: 'c_truck',      label: 'Truck',       group: 'CIV' },
 ] as const
 
-// METIS icon index → label + milsymbol function ID
+// METIS icon index → label + mod layer filenames (from mts_markers data)
+// mods: list of keys used to build /markers/metis/mod/{side}_{key}.png layers
 export const METIS_ICONS = [
-    { index: 0,  label: 'Infantry',      sidc: 'GPI'   },
-    { index: 1,  label: 'Mech. Inf.',    sidc: 'GPIM'  },
-    { index: 2,  label: 'Motor Inf.',    sidc: 'GPIMR' },
-    { index: 3,  label: 'Armor',         sidc: 'GPA'   },
-    { index: 4,  label: 'Anti-Tank',     sidc: 'GPAT'  },
-    { index: 5,  label: 'Artillery',     sidc: 'GPAF'  },
-    { index: 6,  label: 'Air Defense',   sidc: 'GPAD'  },
-    { index: 7,  label: 'Helicopter',    sidc: 'APMFH' },
-    { index: 8,  label: 'Fixed Wing',    sidc: 'APMFF' },
-    { index: 9,  label: 'Naval',         sidc: 'SP'    },
-    { index: 10, label: 'Support',       sidc: 'GPUSS' },
-    { index: 11, label: 'Medical',       sidc: 'GPUSM' },
-    { index: 12, label: 'Recon',         sidc: 'GPUSR' },
-    { index: 13, label: 'Engineer',      sidc: 'GPE'   },
-    { index: 14, label: 'Signal',        sidc: 'GPS'   },
-    { index: 15, label: 'Mortar',        sidc: 'GPWM'  },
-    { index: 16, label: 'Spec. Ops.',    sidc: 'GPSF'  },
-    { index: 17, label: 'Mil. Police',   sidc: 'GPUMP' },
-    { index: 37, label: 'Unknown',       sidc: 'GP'    },
+    { index: 0,  label: 'Infantry',    mods: ['infantry']                          },
+    { index: 1,  label: 'Mech. Inf.',  mods: ['infantry', 'armor']                 },
+    { index: 2,  label: 'Motor Inf.',  mods: ['infantry', 'motorized']             },
+    { index: 3,  label: 'Armor',       mods: ['armor']                             },
+    { index: 4,  label: 'Anti-Tank',   mods: ['anti_armor']                        },
+    { index: 5,  label: 'Artillery',   mods: ['artillery']                         },
+    { index: 6,  label: 'Air Defense', mods: ['air_defence']                       },
+    { index: 7,  label: 'Helicopter',  mods: ['rotary_wing']                       },
+    { index: 8,  label: 'Fixed Wing',  mods: ['fixed_wing']                        },
+    { index: 9,  label: 'Naval',       mods: ['naval']                             },
+    { index: 10, label: 'Support',     mods: ['combat_service_support']            },
+    { index: 11, label: 'Medical',     mods: ['medical']                           },
+    { index: 12, label: 'Recon',       mods: ['reconnaissance']                    },
+    { index: 13, label: 'Engineer',    mods: ['engineer']                          },
+    { index: 14, label: 'Signal',      mods: ['signal_unit']                       },
+    { index: 15, label: 'Mortar',      mods: ['mortar']                            },
+    { index: 16, label: 'Spec. Ops.',  mods: ['special_operation_forces']          },
+    { index: 17, label: 'Mil. Police', mods: ['military_police']                   },
+    { index: 37, label: 'Unknown',     mods: []                                    },
 ] as const
 
-// METIS size value → echelon label + milsymbol SIDC char (goes at SIDC position 11, index 11)
+// Maps our A3SideId to the METIS .paa identity folder name
+export const METIS_SIDE_KEY: Record<string, string> = {
+    blu: 'blu',
+    red: 'red',
+    grn: 'neu',
+    unk: 'unk',
+}
+
+// METIS size value → echelon label
 export const METIS_ECHELONS = [
-    { size: 0, label: 'None',      milChar: '-', nato: '—'   },
-    { size: 1, label: 'Team',      milChar: 'A', nato: '●'   },
-    { size: 2, label: 'Squad',     milChar: 'B', nato: '●●'  },
-    { size: 3, label: 'Section',   milChar: 'C', nato: '●●●' },
-    { size: 4, label: 'Platoon',   milChar: 'D', nato: 'I'   },
-    { size: 5, label: 'Company',   milChar: 'E', nato: 'II'  },
-    { size: 6, label: 'Battalion', milChar: 'F', nato: 'III' },
-    { size: 7, label: 'Regiment',  milChar: 'G', nato: 'X'   },
-    { size: 8, label: 'Brigade',   milChar: 'H', nato: 'XX'  },
-    { size: 9, label: 'Division',  milChar: 'I', nato: 'XXX' },
+    { size: 0,  label: 'None',        milChar: '-', nato: '—'     },
+    { size: 1,  label: 'Team/Crew',   milChar: 'A', nato: '●'     },
+    { size: 2,  label: 'Squad',       milChar: 'B', nato: '●●'    },
+    { size: 3,  label: 'Section',     milChar: 'C', nato: '●●●'   },
+    { size: 4,  label: 'Platoon',     milChar: 'D', nato: 'I'     },
+    { size: 5,  label: 'Company',     milChar: 'E', nato: 'II'    },
+    { size: 6,  label: 'Battalion',   milChar: 'F', nato: 'III'   },
+    { size: 7,  label: 'Regiment',    milChar: 'G', nato: 'X'     },
+    { size: 8,  label: 'Brigade',     milChar: 'H', nato: 'X'     },
+    { size: 9,  label: 'Division',    milChar: 'I', nato: 'XX'    },
+    { size: 10, label: 'Corps',       milChar: 'J', nato: 'XXX'   },
+    { size: 11, label: 'Army',        milChar: 'K', nato: 'XXXX'  },
+    { size: 12, label: 'Army Group',  milChar: 'L', nato: 'XXXXX' },
 ] as const
 
 // HQ / Task Force / Feint-Dummy combinations (SIDC position 10, index 10)

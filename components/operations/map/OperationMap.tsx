@@ -2,8 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { MapLayer, MapAnnotation, MapPresenceUser, DrawingTool, AnnotationProperties, MapWorld, MapMode, A3ToolProps } from './types'
-import { A3_MARKER_COLORS, METIS_ECHELONS, METIS_HQTF } from './types'
-import ms from 'milsymbol'
+import { A3_MARKER_COLORS, METIS_ECHELONS, METIS_ICONS, METIS_SIDE_KEY } from './types'
 
 // ── GeoJSON layer definitions (rendered in order, back → front) ──────────────
 // detail:true layers only appear at DETAIL_MIN_ZOOM or closer to avoid rendering
@@ -70,55 +69,50 @@ function makeA3IconDivIcon(L: any, ann: MapAnnotation, selected = false): any {
     return L.divIcon({ className: '', html, iconSize: [48, 48], iconAnchor: [24, 24] })
 }
 
-const A3_METIS_MIL_MAP: Record<number, { dim: string; fn: string }> = {
-    0:  { dim: 'G', fn: 'UCI'   },
-    1:  { dim: 'G', fn: 'UCIM'  },
-    2:  { dim: 'G', fn: 'UCIMR' },
-    3:  { dim: 'G', fn: 'UCA'   },
-    4:  { dim: 'G', fn: 'UCAT'  },
-    5:  { dim: 'G', fn: 'UCF'   },
-    6:  { dim: 'G', fn: 'UCD'   },
-    7:  { dim: 'A', fn: 'MFH'   },
-    8:  { dim: 'A', fn: 'MFF'   },
-    9:  { dim: 'S', fn: 'C'     },
-    10: { dim: 'G', fn: 'US'    },
-    11: { dim: 'G', fn: 'USM'   },
-    12: { dim: 'G', fn: 'UCR'   },
-    13: { dim: 'G', fn: 'UCE'   },
-    14: { dim: 'G', fn: 'USS'   },
-    15: { dim: 'G', fn: 'UCFM'  },
-    16: { dim: 'G', fn: 'USF'   },
-    17: { dim: 'G', fn: 'USMP'  },
-    37: { dim: 'G', fn: ''      },
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function makeA3MetisDivIcon(L: any, ann: MapAnnotation, selected = false): any {
-    const side = ann.properties.a3SideId ?? 'blu'
-    const designation = ann.properties.a3Designation ?? ''
-    const assumedFriend = ann.properties.a3AssumedFriend ?? false
-    const affil: Record<string, string> = { blu: assumedFriend ? 'G' : 'F', red: 'H', grn: 'N', unk: 'U' }
-    const status = ann.properties.a3Dashed ? 'A' : 'P'
-    const a = affil[side] ?? 'F'
-    const { dim, fn } = A3_METIS_MIL_MAP[ann.properties.a3Icon ?? 0] ?? { dim: 'G', fn: '' }
-    const echelonChar = METIS_ECHELONS.find(e => e.size === (ann.properties.a3Size ?? 0))?.milChar ?? '-'
-    const mod11 = METIS_HQTF.find(h => h.index === (ann.properties.a3HqTf ?? 0))?.mod11 ?? '-'
-    const base = `S${a}${dim}${status}${fn}`.padEnd(15, '-')
-    const sidc = (base.slice(0, 10) + mod11 + echelonChar + base.slice(12)).slice(0, 15)
-    let svgHtml = ''
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        svgHtml = new ms.Symbol(sidc, { size: 28, reinforced: ann.properties.a3Reinforced ? 1 : 0, reduced: ann.properties.a3Reduced ? 1 : 0 } as any).asSVG()
-    } catch {
-        svgHtml = `<div style="width:28px;height:28px;background:#0055aa;border:2px solid #fff;border-radius:2px;"></div>`
-    }
-    const ring = selected ? `<div style="position:absolute;inset:-5px;border:2px solid #fff;border-radius:3px;box-shadow:0 0 0 1px rgba(255,255,255,0.25),0 0 10px rgba(255,255,255,0.6);pointer-events:none;"></div>` : ''
-    const html = `<div style="position:relative;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+    const p = ann.properties
+    const sk = METIS_SIDE_KEY[p.a3SideId ?? 'blu'] ?? 'blu'
+    const frame = p.a3Dashed ? `frame/${sk}_dash` : `frame/${sk}`
+    const icon = METIS_ICONS.find(i => i.index === (p.a3Icon ?? 0))
+    const mods = icon?.mods ?? []
+    const size = p.a3Size ?? 0
+    const isHq = (p.a3HqTf ?? 0) > 0
+    const reinforced = p.a3Reinforced ?? false
+    const reduced = p.a3Reduced ?? false
+    const designation = p.a3Designation ?? ''
+
+    const base = '/markers/metis'
+    const img = (path: string) =>
+        `<img src="${base}/${path}.png" style="position:absolute;inset:0;width:100%;height:100%;" />`
+
+    const ring = selected
+        ? `<div style="position:absolute;inset:-5px;border:2px solid #fff;border-radius:3px;box-shadow:0 0 0 1px rgba(255,255,255,0.25),0 0 10px rgba(255,255,255,0.6);pointer-events:none;z-index:1;"></div>`
+        : ''
+
+    const sizeOverlay = size > 0 ? img(`size/${sk}_${size}`) : ''
+    const hqOverlay   = isHq ? img(`frame/${sk}_hq`) : ''
+    const reinOverlay = (reinforced && reduced) ? img('com/reinforced_reduced')
+                      : reinforced              ? img('com/reinforced')
+                      : reduced                 ? img('com/reduced')
+                      : ''
+
+    const markerBlock = `<div style="position:relative;display:inline-block;">
         ${ring}
-        ${svgHtml}
+        <div style="position:relative;width:48px;height:60px;filter:url(#metis-tint-${sk});">
+            ${img(frame)}
+            ${mods.map(m => img(`mod/${sk}_${m}`)).join('')}
+            ${sizeOverlay}
+            ${hqOverlay}
+            ${reinOverlay}
+        </div>
+    </div>`
+
+    const html = `<div style="position:relative;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+        ${markerBlock}
         ${designation ? `<span style="font-size:9px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap;margin-top:1px;">${designation}</span>` : ''}
     </div>`
-    return L.divIcon({ className: '', html, iconSize: [48, 48], iconAnchor: [24, 24] })
+    return L.divIcon({ className: '', html, iconSize: [48, 60], iconAnchor: [24, 30] })
 }
 
 const DEFAULT_PROPS: AnnotationProperties = {
@@ -605,14 +599,28 @@ export default function OperationMap({
 
                 {
                     const annId = ann.id
+                    const isPoint = ann.type === 'a3icon' || ann.type === 'a3metis' || ann.type === 'marker' || ann.type === 'text'
+                    let dragged = false
                     // Hover tracking for right-click delete
                     leafletLayer.on('mouseover', () => { hoveredAnnotationIdRef.current = annId })
                     leafletLayer.on('mouseout',  () => { if (hoveredAnnotationIdRef.current === annId) hoveredAnnotationIdRef.current = null })
-                    // Click to select annotation
+                    // Click to select annotation (suppressed after a drag)
                     leafletLayer.on('click', (e: any) => {
+                        if (dragged) return
                         e.originalEvent?.stopPropagation()
                         onAnnotationSelectRef.current(annId)
                     })
+                    // Drag to reposition point markers
+                    if (canEditRef.current && isPoint) {
+                        const m = leafletLayer as L.Marker
+                        m.dragging?.enable()
+                        m.on('dragstart', () => { dragged = true })
+                        m.on('dragend', (e: any) => {
+                            const pos = (e.target as L.Marker).getLatLng()
+                            onAnnotationUpdateRef.current(annId, [[pos.lat, pos.lng]])
+                            setTimeout(() => { dragged = false }, 0)
+                        })
+                    }
                 }
 
                 if (visible) leafletLayer.addTo(map)
@@ -900,12 +908,20 @@ export default function OperationMap({
         }
     }
 
-    return (
+    return (<>
+        <svg width={0} height={0} style={{ position: 'absolute', overflow: 'hidden' }}>
+            <defs>
+                <filter id="metis-tint-blu"><feColorMatrix type="matrix" values="0.502 0 0 0 0  0.878 0 0 0 0  1.000 0 0 0 0  0 0 0 1 0" /></filter>
+                <filter id="metis-tint-red"><feColorMatrix type="matrix" values="1.000 0 0 0 0  0.502 0 0 0 0  0.502 0 0 0 0  0 0 0 1 0" /></filter>
+                <filter id="metis-tint-neu"><feColorMatrix type="matrix" values="0.667 0 0 0 0  1.000 0 0 0 0  0.667 0 0 0 0  0 0 0 1 0" /></filter>
+                <filter id="metis-tint-unk"><feColorMatrix type="matrix" values="1.000 0 0 0 0  1.000 0 0 0 0  0.502 0 0 0 0  0 0 0 1 0" /></filter>
+            </defs>
+        </svg>
         <div
             ref={containerRef}
             onDragOver={e => e.preventDefault()}
             onDrop={handleDrop}
             style={{ width: '100%', height: '100%', background: bg, cursor: isDrawingMode ? 'crosshair' : undefined }}
         />
-    )
+    </>)
 }

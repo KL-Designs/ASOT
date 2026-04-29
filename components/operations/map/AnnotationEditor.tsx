@@ -1,9 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import ms from 'milsymbol'
 import type { MapAnnotation, A3SideId, AnnotationProperties } from './types'
-import { A3_ICON_TYPES, METIS_ICONS, METIS_ECHELONS, METIS_HQTF, METIS_MOB, A3_MARKER_COLORS } from './types'
+import { A3_ICON_TYPES, METIS_ICONS, METIS_ECHELONS, METIS_HQTF, METIS_MOB, METIS_SIDE_KEY, A3_MARKER_COLORS } from './types'
 import type { MapYjsActions } from './useMapYjs'
 
 // ── Shared constants ──────────────────────────────────────────────────────────
@@ -23,51 +22,61 @@ const METIS_MOD2 = [
     { index: 3, label: 'Arctic'   },
 ]
 
-// ── milsymbol helpers ─────────────────────────────────────────────────────────
+// ── METIS image helpers ───────────────────────────────────────────────────────
 
-const METIS_MIL_MAP: Record<number, { dim: string; fn: string }> = {
-    0:  { dim: 'G', fn: 'UCI'   },
-    1:  { dim: 'G', fn: 'UCIM'  },
-    2:  { dim: 'G', fn: 'UCIMR' },
-    3:  { dim: 'G', fn: 'UCA'   },
-    4:  { dim: 'G', fn: 'UCAT'  },
-    5:  { dim: 'G', fn: 'UCF'   },
-    6:  { dim: 'G', fn: 'UCD'   },
-    7:  { dim: 'A', fn: 'MFH'   },
-    8:  { dim: 'A', fn: 'MFF'   },
-    9:  { dim: 'S', fn: 'C'     },
-    10: { dim: 'G', fn: 'US'    },
-    11: { dim: 'G', fn: 'USM'   },
-    12: { dim: 'G', fn: 'UCR'   },
-    13: { dim: 'G', fn: 'UCE'   },
-    14: { dim: 'G', fn: 'USS'   },
-    15: { dim: 'G', fn: 'UCFM'  },
-    16: { dim: 'G', fn: 'USF'   },
-    17: { dim: 'G', fn: 'USMP'  },
-    37: { dim: 'G', fn: ''      },
+const BASE = '/markers/metis'
+const METIS_W = 180
+const METIS_H = 225
+const ls: React.CSSProperties = { position: 'absolute', inset: 0, width: '100%', height: '100%' }
+
+function MetisFilterDefs() {
+    return (
+        <svg width={0} height={0} style={{ position: 'absolute', overflow: 'hidden' }}>
+            <defs>
+                <filter id="metis-tint-blu"><feColorMatrix type="matrix" values="0.502 0 0 0 0  0.878 0 0 0 0  1.000 0 0 0 0  0 0 0 1 0" /></filter>
+                <filter id="metis-tint-red"><feColorMatrix type="matrix" values="1.000 0 0 0 0  0.502 0 0 0 0  0.502 0 0 0 0  0 0 0 1 0" /></filter>
+                <filter id="metis-tint-neu"><feColorMatrix type="matrix" values="0.667 0 0 0 0  1.000 0 0 0 0  0.667 0 0 0 0  0 0 0 1 0" /></filter>
+                <filter id="metis-tint-unk"><feColorMatrix type="matrix" values="1.000 0 0 0 0  1.000 0 0 0 0  0.502 0 0 0 0  0 0 0 1 0" /></filter>
+            </defs>
+        </svg>
+    )
 }
 
-function buildSidc(dim: string, fn: string, sideId: string, dashed: boolean, echelonChar: string, mod11 = '-', assumedFriend = false): string {
-    const affil: Record<string, string> = { blu: assumedFriend ? 'G' : 'F', red: 'H', grn: 'N', unk: 'U' }
-    const a = affil[sideId] ?? 'F'
-    const status = dashed ? 'A' : 'P'
-    const base = `S${a}${dim}${status}${fn}`.padEnd(15, '-')
-    return (base.slice(0, 10) + mod11 + echelonChar + base.slice(12)).slice(0, 15)
-}
-
-function iconSvg(iconIndex: number, sideId: string, size: number): string {
-    const { dim, fn } = METIS_MIL_MAP[iconIndex] ?? { dim: 'G', fn: '' }
-    try { return new ms.Symbol(buildSidc(dim, fn, sideId, false, '-', '-'), { size }).asSVG() } catch { return '' }
-}
-
-function fullMetisSvg(ann: MapAnnotation, size: number): string {
+function MetisMarker({ ann, size = 48 }: { ann: MapAnnotation; size?: number }) {
     const p = ann.properties
-    const { dim, fn } = METIS_MIL_MAP[p.a3Icon ?? 0] ?? { dim: 'G', fn: '' }
-    const echelonChar = METIS_ECHELONS.find(e => e.size === (p.a3Size ?? 0))?.milChar ?? '-'
-    const mod11 = METIS_HQTF.find(h => h.index === (p.a3HqTf ?? 0))?.mod11 ?? '-'
-    const sidc = buildSidc(dim, fn, p.a3SideId ?? 'blu', p.a3Dashed ?? false, echelonChar, mod11, p.a3AssumedFriend ?? false)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    try { return new ms.Symbol(sidc, { size, reinforced: p.a3Reinforced ? 1 : 0, reduced: p.a3Reduced ? 1 : 0 } as any).asSVG() } catch { return '' }
+    const sk = METIS_SIDE_KEY[p.a3SideId ?? 'blu'] ?? 'blu'
+    const frame = p.a3Dashed ? `frame/${sk}_dash` : `frame/${sk}`
+    const icon = METIS_ICONS.find(i => i.index === (p.a3Icon ?? 0))
+    const mods = icon?.mods ?? []
+    const echelon = p.a3Size ?? 0
+    const isHq = (p.a3HqTf ?? 0) > 0
+    const reinforced = p.a3Reinforced ?? false
+    const reduced = p.a3Reduced ?? false
+    const h = Math.round(size * METIS_H / METIS_W)
+    return (
+        <div style={{ position: 'relative', width: size, height: h, flexShrink: 0, filter: `url(#metis-tint-${sk})` }}>
+            <img src={`${BASE}/${frame}.png`} style={ls} />
+            {mods.map(m => <img key={m} src={`${BASE}/mod/${sk}_${m}.png`} style={ls} />)}
+            {echelon > 0 && <img src={`${BASE}/size/${sk}_${echelon}.png`} style={ls} />}
+            {isHq && <img src={`${BASE}/frame/${sk}_hq.png`} style={ls} />}
+            {reinforced && reduced && <img src={`${BASE}/com/reinforced_reduced.png`} style={ls} />}
+            {reinforced && !reduced && <img src={`${BASE}/com/reinforced.png`} style={ls} />}
+            {!reinforced && reduced && <img src={`${BASE}/com/reduced.png`} style={ls} />}
+        </div>
+    )
+}
+
+function MetisIconPreview({ iconIndex, sideId, size = 38 }: { iconIndex: number; sideId: string; size?: number }) {
+    const sk = METIS_SIDE_KEY[sideId] ?? 'blu'
+    const icon = METIS_ICONS.find(i => i.index === iconIndex)
+    const mods = icon?.mods ?? []
+    const h = Math.round(size * METIS_H / METIS_W)
+    return (
+        <div style={{ position: 'relative', width: size, height: h, flexShrink: 0, filter: `url(#metis-tint-${sk})` }}>
+            <img src={`${BASE}/frame/${sk}.png`} style={ls} />
+            {mods.map(m => <img key={m} src={`${BASE}/mod/${sk}_${m}.png`} style={ls} />)}
+        </div>
+    )
 }
 
 // ── Shared style shortcuts ────────────────────────────────────────────────────
@@ -139,13 +148,13 @@ export default function AnnotationEditor({ annotation: ann, actions, onClose }: 
             <div style={{ display: 'flex', overflow: 'hidden', padding: '10px 6px' }}>
 
                 {/* ── A3 METIS ───────────────────────────────────────────────── */}
-                {ann.type === 'a3metis' && <>
+                {ann.type === 'a3metis' && <><MetisFilterDefs />
 
                     {/* Preview + Identity */}
                     <div style={{ padding: '0 10px', minWidth: 140, flexShrink: 0 }}>
                         <div style={sectionLabel}>Identity</div>
-                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, background: '#fff', borderRadius: 4, padding: 6 }}>
-                            <span dangerouslySetInnerHTML={{ __html: fullMetisSvg(ann, 48) }} style={{ lineHeight: 0 }} />
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, padding: 6 }}>
+                            <MetisMarker ann={ann} size={64} />
                         </div>
                         <div style={{ display: 'flex', gap: 3, marginBottom: 6 }}>
                             {SIDES.map(s => (
@@ -180,7 +189,6 @@ export default function AnnotationEditor({ annotation: ann, actions, onClose }: 
                         <div style={sectionLabel}>Unit Type</div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3, maxHeight: 160, overflowY: 'auto' }}>
                             {METIS_ICONS.map(ic => {
-                                const svg = iconSvg(ic.index, ann.properties.a3SideId ?? 'blu', 22)
                                 const selected = ann.properties.a3Icon === ic.index
                                 return (
                                     <button key={ic.index} onClick={() => upd({ a3Icon: ic.index })} title={ic.label}
@@ -191,7 +199,7 @@ export default function AnnotationEditor({ annotation: ann, actions, onClose }: 
                                             border: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.07)'}`,
                                             borderRadius: 3, cursor: 'pointer',
                                         }}>
-                                        {svg && <span dangerouslySetInnerHTML={{ __html: svg }} style={{ lineHeight: 0 }} />}
+                                        <MetisIconPreview iconIndex={ic.index} sideId={ann.properties.a3SideId ?? 'blu'} size={28} />
                                         <span style={{ fontSize: 6.5, color: selected ? '#fff' : 'rgba(255,255,255,0.45)', lineHeight: 1, textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                             {ic.label}
                                         </span>
