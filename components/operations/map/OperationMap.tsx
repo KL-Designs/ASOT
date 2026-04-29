@@ -81,6 +81,12 @@ function makeA3MetisDivIcon(L: any, ann: MapAnnotation, selected = false): any {
     const reinforced = p.a3Reinforced ?? false
     const reduced = p.a3Reduced ?? false
     const designation = p.a3Designation ?? ''
+    const scale = p.a3MetisScale ?? 1
+
+    const BASE_W = 48
+    const BASE_H = 59
+    const w = Math.round(BASE_W * scale)
+    const h = Math.round(BASE_H * scale)
 
     const base = '/markers/metis'
     const img = (path: string) =>
@@ -99,7 +105,7 @@ function makeA3MetisDivIcon(L: any, ann: MapAnnotation, selected = false): any {
 
     const markerBlock = `<div style="position:relative;display:inline-block;">
         ${ring}
-        <div style="position:relative;width:48px;height:59px;filter:url(#metis-tint-${sk});">
+        <div style="position:relative;width:${w}px;height:${h}px;filter:url(#metis-tint-${sk});">
             ${img(frame)}
             ${mods.map(m => img(`mod/${sk}_${m}`)).join('')}
             ${sizeOverlay}
@@ -112,7 +118,7 @@ function makeA3MetisDivIcon(L: any, ann: MapAnnotation, selected = false): any {
         ${markerBlock}
         ${designation ? `<span style="font-size:9px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap;margin-top:1px;">${designation}</span>` : ''}
     </div>`
-    return L.divIcon({ className: '', html, iconSize: [48, 59], iconAnchor: [24, 30] })
+    return L.divIcon({ className: '', html, iconSize: [w, h], iconAnchor: [Math.round(w / 2), Math.round(h / 2)] })
 }
 
 const DEFAULT_PROPS: AnnotationProperties = {
