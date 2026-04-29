@@ -1271,19 +1271,21 @@ function MapWorldPicker({
                     minWidth: 220, maxHeight: 320, overflowY: 'auto',
                     boxShadow: '0 8px 24px rgba(0,0,0,0.7)',
                 }}>
+                    <style>{`.mwp-item:hover .mwp-hover{opacity:1!important}`}</style>
                     {/* No map option */}
                     <div
+                        className='mwp-item'
                         onClick={() => { onChange(''); setOpen(false) }}
                         style={{
+                            position: 'relative',
                             display: 'flex', alignItems: 'center', gap: 10,
                             padding: '8px 12px', cursor: 'pointer',
                             background: !value ? 'rgba(255,255,255,0.06)' : 'transparent',
                             borderBottom: '1px solid rgba(255,255,255,0.06)',
                             fontSize: '0.8rem', color: 'rgba(237,237,237,0.35)',
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                        onMouseLeave={e => { e.currentTarget.style.background = !value ? 'rgba(255,255,255,0.06)' : 'transparent' }}
                     >
+                        <div className='mwp-hover' style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.04)', opacity: 0, transition: 'opacity 0.1s ease', pointerEvents: 'none', willChange: 'opacity' }} />
                         <div style={{ width: 42, height: 30, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>—</span>
                         </div>
@@ -1294,21 +1296,21 @@ function MapWorldPicker({
                         return (
                             <div
                                 key={w.name}
+                                className='mwp-item'
                                 onClick={() => { onChange(w.name); setOpen(false) }}
                                 style={{
+                                    position: 'relative',
                                     display: 'flex', alignItems: 'center', gap: 10,
                                     padding: '8px 12px', cursor: 'pointer',
                                     background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
                                     borderLeft: isActive ? `2px solid ${themeColor}` : '2px solid transparent',
                                     fontSize: '0.8rem', color: isActive ? 'rgba(237,237,237,0.95)' : 'rgba(237,237,237,0.6)',
-                                    transition: 'background 0.1s',
                                 }}
-                                onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                                onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
                             >
+                                {!isActive && <div className='mwp-hover' style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.04)', opacity: 0, transition: 'opacity 0.1s ease', pointerEvents: 'none', willChange: 'opacity' }} />}
                                 {w.hasPreview ? (
                                     // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={`/maps/${w.name}/preview.png`} alt='' style={{ width: 42, height: 30, objectFit: 'cover', flexShrink: 0, border: `1px solid ${isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}` }} />
+                                    <img src={`/maps/${w.name}/preview.png`} alt='' loading='lazy' style={{ width: 42, height: 30, objectFit: 'cover', flexShrink: 0, border: `1px solid ${isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}` }} />
                                 ) : (
                                     <div style={{ width: 42, height: 30, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }} />
                                 )}

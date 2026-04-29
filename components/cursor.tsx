@@ -6,10 +6,9 @@ export default function CustomCursor() {
 	const dotRef = useRef<HTMLDivElement>(null)
 	const ringRef = useRef<HTMLDivElement>(null)
 	const cornersRef = useRef<HTMLDivElement>(null)
-	const mouse = useRef({ x: -200, y: -200 })
-	const ringPos = useRef({ x: -200, y: -200 })
 	const hoveringRef = useRef(false)
 	const visibleRef = useRef(false)
+	const prevTargetRef = useRef<Element | null>(null)
 	const [isTouch, setIsTouch] = useState(false)
 
 	useEffect(() => {
@@ -20,80 +19,57 @@ export default function CustomCursor() {
 		const corners = cornersRef.current
 		if (!dot || !ring || !corners) return
 
+		const updateVisibility = () => {
+			const suppressed = document.body.classList.contains('suppress-custom-cursor')
+			const v = visibleRef.current && !suppressed
+			dot.style.opacity = v ? '1' : '0'
+			ring.style.opacity = v ? '1' : '0'
+		}
 
 		const setHovering = (on: boolean) => {
-			ring.style.width = on ? '32px' : '24px'
-			ring.style.height = on ? '32px' : '24px'
+			hoveringRef.current = on
 			ring.style.borderRadius = on ? '0' : '50%'
-			ring.style.border = on ? 'none' : '1.5px solid #fff'
+			ring.style.borderColor = on ? 'transparent' : '#fff'
 			corners.style.opacity = on ? '1' : '0'
+			// Remove transform trail on hover so ring snaps; restore it on leave
+			// Order matches: transform, border-radius, border-color, opacity
+			ring.style.transitionDuration = on ? '0s, 0.15s, 0.15s, 0.3s' : '60ms, 0.15s, 0.15s, 0.3s'
 		}
 
-		const setVisible = (on: boolean) => {
-			dot.style.opacity = on ? '1' : '0'
-			ring.style.opacity = on ? '1' : '0'
-		}
-
-		let suppressed = false
+		// MutationObserver handles suppress-class changes without polling in rAF
+		const observer = new MutationObserver(updateVisibility)
+		observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
 
 		const onMove = (e: MouseEvent) => {
-			mouse.current = { x: e.clientX, y: e.clientY }
-
-			// Update dot position immediately on every input event rather than
-			// waiting for the next rAF tick — keeps the dot tracking even when
-			// the frame rate drops (e.g. during a heavy JS parse on page load).
-			if (!suppressed) {
-				dot.style.transform = `translate(calc(${e.clientX}px - 50%), calc(${e.clientY}px - 50%))`
-			}
+			const t = `translate(calc(${e.clientX}px - 50%), calc(${e.clientY}px - 50%))`
+			dot.style.transform = t
+			ring.style.transform = t
 
 			if (!visibleRef.current) {
 				visibleRef.current = true
-				setVisible(true)
+				updateVisibility()
 			}
 
 			const target = e.target as Element
-			const clickable = !!target.closest('a, button, [role="button"], input, textarea, select, label')
-			if (clickable !== hoveringRef.current) {
-				hoveringRef.current = clickable
-				setHovering(clickable)
+			if (target !== prevTargetRef.current) {
+				prevTargetRef.current = target
+				const clickable = !!target.closest('a, button, [role="button"], input, textarea, select, label')
+				if (clickable !== hoveringRef.current) setHovering(clickable)
 			}
 		}
 
-		const onLeave = () => { visibleRef.current = false; setVisible(false) }
-		const onEnter = () => { visibleRef.current = true; setVisible(true) }
+		const onLeave = () => { visibleRef.current = false; updateVisibility() }
+		const onEnter = () => { visibleRef.current = true; updateVisibility() }
 
 		document.addEventListener('mousemove', onMove, { passive: true })
 		document.addEventListener('mouseleave', onLeave)
 		document.addEventListener('mouseenter', onEnter)
 
-		let animId: number
-		const animate = () => {
-			const shouldSuppress = document.body.classList.contains('suppress-custom-cursor')
-			if (shouldSuppress !== suppressed) {
-				suppressed = shouldSuppress
-				dot.style.opacity = suppressed ? '0' : (visibleRef.current ? '1' : '0')
-				ring.style.opacity = suppressed ? '0' : (visibleRef.current ? '1' : '0')
-			}
-			if (!suppressed) {
-				// Dot position is handled in onMove — rAF only drives the ring lerp
-				if (hoveringRef.current) {
-					ringPos.current.x = mouse.current.x
-					ringPos.current.y = mouse.current.y
-				} else {
-					ringPos.current.x += (mouse.current.x - ringPos.current.x) * 0.38
-					ringPos.current.y += (mouse.current.y - ringPos.current.y) * 0.38
-				}
-				ring.style.transform = `translate(calc(${ringPos.current.x}px - 50%), calc(${ringPos.current.y}px - 50%))`
-			}
-			animId = requestAnimationFrame(animate)
-		}
-		animate()
-
 		return () => {
 			document.removeEventListener('mousemove', onMove)
 			document.removeEventListener('mouseleave', onLeave)
 			document.removeEventListener('mouseenter', onEnter)
-			cancelAnimationFrame(animId)
+			observer.disconnect()
 		}
 	}, [])
 
@@ -111,24 +87,24 @@ export default function CustomCursor() {
 					position: 'fixed', top: 0, left: 0,
 					width: 4, height: 4, borderRadius: '50%',
 					background: '#fff', pointerEvents: 'none', zIndex: 99999,
-					opacity: 0, transition: 'opacity 0.2s ease', willChange: 'transform',
-					mixBlendMode: 'difference',
+					opacity: 0, willChange: 'transform',
+					boxShadow: '0 0 0 1.5px rgba(0,0,0,0.5)',
+					transition: 'opacity 0.2s ease',
 				}}
 			/>
 			<div
 				ref={ringRef}
 				style={{
 					position: 'fixed', top: 0, left: 0,
-					width: 24, height: 24, borderRadius: '50%',
+					width: 32, height: 32, borderRadius: '50%',
 					border: '1.5px solid #fff',
 					pointerEvents: 'none', zIndex: 99999,
-					opacity: 0,
-					transition: 'width 0.15s ease, height 0.15s ease, opacity 0.3s ease',
-					willChange: 'transform',
-					mixBlendMode: 'difference',
+					opacity: 0, willChange: 'transform',
+					// transform trails 60ms on the compositor thread (main-thread-independent)
+					// hover snaps it to 0s via transitionDuration override in setHovering()
+					transition: 'transform 30ms linear, border-radius 0.15s ease, border-color 0.15s ease, opacity 0.3s ease',
 				}}
 			>
-				{/* Corner brackets — always in DOM, shown/hidden via opacity on cornersRef */}
 				<div ref={cornersRef} style={{ opacity: 0, transition: 'opacity 0.1s ease' }}>
 					<span style={{ position: 'absolute', top: 0, left: 0, width: corner, height: corner, borderTop: b, borderLeft: b }} />
 					<span style={{ position: 'absolute', top: 0, right: 0, width: corner, height: corner, borderTop: b, borderRight: b }} />
