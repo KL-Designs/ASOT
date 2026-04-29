@@ -25,7 +25,7 @@ export default function CustomCursor() {
 			ring.style.width = on ? '32px' : '24px'
 			ring.style.height = on ? '32px' : '24px'
 			ring.style.borderRadius = on ? '0' : '50%'
-			ring.style.border = on ? 'none' : '1.5px solid rgba(237,237,237,0.65)'
+			ring.style.border = on ? 'none' : '1.5px solid #fff'
 			corners.style.opacity = on ? '1' : '0'
 		}
 
@@ -91,7 +91,7 @@ export default function CustomCursor() {
 
 	if (isTouch) return null
 
-	const c = 'rgba(237,237,237,0.9)'
+	const c = '#fff'
 	const b = `1.5px solid ${c}`
 	const corner = 7
 
@@ -104,6 +104,7 @@ export default function CustomCursor() {
 					width: 4, height: 4, borderRadius: '50%',
 					background: '#fff', pointerEvents: 'none', zIndex: 99999,
 					opacity: 0, transition: 'opacity 0.2s ease', willChange: 'transform',
+					mixBlendMode: 'difference',
 				}}
 			/>
 			<div
@@ -111,11 +112,12 @@ export default function CustomCursor() {
 				style={{
 					position: 'fixed', top: 0, left: 0,
 					width: 24, height: 24, borderRadius: '50%',
-					border: '1.5px solid rgba(237,237,237,0.65)',
+					border: '1.5px solid #fff',
 					pointerEvents: 'none', zIndex: 99999,
 					opacity: 0,
 					transition: 'width 0.15s ease, height 0.15s ease, opacity 0.3s ease',
 					willChange: 'transform',
+					mixBlendMode: 'difference',
 				}}
 			>
 				{/* Corner brackets — always in DOM, shown/hidden via opacity on cornersRef */}
