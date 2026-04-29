@@ -29,11 +29,15 @@ export interface MapAnnotation {
     properties: AnnotationProperties
 }
 
+export type MapMode = 'sat' | 'map'
+
 export interface MapWorld {
     name: string          // directory key, e.g. "altis"
     displayName: string   // e.g. "Altis"
     worldSize: number     // metres, e.g. 30720
     satTiles: number      // number of sat tiles per side (e.g. 4 = 4×4 grid)
+    hasGeoJSON: boolean
+    colorOutside?: [number, number, number, number]  // RGBA 0–1, used as bg in map mode
 }
 
 export interface MapPresenceUser {

@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { useMapYjs } from './useMapYjs'
 import LayersPanel from './LayersPanel'
-import type { DrawingTool, MapWorld } from './types'
+import type { DrawingTool, MapMode, MapWorld } from './types'
 
 const OperationMap = dynamic(() => import('./OperationMap'), { ssr: false })
 
@@ -20,6 +20,7 @@ export default function MapSection({ operationId, canEdit, availableWorlds }: Pr
     const [activeTool, setActiveTool] = useState<DrawingTool>(null)
     const [activeColor, setActiveColor] = useState('#db001d')
     const [worldPickerOpen, setWorldPickerOpen] = useState(false)
+    const [mapMode, setMapMode] = useState<MapMode>('sat')
 
     // Auto-select first layer when layers load
     useEffect(() => {
@@ -117,6 +118,31 @@ export default function MapSection({ operationId, canEdit, availableWorlds }: Pr
                     )}
                 </div>
 
+                {/* SAT / MAP toggle */}
+                {currentWorld?.hasGeoJSON && (
+                    <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 4, padding: 2 }}>
+                        {(['sat', 'map'] as MapMode[]).map(m => (
+                            <button
+                                key={m}
+                                onClick={() => setMapMode(m)}
+                                style={{
+                                    background: mapMode === m ? 'rgba(255,255,255,0.14)' : 'transparent',
+                                    border: 'none',
+                                    color: mapMode === m ? '#fff' : 'rgba(255,255,255,0.5)',
+                                    borderRadius: 3,
+                                    padding: '3px 10px',
+                                    cursor: 'pointer',
+                                    fontSize: 11,
+                                    fontWeight: mapMode === m ? 600 : 400,
+                                    letterSpacing: '0.05em',
+                                }}
+                            >
+                                {m.toUpperCase()}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 <div style={{ flex: 1 }} />
 
                 {/* Presence indicators */}
@@ -178,6 +204,7 @@ export default function MapSection({ operationId, canEdit, availableWorlds }: Pr
                     )}
                     <OperationMap
                         world={currentWorld}
+                        mapMode={mapMode}
                         layers={state.layers}
                         annotations={state.annotations}
                         peers={state.peers}

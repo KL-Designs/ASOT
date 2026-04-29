@@ -1,9 +1,40 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
-import type { MapLayer, MapAnnotation, MapPresenceUser, DrawingTool, AnnotationProperties, MapWorld } from './types'
+import { useEffect, useRef } from 'react'
+import type { MapLayer, MapAnnotation, MapPresenceUser, DrawingTool, AnnotationProperties, MapWorld, MapMode } from './types'
 
-// Leaflet loaded client-side only via dynamic import inside effects
+// ── GeoJSON layer definitions (rendered in order, back → front) ──────────────
+const GEO_LAYERS: Array<{ path: string; style: Record<string, unknown> }> = [
+    { path: 'forest',                 style: { fillColor: '#2a4019', color: '#1e3010', weight: 0.3, fillOpacity: 0.55 } },
+    { path: 'mounts',                 style: { fillColor: '#3a3228', color: '#2a2218', weight: 0.5, fillOpacity: 0.25 } },
+    { path: 'runway',                 style: { fillColor: '#4a4848', color: '#2a2828', weight: 0.5, fillOpacity: 0.8 } },
+    { path: 'house',                  style: { fillColor: '#6a5a4a', color: '#3a2e24', weight: 0.3, fillOpacity: 0.85 } },
+    { path: 'ruin',                   style: { fillColor: '#4a3a2a', color: '#2a1a0a', weight: 0.3, fillOpacity: 0.5 } },
+    { path: 'roads/main_road',        style: { color: '#9a8d6a', weight: 3,   fill: false } },
+    { path: 'roads/main_road-bridge', style: { color: '#9a8d6a', weight: 3,   fill: false } },
+    { path: 'roads/road',             style: { color: '#b0a07a', weight: 1.5, fill: false } },
+    { path: 'roads/road-bridge',      style: { color: '#b0a07a', weight: 1.5, fill: false } },
+    { path: 'roads/track',            style: { color: '#a09070', weight: 1,   dashArray: '4,3', fill: false } },
+    { path: 'roads/track-bridge',     style: { color: '#a09070', weight: 1,   fill: false } },
+    { path: 'powerline',              style: { color: '#606060', weight: 0.8, dashArray: '4,4', fill: false } },
+]
+
+async function fetchGzJson(url: string): Promise<unknown> {
+    try {
+        const res = await fetch(url)
+        if (!res.ok || !res.body) return null
+        const ds = new DecompressionStream('gzip')
+        return JSON.parse(await new Response(res.body.pipeThrough(ds)).text())
+    } catch {
+        return null
+    }
+}
+
+function outsideBg(rgba?: [number, number, number, number]): string {
+    if (!rgba) return '#2a3040'
+    const [r, g, b] = rgba
+    return `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`
+}
 
 const DEFAULT_PROPS: AnnotationProperties = {
     color: '#db001d',
@@ -14,6 +45,7 @@ const DEFAULT_PROPS: AnnotationProperties = {
 
 interface Props {
     world: MapWorld | null
+    mapMode: MapMode
     layers: MapLayer[]
     annotations: MapAnnotation[]
     peers: MapPresenceUser[]
@@ -52,6 +84,7 @@ function pathOptions(ann: MapAnnotation, layer: MapLayer | undefined) {
 
 export default function OperationMap({
     world,
+    mapMode,
     layers,
     annotations,
     peers,
@@ -68,11 +101,15 @@ export default function OperationMap({
     const containerRef = useRef<HTMLDivElement>(null)
     const mapRef = useRef<L.Map | null>(null)
     const satOverlaysRef = useRef<L.ImageOverlay[]>([])
+    const geoJsonCacheRef = useRef<Map<string, L.FeatureGroup>>(new Map())
+    const lastFitWorldRef = useRef<string | null>(null)
     const annotationLayersRef = useRef<Map<string, L.Layer>>(new Map())
     const peerMarkersRef = useRef<Map<string, L.Marker>>(new Map())
-    // Always-current world ref so the init callback can read it without a dep
+    // Always-current refs so the async init callback can read them without deps
     const worldRef = useRef(world)
     worldRef.current = world
+    const mapModeRef = useRef(mapMode)
+    mapModeRef.current = mapMode
 
     // Drawing state
     const drawingRef = useRef<{
@@ -88,12 +125,11 @@ export default function OperationMap({
 
         let destroyed = false
 
-        import('leaflet').then(mod => {
+        import('leaflet').then(async mod => {
             if (destroyed || mapRef.current || !containerRef.current) return
 
             const L = mod.default ?? mod
 
-            // Fix default marker icon paths broken by webpack
             delete (L.Icon.Default.prototype as any)._getIconUrl
             L.Icon.Default.mergeOptions({
                 iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
@@ -103,8 +139,6 @@ export default function OperationMap({
 
             const map = L.map(containerRef.current, {
                 crs: L.CRS.Simple,
-                // minZoom must be negative: at zoom 0, 1 world-unit = 1px.
-                // A 30 720 m world needs ~zoom -5 to fit a ~1 200 px viewport.
                 minZoom: -6,
                 maxZoom: 4,
                 zoomControl: true,
@@ -113,10 +147,9 @@ export default function OperationMap({
 
             mapRef.current = map
 
-            // Apply world immediately if it was already set before the map was ready
             const w = worldRef.current
             if (w) {
-                applySatOverlays(L, map, w)
+                await applyContent(L, map, w, mapModeRef.current)
             } else {
                 map.setView([0, 0], 0)
             }
@@ -127,43 +160,71 @@ export default function OperationMap({
             mapRef.current?.remove()
             mapRef.current = null
         }
-    }, [])
+    }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
-    // ── Sat image overlays — swap when world changes ─────────────────────────
+    // ── Swap content when world or mode changes ──────────────────────────────
     useEffect(() => {
         const map = mapRef.current
-        if (!map) return  // map not ready yet; init callback will handle it
-
-        import('leaflet').then(mod => {
-            applySatOverlays(mod.default ?? mod, map, world)
+        if (!map) return  // init callback handles the first load
+        import('leaflet').then(async mod => {
+            await applyContent(mod.default ?? mod, map, world, mapMode)
         })
-    }, [world])
+    }, [world, mapMode])  // eslint-disable-line react-hooks/exhaustive-deps
 
-    function applySatOverlays(L: typeof import('leaflet'), map: L.Map, w: typeof world) {
+    async function applyContent(
+        L: typeof import('leaflet'),
+        map: L.Map,
+        w: MapWorld | null,
+        mode: MapMode,
+    ) {
+        // Clear sat overlays
         satOverlaysRef.current.forEach(o => map.removeLayer(o))
         satOverlaysRef.current = []
+        // Hide all cached GeoJSON groups (don't destroy — keep for re-use)
+        geoJsonCacheRef.current.forEach(g => { if (map.hasLayer(g)) map.removeLayer(g) })
 
         if (!w) return
 
-        const { worldSize, satTiles: n, name } = w
-        const tileM = worldSize / n
-
-        // GRAD Meh exports sat/{col}/{row}.png where row 0 = northernmost.
-        // In Leaflet CRS.Simple lat increases upward, so row 0 → highest lat.
-        for (let col = 0; col < n; col++) {
-            for (let row = 0; row < n; row++) {
-                const southLat = worldSize - (row + 1) * tileM
-                const northLat = worldSize - row * tileM
-                const westLng  = col * tileM
-                const eastLng  = (col + 1) * tileM
-                const bounds: L.LatLngBoundsLiteral = [[southLat, westLng], [northLat, eastLng]]
-                const overlay = L.imageOverlay(`/maps/${name}/sat/${col}/${row}.png`, bounds)
-                overlay.addTo(map)
-                satOverlaysRef.current.push(overlay)
+        if (mode === 'sat') {
+            // GRAD Meh: sat/{col}/{row}.png, row 0 = northernmost
+            const { worldSize, satTiles: n, name } = w
+            const tileM = worldSize / n
+            for (let col = 0; col < n; col++) {
+                for (let row = 0; row < n; row++) {
+                    const southLat = worldSize - (row + 1) * tileM
+                    const northLat = worldSize - row * tileM
+                    const bounds: L.LatLngBoundsLiteral = [[southLat, col * tileM], [northLat, (col + 1) * tileM]]
+                    const overlay = L.imageOverlay(`/maps/${name}/sat/${col}/${row}.png`, bounds)
+                    overlay.addTo(map)
+                    satOverlaysRef.current.push(overlay)
+                }
             }
+        } else {
+            // mode === 'map': load GeoJSON layers (cached per world)
+            let group = geoJsonCacheRef.current.get(w.name)
+            if (!group) {
+                const renderer = L.canvas()
+                group = L.featureGroup()
+                await Promise.all(GEO_LAYERS.map(async ({ path, style }) => {
+                    const data = await fetchGzJson(`/maps/${w.name}/geojson/${path}.geojson.gz`)
+                    if (data) {
+                        L.geoJSON(
+                            data as GeoJSON.FeatureCollection,
+                            // renderer isn't in @types/leaflet GeoJSONOptions but works at runtime
+                            Object.assign({} as L.GeoJSONOptions, { renderer, style: style as L.PathOptions }),
+                        ).addTo(group!)
+                    }
+                }))
+                geoJsonCacheRef.current.set(w.name, group)
+            }
+            group.addTo(map)
         }
 
-        map.fitBounds([[0, 0], [worldSize, worldSize]])
+        // Only re-fit when the world changes, not on mode toggle
+        if (w.name !== lastFitWorldRef.current) {
+            map.fitBounds([[0, 0], [w.worldSize, w.worldSize]])
+            lastFitWorldRef.current = w.name
+        }
     }
 
     // ── Render annotations ───────────────────────────────────────────────────
@@ -462,10 +523,12 @@ export default function OperationMap({
         }
     }, [activeTool])
 
+    const bg = mapMode === 'map' ? outsideBg(world?.colorOutside) : '#1a1a1a'
+
     return (
         <div
             ref={containerRef}
-            style={{ width: '100%', height: '100%', background: '#1a1a1a', cursor: activeTool ? 'crosshair' : undefined }}
+            style={{ width: '100%', height: '100%', background: bg, cursor: activeTool ? 'crosshair' : undefined }}
         />
     )
 }
