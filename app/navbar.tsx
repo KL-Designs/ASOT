@@ -67,6 +67,7 @@ export default function Navbar() {
             subLinks: [
                 { name: 'ORBAT', link: '/community/orbat', icon: <Group />, description: "ASOT's Callsign Structure" },
                 { name: 'MILPACS', link: '/milpacs', icon: <MilitaryTech />, description: 'Military Personnel Accounting Centre' },
+                { name: 'Retired Members', link: '/community/retired', icon: <EmojiEvents />, description: 'Members who have served with ASOT' },
                 { name: 'Biographies', link: '/community/bios', icon: <Badge />, description: 'Meet our Staff' },
                 // { name: 'Hall of Fame', link: '/community/hof', icon: <EmojiEvents />, description: 'Honoured unit members' },
             ]
