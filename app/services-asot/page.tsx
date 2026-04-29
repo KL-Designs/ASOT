@@ -1,3 +1,6 @@
+//! This was Assassin's Idea :P
+
+
 import { redirect } from 'next/navigation'
 import client from '@/lib/discord'
 import DriversLicense from './DriversLicense'
