@@ -164,13 +164,18 @@ const collab = new Hocuspocus({
         new Database({
             fetch: async ({ documentName }) => {
                 try {
+                    // Map documents are named "{operationId}-map"
+                    const isMap = documentName.endsWith('-map')
+                    const opId = isMap ? documentName.slice(0, -4) : documentName
+                    const field = isMap ? 'mapYjsState' : 'yjsState'
+
                     const op = await operations.findOne(
-                        { _id: new ObjectId(documentName) },
-                        { projection: { yjsState: 1 } },
+                        { _id: new ObjectId(opId) },
+                        { projection: { [field]: 1 } },
                     )
-                    if (op?.yjsState) {
-                        console.log(`[collab] DB fetch OK  doc=${documentName}  (${op.yjsState.length} bytes)`)
-                        return op.yjsState.buffer
+                    if (op?.[field]) {
+                        console.log(`[collab] DB fetch OK  doc=${documentName}  (${op[field].length} bytes)`)
+                        return op[field].buffer
                     }
                     console.log(`[collab] DB fetch     doc=${documentName}  (no state — new doc)`)
                     return null
@@ -183,6 +188,21 @@ const collab = new Hocuspocus({
             store: async ({ documentName, state, document }) => {
                 console.log(`[collab] DB store     doc=${documentName}  (${state.length} bytes) — attempting…`)
                 try {
+                    // Map documents — just persist the raw Yjs state
+                    if (documentName.endsWith('-map')) {
+                        const opId = documentName.slice(0, -4)
+                        const result = await operations.updateOne(
+                            { _id: new ObjectId(opId) },
+                            { $set: { mapYjsState: state } },
+                        )
+                        if (result.matchedCount === 0) {
+                            console.warn(`[collab] DB store WARN doc=${documentName}  no document matched`)
+                        } else {
+                            console.log(`[collab] DB store OK  doc=${documentName}  (map state)`)
+                        }
+                        return
+                    }
+
                     const pageOrder = document.getArray('pageOrder').toArray()
                     const sectionOrder = document.getArray('sectionOrder').toArray()
                     let updateFields

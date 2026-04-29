@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import 'leaflet/dist/leaflet.css';
+
 :root {
 	--background: rgb(10, 10, 10);
 	--workspace: rgb(16, 16, 16);
