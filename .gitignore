@@ -46,3 +46,4 @@ config.ts
 /.backup
 /.test
 /snapshots
+/.claude
