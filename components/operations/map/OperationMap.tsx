@@ -155,13 +155,15 @@ export default function OperationMap({
                     map.removeLayer(spotHeightGroupRef.current)
                     spotHeightGroupRef.current = null
                 }
-                if (map.getZoom() < DETAIL_MIN_ZOOM || spotHeightsDataRef.current.length === 0) return
+                if (spotHeightsDataRef.current.length === 0) return
                 let bounds: L.LatLngBounds
                 try { bounds = map.getBounds() } catch { return }
                 const inBounds = spotHeightsDataRef.current.filter(p => bounds.contains(p.latlng))
                 if (inBounds.length === 0) return
                 inBounds.sort((a, b) => b.elev - a.elev)
-                const selected = inBounds.slice(0, Math.ceil(inBounds.length / 2))
+                const zoom = map.getZoom()
+                const cap = Math.max(5, Math.min(100, Math.round(5 * Math.pow(2, zoom + 3))))
+                const selected = inBounds.slice(0, cap)
                 const group = L.layerGroup()
                 for (const p of selected) {
                     const html = `<div style="position:relative;pointer-events:none;"><div style="width:3px;height:3px;background:#5a4838;border-radius:50%;"></div><span style="position:absolute;top:-8px;left:5px;font-size:9px;color:#5a4838;white-space:nowrap;font-family:sans-serif;line-height:1;">${p.elev}</span></div>`

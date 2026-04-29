@@ -10,7 +10,7 @@ export async function generateMetadata({ params }: { params: Promise<{ name: str
     return {
         title: `${world.displayName} | Interactive Map`,
         openGraph: {
-            title: `${world.displayName} — Interactive Map`,
+            title: `${world.displayName} | Interactive Map`,
             images: world.hasPreview ? [`/maps/${world.name}/preview.png`] : [],
         },
     }
