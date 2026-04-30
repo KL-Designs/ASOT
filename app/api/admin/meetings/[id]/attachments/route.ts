@@ -50,19 +50,32 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             uploadedAt: new Date(),
         }
     } else {
-        let body: { youtubeUrl: string }
+        let body: { youtubeUrl?: string; linkUrl?: string }
         try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid body' }, { status: 400 }) }
-        if (!body.youtubeUrl || !YOUTUBE_RE.test(body.youtubeUrl)) {
-            return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 })
-        }
 
-        attachment = {
-            id: crypto.randomUUID(),
-            type: 'youtube',
-            url: body.youtubeUrl,
-            uploadedBy: me.id,
-            uploadedByName: displayName,
-            uploadedAt: new Date(),
+        if (body.youtubeUrl) {
+            if (!YOUTUBE_RE.test(body.youtubeUrl)) {
+                return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 })
+            }
+            attachment = {
+                id: crypto.randomUUID(),
+                type: 'youtube',
+                url: body.youtubeUrl,
+                uploadedBy: me.id,
+                uploadedByName: displayName,
+                uploadedAt: new Date(),
+            }
+        } else if (body.linkUrl) {
+            attachment = {
+                id: crypto.randomUUID(),
+                type: 'link',
+                url: body.linkUrl,
+                uploadedBy: me.id,
+                uploadedByName: displayName,
+                uploadedAt: new Date(),
+            }
+        } else {
+            return NextResponse.json({ error: 'youtubeUrl or linkUrl required' }, { status: 400 })
         }
     }
 

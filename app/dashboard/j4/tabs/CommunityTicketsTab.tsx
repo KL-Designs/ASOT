@@ -1,9 +1,11 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { CircularProgress } from '@mui/material'
-import { OpenInNew, Refresh, KeyboardArrowDown, KeyboardArrowUp, LocalOffer } from '@mui/icons-material'
+import { Refresh, KeyboardArrowDown, KeyboardArrowUp, LocalOffer } from '@mui/icons-material'
+
+type ConfirmState = { open: boolean; message: string; onConfirm: () => void }
 
 type TicketItem = CommunityTicket & { _id: string }
 
@@ -43,6 +45,7 @@ const selectSx: React.CSSProperties = {
 
 
 export default function CommunityTicketsTab() {
+    const router = useRouter()
     const [items, setItems] = useState<TicketItem[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([])
@@ -53,13 +56,22 @@ export default function CommunityTicketsTab() {
     const [updatingId, setUpdatingId] = useState<string | null>(null)
     const [collapsedClosed, setCollapsedClosed] = useState(true)
     const [view, setView] = useState<'category' | 'table'>('category')
+    const [confirmModal, setConfirmModal] = useState<ConfirmState>({ open: false, message: '', onConfirm: () => {} })
+
+    function showConfirm(message: string, onConfirm: () => void) {
+        setConfirmModal({ open: true, message, onConfirm })
+    }
 
     const load = useCallback(() => {
         setLoading(true)
         const p = new URLSearchParams()
-        if (categoryFilter !== 'all') p.set('category', categoryFilter)
+        if (categoryFilter === '__deleted__') {
+            p.set('deleted', '1')
+        } else {
+            if (categoryFilter !== 'all') p.set('category', categoryFilter)
+            if (showDeleted) p.set('deleted', '1')
+        }
         if (deptFilter !== 'all') p.set('department', deptFilter)
-        if (showDeleted) p.set('deleted', '1')
         fetch(`/api/community/tickets?${p}`)
             .then(r => r.json())
             .then(d => { setItems(Array.isArray(d) ? d : []); setLoading(false) })
@@ -73,6 +85,7 @@ export default function CommunityTicketsTab() {
     }
 
     const filtered = items.filter(t => {
+        if (categoryFilter === '__deleted__' && !t.isDeleted) return false
         if (search) {
             const q = search.toLowerCase()
             if (!t.title.toLowerCase().includes(q) && !t.authorName.toLowerCase().includes(q)) return false
@@ -96,11 +109,12 @@ export default function CommunityTicketsTab() {
     }
 
     async function handleDelete(id: string) {
-        if (!confirm('Soft-delete this ticket?')) return
-        setUpdatingId(id)
-        await fetch(`/api/community/tickets/${id}`, { method: 'DELETE' })
-        setItems(prev => prev.map(t => t._id === id ? { ...t, isDeleted: true } : t))
-        setUpdatingId(null)
+        showConfirm('Soft-delete this ticket? It will be hidden from members but recoverable by J4.', async () => {
+            setUpdatingId(id)
+            await fetch(`/api/community/tickets/${id}`, { method: 'DELETE' })
+            setItems(prev => prev.map(t => t._id === id ? { ...t, isDeleted: true } : t))
+            setUpdatingId(null)
+        })
     }
 
     async function handleRestore(id: string) {
@@ -115,7 +129,19 @@ export default function CommunityTicketsTab() {
     const categories = Object.keys(CAT_META) as CommunityTicketCategory[]
 
     return (
-        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <>
+        {confirmModal.open && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ background: '#111', border: '1px solid rgba(219,0,29,0.35)', borderTop: '3px solid rgba(219,0,29,0.6)', padding: '24px 28px', maxWidth: 420, width: '90%' }}>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'rgba(237,237,237,0.85)', marginBottom: 20, lineHeight: 1.5 }}>{confirmModal.message}</div>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <button onClick={() => setConfirmModal(s => ({ ...s, open: false }))} style={{ padding: '7px 18px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.5)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em' }}>CANCEL</button>
+                        <button onClick={() => { confirmModal.onConfirm(); setConfirmModal(s => ({ ...s, open: false })) }} style={{ padding: '7px 18px', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.45)', color: 'rgba(219,0,29,0.9)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.08em' }}>CONFIRM</button>
+                    </div>
+                </div>
+            </div>
+        )}
+        <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 16, flex: 1, minHeight: 0 }}>
 
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -134,6 +160,7 @@ export default function CommunityTicketsTab() {
                 <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={selectSx}>
                     <option value='all' style={{ background: '#111' }}>All Categories</option>
                     {Object.entries(CAT_META).map(([k, v]) => <option key={k} value={k} style={{ background: '#111' }}>{v.label}</option>)}
+                    <option value='__deleted__' style={{ background: '#111', color: 'rgba(219,0,29,0.8)' }}>Deleted Tickets</option>
                 </select>
 
                 <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)} style={selectSx}>
@@ -191,7 +218,7 @@ export default function CommunityTicketsTab() {
                                 {/* Active cards */}
                                 {active.length > 0 ? (
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 6, marginBottom: 8 }}>
-                                        {active.map(t => <TicketCard key={t._id} t={t} catMeta={catMeta} onStatusChange={handleStatusChange} onDelete={handleDelete} onRestore={handleRestore} isUpdating={updatingId === t._id} />)}
+                                        {active.map(t => <TicketCard key={t._id} t={t} catMeta={catMeta} onStatusChange={handleStatusChange} onDelete={handleDelete} onRestore={handleRestore} onView={id => router.push(`/community/tickets/${id}`)} isUpdating={updatingId === t._id} />)}
                                     </div>
                                 ) : (
                                     <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.2)', padding: '12px 0', fontStyle: 'italic' }}>No active tickets.</div>
@@ -207,7 +234,7 @@ export default function CommunityTicketsTab() {
                                         </button>
                                         {!collapsedClosed && (
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 6, marginTop: 6 }}>
-                                                {closed.map(t => <TicketCard key={t._id} t={t} catMeta={catMeta} onStatusChange={handleStatusChange} onDelete={handleDelete} onRestore={handleRestore} isUpdating={updatingId === t._id} />)}
+                                                {closed.map(t => <TicketCard key={t._id} t={t} catMeta={catMeta} onStatusChange={handleStatusChange} onDelete={handleDelete} onRestore={handleRestore} onView={id => router.push(`/community/tickets/${id}`)} isUpdating={updatingId === t._id} />)}
                                             </div>
                                         )}
                                     </div>
@@ -266,27 +293,27 @@ export default function CommunityTicketsTab() {
                                         )
                                     }
                                 </div>
-                                <Link href={`/community/tickets/${t._id}`} target='_blank'>
-                                    <button style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.35)', padding: '3px 7px', cursor: 'pointer', fontSize: '0.6rem' }}>
-                                        <OpenInNew style={{ fontSize: 10 }} /> VIEW
-                                    </button>
-                                </Link>
+                                <button onClick={() => router.push(`/community/tickets/${t._id}`)} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.5)', padding: '3px 7px', cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.06em' }}>
+                                    VIEW
+                                </button>
                             </div>
                         )
                     })}
                 </div>
             )}
         </div>
+        </>
     )
 }
 
 
-function TicketCard({ t, catMeta, onStatusChange, onDelete, onRestore, isUpdating }: {
+function TicketCard({ t, catMeta, onStatusChange, onDelete, onRestore, onView, isUpdating }: {
     t: TicketItem
     catMeta: { label: string; color: string; borderColor: string }
     onStatusChange: (id: string, s: string) => void
     onDelete: (id: string) => void
     onRestore: (id: string) => void
+    onView: (id: string) => void
     isUpdating: boolean
 }) {
     const statusMeta = STATUS_META[t.status] ?? STATUS_META.open
@@ -321,11 +348,9 @@ function TicketCard({ t, catMeta, onStatusChange, onDelete, onRestore, isUpdatin
                             ? <button onClick={() => onRestore(t._id)} style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.25)', color: 'rgba(74,222,128,0.75)', fontSize: '0.6rem', fontWeight: 800, padding: '3px 7px', cursor: 'pointer' }}>RESTORE</button>
                             : <button onClick={() => onDelete(t._id)} style={{ background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', color: 'rgba(219,0,29,0.5)', fontSize: '0.6rem', fontWeight: 800, padding: '3px 7px', cursor: 'pointer' }}>DEL</button>
                         }
-                        <Link href={`/community/tickets/${t._id}`} target='_blank'>
-                            <button style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.3)', padding: '3px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                                <OpenInNew style={{ fontSize: 11 }} />
-                            </button>
-                        </Link>
+                        <button onClick={() => onView(t._id)} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.5)', padding: '3px 8px', cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.06em' }}>
+                            VIEW
+                        </button>
                     </>
                 )}
             </div>
@@ -354,6 +379,7 @@ function StatusDropdown({ selected, onToggle, onClear }: { selected: string[]; o
         return () => document.removeEventListener('mousedown', handler)
     }, [])
 
+
     const label = selected.length === 0
         ? 'All Statuses'
         : selected.length === 1
@@ -368,7 +394,10 @@ function StatusDropdown({ selected, onToggle, onClear }: { selected: string[]; o
                 <span style={{ position: 'absolute', right: 8, fontSize: 10, color: 'rgba(237,237,237,0.4)' }}>▾</span>
             </button>
             {open && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, background: '#111', border: '1px solid rgba(255,255,255,0.12)', minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.6)' }}>
+                <div
+                    style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, background: '#111', border: '1px solid rgba(255,255,255,0.12)', minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.6)', maxHeight: 320, overflowY: 'auto' }}
+                    onWheel={e => e.stopPropagation()}
+                >
                     {selected.length > 0 && (
                         <button onClick={() => { onClear(); setOpen(false) }} style={{ display: 'block', width: '100%', padding: '7px 12px', background: 'rgba(219,0,29,0.08)', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.08)', color: 'rgba(219,0,29,0.6)', fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.1em', cursor: 'pointer', textAlign: 'left' }}>
                             ✕  CLEAR FILTER

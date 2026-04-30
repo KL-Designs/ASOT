@@ -41,7 +41,10 @@ function avatarUrl(item: TicketItem): string {
 }
 
 
+const DRAFT_KEY = 'community_ticket_draft_v3'
+
 export default function CommunityTicketsPage() {
+    const router = useRouter()
     const [items, setItems] = useState<TicketItem[]>([])
     const [loading, setLoading] = useState(true)
     const [isJ4, setIsJ4] = useState(false)
@@ -49,6 +52,15 @@ export default function CommunityTicketsPage() {
     const [statusFilters, setStatusFilters] = useState<string[]>([])
     const [sort, setSort] = useState<SortMode>('votes')
     const [closedOpen, setClosedOpen] = useState(false)
+    const [draftModal, setDraftModal] = useState(false)
+
+    function handleSubmitClick() {
+        try {
+            const raw = localStorage.getItem(DRAFT_KEY)
+            if (raw) { JSON.parse(raw); setDraftModal(true); return }
+        } catch { /* ignore */ }
+        router.push('/community/tickets/new')
+    }
 
     useEffect(() => {
         fetch('/api/me').then(r => r.json()).then(d => setIsJ4(!!d.isJ4)).catch(() => {})
@@ -93,6 +105,26 @@ export default function CommunityTicketsPage() {
         : PUBLIC_CATEGORIES
 
     return (
+        <>
+        {draftModal && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ background: '#111', border: '1px solid rgba(255,255,255,0.12)', borderTop: '3px solid rgba(219,0,29,0.5)', padding: '28px', maxWidth: 420, width: '90%' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.9)', marginBottom: 8 }}>EXISTING DRAFT FOUND</div>
+                    <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)', marginBottom: 24, lineHeight: 1.5 }}>You have a saved draft ticket. Would you like to continue it or start fresh?</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <button onClick={() => { setDraftModal(false); router.push('/community/tickets/new') }} style={{ padding: '10px 18px', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.9)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.08em', textAlign: 'left' }}>
+                            CONTINUE EXISTING DRAFT
+                        </button>
+                        <button onClick={() => { try { localStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ } setDraftModal(false); router.push('/community/tickets/new') }} style={{ padding: '10px 18px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.55)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textAlign: 'left' }}>
+                            START NEW TICKET
+                        </button>
+                        <button onClick={() => setDraftModal(false)} style={{ padding: '6px 0', background: 'none', border: 'none', color: 'rgba(237,237,237,0.25)', cursor: 'pointer', fontSize: '0.65rem', letterSpacing: '0.06em' }}>
+                            CANCEL
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 24, alignItems: 'start' }}>
 
             {/* ── SIDEBAR ── */}
@@ -104,11 +136,9 @@ export default function CommunityTicketsPage() {
                     <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', marginTop: 3, lineHeight: 1.4 }}>Requests, bugs, missions &amp; more</div>
                 </div>
 
-                <Link href='/community/tickets/new' style={{ display: 'block', marginBottom: 16 }}>
-                    <button style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.95)', padding: '9px 0', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.14em', cursor: 'pointer' }}>
-                        <Add style={{ fontSize: 14 }} /> SUBMIT TICKET
-                    </button>
-                </Link>
+                <button onClick={handleSubmitClick} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.95)', padding: '9px 0', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.14em', cursor: 'pointer', marginBottom: 16 }}>
+                    <Add style={{ fontSize: 14 }} /> SUBMIT TICKET
+                </button>
 
                 {/* Category */}
                 <SideLabel>CATEGORY</SideLabel>
@@ -196,6 +226,7 @@ export default function CommunityTicketsPage() {
                 )}
             </main>
         </div>
+        </>
     )
 }
 

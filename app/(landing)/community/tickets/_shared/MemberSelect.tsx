@@ -27,7 +27,7 @@ export default function MemberSelect({ value, onChange, placeholder = 'Search me
         if (loaded) return
         setLoading(true)
         try {
-            const res = await fetch('/api/admin/members')
+            const res = await fetch('/api/community/members')
             const data = await res.json()
             setMembers(data.members ?? [])
             setLoaded(true)

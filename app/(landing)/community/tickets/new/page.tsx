@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-    ArrowBack, ArrowForward, Add, Delete,
+    ArrowBack, ArrowForward, Add, Delete, Person,
     BugReport, Lightbulb, Map, Feedback, ReportProblem, EmojiEvents, Warning,
 } from '@mui/icons-material'
 import { CircularProgress } from '@mui/material'
@@ -153,7 +153,7 @@ function GuidanceBlock({ title, items }: { title: string; items: string[] }) {
     )
 }
 
-function SimilarityWarning({ items, level }: { items: SimilarTicket[]; level: 'soft' | 'strong' }) {
+function SimilarityWarning({ items, level, onNavigate }: { items: SimilarTicket[]; level: 'soft' | 'strong'; onNavigate: (id: string) => void }) {
     if (!items.length) return null
     const col = level === 'strong' ? 'rgba(219,0,29,0.9)' : 'rgba(255,160,0,0.85)'
     return (
@@ -165,9 +165,9 @@ function SimilarityWarning({ items, level }: { items: SimilarTicket[]; level: 's
                 {level === 'strong' ? 'Your submission is very similar to existing tickets. Please review before continuing.' : 'These look similar — check them before submitting.'}
             </div>
             {items.map(t => (
-                <Link key={t._id} href={`/community/tickets/${t._id}`} target='_blank' style={{ display: 'block', marginBottom: 3 }}>
-                    <div style={{ fontSize: '0.7rem', color: 'rgba(0,195,255,0.8)', textDecoration: 'underline' }}>{t.title}</div>
-                </Link>
+                <button key={t._id} type='button' onClick={() => onNavigate(t._id)} style={{ display: 'block', marginBottom: 3, background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'rgba(0,195,255,0.8)', textDecoration: 'underline' }}>{t.title}</span>
+                </button>
             ))}
         </div>
     )
@@ -314,10 +314,42 @@ export default function NewTicketPage() {
     const [similar, setSimilar] = useState<SimilarTicket[]>([])
     const [modDuplicate, setModDuplicate] = useState<string | null>(null)
 
+    // Current user identity (auto-filled)
+    const [myName, setMyName] = useState('')
+
+    // ORBAT callsigns for complaint-department picker
+    const [callsigns, setCallsigns] = useState<{ label: string; group: string }[]>([])
+    const [callsignsLoaded, setCallsignsLoaded] = useState(false)
+
     const [submitting, setSubmitting] = useState(false)
     const [error, setError] = useState('')
     const [draftSaved, setDraftSaved] = useState(false)
+    const [discardModal, setDiscardModal] = useState(false)
     const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Auto-fill current user identity
+    useEffect(() => {
+        fetch('/api/me')
+            .then(r => r.json())
+            .then(d => {
+                const nick = (d.guild?.nickname ?? '').replace(/\s*\[[^\]]*\]/g, '').trim()
+                const nickParts = nick.split(' ')
+                const parsedName = nickParts.length > 1 ? nickParts.slice(1).join(' ') : nick
+                const name = d.name || parsedName || d.globalName || d.username || ''
+                setMyName(name)
+                setComplainantName(name)
+            })
+            .catch(() => {})
+    }, [])
+
+    // Fetch callsigns when department-complaint subtype is active
+    useEffect(() => {
+        if (subtype !== 'complaint-department' || callsignsLoaded) return
+        fetch('/api/community/callsigns')
+            .then(r => r.json())
+            .then(d => { setCallsigns(d.callsigns ?? []); setCallsignsLoaded(true) })
+            .catch(() => {})
+    }, [subtype, callsignsLoaded])
 
     // Draft load
     useEffect(() => {
@@ -389,8 +421,8 @@ export default function NewTicketPage() {
         else setStep('subtype')
     }
 
-    function discard() {
-        if (!confirm('Discard this ticket? Your draft will be deleted.')) return
+    function discard() { setDiscardModal(true) }
+    function confirmDiscard() {
         localStorage.removeItem(DRAFT_KEY)
         router.push('/community/tickets')
     }
@@ -518,6 +550,19 @@ export default function NewTicketPage() {
     const subtypeDef = displayCat && subtype ? SUBTYPES[displayCat]?.find(s => s.value === subtype) : null
 
     return (
+        <>
+        {discardModal && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ background: '#111', border: '1px solid rgba(219,0,29,0.35)', borderTop: '3px solid rgba(219,0,29,0.6)', padding: '28px', maxWidth: 400, width: '90%' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.9)', marginBottom: 8 }}>DISCARD TICKET</div>
+                    <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)', marginBottom: 24, lineHeight: 1.5 }}>Your draft will be permanently deleted. This cannot be undone.</div>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <button onClick={() => setDiscardModal(false)} style={{ padding: '8px 18px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.55)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em' }}>CANCEL</button>
+                        <button onClick={confirmDiscard} style={{ padding: '8px 18px', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.45)', color: 'rgba(219,0,29,0.95)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.08em' }}>DISCARD</button>
+                    </div>
+                </div>
+            </div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
 
             {/* Nav bar */}
@@ -540,24 +585,31 @@ export default function NewTicketPage() {
                 </button>
             </div>
 
-            {/* Step bar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 20 }}>
-                {(['category', 'subtype', 'form'] as Step[]).map((s, i) => {
-                    const idx = ['category', 'subtype', 'form'].indexOf(step)
-                    return (
-                        <React.Fragment key={s}>
-                            <div style={{ padding: '5px 12px', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.14em', background: step === s ? 'rgba(219,0,29,0.12)' : 'transparent', border: `1px solid ${step === s ? 'rgba(219,0,29,0.4)' : 'rgba(255,255,255,0.07)'}`, color: step === s ? 'rgba(219,0,29,0.9)' : i < idx ? 'rgba(237,237,237,0.45)' : 'rgba(237,237,237,0.18)', cursor: i < idx ? 'pointer' : 'default' }}
-                                onClick={() => {
-                                    if (s === 'category') setStep('category')
-                                    else if (s === 'subtype' && step === 'form' && displayCat && SUBTYPES[displayCat]?.length > 1) setStep('subtype')
-                                }}>
-                                {String(i + 1).padStart(2, '0')} — {s.toUpperCase()}
-                            </div>
-                            {i < 2 && <ArrowForward style={{ fontSize: 12, color: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />}
-                        </React.Fragment>
-                    )
-                })}
-            </div>
+            {/* Step bar — 2 steps for single-subtype categories, 3 steps otherwise */}
+            {(() => {
+                const hasSingle = displayCat !== null && getSingleSubtype(displayCat) !== null
+                const visibleSteps: Step[] = hasSingle ? ['category', 'form'] : ['category', 'subtype', 'form']
+                return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 20 }}>
+                        {visibleSteps.map((s, i) => {
+                            const isCurrent = step === s
+                            const isPast = visibleSteps.indexOf(s) < visibleSteps.indexOf(step === 'subtype' || visibleSteps.includes(step) ? step : 'form')
+                            return (
+                                <React.Fragment key={s}>
+                                    <div style={{ padding: '5px 12px', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.14em', background: isCurrent ? 'rgba(219,0,29,0.12)' : 'transparent', border: `1px solid ${isCurrent ? 'rgba(219,0,29,0.4)' : 'rgba(255,255,255,0.07)'}`, color: isCurrent ? 'rgba(219,0,29,0.9)' : isPast ? 'rgba(237,237,237,0.45)' : 'rgba(237,237,237,0.18)', cursor: isPast ? 'pointer' : 'default' }}
+                                        onClick={() => {
+                                            if (s === 'category') setStep('category')
+                                            else if (s === 'subtype' && step === 'form' && displayCat && SUBTYPES[displayCat]?.length > 1) setStep('subtype')
+                                        }}>
+                                        {String(i + 1).padStart(2, '0')} — {s.toUpperCase()}
+                                    </div>
+                                    {i < visibleSteps.length - 1 && <ArrowForward style={{ fontSize: 12, color: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />}
+                                </React.Fragment>
+                            )
+                        })}
+                    </div>
+                )
+            })()}
 
             {/* ── STEP 1: 6-card category grid (3 × 2) ── */}
             {step === 'category' && (
@@ -675,13 +727,13 @@ export default function NewTicketPage() {
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
                         {similar.length > 0 && title.length > 10 && (
-                            <SimilarityWarning items={similar} level={similar.length >= 3 ? 'strong' : 'soft'} />
+                            <SimilarityWarning items={similar} level={similar.length >= 3 ? 'strong' : 'soft'} onNavigate={id => { saveDraft(); router.push(`/community/tickets/${id}`) }} />
                         )}
 
                         {modDuplicate && (
                             <div style={{ background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.35)', borderLeft: '3px solid rgba(219,0,29,0.7)', padding: '10px 14px', marginBottom: 12 }}>
                                 <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em', color: 'rgba(219,0,29,0.9)', marginBottom: 4 }}>⚠ THIS MOD HAS ALREADY BEEN SUGGESTED</div>
-                                <Link href={`/community/tickets/${modDuplicate}`} target='_blank' style={{ fontSize: '0.7rem', color: 'rgba(0,195,255,0.8)', textDecoration: 'underline' }}>View existing ticket →</Link>
+                                <button type='button' onClick={() => { saveDraft(); router.push(`/community/tickets/${modDuplicate!}`) }} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.7rem', color: 'rgba(0,195,255,0.8)', textDecoration: 'underline' }}>View existing ticket →</button>
                             </div>
                         )}
 
@@ -1204,10 +1256,13 @@ export default function NewTicketPage() {
 
                                 <FieldBlock label='YOUR IDENTITY'>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        {/* Read-only identity — always shown, cannot be edited */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                            <Person style={{ fontSize: 14, color: 'rgba(219,0,29,0.5)', flexShrink: 0 }} />
+                                            <span style={{ fontSize: '0.85rem', color: 'rgba(237,237,237,0.8)', flex: 1 }}>{myName || '…'}</span>
+                                            <span style={{ fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.2)' }}>AUTO-FILLED</span>
+                                        </div>
                                         <ToggleSwitch on={complainantAnonymous} onChange={setComplainantAnonymous} label='Remain anonymous' />
-                                        {!complainantAnonymous && (
-                                            <input value={complainantName} onChange={e => setComplainantName(e.target.value)} placeholder='Your name (auto-filled from profile)' style={INPUT_STYLE} />
-                                        )}
                                         <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
                                             <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
                                                 <div onClick={() => setSubmitOnBehalf(v => !v)} style={{ width: 16, height: 16, marginTop: 2, flexShrink: 0, background: submitOnBehalf ? 'rgba(0,195,255,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${submitOnBehalf ? 'rgba(0,195,255,0.5)' : 'rgba(255,255,255,0.15)'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1233,13 +1288,66 @@ export default function NewTicketPage() {
                                         {subtype === 'complaint-individual' ? 'Search and select the member.' : subtype === 'complaint-group' ? 'Search and select all members involved.' : 'Enter the callsign or department name.'}
                                     </div>
                                     {subtype === 'complaint-department' ? (
-                                        <input value={membersInvolved[0] ?? ''} onChange={e => setMembersInvolved([e.target.value])} placeholder='Callsign or department name…' required style={INPUT_STYLE} />
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            {/* Callsign picker from ORBAT */}
+                                            <div>
+                                                <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(237,237,237,0.3)', marginBottom: 4 }}>CALLSIGN</div>
+                                                <select
+                                                    value={membersInvolved[0] ?? ''}
+                                                    onChange={e => setMembersInvolved([e.target.value])}
+                                                    style={SELECT_STYLE}
+                                                >
+                                                    <option value='' style={{ background: '#111' }}>Select callsign…</option>
+                                                    {(() => {
+                                                        const groups = Array.from(new Set(callsigns.map(c => c.group))).filter(Boolean)
+                                                        const ungrouped = callsigns.filter(c => !c.group)
+                                                        return [
+                                                            ...groups.map(g => (
+                                                                <optgroup key={g} label={g} style={{ background: '#111' }}>
+                                                                    {callsigns.filter(c => c.group === g).map(c => (
+                                                                        <option key={c.label} value={c.label} style={{ background: '#111' }}>{c.label}</option>
+                                                                    ))}
+                                                                </optgroup>
+                                                            )),
+                                                            ...ungrouped.map(c => (
+                                                                <option key={c.label} value={c.label} style={{ background: '#111' }}>{c.label}</option>
+                                                            )),
+                                                        ]
+                                                    })()}
+                                                </select>
+                                            </div>
+                                            {/* Department picker */}
+                                            <div>
+                                                <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(237,237,237,0.3)', marginBottom: 4 }}>OR — DEPARTMENT</div>
+                                                <select
+                                                    value={membersInvolved[0]?.startsWith('J') ? membersInvolved[0] : ''}
+                                                    onChange={e => { if (e.target.value) setMembersInvolved([e.target.value]) }}
+                                                    style={SELECT_STYLE}
+                                                >
+                                                    <option value='' style={{ background: '#111' }}>Select department…</option>
+                                                    {[
+                                                        'J1 — Recruitment',
+                                                        'J2 — Mission Making',
+                                                        'J3 — Training',
+                                                        'J4 — Administration',
+                                                        'J5 — Media',
+                                                        'J6 — Game Masters',
+                                                        'J7 — Development',
+                                                    ].map(d => (
+                                                        <option key={d} value={d} style={{ background: '#111' }}>{d}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            {membersInvolved[0] && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'rgba(219,0,29,0.06)', border: '1px solid rgba(219,0,29,0.2)' }}>
+                                                    <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.75)', flex: 1 }}>{membersInvolved[0]}</span>
+                                                    <button type='button' onClick={() => setMembersInvolved([])} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(219,0,29,0.5)', fontSize: '0.65rem', padding: 0 }}>✕ clear</button>
+                                                </div>
+                                            )}
+                                        </div>
                                     ) : (
                                         <MemberSelect value={membersInvolved} onChange={setMembersInvolved} placeholder='Search member…' multi={subtype === 'complaint-group'} />
                                     )}
-                                    <div style={{ marginTop: 8 }}>
-                                        <input value={membersNotListed} onChange={e => setMembersNotListed(e.target.value)} placeholder='Unable to find in list? Enter name manually here…' style={INPUT_STYLE} />
-                                    </div>
                                 </FieldBlock>
 
                                 <FieldBlock label='INVOLVES STAFF MEMBER'>
@@ -1400,6 +1508,7 @@ export default function NewTicketPage() {
                 </div>
             )}
         </div>
+        </>
     )
 }
 

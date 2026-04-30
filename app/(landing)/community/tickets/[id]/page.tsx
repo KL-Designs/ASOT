@@ -64,6 +64,8 @@ export default function TicketDetailPage() {
     const [savingEdit, setSavingEdit] = useState(false)
     // J4: which deleted comments are currently visible in thread
     const [revealedDeletedIds, setRevealedDeletedIds] = useState<Set<string>>(new Set())
+    // J4: inline edit-diffs revealed in thread { commentId: { prevContent, newContent } }
+    const [revealedDiffs, setRevealedDiffs] = useState<Record<string, { prevContent: string; newContent: string }>>({})
     // Comment votes: { [commentId]: { myVote, up, down, score } }
     const [commentVotes, setCommentVotes] = useState<Record<string, { myVote: MyVote; up: number; down: number; score: number }>>({})
 
@@ -218,14 +220,17 @@ export default function TicketDetailPage() {
         }, 80)
     }
 
-    /** Scroll to a visible comment (for edited comment activity entries) */
-    function scrollToComment(commentId: string) {
-        const el = commentRefs.current[commentId]
-        if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            setHighlightedComment(commentId)
-            setTimeout(() => setHighlightedComment(null), 3500)
-        }
+    /** J4: reveal edit diff inline in thread and scroll to comment */
+    function revealAndShowDiff(commentId: string, prevContent: string, newContent: string) {
+        setRevealedDiffs(d => ({ ...d, [commentId]: { prevContent, newContent } }))
+        setTimeout(() => {
+            const el = commentRefs.current[commentId]
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                setHighlightedComment(commentId)
+                setTimeout(() => setHighlightedComment(null), 3500)
+            }
+        }, 80)
     }
 
     if (loading) return (
@@ -366,6 +371,10 @@ export default function TicketDetailPage() {
                                 const cv = commentVotes[c._id] ?? { myVote: null, up: 0, down: 0, score: 0 }
                                 const isHighlighted = highlightedComment === c._id
                                 const isDeleted = c.isDeleted
+                                // J4 only: is this deleted comment currently revealed in the thread?
+                                const isRevealed = isDeleted && data.isJ4 && revealedDeletedIds.has(c._id)
+                                // J4 only: is there a diff to show inline for this comment?
+                                const inlineDiff = data.isJ4 ? revealedDiffs[c._id] : undefined
 
                                 return (
                                     <div
@@ -373,16 +382,19 @@ export default function TicketDetailPage() {
                                         ref={el => { commentRefs.current[c._id] = el }}
                                         style={{
                                             background: isHighlighted ? 'rgba(255,200,0,0.06)' : isDeleted ? 'rgba(219,0,29,0.04)' : i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                                            border: `1px solid ${isHighlighted ? 'rgba(255,200,0,0.3)' : isDeleted ? 'rgba(219,0,29,0.2)' : 'rgba(255,255,255,0.05)'}`,
-                                            borderLeft: isHighlighted ? '2px solid rgba(255,200,0,0.7)' : isDeleted ? '2px solid rgba(219,0,29,0.35)' : '2px solid rgba(255,255,255,0.1)',
-                                            opacity: isDeleted ? 0.7 : 1,
+                                            border: `1px solid ${isHighlighted ? 'rgba(255,200,0,0.3)' : isDeleted ? 'rgba(219,0,29,0.25)' : 'rgba(255,255,255,0.05)'}`,
+                                            borderLeft: isHighlighted ? '2px solid rgba(255,200,0,0.7)' : isDeleted ? '2px solid rgba(219,0,29,0.5)' : '2px solid rgba(255,255,255,0.1)',
+                                            opacity: isDeleted && !isRevealed ? 0.6 : 1,
                                             transition: 'background 0.4s, border-color 0.4s',
                                         }}
                                     >
                                         {/* Header */}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: 'rgba(0,0,0,0.15)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', color: isDeleted ? 'rgba(219,0,29,0.5)' : 'rgba(237,237,237,0.7)' }}>
-                                                {isDeleted ? '[DELETED]' : c.authorName}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: isDeleted ? 'rgba(219,0,29,0.06)' : 'rgba(0,0,0,0.15)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                            {isDeleted && (
+                                                <span style={{ fontSize: '0.54rem', fontWeight: 800, letterSpacing: '0.1em', padding: '1px 5px', color: 'rgba(219,0,29,0.7)', border: '1px solid rgba(219,0,29,0.3)', flexShrink: 0 }}>DELETED</span>
+                                            )}
+                                            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', color: isDeleted ? (isRevealed ? 'rgba(237,237,237,0.55)' : 'rgba(219,0,29,0.45)') : 'rgba(237,237,237,0.7)' }}>
+                                                {isRevealed ? c.authorName : isDeleted ? '[redacted]' : c.authorName}
                                             </span>
                                             {c.isEdited && !isDeleted && <span style={{ fontSize: '0.56rem', color: 'rgba(237,237,237,0.2)' }}>· edited</span>}
                                             <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: '0.6rem', color: 'rgba(237,237,237,0.2)' }}>{fmtFull(c.createdAt)}</span>
@@ -412,9 +424,17 @@ export default function TicketDetailPage() {
                                         {/* Body */}
                                         <div style={{ padding: '10px 14px' }}>
                                             {isDeleted ? (
-                                                <span style={{ fontSize: '0.78rem', color: 'rgba(219,0,29,0.4)', fontStyle: 'italic' }}>
-                                                    [Comment deleted — content visible to J4 via activity log]
-                                                </span>
+                                                isRevealed ? (
+                                                    // J4: full deleted content with ghost styling
+                                                    <div>
+                                                        <div style={{ fontSize: '0.54rem', fontWeight: 800, letterSpacing: '0.1em', color: 'rgba(219,0,29,0.5)', marginBottom: 6 }}>DELETED CONTENT — VISIBLE TO J4 ONLY</div>
+                                                        <pre style={{ fontFamily: 'inherit', fontSize: '0.82rem', color: 'rgba(219,0,29,0.55)', whiteSpace: 'pre-wrap', margin: 0, lineHeight: 1.65, borderLeft: '2px solid rgba(219,0,29,0.25)', paddingLeft: 10 }}>{c.content}</pre>
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ fontSize: '0.78rem', color: 'rgba(219,0,29,0.35)', fontStyle: 'italic' }}>
+                                                        [Comment deleted]
+                                                    </span>
+                                                )
                                             ) : editingComment === c._id ? (
                                                 <div>
                                                     <textarea value={editContent} onChange={e => setEditContent(e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', resize: 'vertical', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.85)', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', borderRadius: 0, fontFamily: 'inherit' }} />
@@ -428,7 +448,19 @@ export default function TicketDetailPage() {
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <pre style={{ fontFamily: 'inherit', fontSize: '0.85rem', color: 'rgba(237,237,237,0.72)', whiteSpace: 'pre-wrap', margin: 0, lineHeight: 1.65 }}>{c.content}</pre>
+                                                <div>
+                                                    <pre style={{ fontFamily: 'inherit', fontSize: '0.85rem', color: 'rgba(237,237,237,0.72)', whiteSpace: 'pre-wrap', margin: 0, lineHeight: 1.65 }}>{c.content}</pre>
+                                                    {/* J4: inline edit diff when revealed from activity log */}
+                                                    {inlineDiff && (
+                                                        <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,160,0,0.15)', paddingTop: 10 }}>
+                                                            <div style={{ fontSize: '0.54rem', fontWeight: 800, letterSpacing: '0.12em', color: 'rgba(255,160,0,0.55)', marginBottom: 8 }}>EDIT HISTORY — J4 ONLY</div>
+                                                            <div style={{ fontSize: '0.54rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(219,0,29,0.55)', marginBottom: 3 }}>PREVIOUS VERSION</div>
+                                                            <pre style={{ fontFamily: 'inherit', fontSize: '0.78rem', color: 'rgba(237,237,237,0.45)', background: 'rgba(219,0,29,0.06)', border: '1px solid rgba(219,0,29,0.18)', padding: '6px 10px', whiteSpace: 'pre-wrap', margin: '0 0 8px', lineHeight: 1.6 }}>{inlineDiff.prevContent}</pre>
+                                                            <div style={{ fontSize: '0.54rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(74,222,128,0.55)', marginBottom: 3 }}>CURRENT VERSION</div>
+                                                            <pre style={{ fontFamily: 'inherit', fontSize: '0.78rem', color: 'rgba(237,237,237,0.72)', background: 'rgba(74,222,128,0.04)', border: '1px solid rgba(74,222,128,0.18)', padding: '6px 10px', whiteSpace: 'pre-wrap', margin: 0, lineHeight: 1.6 }}>{inlineDiff.newContent}</pre>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     </div>
@@ -532,8 +564,8 @@ export default function TicketDetailPage() {
                                             onRevealDeleted={entry.commentId && entry.action === 'comment_deleted'
                                                 ? () => revealAndScrollToComment(entry.commentId!)
                                                 : undefined}
-                                            onScrollToEdited={entry.commentId && entry.action === 'comment_edited'
-                                                ? () => scrollToComment(entry.commentId!)
+                                            onRevealEditDiff={entry.commentId && entry.action === 'comment_edited' && entry.prevContent
+                                                ? () => revealAndShowDiff(entry.commentId!, entry.prevContent!, entry.newValue ?? '')
                                                 : undefined}
                                         />
                                     ))}
@@ -595,12 +627,12 @@ function IBtn({ onClick, color, hover, children }: { onClick: () => void; color:
     )
 }
 
-function ActivityEntry({ entry, onRevealDeleted, onScrollToEdited }: {
+function ActivityEntry({ entry, onRevealDeleted, onRevealEditDiff }: {
     entry: CommunityTicketActivity
     onRevealDeleted?: () => void
-    onScrollToEdited?: () => void
+    onRevealEditDiff?: () => void
 }) {
-    const [diffOpen, setDiffOpen] = useState(false)
+    const [panelDiffOpen, setPanelDiffOpen] = useState(false)
 
     return (
         <div style={{ padding: '7px 4px', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
@@ -617,39 +649,49 @@ function ActivityEntry({ entry, onRevealDeleted, onScrollToEdited }: {
                             <span style={{ color: 'rgba(74,222,128,0.65)' }}>{entry.newValue.replace(/_/g,' ')}</span>
                         </div>
                     )}
-                    {/* Deleted comment: reveal button */}
-                    {entry.action === 'comment_deleted' && onRevealDeleted && (
-                        <button onClick={onRevealDeleted} style={{ fontSize: '0.58rem', color: 'rgba(219,0,29,0.6)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 3, textDecoration: 'underline' }}>
-                            reveal in thread
-                        </button>
+
+                    {/* Deleted comment actions */}
+                    {entry.action === 'comment_deleted' && (
+                        <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                            {onRevealDeleted && (
+                                <button onClick={onRevealDeleted} style={{ fontSize: '0.58rem', color: 'rgba(219,0,29,0.65)', background: 'rgba(219,0,29,0.06)', border: '1px solid rgba(219,0,29,0.2)', cursor: 'pointer', padding: '1px 6px' }}>
+                                    reveal in thread ↓
+                                </button>
+                            )}
+                            {entry.prevContent && (
+                                <button onClick={() => setPanelDiffOpen(v => !v)} style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.35)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                                    {panelDiffOpen ? 'hide content' : 'view content'}
+                                </button>
+                            )}
+                        </div>
                     )}
-                    {/* Deleted content expandable */}
-                    {entry.action === 'comment_deleted' && entry.prevContent && (
-                        <details style={{ marginTop: 3 }}>
-                            <summary style={{ fontSize: '0.56rem', color: 'rgba(219,0,29,0.45)', cursor: 'pointer' }}>view deleted content</summary>
-                            <pre style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.45)', background: 'rgba(219,0,29,0.06)', padding: '4px 6px', margin: '4px 0 0', whiteSpace: 'pre-wrap', fontFamily: 'inherit', border: '1px solid rgba(219,0,29,0.15)' }}>
-                                {entry.prevContent}
-                            </pre>
-                        </details>
-                    )}
-                    {/* Edited comment: diff */}
+
+                    {/* Edited comment actions */}
                     {entry.action === 'comment_edited' && entry.prevContent && (
-                        <button onClick={() => setDiffOpen(v => !v)} style={{ fontSize: '0.58rem', color: 'rgba(255,160,0,0.65)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 3, textDecoration: 'underline' }}>
-                            {diffOpen ? 'hide diff' : 'show diff'}
-                        </button>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                            {onRevealEditDiff && (
+                                <button onClick={onRevealEditDiff} style={{ fontSize: '0.58rem', color: 'rgba(255,160,0,0.7)', background: 'rgba(255,160,0,0.06)', border: '1px solid rgba(255,160,0,0.2)', cursor: 'pointer', padding: '1px 6px' }}>
+                                    show diff in thread ↓
+                                </button>
+                            )}
+                            <button onClick={() => setPanelDiffOpen(v => !v)} style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.35)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                                {panelDiffOpen ? 'hide diff' : 'panel diff'}
+                            </button>
+                        </div>
                     )}
                 </div>
-                {/* Jump buttons */}
-                {onScrollToEdited && (
-                    <button onClick={onScrollToEdited} title='Jump to comment' style={{ background: 'none', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.25)', fontSize: '0.56rem', padding: '2px 5px', cursor: 'pointer', flexShrink: 0 }}>↓</button>
-                )}
             </div>
 
-            {/* Edit diff */}
-            {diffOpen && entry.prevContent && entry.newValue && (
-                <div style={{ marginTop: 6 }}>
+            {/* Panel: deleted content or edit diff */}
+            {panelDiffOpen && entry.action === 'comment_deleted' && entry.prevContent && (
+                <pre style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.45)', background: 'rgba(219,0,29,0.06)', padding: '5px 7px', margin: '5px 0 0', whiteSpace: 'pre-wrap', fontFamily: 'inherit', border: '1px solid rgba(219,0,29,0.15)' }}>
+                    {entry.prevContent}
+                </pre>
+            )}
+            {panelDiffOpen && entry.action === 'comment_edited' && entry.prevContent && entry.newValue && (
+                <div style={{ marginTop: 5 }}>
                     <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(219,0,29,0.5)', marginBottom: 2 }}>BEFORE</div>
-                    <pre style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.5)', background: 'rgba(219,0,29,0.06)', border: '1px solid rgba(219,0,29,0.15)', padding: '4px 6px', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: '0 0 6px' }}>{entry.prevContent}</pre>
+                    <pre style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.5)', background: 'rgba(219,0,29,0.06)', border: '1px solid rgba(219,0,29,0.15)', padding: '4px 6px', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: '0 0 5px' }}>{entry.prevContent}</pre>
                     <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(74,222,128,0.5)', marginBottom: 2 }}>AFTER</div>
                     <pre style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.5)', background: 'rgba(74,222,128,0.05)', border: '1px solid rgba(74,222,128,0.15)', padding: '4px 6px', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>{entry.newValue}</pre>
                 </div>

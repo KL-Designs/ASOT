@@ -21,7 +21,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!client.hasRoles(me, PERMISSIONS.departments[deptKey])) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     if (meeting.locked) return NextResponse.json({ error: 'Meeting is locked' }, { status: 403 })
 
-    let body: { title: string; description?: string; assignedTo?: string; assignedToName?: string; assignedRole?: string; reminderDate?: string }
+    let body: { title: string; description?: string; assignedTo?: string; assignedToName?: string; assignedRole?: string; dueDate?: string; chaseUpDate?: string }
     try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid body' }, { status: 400 }) }
 
     if (!body.title?.trim()) return NextResponse.json({ error: 'title is required' }, { status: 400 })
@@ -36,7 +36,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         assignedTo: body.assignedTo || undefined,
         assignedToName: body.assignedToName || undefined,
         assignedRole: body.assignedRole || undefined,
-        reminderDate: body.reminderDate ? new Date(body.reminderDate) : undefined,
+        dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
+        chaseUpDate: body.chaseUpDate ? new Date(body.chaseUpDate) : undefined,
         status: 'pending',
         createdBy: me.id,
         createdByName: displayName,

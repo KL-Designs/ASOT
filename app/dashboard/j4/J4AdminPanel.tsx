@@ -504,11 +504,11 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                         </Tabs>
                     </div>
 
-                    <div className='flex-1 min-h-0 mt-0'>
+                    <div className='flex-1 min-h-0 mt-0' style={{ display: 'flex', flexDirection: 'column' }}>
                         {tab === 1 && <SnapshotsTab />}
                         {tab === 2 && <MeetingsTab department='j4' userId={userId} isLead={true} />}
                         {tab === 3 && (
-                            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                                 <CommunityTicketsTab />
                             </div>
                         )}
