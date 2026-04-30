@@ -102,7 +102,7 @@ export default function CustomCursor() {
 					opacity: 0, willChange: 'transform',
 					// transform trails 60ms on the compositor thread (main-thread-independent)
 					// hover snaps it to 0s via transitionDuration override in setHovering()
-					transition: 'transform 30ms linear, border-radius 0.15s ease, border-color 0.15s ease, opacity 0.3s ease',
+					transition: 'transform 10ms linear, border-radius 0.15s ease, border-color 0.15s ease, opacity 0.3s ease',
 				}}
 			>
 				<div ref={cornersRef} style={{ opacity: 0, transition: 'opacity 0.1s ease' }}>
