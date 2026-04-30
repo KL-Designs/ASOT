@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef } from 'react'
 import { CircularProgress } from '@mui/material'
@@ -78,7 +78,6 @@ export default function MeetingAttachments({ meetingId, attachments, locked, mee
                             : <InsertDriveFile sx={{ fontSize: 14, color: 'rgba(237,237,237,0.3)', flexShrink: 0 }} />
                         }
                         {ytId && (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={`https://img.youtube.com/vi/${ytId}/default.jpg`}
                                 alt=''

@@ -238,7 +238,6 @@ function SubSection({ id, title, children, rgb, hexColor, patchUrl }: { id?: str
 		<div id={id} className='flex flex-col gap-4' style={{ scrollMarginTop: '60px' }}>
 			<div className='flex items-center gap-3'>
 				<div style={{ height: 1, flexGrow: 1, background: `rgba(${effectiveRgb}, 0.15)` }} />
-				{/* eslint-disable-next-line @next/next/no-img-element */}
 				{patchUrl && <img src={patchUrl} alt='' style={{ width: 22, height: 22, objectFit: 'contain', flexShrink: 0, opacity: 0.85 }} />}
 				<h3 style={{ fontSize: 'clamp(0.65rem, 2vw, 1rem)', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: hexColor ? hexColor : 'rgba(237,237,237,0.45)', margin: 0, whiteSpace: 'nowrap' }}>
 					{title}

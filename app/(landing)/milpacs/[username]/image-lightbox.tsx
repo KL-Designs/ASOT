@@ -14,7 +14,6 @@ export function ImageLightbox({ src, alt, style }: { src: string; alt: string; s
 
     return (
         <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={src} alt={alt} style={{ ...style, cursor: 'zoom-in' }} onClick={() => setOpen(true)} />
             {open && (
                 <div
@@ -27,7 +26,6 @@ export function ImageLightbox({ src, alt, style }: { src: string; alt: string; s
                         cursor: 'zoom-out',
                     }}
                 >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src={src}
                         alt={alt}

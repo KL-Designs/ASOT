@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import {
@@ -610,7 +610,6 @@ export default function AttendancePanel({
                                 >
                                     <AccordionSummary expandIcon={<ExpandMore sx={{ color: 'rgba(237,237,237,0.4)' }} />} sx={{ px: 2, py: 0.5, minHeight: 40 }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, mr: 1 }}>
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
                                             {patchUrl && <img src={patchUrl} alt='' style={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0, opacity: 0.9 }} />}
                                             <Typography
                                                 fontSize={isSubSection ? '0.65rem' : '0.72rem'}

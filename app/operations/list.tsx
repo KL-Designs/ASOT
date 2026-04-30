@@ -173,7 +173,6 @@ function SearchResult({ mission }: { mission: Operation }) {
         >
             {mission.coverImage && (
                 <div style={{ width: 44, height: 30, flexShrink: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={mission.coverImage} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 </div>
             )}
@@ -384,7 +383,6 @@ function ActiveMissionCard({ mission }: { mission: Operation }) {
             >
                 {/* Background image */}
                 {mission.coverImage && (
-                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                         src={mission.coverImage}
                         alt=''
@@ -515,7 +513,6 @@ function MissionRow({ mission, hasAccess }: { mission: Operation; hasAccess: boo
                 {/* Cover thumbnail */}
                 {mission.coverImage && (
                     <div style={{ width: 52, height: 36, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,0.08)' }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={mission.coverImage} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     </div>
                 )}

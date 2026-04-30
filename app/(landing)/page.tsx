@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import Image, { StaticImageData } from 'next/image'
@@ -547,7 +547,6 @@ function OpsTeaser() {
 									{/* Cover image bg */}
 									{op.coverImage && (
 										<>
-											{/* eslint-disable-next-line @next/next/no-img-element */}
 											<img src={op.coverImage} alt='' style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.45 }} />
 											<div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(13,13,13,0.1) 0%, rgba(13,13,13,0.5) 55%, rgb(13,13,13) 100%)' }} />
 										</>

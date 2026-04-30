@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import { Typography, TextField, LinearProgress } from '@mui/material'
@@ -187,7 +187,6 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
                     <div className='flex flex-col gap-4'>
                         {/* Preview */}
                         <div style={{ position: 'relative', maxWidth: 480, aspectRatio: '16/9', background: '#0a0a0a', border: '1px solid rgba(219,0,29,0.42)' }}>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src='/api/gallery/sotm/image'
                                 alt='Screenshot of the Month'

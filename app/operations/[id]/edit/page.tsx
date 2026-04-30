@@ -667,7 +667,6 @@ export default function Page() {
                         {coverImage ? (
                             <>
                                 <div style={{ position: 'relative', width: 140, height: 52, flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={coverImage} alt='cover' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                                 </div>
                                 <button
@@ -1257,7 +1256,6 @@ function MapWorldPicker({
                 }}
             >
                 {selected?.hasPreview && (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={`/maps/${selected.name}/preview.png`} alt='' style={{ width: 28, height: 20, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }} />
                 )}
                 <span style={{ flex: 1, textAlign: 'left' }}>{selected?.displayName ?? 'No Map'}</span>
@@ -1309,7 +1307,6 @@ function MapWorldPicker({
                             >
                                 {!isActive && <div className='mwp-hover' style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.04)', opacity: 0, transition: 'opacity 0.1s ease', pointerEvents: 'none', willChange: 'opacity' }} />}
                                 {w.hasPreview ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
                                     <img src={`/maps/${w.name}/preview.png`} alt='' loading='lazy' style={{ width: 42, height: 30, objectFit: 'cover', flexShrink: 0, border: `1px solid ${isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}` }} />
                                 ) : (
                                     <div style={{ width: 42, height: 30, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }} />

@@ -439,6 +439,7 @@ export default function StaffSidebar({
                         { label: 'Tools',      tab: 0 },
                         { label: 'Snapshots',  tab: 1 },
                         { label: 'Meetings',   tab: 2 },
+                        { label: 'Tickets',    tab: 3 },
                     ],
                 },
                 {

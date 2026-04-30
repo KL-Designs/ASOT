@@ -86,7 +86,6 @@ export default async function Image({ params }: { params: Promise<{ id: string }
         >
             {/* Cover photo */}
             {coverDataUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                     src={coverDataUrl}
                     alt=''

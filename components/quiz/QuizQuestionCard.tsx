@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 const RED = '#db001d'
 const GREEN = 'rgba(34,197,94,0.85)'
@@ -143,7 +143,6 @@ export default function QuizQuestionCard({
             {/* Image — centred with clear border */}
             {question.type === 'image_question' && question.image && (
                 <div style={{ padding: '10px 16px', textAlign: 'center' }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src={`/quiz-images/${question.image}.png`}
                         alt={question.question}

@@ -52,7 +52,6 @@ function SectionHeader({ children, color, patchUrl }: { children: React.ReactNod
 			alignItems: 'center',
 			gap: 6,
 		}}>
-			{/* eslint-disable-next-line @next/next/no-img-element */}
 			{patchUrl && <img src={patchUrl} alt='' style={{ width: 16, height: 16, objectFit: 'contain', flexShrink: 0 }} />}
 			{children}
 		</div>
@@ -130,7 +129,6 @@ function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: st
 							borderRight: `1px solid ${borderColor}`,
 							padding: 6,
 						}}>
-							{/* eslint-disable-next-line @next/next/no-img-element */}
 							<img src={patchUrl} alt='' style={{ width: 52, height: 52, objectFit: 'contain' }} />
 						</div>
 						<div className='flex-1 min-w-0'>
@@ -244,7 +242,6 @@ function ReservistsCard({ names, meta }: { names: string[]; meta?: { color?: str
 					<SectionHeader color={meta?.color}>Company Reservists (Active)</SectionHeader>
 					<div className='flex items-stretch'>
 						<div style={{ width: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)', borderRight: `1px solid ${borderColor}`, padding: 6 }}>
-							{/* eslint-disable-next-line @next/next/no-img-element */}
 							<img src={meta.patchUrl} alt='' style={{ width: 52, height: 52, objectFit: 'contain' }} />
 						</div>
 						<div className='flex-1 min-w-0'>{content}</div>
@@ -285,7 +282,6 @@ function InactiveReservistsCard({ names, meta }: { names: string[]; meta?: { col
 					<SectionHeader color={meta?.color}>Company Reservists (Inactive)</SectionHeader>
 					<div className='flex items-stretch'>
 						<div style={{ width: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)', borderRight: `1px solid ${borderColor}`, padding: 6 }}>
-							{/* eslint-disable-next-line @next/next/no-img-element */}
 							<img src={meta.patchUrl} alt='' style={{ width: 52, height: 52, objectFit: 'contain' }} />
 						</div>
 						<div className='flex-1 min-w-0'>{content}</div>
@@ -310,7 +306,6 @@ function GamemastersCard({ members, meta }: { members: Member[]; meta?: { color?
 					<SectionHeader color={meta?.color}>1-0 Zulu — Gamemasters</SectionHeader>
 					<div className='flex items-stretch'>
 						<div style={{ width: 64, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)', borderRight: `1px solid ${borderColor}`, padding: 6 }}>
-							{/* eslint-disable-next-line @next/next/no-img-element */}
 							<img src={meta.patchUrl} alt='' style={{ width: 52, height: 52, objectFit: 'contain' }} />
 						</div>
 						<div className='flex-1 min-w-0'>
@@ -437,7 +432,6 @@ export default async function Page() {
 					}}>
 						{hqPatchUrl
 							? (
-								// eslint-disable-next-line @next/next/no-img-element
 								<img src={hqPatchUrl} alt='' style={{ width: 60, height: 60, objectFit: 'contain' }} />
 							)
 							: <Stars style={{ fontSize: 36, color: `${hqColor}d9` }} />

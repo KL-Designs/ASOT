@@ -425,7 +425,6 @@ export default function GalleryManager({ hideHeader }: { hideHeader?: boolean } 
                                                                                                         borderRadius: 2,
                                                                                                     }}
                                                                                                 >
-                                                                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                                                                                     <img
                                                                                                         src={`/api/gallery/fetch?year=${encodeURIComponent(yearData.year)}&operation=${encodeURIComponent(opData.operation)}&stage=${encodeURIComponent(stageData.stage)}&img=${encodeURIComponent(img)}`}
                                                                                                         alt={img}
@@ -529,7 +528,6 @@ export default function GalleryManager({ hideHeader }: { hideHeader?: boolean } 
                                             borderRadius: 2,
                                         }}
                                     >
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                             src={`/api/gallery/featured?img=${encodeURIComponent(img)}`}
                                             alt={img}

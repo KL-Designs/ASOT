@@ -1,4 +1,4 @@
-import "./landing.css"
+﻿import "./landing.css"
 
 import Image, { StaticImageData } from 'next/image'
 
@@ -33,7 +33,6 @@ export default function Container({ children, title, subtitle, background, backg
 
             <div className={`relative w-full ${bannerHeight} flex flex-col justify-end items-center overflow-hidden`}>
                 {backgroundUrl
-                    // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={backgroundUrl} alt='Banner' className='absolute inset-0 w-full h-full object-cover object-center' />
                     : <Image src={background || '/images/fallback.webp'} alt='Banner' fill className='object-cover object-center' priority placeholder={background ? 'blur' : 'empty'} />
                 }

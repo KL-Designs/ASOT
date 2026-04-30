@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Typography, LinearProgress } from '@mui/material'
@@ -347,7 +347,6 @@ function OpRow({ op, onDelete, onDuplicate, onNotesSaved, onTemplateSaved, onAss
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px' }}>
                 {op.coverImage ? (
                     <div style={{ width: 52, height: 34, flexShrink: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={op.coverImage} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     </div>
                 ) : (
