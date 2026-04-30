@@ -44,6 +44,9 @@ body {
 	html, body, * { cursor: none !important; }
 	body.suppress-custom-cursor,
 	body.suppress-custom-cursor * { cursor: auto !important; }
+	/* Map area keeps cursor:none even when the site cursor is suppressed */
+	body.suppress-custom-cursor [data-map-area],
+	body.suppress-custom-cursor [data-map-area] * { cursor: none !important; }
 }
 
 @layer utilities {

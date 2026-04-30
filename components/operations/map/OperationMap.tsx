@@ -290,8 +290,11 @@ export default function OperationMap({
     const spotHeightsDataRef = useRef<Array<{ latlng: any; elev: number }>>([])
     const spotHeightGroupRef = useRef<any>(null)
     const updateSpotHeightsRef = useRef<(() => void) | null>(null)
-    const gridCanvasRef = useRef<HTMLCanvasElement | null>(null)
-    const syncGridRef   = useRef<(() => void) | null>(null)
+    const gridCanvasRef   = useRef<HTMLCanvasElement | null>(null)
+    const syncGridRef     = useRef<(() => void) | null>(null)
+    const cursorCanvasRef = useRef<HTMLCanvasElement | null>(null)
+    const drawCursorRef   = useRef<((pos: { x: number; y: number } | null, ll: { lat: number; lng: number } | null) => void) | null>(null)
+    const lastMousePosRef = useRef<{ x: number; y: number } | null>(null)
     // Always-current refs so the async init callback can read them without deps
     const worldRef = useRef(world)
     worldRef.current = world
@@ -414,6 +417,110 @@ export default function OperationMap({
             syncGridRef.current = redrawGrid
             map.on('move zoomend resize', redrawGrid)
 
+            // ── Map cursor canvas ─────────────────────────────────────────────
+            function drawCursor(
+                screenPos: { x: number; y: number } | null,
+                latlng:    { lat: number; lng: number } | null,
+            ) {
+                const c = cursorCanvasRef.current
+                if (!c) return
+                const s = map.getSize() as { x: number; y: number }
+                if (c.width !== s.x || c.height !== s.y) { c.width = s.x; c.height = s.y }
+                const ctx = c.getContext('2d')!
+                ctx.clearRect(0, 0, s.x, s.y)
+                if (!screenPos || !latlng) return
+
+                const { x, y } = screenPos
+                const lineColor = 'rgba(198,97,63,0.6)'
+
+                // Full-span tracking lines with gap around center
+                const GAP = 18
+                ctx.save()
+                ctx.strokeStyle = lineColor
+                ctx.lineWidth = 1
+                ctx.beginPath()
+                ctx.moveTo(0, y);        ctx.lineTo(x - GAP, y)
+                ctx.moveTo(x + GAP, y); ctx.lineTo(s.x, y)
+                ctx.moveTo(x, 0);        ctx.lineTo(x, y - GAP)
+                ctx.moveTo(x, y + GAP); ctx.lineTo(x, s.y)
+                ctx.stroke()
+                ctx.restore()
+
+                // Square crosshair corners
+                const CROSS = 10
+                const G = 4
+                ctx.save()
+                ctx.strokeStyle = '#c6613f'
+                ctx.lineWidth = 1.5
+                ctx.lineJoin = 'miter'
+                ctx.shadowColor = 'rgba(0,0,0,0.9)'
+                ctx.shadowBlur = 4
+                ctx.beginPath()
+                ctx.moveTo(x - CROSS, y - G);  ctx.lineTo(x - CROSS, y - CROSS); ctx.lineTo(x - G, y - CROSS)
+                ctx.moveTo(x + G, y - CROSS);  ctx.lineTo(x + CROSS, y - CROSS); ctx.lineTo(x + CROSS, y - G)
+                ctx.moveTo(x + CROSS, y + G);  ctx.lineTo(x + CROSS, y + CROSS); ctx.lineTo(x + G, y + CROSS)
+                ctx.moveTo(x - G, y + CROSS);  ctx.lineTo(x - CROSS, y + CROSS); ctx.lineTo(x - CROSS, y + G)
+                ctx.stroke()
+                ctx.restore()
+
+                // Center ticks
+                const TICK = 5
+                const TG = 3
+                ctx.save()
+                ctx.strokeStyle = '#c6613f'
+                ctx.lineWidth = 1.5
+                ctx.shadowColor = 'rgba(0,0,0,0.9)'
+                ctx.shadowBlur = 4
+                ctx.beginPath()
+                ctx.moveTo(x - TG - TICK, y); ctx.lineTo(x - TG, y)
+                ctx.moveTo(x + TG, y);        ctx.lineTo(x + TG + TICK, y)
+                ctx.moveTo(x, y - TG - TICK); ctx.lineTo(x, y - TG)
+                ctx.moveTo(x, y + TG);        ctx.lineTo(x, y + TG + TICK)
+                ctx.stroke()
+                ctx.restore()
+
+                // 10-figure grid reference (5-digit easting + 5-digit northing)
+                const ex  = Math.max(0, Math.round(latlng.lng)).toString().padStart(5, '0')
+                const ny  = Math.max(0, Math.round(latlng.lat)).toString().padStart(5, '0')
+                const lbl = `${ex} ${ny}`
+                const OFF = 14
+                ctx.save()
+                ctx.font = 'bold 11px monospace'
+                ctx.textBaseline = 'top'
+                ctx.textAlign = 'left'
+                const tw = ctx.measureText(lbl).width
+                // Flip so label stays inside canvas near edges
+                const tx = (x + OFF + tw > s.x - 4) ? x - OFF - tw : x + OFF
+                const ty = (y + OFF + 14  > s.y - 4) ? y - OFF - 14 : y + OFF
+                ctx.lineWidth = 3
+                ctx.lineJoin = 'round'
+                ctx.strokeStyle = 'rgba(0,0,0,0.9)'
+                ctx.strokeText(lbl, tx, ty)
+                ctx.fillStyle = '#c6613f'
+                ctx.fillText(lbl, tx, ty)
+                ctx.restore()
+            }
+            drawCursorRef.current = drawCursor
+
+            map.on('mousemove', (e: any) => {
+                const sp = map.latLngToContainerPoint(e.latlng) as { x: number; y: number }
+                lastMousePosRef.current = sp
+                document.body.classList.add('suppress-custom-cursor')
+                drawCursorRef.current?.(sp, e.latlng as { lat: number; lng: number })
+            })
+            map.on('mouseout', () => {
+                lastMousePosRef.current = null
+                document.body.classList.remove('suppress-custom-cursor')
+                drawCursorRef.current?.(null, null)
+            })
+            // Re-draw label when map pans (screen pos fixed, latlng changes)
+            map.on('move', () => {
+                const sp = lastMousePosRef.current
+                if (!sp) return
+                const ll = map.containerPointToLatLng([sp.x, sp.y] as any) as any
+                drawCursorRef.current?.(sp, ll as { lat: number; lng: number })
+            })
+
             // Right-click: delete hovered annotation (suppress browser context menu)
             const el = containerRef.current
             el.addEventListener('contextmenu', e => {
@@ -461,6 +568,7 @@ export default function OperationMap({
 
         return () => {
             destroyed = true
+            document.body.classList.remove('suppress-custom-cursor')
             mapRef.current?.remove()
             mapRef.current = null
         }
@@ -1045,19 +1153,24 @@ export default function OperationMap({
         </svg>
         {/* Wrapper provides the stacking context. The canvas comes after the map div
             in DOM order, so it naturally paints above all Leaflet panes. */}
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+        <div data-map-area="" style={{ position: 'relative', width: '100%', height: '100%', cursor: 'none' }}>
             {/* zIndex:0 creates a stacking context that contains all Leaflet panes,
                 including .leaflet-map-pane's GPU compositing layer (created by transform).
                 The canvas at zIndex:1 then unambiguously paints above the entire Leaflet tree. */}
             <div
                 ref={containerRef}
+                data-map-nocursor=""
                 onDragOver={e => e.preventDefault()}
                 onDrop={handleDrop}
-                style={{ position: 'absolute', inset: 0, zIndex: 0, background: bg, cursor: isDrawingMode ? 'crosshair' : undefined }}
+                style={{ position: 'absolute', inset: 0, zIndex: 0, background: bg }}
             />
             <canvas
                 ref={gridCanvasRef}
                 style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1 }}
+            />
+            <canvas
+                ref={cursorCanvasRef}
+                style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2 }}
             />
         </div>
     </>)
