@@ -7,8 +7,8 @@ import { usePathname } from 'next/navigation'
 
 import { useState, useEffect } from 'react'
 
-import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse } from '@mui/material'
-import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, Dashboard as DashboardIcon, Api, Tune, BugReport, MapOutlined } from '@mui/icons-material'
+import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse, Switch } from '@mui/material'
+import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, Dashboard as DashboardIcon, Api, Tune, BugReport, MapOutlined, Mouse } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import { rankNameFromAbbr } from '@/lib/ranks'
@@ -405,11 +405,20 @@ function ProfileDropdown({ user }: { user: User }) {
     const [orbatEntry, setOrbatEntry] = React.useState<{ role: string; section: string } | null | undefined>(undefined)
     const [avatarHovered, setAvatarHovered] = React.useState(false)
     const [isImpersonating, setIsImpersonating] = React.useState(false)
+    const [cursorEnabled, setCursorEnabled] = React.useState(true)
     const open = Boolean(anchorEl)
 
     React.useEffect(() => {
         setIsImpersonating(document.cookie.split(';').some(c => c.trim().startsWith('is_impersonating=')))
+        setCursorEnabled(localStorage.getItem('cursor-disabled') !== 'true')
     }, [])
+
+    function toggleCursor() {
+        const next = !cursorEnabled
+        setCursorEnabled(next)
+        localStorage.setItem('cursor-disabled', next ? 'false' : 'true')
+        window.dispatchEvent(new CustomEvent('cursor-toggle', { detail: { disabled: !next } }))
+    }
 
     async function handleLogout() {
         await fetch('/api/logout', { method: 'POST' })
@@ -569,6 +578,12 @@ function ProfileDropdown({ user }: { user: User }) {
                             </MenuItem>
                         </>
                     )}
+                    <MenuItem onClick={toggleCursor} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
+                        sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
+                        <Mouse style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
+                        <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)', flex: 1 }}>CUSTOM CURSOR</span>
+                        <Switch size='small' checked={cursorEnabled} disableRipple style={{ pointerEvents: 'none' }} />
+                    </MenuItem>
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', margin: '6px 0' }} />
                     <MenuItem
                         onClick={handleLogout}

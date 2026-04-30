@@ -9,7 +9,32 @@ export default function CustomCursor() {
 	const hoveringRef = useRef(false)
 	const visibleRef = useRef(false)
 	const prevTargetRef = useRef<Element | null>(null)
+	const disabledRef = useRef(false)
 	const [isTouch, setIsTouch] = useState(false)
+
+	// Read persisted preference on mount
+	useEffect(() => {
+		const stored = localStorage.getItem('cursor-disabled') === 'true'
+		disabledRef.current = stored
+		document.body.classList.toggle('cursor-disabled', stored)
+	}, [])
+
+	// Listen for toggle events dispatched by the navbar dropdown
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const d = (e as CustomEvent<{ disabled: boolean }>).detail.disabled
+			disabledRef.current = d
+			document.body.classList.toggle('cursor-disabled', d)
+			const dot = dotRef.current
+			const ring = ringRef.current
+			if (!dot || !ring) return
+			const v = visibleRef.current && !d && !document.body.classList.contains('suppress-custom-cursor')
+			dot.style.opacity = v ? '1' : '0'
+			ring.style.opacity = v ? '1' : '0'
+		}
+		window.addEventListener('cursor-toggle', handler)
+		return () => window.removeEventListener('cursor-toggle', handler)
+	}, [])
 
 	useEffect(() => {
 		if (window.matchMedia('(pointer: coarse)').matches) { setIsTouch(true); return }
@@ -21,7 +46,7 @@ export default function CustomCursor() {
 
 		const updateVisibility = () => {
 			const suppressed = document.body.classList.contains('suppress-custom-cursor')
-			const v = visibleRef.current && !suppressed
+			const v = visibleRef.current && !suppressed && !disabledRef.current
 			dot.style.opacity = v ? '1' : '0'
 			ring.style.opacity = v ? '1' : '0'
 		}
@@ -31,7 +56,6 @@ export default function CustomCursor() {
 			ring.style.borderRadius = on ? '0' : '50%'
 			ring.style.borderColor = on ? 'transparent' : '#fff'
 			corners.style.opacity = on ? '1' : '0'
-			// Remove transform trail on hover so ring snaps; restore it on leave
 			// Order matches: transform, border-radius, border-color, opacity
 			ring.style.transitionDuration = on ? '0s, 0.15s, 0.15s, 0.3s' : '60ms, 0.15s, 0.15s, 0.3s'
 		}
@@ -100,8 +124,6 @@ export default function CustomCursor() {
 					border: '1.5px solid #fff',
 					pointerEvents: 'none', zIndex: 99999,
 					opacity: 0, willChange: 'transform',
-					// transform trails 60ms on the compositor thread (main-thread-independent)
-					// hover snaps it to 0s via transitionDuration override in setHovering()
 					transition: 'transform 10ms linear, border-radius 0.15s ease, border-color 0.15s ease, opacity 0.3s ease',
 				}}
 			>
