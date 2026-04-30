@@ -139,12 +139,18 @@ export default function Navbar() {
                                             startIcon={link.icon}
                                             color='light'
                                             size='small'
-                                            style={{
+                                            sx={{
                                                 borderBottom: isActive ? '2px solid var(--red)' : '2px solid transparent',
                                                 borderRadius: 0,
                                                 opacity: isActive ? 1 : 0.75,
-                                                transition: 'border-color 0.2s, opacity 0.2s',
                                                 fontSize: '0.9rem',
+                                                transition: 'border-color 0.2s, opacity 0.2s',
+                                                '&:hover': {
+                                                    borderBottom: '2px solid var(--red)',
+                                                    opacity: 1,
+                                                },
+                                                '&:hover .MuiButton-startIcon': { color: 'var(--red)' },
+                                                '& .MuiButton-startIcon': { transition: 'color 0.2s' },
                                             }}
                                         >
                                             {link.name}
@@ -585,12 +591,18 @@ function DropDownMenu({ data, isActive }: { data: Link, isActive: boolean }) {
                 startIcon={data.icon}
                 endIcon={open ? <ArrowRight /> : <ArrowDropDown />}
                 onClick={handleClick}
-                style={{
+                sx={{
                     borderBottom: isActive ? '2px solid var(--red)' : '2px solid transparent',
                     borderRadius: 0,
                     opacity: isActive ? 1 : 0.75,
-                    transition: 'border-color 0.2s, opacity 0.2s',
                     fontSize: '0.9rem',
+                    transition: 'border-color 0.2s, opacity 0.2s',
+                    '&:hover': {
+                        borderBottom: '2px solid var(--red)',
+                        opacity: 1,
+                    },
+                    '&:hover .MuiButton-startIcon': { color: 'var(--red)' },
+                    '& .MuiButton-startIcon': { transition: 'color 0.2s' },
                 }}
             >
                 {data.name}
