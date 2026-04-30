@@ -622,7 +622,7 @@ export default function OperationMap({
                     const southLat = worldSize - (row + 1) * tileM
                     const northLat = worldSize - row * tileM
                     const bounds: L.LatLngBoundsLiteral = [[southLat, col * tileM], [northLat, (col + 1) * tileM]]
-                    const overlay = L.imageOverlay(`/maps/${name}/sat/${col}/${row}.png`, bounds, { pane: 'mapContent' })
+                    const overlay = L.imageOverlay(`/maps/${name}/sat/${col}/${row}.jpg`, bounds, { pane: 'mapContent' })
                     overlay.addTo(map)
                     satOverlaysRef.current.push(overlay)
                 }

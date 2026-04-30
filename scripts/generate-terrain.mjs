@@ -9,9 +9,10 @@ import { createReadStream, writeFileSync, existsSync, readdirSync } from 'fs'
 import { join, dirname } from 'path'
 import { createGunzip, gzipSync } from 'zlib'
 import { fileURLToPath } from 'url'
+import sharp from 'sharp'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const MAPS_DIR = join(__dirname, '..', 'public', 'maps')
+const MAPS_DIR = join(__dirname, '..', 'maps')
 const FORCE = process.argv.includes('--force')
 const TARGET = process.argv.find(a => !a.startsWith('-') && a !== process.argv[0] && a !== process.argv[1])
 
@@ -215,20 +216,65 @@ async function generateCoastline(elev, ncols, nrows, outPath) {
     return buf.length
 }
 
+// ── Satellite PNG → JPG (50% size, 90% quality) ───────────────────────────────
+async function processSatImages(worldDir) {
+    const satDir = join(worldDir, 'sat')
+    if (!existsSync(satDir)) return
+
+    const colDirs = readdirSync(satDir, { withFileTypes: true }).filter(e => e.isDirectory())
+    if (colDirs.length === 0) return
+
+    let converted = 0, skipped = 0
+    process.stdout.write(`  Converting sat images... `)
+
+    for (const colEntry of colDirs) {
+        const colDir = join(satDir, colEntry.name)
+        const pngFiles = readdirSync(colDir).filter(f => f.endsWith('.png'))
+        for (const pngFile of pngFiles) {
+            const pngPath = join(colDir, pngFile)
+            const jpgPath = pngPath.replace(/\.png$/, '.jpg')
+            if (!FORCE && existsSync(jpgPath)) { skipped++; continue }
+
+            const image = sharp(pngPath)
+            const { width } = await image.metadata()
+            await image
+                .resize(Math.round(width / 2))
+                .jpeg({ quality: 90 })
+                .toFile(jpgPath)
+            converted++
+        }
+    }
+    console.log(`${converted} converted, ${skipped} already exist`)
+}
+
 // ── Process one world ─────────────────────────────────────────────────────────
 async function processWorld(worldDir, name) {
+    console.log(`\n▶ ${name}`)
+
+    await processSatImages(worldDir)
+
+    const previewPng = join(worldDir, 'preview.png')
+    const previewJpg = join(worldDir, 'preview.jpg')
+    if (existsSync(previewPng) && (FORCE || !existsSync(previewJpg))) {
+        process.stdout.write('  Converting preview.png... ')
+        const image = sharp(previewPng)
+        const { width } = await image.metadata()
+        await image.resize(Math.round(width / 4)).jpeg({ quality: 50 }).toFile(previewJpg)
+        console.log('done')
+    } else if (existsSync(previewJpg)) {
+        console.log('  preview.jpg already exists, skipping')
+    }
+
     const demPath       = join(worldDir, 'dem.asc.gz')
     const terrainPath   = join(worldDir, 'terrain.png')
     const coastlinePath = join(worldDir, 'coastline.png')
     const contoursPath  = join(worldDir, 'contours.geojson.gz')
 
-    if (!existsSync(demPath)) { console.log(`  ${name}: no dem.asc.gz — skipping`); return }
+    if (!existsSync(demPath)) { console.log(`  no dem.asc.gz — skipping DEM generation`); return }
     if (!FORCE && existsSync(terrainPath) && existsSync(coastlinePath) && existsSync(contoursPath)) {
-        console.log(`  ${name}: already generated (--force to regenerate)`)
+        console.log(`  DEM outputs already generated (--force to regenerate)`)
         return
     }
-
-    console.log(`\n▶ ${name}`)
     process.stdout.write('  Parsing DEM... ')
     const { hdr, elev } = await parseDEM(demPath)
     const { ncols, nrows, cellsize } = hdr

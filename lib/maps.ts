@@ -9,7 +9,7 @@ function countSatTiles(worldDir: string): number {
 }
 
 export function getAvailableWorlds(): MapWorld[] {
-    const mapsDir = join(process.cwd(), 'public', 'maps')
+    const mapsDir = join(process.cwd(), 'maps')
     if (!existsSync(mapsDir)) return []
 
     const worlds: MapWorld[] = []
@@ -23,7 +23,7 @@ export function getAvailableWorlds(): MapWorld[] {
         const hasTerrain    = existsSync(join(worldDir, 'terrain.png'))
         const hasCoastline  = existsSync(join(worldDir, 'coastline.png'))
         const hasContours   = existsSync(join(worldDir, 'contours.geojson.gz'))
-        const hasPreview    = existsSync(join(worldDir, 'preview.png'))
+        const hasPreview    = existsSync(join(worldDir, 'preview.jpg'))
 
         const metaPath = join(worldDir, 'meta.json')
         let displayName = entry.name

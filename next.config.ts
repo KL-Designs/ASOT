@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
 		return config
 	},
 	images: {
-		qualities: [100, 75],
+		qualities: [100, 75, 50, 25],
 		remotePatterns: [
 			{
 				protocol: 'https',
@@ -85,6 +85,15 @@ const nextConfig: NextConfig = {
 				pathname: "/api/uploads/**",
 			},
 
+		]
+	},
+
+	async rewrites() {
+		return [
+			{
+				source: '/maps/:path*',
+				destination: '/api/maps/assets/:path*',
+			},
 		]
 	},
 
