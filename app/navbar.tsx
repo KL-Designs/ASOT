@@ -140,6 +140,8 @@ export default function Navbar() {
                                             color='light'
                                             size='small'
                                             sx={{
+                                                position: 'relative',
+                                                overflow: 'hidden',
                                                 borderBottom: isActive ? '2px solid var(--red)' : '2px solid transparent',
                                                 borderRadius: 0,
                                                 opacity: isActive ? 1 : 0.75,
@@ -148,6 +150,21 @@ export default function Navbar() {
                                                 '&:hover': {
                                                     borderBottom: '2px solid var(--red)',
                                                     opacity: 1,
+                                                },
+                                                '&::after': {
+                                                    content: '""',
+                                                    position: 'absolute',
+                                                    inset: 0,
+                                                    background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.18) 50%, transparent 65%)',
+                                                    transform: 'translateX(-100%)',
+                                                    pointerEvents: 'none',
+                                                },
+                                                '&:hover::after': {
+                                                    animation: 'navShimmer 0.5s ease forwards',
+                                                },
+                                                '@keyframes navShimmer': {
+                                                    from: { transform: 'translateX(-100%)' },
+                                                    to: { transform: 'translateX(100%)' },
                                                 },
                                                 '&:hover .MuiButton-startIcon': { color: 'var(--red)' },
                                                 '& .MuiButton-startIcon': { transition: 'color 0.2s' },
@@ -592,6 +609,8 @@ function DropDownMenu({ data, isActive }: { data: Link, isActive: boolean }) {
                 endIcon={open ? <ArrowRight /> : <ArrowDropDown />}
                 onClick={handleClick}
                 sx={{
+                    position: 'relative',
+                    overflow: 'hidden',
                     borderBottom: isActive ? '2px solid var(--red)' : '2px solid transparent',
                     borderRadius: 0,
                     opacity: isActive ? 1 : 0.75,
@@ -600,6 +619,21 @@ function DropDownMenu({ data, isActive }: { data: Link, isActive: boolean }) {
                     '&:hover': {
                         borderBottom: '2px solid var(--red)',
                         opacity: 1,
+                    },
+                    '&::after': {
+                        content: '""',
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.18) 50%, transparent 65%)',
+                        transform: 'translateX(-100%)',
+                        pointerEvents: 'none',
+                    },
+                    '&:hover::after': {
+                        animation: 'navShimmer 0.5s ease forwards',
+                    },
+                    '@keyframes navShimmer': {
+                        from: { transform: 'translateX(-100%)' },
+                        to: { transform: 'translateX(100%)' },
                     },
                     '&:hover .MuiButton-startIcon': { color: 'var(--red)' },
                     '& .MuiButton-startIcon': { transition: 'color 0.2s' },
