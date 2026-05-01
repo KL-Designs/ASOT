@@ -414,6 +414,7 @@ export default function StaffSidebar({
                         { label: 'Mastersheet',    tab: 2 },
                         { label: 'Statistics',     tab: 3 },
                         { label: 'Meetings',       tab: 4 },
+                        { label: 'Tickets',        tab: 5 },
                     ],
                 },
                 {
@@ -421,6 +422,7 @@ export default function StaffSidebar({
                     tabs: [
                         { label: 'Operations', tab: 0 },
                         { label: 'Meetings',   tab: 1 },
+                        { label: 'Tickets',    tab: 2 },
                     ],
                 },
                 {
@@ -431,6 +433,7 @@ export default function StaffSidebar({
                         { label: 'Training Sched',    tab: 2 },
                         { label: 'Training Records',  tab: 3 },
                         { label: 'Meetings',          tab: 4 },
+                        { label: 'Tickets',           tab: 5 },
                     ],
                 },
                 {
@@ -448,6 +451,7 @@ export default function StaffSidebar({
                         { label: 'Gallery',              tab: 0 },
                         { label: 'Screenshot of Month',  tab: 1 },
                         { label: 'Meetings',             tab: 2 },
+                        { label: 'Tickets',              tab: 3 },
                     ],
                 },
                 {
@@ -455,12 +459,14 @@ export default function StaffSidebar({
                     tabs: [
                         { label: 'Zeus Notes', tab: 0 },
                         { label: 'Meetings',   tab: 1 },
+                        { label: 'Tickets',    tab: 2 },
                     ],
                 },
                 {
                     label: '[J7] Development', href: '/dashboard/j7', visible: permissions.canSeeJ7, icon: <Code sx={{ fontSize: 14 }} />,
                     tabs: [
                         { label: 'Meetings', tab: 0 },
+                        { label: 'Tickets',  tab: 1 },
                     ],
                 },
             ],

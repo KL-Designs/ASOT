@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, Tabs, Tab } from '@mui/material'
-import { PeopleAlt, CalendarMonth, Assignment } from '@mui/icons-material'
+import { PeopleAlt, CalendarMonth, HistoryEdu, Settings } from '@mui/icons-material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import ImportPanel from '../ImportPanel'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
@@ -10,10 +10,10 @@ import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import { useTabState } from '@/app/dashboard/_components/useTabState'
-import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 import SnapshotsTab from './SnapshotsTab'
-import LogsTab from './tabs/LogsTab'
 import CommunityTicketsTab from './tabs/CommunityTicketsTab'
+import J4MeetingsTab from './tabs/J4MeetingsTab'
+import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -475,16 +475,16 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
                         </button>
                         <button style={{ ...btnSx(view === 'logs'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'logs' ? 'dept' : 'logs')}>
-                            <Assignment sx={{ fontSize: '0.85rem' }} />Logs
+                            <HistoryEdu sx={{ fontSize: '0.85rem' }} />Activity Logs
                         </button>
                     </div>
             </div>
 
-            {view === 'members'   && <DeptMembersTab department='j4' displayName={displayName} userId={userId} canManage={true} isJ4={true} />}
-            {view === 'calendar'  && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
-            {view === 'logs'      && (
-                <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '16px 0 0' }}>
-                    <LogsTab />
+            {view === 'members'      && <DeptMembersTab department='j4' displayName={displayName} userId={userId} canManage={true} isJ4={true} />}
+            {view === 'calendar'     && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
+            {view === 'logs' && (
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
+                    <ActivityLogTab isJ4={true} />
                 </div>
             )}
             {view === 'dept' && (
@@ -506,7 +506,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
 
                     <div className='flex-1 min-h-0 mt-0' style={{ display: 'flex', flexDirection: 'column' }}>
                         {tab === 1 && <SnapshotsTab />}
-                        {tab === 2 && <MeetingsTab department='j4' userId={userId} isLead={true} />}
+                        {tab === 2 && <J4MeetingsTab userId={userId} />}
                         {tab === 3 && (
                             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                                 <CommunityTicketsTab />
@@ -613,6 +613,26 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                     </div>
                                 </button>
 
+                            </div>
+                        </div>
+
+                        {/* Manage Preferences */}
+                        <div>
+                            <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 12 }}>
+                                Member Preferences
+                            </Typography>
+                            <div className='flex flex-wrap gap-4'>
+                                <a href='/dashboard/j4/preferences' style={{ textDecoration: 'none', flex: 1, minWidth: 160, maxWidth: 220 }}>
+                                    <div
+                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
+                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', cursor: 'pointer' }}
+                                    >
+                                        <Settings sx={{ fontSize: 28, color: 'rgba(237,237,237,0.4)' }} />
+                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
+                                            Notification<br />Policy
+                                        </Typography>
+                                    </div>
+                                </a>
                             </div>
                         </div>
                             </div>

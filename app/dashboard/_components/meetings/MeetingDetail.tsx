@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { CircularProgress } from '@mui/material'
-import { Delete, Lock, LockOpen, CheckCircle, EmojiEvents } from '@mui/icons-material'
+import { Delete, Lock, LockOpen, CheckCircle, EmojiEvents, SwapHoriz } from '@mui/icons-material'
 import MeetingTaskList from './MeetingTaskList'
 import MeetingAttachments from './MeetingAttachments'
 import MeetingAttendance from './MeetingAttendance'
@@ -27,7 +27,10 @@ export default function MeetingDetail({ meeting, department, userId, isLead, onU
     const [saving, setSaving]       = useState(false)
     const [locking, setLocking]     = useState(false)
     const [deleting, setDeleting]   = useState(false)
-    const [completing, setCompleting] = useState(false)
+    const [completing, setCompleting]     = useState(false)
+    const [transferring, setTransferring] = useState(false)
+    const [transferTarget, setTransferTarget] = useState<MeetingDepartment | ''>('')
+    const [showTransfer, setShowTransfer] = useState(false)
     const [confirmDelete, setConfirmDelete]   = useState(false)
     const [confirmComplete, setConfirmComplete] = useState(false)
     const [title, setTitle] = useState(meeting.title)
@@ -86,6 +89,26 @@ export default function MeetingDetail({ meeting, department, userId, isLead, onU
             const fresh = await fetch(`/api/admin/meetings/${id}`).then(r => r.json())
             if (fresh.meeting) onUpdate(fresh.meeting)
         } finally { setCompleting(false) }
+    }
+
+    async function doTransfer() {
+        if (!transferTarget) return
+        setTransferring(true)
+        try {
+            await fetch(`/api/admin/meetings/${id}/transfer`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetDepartment: transferTarget }),
+            })
+            setShowTransfer(false)
+            setTransferTarget('')
+        } finally { setTransferring(false) }
+    }
+
+    const ALL_DEPTS: MeetingDepartment[] = ['j1','j2','j3','j4','j5','j6','j7']
+    const DEPT_NAMES: Record<MeetingDepartment, string> = {
+        j1: 'J1 Recruitment', j2: 'J2 Mission Making', j3: 'J3 Training',
+        j4: 'J4 Administration', j5: 'J5 Media', j6: 'J6 Game Masters',
+        j7: 'J7 Community Development',
     }
 
     return (
@@ -190,6 +213,31 @@ export default function MeetingDetail({ meeting, department, userId, isLead, onU
                         meeting={meeting}
                     />
                 </div>
+
+                {/* Transfer Notes */}
+                {isLead && (
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 14 }}>
+                        {!showTransfer ? (
+                            <button onClick={() => setShowTransfer(true)} style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(0,195,255,0.65)', padding: '5px 12px', border: '1px solid rgba(0,195,255,0.25)', background: 'rgba(0,195,255,0.05)' }}>
+                                <SwapHoriz sx={{ fontSize: 14 }} /> Transfer Notes to Department
+                            </button>
+                        ) : (
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: '0.62rem', color: 'rgba(0,195,255,0.6)', fontWeight: 700, letterSpacing: '0.08em' }}>Transfer to:</span>
+                                <select value={transferTarget} onChange={e => setTransferTarget(e.target.value as MeetingDepartment)} style={{ all: 'unset', fontSize: '0.72rem', color: 'rgba(237,237,237,0.8)', background: 'rgba(0,195,255,0.06)', border: '1px solid rgba(0,195,255,0.25)', padding: '4px 10px', cursor: 'pointer', colorScheme: 'dark' } as React.CSSProperties}>
+                                    <option value=''>— Select department —</option>
+                                    {ALL_DEPTS.filter(d => d !== department).map(d => (
+                                        <option key={d} value={d}>{DEPT_NAMES[d]}</option>
+                                    ))}
+                                </select>
+                                <button onClick={doTransfer} disabled={transferring || !transferTarget} style={{ all: 'unset', cursor: !transferTarget || transferring ? 'not-allowed' : 'pointer', padding: '4px 12px', fontSize: '0.65rem', fontWeight: 700, background: 'rgba(0,195,255,0.15)', border: '1px solid rgba(0,195,255,0.35)', color: 'rgba(0,195,255,0.9)', opacity: !transferTarget ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    {transferring ? <CircularProgress size={11} color='inherit' /> : 'Transfer'}
+                                </button>
+                                <button onClick={() => { setShowTransfer(false); setTransferTarget('') }} style={{ all: 'unset', cursor: 'pointer', padding: '4px 10px', fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', border: '1px solid rgba(255,255,255,0.1)' }}>Cancel</button>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Complete Meeting */}
                 {isLead && !completed && (

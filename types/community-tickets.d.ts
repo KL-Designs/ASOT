@@ -69,6 +69,15 @@ declare global {
         voteScore: number
         commentCount: number
 
+        /**
+         * Multi-status support. When present, this is the authoritative list.
+         * The legacy `status` field is kept as the primary for backwards compat.
+         */
+        statuses?: CommunityTicketStatus[]
+
+        /** Multi-select sub-status tags (Implementing, Implemented, Broken, Resolved, Denied, No Action Required) */
+        ticketTags?: string[]
+
         /** Primary routing dept (kept for backward compat); full list in departments[] */
         department: string
         /** Multi-dept assignment (J4 can assign multiple) */
@@ -83,6 +92,7 @@ declare global {
         gameOther?: string
         featureCategory?: string
         featureCategoryOther?: string
+        responsibleDept?: string
         weblink?: string
         justification?: string
 
@@ -145,7 +155,28 @@ declare global {
         mediaLinks?: string[]
         otherComments?: string
 
+        /** When false, dept members cannot see this ticket — only dept leads + J4 */
+        memberVisible?: boolean
+
+        tasks?: CommunityTicketTask[]
+
         activityLog: CommunityTicketActivity[]
+    }
+
+    interface CommunityTicketTask {
+        id: string
+        title: string
+        description?: string
+        assignedToUserId?: string
+        assignedToUserName?: string
+        assignedToRole?: string
+        dueAt?: Date
+        chaseUpAt?: Date
+        status: 'pending' | 'completed'
+        completedAt?: Date
+        completedByName?: string
+        createdAt: Date
+        createdByName: string
     }
 
     interface CampaignPhase {
@@ -181,6 +212,8 @@ declare global {
             | 'comment_added'
             | 'comment_edited'
             | 'comment_deleted'
+            | 'transferred'
+            | 'reopened'
         actorId: string
         actorName: string
         timestamp: Date

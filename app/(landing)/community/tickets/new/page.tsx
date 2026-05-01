@@ -120,7 +120,7 @@ function FieldBlock({ label, hint, required, children }: { label: string; hint?:
         <div style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: 16, marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.16em', color: 'rgba(237,237,237,0.6)' }}>{label}</span>
-                {required && <span style={{ fontSize: '0.6rem', color: 'rgba(219,0,29,0.75)', fontWeight: 700 }}>*</span>}
+                {required && <span style={{ fontSize: '0.6rem', color: 'rgba(219,0,29,1)', fontWeight: 700 }}>*</span>}
                 {hint && <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)', letterSpacing: '0.04em' }}>— {hint}</span>}
             </div>
             {children}
@@ -177,7 +177,7 @@ function OtherInput({ value, onChange, placeholder, required }: { value: string;
     return (
         <div style={{ marginTop: 6, borderLeft: '2px solid rgba(255,255,255,0.15)', paddingLeft: 10 }}>
             <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(237,237,237,0.35)', marginBottom: 4 }}>
-                PLEASE SPECIFY {required && <span style={{ color: 'rgba(219,0,29,0.75)' }}>*</span>}
+                PLEASE SPECIFY {required && <span style={{ color: 'rgba(219,0,29,1)' }}>*</span>}
             </div>
             <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder ?? 'Describe in detail…'} required={required} style={INPUT_STYLE} />
         </div>
@@ -214,6 +214,7 @@ export default function NewTicketPage() {
     const [gameOther, setGameOther] = useState('')
     const [featureCategory, setFeatureCategory] = useState('')
     const [featureCategoryOther, setFeatureCategoryOther] = useState('')
+    const [responsibleDept, setResponsibleDept] = useState('')
     const [weblink, setWeblink] = useState('')
 
     // Bug
@@ -454,6 +455,7 @@ export default function NewTicketPage() {
             ...(game && { game }), ...(game === 'Other' && gameOther && { gameOther }),
             ...(featureCategory && { featureCategory }),
             ...(featureCategory === 'Other' && featureCategoryOther && { featureCategoryOther }),
+            ...(responsibleDept && subtype === 'feature-request' && { responsibleDept }),
             ...(weblink && { weblink }),
             ...(stepsToReproduce && { stepsToReproduce }),
             ...(expectedResult && { expectedResult }), ...(actualResult && { actualResult }),
@@ -775,6 +777,18 @@ export default function NewTicketPage() {
                                         {FEATURE_CATEGORIES.map(c => <option key={c} value={c} style={{ background: '#111' }}>{c}</option>)}
                                     </select>
                                     {featureCategory === 'Other' && <OtherInput value={featureCategoryOther} onChange={setFeatureCategoryOther} required />}
+                                </FieldBlock>
+                                <FieldBlock label='RESPONSIBLE DEPARTMENT' hint='Optional — which department should handle this?'>
+                                    <select value={responsibleDept} onChange={e => setResponsibleDept(e.target.value)} style={SELECT_STYLE}>
+                                        <option value='' style={{ background: '#111' }}>J4 Administration (default)</option>
+                                        <option value='j1' style={{ background: '#111' }}>J1 — Recruitment</option>
+                                        <option value='j2' style={{ background: '#111' }}>J2 — Mission Making</option>
+                                        <option value='j3' style={{ background: '#111' }}>J3 — Training</option>
+                                        <option value='j4' style={{ background: '#111' }}>J4 — Administration</option>
+                                        <option value='j5' style={{ background: '#111' }}>J5 — Media</option>
+                                        <option value='j6' style={{ background: '#111' }}>J6 — Game Masters</option>
+                                        <option value='j7' style={{ background: '#111' }}>J7 — Community Development</option>
+                                    </select>
                                 </FieldBlock>
                                 <FieldBlock label='REFERENCE LINK' hint='Optional URL or example'>
                                     <input value={weblink} onChange={e => setWeblink(e.target.value)} placeholder='https://…' style={INPUT_STYLE} />

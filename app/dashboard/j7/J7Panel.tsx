@@ -1,13 +1,15 @@
 ﻿'use client'
 
 import { Typography, Tabs, Tab } from '@mui/material'
-import { PeopleAlt, CalendarMonth } from '@mui/icons-material'
+import { PeopleAlt, CalendarMonth, HistoryEdu, ConfirmationNumber } from '@mui/icons-material'
 import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import { useTabState } from '@/app/dashboard/_components/useTabState'
 import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
+import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
+import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 
 export default function J7Panel({
     displayName,
@@ -62,6 +64,9 @@ export default function J7Panel({
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
                         </button>
+                        <button style={{ ...btnSx(view === 'activity'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'activity' ? 'dept' : 'activity')}>
+                            <HistoryEdu sx={{ fontSize: '0.85rem' }} />Activity Logs
+                        </button>
                     </div>
             </div>
 
@@ -70,6 +75,11 @@ export default function J7Panel({
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j7' userId={userId} isJ4={isJ4} />
+            )}
+            {view === 'activity' && (
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
+                    <ActivityLogTab department='j7' />
+                </div>
             )}
             {view === 'dept' && (
                 <>
@@ -80,20 +90,14 @@ export default function J7Panel({
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Meetings' pinLabel='J7 — Meetings' href='/dashboard/j7' tabIndex={0} />} sx={{
-                                fontSize: '0.72rem',
-                                fontWeight: 700,
-                                letterSpacing: '0.1em',
-                                minHeight: 40,
-                                padding: '8px 16px',
-                                color: 'rgba(237,237,237,0.5)',
-                                '&.Mui-selected': { color: 'var(--foreground)' },
-                            }} />
+                            <Tab label={<PinTabLabel label='Meetings' pinLabel='J7 — Meetings' href='/dashboard/j7' tabIndex={0} />} sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', minHeight: 40, padding: '8px 16px', color: 'rgba(237,237,237,0.5)', '&.Mui-selected': { color: 'var(--foreground)' } }} />
+                            <Tab label={<PinTabLabel label='Tickets'  pinLabel='J7 — Tickets'  href='/dashboard/j7' tabIndex={1} />} sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', minHeight: 40, padding: '8px 16px', color: 'rgba(237,237,237,0.5)', '&.Mui-selected': { color: 'var(--foreground)' } }} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
-                        {tab === 0 && <MeetingsTab department='j7' userId={userId} isLead={canManageMembers} />}
+                        {tab === 0 && <MeetingsTab department='j7' userId={userId} isLead={canManageMembers || isJ4} />}
+                        {tab === 1 && <DeptTicketsTab department='j7' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                     </div>
                 </>
             )}

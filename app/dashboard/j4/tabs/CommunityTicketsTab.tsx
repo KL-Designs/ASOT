@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { CircularProgress } from '@mui/material'
-import { Refresh, KeyboardArrowDown, KeyboardArrowUp, LocalOffer } from '@mui/icons-material'
+import { Refresh, KeyboardArrowDown, KeyboardArrowUp, LocalOffer, SwapHoriz } from '@mui/icons-material'
 
 type ConfirmState = { open: boolean; message: string; onConfirm: () => void }
 
@@ -56,6 +56,9 @@ export default function CommunityTicketsTab() {
     const [updatingId, setUpdatingId] = useState<string | null>(null)
     const [collapsedClosed, setCollapsedClosed] = useState(true)
     const [view, setView] = useState<'category' | 'table'>('category')
+    const [transferOpen, setTransferOpen] = useState<string | null>(null)
+    const [transferTarget, setTransferTarget] = useState('')
+    const [transferring, setTransferring] = useState(false)
     const [confirmModal, setConfirmModal] = useState<ConfirmState>({ open: false, message: '', onConfirm: () => {} })
 
     function showConfirm(message: string, onConfirm: () => void) {
@@ -120,6 +123,23 @@ export default function CommunityTicketsTab() {
     async function handleRestore(id: string) {
         await patch(id, { restore: true })
         setItems(prev => prev.map(t => t._id === id ? { ...t, isDeleted: false } : t))
+    }
+
+    async function doTransfer(id: string) {
+        if (!transferTarget) return
+        setTransferring(true)
+        await fetch(`/api/community/tickets/${id}/transfer`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ toDepartment: transferTarget }),
+        })
+        setTransferring(false)
+        setTransferOpen(null)
+        setTransferTarget('')
+        setItems(prev => prev.map(t => {
+            if (t._id !== id) return t
+            const depts = [...new Set([...(t.departments ?? [t.department]), transferTarget])]
+            return { ...t, departments: depts, department: transferTarget }
+        }))
     }
 
     const totalOpen = items.filter(t => ACTIVE_STATUSES.includes(t.status) && !t.isDeleted).length
@@ -218,7 +238,7 @@ export default function CommunityTicketsTab() {
                                 {/* Active cards */}
                                 {active.length > 0 ? (
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 6, marginBottom: 8 }}>
-                                        {active.map(t => <TicketCard key={t._id} t={t} catMeta={catMeta} onStatusChange={handleStatusChange} onDelete={handleDelete} onRestore={handleRestore} onView={id => router.push(`/community/tickets/${id}`)} isUpdating={updatingId === t._id} />)}
+                                        {active.map(t => <TicketCard key={t._id} t={t} catMeta={catMeta} onStatusChange={handleStatusChange} onDelete={handleDelete} onRestore={handleRestore} onView={id => router.push(`/community/tickets/${id}?returnTo=${encodeURIComponent('/dashboard/j4?tab=3')}` as any)} isUpdating={updatingId === t._id} />)}
                                     </div>
                                 ) : (
                                     <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.2)', padding: '12px 0', fontStyle: 'italic' }}>No active tickets.</div>
@@ -234,7 +254,7 @@ export default function CommunityTicketsTab() {
                                         </button>
                                         {!collapsedClosed && (
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 6, marginTop: 6 }}>
-                                                {closed.map(t => <TicketCard key={t._id} t={t} catMeta={catMeta} onStatusChange={handleStatusChange} onDelete={handleDelete} onRestore={handleRestore} onView={id => router.push(`/community/tickets/${id}`)} isUpdating={updatingId === t._id} />)}
+                                                {closed.map(t => <TicketCard key={t._id} t={t} catMeta={catMeta} onStatusChange={handleStatusChange} onDelete={handleDelete} onRestore={handleRestore} onView={id => router.push(`/community/tickets/${id}?returnTo=${encodeURIComponent('/dashboard/j4?tab=3')}` as any)} isUpdating={updatingId === t._id} />)}
                                             </div>
                                         )}
                                     </div>
@@ -249,16 +269,19 @@ export default function CommunityTicketsTab() {
             ) : (
                 /* ── TABLE VIEW ── */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 70px 80px 80px 60px', gap: 8, padding: '5px 10px', background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.14em', color: 'rgba(237,237,237,0.22)' }}>
-                        <span>TITLE</span><span>TYPE</span><span>STATUS</span><span>DEPT</span><span>VOTES</span><span>ACTIONS</span><span>VIEW</span>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 70px 80px 90px 80px 60px', gap: 8, padding: '5px 10px', background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.14em', color: 'rgba(237,237,237,0.22)' }}>
+                        <span>TITLE</span><span>TYPE</span><span>STATUS</span><span>DEPT</span><span>VOTES</span><span>TRANSFER</span><span>ACTIONS</span><span>VIEW</span>
                     </div>
                     {filtered.length === 0 && <div style={{ color: 'rgba(237,237,237,0.2)', padding: '24px 0', textAlign: 'center', fontSize: '0.8rem' }}>No tickets found.</div>}
                     {filtered.map(t => {
                         const catMeta = CAT_META[t.category]
                         const statusMeta = STATUS_META[t.status] ?? STATUS_META.open
                         const isUpdating = updatingId === t._id
+                        const isXferOpen = transferOpen === t._id
+                        const ticketDepts = t.departments?.length ? t.departments : [t.department]
                         return (
-                            <div key={t._id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 70px 80px 80px 60px', gap: 8, padding: '7px 10px', alignItems: 'center', background: t.isDeleted ? 'rgba(219,0,29,0.04)' : 'rgba(255,255,255,0.02)', border: `1px solid ${t.isDeleted ? 'rgba(219,0,29,0.1)' : 'rgba(255,255,255,0.05)'}`, borderLeft: `2px solid ${catMeta?.color ?? 'rgba(255,255,255,0.15)'}`, opacity: t.isDeleted ? 0.6 : 1 }}>
+                            <React.Fragment key={t._id}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 70px 80px 90px 80px 60px', gap: 8, padding: '7px 10px', alignItems: 'center', background: t.isDeleted ? 'rgba(219,0,29,0.04)' : 'rgba(255,255,255,0.02)', border: `1px solid ${t.isDeleted ? 'rgba(219,0,29,0.1)' : 'rgba(255,255,255,0.05)'}`, borderLeft: `2px solid ${catMeta?.color ?? 'rgba(255,255,255,0.15)'}`, opacity: t.isDeleted ? 0.6 : 1 }}>
                                 <div style={{ minWidth: 0 }}>
                                     <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {t.isDeleted && <span style={{ fontSize: '0.56rem', color: 'rgba(219,0,29,0.6)', marginRight: 5, fontWeight: 800 }}>DEL</span>}
@@ -279,10 +302,17 @@ export default function CommunityTicketsTab() {
                                     {ALL_STATUSES.map(s => <option key={s} value={s} style={{ background: '#111' }}>{STATUS_META[s].label}</option>)}
                                 </select>
                                 <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.4)', fontFamily: 'monospace' }}>
-                                    {(t.departments?.length ? t.departments : [t.department]).map(d => DEPT_LABELS[d] ?? d).join(',')}
+                                    {ticketDepts.map(d => DEPT_LABELS[d] ?? d).join(',')}
                                 </div>
                                 <div style={{ fontFamily: 'monospace', fontSize: '0.68rem', fontWeight: 700, color: t.voteScore > 0 ? 'rgba(74,222,128,0.7)' : t.voteScore < 0 ? 'rgba(219,0,29,0.7)' : 'rgba(237,237,237,0.3)' }}>
                                     {t.voteScore > 0 ? '+' : ''}{t.voteScore} ({t.commentCount}c)
+                                </div>
+                                <div>
+                                    {isUpdating ? null : (
+                                        <button onClick={() => { setTransferOpen(isXferOpen ? null : t._id); setTransferTarget('') }} style={{ display: 'flex', alignItems: 'center', gap: 3, background: isXferOpen ? 'rgba(0,195,255,0.08)' : 'transparent', border: `1px solid ${isXferOpen ? 'rgba(0,195,255,0.35)' : 'rgba(0,195,255,0.2)'}`, color: 'rgba(0,195,255,0.7)', fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.06em', padding: '2px 6px', cursor: 'pointer' }}>
+                                            <SwapHoriz style={{ fontSize: 11 }} />XFER
+                                        </button>
+                                    )}
                                 </div>
                                 <div>
                                     {isUpdating ? <CircularProgress size={14} style={{ color: 'rgba(219,0,29,0.5)' }} /> :
@@ -297,6 +327,20 @@ export default function CommunityTicketsTab() {
                                     VIEW
                                 </button>
                             </div>
+                            {isXferOpen && (
+                                <div style={{ padding: '8px 12px', background: 'rgba(0,195,255,0.04)', border: '1px solid rgba(0,195,255,0.15)', borderTop: 'none', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'rgba(0,195,255,0.7)', letterSpacing: '0.1em' }}>TRANSFER TO:</span>
+                                    <select value={transferTarget} onChange={e => setTransferTarget(e.target.value)} style={{ background: 'rgba(0,195,255,0.06)', border: '1px solid rgba(0,195,255,0.25)', color: 'rgba(237,237,237,0.8)', fontSize: '0.7rem', padding: '4px 8px', outline: 'none', cursor: 'pointer', fontFamily: 'inherit', borderRadius: 0, colorScheme: 'dark' }}>
+                                        <option value=''>— Select dept —</option>
+                                        {Object.entries(DEPT_LABELS).filter(([d]) => !ticketDepts.includes(d)).map(([d, label]) => <option key={d} value={d} style={{ background: '#111' }}>{label}</option>)}
+                                    </select>
+                                    <button onClick={() => doTransfer(t._id)} disabled={!transferTarget || transferring} style={{ all: 'unset', cursor: !transferTarget || transferring ? 'not-allowed' : 'pointer', padding: '4px 12px', fontSize: '0.65rem', fontWeight: 700, background: 'rgba(0,195,255,0.15)', border: '1px solid rgba(0,195,255,0.4)', color: 'rgba(0,195,255,0.9)', opacity: !transferTarget ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                        {transferring ? <CircularProgress size={11} color='inherit' /> : 'Confirm'}
+                                    </button>
+                                    <button onClick={() => setTransferOpen(null)} style={{ all: 'unset', cursor: 'pointer', padding: '4px 10px', fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)', border: '1px solid rgba(255,255,255,0.1)' }}>Cancel</button>
+                                </div>
+                            )}
+                            </React.Fragment>
                         )
                     })}
                 </div>

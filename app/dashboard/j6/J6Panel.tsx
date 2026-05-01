@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { Typography, Tabs, Tab } from '@mui/material'
-import { PeopleAlt, CalendarMonth } from '@mui/icons-material'
+import { PeopleAlt, CalendarMonth, HistoryEdu } from '@mui/icons-material'
 import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import ZeusNotesTab from './ZeusNotesTab'
@@ -9,6 +9,8 @@ import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import { useTabState } from '@/app/dashboard/_components/useTabState'
 import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
+import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
+import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 
 export default function J6Panel({
     displayName,
@@ -73,6 +75,9 @@ export default function J6Panel({
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
                         </button>
+                        <button style={{ ...btnSx(view === 'activity'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'activity' ? 'dept' : 'activity')}>
+                            <HistoryEdu sx={{ fontSize: '0.85rem' }} />Activity Logs
+                        </button>
                     </div>
             </div>
 
@@ -81,6 +86,11 @@ export default function J6Panel({
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j6' userId={userId} isJ4={isJ4} />
+            )}
+            {view === 'activity' && (
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
+                    <ActivityLogTab department='j6' />
+                </div>
             )}
             {view === 'dept' && (
                 <>
@@ -93,12 +103,14 @@ export default function J6Panel({
                         >
                             <Tab label={<PinTabLabel label='Zeus Notes' pinLabel='J6 — Zeus Notes' href='/dashboard/j6' tabIndex={0} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Meetings'   pinLabel='J6 — Meetings'   href='/dashboard/j6' tabIndex={1} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Tickets' pinLabel='J6 — Tickets' href='/dashboard/j6' tabIndex={2} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
                         {tab === 0 && <ZeusNotesTab />}
-                        {tab === 1 && <MeetingsTab department='j6' userId={userId} isLead={canManageMembers} />}
+                        {tab === 1 && <MeetingsTab department='j6' userId={userId} isLead={canManageMembers || isJ4} />}
+                        {tab === 2 && <DeptTicketsTab department='j6' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                     </div>
                 </>
             )}

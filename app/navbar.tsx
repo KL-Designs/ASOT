@@ -578,11 +578,10 @@ function ProfileDropdown({ user }: { user: User }) {
                             </MenuItem>
                         </>
                     )}
-                    <MenuItem onClick={toggleCursor} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
+                    <MenuItem component={Link} href='/preferences' onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
                         sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
-                        <Mouse style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
-                        <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)', flex: 1 }}>CUSTOM CURSOR</span>
-                        <Switch size='small' checked={cursorEnabled} disableRipple style={{ pointerEvents: 'none' }} />
+                        <Tune style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
+                        <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>PREFERENCES</span>
                     </MenuItem>
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', margin: '6px 0' }} />
                     <MenuItem

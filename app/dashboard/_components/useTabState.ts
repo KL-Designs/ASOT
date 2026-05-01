@@ -2,7 +2,9 @@
 import { useCallback } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 
-type View = 'dept' | 'members' | 'calendar' | 'meetings' | 'logs'
+type View = 'dept' | 'members' | 'calendar' | 'meetings' | 'logs' | 'activity' | 'tickets'
+
+const VALID_VIEWS: View[] = ['dept', 'members', 'calendar', 'meetings', 'logs', 'activity', 'tickets']
 
 /**
  * URL-backed tab + view state for department panels.
@@ -13,13 +15,11 @@ export function useTabState(defaultTab = 0, defaultView: View = 'dept') {
     const router = useRouter()
     const pathname = usePathname()
 
-    const rawTab = searchParams.get('tab')
+    const rawTab  = searchParams.get('tab')
     const rawView = searchParams.get('view') as View | null
 
-    const tab = rawTab !== null && !isNaN(Number(rawTab)) ? Number(rawTab) : defaultTab
-    const view: View = rawView && ['dept', 'members', 'calendar', 'meetings', 'logs'].includes(rawView)
-        ? rawView
-        : defaultView
+    const tab  = rawTab !== null && !isNaN(Number(rawTab)) ? Number(rawTab) : defaultTab
+    const view: View = rawView && VALID_VIEWS.includes(rawView) ? rawView : defaultView
 
     const setTab = useCallback((n: number) => {
         const params = new URLSearchParams(searchParams.toString())

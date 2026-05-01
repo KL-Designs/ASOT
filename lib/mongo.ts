@@ -43,6 +43,8 @@ const DbInterface = {
     communityTickets: client.db(process.env.MONGO_DB!).collection('community_tickets') as MongoCollection<CommunityTicket>,
     communityTicketComments: client.db(process.env.MONGO_DB!).collection('community_ticket_comments') as MongoCollection<CommunityTicketComment>,
     meetingNotifQueue: client.db(process.env.MONGO_DB!).collection('meeting_notif_queue') as MongoCollection<MeetingNotifQueueRecord>,
+    userPreferences: client.db(process.env.MONGO_DB!).collection('user_preferences') as MongoCollection<UserPreferences>,
+    notifPolicyConfig: client.db(process.env.MONGO_DB!).collection('notif_policy_config') as MongoCollection<NotifPolicyConfig>,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,

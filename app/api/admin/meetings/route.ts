@@ -4,6 +4,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { notifyMeetingUser, notifyMeetingRole } from '@/lib/meetingNotifications'
 import { initMeetingAttendance } from '@/lib/meetingAttendanceInit'
+import { logAction } from '@/lib/logAction'
 
 const DEPT_NAMES: Record<string, string> = {
     j1: 'J1 Recruitment', j2: 'J2 Mission Making', j3: 'J3 Training',
@@ -94,6 +95,19 @@ export async function POST(request: NextRequest) {
     // Auto-initialise attendance list from dept members + J4 + invited members
     await initMeetingAttendance(meetingId, department, invitedUserIds ?? [])
         .catch(err => console.error('[meetings] attendance init failed:', err))
+
+    // Log the creation
+    await logAction({
+        action: 'meeting.create',
+        category: 'meeting',
+        performedBy: me.id,
+        performedByName: displayName,
+        department,
+        entityType: 'meeting',
+        entityId: meetingId,
+        actionUrl: `/dashboard/meeting/${meetingId}`,
+        target: `"${meetingTitle}" (${deptName})`,
+    })
 
     // Fire creation notifications immediately (website + Discord DM)
     const allUserIds = [...new Set([...(notifyUserIds ?? []), ...(invitedUserIds ?? [])])]

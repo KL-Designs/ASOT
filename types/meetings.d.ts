@@ -41,11 +41,24 @@ interface MeetingAttendee {
     confirmedAt?: Date
 }
 
+interface MeetingTransferSource {
+    meetingId: string
+    department: MeetingDepartment
+    title: string
+    date: Date
+    transferredBy: string
+    transferredByName: string
+    transferredAt: Date
+}
+
 interface Meeting {
     _id?: import('mongodb').ObjectId
     department: MeetingDepartment
     title: string
     date: Date
+    // Transfer metadata — set when this meeting is a cross-dept import
+    isTransferred?: boolean
+    transferredFrom?: MeetingTransferSource
     notes?: string
     tasks: MeetingTask[]
     attachments: MeetingAttachment[]
