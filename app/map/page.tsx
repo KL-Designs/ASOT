@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import type { MapWorld } from '@/components/operations/map/types'
 
 export default function InteractiveMapPage() {
@@ -74,11 +75,16 @@ export default function InteractiveMapPage() {
                                 }}
                             >
                                 {world.hasPreview ? (
-                                    <img
-                                        src={`/maps/${world.name}/preview.png`}
-                                        alt={world.displayName}
-                                        style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', display: 'block' }}
-                                    />
+                                    <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9' }}>
+                                        <Image
+                                            src={`/maps/${world.name}/preview.jpg`}
+                                            quality={25}
+                                            alt={world.displayName}
+                                            fill
+                                            sizes='(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw'
+                                            style={{ objectFit: 'cover' }}
+                                        />
+                                    </div>
                                 ) : (
                                     <div style={{
                                         width: '100%',

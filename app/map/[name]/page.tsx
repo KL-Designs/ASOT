@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: { params: Promise<{ name: str
         title: `${world.displayName} | Interactive Map`,
         openGraph: {
             title: `${world.displayName} | Interactive Map`,
-            images: world.hasPreview ? [`/maps/${world.name}/preview.png`] : [],
+            images: world.hasPreview ? [`/maps/${world.name}/preview.jpg`] : [],
         },
     }
 }
