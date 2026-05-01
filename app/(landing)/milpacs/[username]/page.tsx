@@ -211,7 +211,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 			<div className='relative w-full h-banner-sm md:h-banner-sm-md overflow-hidden' style={{ minHeight: 280 }}>
 				{/* Background image */}
 				{hasCover ? (
-					// eslint-disable-next-line @next/next/no-img-element
 					<img src={`/api/uploads/cover?id=${member.id}&t=${Date.now()}`} alt='Cover' style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} />
 				) : (
 					<Image src={Banner} alt='Banner' fill className='object-cover object-center' loading='eager' />
@@ -466,7 +465,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 													<tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
 														<td style={{ padding: '6px 8px 6px 0' }}>
 															{badgeImg && (
-																// eslint-disable-next-line @next/next/no-img-element
 																<img src={badgeImg} alt={badgeCode} title={q.qualification} style={{ width: 28, height: 28, objectFit: 'contain', display: 'block' }} />
 															)}
 														</td>
@@ -493,7 +491,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 										return (
 											<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
 												{citation ? (
-													// eslint-disable-next-line @next/next/no-img-element
 													<img
 														src={`/milpac-assets/imge/Ribbons/${citation}.png`}
 														alt={a.name}

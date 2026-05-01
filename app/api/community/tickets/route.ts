@@ -6,13 +6,13 @@ import PERMISSIONS from '@/lib/permissions'
 
 const PRIVATE_CATEGORIES: CommunityTicketCategory[] = ['unit-feedback', 'complaint', 'award']
 const DEFAULT_DEPT: Record<CommunityTicketCategory, string> = {
-    'request': 'j4',
-    'bug': 'j4',
-    'mission': 'j2',
-    'campaign': 'j2',
+    'request':      'j4',
+    'bug':          'j4',
+    'mission':      'j2',
+    'campaign':     'j2',
     'unit-feedback': 'j4',
-    'complaint': 'j4',
-    'award': 'j4',
+    'complaint':    'j4',
+    'award':        'j4',
 }
 
 
@@ -24,9 +24,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
 
     const category = searchParams.get('category')
-    const status = searchParams.get('status')
+    const statuses = searchParams.getAll('status')          // multi-select
+    const status = searchParams.get('status')               // single fallback
     const sort = searchParams.get('sort') ?? 'votes'
     const department = searchParams.get('department')
+    const tag = searchParams.get('tag')
     const showDeleted = searchParams.get('deleted') === '1' && isJ4
 
     const filter: Record<string, unknown> = {}
@@ -39,8 +41,13 @@ export async function GET(request: NextRequest) {
     }
 
     if (category && category !== 'all') filter.category = category
-    if (status && status !== 'all') filter.status = status
+
+    const allStatuses = statuses.length > 1 ? statuses : status && status !== 'all' ? [status] : []
+    if (allStatuses.length === 1) filter.status = allStatuses[0]
+    else if (allStatuses.length > 1) filter.status = { $in: allStatuses }
+
     if (department && department !== 'all' && isJ4) filter.department = department
+    if (tag) filter.tags = tag
 
     const sortOrder: Record<string, 1 | -1> = sort === 'votes'
         ? { voteScore: -1, createdAt: -1 }
@@ -53,14 +60,10 @@ export async function GET(request: NextRequest) {
         .sort(sortOrder)
         .project({
             activityLog: 0,
-            stepsToReproduce: 0,
-            expectedResult: 0,
-            actualResult: 0,
-            missionForces: 0,
-            missionObjectives: 0,
-            missionStory: 0,
-            missionPlayerExperience: 0,
-            missionMechanics: 0,
+            stepsToReproduce: 0, expectedResult: 0, actualResult: 0,
+            missionEnemyForces: 0, missionFriendlyForces: 0, missionIndependentForces: 0,
+            missionCivilianPopulace: 0, missionObjectives: 0, missionStory: 0,
+            missionPlayerExperience: 0, missionMechanics: 0, missionAdditionalNotes: 0,
             campaignPhases: 0,
         })
         .toArray()
@@ -85,6 +88,7 @@ export async function POST(request: NextRequest) {
     const isPrivate = PRIVATE_CATEGORIES.includes(category as CommunityTicketCategory)
     const visibility: CommunityTicketVisibility = isPrivate ? 'private' : 'public'
     const department: string = rest.department ?? DEFAULT_DEPT[category as CommunityTicketCategory] ?? 'j4'
+    const departments: string[] = rest.departments ?? [department]
 
     // Mod request duplicate check
     if (subtype === 'mod-request' && rest.modLink) {
@@ -100,9 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date()
-    const authorName = isAnonymous
-        ? 'Anonymous'
-        : (me.guild.displayName ?? me.username)
+    const authorName = isAnonymous ? 'Anonymous' : (me.guild.displayName ?? me.username)
 
     const doc: CommunityTicket = {
         _id: new ObjectId(),
@@ -124,6 +126,8 @@ export async function POST(request: NextRequest) {
         voteScore: 0,
         commentCount: 0,
         department,
+        departments,
+        tags: rest.tags ?? [],
         attachments: [],
         mediaLinks: rest.mediaLinks ?? [],
         activityLog: [{
@@ -132,39 +136,55 @@ export async function POST(request: NextRequest) {
             actorName: me.guild.displayName ?? me.username,
             timestamp: now,
         }],
-        // Optional fields
-        ...(rest.modLink && { modLink: rest.modLink.trim() }),
-        ...(rest.game && { game: rest.game }),
-        ...(rest.gameOther && { gameOther: rest.gameOther }),
+        // Optional fields spread conditionally
+        ...(rest.modLink        && { modLink: rest.modLink.trim() }),
+        ...(rest.game           && { game: rest.game }),
+        ...(rest.gameOther      && { gameOther: rest.gameOther }),
         ...(rest.featureCategory && { featureCategory: rest.featureCategory }),
-        ...(rest.weblink && { weblink: rest.weblink.trim() }),
-        ...(rest.justification && { justification: rest.justification.trim() }),
+        ...(rest.featureCategoryOther && { featureCategoryOther: rest.featureCategoryOther }),
+        ...(rest.weblink        && { weblink: rest.weblink.trim() }),
+        ...(rest.justification  && { justification: rest.justification.trim() }),
         ...(rest.stepsToReproduce && { stepsToReproduce: rest.stepsToReproduce.trim() }),
         ...(rest.expectedResult && { expectedResult: rest.expectedResult.trim() }),
-        ...(rest.actualResult && { actualResult: rest.actualResult.trim() }),
-        ...(rest.severity && { severity: rest.severity }),
+        ...(rest.actualResult   && { actualResult: rest.actualResult.trim() }),
+        ...(rest.severity       && { severity: rest.severity }),
+        ...(rest.discordIssueTypes && { discordIssueTypes: rest.discordIssueTypes }),
+        ...(rest.discordIssueDetail && { discordIssueDetail: rest.discordIssueDetail }),
+        ...(rest.bugUrl         && { bugUrl: rest.bugUrl.trim() }),
+        ...(rest.tsBugType      && { tsBugType: rest.tsBugType }),
         ...(rest.bugPlatformDetail && { bugPlatformDetail: rest.bugPlatformDetail.trim() }),
-        ...(rest.missionForces && { missionForces: rest.missionForces.trim() }),
+        ...(rest.missionType    && { missionType: rest.missionType }),
+        ...(rest.missionEnemyForces && { missionEnemyForces: rest.missionEnemyForces.trim() }),
+        ...(rest.missionFriendlyForces && { missionFriendlyForces: rest.missionFriendlyForces.trim() }),
+        ...(rest.missionIndependentForces && { missionIndependentForces: rest.missionIndependentForces.trim() }),
+        ...(rest.missionCivilianPopulace && { missionCivilianPopulace: rest.missionCivilianPopulace.trim() }),
         ...(rest.missionObjectives && { missionObjectives: rest.missionObjectives.trim() }),
-        ...(rest.missionStory && { missionStory: rest.missionStory.trim() }),
+        ...(rest.missionStory   && { missionStory: rest.missionStory.trim() }),
         ...(rest.missionPlayerExperience && { missionPlayerExperience: rest.missionPlayerExperience.trim() }),
         ...(rest.missionMechanics && { missionMechanics: rest.missionMechanics.trim() }),
+        ...(rest.missionAdditionalNotes && { missionAdditionalNotes: rest.missionAdditionalNotes.trim() }),
         ...(rest.campaignPhases && { campaignPhases: rest.campaignPhases }),
         ...(rest.feedbackCategories && { feedbackCategories: rest.feedbackCategories }),
-        ...(rest.feedbackType && { feedbackType: rest.feedbackType }),
+        ...(rest.feedbackCategoryOther && { feedbackCategoryOther: rest.feedbackCategoryOther }),
+        ...(rest.feedbackType   && { feedbackType: rest.feedbackType }),
         ...(rest.complainantName && { complainantName: rest.complainantName.trim() }),
+        ...(rest.complainantAnonymous !== undefined && { complainantAnonymous: rest.complainantAnonymous }),
         ...(rest.membersInvolved && { membersInvolved: rest.membersInvolved }),
+        ...(rest.membersInvolvedNotListed && { membersInvolvedNotListed: rest.membersInvolvedNotListed }),
         ...(rest.isStaffComplaint !== undefined && { isStaffComplaint: rest.isStaffComplaint }),
         ...(rest.desiredOutcome && { desiredOutcome: rest.desiredOutcome.trim() }),
         ...(rest.evidenceAcknowledged !== undefined && { evidenceAcknowledged: rest.evidenceAcknowledged }),
-        ...(rest.nomineeName && { nomineeName: rest.nomineeName.trim() }),
-        ...(rest.nomineeRank && { nomineeRank: rest.nomineeRank.trim() }),
-        ...(rest.nominatorName && { nominatorName: rest.nominatorName.trim() }),
-        ...(rest.awardType && { awardType: rest.awardType }),
-        ...(rest.awardCategory && { awardCategory: rest.awardCategory }),
+        ...(rest.nomineeName    && { nomineeName: rest.nomineeName.trim() }),
+        ...(rest.nomineeRank    && { nomineeRank: rest.nomineeRank.trim() }),
+        ...(rest.nominatorName  && { nominatorName: rest.nominatorName.trim() }),
+        ...(rest.supportingMembers && { supportingMembers: rest.supportingMembers }),
+        ...(rest.awardType      && { awardType: rest.awardType }),
+        ...(rest.awardCategory  && { awardCategory: rest.awardCategory }),
+        ...(rest.awardCategoryOther && { awardCategoryOther: rest.awardCategoryOther }),
         ...(rest.awardRequirements && { awardRequirements: rest.awardRequirements.trim() }),
         ...(rest.awardDesignRef && { awardDesignRef: rest.awardDesignRef.trim() }),
-        ...(rest.otherComments && { otherComments: rest.otherComments.trim() }),
+        ...(rest.awardDesignNotes && { awardDesignNotes: rest.awardDesignNotes.trim() }),
+        ...(rest.otherComments  && { otherComments: rest.otherComments.trim() }),
     }
 
     await Db.communityTickets.insertOne(doc)

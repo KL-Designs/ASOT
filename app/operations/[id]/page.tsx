@@ -95,7 +95,6 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
                 {/* Cover photo */}
                 {hasCover && (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                         src={operation.coverImage}
                         alt=''

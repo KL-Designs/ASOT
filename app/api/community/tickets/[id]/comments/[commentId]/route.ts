@@ -20,14 +20,17 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     const comment = await Db.communityTicketComments.findOne({ _id: new ObjectId(commentId), ticketId: new ObjectId(id) })
     if (!comment || comment.isDeleted) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    if (comment.authorId !== me.id && !isJ4) {
+    // Only the author can edit their own comment
+    if (comment.authorId !== me.id) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const { content } = await req.json().catch(() => ({}))
     if (!content?.trim()) return NextResponse.json({ error: 'content is required' }, { status: 400 })
 
+    const prevContent = comment.content
     const now = new Date()
+
     await Db.communityTicketComments.updateOne(
         { _id: new ObjectId(commentId) },
         { $set: { content: content.trim(), updatedAt: now, isEdited: true } }
@@ -42,6 +45,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
                     actorId: me.id,
                     actorName: me.guild.displayName ?? me.username,
                     timestamp: now,
+                    commentId: commentId,
+                    prevContent,
+                    newValue: content.trim(),
                 } as CommunityTicketActivity,
             },
         }
@@ -69,9 +75,11 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     }
 
     const now = new Date()
+    const prevContent = comment.content
+
     await Db.communityTicketComments.updateOne(
         { _id: new ObjectId(commentId) },
-        { $set: { isDeleted: true, content: '[deleted]' } }
+        { $set: { isDeleted: true } }
     )
 
     await Db.communityTickets.updateOne(
@@ -84,6 +92,8 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
                     actorId: me.id,
                     actorName: me.guild.displayName ?? me.username,
                     timestamp: now,
+                    commentId: commentId,
+                    prevContent,
                 } as CommunityTicketActivity,
             },
         }

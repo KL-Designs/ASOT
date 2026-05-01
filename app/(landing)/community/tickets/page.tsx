@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
     Add, KeyboardArrowDown, KeyboardArrowUp,
@@ -8,107 +9,78 @@ import {
     ThumbUp, ThumbDown, Comment,
 } from '@mui/icons-material'
 import { CircularProgress } from '@mui/material'
+import {
+    STATUS_META, ACTIVE_STATUSES, CLOSED_STATUSES, ALL_STATUSES,
+    CAT_META, SUBTYPE_LABELS, PUBLIC_CATEGORIES, PRIVATE_CATEGORIES, getStatus,
+} from './_shared/constants'
 
 type TicketItem = CommunityTicket & { _id: string }
 type SortMode = 'votes' | 'newest' | 'oldest'
 
-const CATEGORIES: { value: string; label: string; icon: React.ReactNode; color: string }[] = [
-    { value: 'all', label: 'All Tickets', icon: null, color: 'rgba(237,237,237,0.5)' },
-    { value: 'request', label: 'Requests', icon: <Lightbulb style={{ fontSize: 11 }} />, color: 'rgba(255,160,0,0.85)' },
-    { value: 'bug', label: 'Bug Reports', icon: <BugReport style={{ fontSize: 11 }} />, color: 'rgba(219,0,29,0.85)' },
-    { value: 'mission', label: 'Missions', icon: <Map style={{ fontSize: 11 }} />, color: 'rgba(0,195,255,0.85)' },
-    { value: 'campaign', label: 'Campaigns', icon: <Campaign style={{ fontSize: 11 }} />, color: 'rgba(167,139,250,0.9)' },
-    { value: 'unit-feedback', label: 'Unit Feedback', icon: <Feedback style={{ fontSize: 11 }} />, color: 'rgba(74,222,128,0.85)' },
-    { value: 'complaint', label: 'Complaints', icon: <ReportProblem style={{ fontSize: 11 }} />, color: 'rgba(255,80,80,0.85)' },
-    { value: 'award', label: 'Awards', icon: <EmojiEvents style={{ fontSize: 11 }} />, color: 'rgba(255,200,0,0.9)' },
-]
-
-const STATUSES = [
-    { value: 'all', label: 'All Statuses' },
-    { value: 'open', label: 'Open' },
-    { value: 'in_progress', label: 'In Progress' },
-    { value: 'resolved', label: 'Resolved' },
-    { value: 'closed', label: 'Closed' },
-]
-
-const STATUS_COLOURS: Record<string, string> = {
-    open: 'rgba(237,237,237,0.55)',
-    in_progress: 'rgba(0,195,255,0.9)',
-    resolved: 'rgba(74,222,128,0.85)',
-    closed: 'rgba(237,237,237,0.3)',
-}
-
-const STATUS_BORDER: Record<string, string> = {
-    open: 'rgba(255,255,255,0.15)',
-    in_progress: 'rgba(0,195,255,0.7)',
-    resolved: 'rgba(74,222,128,0.6)',
-    closed: 'rgba(255,255,255,0.1)',
-}
-
-const STATUS_LABELS: Record<string, string> = {
-    open: 'Open',
-    in_progress: 'In Progress',
-    resolved: 'Resolved',
-    closed: 'Closed',
+const CAT_ICONS: Record<string, React.ReactNode> = {
+    request:         <Lightbulb style={{ fontSize: 12 }} />,
+    bug:             <BugReport style={{ fontSize: 12 }} />,
+    mission:         <Map style={{ fontSize: 12 }} />,
+    campaign:        <Campaign style={{ fontSize: 12 }} />,
+    'unit-feedback': <Feedback style={{ fontSize: 12 }} />,
+    complaint:       <ReportProblem style={{ fontSize: 12 }} />,
+    award:           <EmojiEvents style={{ fontSize: 12 }} />,
 }
 
 const SORT_OPTIONS: { value: SortMode; label: string }[] = [
-    { value: 'votes', label: 'Most Voted' },
-    { value: 'newest', label: 'Newest' },
-    { value: 'oldest', label: 'Oldest' },
+    { value: 'votes',  label: 'Most Voted' },
+    { value: 'newest', label: 'Newest'     },
+    { value: 'oldest', label: 'Oldest'     },
 ]
-
-const SUBTYPE_LABELS: Record<string, string> = {
-    'mod-request': 'Mod Request',
-    'feature-request': 'Feature Request',
-    'bug-arma': 'Bug — Arma',
-    'bug-discord': 'Bug — Discord',
-    'bug-website': 'Bug — Website',
-    'bug-milpack': 'Bug — Milpack',
-    'bug-teamspeak': 'Bug — TeamSpeak',
-    'bug-other-game': 'Bug — Other Game',
-    'bug-other': 'Bug — Other',
-    'mission': 'Mission Idea',
-    'campaign': 'Campaign Idea',
-    'unit-feedback': 'Unit Feedback',
-    'complaint-individual': 'Complaint — Individual',
-    'complaint-group': 'Complaint — Group',
-    'complaint-department': 'Complaint — Dept',
-    'award-nomination': 'Award Nomination',
-    'award-creation': 'Award Idea',
-}
-
-function getCategoryColor(cat: string): string {
-    return CATEGORIES.find(c => c.value === cat)?.color ?? 'rgba(237,237,237,0.5)'
-}
 
 function avatarUrl(item: TicketItem): string {
     if (item.isAnonymous) return ''
     if (item.authorAvatarId) return `https://cdn.discordapp.com/avatars/${item.authorId}/${item.authorAvatarId}.png?size=32`
     try { return `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(item.authorId) % BigInt(6))}.png` }
-    catch { return `https://cdn.discordapp.com/embed/avatars/0.png` }
+    catch { return 'https://cdn.discordapp.com/embed/avatars/0.png' }
 }
 
 
+const DRAFT_KEY = 'community_ticket_draft_v3'
+
 export default function CommunityTicketsPage() {
+    const router = useRouter()
     const [items, setItems] = useState<TicketItem[]>([])
     const [loading, setLoading] = useState(true)
+    const [isJ4, setIsJ4] = useState(false)
     const [categoryFilter, setCategoryFilter] = useState('all')
-    const [statusFilter, setStatusFilter] = useState('all')
+    const [statusFilters, setStatusFilters] = useState<string[]>([])
     const [sort, setSort] = useState<SortMode>('votes')
-    const [resolvedOpen, setResolvedOpen] = useState(false)
+    const [closedOpen, setClosedOpen] = useState(false)
+    const [draftModal, setDraftModal] = useState(false)
+
+    function handleSubmitClick() {
+        try {
+            const raw = localStorage.getItem(DRAFT_KEY)
+            if (raw) { JSON.parse(raw); setDraftModal(true); return }
+        } catch { /* ignore */ }
+        router.push('/community/tickets/new')
+    }
+
+    useEffect(() => {
+        fetch('/api/me').then(r => r.json()).then(d => setIsJ4(!!d.isJ4)).catch(() => {})
+    }, [])
 
     useEffect(() => {
         const p = new URLSearchParams()
         if (categoryFilter !== 'all') p.set('category', categoryFilter)
-        if (statusFilter !== 'all') p.set('status', statusFilter)
+        statusFilters.forEach(s => p.append('status', s))
         p.set('sort', sort)
         setLoading(true)
         fetch(`/api/community/tickets?${p}`)
             .then(r => r.json())
             .then(d => { setItems(Array.isArray(d) ? d : []); setLoading(false) })
             .catch(() => setLoading(false))
-    }, [categoryFilter, statusFilter, sort])
+    }, [categoryFilter, statusFilters, sort])
+
+    function toggleStatus(s: string) {
+        setStatusFilters(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s])
+    }
 
     const sorted = useMemo(() => {
         return [...items].sort((a, b) => {
@@ -118,116 +90,109 @@ export default function CommunityTicketsPage() {
         })
     }, [items, sort])
 
-    const active = sorted.filter(i => ['open', 'in_progress'].includes(i.status))
-    const resolved = sorted.filter(i => ['resolved', 'closed'].includes(i.status))
+    const active = sorted.filter(i => ACTIVE_STATUSES.includes(i.status as CommunityTicketStatus))
+    const closed = sorted.filter(i => CLOSED_STATUSES.includes(i.status as CommunityTicketStatus))
 
-    const counts = useMemo(() => {
+    const statusCounts = useMemo(() => {
         const c: Record<string, number> = {}
-        for (const s of ['open', 'in_progress', 'resolved', 'closed']) {
-            c[s] = items.filter(i => i.status === s).length
-        }
+        for (const s of ALL_STATUSES) c[s] = items.filter(i => i.status === s).length
         return c
     }, [items])
 
+    // Public users only see public category filters; J4 sees all
+    const visibleCatFilters = isJ4
+        ? [...PUBLIC_CATEGORIES, ...PRIVATE_CATEGORIES]
+        : PUBLIC_CATEGORIES
+
     return (
+        <>
+        {draftModal && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ background: '#111', border: '1px solid rgba(255,255,255,0.12)', borderTop: '3px solid rgba(219,0,29,0.5)', padding: '28px', maxWidth: 420, width: '90%' }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.9)', marginBottom: 8 }}>EXISTING DRAFT FOUND</div>
+                    <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)', marginBottom: 24, lineHeight: 1.5 }}>You have a saved draft ticket. Would you like to continue it or start fresh?</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <button onClick={() => { setDraftModal(false); router.push('/community/tickets/new') }} style={{ padding: '10px 18px', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.9)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.08em', textAlign: 'left' }}>
+                            CONTINUE EXISTING DRAFT
+                        </button>
+                        <button onClick={() => { try { localStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ } setDraftModal(false); router.push('/community/tickets/new') }} style={{ padding: '10px 18px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.55)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textAlign: 'left' }}>
+                            START NEW TICKET
+                        </button>
+                        <button onClick={() => setDraftModal(false)} style={{ padding: '6px 0', background: 'none', border: 'none', color: 'rgba(237,237,237,0.25)', cursor: 'pointer', fontSize: '0.65rem', letterSpacing: '0.06em' }}>
+                            CANCEL
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 24, alignItems: 'start' }}>
 
             {/* ── SIDEBAR ── */}
             <aside style={{ position: 'sticky', top: 24, display: 'flex', flexDirection: 'column', gap: 1 }}>
 
                 <div style={{ background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.25)', padding: '14px 16px', marginBottom: 8 }}>
-                    <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.18em', color: 'rgba(219,0,29,0.6)', marginBottom: 4 }}>
-                        ASOT // PORTAL
-                    </div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--foreground)' }}>
-                        TICKETS
-                    </div>
-                    <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.35)', marginTop: 3, letterSpacing: '0.04em', lineHeight: 1.4 }}>
-                        Requests, bugs, missions &amp; more
-                    </div>
+                    <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.18em', color: 'rgba(219,0,29,0.6)', marginBottom: 4 }}>ASOT // PORTAL</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--foreground)' }}>TICKETS</div>
+                    <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', marginTop: 3, lineHeight: 1.4 }}>Requests, bugs, missions &amp; more</div>
                 </div>
 
-                <Link href='/community/tickets/new' style={{ display: 'block', marginBottom: 16 }}>
-                    <button style={{
-                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                        background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)',
-                        color: 'rgba(219,0,29,0.95)', padding: '9px 0',
-                        fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.14em', cursor: 'pointer',
-                    }}>
-                        <Add style={{ fontSize: 14 }} /> SUBMIT TICKET
-                    </button>
-                </Link>
+                <button onClick={handleSubmitClick} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.95)', padding: '9px 0', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.14em', cursor: 'pointer', marginBottom: 16 }}>
+                    <Add style={{ fontSize: 14 }} /> SUBMIT TICKET
+                </button>
 
-                {/* Category filter */}
-                <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.16em', color: 'rgba(237,237,237,0.25)', marginBottom: 6, paddingLeft: 2 }}>
-                        CATEGORY
-                    </div>
-                    {CATEGORIES.map(c => (
-                        <button key={c.value} onClick={() => setCategoryFilter(c.value)} style={{
-                            display: 'flex', alignItems: 'center', gap: 7, width: '100%', padding: '7px 10px',
-                            background: categoryFilter === c.value ? 'rgba(255,255,255,0.05)' : 'transparent',
-                            border: 'none', borderLeft: `2px solid ${categoryFilter === c.value ? c.color : 'transparent'}`,
-                            color: categoryFilter === c.value ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)',
-                            fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.06em', cursor: 'pointer', textAlign: 'left',
-                        }}>
-                            {c.icon && <span style={{ color: c.color, display: 'flex' }}>{c.icon}</span>}
-                            {c.label}
+                {/* Category */}
+                <SideLabel>CATEGORY</SideLabel>
+                <SideBtn active={categoryFilter === 'all'} color='rgba(237,237,237,0.55)' onClick={() => setCategoryFilter('all')}>
+                    All Tickets
+                </SideBtn>
+                {visibleCatFilters.map(cat => (
+                    <SideBtn key={cat} active={categoryFilter === cat} color={CAT_META[cat]?.color ?? 'rgba(237,237,237,0.5)'} onClick={() => setCategoryFilter(cat)}>
+                        <span style={{ color: CAT_META[cat]?.color, display: 'flex', flexShrink: 0 }}>{CAT_ICONS[cat]}</span>
+                        {CAT_META[cat]?.label ?? cat}
+                        {PRIVATE_CATEGORIES.includes(cat as CommunityTicketCategory) && (
+                            <span style={{ fontSize: '0.5rem', fontWeight: 800, padding: '1px 4px', color: 'rgba(255,80,80,0.65)', border: '1px solid rgba(255,80,80,0.2)', lineHeight: 1, marginLeft: 'auto' }}>P</span>
+                        )}
+                    </SideBtn>
+                ))}
+
+                {/* Status multi-select */}
+                <SideLabel style={{ marginTop: 12 }}>
+                    STATUS
+                    {statusFilters.length > 0 && (
+                        <button onClick={() => setStatusFilters([])} style={{ marginLeft: 6, fontSize: '0.55rem', color: 'rgba(237,237,237,0.25)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕ clear</button>
+                    )}
+                </SideLabel>
+                {ALL_STATUSES.map(s => {
+                    const meta = STATUS_META[s]
+                    const active = statusFilters.includes(s)
+                    return (
+                        <button key={s} onClick={() => toggleStatus(s)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '5px 10px', background: active ? `${meta.color}10` : 'transparent', border: 'none', borderLeft: `2px solid ${active ? meta.border : 'transparent'}`, color: active ? meta.color : 'rgba(237,237,237,0.38)', fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.04em', cursor: 'pointer', textAlign: 'left' }}>
+                            <div style={{ width: 6, height: 6, borderRadius: '50%', background: meta.color, flexShrink: 0, opacity: active ? 1 : 0.3 }} />
+                            {meta.label}
                         </button>
-                    ))}
-                </div>
-
-                {/* Status filter */}
-                <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.16em', color: 'rgba(237,237,237,0.25)', marginBottom: 6, paddingLeft: 2 }}>
-                        STATUS
-                    </div>
-                    {STATUSES.map(s => (
-                        <button key={s.value} onClick={() => setStatusFilter(s.value)} style={{
-                            display: 'block', width: '100%', padding: '7px 10px', textAlign: 'left',
-                            background: statusFilter === s.value ? 'rgba(255,255,255,0.05)' : 'transparent',
-                            border: 'none', borderLeft: `2px solid ${statusFilter === s.value ? (STATUS_COLOURS[s.value] ?? 'rgba(255,255,255,0.3)') : 'transparent'}`,
-                            color: statusFilter === s.value ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)',
-                            fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.06em', cursor: 'pointer',
-                        }}>
-                            {s.label}
-                        </button>
-                    ))}
-                </div>
+                    )
+                })}
 
                 {/* Sort */}
-                <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.16em', color: 'rgba(237,237,237,0.25)', marginBottom: 6, paddingLeft: 2 }}>
-                        SORT BY
-                    </div>
-                    {SORT_OPTIONS.map(s => (
-                        <button key={s.value} onClick={() => setSort(s.value)} style={{
-                            display: 'block', width: '100%', padding: '7px 10px', textAlign: 'left',
-                            background: sort === s.value ? 'rgba(255,255,255,0.05)' : 'transparent',
-                            border: 'none', borderLeft: `2px solid ${sort === s.value ? 'rgba(255,255,255,0.3)' : 'transparent'}`,
-                            color: sort === s.value ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)',
-                            fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.06em', cursor: 'pointer',
-                        }}>
-                            {s.label}
-                        </button>
-                    ))}
-                </div>
+                <SideLabel style={{ marginTop: 12 }}>SORT BY</SideLabel>
+                {SORT_OPTIONS.map(s => (
+                    <SideBtn key={s.value} active={sort === s.value} color='rgba(255,255,255,0.45)' onClick={() => setSort(s.value)}>
+                        {s.label}
+                    </SideBtn>
+                ))}
 
-                {/* Stats */}
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 14 }}>
-                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.16em', color: 'rgba(237,237,237,0.25)', marginBottom: 8, paddingLeft: 2 }}>
-                        STATUS BREAKDOWN
-                    </div>
-                    {(['open', 'in_progress', 'resolved', 'closed'] as const).map(s => (
-                        <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 10px' }}>
-                            <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', letterSpacing: '0.03em' }}>{STATUS_LABELS[s]}</span>
-                            <span style={{ fontSize: '0.65rem', fontWeight: 800, fontFamily: 'monospace', color: STATUS_COLOURS[s], minWidth: 20, textAlign: 'right' }}>
-                                {String(counts[s] ?? 0).padStart(2, '0')}
+                {/* Status breakdown */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 14, marginTop: 12 }}>
+                    <SideLabel>STATUS BREAKDOWN</SideLabel>
+                    {ALL_STATUSES.map(s => (
+                        <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 10px' }}>
+                            <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.42)' }}>{STATUS_META[s].label}</span>
+                            <span style={{ fontSize: '0.65rem', fontWeight: 800, fontFamily: 'monospace', color: STATUS_META[s].color }}>
+                                {String(statusCounts[s] ?? 0).padStart(2, '0')}
                             </span>
                         </div>
                     ))}
                 </div>
-
             </aside>
 
             {/* ── MAIN FEED ── */}
@@ -238,34 +203,21 @@ export default function CommunityTicketsPage() {
                     </div>
                 ) : (
                     <>
-                        <TicketSection
-                            label='Active'
-                            tag='OPEN & IN PROGRESS'
-                            items={active}
-                            empty='No active tickets.'
-                            borderColor='rgba(255,255,255,0.15)'
-                            labelColor='rgba(237,237,237,0.6)'
-                        />
+                        <TicketSection label='Active' tag='OPEN · IN REVIEW · IMPLEMENTING' items={active} empty='No active tickets.' />
 
-                        {resolved.length > 0 && (
+                        {closed.length > 0 && (
                             <div>
-                                <button onClick={() => setResolvedOpen(v => !v)} style={{
-                                    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                                    background: 'transparent', border: 'none',
-                                    borderTop: '1px solid rgba(255,255,255,0.07)',
-                                    borderBottom: resolvedOpen ? 'none' : '1px solid rgba(255,255,255,0.07)',
-                                    padding: '10px 0', cursor: 'pointer',
-                                    color: 'rgba(237,237,237,0.3)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.14em',
-                                }}>
-                                    {resolvedOpen ? <KeyboardArrowUp style={{ fontSize: 16 }} /> : <KeyboardArrowDown style={{ fontSize: 16 }} />}
-                                    RESOLVED / CLOSED
-                                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.7rem', color: 'rgba(237,237,237,0.25)' }}>
-                                        [{String(resolved.length).padStart(2, '0')}]
+                                <button onClick={() => setClosedOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'transparent', border: 'none', borderTop: '1px solid rgba(255,255,255,0.07)', borderBottom: closedOpen ? 'none' : '1px solid rgba(255,255,255,0.07)', padding: '10px 0', cursor: 'pointer', color: 'rgba(237,237,237,0.32)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.14em' }}>
+                                    {closedOpen ? <KeyboardArrowUp style={{ fontSize: 16 }} /> : <KeyboardArrowDown style={{ fontSize: 16 }} />}
+                                    CLOSED
+                                    <span style={{ fontFamily: 'monospace', color: 'rgba(237,237,237,0.22)', marginLeft: 4 }}>[{String(closed.length).padStart(2, '0')}]</span>
+                                    <span style={{ marginLeft: 'auto', fontSize: '0.6rem', letterSpacing: '0.05em', color: 'rgba(237,237,237,0.18)', fontWeight: 400 }}>
+                                        IMPLEMENTED · RESOLVED · DENIED · CLOSED
                                     </span>
                                 </button>
-                                {resolvedOpen && (
+                                {closedOpen && (
                                     <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 8 }}>
-                                        {resolved.map(item => <TicketCard key={item._id} item={item} />)}
+                                        {closed.map(item => <TicketCard key={item._id} item={item} />)}
                                     </div>
                                 )}
                             </div>
@@ -274,38 +226,40 @@ export default function CommunityTicketsPage() {
                 )}
             </main>
         </div>
+        </>
     )
 }
 
 
-function TicketSection({ label, tag, items, empty, borderColor, labelColor }: {
-    label: string; tag: string; items: TicketItem[]; empty?: string
-    borderColor: string; labelColor: string
-}) {
+function SideLabel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+    return (
+        <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.18em', color: 'rgba(237,237,237,0.25)', marginBottom: 5, paddingLeft: 2, display: 'flex', alignItems: 'center', gap: 4, ...style }}>
+            {children}
+        </div>
+    )
+}
+
+function SideBtn({ active, color, onClick, children }: { active: boolean; color: string; onClick: () => void; children: React.ReactNode }) {
+    return (
+        <button onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', padding: '6px 10px', background: active ? 'rgba(255,255,255,0.05)' : 'transparent', border: 'none', borderLeft: `2px solid ${active ? color : 'transparent'}`, color: active ? 'rgba(237,237,237,0.92)' : 'rgba(237,237,237,0.4)', fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.05em', cursor: 'pointer', textAlign: 'left' }}>
+            {children}
+        </button>
+    )
+}
+
+function TicketSection({ label, tag, items, empty }: { label: string; tag: string; items: TicketItem[]; empty?: string }) {
     return (
         <div>
-            <div style={{
-                display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10,
-                borderBottom: `1px solid ${borderColor}33`, paddingBottom: 8,
-            }}>
-                <div style={{ width: 3, height: 16, background: borderColor, flexShrink: 0 }} />
-                <span style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.16em', color: labelColor }}>
-                    {label.toUpperCase()}
-                </span>
-                <span style={{
-                    fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', padding: '2px 6px',
-                    border: `1px solid ${borderColor}55`, color: labelColor, opacity: 0.7,
-                }}>
-                    {tag}
-                </span>
-                <span style={{ fontFamily: 'monospace', fontSize: '0.68rem', fontWeight: 700, color: labelColor, marginLeft: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.07)', paddingBottom: 8 }}>
+                <div style={{ width: 3, height: 16, background: 'rgba(255,255,255,0.2)', flexShrink: 0 }} />
+                <span style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.16em', color: 'rgba(237,237,237,0.7)' }}>{label.toUpperCase()}</span>
+                <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', padding: '2px 6px', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.38)' }}>{tag}</span>
+                <span style={{ fontFamily: 'monospace', fontSize: '0.68rem', fontWeight: 700, color: 'rgba(237,237,237,0.42)', marginLeft: 'auto' }}>
                     [{String(items.length).padStart(2, '0')}]
                 </span>
             </div>
             {items.length === 0 ? (
-                <div style={{ color: 'rgba(237,237,237,0.25)', fontSize: '0.82rem', padding: '24px 0', textAlign: 'center', letterSpacing: '0.06em' }}>
-                    {empty}
-                </div>
+                <div style={{ color: 'rgba(237,237,237,0.2)', fontSize: '0.82rem', padding: '24px 0', textAlign: 'center', letterSpacing: '0.06em' }}>{empty}</div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 8 }}>
                     {items.map(item => <TicketCard key={item._id} item={item} />)}
@@ -317,98 +271,63 @@ function TicketSection({ label, tag, items, empty, borderColor, labelColor }: {
 
 
 function TicketCard({ item }: { item: TicketItem }) {
+    const router = useRouter()
     const [imgErr, setImgErr] = useState(false)
-    const catColor = getCategoryColor(item.category)
-    const statusCol = STATUS_BORDER[item.status] ?? 'rgba(255,255,255,0.15)'
+    const cat = CAT_META[item.category]
+    const status = getStatus(item.status)
 
     return (
-        <Link href={`/community/tickets/${item._id}`}>
-            <div
-                style={{
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    borderLeft: `3px solid ${statusCol}`,
-                    cursor: 'pointer', display: 'flex', flexDirection: 'column',
-                    transition: 'background 0.12s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
-            >
-                {/* Top bar */}
-                <div style={{
-                    display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px',
-                    borderBottom: '1px solid rgba(255,255,255,0.04)',
-                    background: 'rgba(0,0,0,0.15)',
-                }}>
-                    <span style={{
-                        fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.1em', padding: '2px 5px',
-                        color: catColor, border: `1px solid ${catColor}33`,
-                        display: 'flex', alignItems: 'center', gap: 3,
-                    }}>
-                        {CATEGORIES.find(c => c.value === item.category)?.icon}
-                        {SUBTYPE_LABELS[item.subtype] ?? item.subtype.toUpperCase()}
+        <div
+            onClick={() => router.push(`/community/tickets/${item._id}`)}
+            style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${cat?.borderColor ?? 'rgba(255,255,255,0.06)'}`, borderLeft: `3px solid ${cat?.color ?? 'rgba(255,255,255,0.2)'}`, cursor: 'pointer', display: 'flex', flexDirection: 'column', transition: 'background 0.12s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.045)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
+        >
+            {/* Top bar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(0,0,0,0.18)' }}>
+                <span style={{ fontSize: '0.56rem', fontWeight: 800, letterSpacing: '0.09em', padding: '1px 5px', color: cat?.color ?? 'rgba(237,237,237,0.5)', border: `1px solid ${cat?.borderColor ?? 'transparent'}`, display: 'flex', alignItems: 'center', gap: 3 }}>
+                    {CAT_ICONS[item.category]}
+                    {SUBTYPE_LABELS[item.subtype] ?? item.subtype}
+                </span>
+                <span style={{ fontSize: '0.56rem', fontWeight: 800, letterSpacing: '0.09em', padding: '1px 5px', color: status.color, border: `1px solid ${status.border}55` }}>
+                    {status.label}
+                </span>
+                {item.visibility === 'private' && (
+                    <span style={{ fontSize: '0.52rem', fontWeight: 800, padding: '1px 4px', color: 'rgba(255,80,80,0.65)', border: '1px solid rgba(255,80,80,0.2)' }}>P</span>
+                )}
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: '0.63rem', fontFamily: 'monospace', color: item.voteScore > 0 ? 'rgba(74,222,128,0.7)' : item.voteScore < 0 ? 'rgba(219,0,29,0.7)' : 'rgba(237,237,237,0.35)', fontWeight: 700 }}>
+                        {item.voteScore >= 0 ? <ThumbUp style={{ fontSize: 9 }} /> : <ThumbDown style={{ fontSize: 9 }} />}
+                        {item.voteScore > 0 ? '+' : ''}{item.voteScore}
                     </span>
-                    <span style={{
-                        fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.1em', padding: '2px 5px',
-                        color: STATUS_COLOURS[item.status], border: `1px solid ${STATUS_BORDER[item.status]}44`,
-                    }}>
-                        {STATUS_LABELS[item.status]}
-                    </span>
-                    {item.visibility === 'private' && (
-                        <span style={{ fontSize: '0.56rem', fontWeight: 800, letterSpacing: '0.1em', padding: '2px 5px', color: 'rgba(255,80,80,0.7)', border: '1px solid rgba(255,80,80,0.2)' }}>
-                            PRIVATE
-                        </span>
-                    )}
-                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: '0.65rem', fontFamily: 'monospace', color: item.voteScore > 0 ? 'rgba(74,222,128,0.7)' : item.voteScore < 0 ? 'rgba(219,0,29,0.7)' : 'rgba(237,237,237,0.4)', fontWeight: 700 }}>
-                            {item.voteScore >= 0 ? <ThumbUp style={{ fontSize: 9 }} /> : <ThumbDown style={{ fontSize: 9 }} />}
-                            {item.voteScore > 0 ? '+' : ''}{item.voteScore}
-                        </span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: '0.65rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.3)', fontWeight: 700 }}>
-                            <Comment style={{ fontSize: 9 }} /> {item.commentCount}
-                        </span>
-                    </div>
-                </div>
-
-                {/* Body */}
-                <div style={{ padding: '10px 12px', flex: 1 }}>
-                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'rgba(237,237,237,0.92)', marginBottom: 5, lineHeight: 1.3 }}>
-                        {item.title}
-                    </div>
-                    <p style={{
-                        fontSize: '0.72rem', color: 'rgba(237,237,237,0.38)', overflow: 'hidden',
-                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                        lineHeight: 1.5, margin: 0,
-                    }}>
-                        {item.description}
-                    </p>
-                </div>
-
-                {/* Footer */}
-                <div style={{
-                    display: 'flex', alignItems: 'center', gap: 7, padding: '7px 12px',
-                    borderTop: '1px solid rgba(255,255,255,0.04)',
-                }}>
-                    {item.isAnonymous ? (
-                        <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'rgba(237,237,237,0.4)', fontWeight: 700 }}>
-                            ?
-                        </div>
-                    ) : !imgErr ? (
-                        <img src={avatarUrl(item)} alt={item.authorName} onError={() => setImgErr(true)}
-                            style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover', opacity: 0.8 }} />
-                    ) : (
-                        <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'rgba(237,237,237,0.5)', fontWeight: 700 }}>
-                            {item.authorName.charAt(0).toUpperCase()}
-                        </div>
-                    )}
-                    <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.03em' }}>
-                        {item.isAnonymous ? 'Anonymous' : item.authorName}
-                    </span>
-                    <span style={{ marginLeft: 'auto', fontSize: '0.62rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.2)' }}>
-                        {new Date(item.createdAt).toLocaleDateString()}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: '0.63rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.3)', fontWeight: 700 }}>
+                        <Comment style={{ fontSize: 9 }} />{item.commentCount}
                     </span>
                 </div>
             </div>
-        </Link>
+
+            {/* Body */}
+            <div style={{ padding: '10px 12px', flex: 1 }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'rgba(237,237,237,0.92)', marginBottom: 5, lineHeight: 1.3 }}>{item.title}</div>
+                <p style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.5, margin: 0 }}>
+                    {item.description}
+                </p>
+            </div>
+
+            {/* Footer */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                {item.isAnonymous ? (
+                    <div style={{ width: 17, height: 17, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: 'rgba(237,237,237,0.4)', fontWeight: 700 }}>?</div>
+                ) : !imgErr ? (
+                    <img src={avatarUrl(item)} alt={item.authorName} onError={() => setImgErr(true)} style={{ width: 17, height: 17, borderRadius: '50%', objectFit: 'cover', opacity: 0.8 }} />
+                ) : (
+                    <div style={{ width: 17, height: 17, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, color: 'rgba(237,237,237,0.5)', fontWeight: 700 }}>
+                        {item.authorName.charAt(0).toUpperCase()}
+                    </div>
+                )}
+                <span style={{ fontSize: '0.63rem', color: 'rgba(237,237,237,0.32)' }}>{item.isAnonymous ? 'Anonymous' : item.authorName}</span>
+                <span style={{ marginLeft: 'auto', fontSize: '0.6rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.18)' }}>{new Date(item.createdAt).toLocaleDateString()}</span>
+            </div>
+        </div>
     )
 }

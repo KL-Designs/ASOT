@@ -20,8 +20,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     if (ticket.isDeleted && !isJ4) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (ticket.visibility === 'private' && !isJ4) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
+    // J4 receives ALL comments (including soft-deleted) so the activity log can reconstruct them
+    const commentFilter = isJ4
+        ? { ticketId: new ObjectId(id) }
+        : { ticketId: new ObjectId(id), isDeleted: { $ne: true } }
+
     const comments = await Db.communityTicketComments
-        .find({ ticketId: new ObjectId(id), isDeleted: { $ne: true } })
+        .find(commentFilter)
         .sort({ createdAt: 1 })
         .toArray()
 
@@ -79,6 +84,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             newValue: body.department,
         })
         updates.department = body.department
+    }
+
+    // Multi-dept update (J4 only)
+    if (body.departments && Array.isArray(body.departments) && isJ4) {
+        updates.departments = body.departments
+        // Keep primary dept in sync
+        if (body.departments.length > 0 && !body.department) {
+            updates.department = body.departments[0]
+        }
+    }
+
+    // Tags update (J4 only)
+    if (body.tags && Array.isArray(body.tags) && isJ4) {
+        newActivities.push({
+            action: 'tagged',
+            actorId: me.id,
+            actorName,
+            timestamp: now,
+            newValue: body.tags.join(', '),
+        })
+        updates.tags = body.tags
     }
 
     // Content edit (author or J4)

@@ -32,7 +32,16 @@ declare global {
         | 'award-nomination'
         | 'award-creation'
 
-    type CommunityTicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
+    type CommunityTicketStatus =
+        | 'open'
+        | 'in_review'
+        | 'implementing'
+        | 'implemented'
+        | 'broken_mod'
+        | 'resolved'
+        | 'denied'
+        | 'no_action_required'
+        | 'closed'
 
     type CommunityTicketVisibility = 'public' | 'private'
 
@@ -60,52 +69,77 @@ declare global {
         voteScore: number
         commentCount: number
 
+        /** Primary routing dept (kept for backward compat); full list in departments[] */
         department: string
+        /** Multi-dept assignment (J4 can assign multiple) */
+        departments: string[]
 
-        // Request fields
+        /** Discord forum-style tags */
+        tags: string[]
+
+        // ── Request fields ──────────────────────────────────────────────────────
         modLink?: string
         game?: string
         gameOther?: string
         featureCategory?: string
+        featureCategoryOther?: string
         weblink?: string
         justification?: string
 
-        // Bug fields
+        // ── Bug fields ──────────────────────────────────────────────────────────
         stepsToReproduce?: string
         expectedResult?: string
         actualResult?: string
         severity?: 'low' | 'medium' | 'high' | 'critical'
+        /** For Discord: array of issue types selected */
+        discordIssueTypes?: string[]
+        discordIssueDetail?: string
+        /** For Website/MILPAC: the URL */
+        bugUrl?: string
+        /** For TeamSpeak: selected issue type */
+        tsBugType?: string
+        /** Fallback platform detail string */
         bugPlatformDetail?: string
 
-        // Mission fields
+        // ── Mission/Campaign fields ─────────────────────────────────────────────
+        missionType?: 'midweek' | 'weekend'
         missionForces?: string
+        missionEnemyForces?: string
+        missionFriendlyForces?: string
+        missionIndependentForces?: string
+        missionCivilianPopulace?: string
         missionObjectives?: string
         missionStory?: string
         missionPlayerExperience?: string
         missionMechanics?: string
-
-        // Campaign fields
+        missionAdditionalNotes?: string
         campaignPhases?: CampaignPhase[]
 
-        // Unit Feedback fields (private)
+        // ── Unit Feedback fields (private) ──────────────────────────────────────
         feedbackCategories?: string[]
+        feedbackCategoryOther?: string
         feedbackType?: 'positive' | 'neutral' | 'negative'
 
-        // Complaint fields (private)
+        // ── Complaint fields (private) ──────────────────────────────────────────
         complainantName?: string
+        complainantAnonymous?: boolean
         membersInvolved?: string[]
+        membersInvolvedNotListed?: string
         isStaffComplaint?: boolean
         desiredOutcome?: string
         evidenceAcknowledged?: boolean
 
-        // Award fields (private)
+        // ── Award fields (private) ──────────────────────────────────────────────
         nomineeName?: string
         nomineeRank?: string
         nominatorName?: string
+        supportingMembers?: string[]
         awardType?: string
         awardCategory?: string
+        awardCategoryOther?: string
         awardRequirements?: string
         awardDesignRef?: string
+        awardDesignNotes?: string
 
         attachments: string[]
         mediaLinks?: string[]
@@ -130,15 +164,32 @@ declare global {
         updatedAt?: Date
         isEdited: boolean
         isDeleted: boolean
+        upvotes: string[]
+        downvotes: string[]
+        voteScore: number
     }
 
     interface CommunityTicketActivity {
-        action: 'created' | 'edited' | 'deleted' | 'restored' | 'status_changed' | 'reassigned' | 'comment_added' | 'comment_edited' | 'comment_deleted'
+        action:
+            | 'created'
+            | 'edited'
+            | 'deleted'
+            | 'restored'
+            | 'status_changed'
+            | 'reassigned'
+            | 'tagged'
+            | 'comment_added'
+            | 'comment_edited'
+            | 'comment_deleted'
         actorId: string
         actorName: string
         timestamp: Date
         oldValue?: string
         newValue?: string
+        /** For comment-related activities: links to the comment */
+        commentId?: string
+        /** Stores previous content for edit diffs */
+        prevContent?: string
     }
 
 }

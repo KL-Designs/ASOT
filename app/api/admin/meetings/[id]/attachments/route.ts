@@ -20,7 +20,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!meeting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const deptKey = meeting.department as keyof typeof PERMISSIONS.departments
-    if (!client.hasRoles(me, PERMISSIONS.departments[deptKey])) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const hasAccess = client.hasRoles(me, PERMISSIONS.departments[deptKey]) || (meeting.invitedUserIds ?? []).includes(me.id)
+    if (!hasAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     if (meeting.locked) return NextResponse.json({ error: 'Meeting is locked' }, { status: 403 })
 
     const displayName = me.guild?.nickname || me.globalName || me.username || 'Unknown'
@@ -50,19 +51,32 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             uploadedAt: new Date(),
         }
     } else {
-        let body: { youtubeUrl: string }
+        let body: { youtubeUrl?: string; linkUrl?: string }
         try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid body' }, { status: 400 }) }
-        if (!body.youtubeUrl || !YOUTUBE_RE.test(body.youtubeUrl)) {
-            return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 })
-        }
 
-        attachment = {
-            id: crypto.randomUUID(),
-            type: 'youtube',
-            url: body.youtubeUrl,
-            uploadedBy: me.id,
-            uploadedByName: displayName,
-            uploadedAt: new Date(),
+        if (body.youtubeUrl) {
+            if (!YOUTUBE_RE.test(body.youtubeUrl)) {
+                return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 })
+            }
+            attachment = {
+                id: crypto.randomUUID(),
+                type: 'youtube',
+                url: body.youtubeUrl,
+                uploadedBy: me.id,
+                uploadedByName: displayName,
+                uploadedAt: new Date(),
+            }
+        } else if (body.linkUrl) {
+            attachment = {
+                id: crypto.randomUUID(),
+                type: 'link',
+                url: body.linkUrl,
+                uploadedBy: me.id,
+                uploadedByName: displayName,
+                uploadedAt: new Date(),
+            }
+        } else {
+            return NextResponse.json({ error: 'youtubeUrl or linkUrl required' }, { status: 400 })
         }
     }
 

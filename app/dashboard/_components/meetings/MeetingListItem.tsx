@@ -1,6 +1,6 @@
 'use client'
 
-import { Lock } from '@mui/icons-material'
+import { Lock, CheckCircle } from '@mui/icons-material'
 
 interface Props {
     meeting: Meeting
@@ -33,7 +33,8 @@ export default function MeetingListItem({ meeting, selected, onClick }: Props) {
                 }}>
                     {meeting.title}
                 </span>
-                {meeting.locked && <Lock sx={{ fontSize: 11, color: 'rgba(219,0,29,0.6)', flexShrink: 0, mt: '2px' }} />}
+                {meeting.completed && <CheckCircle sx={{ fontSize: 11, color: 'rgba(74,222,128,0.6)', flexShrink: 0, mt: '2px' }} />}
+                {!meeting.completed && meeting.locked && <Lock sx={{ fontSize: 11, color: 'rgba(219,0,29,0.6)', flexShrink: 0, mt: '2px' }} />}
             </div>
             <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.3)', marginTop: 3, display: 'block' }}>
                 {dateStr}

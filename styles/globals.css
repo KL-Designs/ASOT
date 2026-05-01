@@ -57,6 +57,32 @@ body {
 	}
 }
 
+/* ── Dark mode: native form controls (site-wide) ─────────────────────────── */
+/* color-scheme: dark makes the browser render the picker popup in dark mode. */
+select,
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"] {
+	color-scheme: dark;
+	background-color: rgba(255, 255, 255, 0.04);
+	color: var(--foreground);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Dropdown option items */
+select option {
+	background-color: rgb(13, 13, 13);
+	color: var(--foreground);
+}
+
+/* When these inputs are styled with all:unset via inline styles, the
+   color-scheme is also reset. Apply it via a supporting class instead. */
+.dark-input {
+	color-scheme: dark !important;
+}
+
 
 @layer base {
 

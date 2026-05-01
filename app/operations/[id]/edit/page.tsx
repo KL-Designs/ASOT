@@ -667,7 +667,6 @@ export default function Page() {
                         {coverImage ? (
                             <>
                                 <div style={{ position: 'relative', width: 140, height: 52, flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img src={coverImage} alt='cover' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                                 </div>
                                 <button

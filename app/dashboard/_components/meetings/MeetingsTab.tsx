@@ -109,7 +109,9 @@ export default function MeetingsTab({ department, userId, isLead }: MeetingsTabP
                 <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
                     {selected ? (
                         <MeetingDetail
+                            key={selected._id?.toString()}
                             meeting={selected}
+                            department={department}
                             userId={userId}
                             isLead={isLead}
                             onUpdate={updateMeeting}

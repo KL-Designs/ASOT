@@ -54,6 +54,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         createdAt: now,
         isEdited: false,
         isDeleted: false,
+        upvotes: [],
+        downvotes: [],
+        voteScore: 0,
     }
 
     await Db.communityTicketComments.insertOne(comment)
