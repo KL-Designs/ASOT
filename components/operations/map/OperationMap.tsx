@@ -622,7 +622,7 @@ export default function OperationMap({
                     const southLat = worldSize - (row + 1) * tileM
                     const northLat = worldSize - row * tileM
                     const bounds: L.LatLngBoundsLiteral = [[southLat, col * tileM], [northLat, (col + 1) * tileM]]
-                    const overlay = L.imageOverlay(`/maps/${name}/sat/${col}/${row}.jpg`, bounds, { pane: 'mapContent' })
+                    const overlay = L.imageOverlay(`/map-assets/${name}/sat/${col}/${row}.jpg`, bounds, { pane: 'mapContent' })
                     overlay.addTo(map)
                     satOverlaysRef.current.push(overlay)
                 }
@@ -640,7 +640,7 @@ export default function OperationMap({
                 if (mode === 'terrain') {
                     if (w.hasTerrain) {
                         L.imageOverlay(
-                            `/maps/${w.name}/terrain.png`,
+                            `/map-assets/${w.name}/terrain.png`,
                             [[0, 0], [w.worldSize, w.worldSize]],
                             { pane: 'terrainPane', interactive: false },
                         ).addTo(all)
@@ -654,7 +654,7 @@ export default function OperationMap({
                     // map mode: coastline.png shows real land/ocean shape; fallback to solid rect
                     if (w.hasCoastline) {
                         L.imageOverlay(
-                            `/maps/${w.name}/coastline.png`,
+                            `/map-assets/${w.name}/coastline.png`,
                             [[0, 0], [w.worldSize, w.worldSize]],
                             { pane: 'terrainPane', interactive: false },
                         ).addTo(all)
@@ -668,7 +668,7 @@ export default function OperationMap({
 
                 // Contour lines
                 if (w.hasContours) {
-                    const contourData = await fetchGzJson(`/maps/${w.name}/contours.geojson.gz`)
+                    const contourData = await fetchGzJson(`/map-assets/${w.name}/contours.geojson.gz`)
                     if (contourData) {
                         L.geoJSON(contourData as GeoJSON.FeatureCollection, Object.assign({} as L.GeoJSONOptions, {
                             renderer,
@@ -685,7 +685,7 @@ export default function OperationMap({
                 const newSpotHeights: Array<{ latlng: L.LatLng; elev: number }> = []
 
                 await Promise.all(GEO_LAYERS.map(async ({ path, style, detail: isDetail, labelStyle, spotHeight }) => {
-                    const data = await fetchGzJson(`/maps/${w.name}/geojson/${path}.geojson.gz`)
+                    const data = await fetchGzJson(`/map-assets/${w.name}/geojson/${path}.geojson.gz`)
                     if (!data) return
 
                     if (spotHeight) {

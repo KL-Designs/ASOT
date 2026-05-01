@@ -33,7 +33,7 @@ export default function MapViewer({ world }: { world: MapWorld }) {
                 zIndex: 10,
             }}>
                 <button
-                    onClick={() => router.push('/map')}
+                    onClick={() => router.push('/maps')}
                     style={{
                         display: 'flex',
                         alignItems: 'center',

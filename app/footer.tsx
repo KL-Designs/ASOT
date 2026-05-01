@@ -6,6 +6,7 @@ import { Typography } from '@mui/material'
 import Logo from '@/public/ASOT-logo.png'
 import MapBg from '@/public/designs/map.png'
 import Signature from '@/components/signature'
+import CreditsModal from '@/components/credits-modal'
 
 
 const navColumns = [
@@ -37,7 +38,6 @@ const navColumns = [
             { label: 'FAQ', href: '/about/faq' },
             { label: 'Callsigns', href: '/about/callsigns' },
             { label: 'Contact', href: '/about/contact' },
-            { label: 'Credits', href: '/credits' },
         ],
     },
 ]
@@ -122,6 +122,11 @@ export default function Footer() {
                         ))}
                     </div>
 
+                </div>
+
+                {/* Credits button */}
+                <div className='flex justify-center'>
+                    <CreditsModal />
                 </div>
 
                 {/* Divider */}

@@ -76,7 +76,7 @@ export default function Navbar() {
             name: 'Operations', href: '/operations', icon: <TrackChanges />,
             subLinks: [
                 { name: 'Operations', link: '/operations', icon: <TrackChanges />, description: 'Browse all unit operations' },
-                { name: 'Interactive Map', link: '/map', icon: <MapOutlined />, description: 'Explore available maps interactively' },
+                { name: 'Interactive Map', link: '/maps', icon: <MapOutlined />, description: 'Explore available maps interactively' },
             ]
         },
         { name: 'Gallery', href: '/gallery', icon: <Collections /> },

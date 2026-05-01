@@ -91,7 +91,7 @@ const nextConfig: NextConfig = {
 	async rewrites() {
 		return [
 			{
-				source: '/maps/:path*',
+				source: '/map-assets/:path*',
 				destination: '/api/maps/assets/:path*',
 			},
 		]

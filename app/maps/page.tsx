@@ -56,7 +56,7 @@ export default function InteractiveMapPage() {
                         {worlds.map(world => (
                             <div
                                 key={world.name}
-                                onClick={() => router.push(`/map/${world.name}`)}
+                                onClick={() => router.push(`/maps/${world.name}`)}
                                 onMouseEnter={() => setHovered(world.name)}
                                 onMouseLeave={() => setHovered(null)}
                                 style={{
@@ -77,7 +77,7 @@ export default function InteractiveMapPage() {
                                 {world.hasPreview ? (
                                     <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9' }}>
                                         <Image
-                                            src={`/maps/${world.name}/preview.jpg`}
+                                            src={`/map-assets/${world.name}/preview.jpg`}
                                             quality={25}
                                             alt={world.displayName}
                                             fill

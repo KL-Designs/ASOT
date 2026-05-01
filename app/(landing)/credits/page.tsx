@@ -12,7 +12,7 @@ import BannerImg from '@/public/images/home/3DMA_Final2.png'
 
 
 export const metadata: Metadata = {
-    title: 'Credits — ASOT',
+    title: 'Credits | ASOT',
     description: 'The people who built the ASOT platform.',
 }
 
