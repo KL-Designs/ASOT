@@ -14,44 +14,44 @@ Features include operations management, ORBAT, member milpacs, a collaborative b
 
 ---
 
-## Environment Setup
+## Setup
 
-Copy the template and fill in your values:
+Run the setup wizard after installing dependencies. It walks you through every configuration step and generates your `.env` file:
 
 ```bash
-cp .env.template .env
+npm install
+npm run init-db
 ```
+
+The wizard covers four steps:
+
+**1. Site Configuration** — sets `NEXT_PUBLIC_BASEURL` and auto-derives the collab WebSocket URL. Defaults to `http://localhost:3000`.
+
+**2. MongoDB** — sets the connection URI and database name, then tests the connection. Defaults to a local `mongodb://127.0.0.1:27017`.
+
+**3. Discord Application** — prompts for your Guild ID, Client ID, Client Secret, and Bot Token. The wizard tells you exactly which redirect URI and bot intents to configure in the [Discord Developer Portal](https://discord.com/developers/applications).
+
+**4. User Account** — opens Discord OAuth in your browser, inserts your account into MongoDB, and automatically adds your Discord ID to `OVERRIDE` in `.env` for admin access.
+
+If you already have a `.env`, the wizard asks whether you want to reconfigure or jump straight to step 4.
+
+> Make sure MongoDB is running and the dev server is **not** running when you run `npm run init-db`.
+
+### Environment Variables Reference
 
 | Variable | Description |
 |---|---|
 | `NEXT_PUBLIC_BASEURL` | Full base URL of the site (e.g. `http://localhost:3000`) |
-| `NEXT_PUBLIC_COLLAB_WS_URL` | WebSocket URL for the collab server (e.g. `ws://localhost:3000/collab`) |
-| `MONGO_URI` | MongoDB connection string (e.g. `mongodb://127.0.0.1:27017`) |
-| `MONGO_DB` | MongoDB database name (e.g. `ASOT`) |
+| `NEXT_PUBLIC_COLLAB_WS_URL` | WebSocket URL for the collab server — auto-derived from base URL |
+| `MONGO_URI` | MongoDB connection string |
+| `MONGO_DB` | MongoDB database name |
 | `DISCORD_GUILD_ID` | ID of the Discord server used for member verification |
 | `DISCORD_CLIENT_ID` | Discord OAuth2 application client ID |
 | `DISCORD_CLIENT_SECRET` | Discord OAuth2 application client secret |
-| `DISCORD_BOT_TOKEN` | Discord bot token (required for privileged operations) |
-| `DISCORD_REDIRECT_URI` | OAuth2 callback path (e.g. `/login/callback`) |
-| `DISCORD_SCOPE` | OAuth2 scope (use `identify`) |
-| `CRON_SECRET` | Secret string used to authenticate scheduled task requests |
-| `OVERRIDE` | Comma-separated Discord user IDs to grant admin access |
-
-### Discord Application Setup
-
-1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) and create a new application.
-2. Under **OAuth2**, copy the **Client ID** and **Client Secret** into your `.env`.
-3. Add a redirect URL matching your `NEXT_PUBLIC_BASEURL` + `DISCORD_REDIRECT_URI` (e.g. `http://localhost:3000/login/callback`).
-4. Under **Bot**, create a bot and copy the token into `DISCORD_BOT_TOKEN`.
-5. Enable the **Server Members** and **Message Content** privileged intents if prompted.
-
----
-
-## Installation
-
-```bash
-npm install
-```
+| `DISCORD_BOT_TOKEN` | Discord bot token |
+| `DISCORD_REDIRECT_URI` | OAuth2 callback path (default `/login/callback`) |
+| `CRON_SECRET` | Auto-generated secret for authenticating scheduled task requests |
+| `OVERRIDE` | Comma-separated Discord user IDs with unconditional admin access |
 
 ### Terrain Assets
 
