@@ -10,6 +10,7 @@ interface Props {
     value: { id: string; name: string } | null
     onChange: (v: { id: string; name: string } | null) => void
     department?: MeetingDepartment
+    allMembers?: boolean   // when true, fetch all ASOT members (ignores department + J4 logic)
     placeholder?: string
 }
 
@@ -20,7 +21,7 @@ const row: React.CSSProperties = {
     boxSizing: 'border-box',
 }
 
-export default function MemberPicker({ value, onChange, department, placeholder = 'Search member…' }: Props) {
+export default function MemberPicker({ value, onChange, department, allMembers = false, placeholder = 'Search member…' }: Props) {
     const [query, setQuery] = useState('')
     const [members, setMembers] = useState<Member[]>([])
     const [loading, setLoading] = useState(false)
@@ -36,44 +37,51 @@ export default function MemberPicker({ value, onChange, department, placeholder 
         return () => document.removeEventListener('mousedown', h)
     }, [])
 
+    // Reset loaded state when mode/department changes so list re-fetches
+    useEffect(() => { setLoaded(false); setMembers([]) }, [department, allMembers])
+
     const load = useCallback(async () => {
         if (loaded) return
         setLoading(true)
         try {
-            // Always fetch the relevant department members
-            const url = department
-                ? `/api/admin/members?department=${department}&limit=200`
-                : '/api/community/members'
-            const [deptRes] = await Promise.all([fetch(url)])
-            const deptData = await deptRes.json()
-            const deptMembers: Member[] = (deptData.members ?? []).map((m: Member) => ({ ...m, isJ4: false }))
+            if (allMembers) {
+                // All ASOT members (community endpoint — no role check)
+                const res = await fetch('/api/community/members?limit=500')
+                const data = await res.json()
+                setMembers((data.members ?? []).map((m: Member) => ({ ...m, isJ4: false })))
+            } else if (department) {
+                // Dept members + J4
+                const [deptRes, j4Res] = await Promise.all([
+                    fetch(`/api/admin/members?department=${department}&limit=200`),
+                    department !== 'j4' ? fetch('/api/admin/members?department=j4&limit=200') : Promise.resolve(null),
+                ])
+                const deptData = await deptRes.json()
+                const deptMembers: Member[] = (deptData.members ?? []).map((m: Member) => ({ ...m, isJ4: false }))
+                const seen = new Set(deptMembers.map(m => m.id))
 
-            // Always also fetch J4 members (except when we're already fetching J4)
-            let j4Members: Member[] = []
-            if (department && department !== 'j4') {
-                const j4Res = await fetch('/api/admin/members?department=j4&limit=200')
-                const j4Data = await j4Res.json()
-                j4Members = (j4Data.members ?? []).map((m: Member) => ({ ...m, isJ4: true }))
+                let j4Members: Member[] = []
+                if (j4Res) {
+                    const j4Data = await j4Res.json()
+                    j4Members = (j4Data.members ?? [])
+                        .filter((m: Member) => !seen.has(m.id))
+                        .map((m: Member) => ({ ...m, isJ4: true }))
+                }
+                setMembers([...deptMembers, ...j4Members])
+            } else {
+                // No department specified — community-wide search
+                const res = await fetch('/api/community/members?limit=500')
+                const data = await res.json()
+                setMembers((data.members ?? []).map((m: Member) => ({ ...m, isJ4: false })))
             }
-
-            // Merge, deduplicating by id (dept member takes priority over j4 duplicate)
-            const seen = new Set(deptMembers.map((m: Member) => m.id))
-            const uniqueJ4 = j4Members.filter((m: Member) => !seen.has(m.id))
-
-            setMembers([...deptMembers, ...uniqueJ4])
             setLoaded(true)
         } catch { /* ignore */ }
         setLoading(false)
-    }, [loaded, department])
+    }, [loaded, department, allMembers])
 
-    const deptFiltered = members
-        .filter(m => !m.isJ4 && m.displayName.toLowerCase().includes(query.toLowerCase()))
-    const j4Filtered = members
-        .filter(m => m.isJ4 && m.displayName.toLowerCase().includes(query.toLowerCase()))
-
-    // Show dept members first, then J4 members with a label
-    const hasJ4 = j4Filtered.length > 0
-    const totalShown = Math.min(deptFiltered.length, 20) + Math.min(j4Filtered.length, 10)
+    const q = query.toLowerCase()
+    const deptFiltered = members.filter(m => !m.isJ4 && m.displayName.toLowerCase().includes(q))
+    const j4Filtered   = members.filter(m => m.isJ4  && m.displayName.toLowerCase().includes(q))
+    const hasJ4Section = !allMembers && j4Filtered.length > 0
 
     const inputSx: React.CSSProperties = {
         all: 'unset', display: 'block', width: '100%',
@@ -110,13 +118,13 @@ export default function MemberPicker({ value, onChange, department, placeholder 
                     </div>
                 )}
             </div>
-            {open && loaded && (totalShown > 0 || members.length === 0) && (
+            {open && loaded && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, background: 'rgb(13,13,13)', border: '1px solid rgba(255,255,255,0.12)', borderTop: 'none', maxHeight: 240, overflowY: 'auto' }} onWheel={e => e.stopPropagation()}>
                     {members.length === 0 ? (
                         <div style={{ padding: '8px 10px', fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)' }}>No members found</div>
                     ) : (
                         <>
-                            {deptFiltered.slice(0, 20).map(m => (
+                            {deptFiltered.slice(0, 25).map(m => (
                                 <button key={m.id} type='button'
                                     onMouseDown={() => { onChange({ id: m.id, name: m.displayName }); setQuery(''); setOpen(false) }}
                                     style={row}
@@ -127,7 +135,7 @@ export default function MemberPicker({ value, onChange, department, placeholder 
                                     {m.displayName}
                                 </button>
                             ))}
-                            {hasJ4 && (
+                            {hasJ4Section && (
                                 <>
                                     <div style={{ padding: '4px 10px', fontSize: '0.54rem', fontWeight: 700, letterSpacing: '0.12em', color: 'rgba(219,0,29,0.45)', background: 'rgba(219,0,29,0.04)', borderTop: '1px solid rgba(219,0,29,0.1)', borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
                                         J4 ADMINISTRATION

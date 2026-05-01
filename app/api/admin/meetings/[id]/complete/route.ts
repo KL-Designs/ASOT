@@ -5,8 +5,8 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 
 // POST /api/admin/meetings/[id]/complete
-// Marks the meeting as completed. Lead only.
-// Sets a 24-hour deadline for attendance confirmation.
+// Marks the meeting as completed and locks it. Lead only.
+// Queues a 24-hour attendance confirmation reminder for the dept lead role.
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     let me: User
     try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
@@ -38,7 +38,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
                 completedBy: me.id,
                 completedByName: displayName,
                 attendanceConfirmationDeadline: deadline,
-                attendanceReminderSent: false,
                 locked: true,
                 lockedBy: me.id,
                 lockedByName: displayName,
@@ -47,6 +46,20 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
             },
         }
     )
+
+    // Queue attendance confirmation reminder — fires 24h after completion
+    const actionUrl = `/admin/${meeting.department}`
+    for (const role of leadRoles) {
+        await Db.meetingNotifQueue.insertOne({
+            meetingId: id,
+            type: 'meeting_attendance_overdue',
+            notifyTitle: 'Meeting attendance not confirmed',
+            notifyBody: `Meeting attendance has not been confirmed. Please review and finalise attendance for "${meeting.title}".`,
+            actionUrl,
+            fireAt: deadline,
+            recipientRole: role,
+        })
+    }
 
     return NextResponse.json({ ok: true })
 }

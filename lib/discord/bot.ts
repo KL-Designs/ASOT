@@ -564,6 +564,31 @@ const FEEDBACK_STATUS_LABELS: Record<string, string> = {
 }
 
 /**
+ * Send a meeting notification DM (creation, reminder, task chase-up, attendance overdue).
+ */
+export async function sendMeetingDM(
+    userId: string,
+    title: string,
+    body: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: `📅 ${title}`,
+        description: body,
+        color: 0xdb001d,
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields = [{ name: '​', value: `[View Meeting](${base}${actionUrl})`, inline: false }]
+    }
+
+    await sendDM(userId, { embeds: [embed] }, 'meeting')
+}
+
+/**
  * Notify a feedback author that someone commented on their submission.
  */
 export async function sendFeedbackCommentDM(

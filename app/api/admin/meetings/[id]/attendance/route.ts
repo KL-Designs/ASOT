@@ -3,9 +3,19 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { initMeetingAttendance } from '@/lib/meetingAttendanceInit'
+
+function isInvited(meeting: { invitedUserIds?: string[] }, userId: string) {
+    return (meeting.invitedUserIds ?? []).includes(userId)
+}
+
+function hasDeptAccess(me: User, deptKey: keyof typeof PERMISSIONS.departments) {
+    return client.hasRoles(me, PERMISSIONS.departments[deptKey])
+}
 
 // POST /api/admin/meetings/[id]/attendance
-// Initialises the attendee list from department members (lead only).
+// Syncs the attendee list (adds any new dept/J4/invited members not yet listed).
+// Lead only — used for the manual "Sync members" button.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     let me: User
     try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
@@ -17,49 +27,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!meeting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const deptKey = meeting.department as keyof typeof PERMISSIONS.departments
-    if (!client.hasRoles(me, PERMISSIONS.departments[deptKey])) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!hasDeptAccess(me, deptKey)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { department } = await request.json().catch(() => ({ department: meeting.department }))
 
-    // Fetch all active members with the relevant department
-    const users = await Db.users
-        .find(
-            { departments: department, isSkeletonAccount: { $ne: true }, discharged: { $exists: false } },
-            { projection: { id: 1, name: 1, globalName: 1, username: 1, 'guild.nickname': 1 } }
-        )
-        .toArray()
-
-    const existingIds = new Set((meeting.attendees ?? []).map((a: MeetingAttendee) => a.userId))
-
-    const newAttendees: MeetingAttendee[] = users
-        .filter(u => !existingIds.has(u.id))
-        .map(u => {
-            const nick = (u.guild?.nickname ?? '').replace(/\s*\[[^\]]*\]/g, '').trim()
-            const nickParts = nick.split(' ')
-            const name = u.name || (nickParts.length > 1 ? nickParts.slice(1).join(' ') : nick) || u.globalName || u.username || 'Unknown'
-            return {
-                userId: u.id,
-                displayName: name.trim(),
-                status: 'pending' as const,
-            }
-        })
-        .sort((a, b) => a.displayName.localeCompare(b.displayName))
-
-    await Db.meetings.updateOne(
-        { _id: new ObjectId(id) },
-        {
-            $push: { attendees: { $each: newAttendees } } as Record<string, unknown>,
-            $set: { updatedAt: new Date() },
-        }
-    )
-
-    return NextResponse.json({ ok: true, added: newAttendees.length })
+    const added = await initMeetingAttendance(id, department, meeting.invitedUserIds ?? [])
+    return NextResponse.json({ ok: true, added })
 }
 
 // PATCH /api/admin/meetings/[id]/attendance
-// Update a specific attendee's status.
-// Members can set their own status to: attending, not_attending, loa
-// Leads can confirm (attending→confirmed_attended, not_attending→confirmed_absent)
+// Members (and invited guests) set their own status; leads confirm.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     let me: User
     try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
@@ -71,7 +48,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!meeting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const deptKey = meeting.department as keyof typeof PERMISSIONS.departments
-    if (!client.hasRoles(me, PERMISSIONS.departments[deptKey])) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const hasAccess = hasDeptAccess(me, deptKey) || isInvited(meeting, me.id)
+    if (!hasAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { userId, status } = await request.json()
     if (!userId || !status) return NextResponse.json({ error: 'userId and status required' }, { status: 400 })
@@ -85,15 +63,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const MEMBER_STATUSES = ['attending', 'not_attending', 'loa']
     const LEAD_ONLY_STATUSES = ['confirmed_attended', 'confirmed_absent']
 
-    // Self: can only set attending/not_attending/loa
     if (isSelf && !MEMBER_STATUSES.includes(status)) {
         return NextResponse.json({ error: 'Members can only RSVP (attending / not attending / LOA)' }, { status: 403 })
     }
-    // Lead-only: confirmed statuses
     if (LEAD_ONLY_STATUSES.includes(status) && !isLead) {
         return NextResponse.json({ error: 'Only leads can confirm attendance' }, { status: 403 })
     }
-    // LOA cannot be confirmed — it stays as LOA
+
     const attendee = (meeting.attendees ?? []).find((a: MeetingAttendee) => a.userId === userId)
     if (attendee?.status === 'loa' && LEAD_ONLY_STATUSES.includes(status)) {
         return NextResponse.json({ error: 'LOA attendance cannot be confirmed' }, { status: 403 })

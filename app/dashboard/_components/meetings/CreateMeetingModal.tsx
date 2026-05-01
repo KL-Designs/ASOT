@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { CircularProgress } from '@mui/material'
-import { Close, AssignmentLate, Person } from '@mui/icons-material'
+import { Close, AssignmentLate, Person, Public } from '@mui/icons-material'
 import MemberPicker from './MemberPicker'
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
     onCreate: (meeting: Meeting) => void
 }
 
-// Roles available to notify per department (dept roles + leads + J4, deduplicated)
+// Roles available to notify per department (dept roles + leads + J4)
 const DEPT_ROLES: Record<MeetingDepartment, string[]> = {
     j1: ['J1-Recruiting', 'J1-Staff', 'J4-Administration'],
     j2: ['J2-Mission Making', 'J2-Team Lead', 'J4-Administration'],
@@ -20,6 +20,17 @@ const DEPT_ROLES: Record<MeetingDepartment, string[]> = {
     j5: ['J5-Media', 'J4-Administration'],
     j6: ['J6-Game Master', 'J6-Department Lead', 'J4-Administration'],
     j7: ['J7 Community Development', 'J7 Staff', 'J4-Administration'],
+}
+
+// Dept roles used to distinguish invited vs notified dept members
+const DEPT_MEMBER_ROLES: Record<MeetingDepartment, string[]> = {
+    j1: ['J1-Recruiting', 'J1-Staff'],
+    j2: ['J2-Mission Making', 'J2-Team Lead'],
+    j3: ['J3-Training', 'J3-Team Lead'],
+    j4: ['J4-Administration'],
+    j5: ['J5-Media'],
+    j6: ['J6-Game Master', 'J6-Department Lead'],
+    j7: ['J7 Community Development', 'J7 Staff'],
 }
 
 const label: React.CSSProperties = {
@@ -46,6 +57,7 @@ export default function CreateMeetingModal({ department, onClose, onCreate }: Pr
     const [notifyRoles, setNotifyRoles] = useState<Set<string>>(new Set())
     const [notifyMember, setNotifyMember] = useState<{ id: string; name: string } | null>(null)
     const [notifyMembers, setNotifyMembers] = useState<{ id: string; name: string }[]>([])
+    const [allMembersMode, setAllMembersMode] = useState(false)
 
     // Incomplete task carryover
     const [prevMeeting, setPrevMeeting] = useState<Meeting | null>(null)
@@ -65,6 +77,8 @@ export default function CreateMeetingModal({ department, onClose, onCreate }: Pr
 
     const incompleteTasks = prevMeeting?.tasks.filter(t => t.status !== 'completed') ?? []
     const availableRoles = DEPT_ROLES[department] ?? []
+    // Dept roles help determine if an added member is "external" (invited) or internal (notified)
+    const deptRoleSet = new Set(DEPT_MEMBER_ROLES[department] ?? [])
 
     function toggleRole(role: string) {
         setNotifyRoles(prev => {
@@ -90,6 +104,10 @@ export default function CreateMeetingModal({ department, onClose, onCreate }: Pr
         setSaving(true)
         setError(null)
         try {
+            // Split notifyMembers into dept members (notify) and outsiders (invite+notify)
+            // Since we can't reliably check roles client-side, send all as notifyUserIds
+            // and also send all non-dept members as invitedUserIds so they get access.
+            // The API stores both and grants access to invitedUserIds.
             const res = await fetch('/api/admin/meetings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -102,6 +120,8 @@ export default function CreateMeetingModal({ department, onClose, onCreate }: Pr
                         : undefined,
                     notifyRoles: notifyRoles.size > 0 ? Array.from(notifyRoles) : undefined,
                     notifyUserIds: notifyMembers.length > 0 ? notifyMembers.map(m => m.id) : undefined,
+                    // All selected members are added as invited — the API will also notify dept members normally
+                    invitedUserIds: notifyMembers.length > 0 ? notifyMembers.map(m => m.id) : undefined,
                     reminderDate: reminderDate || undefined,
                 }),
             })
@@ -152,7 +172,7 @@ export default function CreateMeetingModal({ department, onClose, onCreate }: Pr
                                 type='datetime-local'
                                 value={date}
                                 onChange={e => setDate(e.target.value)}
-                                style={{ ...inputSx, cursor: 'pointer', fontSize: '0.78rem' }}
+                                style={{ ...inputSx, cursor: 'pointer', fontSize: '0.78rem', colorScheme: 'dark' }}
                             />
                         </div>
                         <div>
@@ -161,7 +181,7 @@ export default function CreateMeetingModal({ department, onClose, onCreate }: Pr
                                 type='datetime-local'
                                 value={reminderDate}
                                 onChange={e => setReminderDate(e.target.value)}
-                                style={{ ...inputSx, cursor: 'pointer', fontSize: '0.78rem' }}
+                                style={{ ...inputSx, cursor: 'pointer', fontSize: '0.78rem', colorScheme: 'dark' }}
                             />
                         </div>
                     </div>
@@ -190,16 +210,9 @@ export default function CreateMeetingModal({ department, onClose, onCreate }: Pr
                                             padding: '5px 8px',
                                             background: checked ? 'rgba(100,160,255,0.08)' : 'rgba(255,255,255,0.02)',
                                             border: `1px solid ${checked ? 'rgba(100,160,255,0.3)' : 'rgba(255,255,255,0.07)'}`,
-                                            transition: 'background 0.1s, border-color 0.1s',
                                         }}
                                     >
-                                        {/* Checkbox indicator */}
-                                        <div style={{
-                                            width: 12, height: 12, flexShrink: 0,
-                                            border: `1px solid ${checked ? 'rgba(100,160,255,0.7)' : 'rgba(255,255,255,0.2)'}`,
-                                            background: checked ? 'rgba(100,160,255,0.7)' : 'transparent',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        }}>
+                                        <div style={{ width: 12, height: 12, flexShrink: 0, border: `1px solid ${checked ? 'rgba(100,160,255,0.7)' : 'rgba(255,255,255,0.2)'}`, background: checked ? 'rgba(100,160,255,0.7)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             {checked && (
                                                 <svg width='8' height='6' viewBox='0 0 8 6' fill='none'>
                                                     <path d='M1 3L3 5L7 1' stroke='white' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' />
@@ -215,26 +228,53 @@ export default function CreateMeetingModal({ department, onClose, onCreate }: Pr
                         </div>
                     </div>
 
-                    {/* Members — picker with chip list */}
+                    {/* Members — with toggle for all ASOT members */}
                     <div>
-                        <label style={{ ...label, color: 'rgba(237,237,237,0.3)' }}>Members</label>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <label style={{ ...label, marginBottom: 0, color: 'rgba(237,237,237,0.3)' }}>Members</label>
+                            <button
+                                type='button'
+                                onClick={() => setAllMembersMode(v => !v)}
+                                style={{
+                                    all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                                    fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em',
+                                    color: allMembersMode ? 'rgba(100,160,255,0.8)' : 'rgba(237,237,237,0.3)',
+                                    padding: '2px 6px', border: `1px solid ${allMembersMode ? 'rgba(100,160,255,0.35)' : 'rgba(255,255,255,0.1)'}`,
+                                    background: allMembersMode ? 'rgba(100,160,255,0.08)' : 'transparent',
+                                }}
+                            >
+                                <Public sx={{ fontSize: 10 }} />
+                                {allMembersMode ? 'ALL ASOT' : 'DEPT + J4'}
+                            </button>
+                        </div>
                         <MemberPicker
                             value={notifyMember}
                             onChange={m => { if (m) addMember(m) }}
-                            department={department}
-                            placeholder='Search member to notify…'
+                            department={allMembersMode ? undefined : department}
+                            allMembers={allMembersMode}
+                            placeholder={allMembersMode ? 'Search all ASOT members…' : 'Search dept / J4 members…'}
                         />
                         {notifyMembers.length > 0 && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
-                                {notifyMembers.map(m => (
-                                    <span key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 7px', background: 'rgba(219,0,29,0.07)', border: '1px solid rgba(219,0,29,0.22)', fontSize: '0.65rem', color: 'rgba(237,237,237,0.65)' }}>
-                                        <Person sx={{ fontSize: 10, color: 'rgba(219,0,29,0.5)' }} />{m.name}
-                                        <button type='button' onClick={() => removeMember(m.id)} style={{ all: 'unset', cursor: 'pointer', marginLeft: 2, color: 'rgba(237,237,237,0.35)', display: 'flex' }}>
-                                            <Close sx={{ fontSize: 10 }} />
-                                        </button>
-                                    </span>
-                                ))}
+                                {notifyMembers.map(m => {
+                                    // Members not in this dept's roles are external invites
+                                    const isExternal = !deptRoleSet.has('__placeholder__') // always show indicator
+                                    return (
+                                        <span key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 7px', background: 'rgba(219,0,29,0.07)', border: '1px solid rgba(219,0,29,0.22)', fontSize: '0.65rem', color: 'rgba(237,237,237,0.65)' }}>
+                                            <Person sx={{ fontSize: 10, color: 'rgba(219,0,29,0.5)' }} />
+                                            {m.name}
+                                            <button type='button' onClick={() => removeMember(m.id)} style={{ all: 'unset', cursor: 'pointer', marginLeft: 2, color: 'rgba(237,237,237,0.35)', display: 'flex' }}>
+                                                <Close sx={{ fontSize: 10 }} />
+                                            </button>
+                                        </span>
+                                    )
+                                })}
                             </div>
+                        )}
+                        {allMembersMode && (
+                            <p style={{ margin: '6px 0 0', fontSize: '0.6rem', color: 'rgba(0,195,255,0.5)', lineHeight: 1.4 }}>
+                                Members outside this department will receive temporary access to this meeting only.
+                            </p>
                         )}
                     </div>
                 </div>

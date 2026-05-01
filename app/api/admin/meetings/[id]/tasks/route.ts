@@ -4,7 +4,7 @@ import crypto from 'crypto'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { createNotification, createNotificationForRole } from '@/lib/notifications'
+import { notifyMeetingUser, notifyMeetingRole } from '@/lib/meetingNotifications'
 
 // POST /api/admin/meetings/[id]/tasks
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -18,7 +18,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!meeting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const deptKey = meeting.department as keyof typeof PERMISSIONS.departments
-    if (!client.hasRoles(me, PERMISSIONS.departments[deptKey])) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const hasAccess = client.hasRoles(me, PERMISSIONS.departments[deptKey]) || (meeting.invitedUserIds ?? []).includes(me.id)
+    if (!hasAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     if (meeting.locked) return NextResponse.json({ error: 'Meeting is locked' }, { status: 403 })
 
     let body: { title: string; description?: string; assignedTo?: string; assignedToName?: string; assignedRole?: string; dueDate?: string; chaseUpDate?: string }
@@ -49,25 +50,36 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { $push: { tasks: task }, $set: { updatedAt: new Date() } }
     )
 
-    // Notify assignee or role
-    const actionUrl = `/admin/${meeting.department}`
+    const actionUrl = `/dashboard/meeting/${id}`
+
+    // Fire task-assigned notification immediately (website + Discord DM)
     if (body.assignedTo) {
-        await createNotification({
-            userId: body.assignedTo,
+        await notifyMeetingUser(body.assignedTo, {
             type: 'meeting_task_assigned',
             title: 'Meeting task assigned to you',
-            body: `${displayName} assigned you a task: "${task.title}" in ${meeting.title}`,
+            body: `${displayName} assigned you a task: "${task.title}" in "${meeting.title}"`,
             actionUrl,
-            relatedId: id,
+            meetingId: id,
         })
     } else if (body.assignedRole) {
-        await createNotificationForRole(body.assignedRole, {
+        await notifyMeetingRole(body.assignedRole, {
             type: 'meeting_task_assigned',
             title: 'Meeting task assigned to your role',
-            body: `${displayName} assigned a task: "${task.title}" in ${meeting.title}`,
+            body: `${displayName} assigned a task to ${body.assignedRole}: "${task.title}" in "${meeting.title}"`,
             actionUrl,
-            relatedId: id,
+            meetingId: id,
         })
+    }
+
+    // Queue chase-up notification at chaseUpDate (time-delayed — handled by cron)
+    if (task.chaseUpDate) {
+        const chaseTitle = `Task chase-up: ${task.title}`
+        const chaseBody = `Chase-up reminder: "${task.title}" in "${meeting.title}" needs follow-up.`
+        if (body.assignedTo) {
+            await Db.meetingNotifQueue.insertOne({ meetingId: id, taskId, type: 'meeting_task_chaseup', notifyTitle: chaseTitle, notifyBody: chaseBody, actionUrl, fireAt: task.chaseUpDate, recipientUserId: body.assignedTo })
+        } else if (body.assignedRole) {
+            await Db.meetingNotifQueue.insertOne({ meetingId: id, taskId, type: 'meeting_task_chaseup', notifyTitle: chaseTitle, notifyBody: chaseBody, actionUrl, fireAt: task.chaseUpDate, recipientRole: body.assignedRole })
+        }
     }
 
     return NextResponse.json({ ok: true, taskId })

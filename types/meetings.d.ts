@@ -20,7 +20,7 @@ interface MeetingTask {
     assignedRole?: string
     dueDate?: Date
     chaseUpDate?: Date
-    carriedOverFrom?: string        // source meeting _id if carried over
+    carriedOverFrom?: string
     status: 'pending' | 'in_progress' | 'completed'
     completedAt?: Date
     completedByName?: string
@@ -32,6 +32,8 @@ interface MeetingTask {
 interface MeetingAttendee {
     userId: string
     displayName: string
+    // j4 = J4 Admin member, dept_lead = dept lead role holder, dept_member = regular dept member, invited = non-dept invite
+    group: 'j4' | 'dept_lead' | 'dept_member' | 'invited'
     status: 'pending' | 'attending' | 'not_attending' | 'loa' | 'confirmed_attended' | 'confirmed_absent'
     respondedAt?: Date
     confirmedBy?: string
@@ -48,6 +50,8 @@ interface Meeting {
     tasks: MeetingTask[]
     attachments: MeetingAttachment[]
     attendees: MeetingAttendee[]
+    // Non-dept members invited specifically to this meeting (temporary access)
+    invitedUserIds?: string[]
     locked: boolean
     lockedBy?: string
     lockedByName?: string

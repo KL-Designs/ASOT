@@ -20,7 +20,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!meeting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const deptKey = meeting.department as keyof typeof PERMISSIONS.departments
-    if (!client.hasRoles(me, PERMISSIONS.departments[deptKey])) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const hasAccess = client.hasRoles(me, PERMISSIONS.departments[deptKey]) || (meeting.invitedUserIds ?? []).includes(me.id)
+    if (!hasAccess) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     if (meeting.locked) return NextResponse.json({ error: 'Meeting is locked' }, { status: 403 })
 
     const displayName = me.guild?.nickname || me.globalName || me.username || 'Unknown'

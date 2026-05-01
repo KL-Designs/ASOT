@@ -10,7 +10,13 @@ async function getMeeting(id: string) {
     return Db.meetings.findOne({ _id: new ObjectId(id) })
 }
 
+function canAccess(me: User, meeting: { department: string; invitedUserIds?: string[] }) {
+    const deptKey = meeting.department as keyof typeof PERMISSIONS.departments
+    return client.hasRoles(me, PERMISSIONS.departments[deptKey]) || (meeting.invitedUserIds ?? []).includes(me.id)
+}
+
 // GET /api/admin/meetings/[id]
+// Dept members AND invited guests can read.
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     let me: User
     try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
@@ -19,13 +25,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const meeting = await getMeeting(id)
     if (!meeting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const deptKey = meeting.department as keyof typeof PERMISSIONS.departments
-    if (!client.hasRoles(me, PERMISSIONS.departments[deptKey])) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!canAccess(me, meeting)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     return NextResponse.json({ meeting })
 }
 
 // PATCH /api/admin/meetings/[id]
+// Dept members AND invited guests can edit while the meeting is open (not locked/completed).
+// Completing a meeting locks it, which immediately reverts invited members to read-only.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     let me: User
     try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
@@ -34,8 +41,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const meeting = await getMeeting(id)
     if (!meeting) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const deptKey = meeting.department as keyof typeof PERMISSIONS.departments
-    if (!client.hasRoles(me, PERMISSIONS.departments[deptKey])) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!canAccess(me, meeting)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     if (meeting.locked) return NextResponse.json({ error: 'Meeting is locked' }, { status: 403 })
 
     let body: { title?: string; date?: string; notes?: string }
