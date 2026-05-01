@@ -7,12 +7,12 @@ const CONTRIBUTOR_ORDER = ['240786290600181761', '224086573560365057', '68334311
 
 const CONTRIBUTIONS: Record<string, { title: string; description: string }> = {
     '240786290600181761': {
-        title: 'Creator & Lead Developer',
+        title: 'Website Developer',
         description: 'Designed and built the underlying systems and architecture of the ASOT platform - from the operations management tools and ORBAT editor to the collaborative briefing system, milpac pipeline, and the overall site design.',
     },
     '224086573560365057': {
-        title: 'Departments Developer',
-        description: 'Created the departments dashboard and built most of its core functionality, giving leadership the tools they need to effectively manage unit administration.',
+        title: 'Founder & Departments Developer',
+        description: 'Creator and owner of ASOT, and the driving force behind the unit itself. Also built the departments dashboard and most of its core functionality, giving leadership the tools they need to effectively manage unit administration.',
     },
     '683343114865606686': {
         title: 'MILPAC Systems Architect',
