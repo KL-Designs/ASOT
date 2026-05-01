@@ -10,12 +10,45 @@ import {
 } from '@mui/icons-material'
 import { CircularProgress } from '@mui/material'
 import {
-    STATUS_META, ACTIVE_STATUSES, CLOSED_STATUSES, ALL_STATUSES,
-    CAT_META, SUBTYPE_LABELS, PUBLIC_CATEGORIES, PRIVATE_CATEGORIES, getStatus,
+    STATUS_META, PRIMARY_STATUS_META, PRIMARY_STATUSES, TAG_META, ALL_TAGS,
+    CAT_META, SUBTYPE_LABELS, PUBLIC_CATEGORIES, PRIVATE_CATEGORIES,
+    getStatus, isTicketClosed, getPrimaryStatus,
 } from './_shared/constants'
 
 type TicketItem = CommunityTicket & { _id: string }
 type SortMode = 'votes' | 'newest' | 'oldest'
+
+interface TicketGroup {
+    id: string
+    label: string
+    color: string
+    icon: React.ReactNode
+    match: (t: TicketItem) => boolean
+}
+
+const TICKET_GROUPS: TicketGroup[] = [
+    {
+        id: 'requests',
+        label: 'Requests',
+        color: 'rgba(255,160,0,0.85)',
+        icon: <Lightbulb style={{ fontSize: 14 }} />,
+        match: t => t.category === 'request',
+    },
+    {
+        id: 'bugs',
+        label: 'Bug Reports',
+        color: 'rgba(219,0,29,0.85)',
+        icon: <BugReport style={{ fontSize: 14 }} />,
+        match: t => t.category === 'bug',
+    },
+    {
+        id: 'missions',
+        label: 'Mission & Campaign Ideas',
+        color: 'rgba(0,195,255,0.85)',
+        icon: <Map style={{ fontSize: 14 }} />,
+        match: t => t.category === 'mission' || t.category === 'campaign',
+    },
+]
 
 const CAT_ICONS: Record<string, React.ReactNode> = {
     request:         <Lightbulb style={{ fontSize: 12 }} />,
@@ -90,12 +123,22 @@ export default function CommunityTicketsPage() {
         })
     }, [items, sort])
 
-    const active = sorted.filter(i => ACTIVE_STATUSES.includes(i.status as CommunityTicketStatus))
-    const closed = sorted.filter(i => CLOSED_STATUSES.includes(i.status as CommunityTicketStatus))
+    const primaryCounts = useMemo(() => {
+        const c: Record<string, number> = { open: 0, in_review: 0, closed: 0 }
+        for (const item of items) {
+            const p = getPrimaryStatus(item)
+            c[p] = (c[p] ?? 0) + 1
+        }
+        return c
+    }, [items])
 
-    const statusCounts = useMemo(() => {
+    const tagCounts = useMemo(() => {
         const c: Record<string, number> = {}
-        for (const s of ALL_STATUSES) c[s] = items.filter(i => i.status === s).length
+        for (const item of items) {
+            for (const tag of (item.ticketTags ?? [])) {
+                c[tag] = (c[tag] ?? 0) + 1
+            }
+        }
         return c
     }, [items])
 
@@ -155,20 +198,21 @@ export default function CommunityTicketsPage() {
                     </SideBtn>
                 ))}
 
-                {/* Status multi-select */}
+                {/* Status filter */}
                 <SideLabel style={{ marginTop: 12 }}>
                     STATUS
                     {statusFilters.length > 0 && (
                         <button onClick={() => setStatusFilters([])} style={{ marginLeft: 6, fontSize: '0.55rem', color: 'rgba(237,237,237,0.25)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕ clear</button>
                     )}
                 </SideLabel>
-                {ALL_STATUSES.map(s => {
-                    const meta = STATUS_META[s]
+                {PRIMARY_STATUSES.map(s => {
+                    const meta = PRIMARY_STATUS_META[s]
                     const active = statusFilters.includes(s)
                     return (
                         <button key={s} onClick={() => toggleStatus(s)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '5px 10px', background: active ? `${meta.color}10` : 'transparent', border: 'none', borderLeft: `2px solid ${active ? meta.border : 'transparent'}`, color: active ? meta.color : 'rgba(237,237,237,0.38)', fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.04em', cursor: 'pointer', textAlign: 'left' }}>
                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: meta.color, flexShrink: 0, opacity: active ? 1 : 0.3 }} />
                             {meta.label}
+                            <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)' }}>{primaryCounts[s] ?? 0}</span>
                         </button>
                     )
                 })}
@@ -183,12 +227,25 @@ export default function CommunityTicketsPage() {
 
                 {/* Status breakdown */}
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 14, marginTop: 12 }}>
-                    <SideLabel>STATUS BREAKDOWN</SideLabel>
-                    {ALL_STATUSES.map(s => (
+                    <SideLabel>TOTAL</SideLabel>
+                    {PRIMARY_STATUSES.map(s => (
                         <div key={s} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 10px' }}>
-                            <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.42)' }}>{STATUS_META[s].label}</span>
-                            <span style={{ fontSize: '0.65rem', fontWeight: 800, fontFamily: 'monospace', color: STATUS_META[s].color }}>
-                                {String(statusCounts[s] ?? 0).padStart(2, '0')}
+                            <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.42)' }}>{PRIMARY_STATUS_META[s].label}</span>
+                            <span style={{ fontSize: '0.65rem', fontWeight: 800, fontFamily: 'monospace', color: PRIMARY_STATUS_META[s].color }}>
+                                {String(primaryCounts[s] ?? 0).padStart(2, '0')}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Sub-status tag breakdown */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 14, marginTop: 8 }}>
+                    <SideLabel>SUB-STATUS</SideLabel>
+                    {ALL_TAGS.filter(t => t !== 'in_review').map(tag => (
+                        <div key={tag} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 10px' }}>
+                            <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.42)' }}>{TAG_META[tag].label}</span>
+                            <span style={{ fontSize: '0.65rem', fontWeight: 800, fontFamily: 'monospace', color: TAG_META[tag].color }}>
+                                {String(tagCounts[tag] ?? 0).padStart(2, '0')}
                             </span>
                         </div>
                     ))}
@@ -196,33 +253,31 @@ export default function CommunityTicketsPage() {
             </aside>
 
             {/* ── MAIN FEED ── */}
-            <main style={{ display: 'flex', flexDirection: 'column', gap: 32, minWidth: 0 }}>
+            <main style={{ display: 'flex', flexDirection: 'column', gap: 28, minWidth: 0 }}>
                 {loading ? (
                     <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 80 }}>
                         <CircularProgress size={28} style={{ color: 'rgba(219,0,29,0.7)' }} />
                     </div>
                 ) : (
-                    <>
-                        <TicketSection label='Active' tag='OPEN · IN REVIEW · IMPLEMENTING' items={active} empty='No active tickets.' />
-
-                        {closed.length > 0 && (
-                            <div>
-                                <button onClick={() => setClosedOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'transparent', border: 'none', borderTop: '1px solid rgba(255,255,255,0.07)', borderBottom: closedOpen ? 'none' : '1px solid rgba(255,255,255,0.07)', padding: '10px 0', cursor: 'pointer', color: 'rgba(237,237,237,0.32)', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.14em' }}>
-                                    {closedOpen ? <KeyboardArrowUp style={{ fontSize: 16 }} /> : <KeyboardArrowDown style={{ fontSize: 16 }} />}
-                                    CLOSED
-                                    <span style={{ fontFamily: 'monospace', color: 'rgba(237,237,237,0.22)', marginLeft: 4 }}>[{String(closed.length).padStart(2, '0')}]</span>
-                                    <span style={{ marginLeft: 'auto', fontSize: '0.6rem', letterSpacing: '0.05em', color: 'rgba(237,237,237,0.18)', fontWeight: 400 }}>
-                                        IMPLEMENTED · RESOLVED · DENIED · CLOSED
-                                    </span>
-                                </button>
-                                {closedOpen && (
-                                    <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 8 }}>
-                                        {closed.map(item => <TicketCard key={item._id} item={item} />)}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </>
+                    TICKET_GROUPS.map(group => {
+                        const groupItems = sorted.filter(t => {
+                            if (!group.match(t)) return false
+                            if (categoryFilter !== 'all' && t.category !== categoryFilter) return false
+                            if (statusFilters.length > 0 && !statusFilters.includes(getPrimaryStatus(t))) return false
+                            return true
+                        })
+                        if (groupItems.length === 0 && categoryFilter !== 'all') return null
+                        const active = groupItems.filter(t => !isTicketClosed(t))
+                        const closed = groupItems.filter(t => isTicketClosed(t))
+                        return (
+                            <TypeGroup
+                                key={group.id}
+                                group={group}
+                                active={active}
+                                closed={closed}
+                            />
+                        )
+                    })
                 )}
             </main>
         </div>
@@ -246,6 +301,60 @@ function SideBtn({ active, color, onClick, children }: { active: boolean; color:
         </button>
     )
 }
+
+function TypeGroup({ group, active, closed }: { group: TicketGroup; active: TicketItem[]; closed: TicketItem[] }) {
+    const [closedOpen, setClosedOpen] = useState(false)
+    if (active.length === 0 && closed.length === 0) return (
+        <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${group.color}33` }}>
+                <div style={{ width: 3, height: 16, background: group.color, flexShrink: 0 }} />
+                <span style={{ color: group.icon as any, display: 'flex' }}>{group.icon}</span>
+                <span style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.14em', color: group.color }}>{group.label.toUpperCase()}</span>
+            </div>
+            <div style={{ color: 'rgba(237,237,237,0.2)', fontSize: '0.78rem', padding: '16px 0', textAlign: 'center' }}>No tickets.</div>
+        </div>
+    )
+
+    return (
+        <div>
+            {/* Group header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 8, borderBottom: `1px solid ${group.color}33` }}>
+                <div style={{ width: 3, height: 16, background: group.color, flexShrink: 0 }} />
+                <span style={{ display: 'flex', color: group.color }}>{group.icon}</span>
+                <span style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.14em', color: group.color }}>{group.label.toUpperCase()}</span>
+                <span style={{ fontFamily: 'monospace', fontSize: '0.65rem', fontWeight: 700, color: group.color, opacity: 0.6, marginLeft: 'auto' }}>
+                    {String(active.length).padStart(2, '0')} open
+                </span>
+            </div>
+
+            {/* Active tickets */}
+            {active.length > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 8, marginBottom: 8 }}>
+                    {active.map(item => <TicketCard key={item._id} item={item} />)}
+                </div>
+            ) : (
+                <div style={{ color: 'rgba(237,237,237,0.2)', fontSize: '0.75rem', padding: '8px 0 12px', fontStyle: 'italic' }}>No open tickets.</div>
+            )}
+
+            {/* Closed tickets (collapsible) */}
+            {closed.length > 0 && (
+                <div>
+                    <button onClick={() => setClosedOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', background: 'transparent', border: 'none', borderTop: '1px solid rgba(255,255,255,0.06)', padding: '7px 0', cursor: 'pointer', color: 'rgba(237,237,237,0.28)', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.12em' }}>
+                        {closedOpen ? <KeyboardArrowUp style={{ fontSize: 14 }} /> : <KeyboardArrowDown style={{ fontSize: 14 }} />}
+                        CLOSED
+                        <span style={{ fontFamily: 'monospace', marginLeft: 4 }}>[{String(closed.length).padStart(2, '0')}]</span>
+                    </button>
+                    {closedOpen && (
+                        <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 8 }}>
+                            {closed.map(item => <TicketCard key={item._id} item={item} />)}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}
+
 
 function TicketSection({ label, tag, items, empty }: { label: string; tag: string; items: TicketItem[]; empty?: string }) {
     return (
@@ -274,7 +383,9 @@ function TicketCard({ item }: { item: TicketItem }) {
     const router = useRouter()
     const [imgErr, setImgErr] = useState(false)
     const cat = CAT_META[item.category]
-    const status = getStatus(item.status)
+    const primaryStatus = getPrimaryStatus(item)
+    const status = PRIMARY_STATUS_META[primaryStatus] ?? getStatus(item.status)
+    const tags = item.ticketTags ?? []
 
     return (
         <div
@@ -292,6 +403,15 @@ function TicketCard({ item }: { item: TicketItem }) {
                 <span style={{ fontSize: '0.56rem', fontWeight: 800, letterSpacing: '0.09em', padding: '1px 5px', color: status.color, border: `1px solid ${status.border}55` }}>
                     {status.label}
                 </span>
+                {tags.map(tag => {
+                    const tm = TAG_META[tag]
+                    if (!tm) return null
+                    return (
+                        <span key={tag} style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.07em', padding: '1px 4px', color: tm.color, border: `1px solid ${tm.color}55`, opacity: 0.85 }}>
+                            {tm.label}
+                        </span>
+                    )
+                })}
                 {item.visibility === 'private' && (
                     <span style={{ fontSize: '0.52rem', fontWeight: 800, padding: '1px 4px', color: 'rgba(255,80,80,0.65)', border: '1px solid rgba(255,80,80,0.2)' }}>P</span>
                 )}

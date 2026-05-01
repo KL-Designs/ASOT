@@ -1,27 +1,60 @@
 import React from 'react'
 
-// ── Statuses ──────────────────────────────────────────────────────────────────
+// ── Primary statuses (3 values — new structure) ───────────────────────────────
 
 export type TicketStatus = CommunityTicketStatus
 
+export const PRIMARY_STATUS_META: Record<string, { label: string; color: string; border: string; bg: string }> = {
+    open:      { label: 'Open',      color: 'rgba(237,237,237,0.65)',  border: 'rgba(255,255,255,0.2)',  bg: 'rgba(255,255,255,0.02)' },
+    in_review: { label: 'In Review', color: 'rgba(0,195,255,0.9)',     border: 'rgba(0,195,255,0.65)',   bg: 'rgba(0,195,255,0.05)'   },
+    closed:    { label: 'Closed',    color: 'rgba(237,237,237,0.32)',  border: 'rgba(255,255,255,0.09)', bg: 'rgba(0,0,0,0.08)'       },
+}
+export const PRIMARY_STATUSES = Object.keys(PRIMARY_STATUS_META) as string[]
+
+// ── Tags / sub-statuses (multi-select) ────────────────────────────────────────
+
+export const TAG_META: Record<string, { label: string; color: string }> = {
+    in_review:          { label: 'In Review',          color: 'rgba(0,195,255,0.9)'    },
+    implementing:       { label: 'Implementing',        color: 'rgba(167,139,250,0.9)'  },
+    implemented:        { label: 'Implemented',         color: 'rgba(74,222,128,0.9)'   },
+    broken:             { label: 'Broken',              color: 'rgba(255,140,0,0.9)'    },
+    resolved:           { label: 'Resolved',            color: 'rgba(74,222,128,0.8)'   },
+    denied:             { label: 'Denied',              color: 'rgba(219,0,29,0.85)'    },
+    no_action_required: { label: 'No Action Required',  color: 'rgba(237,237,237,0.45)' },
+}
+export const ALL_TAGS = Object.keys(TAG_META)
+
+// ── Legacy status meta (backwards compat for old stored statuses) ─────────────
+
 export const STATUS_META: Record<string, { label: string; color: string; border: string; bg: string }> = {
-    open:               { label: 'Open',               color: 'rgba(237,237,237,0.65)',  border: 'rgba(255,255,255,0.2)',  bg: 'rgba(255,255,255,0.02)' },
-    in_review:          { label: 'In Review',           color: 'rgba(0,195,255,0.9)',     border: 'rgba(0,195,255,0.65)',   bg: 'rgba(0,195,255,0.05)'   },
+    ...PRIMARY_STATUS_META,
     implementing:       { label: 'Implementing',        color: 'rgba(167,139,250,0.9)',   border: 'rgba(167,139,250,0.6)',  bg: 'rgba(167,139,250,0.05)' },
     implemented:        { label: 'Implemented',         color: 'rgba(74,222,128,0.9)',    border: 'rgba(74,222,128,0.6)',   bg: 'rgba(74,222,128,0.05)'  },
-    broken_mod:         { label: 'Broken Mod',          color: 'rgba(255,140,0,0.9)',     border: 'rgba(255,140,0,0.6)',    bg: 'rgba(255,140,0,0.05)'   },
+    broken_mod:         { label: 'Broken',              color: 'rgba(255,140,0,0.9)',     border: 'rgba(255,140,0,0.6)',    bg: 'rgba(255,140,0,0.05)'   },
     resolved:           { label: 'Resolved',            color: 'rgba(74,222,128,0.8)',    border: 'rgba(74,222,128,0.55)',  bg: 'rgba(74,222,128,0.04)'  },
     denied:             { label: 'Denied',              color: 'rgba(219,0,29,0.85)',     border: 'rgba(219,0,29,0.55)',    bg: 'rgba(219,0,29,0.05)'    },
     no_action_required: { label: 'No Action Required',  color: 'rgba(237,237,237,0.45)', border: 'rgba(255,255,255,0.12)', bg: 'rgba(0,0,0,0.1)'        },
-    closed:             { label: 'Closed',              color: 'rgba(237,237,237,0.32)', border: 'rgba(255,255,255,0.09)', bg: 'rgba(0,0,0,0.08)'       },
 }
 
 export const ALL_STATUSES = Object.keys(STATUS_META) as CommunityTicketStatus[]
-export const ACTIVE_STATUSES: CommunityTicketStatus[] = ['open', 'in_review', 'implementing']
-export const CLOSED_STATUSES: CommunityTicketStatus[] = ['implemented', 'broken_mod', 'resolved', 'denied', 'no_action_required', 'closed']
+export const ACTIVE_STATUSES: string[] = ['open', 'in_review']
+export const CLOSED_STATUSES: string[] = ['closed', 'implementing', 'implemented', 'broken_mod', 'resolved', 'denied', 'no_action_required']
 
 export function getStatus(s: string) {
-    return STATUS_META[s] ?? STATUS_META.open
+    return STATUS_META[s] ?? PRIMARY_STATUS_META.open
+}
+
+/** Returns true if the ticket should be shown in the closed section. */
+export function isTicketClosed(t: { status: string; statuses?: string[] }): boolean {
+    const all = t.statuses?.length ? t.statuses : [t.status]
+    return all.includes('closed') || (!all.some(s => PRIMARY_STATUSES.includes(s)) && CLOSED_STATUSES.includes(t.status))
+}
+
+/** Get effective primary status (Open/In Review/Closed) */
+export function getPrimaryStatus(t: { status: string; statuses?: string[] }): string {
+    const all = t.statuses?.length ? t.statuses : [t.status]
+    const primary = all.find(s => PRIMARY_STATUSES.includes(s))
+    return primary ?? (isTicketClosed(t) ? 'closed' : 'open')
 }
 
 // ── Categories ────────────────────────────────────────────────────────────────

@@ -29,6 +29,12 @@ type NotificationType =
     | 'quiz_submitted'
     | 'quiz_result'
     | 'quiz_review_requested'
+    | 'ticket_assigned'
+    | 'ticket_transferred'
+    | 'ticket_status_changed'
+    | 'ticket_reopened'
+    | 'ticket_task_assigned'
+    | 'ticket_comment'
     | 'system'
 
 type TaskType = 'manual' | 'attendance' | 'application_review' | 'extension_review' | 'quiz_assigned'

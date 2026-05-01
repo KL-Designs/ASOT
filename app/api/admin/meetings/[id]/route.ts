@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import fs from 'fs'
+import { logAction } from '@/lib/logAction'
 
 async function getMeeting(id: string) {
     if (!ObjectId.isValid(id)) return null
@@ -77,5 +78,18 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     }
 
     await Db.meetings.deleteOne({ _id: new ObjectId(id) })
+
+    const displayName = me.guild?.nickname || me.globalName || me.username || 'Unknown'
+    await logAction({
+        action: 'meeting.delete',
+        category: 'meeting',
+        performedBy: me.id,
+        performedByName: displayName,
+        department: meeting.department,
+        entityType: 'meeting',
+        entityId: id,
+        target: `"${meeting.title}"`,
+    })
+
     return NextResponse.json({ ok: true })
 }

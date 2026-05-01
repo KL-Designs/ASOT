@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { logAction } from '@/lib/logAction'
 
 // POST /api/admin/meetings/[id]/complete
 // Marks the meeting as completed and locks it. Lead only.
@@ -46,6 +47,18 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
             },
         }
     )
+
+    await logAction({
+        action: 'meeting.complete',
+        category: 'meeting',
+        performedBy: me.id,
+        performedByName: displayName,
+        department: meeting.department,
+        entityType: 'meeting',
+        entityId: id,
+        actionUrl: `/dashboard/meeting/${id}`,
+        target: `"${meeting.title}"`,
+    })
 
     // Queue attendance confirmation reminder — fires 24h after completion
     const actionUrl = `/admin/${meeting.department}`

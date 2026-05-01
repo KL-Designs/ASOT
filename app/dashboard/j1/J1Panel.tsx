@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { Typography, Tabs, Tab } from '@mui/material'
-import { PeopleAlt, CalendarMonth } from '@mui/icons-material'
+import { PeopleAlt, CalendarMonth, HistoryEdu } from '@mui/icons-material'
 import { Construction } from '@mui/icons-material'
 import ApplicationsTab from './tabs/ApplicationsTab'
 import RecruitMemberTab from './tabs/RecruitMemberTab'
@@ -13,6 +13,8 @@ import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import { useTabState } from '@/app/dashboard/_components/useTabState'
 import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
+import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
+import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 
 interface J1PanelProps {
     displayName: string
@@ -96,6 +98,9 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
                         </button>
+                        <button style={{ ...btnSx(view === 'activity'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'activity' ? 'dept' : 'activity')}>
+                            <HistoryEdu sx={{ fontSize: '0.85rem' }} />Activity Logs
+                        </button>
                     </div>
             </div>
 
@@ -104,6 +109,11 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j1' userId={userId} isJ4={isJ4} />
+            )}
+            {view === 'activity' && (
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
+                    <ActivityLogTab department='j1' />
+                </div>
             )}
             {view === 'dept' && (
                 <>
@@ -120,6 +130,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                             <Tab label={<PinTabLabel label='Mastersheet'    pinLabel='J1 — Mastersheet'    href='/dashboard/j1' tabIndex={2} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Statistics'     pinLabel='J1 — Statistics'     href='/dashboard/j1' tabIndex={3} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Meetings'       pinLabel='J1 — Meetings'       href='/dashboard/j1' tabIndex={4} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Tickets' pinLabel='J1 — Tickets' href='/dashboard/j1' tabIndex={5} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -146,7 +157,8 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                             </div>
                         )}
                         {tab === 3 && <StatisticsTab />}
-                        {tab === 4 && <MeetingsTab department='j1' userId={userId} isLead={canManageMembers} />}
+                        {tab === 4 && <MeetingsTab department='j1' userId={userId} isLead={canManageMembers || isJ4} />}
+                        {tab === 5 && <DeptTicketsTab department='j1' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                     </div>
                 </>
             )}

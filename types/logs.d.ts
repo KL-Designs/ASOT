@@ -4,15 +4,32 @@ export { }
 
 declare global {
 
-    type ActionCategory = 'orbat' | 'calendar' | 'member' | 'operation' | 'system' | 'discord'
+    type ActionCategory =
+        | 'orbat'
+        | 'calendar'
+        | 'member'
+        | 'operation'
+        | 'system'
+        | 'discord'
+        | 'meeting'
+        | 'ticket'
+        | 'task'
+        | 'training'
+        | 'award'
 
     interface ActionLog {
         _id: ObjectId
-        action: string            // e.g. 'orbat.assign', 'calendar.create'
+        action: string                  // e.g. 'meeting.create', 'meeting.transfer', 'ticket.status_change'
         category: ActionCategory
-        performedBy: string       // userId
+        performedBy: string             // Discord userId
         performedByName: string
-        target?: string           // human-readable description of what changed
+        department?: string             // dept this action belongs to (for dept-level filtering)
+        entityType?: string             // 'meeting' | 'task' | 'ticket' | 'calendar' | 'member' etc.
+        entityId?: string               // ID of the related entity (for navigation)
+        actionUrl?: string              // URL to navigate to when clicking this log entry
+        target?: string                 // human-readable description of what changed
+        before?: unknown                // value before change (for edits)
+        after?: unknown                 // value after change (for edits)
         details?: Record<string, unknown>
         createdAt: Date
     }
@@ -32,21 +49,16 @@ declare global {
 
     interface DiscordLog {
         _id: ObjectId
-        /** 'dm' | 'role' | 'nickname' — the kind of Discord action attempted */
         action: string
         status: DiscordLogStatus
         targetUserId: string
-        targetUserName: string      // resolved from DB; falls back to userId
-        /** 'task' | 'calendar' | 'raw' | 'role' | 'nickname' */
+        targetUserName: string
         messageType: string
-        /** Embed title or first line of content — shown in the list row */
         preview: string
-        /** Full embed array (if DM) */
         embeds?: import('mongodb').Document[]
-        /** Raw text content (if DM without embed) */
         content?: string
         devMode: boolean
-        override: boolean           // sent despite dev mode (OVERRIDE user)
+        override: boolean
         createdAt: Date
     }
 

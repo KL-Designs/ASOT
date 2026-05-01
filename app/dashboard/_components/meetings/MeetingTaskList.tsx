@@ -69,7 +69,7 @@ export default function MeetingTaskList({ meetingId, tasks, locked, userId: _use
     const [dueDate, setDueDate]           = useState('')
     const [chaseUpDate, setChaseUpDate]   = useState('')
     const [adding, setAdding]             = useState(false)
-    const [allMembersMode, setAllMembersMode] = useState(false)
+    const [formError, setFormError]       = useState('')
 
     const [updating, setUpdating]         = useState<string | null>(null)
     const [expanded, setExpanded]         = useState<Set<string>>(new Set())
@@ -84,19 +84,23 @@ export default function MeetingTaskList({ meetingId, tasks, locked, userId: _use
     function resetForm() {
         setTitle(''); setDescription(''); setAssignee(null)
         setAssignedRole(''); setDueDate(''); setChaseUpDate('')
-        setAllMembersMode(false); setShowForm(false)
+        setFormError(''); setShowForm(false)
     }
 
     async function addTask() {
-        if (!title.trim()) return
+        setFormError('')
+        if (!title.trim()) return setFormError('Title is required.')
+        if (!description.trim()) return setFormError('Description is required.')
+        if (!dueDate) return setFormError('Due Date / Time is required.')
+        if (!assignee && !assignedRole) return setFormError('Assign to at least one member or role.')
         setAdding(true)
         try {
             const body: Record<string, unknown> = {
                 title: title.trim(),
-                ...(description.trim() && { description: description.trim() }),
+                description: description.trim(),
+                dueDate,
                 ...(assignee && { assignedTo: assignee.id, assignedToName: assignee.name }),
                 ...(assignedRole && { assignedRole }),
-                ...(dueDate && { dueDate }),
                 ...(chaseUpDate && { chaseUpDate }),
             }
             const res = await fetch(`/api/admin/meetings/${meetingId}/tasks`, {
@@ -178,57 +182,44 @@ export default function MeetingTaskList({ meetingId, tasks, locked, userId: _use
                             <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder='Additional detail…' rows={2} style={{ ...inputSx, resize: 'vertical', lineHeight: 1.5, fontFamily: 'inherit' }} />
                         </div>
 
-                        {/* Assign to member — with "All ASOT" checkbox */}
+                        {/* Assign to member */}
                         <div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                                <label style={{ ...lbl, marginBottom: 0 }}>Assign to Member</label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: '0.56rem', color: allMembersMode ? 'rgba(100,160,255,0.8)' : 'rgba(237,237,237,0.3)' }}>
-                                    <input
-                                        type='checkbox' checked={allMembersMode}
-                                        onChange={e => { setAllMembersMode(e.target.checked); setAssignee(null) }}
-                                        style={{ width: 10, height: 10, cursor: 'pointer' }}
-                                    />
-                                    All ASOT
-                                </label>
-                            </div>
+                            <label style={lbl}>Assign to Member</label>
                             <MemberPicker
                                 value={assignee}
                                 onChange={setAssignee}
-                                department={allMembersMode ? undefined : department}
-                                allMembers={allMembersMode}
-                                placeholder={allMembersMode ? 'Search all members…' : 'Search dept / J4…'}
+                                allMembers={true}
+                                placeholder='Search all members…'
                             />
                         </div>
 
-                        {/* Assign to role — real dropdown */}
+                        {/* Assign to role — department-scoped */}
                         <div>
                             <label style={lbl}>Assign to Role</label>
-                            <select
-                                value={assignedRole}
-                                onChange={e => setAssignedRole(e.target.value)}
-                                style={{ ...inputSx, cursor: 'pointer', colorScheme: 'dark' } as React.CSSProperties}
-                            >
+                            <select value={assignedRole} onChange={e => setAssignedRole(e.target.value)} style={{ ...inputSx, cursor: 'pointer', colorScheme: 'dark' } as React.CSSProperties}>
                                 <option value=''>— No role —</option>
-                                {availableRoles.map(r => (
-                                    <option key={r} value={r}>{r}</option>
-                                ))}
+                                {availableRoles.map(r => <option key={r} value={r}>{r}</option>)}
                             </select>
                         </div>
 
                         <div>
-                            <label style={lbl}>Due Date</label>
-                            <input type='datetime-local' value={dueDate} onChange={e => setDueDate(e.target.value)} style={{ ...inputSx, cursor: 'pointer', fontSize: '0.72rem', colorScheme: 'dark' }} />
+                            <label style={lbl}>Due Date / Time <span style={{ color: 'rgba(219,0,29,1)' }}>*</span></label>
+                            <input type='datetime-local' value={dueDate} onChange={e => setDueDate(e.target.value)} style={{ ...inputSx, cursor: 'pointer', fontSize: '0.72rem', colorScheme: 'dark' } as React.CSSProperties} />
                         </div>
 
                         <div>
-                            <label style={lbl}>Chase-up Date</label>
-                            <input type='datetime-local' value={chaseUpDate} onChange={e => setChaseUpDate(e.target.value)} style={{ ...inputSx, cursor: 'pointer', fontSize: '0.72rem' }} />
+                            <label style={lbl}>Reminder / Chase-up Date / Time</label>
+                            <input type='datetime-local' value={chaseUpDate} onChange={e => setChaseUpDate(e.target.value)} style={{ ...inputSx, cursor: 'pointer', fontSize: '0.72rem', colorScheme: 'dark' } as React.CSSProperties} />
                         </div>
                     </div>
 
+                    {formError && (
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(219,0,29,0.85)', padding: '4px 0' }}>{formError}</div>
+                    )}
+
                     <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                         <button onClick={resetForm} style={{ all: 'unset', cursor: 'pointer', padding: '5px 12px', fontSize: '0.65rem', fontWeight: 700, color: 'rgba(237,237,237,0.35)', border: '1px solid rgba(255,255,255,0.1)' }}>Cancel</button>
-                        <button onClick={addTask} disabled={adding || !title.trim()} style={{ all: 'unset', cursor: adding || !title.trim() ? 'not-allowed' : 'pointer', padding: '5px 14px', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', background: 'rgba(219,0,29,0.18)', border: '1px solid rgba(219,0,29,0.45)', color: 'rgba(219,0,29,0.9)', opacity: !title.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <button onClick={addTask} disabled={adding} style={{ all: 'unset', cursor: adding ? 'not-allowed' : 'pointer', padding: '5px 14px', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', background: 'rgba(219,0,29,0.18)', border: '1px solid rgba(219,0,29,0.45)', color: 'rgba(219,0,29,0.9)', display: 'flex', alignItems: 'center', gap: 5 }}>
                             {adding ? <CircularProgress size={10} color='inherit' /> : 'Add Task'}
                         </button>
                     </div>

@@ -3,16 +3,46 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { logAction } from '@/lib/logAction'
+import { notifyTicketDeptLeads } from '@/lib/ticketNotifications'
 
 const PRIVATE_CATEGORIES: CommunityTicketCategory[] = ['unit-feedback', 'complaint', 'award']
-const DEFAULT_DEPT: Record<CommunityTicketCategory, string> = {
-    'request':      'j4',
-    'bug':          'j4',
-    'mission':      'j2',
-    'campaign':     'j2',
-    'unit-feedback': 'j4',
-    'complaint':    'j4',
-    'award':        'j4',
+
+type User = Awaited<ReturnType<typeof client.fetchMe>>
+
+function getLeadDepts(me: User): string[] {
+    return Object.entries(PERMISSIONS.departmentLeads)
+        .filter(([, roles]) => client.hasRoles(me, roles))
+        .map(([dept]) => dept)
+}
+
+function routeTicket(subtype: string, responsibleDept?: string): { department: string; departments: string[] } {
+    switch (subtype) {
+        case 'mod-request':
+            return { department: 'j4', departments: ['j4', 'j7'] }
+        case 'feature-request': {
+            if (responsibleDept) {
+                const depts = responsibleDept === 'j4' ? ['j4'] : [responsibleDept, 'j4']
+                return { department: responsibleDept, departments: depts }
+            }
+            return { department: 'j4', departments: ['j4'] }
+        }
+        case 'bug-website':
+        case 'bug-milpac':
+        case 'bug-milpack':
+        case 'bug-teamspeak':
+            return { department: 'j7', departments: ['j7'] }
+        case 'bug-arma':
+        case 'bug-discord':
+        case 'bug-other-game':
+        case 'bug-other':
+            return { department: 'j4', departments: ['j4'] }
+        case 'mission':
+        case 'campaign':
+            return { department: 'j2', departments: ['j2'] }
+        default:
+            return { department: 'j4', departments: ['j4'] }
+    }
 }
 
 
@@ -21,23 +51,29 @@ export async function GET(request: NextRequest) {
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const isJ4 = client.hasRoles(me, PERMISSIONS.communityTickets.manage)
+    const leadDepts = getLeadDepts(me)
     const { searchParams } = new URL(request.url)
 
     const category = searchParams.get('category')
-    const statuses = searchParams.getAll('status')          // multi-select
-    const status = searchParams.get('status')               // single fallback
+    const statuses = searchParams.getAll('status')
+    const status = searchParams.get('status')
     const sort = searchParams.get('sort') ?? 'votes'
-    const department = searchParams.get('department')
+    const requestedDept = searchParams.get('department')
     const tag = searchParams.get('tag')
     const showDeleted = searchParams.get('deleted') === '1' && isJ4
 
+    const isDeptLead = leadDepts.length > 0
+    const isLeadForRequestedDept = requestedDept && requestedDept !== 'all' && leadDepts.includes(requestedDept)
+
     const filter: Record<string, unknown> = {}
 
-    if (!isJ4) {
-        filter.visibility = 'public'
+    if (isJ4) {
+        if (!showDeleted) filter.isDeleted = { $ne: true }
+    } else if (isDeptLead && isLeadForRequestedDept) {
         filter.isDeleted = { $ne: true }
     } else {
-        if (!showDeleted) filter.isDeleted = { $ne: true }
+        filter.visibility = 'public'
+        filter.isDeleted = { $ne: true }
     }
 
     if (category && category !== 'all') filter.category = category
@@ -46,7 +82,14 @@ export async function GET(request: NextRequest) {
     if (allStatuses.length === 1) filter.status = allStatuses[0]
     else if (allStatuses.length > 1) filter.status = { $in: allStatuses }
 
-    if (department && department !== 'all' && isJ4) filter.department = department
+    if (requestedDept && requestedDept !== 'all') {
+        if (isJ4) {
+            filter.department = requestedDept
+        } else if (isLeadForRequestedDept) {
+            filter.$or = [{ department: requestedDept }, { departments: requestedDept }]
+        }
+    }
+
     if (tag) filter.tags = tag
 
     const sortOrder: Record<string, 1 | -1> = sort === 'votes'
@@ -87,10 +130,8 @@ export async function POST(request: NextRequest) {
 
     const isPrivate = PRIVATE_CATEGORIES.includes(category as CommunityTicketCategory)
     const visibility: CommunityTicketVisibility = isPrivate ? 'private' : 'public'
-    const department: string = rest.department ?? DEFAULT_DEPT[category as CommunityTicketCategory] ?? 'j4'
-    const departments: string[] = rest.departments ?? [department]
+    const { department, departments } = routeTicket(subtype, rest.responsibleDept)
 
-    // Mod request duplicate check
     if (subtype === 'mod-request' && rest.modLink) {
         const normalised = rest.modLink.trim().toLowerCase().replace(/\/+$/, '')
         const existing = await Db.communityTickets.findOne({
@@ -136,12 +177,12 @@ export async function POST(request: NextRequest) {
             actorName: me.guild.displayName ?? me.username,
             timestamp: now,
         }],
-        // Optional fields spread conditionally
         ...(rest.modLink        && { modLink: rest.modLink.trim() }),
         ...(rest.game           && { game: rest.game }),
         ...(rest.gameOther      && { gameOther: rest.gameOther }),
         ...(rest.featureCategory && { featureCategory: rest.featureCategory }),
         ...(rest.featureCategoryOther && { featureCategoryOther: rest.featureCategoryOther }),
+        ...(rest.responsibleDept && { responsibleDept: rest.responsibleDept }),
         ...(rest.weblink        && { weblink: rest.weblink.trim() }),
         ...(rest.justification  && { justification: rest.justification.trim() }),
         ...(rest.stepsToReproduce && { stepsToReproduce: rest.stepsToReproduce.trim() }),
@@ -188,6 +229,34 @@ export async function POST(request: NextRequest) {
     }
 
     await Db.communityTickets.insertOne(doc)
+
+    const ticketId = doc._id.toString()
+    const actionUrl = `/community/tickets/${ticketId}`
+    const displayName = isAnonymous ? 'Anonymous' : (me.guild.displayName ?? me.username)
+
+    // Log creation
+    await logAction({
+        action: 'ticket.create',
+        category: 'ticket',
+        performedBy: me.id,
+        performedByName: displayName,
+        entityType: 'ticket',
+        entityId: ticketId,
+        actionUrl,
+        target: `"${title.trim()}" (${subtype.replace(/-/g, ' ')})`,
+        details: { department, departments, visibility, subtype },
+    })
+
+    // Notify dept leads for all routed departments
+    const subtypeLabel = subtype.replace(/-/g, ' ')
+    const deptLabels = [...new Set(departments)].map(d => d.toUpperCase()).join(' + ')
+    const notifTitle = `New ${subtypeLabel}: "${title.trim()}"`
+    const notifBody = `${displayName} submitted a ${subtypeLabel} ticket.\nDepartment(s): ${deptLabels}\nSubtype: ${subtypeLabel}${visibility === 'private' ? '\n[Private]' : ''}`
+    const uniqueDepts = [...new Set(departments)]
+    await Promise.all(uniqueDepts.map(dept =>
+        notifyTicketDeptLeads(dept, { type: 'ticket_assigned', title: notifTitle, body: notifBody, actionUrl, ticketId })
+            .catch(err => console.error(`[tickets] notify dept ${dept} failed:`, err))
+    ))
 
     return NextResponse.json(doc, { status: 201 })
 }

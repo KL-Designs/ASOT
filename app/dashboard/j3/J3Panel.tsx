@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { Typography, Tabs, Tab } from '@mui/material'
-import { PeopleAlt, CalendarMonth } from '@mui/icons-material'
+import { PeopleAlt, CalendarMonth, HistoryEdu } from '@mui/icons-material'
 import { Construction } from '@mui/icons-material'
 import QualificationTicketsTab from './tabs/QualificationTicketsTab'
 import PromotionTicketsTab from './tabs/PromotionTicketsTab'
@@ -12,6 +12,8 @@ import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import { useTabState } from '@/app/dashboard/_components/useTabState'
 import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
+import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
+import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 
 interface J3PanelProps {
     displayName: string
@@ -95,6 +97,9 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
                         </button>
+                        <button style={{ ...btnSx(view === 'activity'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'activity' ? 'dept' : 'activity')}>
+                            <HistoryEdu sx={{ fontSize: '0.85rem' }} />Activity Logs
+                        </button>
                     </div>
             </div>
 
@@ -103,6 +108,11 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j3' userId={userId} isJ4={isJ4} />
+            )}
+            {view === 'activity' && (
+                <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
+                    <ActivityLogTab department='j3' />
+                </div>
             )}
             {view === 'dept' && (
                 <>
@@ -119,6 +129,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                             <Tab label={<PinTabLabel label='Training Schedule'     pinLabel='J3 — Schedule'       href='/admin/j3' tabIndex={2} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Training Records'      pinLabel='J3 — Training Rec.'  href='/admin/j3' tabIndex={3} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Meetings'              pinLabel='J3 — Meetings'       href='/admin/j3' tabIndex={4} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Tickets' pinLabel='J3 — Tickets' href='/dashboard/j3' tabIndex={5} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -148,7 +159,8 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                         )}
                         {tab === 2 && <WipTab title='Training Schedule' description='Training schedule management and documentation tools are coming soon.' />}
                         {tab === 3 && <TrainingRecordsTab userId={userId} canManageMembers={canManageMembers} />}
-                        {tab === 4 && <MeetingsTab department='j3' userId={userId} isLead={canManageMembers} />}
+                        {tab === 4 && <MeetingsTab department='j3' userId={userId} isLead={canManageMembers || isJ4} />}
+                        {tab === 5 && <DeptTicketsTab department='j3' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                     </div>
                 </>
             )}
