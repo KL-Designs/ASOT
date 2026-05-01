@@ -37,6 +37,7 @@ const navColumns = [
             { label: 'FAQ', href: '/about/faq' },
             { label: 'Callsigns', href: '/about/callsigns' },
             { label: 'Contact', href: '/about/contact' },
+            { label: 'Credits', href: '/credits' },
         ],
     },
 ]
