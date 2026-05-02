@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         performedByName: actorName,
         entityType: 'ticket',
         entityId: id,
-        actionUrl: `/community/tickets/${id}`,
+        actionUrl: `/feedback/${id}`,
         target: `"${ticket.title}"`,
         before: fromDepts.join(', '),
         after: toDepartment,
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         type: 'ticket_transferred',
         title: `Ticket transferred to your department`,
         body: `"${ticket.title}" has been transferred to your department by ${actorName}.`,
-        actionUrl: `/community/tickets/${id}`,
+        actionUrl: `/feedback/${id}`,
         ticketId: id,
     }).catch(() => {})
 

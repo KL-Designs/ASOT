@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
@@ -216,7 +216,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             performedByName: actorName,
             entityType: 'ticket',
             entityId: id,
-            actionUrl: `/community/tickets/${id}`,
+            actionUrl: `/feedback/${id}`,
             target: `"${ticket.title}"`,
             before: ticket.status,
             after: updates.status,
@@ -224,12 +224,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         }).catch(() => {})
     }
     if (updates.isDeleted === false) {
-        await logAction({ action: 'ticket.restore', category: 'ticket', performedBy: me.id, performedByName: actorName, entityType: 'ticket', entityId: id, actionUrl: `/community/tickets/${id}`, target: `"${ticket.title}"`, details: { departments: ticketDepts2 } }).catch(() => {})
+        await logAction({ action: 'ticket.restore', category: 'ticket', performedBy: me.id, performedByName: actorName, entityType: 'ticket', entityId: id, actionUrl: `/feedback/${id}`, target: `"${ticket.title}"`, details: { departments: ticketDepts2 } }).catch(() => {})
     }
 
     // Reopen notifications
     if (body.reopen) {
-        const actionUrl = `/community/tickets/${id}`
+        const actionUrl = `/feedback/${id}`
         const notifTitle = `Ticket reopened: "${ticket.title}"`
         const notifBody = `${actorName} reopened a closed ticket.\nTicket: "${ticket.title}"\nLink: ${actionUrl}`
 
@@ -247,7 +247,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ))
     }
     if (updates.department && isJ4) {
-        await logAction({ action: 'ticket.reassign', category: 'ticket', performedBy: me.id, performedByName: actorName, entityType: 'ticket', entityId: id, actionUrl: `/community/tickets/${id}`, target: `"${ticket.title}"`, before: ticket.department, after: updates.department }).catch(() => {})
+        await logAction({ action: 'ticket.reassign', category: 'ticket', performedBy: me.id, performedByName: actorName, entityType: 'ticket', entityId: id, actionUrl: `/feedback/${id}`, target: `"${ticket.title}"`, before: ticket.department, after: updates.department }).catch(() => {})
     }
 
     const updated = await Db.communityTickets.findOne({ _id: new ObjectId(id) })

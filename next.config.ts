@@ -100,6 +100,16 @@ const nextConfig: NextConfig = {
 	async redirects() {
 		return [
 			{
+				source: '/community/tickets',
+				destination: '/feedback',
+				permanent: true,
+			},
+			{
+				source: '/community/tickets/:path*',
+				destination: '/feedback/:path*',
+				permanent: true,
+			},
+			{
 				source: '/ts',
 				destination: `ts3server://ts.asotmilsim.com`,
 				permanent: false,

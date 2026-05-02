@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { randomUUID } from 'crypto'
 import Db from '@/lib/mongo'
@@ -69,14 +69,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         performedByName: actorName,
         entityType: 'ticket',
         entityId: id,
-        actionUrl: `/community/tickets/${id}`,
+        actionUrl: `/feedback/${id}`,
         target: `Task "${task.title}" on "${ticket.title}"`,
         details: { taskId: task.id, departments: ticketDepts },
     }).catch(() => {})
 
     // Fire assignment notifications if someone was assigned
     if (task.assignedToUserId || task.assignedToRole) {
-        const actionUrl = `/community/tickets/${id}`
+        const actionUrl = `/feedback/${id}`
         const fmtDate = (d: Date) => new Date(d).toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
         const notifTitle = `Task Assigned: "${task.title}"`
         const notifLines = [

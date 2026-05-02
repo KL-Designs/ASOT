@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
     await Db.communityTickets.insertOne(doc)
 
     const ticketId = doc._id.toString()
-    const actionUrl = `/community/tickets/${ticketId}`
+    const actionUrl = `/feedback/${ticketId}`
     const displayName = isAnonymous ? 'Anonymous' : (me.guild.displayName ?? me.username)
 
     // Log creation

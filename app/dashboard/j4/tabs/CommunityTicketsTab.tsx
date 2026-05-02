@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -238,7 +238,7 @@ export default function CommunityTicketsTab() {
                                 {/* Active cards */}
                                 {active.length > 0 ? (
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 6, marginBottom: 8 }}>
-                                        {active.map(t => <TicketCard key={t._id} t={t} catMeta={catMeta} onStatusChange={handleStatusChange} onDelete={handleDelete} onRestore={handleRestore} onView={id => router.push(`/community/tickets/${id}?returnTo=${encodeURIComponent('/dashboard/j4?tab=3')}` as any)} isUpdating={updatingId === t._id} />)}
+                                        {active.map(t => <TicketCard key={t._id} t={t} catMeta={catMeta} onStatusChange={handleStatusChange} onDelete={handleDelete} onRestore={handleRestore} onView={id => router.push(`/feedback/${id}?returnTo=${encodeURIComponent('/dashboard/j4?tab=3')}` as any)} isUpdating={updatingId === t._id} />)}
                                     </div>
                                 ) : (
                                     <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.2)', padding: '12px 0', fontStyle: 'italic' }}>No active tickets.</div>
@@ -254,7 +254,7 @@ export default function CommunityTicketsTab() {
                                         </button>
                                         {!collapsedClosed && (
                                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 6, marginTop: 6 }}>
-                                                {closed.map(t => <TicketCard key={t._id} t={t} catMeta={catMeta} onStatusChange={handleStatusChange} onDelete={handleDelete} onRestore={handleRestore} onView={id => router.push(`/community/tickets/${id}?returnTo=${encodeURIComponent('/dashboard/j4?tab=3')}` as any)} isUpdating={updatingId === t._id} />)}
+                                                {closed.map(t => <TicketCard key={t._id} t={t} catMeta={catMeta} onStatusChange={handleStatusChange} onDelete={handleDelete} onRestore={handleRestore} onView={id => router.push(`/feedback/${id}?returnTo=${encodeURIComponent('/dashboard/j4?tab=3')}` as any)} isUpdating={updatingId === t._id} />)}
                                             </div>
                                         )}
                                     </div>
@@ -323,7 +323,7 @@ export default function CommunityTicketsTab() {
                                         )
                                     }
                                 </div>
-                                <button onClick={() => router.push(`/community/tickets/${t._id}`)} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.5)', padding: '3px 7px', cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.06em' }}>
+                                <button onClick={() => router.push(`/feedback/${t._id}`)} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.5)', padding: '3px 7px', cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.06em' }}>
                                     VIEW
                                 </button>
                             </div>

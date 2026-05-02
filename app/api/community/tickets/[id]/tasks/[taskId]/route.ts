@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
@@ -66,7 +66,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             performedByName: actorName,
             entityType: 'ticket',
             entityId: id,
-            actionUrl: `/community/tickets/${id}`,
+            actionUrl: `/feedback/${id}`,
             target: `Task "${task?.title ?? taskId}" on "${ticket.title}"`,
         }).catch(() => {})
     }

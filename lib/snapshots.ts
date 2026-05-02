@@ -35,14 +35,6 @@ export const DEFAULT_SNAPSHOT_OPTIONS: SnapshotOptions = {
     uploads:         true,
 }
 
-// Actual MongoDB collection names (not Db property names)
-export const COLLECTIONS = [
-    'users', 'roles', 'milpacs', 'optionals',
-    'operations', 'operation_activity', 'operation_attendance', 'operation_campaigns',
-    'operation_templates', 'orbat_positions', 'orbat_section_meta',
-    'j1_applications', 'tickets', 'calendar_events', 'calendar_reminders',
-    'meetings', 'tasks', 'notifications', 'minigame_scores', 'minigame_live', 'site_settings',
-]
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -172,12 +164,6 @@ export async function createSnapshot(options: SnapshotOptions = DEFAULT_SNAPSHOT
             output.on('error', reject)
             archive.pipe(output)
 
-            // Manifest
-            archive.append(
-                JSON.stringify({ version: 1, createdAt: now.toISOString(), collections: COLLECTIONS, options }),
-                { name: 'manifest.json' }
-            )
-
             // File trees
             const galleryContent  = join(GALLERY_DIR, 'content')
             const galleryFeatured = join(GALLERY_DIR, 'featured')
@@ -190,7 +176,19 @@ export async function createSnapshot(options: SnapshotOptions = DEFAULT_SNAPSHOT
             // DB export — must complete before finalize()
             const dbExport = (async () => {
                 if (!options.database) return
-                for (const collName of COLLECTIONS) {
+                const collInfos = await db.listCollections({}, { nameOnly: true }).toArray()
+                const collections = collInfos
+                    .map(c => c.name)
+                    .filter(n => !n.startsWith('system.'))
+                    .sort()
+
+                // Manifest written after we know the real collection list
+                archive.append(
+                    JSON.stringify({ version: 1, createdAt: now.toISOString(), collections, options }),
+                    { name: 'manifest.json' }
+                )
+
+                for (const collName of collections) {
                     const docs = await db.collection(collName).find({}).toArray()
                     archive.append(
                         EJSON.stringify(docs, { relaxed: false }),
@@ -256,9 +254,14 @@ export async function revertSnapshot(zipPath: string): Promise<void> {
         await mongoClient.connect()
         const db = mongoClient.db(process.env.MONGO_DB!)
 
-        for (const collName of COLLECTIONS) {
-            const ejsonPath = join(tmpDir, 'db', `${collName}.ejson`)
-            if (!existsSync(ejsonPath)) continue  // older snapshot may not have this collection
+        const dbDir = join(tmpDir, 'db')
+        const collectionNames = existsSync(dbDir)
+            ? readdirSync(dbDir).filter(f => f.endsWith('.ejson')).map(f => f.slice(0, -6)).sort()
+            : []
+
+        for (const collName of collectionNames) {
+            const ejsonPath = join(dbDir, `${collName}.ejson`)
+            if (!existsSync(ejsonPath)) continue
 
             const raw  = await readFile(ejsonPath, 'utf-8')
             const docs = EJSON.parse(raw) as unknown[]
