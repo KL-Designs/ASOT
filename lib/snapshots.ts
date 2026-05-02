@@ -19,6 +19,22 @@ export const MAX_SNAPSHOTS = 5
 export const GALLERY_DIR   = resolve('./gallery')
 export const UPLOADS_DIR   = resolve('./uploads')
 
+export type SnapshotOptions = {
+    database:        boolean
+    galleryContent:  boolean
+    galleryFeatured: boolean
+    gallerySotm:     boolean
+    uploads:         boolean
+}
+
+export const DEFAULT_SNAPSHOT_OPTIONS: SnapshotOptions = {
+    database:        true,
+    galleryContent:  true,
+    galleryFeatured: true,
+    gallerySotm:     true,
+    uploads:         true,
+}
+
 // Actual MongoDB collection names (not Db property names)
 export const COLLECTIONS = [
     'users', 'roles', 'milpacs', 'optionals',
@@ -130,11 +146,11 @@ export function listSnapshots(): SnapshotInfo[] {
 
 // ── Create ────────────────────────────────────────────────────────────────────
 
-export async function createSnapshot(): Promise<void> {
+export async function createSnapshot(options: SnapshotOptions = DEFAULT_SNAPSHOT_OPTIONS): Promise<void> {
     ensureSnapshotsDir()
 
-    const now      = new Date()
-    const ts       = snapshotTimestamp(now)
+    const now       = new Date()
+    const ts        = snapshotTimestamp(now)
     const finalPath = join(SNAPSHOTS_DIR, `snapshot-${ts}.zip`)
     const tmpPath   = finalPath + '.tmp'
 
@@ -158,16 +174,22 @@ export async function createSnapshot(): Promise<void> {
 
             // Manifest
             archive.append(
-                JSON.stringify({ version: 1, createdAt: now.toISOString(), collections: COLLECTIONS }),
+                JSON.stringify({ version: 1, createdAt: now.toISOString(), collections: COLLECTIONS, options }),
                 { name: 'manifest.json' }
             )
 
-            // File trees (registered synchronously; streamed before finalize)
-            if (existsSync(GALLERY_DIR)) archive.directory(GALLERY_DIR, 'gallery')
-            if (existsSync(UPLOADS_DIR)) archive.directory(UPLOADS_DIR, 'uploads')
+            // File trees
+            const galleryContent  = join(GALLERY_DIR, 'content')
+            const galleryFeatured = join(GALLERY_DIR, 'featured')
+            const gallerySotm     = join(GALLERY_DIR, 'sotm')
+            if (options.galleryContent  && existsSync(galleryContent))  archive.directory(galleryContent,  'gallery/content')
+            if (options.galleryFeatured && existsSync(galleryFeatured)) archive.directory(galleryFeatured, 'gallery/featured')
+            if (options.gallerySotm     && existsSync(gallerySotm))     archive.directory(gallerySotm,     'gallery/sotm')
+            if (options.uploads && existsSync(UPLOADS_DIR)) archive.directory(UPLOADS_DIR, 'uploads')
 
             // DB export — must complete before finalize()
             const dbExport = (async () => {
+                if (!options.database) return
                 for (const collName of COLLECTIONS) {
                     const docs = await db.collection(collName).find({}).toArray()
                     archive.append(

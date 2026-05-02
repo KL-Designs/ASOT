@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Typography, CircularProgress, Dialog, DialogContent } from '@mui/material'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
+import type { SnapshotOptions } from '@/lib/snapshots'
 
 // ── Duration history (localStorage) ──────────────────────────────────────────
 
@@ -128,6 +129,189 @@ function ConfirmDialog({ open, title, body, danger, onConfirm, onCancel }: {
     )
 }
 
+// ── Create snapshot dialog ────────────────────────────────────────────────────
+
+type BackupRow =
+    | { type: 'section'; label: string }
+    | { type: 'item'; key: keyof SnapshotOptions; label: string; description: string; indent?: boolean }
+
+const BACKUP_ROWS: BackupRow[] = [
+    { type: 'item',    key: 'database',        label: 'Database',  description: 'All MongoDB collections — users, operations, ORBAT, and more.' },
+    { type: 'section', label: 'Gallery' },
+    { type: 'item',    key: 'galleryContent',  label: 'Content',   description: 'All operation photos and screenshots. May be large.', indent: true },
+    { type: 'item',    key: 'galleryFeatured', label: 'Featured',  description: 'Highlighted/featured images shown on the gallery page.', indent: true },
+    { type: 'item',    key: 'gallerySotm',     label: 'SOTM',      description: 'Screenshot of the Month image.', indent: true },
+    { type: 'item',    key: 'uploads',         label: 'Uploads',   description: 'Bio photos, cover images, and other uploaded files.' },
+]
+
+const INITIAL_OPTS: SnapshotOptions = { database: true, galleryContent: true, galleryFeatured: true, gallerySotm: true, uploads: true }
+
+function CreateSnapshotDialog({ open, onConfirm, onCancel }: {
+    open: boolean
+    onConfirm: (opts: SnapshotOptions) => void
+    onCancel: () => void
+}) {
+    const [opts, setOpts] = useState<SnapshotOptions>(INITIAL_OPTS)
+    const toggle = (key: keyof SnapshotOptions) => setOpts(o => ({ ...o, [key]: !o[key] }))
+    const noneSelected = !Object.values(opts).some(Boolean)
+    const allSelected  = Object.values(opts).every(Boolean)
+
+    return (
+        <Dialog
+            open={open}
+            onClose={onCancel}
+            PaperProps={{
+                style: {
+                    background: '#111',
+                    border: '1px solid rgba(219,0,29,0.32)',
+                    borderTop: '2px solid var(--red)',
+                    borderRadius: 0,
+                    minWidth: 440,
+                    maxWidth: 540,
+                    color: '#ededed',
+                },
+            }}
+        >
+            <DialogContent style={{ padding: '28px 28px 24px' }}>
+                <Typography fontSize='0.6rem' fontWeight={700} letterSpacing={3}
+                    style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
+                    J4 — Administration
+                </Typography>
+                <Typography fontWeight={700} fontSize='0.9rem' letterSpacing={2}
+                    style={{ textTransform: 'uppercase', marginBottom: 6 }}>
+                    Create Snapshot
+                </Typography>
+                <Typography fontSize='0.78rem' style={{ color: 'rgba(237,237,237,0.45)', marginBottom: 20, lineHeight: 1.6 }}>
+                    Select what to include in this backup.
+                </Typography>
+
+                {/* Checkbox rows */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 20 }}>
+                    {BACKUP_ROWS.map((row, i) => {
+                        if (row.type === 'section') {
+                            return (
+                                <div key={`section-${i}`} style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    padding: '8px 0 4px',
+                                }}>
+                                    <span style={{
+                                        fontSize: '0.58rem',
+                                        fontWeight: 700,
+                                        letterSpacing: '0.2em',
+                                        textTransform: 'uppercase',
+                                        color: 'rgba(219,0,29,0.5)',
+                                    }}>
+                                        {row.label}
+                                    </span>
+                                    <div style={{ flex: 1, height: 1, background: 'rgba(219,0,29,0.12)' }} />
+                                </div>
+                            )
+                        }
+
+                        const checked = opts[row.key]
+                        return (
+                            <button
+                                key={row.key}
+                                onClick={() => toggle(row.key)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: 12,
+                                    padding: '9px 12px',
+                                    marginLeft: row.indent ? 12 : 0,
+                                    background: checked ? 'rgba(219,0,29,0.06)' : 'rgba(255,255,255,0.02)',
+                                    border: `1px solid ${checked ? 'rgba(219,0,29,0.25)' : 'rgba(255,255,255,0.07)'}`,
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    width: row.indent ? 'calc(100% - 12px)' : '100%',
+                                    transition: 'background 0.15s, border-color 0.15s',
+                                }}
+                            >
+                                <div style={{
+                                    width: 14, height: 14, marginTop: 2, flexShrink: 0,
+                                    border: `1px solid ${checked ? 'rgba(219,0,29,0.7)' : 'rgba(255,255,255,0.2)'}`,
+                                    background: checked ? 'rgba(219,0,29,0.4)' : 'transparent',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    transition: 'background 0.15s, border-color 0.15s',
+                                }}>
+                                    {checked && (
+                                        <svg width='9' height='7' viewBox='0 0 9 7' fill='none'>
+                                            <path d='M1 3.5L3.5 6L8 1' stroke='#ededed' strokeWidth='1.6' strokeLinecap='round' strokeLinejoin='round' />
+                                        </svg>
+                                    )}
+                                </div>
+                                <div>
+                                    <div style={{
+                                        fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em',
+                                        textTransform: 'uppercase', marginBottom: 2, transition: 'color 0.15s',
+                                        color: checked ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.4)',
+                                    }}>
+                                        {row.label}
+                                    </div>
+                                    <div style={{
+                                        fontSize: '0.7rem', lineHeight: 1.5, transition: 'color 0.15s',
+                                        color: checked ? 'rgba(237,237,237,0.45)' : 'rgba(237,237,237,0.2)',
+                                    }}>
+                                        {row.description}
+                                    </div>
+                                </div>
+                            </button>
+                        )
+                    })}
+                </div>
+
+                {/* Partial-backup warning */}
+                {!allSelected && !noneSelected && (
+                    <div style={{
+                        padding: '8px 12px',
+                        background: 'rgba(219,160,0,0.08)',
+                        border: '1px solid rgba(219,160,0,0.2)',
+                        marginBottom: 20,
+                    }}>
+                        <Typography fontSize='0.72rem' style={{ color: 'rgba(219,160,0,0.85)', lineHeight: 1.5 }}>
+                            Partial snapshots cannot be used for a full restore.
+                        </Typography>
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                    <button
+                        onClick={onCancel}
+                        style={{
+                            background: 'none',
+                            border: '1px solid rgba(237,237,237,0.15)',
+                            color: 'rgba(237,237,237,0.6)',
+                            padding: '7px 18px',
+                            cursor: 'pointer',
+                            fontSize: '0.78rem',
+                            letterSpacing: 1,
+                        }}
+                    >
+                        CANCEL
+                    </button>
+                    <button
+                        onClick={() => onConfirm(opts)}
+                        disabled={noneSelected}
+                        style={{
+                            background: noneSelected ? 'none' : 'rgba(219,0,29,0.2)',
+                            border: '1px solid rgba(219,0,29,0.4)',
+                            color: noneSelected ? 'rgba(237,237,237,0.25)' : '#ededed',
+                            padding: '7px 18px',
+                            cursor: noneSelected ? 'not-allowed' : 'pointer',
+                            fontSize: '0.78rem',
+                            letterSpacing: 1,
+                        }}
+                    >
+                        CREATE
+                    </button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
 export default function SnapshotsTab() {
@@ -146,6 +330,7 @@ export default function SnapshotsTab() {
     const opTypeRef  = useRef<'create' | 'revert'>('create')
 
     const [cancelling, setCancelling] = useState(false)
+    const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
     const [confirm, setConfirm] = useState<{
         open: boolean
@@ -232,17 +417,20 @@ export default function SnapshotsTab() {
         )
     }
 
-    async function handleCreate() {
-        openConfirm(
-            'Create Snapshot',
-            'This will export the entire database and all media files. It may take several minutes depending on gallery size. Continue?',
-            async () => {
-                const res = await fetch('/api/snapshots/create', { method: 'POST' })
-                const data = await res.json()
-                if (!res.ok) setError(data.error ?? 'Failed to start')
-                else fetchData()
-            }
-        )
+    function handleCreate() {
+        setCreateDialogOpen(true)
+    }
+
+    async function handleCreateConfirm(opts: SnapshotOptions) {
+        setCreateDialogOpen(false)
+        const res = await fetch('/api/snapshots/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(opts),
+        })
+        const data = await res.json()
+        if (!res.ok) setError(data.error ?? 'Failed to start')
+        else fetchData()
     }
 
     async function handleRevert(filename: string) {
@@ -651,6 +839,13 @@ export default function SnapshotsTab() {
                     Upload a previously downloaded snapshot ZIP to restore the website to that state.
                 </Typography>
             </div>
+
+            {/* Create snapshot dialog */}
+            <CreateSnapshotDialog
+                open={createDialogOpen}
+                onConfirm={handleCreateConfirm}
+                onCancel={() => setCreateDialogOpen(false)}
+            />
 
             {/* Confirm dialog */}
             <ConfirmDialog
