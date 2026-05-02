@@ -373,8 +373,8 @@ const PERMISSIONS = {
          * Also controls status changes, reassignments, and activity log access.
          *
          * Used by:
-         *  - `app/api/community/tickets/route.ts`
-         *  - `app/api/community/tickets/[id]/route.ts`
+         *  - `app/api/feedback/route.ts`
+         *  - `app/api/feedback/[id]/route.ts`
          */
         manage: ['J4-Administration'],
     },

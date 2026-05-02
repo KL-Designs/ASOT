@@ -75,7 +75,7 @@ export default function CommunityTicketsTab() {
             if (showDeleted) p.set('deleted', '1')
         }
         if (deptFilter !== 'all') p.set('department', deptFilter)
-        fetch(`/api/community/tickets?${p}`)
+        fetch(`/api/feedback?${p}`)
             .then(r => r.json())
             .then(d => { setItems(Array.isArray(d) ? d : []); setLoading(false) })
             .catch(() => setLoading(false))
@@ -99,7 +99,7 @@ export default function CommunityTicketsTab() {
 
     async function patch(id: string, body: Record<string, unknown>) {
         setUpdatingId(id)
-        await fetch(`/api/community/tickets/${id}`, {
+        await fetch(`/api/feedback/${id}`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         })
@@ -114,7 +114,7 @@ export default function CommunityTicketsTab() {
     async function handleDelete(id: string) {
         showConfirm('Soft-delete this ticket? It will be hidden from members but recoverable by J4.', async () => {
             setUpdatingId(id)
-            await fetch(`/api/community/tickets/${id}`, { method: 'DELETE' })
+            await fetch(`/api/feedback/${id}`, { method: 'DELETE' })
             setItems(prev => prev.map(t => t._id === id ? { ...t, isDeleted: true } : t))
             setUpdatingId(null)
         })
@@ -128,7 +128,7 @@ export default function CommunityTicketsTab() {
     async function doTransfer(id: string) {
         if (!transferTarget) return
         setTransferring(true)
-        await fetch(`/api/community/tickets/${id}/transfer`, {
+        await fetch(`/api/feedback/${id}/transfer`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ toDepartment: transferTarget }),
         })

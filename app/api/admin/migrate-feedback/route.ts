@@ -24,30 +24,8 @@ function mapType(type: string): { category: CommunityTicketCategory; subtype: Co
     return { category: 'bug', subtype: 'bug-website' }
 }
 
-// GET — preview: how many feedbacks exist and how many are already migrated
-export async function GET() {
-    const me = await client.fetchMe().catch(() => null)
-    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    const feedbacks = await Db.feedback.find({}).toArray()
-    const ids = feedbacks.map(f => f._id)
-
-    const alreadyMigrated = await Db.communityTickets
-        .countDocuments({ _id: { $in: ids } })
-
-    const commentCount = await Db.feedbackComments
-        .countDocuments({ feedbackId: { $in: ids } })
-
-    return NextResponse.json({
-        feedbackCount: feedbacks.length,
-        alreadyMigrated,
-        toMigrate: feedbacks.length - alreadyMigrated,
-        commentCount,
-    })
-}
+// GET — run the migration (browser-friendly)
+export { POST as GET }
 
 // POST — run the migration
 export async function POST() {
@@ -57,13 +35,13 @@ export async function POST() {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const feedbacks = await Db.feedback.find({}).toArray()
+    const feedbacks = await Db.feedbackLegacy.find({}).toArray()
     if (feedbacks.length === 0) {
         return NextResponse.json({ message: 'No feedbacks to migrate.', migrated: 0, skipped: 0 })
     }
 
     const existingIds = new Set(
-        (await Db.communityTickets.find({ _id: { $in: feedbacks.map(f => f._id) } }, { projection: { _id: 1 } }).toArray())
+        (await Db.communityTicketsMigrationTarget.find({ _id: { $in: feedbacks.map(f => f._id) } }, { projection: { _id: 1 } }).toArray())
             .map(t => t._id.toString())
     )
 
@@ -119,7 +97,7 @@ export async function POST() {
                 }],
             }
 
-            await Db.communityTickets.insertOne(ticket)
+            await Db.communityTicketsMigrationTarget.insertOne(ticket)
 
             // Copy attachment files
             const srcDir = path.resolve(`./uploads/feedback/${idStr}`)
@@ -136,7 +114,7 @@ export async function POST() {
             }
 
             // Migrate comments
-            const oldComments = await Db.feedbackComments
+            const oldComments = await Db.feedbackLegacyComments
                 .find({ feedbackId: fb._id })
                 .sort({ createdAt: 1 })
                 .toArray()
@@ -155,7 +133,7 @@ export async function POST() {
                     downvotes: [],
                     voteScore: 0,
                 }
-                await Db.communityTicketComments.insertOne(ticketComment).catch(() => {})
+                await Db.communityTicketCommentsMigrationTarget.insertOne(ticketComment).catch(() => {})
                 commentsMigrated++
             }
 

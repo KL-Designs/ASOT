@@ -105,7 +105,7 @@ export default function CommunityTicketsPage() {
         statusFilters.forEach(s => p.append('status', s))
         p.set('sort', sort)
         setLoading(true)
-        fetch(`/api/community/tickets?${p}`)
+        fetch(`/api/feedback?${p}`)
             .then(r => r.json())
             .then(d => { setItems(Array.isArray(d) ? d : []); setLoading(false) })
             .catch(() => setLoading(false))

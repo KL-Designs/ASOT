@@ -390,7 +390,7 @@ export default function NewTicketPage() {
         titleDebounceRef.current = setTimeout(async () => {
             try {
                 const apiCat = displayCat === 'mission-campaign' ? 'mission' : displayCat
-                const res = await fetch(`/api/community/tickets/similar?title=${encodeURIComponent(title)}&category=${apiCat}`)
+                const res = await fetch(`/api/feedback/similar?title=${encodeURIComponent(title)}&category=${apiCat}`)
                 setSimilar(await res.json().catch(() => []))
             } catch { /* ignore */ }
         }, 600)
@@ -402,7 +402,7 @@ export default function NewTicketPage() {
         if (subtype !== 'mod-request' || !modLink.trim()) { setModDuplicate(null); return }
         const t = setTimeout(async () => {
             try {
-                const res = await fetch('/api/community/tickets?category=request&sort=newest')
+                const res = await fetch('/api/feedback?category=request&sort=newest')
                 const all = await res.json()
                 const norm = modLink.trim().toLowerCase().replace(/\/+$/, '')
                 const dup = all.find((t: CommunityTicket & { _id: string }) =>
@@ -524,7 +524,7 @@ export default function NewTicketPage() {
             ...(awardDesignNotes && { awardDesignNotes }),
         }
 
-        const res = await fetch('/api/community/tickets', {
+        const res = await fetch('/api/feedback', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         })
@@ -540,7 +540,7 @@ export default function NewTicketPage() {
         if (media.images.length > 0) {
             const fd = new FormData()
             media.images.forEach(f => fd.append('files', f))
-            await fetch(`/api/community/tickets/${json._id}/uploads`, { method: 'POST', body: fd }).catch(() => {})
+            await fetch(`/api/feedback/${json._id}/uploads`, { method: 'POST', body: fd }).catch(() => {})
         }
 
         localStorage.removeItem(DRAFT_KEY)

@@ -67,7 +67,7 @@ export default function DeptTicketsTab({ department, canManage, isJ4 = false, re
         try {
             const p = new URLSearchParams({ department })
             if (categoryFilter !== 'all') p.set('category', categoryFilter)
-            const res = await fetch(`/api/community/tickets?${p}`)
+            const res = await fetch(`/api/feedback?${p}`)
             const data = await res.json()
             setItems(Array.isArray(data) ? data : [])
         } finally { setLoading(false) }
@@ -89,7 +89,7 @@ export default function DeptTicketsTab({ department, canManage, isJ4 = false, re
 
     async function handleStatusChange(id: string, status: string) {
         setUpdatingId(id)
-        await fetch(`/api/community/tickets/${id}`, {
+        await fetch(`/api/feedback/${id}`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status }),
         })
@@ -101,7 +101,7 @@ export default function DeptTicketsTab({ department, canManage, isJ4 = false, re
         if (!transferTarget) return
         setTransferring(true)
         try {
-            const res = await fetch(`/api/community/tickets/${id}/transfer`, {
+            const res = await fetch(`/api/feedback/${id}/transfer`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ toDepartment: transferTarget, ...(transferNote.trim() ? { note: transferNote.trim() } : {}) }),
             })
