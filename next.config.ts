@@ -100,6 +100,11 @@ const nextConfig: NextConfig = {
 	async redirects() {
 		return [
 			{
+				source: '/dashboard/gallery',
+				destination: '/dashboard/j5',
+				permanent: true,
+			},
+			{
 				source: '/community/tickets',
 				destination: '/tickets',
 				permanent: true,
