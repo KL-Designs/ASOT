@@ -5,6 +5,8 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { logAction } from '@/lib/logAction'
 import { notifyTicketDeptLeads } from '@/lib/ticketNotifications'
+import { sendFeedbackStatusDM } from '@/lib/discord/bot'
+import { createNotification } from '@/lib/notifications'
 
 type User = Awaited<ReturnType<typeof client.fetchMe>>
 
@@ -222,6 +224,21 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             after: updates.status,
             details: { departments: ticketDepts2 },
         }).catch(() => {})
+
+        // Notify ticket author of status change (if not anonymous and not self-updating)
+        if (!ticket.isAnonymous && ticket.authorId !== me.id) {
+            const actionUrl = `/tickets/${id}`
+            const notifTitle = `Ticket status updated: "${ticket.title}"`
+            await createNotification({
+                userId: ticket.authorId,
+                type: 'ticket_status',
+                title: notifTitle,
+                body: `Your ticket status changed to ${updates.status}.`,
+                actionUrl,
+                relatedId: id,
+            }).catch(() => {})
+            await sendFeedbackStatusDM(ticket.authorId, ticket.title, updates.status, actionUrl).catch(() => {})
+        }
     }
     if (updates.isDeleted === false) {
         await logAction({ action: 'ticket.restore', category: 'ticket', performedBy: me.id, performedByName: actorName, entityType: 'ticket', entityId: id, actionUrl: `/tickets/${id}`, target: `"${ticket.title}"`, details: { departments: ticketDepts2 } }).catch(() => {})
@@ -235,9 +252,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
         // Notify ticket author (if not anonymous)
         if (!ticket.isAnonymous && ticket.authorId !== me.id) {
-            await import('@/lib/notifications').then(({ createNotification }) =>
-                createNotification({ userId: ticket.authorId, type: 'ticket_reopened', title: notifTitle, body: notifBody, actionUrl, relatedId: id })
-            ).catch(() => {})
+            await createNotification({ userId: ticket.authorId, type: 'ticket_reopened', title: notifTitle, body: notifBody, actionUrl, relatedId: id }).catch(() => {})
         }
 
         // Notify dept leads for all departments

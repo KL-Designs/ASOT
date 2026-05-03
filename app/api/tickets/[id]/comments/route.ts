@@ -3,6 +3,8 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { sendFeedbackCommentDM } from '@/lib/discord/bot'
+import { createNotification } from '@/lib/notifications'
 
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -35,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
     const isJ4 = client.hasRoles(me, PERMISSIONS.communityTickets.manage)
-    const ticket = await Db.communityTickets.findOne({ _id: new ObjectId(id) }, { projection: { visibility: 1, isDeleted: 1 } })
+    const ticket = await Db.communityTickets.findOne({ _id: new ObjectId(id) }, { projection: { visibility: 1, isDeleted: 1, authorId: 1, isAnonymous: 1, title: 1 } })
     if (!ticket) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (ticket.isDeleted && !isJ4) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (ticket.visibility === 'private' && !isJ4) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -44,11 +46,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!content?.trim()) return NextResponse.json({ error: 'content is required' }, { status: 400 })
 
     const now = new Date()
+    const commenterName = me.guild.displayName ?? me.username
     const comment: CommunityTicketComment = {
         _id: new ObjectId(),
         ticketId: new ObjectId(id),
         authorId: me.id,
-        authorName: me.guild.displayName ?? me.username,
+        authorName: commenterName,
         authorAvatarId: me.guild?.avatar ?? me.avatar ?? undefined,
         content: content.trim(),
         createdAt: now,
@@ -69,12 +72,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 activityLog: {
                     action: 'comment_added',
                     actorId: me.id,
-                    actorName: me.guild.displayName ?? me.username,
+                    actorName: commenterName,
                     timestamp: now,
                 } as CommunityTicketActivity,
             },
         }
     )
+
+    // Notify ticket author if they're not the one commenting and ticket isn't anonymous
+    if (!ticket.isAnonymous && ticket.authorId && ticket.authorId !== me.id) {
+        const actionUrl = `/tickets/${id}`
+        const notifTitle = `New comment on your ticket: "${ticket.title}"`
+        await createNotification({
+            userId: ticket.authorId,
+            type: 'ticket_comment',
+            title: notifTitle,
+            body: `${commenterName} commented on your ticket.`,
+            actionUrl,
+            relatedId: id,
+        }).catch(() => {})
+        await sendFeedbackCommentDM(ticket.authorId, ticket.title, commenterName, actionUrl).catch(() => {})
+    }
 
     return NextResponse.json(comment, { status: 201 })
 }

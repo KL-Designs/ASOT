@@ -6,7 +6,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { logAction } from '@/lib/logAction'
 import { createNotification } from '@/lib/notifications'
-import { sendMeetingDM } from '@/lib/discord/bot'
+import { sendTaskAssignedDM } from '@/lib/discord/bot'
 
 type User = Awaited<ReturnType<typeof client.fetchMe>>
 
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // Notify specific assigned member
         if (task.assignedToUserId) {
             await createNotification({ userId: task.assignedToUserId, type: 'ticket_task_assigned', title: notifTitle, body: notifBody, actionUrl, relatedId: id }).catch(() => {})
-            await sendMeetingDM(task.assignedToUserId, notifTitle, notifBody, actionUrl).catch(() => {})
+            await sendTaskAssignedDM(task.assignedToUserId, task.title, notifBody, actionUrl).catch(() => {})
         }
 
         // Notify all members with the assigned role
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 .toArray()
             await Promise.all(roleMembers.map(u => Promise.all([
                 createNotification({ userId: u._id.toString(), type: 'ticket_task_assigned', title: notifTitle, body: notifBody, actionUrl, relatedId: id }).catch(() => {}),
-                sendMeetingDM(u.id as string, notifTitle, notifBody, actionUrl).catch(() => {}),
+                sendTaskAssignedDM(u.id as string, task.title, notifBody, actionUrl).catch(() => {}),
             ])))
         }
 
