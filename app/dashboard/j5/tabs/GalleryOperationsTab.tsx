@@ -10,6 +10,27 @@ import {
 import { Add, Delete, Upload, ExpandMore, ExpandLess, Done } from '@mui/icons-material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 
+const PREVIEW_SIZE = 320
+
+function HoverPreview({ src, rect }: { src: string; rect: DOMRect }) {
+    const margin = 14
+    let left = rect.right + margin
+    if (left + PREVIEW_SIZE > window.innerWidth - margin) left = rect.left - PREVIEW_SIZE - margin
+    let top = rect.top + rect.height / 2 - PREVIEW_SIZE / 2
+    top = Math.max(margin, Math.min(top, window.innerHeight - PREVIEW_SIZE - margin))
+    return (
+        <div style={{
+            position: 'fixed', left, top, width: PREVIEW_SIZE, height: PREVIEW_SIZE,
+            zIndex: 9999, pointerEvents: 'none', background: '#0e0e0e',
+            border: '1px solid rgba(219,0,29,0.4)', borderRadius: 4, overflow: 'hidden',
+            boxShadow: '0 16px 56px rgba(0,0,0,0.85)',
+        }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt='' style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        </div>
+    )
+}
+
 type UploadTarget = { year: string; op: string; stage: string }
 
 type AddContext =
@@ -26,12 +47,14 @@ type DeleteFolderTarget = {
     name: string
 }
 
-const GalleryImageItem = memo(function GalleryImageItem({ imgKey, src, isSelected, onToggle, isDragSource, onDragStart, onDragEnter, onDragEnd }: {
+const GalleryImageItem = memo(function GalleryImageItem({ imgKey, src, isSelected, onToggle, isDragSource, onHover, onHoverEnd, onDragStart, onDragEnter, onDragEnd }: {
     imgKey: string
     src: string
     isSelected: boolean
     onToggle: (key: string) => void
     isDragSource?: boolean
+    onHover?: (src: string, rect: DOMRect) => void
+    onHoverEnd?: () => void
     onDragStart?: (e: React.DragEvent) => void
     onDragEnter?: (e: React.DragEvent) => void
     onDragEnd?: (e: React.DragEvent) => void
@@ -39,8 +62,10 @@ const GalleryImageItem = memo(function GalleryImageItem({ imgKey, src, isSelecte
     return (
         <div
             draggable
-            className='relative cursor-grab aspect-square transition-transform duration-150 ease-out hover:scale-[1.08] hover:z-20'
+            className='relative cursor-grab aspect-square overflow-hidden'
             onClick={() => onToggle(imgKey)}
+            onMouseEnter={e => onHover?.(src, e.currentTarget.getBoundingClientRect())}
+            onMouseLeave={onHoverEnd}
             onDragStart={onDragStart}
             onDragEnter={onDragEnter}
             onDragEnd={onDragEnd}
@@ -49,18 +74,16 @@ const GalleryImageItem = memo(function GalleryImageItem({ imgKey, src, isSelecte
                 outline: isSelected ? '2px solid var(--red)' : '2px solid transparent',
                 borderRadius: 2,
                 opacity: isDragSource ? 0.3 : 1,
-                transition: 'transform 0.15s ease, opacity 0.15s ease',
+                transition: 'opacity 0.15s ease',
             }}
         >
-            <div className='absolute inset-0 overflow-hidden' style={{ borderRadius: 2 }}>
-                <Image
-                    src={src}
-                    alt={imgKey}
-                    fill
-                    sizes='(max-width: 640px) 25vw, (max-width: 1024px) 12vw, 8vw'
-                    className='object-cover'
-                />
-            </div>
+            <Image
+                src={src}
+                alt={imgKey}
+                fill
+                sizes='(max-width: 640px) 25vw, (max-width: 1024px) 12vw, 8vw'
+                className='object-cover'
+            />
             <div className='absolute top-0.5 left-0.5 z-10'>
                 <Checkbox checked={isSelected} size='small' sx={{ padding: '2px', color: 'rgba(255,255,255,0.6)', '&.Mui-checked': { color: 'var(--red)' } }} onClick={e => e.stopPropagation()} onChange={() => onToggle(imgKey)} />
             </div>
@@ -111,6 +134,11 @@ export default function GalleryOperationsTab() {
     const [savingStage, setSavingStage] = useState<string | null>(null)
     const [draggingImg, setDraggingImg] = useState<string | null>(null)
     const dragRef = useRef<{ stageKey: string; fromIdx: number; media: string[] } | null>(null)
+
+    // Hover preview
+    const [hoverPreview, setHoverPreview] = useState<{ src: string; rect: DOMRect } | null>(null)
+    const handleHover = useCallback((src: string, rect: DOMRect) => setHoverPreview({ src, rect }), [])
+    const handleHoverEnd = useCallback(() => setHoverPreview(null), [])
 
     const uploadTarget = useRef<UploadTarget | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -386,8 +414,11 @@ export default function GalleryOperationsTab() {
                                                                                                 isSelected={selectedImages.has(key)}
                                                                                                 onToggle={toggleImage}
                                                                                                 isDragSource={draggingImg === img}
+                                                                                                onHover={handleHover}
+                                                                                                onHoverEnd={handleHoverEnd}
                                                                                                 onDragStart={e => {
                                                                                                     e.dataTransfer.effectAllowed = 'move'
+                                                                                                    handleHoverEnd()
                                                                                                     const media = stageOrders[stageKey] ? [...stageOrders[stageKey]] : [...stageData.media]
                                                                                                     dragRef.current = { stageKey, fromIdx: idx, media }
                                                                                                     setDraggingImg(img)
@@ -473,6 +504,8 @@ export default function GalleryOperationsTab() {
                     <Button variant='contained' color='error' sx={{ fontSize: '0.75rem' }} onClick={() => { if (deleteImagesConfirm) deleteContentImages(deleteImagesConfirm.year, deleteImagesConfirm.op, deleteImagesConfirm.stage); setDeleteImagesConfirm(null) }}>Delete</Button>
                 </DialogActions>
             </Dialog>
+
+            {hoverPreview && <HoverPreview src={hoverPreview.src} rect={hoverPreview.rect} />}
         </div>
     )
 }

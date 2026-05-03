@@ -10,20 +10,45 @@ import { Delete, Upload } from '@mui/icons-material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 
 const PAGE_SIZE = 60
+const PREVIEW_SIZE = 320
 
-const FeaturedImageItem = memo(function FeaturedImageItem({ img, isSelected, onToggle }: {
+function HoverPreview({ src, rect }: { src: string; rect: DOMRect }) {
+    const margin = 14
+    let left = rect.right + margin
+    if (left + PREVIEW_SIZE > window.innerWidth - margin) left = rect.left - PREVIEW_SIZE - margin
+    let top = rect.top + rect.height / 2 - PREVIEW_SIZE / 2
+    top = Math.max(margin, Math.min(top, window.innerHeight - PREVIEW_SIZE - margin))
+    return (
+        <div style={{
+            position: 'fixed', left, top, width: PREVIEW_SIZE, height: PREVIEW_SIZE,
+            zIndex: 9999, pointerEvents: 'none', background: '#0e0e0e',
+            border: '1px solid rgba(219,0,29,0.4)', borderRadius: 4, overflow: 'hidden',
+            boxShadow: '0 16px 56px rgba(0,0,0,0.85)',
+        }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt='' style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+        </div>
+    )
+}
+
+const FeaturedImageItem = memo(function FeaturedImageItem({ img, isSelected, onToggle, onHover, onHoverEnd }: {
     img: string
     isSelected: boolean
     onToggle: (img: string) => void
+    onHover: (src: string, rect: DOMRect) => void
+    onHoverEnd: () => void
 }) {
+    const src = `/api/gallery/featured?img=${encodeURIComponent(img)}`
     return (
         <div
             className='relative cursor-pointer aspect-square overflow-hidden'
             onClick={() => onToggle(img)}
+            onMouseEnter={e => onHover(src, e.currentTarget.getBoundingClientRect())}
+            onMouseLeave={onHoverEnd}
             style={{ outline: isSelected ? '2px solid var(--red)' : '2px solid transparent', borderRadius: 2 }}
         >
             <Image
-                src={`/api/gallery/featured?img=${encodeURIComponent(img)}`}
+                src={src}
                 alt={img}
                 fill
                 sizes='(max-width: 640px) 33vw, (max-width: 1024px) 14vw, 11vw'
@@ -98,6 +123,10 @@ export default function GalleryFeaturedTab() {
     const toggleFeatured = useCallback((img: string) =>
         setSelectedFeatured(prev => { const n = new Set(prev); n.has(img) ? n.delete(img) : n.add(img); return n }), [])
 
+    const [hoverPreview, setHoverPreview] = useState<{ src: string; rect: DOMRect } | null>(null)
+    const handleHover = useCallback((src: string, rect: DOMRect) => setHoverPreview({ src, rect }), [])
+    const handleHoverEnd = useCallback(() => setHoverPreview(null), [])
+
     if (loading && !featured.length) return <TacticalSkeleton rows={8} className='p-8' />
 
     const allSelected = featured.length > 0 && featured.every(img => selectedFeatured.has(img))
@@ -137,7 +166,7 @@ export default function GalleryFeaturedTab() {
                 <>
                     <div className='grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 gap-2' style={{ contain: 'content' }}>
                         {visible.map(img => (
-                            <FeaturedImageItem key={img} img={img} isSelected={selectedFeatured.has(img)} onToggle={toggleFeatured} />
+                            <FeaturedImageItem key={img} img={img} isSelected={selectedFeatured.has(img)} onToggle={toggleFeatured} onHover={handleHover} onHoverEnd={handleHoverEnd} />
                         ))}
                     </div>
                     {remaining > 0 && (
@@ -162,6 +191,8 @@ export default function GalleryFeaturedTab() {
                     <Button variant='contained' color='error' sx={{ fontSize: '0.75rem' }} onClick={() => { deleteFeaturedImages(); setDeleteConfirm(false) }}>Delete</Button>
                 </DialogActions>
             </Dialog>
+
+            {hoverPreview && <HoverPreview src={hoverPreview.src} rect={hoverPreview.rect} />}
         </div>
     )
 }

@@ -231,7 +231,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             const notifTitle = `Ticket status updated: "${ticket.title}"`
             await createNotification({
                 userId: ticket.authorId,
-                type: 'ticket_status',
+                type: 'ticket_status_changed',
                 title: notifTitle,
                 body: `Your ticket status changed to ${updates.status}.`,
                 actionUrl,
