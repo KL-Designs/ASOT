@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
     await Db.communityTickets.insertOne(doc)
 
     const ticketId = doc._id.toString()
-    const actionUrl = `/feedback/${ticketId}`
+    const actionUrl = `/tickets/${ticketId}`
     const displayName = isAnonymous ? 'Anonymous' : (me.guild.displayName ?? me.username)
 
     // Log creation

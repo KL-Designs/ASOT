@@ -486,7 +486,7 @@ export default function StaffSidebar({
                 { label: 'Calendar',      href: '/dashboard/unit/calendar',      visible: true,                    icon: <CalendarMonth sx={{ fontSize: 14 }} /> },
                 { label: 'Training Docs', href: '/dashboard/unit/training-docs', visible: true,                    icon: <MenuBook sx={{ fontSize: 14 }} /> },
                 { label: 'SOPs',          href: '/dashboard/unit/sops',          visible: true,                    icon: <Policy sx={{ fontSize: 14 }} /> },
-                { label: 'Tickets',       href: '/feedback',                     visible: true,                    icon: <ConfirmationNumber sx={{ fontSize: 14 }} /> },
+                { label: 'Tickets',       href: '/tickets',                     visible: true,                    icon: <ConfirmationNumber sx={{ fontSize: 14 }} /> },
                 { label: 'Tasks',         href: '/dashboard/tasks',              visible: permissions.isStaff,     icon: <TaskAlt sx={{ fontSize: 14 }} /> },
             ],
         },

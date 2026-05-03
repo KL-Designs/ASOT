@@ -390,7 +390,7 @@ export default function NewTicketPage() {
         titleDebounceRef.current = setTimeout(async () => {
             try {
                 const apiCat = displayCat === 'mission-campaign' ? 'mission' : displayCat
-                const res = await fetch(`/api/feedback/similar?title=${encodeURIComponent(title)}&category=${apiCat}`)
+                const res = await fetch(`/api/tickets/similar?title=${encodeURIComponent(title)}&category=${apiCat}`)
                 setSimilar(await res.json().catch(() => []))
             } catch { /* ignore */ }
         }, 600)
@@ -402,7 +402,7 @@ export default function NewTicketPage() {
         if (subtype !== 'mod-request' || !modLink.trim()) { setModDuplicate(null); return }
         const t = setTimeout(async () => {
             try {
-                const res = await fetch('/api/feedback?category=request&sort=newest')
+                const res = await fetch('/api/tickets?category=request&sort=newest')
                 const all = await res.json()
                 const norm = modLink.trim().toLowerCase().replace(/\/+$/, '')
                 const dup = all.find((t: CommunityTicket & { _id: string }) =>
@@ -425,7 +425,7 @@ export default function NewTicketPage() {
     function discard() { setDiscardModal(true) }
     function confirmDiscard() {
         localStorage.removeItem(DRAFT_KEY)
-        router.push('/feedback')
+        router.push('/tickets')
     }
 
     async function handleSubmit(e: React.FormEvent) {
@@ -524,7 +524,7 @@ export default function NewTicketPage() {
             ...(awardDesignNotes && { awardDesignNotes }),
         }
 
-        const res = await fetch('/api/feedback', {
+        const res = await fetch('/api/tickets', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),
         })
@@ -540,11 +540,11 @@ export default function NewTicketPage() {
         if (media.images.length > 0) {
             const fd = new FormData()
             media.images.forEach(f => fd.append('files', f))
-            await fetch(`/api/feedback/${json._id}/uploads`, { method: 'POST', body: fd }).catch(() => {})
+            await fetch(`/api/tickets/${json._id}/uploads`, { method: 'POST', body: fd }).catch(() => {})
         }
 
         localStorage.removeItem(DRAFT_KEY)
-        router.push(`/feedback/${json._id}`)
+        router.push(`/tickets/${json._id}`)
     }
 
     const catDef = displayCat ? CATEGORY_DEFS.find(c => c.value === displayCat) : null
@@ -569,7 +569,7 @@ export default function NewTicketPage() {
 
             {/* Nav bar */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                <Link href='/feedback'>
+                <Link href='/tickets'>
                     <button style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'transparent', border: 'none', color: 'rgba(237,237,237,0.4)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, letterSpacing: '0.08em', padding: 0 }}>
                         <ArrowBack style={{ fontSize: 14 }} /> BACK
                     </button>
@@ -729,13 +729,13 @@ export default function NewTicketPage() {
                     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
                         {similar.length > 0 && title.length > 10 && (
-                            <SimilarityWarning items={similar} level={similar.length >= 3 ? 'strong' : 'soft'} onNavigate={id => { saveDraft(); router.push(`/feedback/${id}`) }} />
+                            <SimilarityWarning items={similar} level={similar.length >= 3 ? 'strong' : 'soft'} onNavigate={id => { saveDraft(); router.push(`/tickets/${id}`) }} />
                         )}
 
                         {modDuplicate && (
                             <div style={{ background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.35)', borderLeft: '3px solid rgba(219,0,29,0.7)', padding: '10px 14px', marginBottom: 12 }}>
                                 <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em', color: 'rgba(219,0,29,0.9)', marginBottom: 4 }}>⚠ THIS MOD HAS ALREADY BEEN SUGGESTED</div>
-                                <button type='button' onClick={() => { saveDraft(); router.push(`/feedback/${modDuplicate!}`) }} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.7rem', color: 'rgba(0,195,255,0.8)', textDecoration: 'underline' }}>View existing ticket →</button>
+                                <button type='button' onClick={() => { saveDraft(); router.push(`/tickets/${modDuplicate!}`) }} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.7rem', color: 'rgba(0,195,255,0.8)', textDecoration: 'underline' }}>View existing ticket →</button>
                             </div>
                         )}
 

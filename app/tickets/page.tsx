@@ -92,7 +92,7 @@ export default function CommunityTicketsPage() {
             const raw = localStorage.getItem(DRAFT_KEY)
             if (raw) { JSON.parse(raw); setDraftModal(true); return }
         } catch { /* ignore */ }
-        router.push('/feedback/new')
+        router.push('/tickets/new')
     }
 
     useEffect(() => {
@@ -105,7 +105,7 @@ export default function CommunityTicketsPage() {
         statusFilters.forEach(s => p.append('status', s))
         p.set('sort', sort)
         setLoading(true)
-        fetch(`/api/feedback?${p}`)
+        fetch(`/api/tickets?${p}`)
             .then(r => r.json())
             .then(d => { setItems(Array.isArray(d) ? d : []); setLoading(false) })
             .catch(() => setLoading(false))
@@ -155,10 +155,10 @@ export default function CommunityTicketsPage() {
                     <div style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.9)', marginBottom: 8 }}>EXISTING DRAFT FOUND</div>
                     <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)', marginBottom: 24, lineHeight: 1.5 }}>You have a saved draft ticket. Would you like to continue it or start fresh?</div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <button onClick={() => { setDraftModal(false); router.push('/feedback/new') }} style={{ padding: '10px 18px', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.9)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.08em', textAlign: 'left' }}>
+                        <button onClick={() => { setDraftModal(false); router.push('/tickets/new') }} style={{ padding: '10px 18px', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.9)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.08em', textAlign: 'left' }}>
                             CONTINUE EXISTING DRAFT
                         </button>
-                        <button onClick={() => { try { localStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ } setDraftModal(false); router.push('/feedback/new') }} style={{ padding: '10px 18px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.55)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textAlign: 'left' }}>
+                        <button onClick={() => { try { localStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ } setDraftModal(false); router.push('/tickets/new') }} style={{ padding: '10px 18px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.55)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textAlign: 'left' }}>
                             START NEW TICKET
                         </button>
                         <button onClick={() => setDraftModal(false)} style={{ padding: '6px 0', background: 'none', border: 'none', color: 'rgba(237,237,237,0.25)', cursor: 'pointer', fontSize: '0.65rem', letterSpacing: '0.06em' }}>
@@ -175,7 +175,7 @@ export default function CommunityTicketsPage() {
 
                 <div style={{ background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.25)', padding: '14px 16px', marginBottom: 8 }}>
                     <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.18em', color: 'rgba(219,0,29,0.6)', marginBottom: 4 }}>ASOT // PORTAL</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--foreground)' }}>FEEDBACK</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--foreground)' }}>TICKETS</div>
                     <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', marginTop: 3, lineHeight: 1.4 }}>Requests, bugs, missions &amp; more</div>
                 </div>
 
@@ -389,7 +389,7 @@ function TicketCard({ item }: { item: TicketItem }) {
 
     return (
         <div
-            onClick={() => router.push(`/feedback/${item._id}`)}
+            onClick={() => router.push(`/tickets/${item._id}`)}
             style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${cat?.borderColor ?? 'rgba(255,255,255,0.06)'}`, borderLeft: `3px solid ${cat?.color ?? 'rgba(255,255,255,0.2)'}`, cursor: 'pointer', display: 'flex', flexDirection: 'column', transition: 'background 0.12s' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.045)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}

@@ -101,12 +101,22 @@ const nextConfig: NextConfig = {
 		return [
 			{
 				source: '/community/tickets',
-				destination: '/feedback',
+				destination: '/tickets',
 				permanent: true,
 			},
 			{
 				source: '/community/tickets/:path*',
-				destination: '/feedback/:path*',
+				destination: '/tickets/:path*',
+				permanent: true,
+			},
+			{
+				source: '/feedback',
+				destination: '/tickets',
+				permanent: true,
+			},
+			{
+				source: '/feedback/:path*',
+				destination: '/tickets/:path*',
 				permanent: true,
 			},
 			{

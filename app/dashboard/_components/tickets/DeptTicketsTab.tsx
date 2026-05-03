@@ -89,7 +89,7 @@ export default function DeptTicketsTab({ department, canManage, isJ4 = false, re
 
     async function handleStatusChange(id: string, status: string) {
         setUpdatingId(id)
-        await fetch(`/api/feedback/${id}`, {
+        await fetch(`/api/tickets/${id}`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status }),
         })
@@ -101,7 +101,7 @@ export default function DeptTicketsTab({ department, canManage, isJ4 = false, re
         if (!transferTarget) return
         setTransferring(true)
         try {
-            const res = await fetch(`/api/feedback/${id}/transfer`, {
+            const res = await fetch(`/api/tickets/${id}/transfer`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ toDepartment: transferTarget, ...(transferNote.trim() ? { note: transferNote.trim() } : {}) }),
             })
@@ -169,12 +169,12 @@ export default function DeptTicketsTab({ department, canManage, isJ4 = false, re
                         </thead>
                         <tbody>
                             {/* Active first */}
-                            {active.map(t => <TicketRow key={t._id} t={t} canManage={canManage} isJ4={isJ4} department={department} updatingId={updatingId} transferOpen={transferOpen} transferTarget={transferTarget} transferNote={transferNote} transferring={transferring} onStatusChange={handleStatusChange} onTransferOpen={id => { setTransferOpen(id); setTransferTarget(''); setTransferNote('') }} onTransferClose={() => setTransferOpen(null)} onTransferTargetChange={setTransferTarget} onTransferNoteChange={setTransferNote} onDoTransfer={doTransfer} onView={id => { const rp = returnPath ?? (typeof window !== 'undefined' ? window.location.pathname + window.location.search : ''); router.push(`/feedback/${id}?returnTo=${encodeURIComponent(rp)}` as any) }} />)}
+                            {active.map(t => <TicketRow key={t._id} t={t} canManage={canManage} isJ4={isJ4} department={department} updatingId={updatingId} transferOpen={transferOpen} transferTarget={transferTarget} transferNote={transferNote} transferring={transferring} onStatusChange={handleStatusChange} onTransferOpen={id => { setTransferOpen(id); setTransferTarget(''); setTransferNote('') }} onTransferClose={() => setTransferOpen(null)} onTransferTargetChange={setTransferTarget} onTransferNoteChange={setTransferNote} onDoTransfer={doTransfer} onView={id => { const rp = returnPath ?? (typeof window !== 'undefined' ? window.location.pathname + window.location.search : ''); router.push(`/tickets/${id}?returnTo=${encodeURIComponent(rp)}` as any) }} />)}
                             {/* Inactive separator */}
                             {inactive.length > 0 && active.length > 0 && (
                                 <tr><td colSpan={99} style={{ padding: '4px 10px', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.14em', color: 'rgba(237,237,237,0.2)', background: 'rgba(255,255,255,0.01)', textTransform: 'uppercase' }}>Closed / Resolved</td></tr>
                             )}
-                            {inactive.map(t => <TicketRow key={t._id} t={t} canManage={canManage} isJ4={isJ4} department={department} updatingId={updatingId} transferOpen={transferOpen} transferTarget={transferTarget} transferNote={transferNote} transferring={transferring} onStatusChange={handleStatusChange} onTransferOpen={id => { setTransferOpen(id); setTransferTarget(''); setTransferNote('') }} onTransferClose={() => setTransferOpen(null)} onTransferTargetChange={setTransferTarget} onTransferNoteChange={setTransferNote} onDoTransfer={doTransfer} onView={id => { const rp = returnPath ?? (typeof window !== 'undefined' ? window.location.pathname + window.location.search : ''); router.push(`/feedback/${id}?returnTo=${encodeURIComponent(rp)}` as any) }} />)}
+                            {inactive.map(t => <TicketRow key={t._id} t={t} canManage={canManage} isJ4={isJ4} department={department} updatingId={updatingId} transferOpen={transferOpen} transferTarget={transferTarget} transferNote={transferNote} transferring={transferring} onStatusChange={handleStatusChange} onTransferOpen={id => { setTransferOpen(id); setTransferTarget(''); setTransferNote('') }} onTransferClose={() => setTransferOpen(null)} onTransferTargetChange={setTransferTarget} onTransferNoteChange={setTransferNote} onDoTransfer={doTransfer} onView={id => { const rp = returnPath ?? (typeof window !== 'undefined' ? window.location.pathname + window.location.search : ''); router.push(`/tickets/${id}?returnTo=${encodeURIComponent(rp)}` as any) }} />)}
                         </tbody>
                     </table>
                 )}

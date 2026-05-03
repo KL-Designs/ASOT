@@ -287,7 +287,7 @@ export default function Navbar() {
                 {user && (
                     <>
                         <Divider style={{ borderColor: 'rgba(255,255,255,0.06)' }} />
-                        <Link href='/feedback' onClick={() => setSideMenuOpen(false)}>
+                        <Link href='/tickets' onClick={() => setSideMenuOpen(false)}>
                             <div
                                 className='flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors'
                                 style={{ color: 'rgba(237,237,237,0.6)' }}
@@ -546,7 +546,7 @@ function ProfileDropdown({ user }: { user: User }) {
                             <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>OPTIONALS</span>
                         </MenuItem>
                     </Link>
-                    <Link href='/feedback'>
+                    <Link href='/tickets'>
                         <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
                             sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
                             <BugReport style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />

@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 
 
 export const metadata: Metadata = {
-    title: 'Feedback | Australian Special Operations Taskforce',
+    title: 'Tickets | Australian Special Operations Taskforce',
 }
 
 

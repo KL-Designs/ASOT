@@ -76,7 +76,7 @@ export default function TicketDetailPage() {
     const { id } = useParams() as { id: string }
     const router = useRouter()
     const searchParams = useSearchParams()
-    const returnTo = searchParams.get('returnTo') ?? '/feedback'
+    const returnTo = searchParams.get('returnTo') ?? '/tickets'
 
     const [data, setData] = useState<DetailData | null>(null)
     const [loading, setLoading] = useState(true)
@@ -134,7 +134,7 @@ export default function TicketDetailPage() {
 
     const load = useCallback(() => {
         setLoading(true)
-        fetch(`/api/feedback/${id}`)
+        fetch(`/api/tickets/${id}`)
             .then(r => r.json())
             .then((d: DetailData) => {
                 setData(d)
@@ -168,7 +168,7 @@ export default function TicketDetailPage() {
     async function handleTicketVote(dir: 'up' | 'down') {
         if (voting) return
         setVoting(true)
-        const res = await fetch(`/api/feedback/${id}/vote`, {
+        const res = await fetch(`/api/tickets/${id}/vote`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ direction: myVote === dir ? null : dir }),
         })
@@ -179,7 +179,7 @@ export default function TicketDetailPage() {
 
     async function handleCommentVote(commentId: string, dir: 'up' | 'down') {
         const prev = commentVotes[commentId]
-        const res = await fetch(`/api/feedback/${id}/comments/${commentId}/vote`, {
+        const res = await fetch(`/api/tickets/${id}/comments/${commentId}/vote`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ direction: prev?.myVote === dir ? null : dir }),
         })
@@ -189,7 +189,7 @@ export default function TicketDetailPage() {
 
     async function handleStatus(status: string) {
         setStatusUpdating(true)
-        await fetch(`/api/feedback/${id}`, {
+        await fetch(`/api/tickets/${id}`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status }),
         })
@@ -199,7 +199,7 @@ export default function TicketDetailPage() {
 
     async function handleTags(tags: string[]) {
         setStatusUpdating(true)
-        await fetch(`/api/feedback/${id}`, {
+        await fetch(`/api/tickets/${id}`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ticketTags: tags }),
         })
@@ -209,7 +209,7 @@ export default function TicketDetailPage() {
 
     async function handleDeptsUpdate() {
         setDeptUpdating(true)
-        await fetch(`/api/feedback/${id}`, {
+        await fetch(`/api/tickets/${id}`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ departments: selectedDepts, department: selectedDepts[0] ?? 'j4' }),
         })
@@ -221,7 +221,7 @@ export default function TicketDetailPage() {
         e.preventDefault()
         if (!comment.trim() || posting) return
         setPosting(true)
-        const res = await fetch(`/api/feedback/${id}/comments`, {
+        const res = await fetch(`/api/tickets/${id}/comments`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content: comment.trim() }),
         })
@@ -235,7 +235,7 @@ export default function TicketDetailPage() {
     async function saveCommentEdit(commentId: string) {
         if (!editContent.trim() || savingEdit) return
         setSavingEdit(true)
-        const res = await fetch(`/api/feedback/${id}/comments/${commentId}`, {
+        const res = await fetch(`/api/tickets/${id}/comments/${commentId}`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content: editContent.trim() }),
         })
@@ -247,7 +247,7 @@ export default function TicketDetailPage() {
 
     async function deleteComment(commentId: string) {
         if (!confirm('Delete this comment?')) return
-        await fetch(`/api/feedback/${id}/comments/${commentId}`, { method: 'DELETE' })
+        await fetch(`/api/tickets/${id}/comments/${commentId}`, { method: 'DELETE' })
         setData(d => d ? {
             ...d,
             comments: d.comments.map(c => c._id === commentId ? { ...c, isDeleted: true } : c),
@@ -260,14 +260,14 @@ export default function TicketDetailPage() {
     async function handleDelete() {
         if (!confirm('Delete this ticket? It will be hidden from members but J4 can still view it.')) return
         setDeleting(true)
-        await fetch(`/api/feedback/${id}`, { method: 'DELETE' })
+        await fetch(`/api/tickets/${id}`, { method: 'DELETE' })
         if (data?.isJ4) { setData(d => d ? { ...d, isDeleted: true } : d); setDeleting(false) }
-        else router.push('/feedback')
+        else router.push('/tickets')
     }
 
     async function handleRestore() {
         setRestoring(true)
-        await fetch(`/api/feedback/${id}`, {
+        await fetch(`/api/tickets/${id}`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ restore: true }),
         })
@@ -285,7 +285,7 @@ export default function TicketDetailPage() {
     }
 
     async function doReopen() {
-        await fetch(`/api/feedback/${id}`, {
+        await fetch(`/api/tickets/${id}`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ reopen: true }),
         })
@@ -311,7 +311,7 @@ export default function TicketDetailPage() {
         if (addingTask) return
         setAddingTask(true)
         try {
-            const res = await fetch(`/api/feedback/${id}/tasks`, {
+            const res = await fetch(`/api/tickets/${id}/tasks`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: taskTitle.trim(),
@@ -331,7 +331,7 @@ export default function TicketDetailPage() {
     async function toggleTask(taskId: string, currentStatus: string) {
         setTaskUpdating(taskId)
         const newStatus = currentStatus === 'completed' ? 'pending' : 'completed'
-        await fetch(`/api/feedback/${id}/tasks/${taskId}`, {
+        await fetch(`/api/tickets/${id}/tasks/${taskId}`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus }),
         })
@@ -341,7 +341,7 @@ export default function TicketDetailPage() {
 
     async function deleteTask(taskId: string) {
         if (!confirm('Delete this task?')) return
-        await fetch(`/api/feedback/${id}/tasks/${taskId}`, { method: 'DELETE' })
+        await fetch(`/api/tickets/${id}/tasks/${taskId}`, { method: 'DELETE' })
         setTasks(prev => prev.filter(t => t.id !== taskId))
     }
 
@@ -381,7 +381,7 @@ export default function TicketDetailPage() {
     if (!data || (data as unknown as { error?: string }).error) return (
         <div style={{ color: 'rgba(237,237,237,0.4)', textAlign: 'center', padding: '48px 0', fontSize: '0.85rem' }}>
             Ticket not found.{' '}
-            <Link href='/feedback' style={{ color: 'rgba(219,0,29,0.7)', textDecoration: 'none' }}>Go back</Link>
+            <Link href='/tickets' style={{ color: 'rgba(219,0,29,0.7)', textDecoration: 'none' }}>Go back</Link>
         </div>
     )
 
@@ -492,8 +492,8 @@ export default function TicketDetailPage() {
                                 <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', color: 'rgba(237,237,237,0.25)', marginBottom: 8 }}>ATTACHMENTS [{data.attachments.length}]</div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                                     {data.attachments.map(f => (
-                                        <a key={f} href={`/api/feedback/${data._id}/uploads?file=${encodeURIComponent(f)}`} target='_blank' rel='noopener noreferrer'>
-                                            <img src={`/api/feedback/${data._id}/uploads?file=${encodeURIComponent(f)}`} alt={f} style={{ height: 80, border: '1px solid rgba(255,255,255,0.07)', objectFit: 'cover' }} />
+                                        <a key={f} href={`/api/tickets/${data._id}/uploads?file=${encodeURIComponent(f)}`} target='_blank' rel='noopener noreferrer'>
+                                            <img src={`/api/tickets/${data._id}/uploads?file=${encodeURIComponent(f)}`} alt={f} style={{ height: 80, border: '1px solid rgba(255,255,255,0.07)', objectFit: 'cover' }} />
                                         </a>
                                     ))}
                                 </div>
