@@ -266,7 +266,7 @@ export default function GalleryOperationsTab() {
     if (loading && !data) return <TacticalSkeleton rows={8} className='p-8' />
 
     return (
-        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[1200px] mx-auto'>
+        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6'>
             {uploading && (
                 <LinearProgress sx={{ backgroundColor: 'rgba(219,0,29,0.1)', '& .MuiLinearProgress-bar': { backgroundColor: 'var(--red)' } }} />
             )}

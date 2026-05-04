@@ -597,7 +597,7 @@ export default function TicketsPanel({
     const selectSx = { minWidth: 130, ...inputSx }
 
     return (
-        <div className='h-full w-full flex flex-col max-w-[1200px]'>
+        <div className='h-full w-full flex flex-col'>
             {/* Header */}
             <div
                 className='flex flex-col px-5 py-4 mx-6 mt-6'

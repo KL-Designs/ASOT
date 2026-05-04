@@ -133,7 +133,7 @@ export default function GalleryFeaturedTab() {
     const remaining = featured.length - visibleCount
 
     return (
-        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-4 max-w-[1200px] mx-auto'>
+        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-4'>
             {uploading && (
                 <LinearProgress sx={{ backgroundColor: 'rgba(219,0,29,0.1)', '& .MuiLinearProgress-bar': { backgroundColor: 'var(--red)' } }} />
             )}

@@ -152,7 +152,7 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
     }
 
     return (
-        <div className='p-6 flex flex-col gap-5 max-w-[800px]'>
+        <div className='p-6 flex flex-col gap-5'>
 
             {(uploading) && (
                 <LinearProgress sx={{

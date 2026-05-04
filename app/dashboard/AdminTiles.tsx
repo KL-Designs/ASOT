@@ -18,7 +18,7 @@ export default function AdminTiles({ canManageMembers, canManageGallery, canMana
     const [importOpen, setImportOpen] = useState(false)
 
     return (
-        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[1000px] mx-auto'>
+        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6'>
 
             {/* Header */}
             <div
@@ -48,7 +48,7 @@ export default function AdminTiles({ canManageMembers, canManageGallery, canMana
                 <div className='flex flex-wrap gap-4'>
 
                     {canManageMembers && (
-                        <Link href='/members' className='flex-1 min-w-[160px] max-w-[220px]'>
+                        <Link href='/members' className='flex-1 min-w-[160px]'>
                             <div
                                 className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
                                 style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
@@ -62,7 +62,7 @@ export default function AdminTiles({ canManageMembers, canManageGallery, canMana
                     )}
 
                     {canManageGallery && (
-                        <Link href='/dashboard/gallery' className='flex-1 min-w-[160px] max-w-[220px]'>
+                        <Link href='/dashboard/gallery' className='flex-1 min-w-[160px]'>
                             <div
                                 className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
                                 style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
@@ -76,7 +76,7 @@ export default function AdminTiles({ canManageMembers, canManageGallery, canMana
                     )}
 
                     {canManageOrbat && (
-                        <Link href='/dashboard/orbat' className='flex-1 min-w-[160px] max-w-[220px]'>
+                        <Link href='/dashboard/orbat' className='flex-1 min-w-[160px]'>
                             <div
                                 className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
                                 style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
@@ -92,7 +92,7 @@ export default function AdminTiles({ canManageMembers, canManageGallery, canMana
                     {canMassImport && (
                         <button
                             onClick={() => setImportOpen(true)}
-                            className='flex-1 min-w-[160px] max-w-[220px]'
+                            className='flex-1 min-w-[160px]'
                             style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                         >
                             <div

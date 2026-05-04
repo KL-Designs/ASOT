@@ -51,7 +51,7 @@ export default function J5Panel({
     })
 
     return (
-        <div className='h-full w-full flex flex-col max-w-[1100px]'>
+        <div className='h-full w-full flex flex-col'>
             <div
                 className='flex items-center justify-between px-5 py-3 mx-6 mt-6'
                 style={{

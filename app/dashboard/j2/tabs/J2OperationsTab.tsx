@@ -747,7 +747,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
     }
 
     return (
-        <div className='p-6 flex flex-col gap-0 max-w-[900px]'>
+        <div className='p-6 flex flex-col gap-0'>
 
             {/* Header row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>

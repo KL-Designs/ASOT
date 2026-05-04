@@ -437,7 +437,7 @@ export default function DashboardOverview({
     }
 
     return (
-        <div className='h-full w-full p-6 md:p-8 flex flex-col gap-6 max-w-[1100px]'>
+        <div className='h-full w-full p-6 md:p-8 flex flex-col gap-6'>
 
             {/* ── Header ─────────────────────────────────────────────────────── */}
             <div

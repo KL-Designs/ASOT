@@ -10,7 +10,7 @@ export default function AllStaffPanel({ userId, displayName }: { userId: string;
     const [tab, setTab] = useState(0)
 
     return (
-        <div className='h-full w-full flex flex-col max-w-[1100px]'>
+        <div className='h-full w-full flex flex-col'>
             {/* Header */}
             <div
                 className='flex flex-col px-5 py-4 mx-6 mt-6'

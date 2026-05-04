@@ -718,7 +718,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
     }
 
     return (
-        <div className='h-full w-full flex flex-col max-w-[1100px]'>
+        <div className='h-full w-full flex flex-col'>
 
             {/* Header */}
             <div
@@ -795,7 +795,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
 
                                 <button
                                     onClick={() => setImportOpen(true)}
-                                    className='flex-1 min-w-[160px] max-w-[220px]'
+                                    className='flex-1 min-w-[160px]'
                                     style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                                 >
                                     <div
@@ -810,7 +810,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
 
                                 <button
                                     onClick={() => setDischargeOpen(true)}
-                                    className='flex-1 min-w-[160px] max-w-[220px]'
+                                    className='flex-1 min-w-[160px]'
                                     style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                                 >
                                     <div
@@ -825,7 +825,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
 
                                 <button
                                     onClick={() => setReinstateOpen(true)}
-                                    className='flex-1 min-w-[160px] max-w-[220px]'
+                                    className='flex-1 min-w-[160px]'
                                     style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                                 >
                                     <div
@@ -842,7 +842,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                 <button
                                     onClick={toggleDevMode}
                                     disabled={devModeLoading || devMode === null}
-                                    className='flex-1 min-w-[160px] max-w-[220px]'
+                                    className='flex-1 min-w-[160px]'
                                     style={{ background: 'none', border: 'none', padding: 0, cursor: devModeLoading || devMode === null ? 'default' : 'pointer', textAlign: 'left' }}
                                 >
                                     <div
@@ -887,7 +887,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
 
                                 <button
                                     onClick={() => setTestNotifOpen(true)}
-                                    className='flex-1 min-w-[160px] max-w-[220px]'
+                                    className='flex-1 min-w-[160px]'
                                     style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
                                 >
                                     <div

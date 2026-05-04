@@ -1234,7 +1234,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
 
     return (
-        <div className='h-full w-full p-6 md:p-8 flex flex-col gap-5 max-w-[1600px] mx-auto'>
+        <div className='h-full w-full p-6 md:p-8 flex flex-col gap-5'>
 
             {/* Hidden inputs for color picker + patch upload (J4-Admin only) */}
             {canManageStructure && (

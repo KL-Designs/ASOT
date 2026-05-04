@@ -518,7 +518,7 @@ export default function SnapshotsTab() {
     })
 
     return (
-        <div className='p-6 md:p-10 flex flex-col gap-6 max-w-[960px]'>
+        <div className='p-6 md:p-10 flex flex-col gap-6'>
 
             {/* Header */}
             <div
