@@ -1131,7 +1131,7 @@ export default function Page() {
             {opID && (
                 <div style={{
                     position: 'fixed',
-                    top: 0,
+                    top: 64,
                     right: 0,
                     bottom: 0,
                     width: 'clamp(280px, 30vw, 460px)',
@@ -1150,7 +1150,7 @@ export default function Page() {
             {opID && (
                 <div style={{
                     position: 'fixed',
-                    top: 0,
+                    top: 64,
                     right: 0,
                     bottom: 0,
                     width: 'clamp(360px, 40vw, 700px)',
