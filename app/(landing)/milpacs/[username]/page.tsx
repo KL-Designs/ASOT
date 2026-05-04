@@ -388,7 +388,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 							{isOwn ? (
 								<BiographyEditor initial={member.bio?.content ?? null} accent={accent} />
 							) : member.bio?.content ? (
-								<p style={{ margin: 0, lineHeight: 1.8, color: 'rgba(237,237,237,0.65)', fontSize: '0.88rem' }}>
+								<p style={{ margin: 0, lineHeight: 1.8, color: 'rgba(237,237,237,0.65)', fontSize: '0.88rem', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
 									{member.bio.content}
 								</p>
 							) : (

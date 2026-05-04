@@ -193,7 +193,12 @@ export default function TicketDetailPage() {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status }),
         })
-        setData(d => d ? { ...d, status: status as CommunityTicketStatus } : d)
+        setData(d => {
+            if (!d) return d
+            const PRIMARY_KEYS = ['open', 'in_review', 'closed']
+            const nonPrimary = (d.statuses ?? []).filter(s => !PRIMARY_KEYS.includes(s))
+            return { ...d, status: status as CommunityTicketStatus, statuses: [status as CommunityTicketStatus, ...nonPrimary] }
+        })
         setStatusUpdating(false)
     }
 

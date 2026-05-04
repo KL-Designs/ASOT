@@ -94,6 +94,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             newValue: body.status,
         })
         updates.status = body.status
+        // Sync the statuses array so migrated tickets (which have a statuses field) stay consistent.
+        // Preserve any non-primary entries (tag-type values like 'implementing', 'resolved', etc.)
+        const PRIMARY_KEYS = ['open', 'in_review', 'closed']
+        const nonPrimary = (ticket.statuses ?? []).filter(s => !PRIMARY_KEYS.includes(s))
+        updates.statuses = [body.status as CommunityTicketStatus, ...nonPrimary]
     }
 
     // Department reassignment (J4 only)
