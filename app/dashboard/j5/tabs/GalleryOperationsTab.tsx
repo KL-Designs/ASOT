@@ -25,7 +25,6 @@ function HoverPreview({ src, rect }: { src: string; rect: DOMRect }) {
             border: '1px solid rgba(219,0,29,0.4)', borderRadius: 4, overflow: 'hidden',
             boxShadow: '0 16px 56px rgba(0,0,0,0.85)',
         }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={src} alt='' style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         </div>
     )

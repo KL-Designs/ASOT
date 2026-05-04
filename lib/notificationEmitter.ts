@@ -1,7 +1,6 @@
 import { EventEmitter } from 'events'
 
 declare global {
-    // eslint-disable-next-line no-var
     var __notificationEmitter: EventEmitter | undefined
 }
 
@@ -13,4 +12,4 @@ if (!global.__notificationEmitter) {
     global.__notificationEmitter.setMaxListeners(500)
 }
 
-export default global.__notificationEmitter
+export default global.__notificationEmitter as EventEmitter
