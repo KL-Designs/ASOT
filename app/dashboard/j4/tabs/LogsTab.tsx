@@ -2,19 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Typography, Tabs, Tab, CircularProgress, Select, MenuItem, FormControl } from '@mui/material'
+import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface ActionLogEntry {
-    _id: string
-    action: string
-    category: string
-    performedBy: string
-    performedByName: string
-    target?: string
-    details?: Record<string, unknown>
-    createdAt: string
-}
 
 interface ErrorLogEntry {
     _id: string
@@ -29,69 +19,9 @@ interface ErrorLogEntry {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const CATEGORY_COLOURS: Record<string, string> = {
-    orbat:     'rgba(255,165,0,0.8)',
-    calendar:  'rgba(100,160,255,0.8)',
-    member:    'rgba(0,195,100,0.8)',
-    operation: 'rgba(200,100,255,0.8)',
-    system:    'rgba(150,150,150,0.8)',
-    discord:   'rgba(88,101,242,0.8)',
-}
-
-const CATEGORY_LABELS: Record<string, string> = {
-    orbat:     'ORBAT',
-    calendar:  'CALENDAR',
-    member:    'MEMBER',
-    operation: 'OPERATION',
-    system:    'SYSTEM',
-    discord:   'DISCORD',
-}
-
-const ACTION_LABELS: Record<string, string> = {
-    'orbat.assign':            'Assigned Member',
-    'orbat.unassign':          'Unassigned Member',
-    'orbat.rename_role':       'Renamed Role',
-    'orbat.delete_position':   'Deleted Position',
-    'orbat.create_section':    'Created Section',
-    'orbat.rename_section':    'Renamed Section',
-    'orbat.reorder_section':   'Reordered Section',
-    'orbat.delete_section':    'Deleted Section',
-    'calendar.create':         'Created Event',
-    'calendar.delete':         'Deleted Event',
-    'member.reinstate':        'Reinstated Member',
-    // Discord
-    'discord.dm.sent':         'DM Sent',
-    'discord.dm.blocked':      'DM Blocked (Dev Mode)',
-    'discord.role.update':     'Role Updated',
-    'discord.role.blocked':    'Role Update Blocked (Dev Mode)',
-    'discord.nickname.update': 'Nickname Updated',
-    'discord.nickname.blocked':'Nickname Update Blocked (Dev Mode)',
-    'discord.devmode.enabled': 'Dev Mode Enabled',
-    'discord.devmode.disabled':'Dev Mode Disabled',
-}
-
 function formatTs(iso: string) {
     const d = new Date(iso)
     return d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
-
-function CategoryBadge({ category }: { category: string }) {
-    const colour = CATEGORY_COLOURS[category] ?? 'rgba(150,150,150,0.8)'
-    const label  = CATEGORY_LABELS[category]  ?? category.toUpperCase()
-    return (
-        <span style={{
-            fontSize: '0.56rem',
-            fontWeight: 700,
-            letterSpacing: '0.1em',
-            padding: '2px 6px',
-            background: colour.replace('0.8)', '0.12)'),
-            color: colour,
-            border: `1px solid ${colour.replace('0.8)', '0.3)')}`,
-            whiteSpace: 'nowrap',
-        }}>
-            {label}
-        </span>
-    )
 }
 
 function MethodBadge({ method }: { method: string }) {
@@ -137,115 +67,6 @@ function Pagination({ page, total, limit, onPage }: { page: number; total: numbe
             >
                 Next ›
             </button>
-        </div>
-    )
-}
-
-// ─── Action Log tab ───────────────────────────────────────────────────────────
-
-function ActionLogTab() {
-    const [logs, setLogs]       = useState<ActionLogEntry[]>([])
-    const [total, setTotal]     = useState(0)
-    const [page, setPage]       = useState(1)
-    const [category, setCategory] = useState('')
-    const [loading, setLoading] = useState(true)
-
-    const load = useCallback((p: number, cat: string) => {
-        setLoading(true)
-        const params = new URLSearchParams({ type: 'action', page: String(p), limit: '50' })
-        if (cat) params.set('category', cat)
-        fetch(`/api/admin/logs?${params}`)
-            .then(r => r.json())
-            .then(d => { setLogs(d.logs ?? []); setTotal(d.total ?? 0) })
-            .finally(() => setLoading(false))
-    }, [])
-
-    useEffect(() => { load(page, category) }, [load, page, category])
-
-    function handleCategory(cat: string) {
-        setCategory(cat)
-        setPage(1)
-    }
-
-    const rowStyle: React.CSSProperties = {
-        display: 'grid',
-        gridTemplateColumns: '140px 80px 160px 1fr 130px',
-        gap: 12,
-        alignItems: 'center',
-        padding: '9px 14px',
-        borderBottom: '1px solid rgba(255,255,255,0.04)',
-        fontSize: '0.75rem',
-    }
-
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* Filter bar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0 10px', flexShrink: 0 }}>
-                <Typography fontSize='0.6rem' fontWeight={700} letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
-                    Filter
-                </Typography>
-                <FormControl size='small' sx={{ minWidth: 140 }}>
-                    <Select
-                        value={category}
-                        onChange={e => handleCategory(e.target.value)}
-                        displayEmpty
-                        sx={{
-                            fontSize: '0.72rem',
-                            color: '#ededed',
-                            background: 'rgba(255,255,255,0.04)',
-                            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(219,0,29,0.25)' },
-                            '& .MuiSvgIcon-root': { color: 'rgba(237,237,237,0.4)' },
-                        }}
-                        MenuProps={{ PaperProps: { style: { background: '#1a1a1a', color: '#ededed' } } }}
-                    >
-                        <MenuItem value=''          sx={{ fontSize: '0.72rem' }}>All Categories</MenuItem>
-                        <MenuItem value='orbat'     sx={{ fontSize: '0.72rem' }}>ORBAT</MenuItem>
-                        <MenuItem value='calendar'  sx={{ fontSize: '0.72rem' }}>Calendar</MenuItem>
-                        <MenuItem value='member'    sx={{ fontSize: '0.72rem' }}>Member</MenuItem>
-                        <MenuItem value='operation' sx={{ fontSize: '0.72rem' }}>Operation</MenuItem>
-                        <MenuItem value='system'    sx={{ fontSize: '0.72rem' }}>System</MenuItem>
-                        <MenuItem value='discord'   sx={{ fontSize: '0.72rem' }}>Discord</MenuItem>
-                    </Select>
-                </FormControl>
-                {loading && <CircularProgress size={14} style={{ color: 'var(--red)' }} />}
-            </div>
-
-            {/* Header */}
-            <div style={{ ...rowStyle, background: 'rgba(219,0,29,0.06)', borderBottom: '1px solid rgba(219,0,29,0.2)', color: 'rgba(237,237,237,0.35)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                <span>Timestamp</span>
-                <span>Category</span>
-                <span>Action</span>
-                <span>Details</span>
-                <span>Performed By</span>
-            </div>
-
-            {/* Rows */}
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-                {!loading && logs.length === 0 && (
-                    <div style={{ padding: '32px 14px', color: 'rgba(237,237,237,0.25)', fontSize: '0.78rem' }}>
-                        No action logs found.
-                    </div>
-                )}
-                {logs.map(log => (
-                    <div key={log._id} style={{ ...rowStyle, color: 'rgba(237,237,237,0.75)' }}>
-                        <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', fontVariantNumeric: 'tabular-nums' }}>
-                            {formatTs(log.createdAt)}
-                        </span>
-                        <CategoryBadge category={log.category} />
-                        <span style={{ fontSize: '0.72rem', color: '#ededed' }}>
-                            {ACTION_LABELS[log.action] ?? log.action}
-                        </span>
-                        <span style={{ fontSize: '0.72rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'rgba(237,237,237,0.6)' }}>
-                            {log.target ?? '—'}
-                        </span>
-                        <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {log.performedByName}
-                        </span>
-                    </div>
-                ))}
-            </div>
-
-            <Pagination page={page} total={total} limit={50} onPage={p => { setPage(p); load(p, category) }} />
         </div>
     )
 }
@@ -591,14 +412,14 @@ export default function LogsTab() {
                     TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                     sx={{ minHeight: 36 }}
                 >
-                    <Tab label='Action Log'   sx={tabSx} />
+                    <Tab label='Activity Log'  sx={tabSx} />
                     <Tab label='Errors'       sx={tabSx} />
                     <Tab label='Discord'      sx={tabSx} />
                 </Tabs>
             </div>
 
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                {tab === 0 && <ActionLogTab />}
+                {tab === 0 && <ActivityLogTab isJ4={true} />}
                 {tab === 1 && <ErrorLogTab />}
                 {tab === 2 && <DiscordLogTab />}
             </div>

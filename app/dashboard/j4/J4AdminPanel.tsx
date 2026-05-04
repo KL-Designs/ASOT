@@ -13,7 +13,7 @@ import { useTabState } from '@/app/dashboard/_components/useTabState'
 import SnapshotsTab from './SnapshotsTab'
 import CommunityTicketsTab from './tabs/CommunityTicketsTab'
 import J4MeetingsTab from './tabs/J4MeetingsTab'
-import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
+import LogsTab from './tabs/LogsTab'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -756,7 +756,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
             {view === 'calendar'     && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
             {view === 'logs' && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
-                    <ActivityLogTab isJ4={true} />
+                    <LogsTab />
                 </div>
             )}
             {view === 'dept' && (
