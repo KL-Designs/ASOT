@@ -43,6 +43,7 @@ const DbInterface = {
     meetingNotifQueue: client.db(process.env.MONGO_DB!).collection('meeting_notif_queue') as MongoCollection<MeetingNotifQueueRecord>,
     userPreferences: client.db(process.env.MONGO_DB!).collection('user_preferences') as MongoCollection<UserPreferences>,
     notifPolicyConfig: client.db(process.env.MONGO_DB!).collection('notif_policy_config') as MongoCollection<NotifPolicyConfig>,
+    sops: client.db(process.env.MONGO_DB!).collection('sops') as MongoCollection<SopDocument>,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,

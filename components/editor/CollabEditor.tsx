@@ -39,6 +39,7 @@ interface Props {
     metaHandleRef?: React.MutableRefObject<{ set: (key: string, value: string) => void } | null>
     onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
     themeColor?: string
+    readOnly?: boolean
 }
 
 function hexToRgb(hex: string) {
@@ -80,6 +81,7 @@ export default function CollabEditor({
     metaHandleRef,
     onSaveStatusChange,
     themeColor = '#db001d',
+    readOnly = false,
 }: Props) {
     const [ydoc] = useState(() => new Y.Doc())
     const [ready, setReady] = useState<ReadyState | null>(null)
@@ -179,6 +181,7 @@ export default function CollabEditor({
             initialContent={initialContent}
             onSaveStatusChange={onSaveStatusChange}
             themeColor={themeColor}
+            readOnly={readOnly}
         />
     )
 }
@@ -321,9 +324,10 @@ interface ActiveEditorProps {
     initialContent?: any
     onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
     themeColor?: string
+    readOnly?: boolean
 }
 
-function ActiveEditor({ ydoc, provider, user, uploadUrl, defaultSectionTitle, initialContent, onSaveStatusChange, themeColor = '#db001d' }: ActiveEditorProps) {
+function ActiveEditor({ ydoc, provider, user, uploadUrl, defaultSectionTitle, initialContent, onSaveStatusChange, themeColor = '#db001d', readOnly = false }: ActiveEditorProps) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
@@ -442,7 +446,7 @@ function ActiveEditor({ ydoc, provider, user, uploadUrl, defaultSectionTitle, in
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
                         <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)', marginRight: 2 }}>
-                            Editing
+                            {readOnly ? 'Viewing' : 'Editing'}
                         </span>
                         <PresenceAvatar key='self' peer={{ clientId: -1, ...user }} self />
                         {peers.map(peer => (
@@ -464,16 +468,19 @@ function ActiveEditor({ ydoc, provider, user, uploadUrl, defaultSectionTitle, in
                             canMoveUp={idx > 0}
                             canMoveDown={idx < sectionIds.length - 1}
                             themeColor={themeColor}
+                            readOnly={readOnly}
                             seedContent={activePage === 'main' && id === seedSectionId ? initialContent : undefined}
                         />
                     ))}
-                    <button type='button' onClick={addSection}
-                        style={{ alignSelf: 'flex-start', padding: '7px 16px', background: 'transparent', border: `1px dashed ${c(0.3)}`, color: c(0.55), fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.15s' }}
-                        onMouseEnter={e => { e.currentTarget.style.borderColor = c(0.7); e.currentTarget.style.color = c(0.9) }}
-                        onMouseLeave={e => { e.currentTarget.style.borderColor = c(0.3); e.currentTarget.style.color = c(0.55) }}
-                    >
-                        + Add Section
-                    </button>
+                    {!readOnly && (
+                        <button type='button' onClick={addSection}
+                            style={{ alignSelf: 'flex-start', padding: '7px 16px', background: 'transparent', border: `1px dashed ${c(0.3)}`, color: c(0.55), fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.15s' }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = c(0.7); e.currentTarget.style.color = c(0.9) }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = c(0.3); e.currentTarget.style.color = c(0.55) }}
+                        >
+                            + Add Section
+                        </button>
+                    )}
                 </div>
             </div>
         </ThemeContext.Provider>
@@ -495,10 +502,11 @@ interface SectionEditorProps {
     canMoveUp: boolean
     canMoveDown: boolean
     themeColor?: string
+    readOnly?: boolean
     seedContent?: any
 }
 
-function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, themeColor = '#db001d', seedContent }: SectionEditorProps) {
+function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, themeColor = '#db001d', readOnly = false, seedContent }: SectionEditorProps) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
@@ -551,6 +559,7 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
 
     const editor = useEditor({
         immediatelyRender: false,
+        editable: !readOnly,
         extensions: [
             StarterKit.configure({ undoRedo: false }),
             TextAlign.configure({ types: ['heading', 'paragraph'] }),
@@ -631,50 +640,56 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
 
             {/* Section header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.25)' }}>
-                <input
-                    value={title}
-                    onChange={e => updateMeta({ title: e.target.value })}
-                    placeholder='Section Title'
-                    style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', outline: 'none', padding: '2px 0' }}
-                />
-                <button type='button'
-                    title={isPublic ? 'Publicly visible — click to make private' : 'Members only — click to make public'}
-                    onClick={() => updateMeta({ isPublic: !isPublic })}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: isPublic ? 'rgba(100,220,100,0.07)' : 'rgba(219,180,0,0.07)', border: `1px solid ${isPublic ? 'rgba(100,220,100,0.25)' : 'rgba(219,180,0,0.3)'}`, color: isPublic ? 'rgba(100,220,100,0.8)' : 'rgba(219,180,0,0.8)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}
-                >
-                    {isPublic ? <><LockOpen style={{ fontSize: 12 }} /> Public</> : <><Lock style={{ fontSize: 12 }} /> Members Only</>}
-                </button>
-                <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                    <button type='button' title='Move section up' onClick={onMoveUp} disabled={!canMoveUp}
-                        style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: canMoveUp ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.08)', cursor: canMoveUp ? 'pointer' : 'default', padding: '2px 4px', fontSize: '0.75rem', lineHeight: 1, transition: 'color 0.15s' }}
-                        onMouseEnter={e => { if (canMoveUp) e.currentTarget.style.color = 'rgba(237,237,237,0.8)' }}
-                        onMouseLeave={e => { if (canMoveUp) e.currentTarget.style.color = 'rgba(237,237,237,0.3)' }}
-                    >▲</button>
-                    <button type='button' title='Move section down' onClick={onMoveDown} disabled={!canMoveDown}
-                        style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: canMoveDown ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.08)', cursor: canMoveDown ? 'pointer' : 'default', padding: '2px 4px', fontSize: '0.75rem', lineHeight: 1, transition: 'color 0.15s' }}
-                        onMouseEnter={e => { if (canMoveDown) e.currentTarget.style.color = 'rgba(237,237,237,0.8)' }}
-                        onMouseLeave={e => { if (canMoveDown) e.currentTarget.style.color = 'rgba(237,237,237,0.3)' }}
-                    >▼</button>
-                </div>
-                {confirmingRemove ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                        <span style={{ fontSize: '0.6rem', color: 'rgba(219,0,29,0.7)', letterSpacing: '0.08em' }}>Remove section?</span>
-                        <button type='button' onClick={onRemove} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.9)', background: 'rgba(219,0,29,0.1)', border: '1px solid rgba(219,0,29,0.3)', padding: '3px 8px', cursor: 'pointer' }}>Yes</button>
-                        <button type='button' onClick={() => setConfirmingRemove(false)} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', background: 'none', border: '1px solid rgba(255,255,255,0.1)', padding: '3px 8px', cursor: 'pointer' }}>No</button>
-                    </div>
+                {readOnly ? (
+                    <span style={{ flex: 1, color: 'rgba(237,237,237,0.7)', fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{title}</span>
                 ) : (
-                    <button type='button' title='Remove section' onClick={() => setConfirmingRemove(true)}
-                        style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'rgba(237,237,237,0.2)', cursor: 'pointer', padding: 4, flexShrink: 0, transition: 'color 0.15s' }}
-                        onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.7)')}
-                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.2)')}
-                    >
-                        <Delete style={{ fontSize: 16 }} />
-                    </button>
+                    <input
+                        value={title}
+                        onChange={e => updateMeta({ title: e.target.value })}
+                        placeholder='Section Title'
+                        style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', outline: 'none', padding: '2px 0' }}
+                    />
                 )}
+                {!readOnly && (<>
+                    <button type='button'
+                        title={isPublic ? 'Publicly visible — click to make private' : 'Members only — click to make public'}
+                        onClick={() => updateMeta({ isPublic: !isPublic })}
+                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: isPublic ? 'rgba(100,220,100,0.07)' : 'rgba(219,180,0,0.07)', border: `1px solid ${isPublic ? 'rgba(100,220,100,0.25)' : 'rgba(219,180,0,0.3)'}`, color: isPublic ? 'rgba(100,220,100,0.8)' : 'rgba(219,180,0,0.8)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}
+                    >
+                        {isPublic ? <><LockOpen style={{ fontSize: 12 }} /> Public</> : <><Lock style={{ fontSize: 12 }} /> Members Only</>}
+                    </button>
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                        <button type='button' title='Move section up' onClick={onMoveUp} disabled={!canMoveUp}
+                            style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: canMoveUp ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.08)', cursor: canMoveUp ? 'pointer' : 'default', padding: '2px 4px', fontSize: '0.75rem', lineHeight: 1, transition: 'color 0.15s' }}
+                            onMouseEnter={e => { if (canMoveUp) e.currentTarget.style.color = 'rgba(237,237,237,0.8)' }}
+                            onMouseLeave={e => { if (canMoveUp) e.currentTarget.style.color = 'rgba(237,237,237,0.3)' }}
+                        >▲</button>
+                        <button type='button' title='Move section down' onClick={onMoveDown} disabled={!canMoveDown}
+                            style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: canMoveDown ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.08)', cursor: canMoveDown ? 'pointer' : 'default', padding: '2px 4px', fontSize: '0.75rem', lineHeight: 1, transition: 'color 0.15s' }}
+                            onMouseEnter={e => { if (canMoveDown) e.currentTarget.style.color = 'rgba(237,237,237,0.8)' }}
+                            onMouseLeave={e => { if (canMoveDown) e.currentTarget.style.color = 'rgba(237,237,237,0.3)' }}
+                        >▼</button>
+                    </div>
+                    {confirmingRemove ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                            <span style={{ fontSize: '0.6rem', color: 'rgba(219,0,29,0.7)', letterSpacing: '0.08em' }}>Remove section?</span>
+                            <button type='button' onClick={onRemove} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.9)', background: 'rgba(219,0,29,0.1)', border: '1px solid rgba(219,0,29,0.3)', padding: '3px 8px', cursor: 'pointer' }}>Yes</button>
+                            <button type='button' onClick={() => setConfirmingRemove(false)} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', background: 'none', border: '1px solid rgba(255,255,255,0.1)', padding: '3px 8px', cursor: 'pointer' }}>No</button>
+                        </div>
+                    ) : (
+                        <button type='button' title='Remove section' onClick={() => setConfirmingRemove(true)}
+                            style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'rgba(237,237,237,0.2)', cursor: 'pointer', padding: 4, flexShrink: 0, transition: 'color 0.15s' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.7)')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.2)')}
+                        >
+                            <Delete style={{ fontSize: 16 }} />
+                        </button>
+                    )}
+                </>)}
             </div>
 
             {/* Toolbar */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, padding: '7px 10px', background: 'rgb(10,10,10)', borderBottom: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 2px 8px rgba(0,0,0,0.6)', position: 'sticky', top: 0, zIndex: 20 }}>
+            <div style={{ display: readOnly ? 'none' : 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, padding: '7px 10px', background: 'rgb(10,10,10)', borderBottom: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 2px 8px rgba(0,0,0,0.6)', position: 'sticky', top: 0, zIndex: 20 }}>
                 <TBtn title='Undo' onClick={() => editor.chain().focus().undo().run()}><Undo style={{ fontSize: 16 }} /></TBtn>
                 <TBtn title='Redo' onClick={() => editor.chain().focus().redo().run()}><Redo style={{ fontSize: 16 }} /></TBtn>
                 <TDivider />

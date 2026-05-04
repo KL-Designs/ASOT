@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { connection } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import PlaceholderPanel from '../../PlaceholderPanel'
+import SopsPanel from './SopsPanel'
 
 export default async function Page() {
     await connection()
@@ -11,10 +11,7 @@ export default async function Page() {
     if (!me) redirect('/login')
     if (!client.hasRoles(me, PERMISSIONS.pages.member)) redirect('/me')
 
-    return (
-        <PlaceholderPanel
-            title="Unit SOP's"
-            description='Standard Operating Procedures and unit policies are coming soon.'
-        />
-    )
+    const isJ4 = client.hasRoles(me, PERMISSIONS.sops.manage)
+
+    return <SopsPanel isJ4={isJ4} />
 }

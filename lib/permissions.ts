@@ -540,6 +540,21 @@ const PERMISSIONS = {
         reviewEscalated: ['J3-Team Lead', 'J4-Administration'],
     },
 
+    // ── SOPs ──────────────────────────────────────────────────────────────────
+
+    sops: {
+        /**
+         * Create, update metadata, and delete SOP documents.
+         * All ASOT Members can view SOPs; only J4 can manage them.
+         *
+         * Used by:
+         *  - `app/api/sops/route.ts` (POST)
+         *  - `app/api/sops/[id]/route.ts` (PATCH + DELETE)
+         *  - `app/dashboard/unit/sops/page.tsx` (isJ4 flag)
+         */
+        manage: ['J4-Administration'],
+    },
+
     tickets: {
         /**
          * Approve or reject J1 department tickets.
