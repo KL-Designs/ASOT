@@ -8,7 +8,13 @@ export async function GET(request: NextRequest) {
     try {
         const me = await client.fetchMe(token)
         if (!me) return NextResponse.json({ authorized: false })
-        const authorized = client.hasRoles(me, PERMISSIONS.auth.collab)
+
+        // SOP documents (prefixed sop-) allow all ASOT Members; all others require staff collab role
+        const doc = request.nextUrl.searchParams.get('doc') ?? ''
+        const authorized = doc.startsWith('sop-')
+            ? client.hasRoles(me, PERMISSIONS.pages.member)
+            : client.hasRoles(me, PERMISSIONS.auth.collab)
+
         const userName = me.guild?.displayName || me.globalName || me.username || 'Unknown'
         const userAvatar = me.guild?.avatarURL || me.avatarURL || null
         return NextResponse.json({ authorized, userId: me._id, userName, userAvatar })
