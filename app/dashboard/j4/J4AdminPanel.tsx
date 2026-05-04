@@ -407,11 +407,283 @@ function ReinstateModal({ open, onClose }: { open: boolean; onClose: () => void 
     )
 }
 
+const NOTIF_TYPES: { value: string; label: string }[] = [
+    { value: 'system',                     label: 'System' },
+    { value: 'task_assigned',              label: 'Task Assigned' },
+    { value: 'task_extended',              label: 'Task Extended' },
+    { value: 'task_completed',             label: 'Task Completed' },
+    { value: 'task_extension_requested',   label: 'Task Extension Requested' },
+    { value: 'task_extension_approved',    label: 'Task Extension Approved' },
+    { value: 'task_extension_denied',      label: 'Task Extension Denied' },
+    { value: 'calendar_reminder',          label: 'Calendar Reminder' },
+    { value: 'meeting_created',            label: 'Meeting Created' },
+    { value: 'meeting_started',            label: 'Meeting Started' },
+    { value: 'meeting_reminder',           label: 'Meeting Reminder' },
+    { value: 'meeting_task_assigned',      label: 'Meeting Task Assigned' },
+    { value: 'meeting_attendance_overdue', label: 'Meeting Attendance Overdue' },
+    { value: 'meeting_task_chaseup',       label: 'Meeting Task Chase-Up' },
+    { value: 'quiz_assigned',              label: 'Quiz Assigned' },
+    { value: 'quiz_submitted',             label: 'Quiz Submitted' },
+    { value: 'quiz_result',               label: 'Quiz Result' },
+    { value: 'quiz_review_requested',      label: 'Quiz Review Requested' },
+    { value: 'ticket_assigned',            label: 'Ticket Assigned' },
+    { value: 'ticket_transferred',         label: 'Ticket Transferred' },
+    { value: 'ticket_status_changed',      label: 'Ticket Status Changed' },
+    { value: 'ticket_reopened',            label: 'Ticket Reopened' },
+    { value: 'ticket_task_assigned',       label: 'Ticket Task Assigned' },
+    { value: 'ticket_comment',             label: 'Ticket Comment' },
+]
+
+function TestNotificationModal({ open, onClose, selfId }: { open: boolean; onClose: () => void; selfId: string }) {
+    const [members, setMembers] = useState<MemberOption[]>([])
+    const [membersLoaded, setMembersLoaded] = useState(false)
+    const [loadingMembers, setLoadingMembers] = useState(false)
+
+    const [sendToSelf, setSendToSelf] = useState(true)
+    const [selectedMember, setSelectedMember] = useState<MemberOption | null>(null)
+    const [channels, setChannels] = useState<{ site: boolean; discord: boolean }>({ site: true, discord: false })
+    const [type, setType] = useState('system')
+    const [title, setTitle] = useState('')
+    const [body, setBody] = useState('')
+
+    const [submitting, setSubmitting] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [successMsg, setSuccessMsg] = useState<string | null>(null)
+
+    function handleOpen() {
+        if (membersLoaded) return
+        setLoadingMembers(true)
+        fetch('/api/admin/members?limit=500')
+            .then(r => r.json())
+            .then(data => {
+                setMembers(data.members ?? [])
+                setMembersLoaded(true)
+            })
+            .catch(() => setError('Failed to load members'))
+            .finally(() => setLoadingMembers(false))
+    }
+
+    function handleClose() {
+        setSendToSelf(true)
+        setSelectedMember(null)
+        setChannels({ site: true, discord: false })
+        setType('system')
+        setTitle('')
+        setBody('')
+        setError(null)
+        setSuccessMsg(null)
+        onClose()
+    }
+
+    function toggleChannel(ch: 'site' | 'discord') {
+        setChannels(prev => ({ ...prev, [ch]: !prev[ch] }))
+    }
+
+    async function handleSend() {
+        const targetId = sendToSelf ? selfId : selectedMember?.id
+        if (!targetId) { setError('Select a member to send to.'); return }
+        if (!channels.site && !channels.discord) { setError('Select at least one channel.'); return }
+        if (!title.trim()) { setError('Title is required.'); return }
+        if (!body.trim()) { setError('Body is required.'); return }
+
+        setSubmitting(true)
+        setError(null)
+        setSuccessMsg(null)
+        try {
+            const res = await fetch('/api/admin/notifications/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    targetUserId: targetId,
+                    channels: Object.entries(channels).filter(([, v]) => v).map(([k]) => k),
+                    type,
+                    title: title.trim(),
+                    notifBody: body.trim(),
+                }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                setError(data.error ?? 'Send failed.')
+            } else {
+                const sent = (data.sent as string[]).join(' + ')
+                setSuccessMsg(`Sent via: ${sent}`)
+                setTitle('')
+                setBody('')
+            }
+        } catch {
+            setError('Network error. Please try again.')
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    const chipSx = (active: boolean): React.CSSProperties => ({
+        fontSize: '0.65rem',
+        fontWeight: 700,
+        letterSpacing: '0.1em',
+        textTransform: 'uppercase',
+        padding: '5px 14px',
+        background: active ? 'rgba(219,0,29,0.25)' : 'rgba(255,255,255,0.05)',
+        border: `1px solid ${active ? 'rgba(219,0,29,0.5)' : 'rgba(255,255,255,0.1)'}`,
+        color: active ? '#ededed' : 'rgba(237,237,237,0.4)',
+        cursor: 'pointer',
+        borderRadius: 999,
+    })
+
+    return (
+        <Dialog
+            open={open}
+            onClose={handleClose}
+            TransitionProps={{ onEntered: handleOpen }}
+            PaperProps={{
+                style: {
+                    background: '#111',
+                    border: '1px solid rgba(219,0,29,0.32)',
+                    borderTop: '2px solid var(--red)',
+                    borderRadius: 0,
+                    minWidth: 480,
+                    maxWidth: 560,
+                    color: '#ededed',
+                },
+            }}
+        >
+            <DialogContent style={{ padding: '28px 28px 24px' }}>
+                <Typography fontSize='0.6rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
+                    J4 — Administration
+                </Typography>
+                <Typography fontWeight={700} fontSize='0.9rem' letterSpacing={3} style={{ textTransform: 'uppercase', marginBottom: 20 }}>
+                    Send Test Notification
+                </Typography>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                    {/* Target */}
+                    <div>
+                        <Typography fontSize='0.6rem' fontWeight={700} letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 8 }}>
+                            Recipient
+                        </Typography>
+                        <div style={{ display: 'flex', gap: 8, marginBottom: sendToSelf ? 0 : 10 }}>
+                            <button style={chipSx(sendToSelf)} onClick={() => setSendToSelf(true)}>Myself</button>
+                            <button style={chipSx(!sendToSelf)} onClick={() => setSendToSelf(false)}>Select Member</button>
+                        </div>
+                        {!sendToSelf && (
+                            <Autocomplete
+                                options={members}
+                                getOptionLabel={o => o.displayName}
+                                value={selectedMember}
+                                onChange={(_, v) => setSelectedMember(v)}
+                                loading={loadingMembers}
+                                noOptionsText={membersLoaded ? 'No members found' : 'Loading…'}
+                                renderInput={params => (
+                                    <TextField
+                                        {...params}
+                                        label='Member *'
+                                        sx={inputSx}
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <>
+                                                    {loadingMembers && <CircularProgress size={16} style={{ color: 'var(--red)' }} />}
+                                                    {params.InputProps.endAdornment}
+                                                </>
+                                            ),
+                                        }}
+                                    />
+                                )}
+                                ListboxProps={{ style: { background: '#1a1a1a', color: '#ededed' } }}
+                                sx={{ mt: 1 }}
+                            />
+                        )}
+                    </div>
+
+                    {/* Channels */}
+                    <div>
+                        <Typography fontSize='0.6rem' fontWeight={700} letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 8 }}>
+                            Channels
+                        </Typography>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button style={chipSx(channels.site)} onClick={() => toggleChannel('site')}>Site</button>
+                            <button style={chipSx(channels.discord)} onClick={() => toggleChannel('discord')}>Discord DM</button>
+                        </div>
+                    </div>
+
+                    {/* Type */}
+                    <FormControl fullWidth sx={inputSx}>
+                        <InputLabel>Notification Type</InputLabel>
+                        <Select
+                            value={type}
+                            label='Notification Type'
+                            onChange={e => setType(e.target.value)}
+                            MenuProps={{ PaperProps: { style: { background: '#1a1a1a', color: '#ededed', maxHeight: 300 } } }}
+                        >
+                            {NOTIF_TYPES.map(t => (
+                                <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+
+                    {/* Title */}
+                    <TextField
+                        label='Title *'
+                        value={title}
+                        onChange={e => setTitle(e.target.value)}
+                        fullWidth
+                        sx={inputSx}
+                    />
+
+                    {/* Body */}
+                    <TextField
+                        label='Body *'
+                        value={body}
+                        onChange={e => setBody(e.target.value)}
+                        multiline
+                        minRows={3}
+                        fullWidth
+                        sx={inputSx}
+                    />
+                </div>
+
+                {error && (
+                    <Typography fontSize='0.75rem' style={{ color: '#ff4444', marginTop: 12 }}>{error}</Typography>
+                )}
+                {successMsg && (
+                    <Typography fontSize='0.75rem' style={{ color: 'rgba(100,220,100,0.9)', marginTop: 12 }}>{successMsg}</Typography>
+                )}
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+                    <button
+                        onClick={handleClose}
+                        style={{ background: 'none', border: '1px solid rgba(237,237,237,0.15)', color: 'rgba(237,237,237,0.6)', padding: '7px 18px', cursor: 'pointer', fontSize: '0.78rem', letterSpacing: 1 }}
+                    >
+                        CLOSE
+                    </button>
+                    <button
+                        onClick={handleSend}
+                        disabled={submitting}
+                        style={{
+                            background: 'rgba(219,0,29,0.3)',
+                            border: '1px solid rgba(219,0,29,0.27)',
+                            color: submitting ? 'rgba(237,237,237,0.4)' : '#ededed',
+                            padding: '7px 18px',
+                            cursor: submitting ? 'not-allowed' : 'pointer',
+                            fontSize: '0.78rem',
+                            letterSpacing: 1,
+                        }}
+                    >
+                        {submitting ? 'SENDING…' : 'SEND'}
+                    </button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 export default function J4AdminPanel({ userId, displayName }: { userId: string; displayName: string }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
     const [importOpen, setImportOpen] = useState(false)
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
+    const [testNotifOpen, setTestNotifOpen] = useState(false)
 
     const [devMode, setDevMode]           = useState<boolean | null>(null)
     const [devModeLoading, setDevModeLoading] = useState(false)
@@ -613,6 +885,21 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                     </div>
                                 </button>
 
+                                <button
+                                    onClick={() => setTestNotifOpen(true)}
+                                    className='flex-1 min-w-[160px] max-w-[220px]'
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                                >
+                                    <div
+                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
+                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
+                                    >
+                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
+                                            Test<br />Notification
+                                        </Typography>
+                                    </div>
+                                </button>
+
                             </div>
                         </div>
 
@@ -644,6 +931,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
             <ImportPanel open={importOpen} onClose={() => setImportOpen(false)} />
             <DischargeModal open={dischargeOpen} onClose={() => setDischargeOpen(false)} />
             <ReinstateModal open={reinstateOpen} onClose={() => setReinstateOpen(false)} />
+            <TestNotificationModal open={testNotifOpen} onClose={() => setTestNotifOpen(false)} selfId={userId} />
         </div>
     )
 }

@@ -14,7 +14,8 @@ export interface NotificationItem {
     readAt: string | null
 }
 
-const POLL_INTERVAL = 30_000 // 30 seconds
+// Slow fallback poll — catches any notifications missed during SSE reconnects
+const FALLBACK_POLL_INTERVAL = 5 * 60_000 // 5 minutes
 
 export function useNotifications() {
     const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -35,7 +36,7 @@ export function useNotifications() {
             } else {
                 const arrived = incoming.filter(n => !knownIdsRef.current!.has(n._id) && !n.readAt)
                 if (arrived.length > 0) {
-                    setNewArrivals(arrived)
+                    setNewArrivals(prev => [...prev, ...arrived])
                     arrived.forEach(n => knownIdsRef.current!.add(n._id))
                 }
             }
@@ -46,11 +47,39 @@ export function useNotifications() {
         }
     }, [])
 
+    // SSE connection for instant push, with slow fallback poll for resilience
     useEffect(() => {
         setLoading(true)
         fetch_().finally(() => setLoading(false))
-        const id = setInterval(fetch_, POLL_INTERVAL)
-        return () => clearInterval(id)
+
+        const es = new EventSource('/api/notifications/stream')
+
+        es.onmessage = (event) => {
+            try {
+                const notification: NotificationItem = JSON.parse(event.data)
+
+                // Initialize knownIds if SSE fires before initial fetch completes
+                if (knownIdsRef.current === null) {
+                    knownIdsRef.current = new Set()
+                }
+
+                if (!knownIdsRef.current.has(notification._id)) {
+                    knownIdsRef.current.add(notification._id)
+                    setNotifications(prev => [notification, ...prev])
+                    setNewArrivals(prev => [...prev, notification])
+                }
+            } catch {
+                // malformed event — ignore
+            }
+        }
+
+        // Fallback poll catches notifications missed during SSE reconnects
+        const pollId = setInterval(fetch_, FALLBACK_POLL_INTERVAL)
+
+        return () => {
+            es.close()
+            clearInterval(pollId)
+        }
     }, [fetch_])
 
     const unreadCount = notifications.filter(n => !n.readAt).length

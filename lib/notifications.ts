@@ -1,4 +1,5 @@
 import Db from '@/lib/mongo'
+import notificationEmitter from '@/lib/notificationEmitter'
 
 export interface CreateNotificationInput {
     userId: string
@@ -16,10 +17,14 @@ export interface CreateNotificationInput {
  */
 export async function createNotification(input: CreateNotificationInput): Promise<void> {
     try {
-        await Db.notifications.insertOne({
-            ...input,
-            createdAt: new Date(),
-        } as Notification)
+        const doc = { ...input, createdAt: new Date() } as Notification
+        const result = await Db.notifications.insertOne(doc)
+        notificationEmitter.emit(`user:${input.userId}`, {
+            ...doc,
+            _id: result.insertedId.toString(),
+            createdAt: doc.createdAt.toISOString(),
+            readAt: null,
+        })
     } catch (err) {
         console.error('[notifications] Failed to create notification:', err)
     }
@@ -47,7 +52,15 @@ export async function createNotificationForRole(
             createdAt: new Date(),
         } as Notification))
 
-        await Db.notifications.insertMany(docs)
+        const result = await Db.notifications.insertMany(docs)
+        docs.forEach((doc, i) => {
+            notificationEmitter.emit(`user:${doc.userId}`, {
+                ...doc,
+                _id: result.insertedIds[i].toString(),
+                createdAt: doc.createdAt.toISOString(),
+                readAt: null,
+            })
+        })
     } catch (err) {
         console.error('[notifications] Failed to create role notifications:', err)
     }
