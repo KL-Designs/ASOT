@@ -13,6 +13,8 @@ import PERMISSIONS from '@/lib/permissions'
 import AttendanceDrawer from '@/components/operations/AttendanceDrawer'
 import ZeusNotesPanel from './ZeusNotesPanel'
 import OperationStatusBar from '@/components/operations/OperationStatusBar'
+import OcapLinkPanel from './OcapLinkPanel'
+import OcapStatsPanel from './OcapStatsPanel'
 
 
 function hexToRgb(hex: string) {
@@ -66,21 +68,21 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         `radial-gradient(ellipse 50% 40% at 88% 20%, ${c(0.035)} 0%, transparent 60%)`,
         `radial-gradient(ellipse 80% 30% at 50% 98%, rgba(20,40,80,0.08) 0%, transparent 60%)`,
         ...[
-            ['2%','4%','1px','0.55'], ['8%','12%','1px','0.35'], ['15%','2%','2px','0.65'], ['22%','18%','1px','0.4'],
-            ['31%','7%','1px','0.3'], ['38%','22%','1px','0.45'], ['45%','5%','2px','0.6'], ['52%','15%','1px','0.35'],
-            ['60%','3%','1px','0.5'], ['68%','20%','1px','0.3'], ['75%','10%','2px','0.7'], ['83%','6%','1px','0.4'],
-            ['90%','16%','1px','0.35'], ['95%','3%','1px','0.55'], ['4%','28%','1px','0.3'], ['11%','35%','1px','0.45'],
-            ['19%','42%','2px','0.6'], ['27%','31%','1px','0.35'], ['35%','48%','1px','0.4'], ['43%','37%','1px','0.3'],
-            ['50%','25%','1px','0.55'], ['58%','40%','1px','0.35'], ['65%','33%','2px','0.65'], ['72%','45%','1px','0.4'],
-            ['80%','28%','1px','0.3'], ['88%','38%','1px','0.5'], ['93%','47%','1px','0.35'], ['6%','55%','1px','0.4'],
-            ['14%','62%','2px','0.6'], ['21%','70%','1px','0.3'], ['29%','58%','1px','0.45'], ['36%','75%','1px','0.35'],
-            ['44%','63%','1px','0.5'], ['51%','52%','1px','0.3'], ['59%','68%','2px','0.7'], ['66%','60%','1px','0.4'],
-            ['74%','72%','1px','0.35'], ['81%','55%','1px','0.45'], ['89%','65%','1px','0.3'], ['97%','58%','1px','0.55'],
-            ['3%','82%','1px','0.35'], ['10%','88%','1px','0.4'], ['17%','78%','2px','0.6'], ['25%','92%','1px','0.3'],
-            ['33%','83%','1px','0.45'], ['40%','96%','1px','0.35'], ['48%','85%','1px','0.5'], ['55%','79%','1px','0.3'],
-            ['62%','90%','2px','0.65'], ['70%','84%','1px','0.4'], ['77%','95%','1px','0.35'], ['85%','80%','1px','0.5'],
-            ['92%','92%','1px','0.3'], ['7%','15%','1px','0.45'], ['18%','55%','1px','0.35'], ['28%','78%','2px','0.6'],
-            ['47%','42%','1px','0.4'], ['63%','25%','1px','0.35'], ['79%','67%','1px','0.5'], ['94%','38%','1px','0.3'],
+            ['2%', '4%', '1px', '0.55'], ['8%', '12%', '1px', '0.35'], ['15%', '2%', '2px', '0.65'], ['22%', '18%', '1px', '0.4'],
+            ['31%', '7%', '1px', '0.3'], ['38%', '22%', '1px', '0.45'], ['45%', '5%', '2px', '0.6'], ['52%', '15%', '1px', '0.35'],
+            ['60%', '3%', '1px', '0.5'], ['68%', '20%', '1px', '0.3'], ['75%', '10%', '2px', '0.7'], ['83%', '6%', '1px', '0.4'],
+            ['90%', '16%', '1px', '0.35'], ['95%', '3%', '1px', '0.55'], ['4%', '28%', '1px', '0.3'], ['11%', '35%', '1px', '0.45'],
+            ['19%', '42%', '2px', '0.6'], ['27%', '31%', '1px', '0.35'], ['35%', '48%', '1px', '0.4'], ['43%', '37%', '1px', '0.3'],
+            ['50%', '25%', '1px', '0.55'], ['58%', '40%', '1px', '0.35'], ['65%', '33%', '2px', '0.65'], ['72%', '45%', '1px', '0.4'],
+            ['80%', '28%', '1px', '0.3'], ['88%', '38%', '1px', '0.5'], ['93%', '47%', '1px', '0.35'], ['6%', '55%', '1px', '0.4'],
+            ['14%', '62%', '2px', '0.6'], ['21%', '70%', '1px', '0.3'], ['29%', '58%', '1px', '0.45'], ['36%', '75%', '1px', '0.35'],
+            ['44%', '63%', '1px', '0.5'], ['51%', '52%', '1px', '0.3'], ['59%', '68%', '2px', '0.7'], ['66%', '60%', '1px', '0.4'],
+            ['74%', '72%', '1px', '0.35'], ['81%', '55%', '1px', '0.45'], ['89%', '65%', '1px', '0.3'], ['97%', '58%', '1px', '0.55'],
+            ['3%', '82%', '1px', '0.35'], ['10%', '88%', '1px', '0.4'], ['17%', '78%', '2px', '0.6'], ['25%', '92%', '1px', '0.3'],
+            ['33%', '83%', '1px', '0.45'], ['40%', '96%', '1px', '0.35'], ['48%', '85%', '1px', '0.5'], ['55%', '79%', '1px', '0.3'],
+            ['62%', '90%', '2px', '0.65'], ['70%', '84%', '1px', '0.4'], ['77%', '95%', '1px', '0.35'], ['85%', '80%', '1px', '0.5'],
+            ['92%', '92%', '1px', '0.3'], ['7%', '15%', '1px', '0.45'], ['18%', '55%', '1px', '0.35'], ['28%', '78%', '2px', '0.6'],
+            ['47%', '42%', '1px', '0.4'], ['63%', '25%', '1px', '0.35'], ['79%', '67%', '1px', '0.5'], ['94%', '38%', '1px', '0.3'],
         ].map(([x, y, s, o]) => `radial-gradient(${s} ${s} at ${x} ${y}, rgba(255,255,255,${o}) 0%, transparent 100%)`),
     ].join(',') : ''
 
@@ -392,306 +394,349 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             {/* ── Content + attendance sidebar ──────────────────────────────── */}
             <div className='w-full max-w-[1800px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
-            {/* Left: document content */}
-            <div style={{ flex: 1, minWidth: 0 }}>
+                {/* Left: document content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
 
-            {/* Op status / automation timeline bar */}
-            <OperationStatusBar
-                operationId={id}
-                operationDate={operation.date?.toString() ?? null}
-                operationStatus={operation.status ?? ''}
-                themeColor={operation.themeColor || '#db001d'}
-                r={r} g={g} b={b}
-            />
+                    {/* Op status / automation timeline bar */}
+                    <OperationStatusBar
+                        operationId={id}
+                        operationDate={operation.date?.toString() ?? null}
+                        operationStatus={operation.status ?? ''}
+                        themeColor={operation.themeColor || '#db001d'}
+                        r={r} g={g} b={b}
+                    />
 
-            {/* Multi-page view */}
-            {operation.pages && operation.pages.length > 1 && (
-                <PagedView
-                    pages={operation.pages}
-                    sectionsByPage={{ main: operation.sections ?? [], ...(operation.extraPageSections ?? {}) }}
-                    operationTitle={operation.title}
-                    themeColor={operation.themeColor || '#db001d'}
-                    pageTheme={pageTheme}
-                    isLoggedIn={isLoggedIn}
-                    isJ6={isJ6}
-                    operationId={id}
-                    zeusNotes={operation.zeusNotes ?? ''}
-                />
-            )}
+                    {/* OCAP viewer button — shown when a recording has been linked */}
+                    {operation.ocap && (
+                        <a
+                            href={operation.ocap.viewerUrl}
+                            target='_blank'
+                            rel='noopener noreferrer'
+                            className='print-hide'
+                            style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 8,
+                                padding: '7px 16px', textDecoration: 'none', marginBottom: 4,
+                                border: `1px solid ${c(0.35)}`,
+                                background: c(0.07),
+                                color: c(0.85),
+                                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase',
+                            }}
+                        >
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: c(1), flexShrink: 0, boxShadow: `0 0 5px ${c(0.9)}` }} />
+                            OCAP Recording ↗
+                            <span style={{ opacity: 0.45, fontWeight: 400 }}>
+                                {operation.ocap.missionName}
+                            </span>
+                        </a>
+                    )}
 
-            {/* Single-page sections */}
-            {(!operation.pages || operation.pages.length <= 1) && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {/* Multi-page view */}
+                    {operation.pages && operation.pages.length > 1 && (
+                        <PagedView
+                            pages={operation.pages}
+                            sectionsByPage={{ main: operation.sections ?? [], ...(operation.extraPageSections ?? {}) }}
+                            operationTitle={operation.title}
+                            themeColor={operation.themeColor || '#db001d'}
+                            pageTheme={pageTheme}
+                            isLoggedIn={isLoggedIn}
+                            isJ6={isJ6}
+                            operationId={id}
+                            zeusNotes={operation.zeusNotes ?? ''}
+                        />
+                    )}
 
-                {/* Zeus Notes — J6 only; no sidebar in single-page layout so render inline */}
-                {isJ6 && (
-                    <ZeusNotesPanel operationId={id} initialNotes={operation.zeusNotes ?? ''} />
-                )}
+                    {/* Single-page sections */}
+                    {(!operation.pages || operation.pages.length <= 1) && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-                {operation.sections && operation.sections.length > 0 ? (
-                    operation.sections
-                        .filter(s => isLoggedIn || s.isPublic)
-                        .map(s => (
-                            <div key={s.id} id={`section-${s.id}`} data-print-section style={isOF ? {
-                                position: 'relative',
-                                border: '1px solid rgba(160,120,50,0.25)',
-                                borderTop: `2px solid ${c(0.8)}`,
-                                background: '#1d1408',
-                            } : isSF ? {
-                                position: 'relative',
-                                border: `1px solid ${c(0.3)}`,
-                                borderTop: `2px solid ${c(0.8)}`,
-                                background: 'rgba(0,4,14,0.82)',
-                                boxShadow: `0 0 20px ${c(0.1)}, inset 0 0 30px ${c(0.03)}`,
-                            } : {
-                                position: 'relative',
-                                border: `1px solid ${c(0.18)}`,
-                                borderTop: `2px solid ${c(0.6)}`,
-                            }}>
+                            {/* Zeus Notes — J6 only; no sidebar in single-page layout so render inline */}
+                            {isJ6 && (
+                                <ZeusNotesPanel operationId={id} initialNotes={operation.zeusNotes ?? ''} />
+                            )}
 
-                                {/* Sci-fi scan lines */}
-                                {isSF && (
-                                    <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundImage: `repeating-linear-gradient(to bottom, ${c(0.02)} 0px, ${c(0.02)} 1px, transparent 1px, transparent 4px)` }} />
-                                )}
+                            {/* OCAP sync panel — HQ only */}
+                            {isHQ && (
+                                <OcapLinkPanel
+                                    operationId={id}
+                                    initialOcap={operation.ocap ?? null}
+                                />
+                            )}
 
-                                {/* Corner ticks — hidden in oldfashioned */}
-                                {!isOF && (
-                                    <>
-                                        <div style={{ position: 'absolute', bottom: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}>
-                                            <div style={{ position: 'absolute', bottom: 0, left: 0, width: 12, height: 1, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
-                                            <div style={{ position: 'absolute', bottom: 0, left: 0, width: 1, height: 12, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
-                                        </div>
-                                        <div style={{ position: 'absolute', bottom: 0, right: 0, pointerEvents: 'none', zIndex: 1 }}>
-                                            <div style={{ position: 'absolute', bottom: 0, right: 0, width: 12, height: 1, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
-                                            <div style={{ position: 'absolute', bottom: 0, right: 0, width: 1, height: 12, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
-                                        </div>
-                                    </>
-                                )}
-
-                                {/* Section header */}
-                                <div style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
-                                    padding: '8px 20px',
-                                    borderBottom: isOF ? '1px solid rgba(160,120,50,0.15)' : isSF ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(255,255,255,0.06)',
-                                    background: isOF ? 'rgba(0,0,0,0.55)' : isSF ? c(0.06) : 'rgba(0,0,0,0.4)',
-                                    ...(isSF ? { boxShadow: `inset 0 0 20px rgba(${r},${g},${b},0.05)` } : {}),
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <div style={isOF ? {
-                                            width: 8, height: 8, background: c(1), flexShrink: 0, borderRadius: 0,
+                            {operation.sections && operation.sections.length > 0 ? (
+                                operation.sections
+                                    .filter(s => isLoggedIn || s.isPublic)
+                                    .map(s => (
+                                        <div key={s.id} id={`section-${s.id}`} data-print-section style={isOF ? {
+                                            position: 'relative',
+                                            border: '1px solid rgba(160,120,50,0.25)',
+                                            borderTop: `2px solid ${c(0.8)}`,
+                                            background: '#1d1408',
                                         } : isSF ? {
-                                            width: 6, height: 6, background: c(0.8), flexShrink: 0, boxShadow: `0 0 6px rgba(${r},${g},${b},0.8)`,
+                                            position: 'relative',
+                                            border: `1px solid ${c(0.3)}`,
+                                            borderTop: `2px solid ${c(0.8)}`,
+                                            background: 'rgba(0,4,14,0.82)',
+                                            boxShadow: `0 0 20px ${c(0.1)}, inset 0 0 30px ${c(0.03)}`,
                                         } : {
-                                            width: 6, height: 6, background: c(0.7), flexShrink: 0,
-                                        }} />
-                                        <span style={isOF ? {
-                                            fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c8a850', fontFamily: '"Courier New", monospace',
-                                        } : isSF ? {
-                                            fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.9), textShadow: `0 0 6px rgba(${r},${g},${b},0.5)`, fontFamily: '"Courier New", monospace',
-                                        } : {
-                                            fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.8),
+                                            position: 'relative',
+                                            border: `1px solid ${c(0.18)}`,
+                                            borderTop: `2px solid ${c(0.6)}`,
                                         }}>
-                                            {s.title}
+
+                                            {/* Sci-fi scan lines */}
+                                            {isSF && (
+                                                <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundImage: `repeating-linear-gradient(to bottom, ${c(0.02)} 0px, ${c(0.02)} 1px, transparent 1px, transparent 4px)` }} />
+                                            )}
+
+                                            {/* Corner ticks — hidden in oldfashioned */}
+                                            {!isOF && (
+                                                <>
+                                                    <div style={{ position: 'absolute', bottom: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}>
+                                                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: 12, height: 1, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
+                                                        <div style={{ position: 'absolute', bottom: 0, left: 0, width: 1, height: 12, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
+                                                    </div>
+                                                    <div style={{ position: 'absolute', bottom: 0, right: 0, pointerEvents: 'none', zIndex: 1 }}>
+                                                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 12, height: 1, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
+                                                        <div style={{ position: 'absolute', bottom: 0, right: 0, width: 1, height: 12, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
+                                                    </div>
+                                                </>
+                                            )}
+
+                                            {/* Section header */}
+                                            <div style={{
+                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
+                                                padding: '8px 20px',
+                                                borderBottom: isOF ? '1px solid rgba(160,120,50,0.15)' : isSF ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(255,255,255,0.06)',
+                                                background: isOF ? 'rgba(0,0,0,0.55)' : isSF ? c(0.06) : 'rgba(0,0,0,0.4)',
+                                                ...(isSF ? { boxShadow: `inset 0 0 20px rgba(${r},${g},${b},0.05)` } : {}),
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                    <div style={isOF ? {
+                                                        width: 8, height: 8, background: c(1), flexShrink: 0, borderRadius: 0,
+                                                    } : isSF ? {
+                                                        width: 6, height: 6, background: c(0.8), flexShrink: 0, boxShadow: `0 0 6px rgba(${r},${g},${b},0.8)`,
+                                                    } : {
+                                                        width: 6, height: 6, background: c(0.7), flexShrink: 0,
+                                                    }} />
+                                                    <span style={isOF ? {
+                                                        fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c8a850', fontFamily: '"Courier New", monospace',
+                                                    } : isSF ? {
+                                                        fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.9), textShadow: `0 0 6px rgba(${r},${g},${b},0.5)`, fontFamily: '"Courier New", monospace',
+                                                    } : {
+                                                        fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.8),
+                                                    }}>
+                                                        {s.title}
+                                                    </span>
+                                                </div>
+                                                {isLoggedIn && !s.isPublic && (
+                                                    <span style={isOF ? {
+                                                        fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(200,160,50,0.75)', border: '1px solid rgba(160,120,50,0.35)', padding: '1px 8px', fontFamily: '"Courier New", monospace',
+                                                    } : {
+                                                        fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,180,0,0.6)', border: '1px solid rgba(219,180,0,0.25)', padding: '1px 6px',
+                                                    }}>
+                                                        Classified
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Body */}
+                                            <div style={{ padding: '0 28px' }}>
+                                                <DocBody content={s.content ?? null} themeColor={operation.themeColor || '#db001d'} pageTheme={pageTheme} />
+                                            </div>
+
+                                            {/* Footer stamp */}
+                                            <div style={{
+                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                padding: '7px 20px',
+                                                borderTop: isOF ? '1px solid rgba(160,120,50,0.12)' : isSF ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(255,255,255,0.04)',
+                                                background: isOF ? 'rgba(0,0,0,0.4)' : isSF ? c(0.025) : 'rgba(0,0,0,0.25)',
+                                            }}>
+                                                <span style={isOF ? {
+                                                    fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,120,50,0.2)', fontFamily: '"Courier New", monospace',
+                                                } : isSF ? {
+                                                    fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.18), fontFamily: '"Courier New", monospace',
+                                                } : {
+                                                    fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)',
+                                                }}>
+                                                    ASOT // {s.title}
+                                                </span>
+                                                <span style={isOF ? {
+                                                    fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,120,50,0.2)', fontFamily: '"Courier New", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
+                                                } : isSF ? {
+                                                    fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.18), fontFamily: '"Courier New", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
+                                                } : {
+                                                    fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
+                                                }}>
+                                                    {operation.title}
+                                                </span>
+                                            </div>
+
+                                        </div>
+                                    ))
+                            ) : (
+                                // Legacy single-body fallback
+                                <div style={isOF ? {
+                                    position: 'relative',
+                                    border: '1px solid rgba(160,120,50,0.25)',
+                                    borderTop: `2px solid ${c(0.8)}`,
+                                    background: '#1d1408',
+                                } : isSF ? {
+                                    position: 'relative',
+                                    border: `1px solid ${c(0.3)}`,
+                                    borderTop: `2px solid ${c(0.8)}`,
+                                    background: 'rgba(0,4,14,0.82)',
+                                    boxShadow: `0 0 20px ${c(0.1)}, inset 0 0 30px ${c(0.03)}`,
+                                } : {
+                                    position: 'relative',
+                                    border: `1px solid ${c(0.18)}`,
+                                    borderTop: `2px solid ${c(0.6)}`,
+                                }}>
+                                    {/* Sci-fi scan lines */}
+                                    {isSF && (
+                                        <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundImage: `repeating-linear-gradient(to bottom, ${c(0.02)} 0px, ${c(0.02)} 1px, transparent 1px, transparent 4px)` }} />
+                                    )}
+                                    {/* Corner ticks — hidden in oldfashioned */}
+                                    {!isOF && (
+                                        <>
+                                            <div style={{ position: 'absolute', bottom: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}>
+                                                <div style={{ position: 'absolute', bottom: 0, left: 0, width: 12, height: 1, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
+                                                <div style={{ position: 'absolute', bottom: 0, left: 0, width: 1, height: 12, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
+                                            </div>
+                                            <div style={{ position: 'absolute', bottom: 0, right: 0, pointerEvents: 'none', zIndex: 1 }}>
+                                                <div style={{ position: 'absolute', bottom: 0, right: 0, width: 12, height: 1, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
+                                                <div style={{ position: 'absolute', bottom: 0, right: 0, width: 1, height: 12, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
+                                            </div>
+                                        </>
+                                    )}
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
+                                        padding: '8px 20px',
+                                        borderBottom: isOF ? '1px solid rgba(160,120,50,0.15)' : isSF ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(255,255,255,0.06)',
+                                        background: isOF ? 'rgba(0,0,0,0.55)' : isSF ? c(0.06) : 'rgba(0,0,0,0.4)',
+                                        ...(isSF ? { boxShadow: `inset 0 0 20px rgba(${r},${g},${b},0.05)` } : {}),
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <div style={isOF ? {
+                                                width: 8, height: 8, background: c(1), flexShrink: 0, borderRadius: 0,
+                                            } : isSF ? {
+                                                width: 6, height: 6, background: c(0.8), flexShrink: 0, boxShadow: `0 0 6px rgba(${r},${g},${b},0.8)`,
+                                            } : {
+                                                width: 6, height: 6, background: c(0.7), flexShrink: 0,
+                                            }} />
+                                            <span style={isOF ? {
+                                                fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c8a850', fontFamily: '"Courier New", monospace',
+                                            } : isSF ? {
+                                                fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.9), textShadow: `0 0 6px rgba(${r},${g},${b},0.5)`, fontFamily: '"Courier New", monospace',
+                                            } : {
+                                                fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.8),
+                                            }}>
+                                                Operation Orders
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                                            {operation.status && (
+                                                <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: isOF ? 'rgba(160,120,50,0.35)' : 'rgba(237,237,237,0.3)' }}>
+                                                    {operation.status}
+                                                </span>
+                                            )}
+                                            {operation.department && (
+                                                <>
+                                                    <div style={{ width: 1, height: 10, background: isOF ? 'rgba(160,120,50,0.15)' : 'rgba(255,255,255,0.1)' }} />
+                                                    <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: isOF ? 'rgba(160,120,50,0.35)' : 'rgba(237,237,237,0.3)' }}>
+                                                        {operation.department}
+                                                    </span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div style={{ padding: '0 28px' }}>
+                                        <DocBody content={operation.content ?? null} themeColor={operation.themeColor || '#db001d'} pageTheme={pageTheme} />
+                                    </div>
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: '7px 20px',
+                                        borderTop: isOF ? '1px solid rgba(160,120,50,0.12)' : isSF ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(255,255,255,0.04)',
+                                        background: isOF ? 'rgba(0,0,0,0.4)' : isSF ? c(0.025) : 'rgba(0,0,0,0.25)',
+                                    }}>
+                                        <span style={isOF ? {
+                                            fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,120,50,0.2)', fontFamily: '"Courier New", monospace',
+                                        } : isSF ? {
+                                            fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.18), fontFamily: '"Courier New", monospace',
+                                        } : {
+                                            fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)',
+                                        }}>
+                                            ASOT // End of Order
+                                        </span>
+                                        <span style={isOF ? {
+                                            fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,120,50,0.2)', fontFamily: '"Courier New", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
+                                        } : isSF ? {
+                                            fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.18), fontFamily: '"Courier New", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
+                                        } : {
+                                            fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
+                                        }}>
+                                            {operation.title}
                                         </span>
                                     </div>
-                                    {isLoggedIn && !s.isPublic && (
-                                        <span style={isOF ? {
-                                            fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(200,160,50,0.75)', border: '1px solid rgba(160,120,50,0.35)', padding: '1px 8px', fontFamily: '"Courier New", monospace',
-                                        } : {
-                                            fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,180,0,0.6)', border: '1px solid rgba(219,180,0,0.25)', padding: '1px 6px',
-                                        }}>
-                                            Classified
-                                        </span>
-                                    )}
                                 </div>
+                            )}
 
-                                {/* Body */}
-                                <div style={{ padding: '0 28px' }}>
-                                    <DocBody content={s.content ?? null} themeColor={operation.themeColor || '#db001d'} pageTheme={pageTheme} />
-                                </div>
+                            {/* OCAP stats / kill leaderboard — shown to logged-in users once synced */}
+                            {isLoggedIn && operation.ocap && operation.ocap.playerStats?.length > 0 && (
+                                <OcapStatsPanel
+                                    ocap={operation.ocap}
+                                    themeColor={operation.themeColor || '#db001d'}
+                                    r={r} g={g} b={b}
+                                    pageTheme={pageTheme}
+                                />
+                            )}
 
-                                {/* Footer stamp */}
-                                <div style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '7px 20px',
-                                    borderTop: isOF ? '1px solid rgba(160,120,50,0.12)' : isSF ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(255,255,255,0.04)',
-                                    background: isOF ? 'rgba(0,0,0,0.4)' : isSF ? c(0.025) : 'rgba(0,0,0,0.25)',
-                                }}>
-                                    <span style={isOF ? {
-                                        fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,120,50,0.2)', fontFamily: '"Courier New", monospace',
-                                    } : isSF ? {
-                                        fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.18), fontFamily: '"Courier New", monospace',
-                                    } : {
-                                        fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)',
+                            {/* Classified banner — shown to logged-out users when sections are hidden */}
+                            {hasHiddenSections && (
+                                <a href={`/login?returnTo=/operations/${id}`} className='print-hide' style={{ textDecoration: 'none', display: 'block', marginBottom: 64 }}>
+                                    <div style={{
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        padding: '28px 32px',
+                                        background: 'rgba(180, 80, 0, 0.08)',
+                                        borderTop: '2px solid rgba(220, 120, 0, 0.5)',
+                                        borderBottom: '2px solid rgba(220, 120, 0, 0.5)',
+                                        cursor: 'pointer',
                                     }}>
-                                        ASOT // {s.title}
-                                    </span>
-                                    <span style={isOF ? {
-                                        fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,120,50,0.2)', fontFamily: '"Courier New", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
-                                    } : isSF ? {
-                                        fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.18), fontFamily: '"Courier New", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
-                                    } : {
-                                        fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
-                                    }}>
-                                        {operation.title}
-                                    </span>
-                                </div>
+                                        {/* Diagonal stripe background */}
+                                        <div style={{
+                                            position: 'absolute', inset: 0, pointerEvents: 'none',
+                                            backgroundImage: 'repeating-linear-gradient(45deg, rgba(220,120,0,0.04) 0px, rgba(220,120,0,0.04) 10px, transparent 10px, transparent 20px)',
+                                        }} />
 
-                            </div>
-                        ))
-                ) : (
-                    // Legacy single-body fallback
-                    <div style={isOF ? {
-                        position: 'relative',
-                        border: '1px solid rgba(160,120,50,0.25)',
-                        borderTop: `2px solid ${c(0.8)}`,
-                        background: '#1d1408',
-                    } : isSF ? {
-                        position: 'relative',
-                        border: `1px solid ${c(0.3)}`,
-                        borderTop: `2px solid ${c(0.8)}`,
-                        background: 'rgba(0,4,14,0.82)',
-                        boxShadow: `0 0 20px ${c(0.1)}, inset 0 0 30px ${c(0.03)}`,
-                    } : {
-                        position: 'relative',
-                        border: `1px solid ${c(0.18)}`,
-                        borderTop: `2px solid ${c(0.6)}`,
-                    }}>
-                        {/* Sci-fi scan lines */}
-                        {isSF && (
-                            <div style={{ position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', backgroundImage: `repeating-linear-gradient(to bottom, ${c(0.02)} 0px, ${c(0.02)} 1px, transparent 1px, transparent 4px)` }} />
-                        )}
-                        {/* Corner ticks — hidden in oldfashioned */}
-                        {!isOF && (
-                            <>
-                                <div style={{ position: 'absolute', bottom: 0, left: 0, pointerEvents: 'none', zIndex: 1 }}>
-                                    <div style={{ position: 'absolute', bottom: 0, left: 0, width: 12, height: 1, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
-                                    <div style={{ position: 'absolute', bottom: 0, left: 0, width: 1, height: 12, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
-                                </div>
-                                <div style={{ position: 'absolute', bottom: 0, right: 0, pointerEvents: 'none', zIndex: 1 }}>
-                                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: 12, height: 1, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
-                                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: 1, height: 12, background: c(0.45), ...(isSF ? { boxShadow: `0 0 4px rgba(${r},${g},${b},0.6)` } : {}) }} />
-                                </div>
-                            </>
-                        )}
-                        <div style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
-                            padding: '8px 20px',
-                            borderBottom: isOF ? '1px solid rgba(160,120,50,0.15)' : isSF ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(255,255,255,0.06)',
-                            background: isOF ? 'rgba(0,0,0,0.55)' : isSF ? c(0.06) : 'rgba(0,0,0,0.4)',
-                            ...(isSF ? { boxShadow: `inset 0 0 20px rgba(${r},${g},${b},0.05)` } : {}),
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <div style={isOF ? {
-                                    width: 8, height: 8, background: c(1), flexShrink: 0, borderRadius: 0,
-                                } : isSF ? {
-                                    width: 6, height: 6, background: c(0.8), flexShrink: 0, boxShadow: `0 0 6px rgba(${r},${g},${b},0.8)`,
-                                } : {
-                                    width: 6, height: 6, background: c(0.7), flexShrink: 0,
-                                }} />
-                                <span style={isOF ? {
-                                    fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#c8a850', fontFamily: '"Courier New", monospace',
-                                } : isSF ? {
-                                    fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.9), textShadow: `0 0 6px rgba(${r},${g},${b},0.5)`, fontFamily: '"Courier New", monospace',
-                                } : {
-                                    fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase', color: c(0.8),
-                                }}>
-                                    Operation Orders
-                                </span>
-                            </div>
-                            <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                                {operation.status && (
-                                    <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: isOF ? 'rgba(160,120,50,0.35)' : 'rgba(237,237,237,0.3)' }}>
-                                        {operation.status}
-                                    </span>
-                                )}
-                                {operation.department && (
-                                    <>
-                                        <div style={{ width: 1, height: 10, background: isOF ? 'rgba(160,120,50,0.15)' : 'rgba(255,255,255,0.1)' }} />
-                                        <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: isOF ? 'rgba(160,120,50,0.35)' : 'rgba(237,237,237,0.3)' }}>
-                                            {operation.department}
-                                        </span>
-                                    </>
-                                )}
-                            </div>
+                                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
+                                            <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(220,120,0,0.4))' }} />
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                                                <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.42em', textTransform: 'uppercase', color: 'rgba(220, 140, 0, 0.95)' }}>
+                                                    ██ Information Classified ██
+                                                </span>
+                                                <span style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
+                                                    Login to Access →
+                                                </span>
+                                            </div>
+                                            <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(220,120,0,0.4))' }} />
+                                        </div>
+                                    </div>
+                                </a>
+                            )}
                         </div>
-                        <div style={{ padding: '0 28px' }}>
-                            <DocBody content={operation.content ?? null} themeColor={operation.themeColor || '#db001d'} pageTheme={pageTheme} />
-                        </div>
-                        <div style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: '7px 20px',
-                            borderTop: isOF ? '1px solid rgba(160,120,50,0.12)' : isSF ? '1px solid rgba(255,255,255,0.03)' : '1px solid rgba(255,255,255,0.04)',
-                            background: isOF ? 'rgba(0,0,0,0.4)' : isSF ? c(0.025) : 'rgba(0,0,0,0.25)',
-                        }}>
-                            <span style={isOF ? {
-                                fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,120,50,0.2)', fontFamily: '"Courier New", monospace',
-                            } : isSF ? {
-                                fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.18), fontFamily: '"Courier New", monospace',
-                            } : {
-                                fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)',
-                            }}>
-                                ASOT // End of Order
-                            </span>
-                            <span style={isOF ? {
-                                fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(160,120,50,0.2)', fontFamily: '"Courier New", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
-                            } : isSF ? {
-                                fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.18), fontFamily: '"Courier New", monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
-                            } : {
-                                fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '50%',
-                            }}>
-                                {operation.title}
-                            </span>
-                        </div>
-                    </div>
-                )}
-            {/* Classified banner — shown to logged-out users when sections are hidden */}
-            {hasHiddenSections && (
-                <a href={`/login?returnTo=/operations/${id}`} className='print-hide' style={{ textDecoration: 'none', display: 'block', marginBottom: 64 }}>
-                    <div style={{
-                        position: 'relative',
-                        overflow: 'hidden',
-                        padding: '28px 32px',
-                        background: 'rgba(180, 80, 0, 0.08)',
-                        borderTop: '2px solid rgba(220, 120, 0, 0.5)',
-                        borderBottom: '2px solid rgba(220, 120, 0, 0.5)',
-                        cursor: 'pointer',
-                    }}>
-                        {/* Diagonal stripe background */}
-                        <div style={{
-                            position: 'absolute', inset: 0, pointerEvents: 'none',
-                            backgroundImage: 'repeating-linear-gradient(45deg, rgba(220,120,0,0.04) 0px, rgba(220,120,0,0.04) 10px, transparent 10px, transparent 20px)',
-                        }} />
+                    )}
+                </div>
 
-                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
-                            <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(220,120,0,0.4))' }} />
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.42em', textTransform: 'uppercase', color: 'rgba(220, 140, 0, 0.95)' }}>
-                                    ██ Information Classified ██
-                                </span>
-                                <span style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
-                                    Login to Access →
-                                </span>
-                            </div>
-                            <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(220,120,0,0.4))' }} />
-                        </div>
-                    </div>
-                </a>
-            )}
-            </div>
-            )}
-            </div>
-
-            {/* Right: attendance sidebar / mobile drawer */}
-            <AttendanceDrawer
-                operationId={id}
-                operationStatus={operation.status ?? ''}
-                myUserId={me?.id ?? null}
-                isHQ={isHQ}
-                isSectionLeader={isSectionLeader}
-                isAllStaff={isAllStaff}
-                themeColor={operation.themeColor || '#db001d'}
-            />
+                {/* Right: attendance sidebar / mobile drawer */}
+                <AttendanceDrawer
+                    operationId={id}
+                    operationStatus={operation.status ?? ''}
+                    myUserId={me?.id ?? null}
+                    isHQ={isHQ}
+                    isSectionLeader={isSectionLeader}
+                    isAllStaff={isAllStaff}
+                    themeColor={operation.themeColor || '#db001d'}
+                />
             </div>
 
         </div>
