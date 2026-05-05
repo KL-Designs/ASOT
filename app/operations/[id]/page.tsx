@@ -440,9 +440,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                             pageTheme={pageTheme}
                             isLoggedIn={isLoggedIn}
                             isJ6={isJ6}
+                            isHQ={isHQ}
                             operationId={id}
                             zeusNotes={operation.zeusNotes ?? ''}
                             ocap={isLoggedIn && operation.ocap?.playerStats?.length ? operation.ocap : null}
+                            initialOcap={isHQ ? (operation.ocap ?? null) : null}
                             r={r} g={g} b={b}
                         />
                     )}

@@ -28,6 +28,7 @@ export default function OcapLinkPanel({ operationId, initialOcap }: Props) {
     const [loadingList, setLoadingList]   = useState(false)
     const [listError, setListError]       = useState('')
     const [selectedId, setSelectedId]     = useState<number | null>(null)
+    const [search, setSearch]             = useState('')
     const [syncing, setSyncing]           = useState(false)
     const [stage, setStage]               = useState<SyncStage>('idle')
     const [stageMsg, setStageMsg]         = useState('')
@@ -222,7 +223,7 @@ export default function OcapLinkPanel({ operationId, initialOcap }: Props) {
                         {ocap ? 'Re-link recording' : 'Select recording'}
                     </div>
 
-                    {/* Recordings dropdown */}
+                    {/* Recordings search + list */}
                     {loadingList ? (
                         <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic' }}>
                             Loading recordings…
@@ -237,29 +238,69 @@ export default function OcapLinkPanel({ operationId, initialOcap }: Props) {
                                 Retry
                             </button>
                         </div>
-                    ) : (
-                        <select
-                            value={selectedId ?? ''}
-                            onChange={e => setSelectedId(Number(e.target.value))}
-                            disabled={syncing}
-                            style={{
-                                width: '100%',
-                                background: 'rgba(0,10,5,0.6)',
-                                border: `1px solid ${accentC}`,
-                                color: 'rgba(237,237,237,0.85)',
-                                fontSize: '0.78rem',
-                                padding: '7px 10px',
-                                outline: 'none',
-                                cursor: syncing ? 'not-allowed' : 'pointer',
-                            }}
-                        >
-                            {recordings.map(r => (
-                                <option key={r.id} value={r.id}>
-                                    {r.date} — {r.missionName} ({r.playerCount} players, {r.durationLabel})
-                                </option>
-                            ))}
-                        </select>
-                    )}
+                    ) : (() => {
+                        const q = search.trim().toLowerCase()
+                        const filtered = q
+                            ? recordings.filter(r =>
+                                r.missionName.toLowerCase().includes(q) ||
+                                r.date.toLowerCase().includes(q) ||
+                                r.worldName.toLowerCase().includes(q)
+                              )
+                            : recordings
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                <input
+                                    type='text'
+                                    placeholder='Search by mission name, map, or date…'
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    disabled={syncing}
+                                    style={{
+                                        width: '100%', boxSizing: 'border-box',
+                                        background: 'rgba(0,10,5,0.6)',
+                                        border: `1px solid ${accentC}`,
+                                        borderBottom: filtered.length > 0 ? `1px solid rgba(0,195,120,0.1)` : `1px solid ${accentC}`,
+                                        color: 'rgba(237,237,237,0.85)',
+                                        fontSize: '0.78rem',
+                                        padding: '7px 10px',
+                                        outline: 'none',
+                                        cursor: syncing ? 'not-allowed' : 'text',
+                                    }}
+                                />
+                                {filtered.length > 0 ? (
+                                    <div style={{ maxHeight: 220, overflowY: 'auto', border: `1px solid ${accentC}`, borderTop: 'none' }}>
+                                        {filtered.map(r => {
+                                            const isSelected = r.id === selectedId
+                                            return (
+                                                <div
+                                                    key={r.id}
+                                                    onClick={() => !syncing && setSelectedId(r.id)}
+                                                    style={{
+                                                        padding: '7px 10px',
+                                                        cursor: syncing ? 'not-allowed' : 'pointer',
+                                                        background: isSelected ? 'rgba(0,195,120,0.1)' : 'rgba(0,8,4,0.7)',
+                                                        borderLeft: isSelected ? `3px solid ${accentA}` : '3px solid transparent',
+                                                        borderBottom: '1px solid rgba(0,195,120,0.07)',
+                                                    }}
+                                                >
+                                                    <div style={{ fontSize: '0.75rem', fontWeight: isSelected ? 600 : 400, color: isSelected ? accentB : 'rgba(237,237,237,0.75)' }}>
+                                                        {r.date} — {r.missionName}
+                                                    </div>
+                                                    <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.35)', marginTop: 2 }}>
+                                                        {r.worldName} · {r.playerCount} players · {r.durationLabel}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                ) : q ? (
+                                    <div style={{ padding: '8px 10px', fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic', border: `1px solid ${accentC}`, borderTop: 'none' }}>
+                                        No recordings match &ldquo;{search}&rdquo;
+                                    </div>
+                                ) : null}
+                            </div>
+                        )
+                    })()}
 
                     {/* Selected recording preview */}
                     {selectedRecording && !syncing && stage === 'idle' && (

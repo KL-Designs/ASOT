@@ -5,6 +5,7 @@ import DocBody from './doc-body'
 import SectionNav from './section-nav'
 import ZeusNotesPanel from './ZeusNotesPanel'
 import OcapStatsPanel from './OcapStatsPanel'
+import OcapLinkPanel from './OcapLinkPanel'
 
 const ZEUS_TAB = '__zeus__'
 const OCAP_TAB = '__ocap__'
@@ -17,9 +18,11 @@ interface Props {
     pageTheme: 'modern' | 'oldfashioned' | 'scifi'
     isLoggedIn: boolean
     isJ6?: boolean
+    isHQ?: boolean
     operationId?: string
     zeusNotes?: string
     ocap?: OcapData | null
+    initialOcap?: OcapData | null
     r?: number
     g?: number
     b?: number
@@ -34,7 +37,7 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, operationId, zeusNotes, ocap, r: rProp, g: gProp, b: bProp }: Props) {
+export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, isHQ, operationId, zeusNotes, ocap, initialOcap, r: rProp, g: gProp, b: bProp }: Props) {
     const [activePageId, setActivePageId] = useState<string>(pages[0]?.id ?? 'main')
     const [isMobile, setIsMobile] = useState(false)
 
@@ -144,7 +147,7 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                             </span>
                         </button>
                     )}
-                    {ocap && (
+                    {(isHQ || ocap) && (
                         <button
                             type='button'
                             onClick={() => setActivePageId(OCAP_TAB)}
@@ -169,15 +172,20 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                                 whiteSpace: 'nowrap',
                                 color: activePageId === OCAP_TAB ? 'rgba(0,195,120,0.9)' : 'rgba(237,237,237,0.4)',
                             }}>
-                                Game Stats
+                                OCAP
                             </span>
                         </button>
                     )}
                 </div>
 
-                {activePageId === OCAP_TAB && ocap ? (
-                    <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
-                        <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
+                {activePageId === OCAP_TAB && (isHQ || ocap) ? (
+                    <div className='w-full px-4 pb-16' style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {isHQ && operationId && (
+                            <OcapLinkPanel operationId={operationId} initialOcap={initialOcap ?? undefined} />
+                        )}
+                        {ocap && (
+                            <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
+                        )}
                     </div>
                 ) : (
                     <>
@@ -336,8 +344,8 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                     </>
                 )}
 
-                {/* Game Stats tab — shown when an OCAP recording is synced */}
-                {ocap && (
+                {/* OCAP tab — shown to HQ always, others when stats are synced */}
+                {(isHQ || ocap) && (
                     <>
                         <div style={{ height: 1, background: 'rgba(0,195,120,0.12)', margin: '6px 0' }} />
                         <button
@@ -371,7 +379,7 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                                 color: activePageId === OCAP_TAB ? 'rgba(0,195,120,0.9)' : 'rgba(0,195,120,0.4)',
                                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             }}>
-                                Game Stats
+                                OCAP
                             </span>
                         </button>
                     </>
@@ -385,9 +393,14 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                     <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
                         <ZeusNotesPanel operationId={operationId ?? ''} initialNotes={zeusNotes ?? ''} />
                     </div>
-                ) : activePageId === OCAP_TAB && ocap ? (
-                    <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
-                        <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
+                ) : activePageId === OCAP_TAB && (isHQ || ocap) ? (
+                    <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {isHQ && operationId && (
+                            <OcapLinkPanel operationId={operationId} initialOcap={initialOcap ?? undefined} />
+                        )}
+                        {ocap && (
+                            <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
+                        )}
                     </div>
                 ) : (
                     <>

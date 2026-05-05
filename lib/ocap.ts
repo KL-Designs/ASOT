@@ -162,7 +162,7 @@ export async function matchPlayersToMembers(playerStats: ParsedPlayerStat[]): Pr
         }
     })
 
-    return playerStats.map(stat => {
+    const rawMatched = playerStats.map(stat => {
         const playerNorm     = normalize(stat.name)
         const playerStripped = normalize(stripRank(stat.name))
 
@@ -180,11 +180,12 @@ export async function matchPlayersToMembers(playerStats: ParsedPlayerStat[]): Pr
         }
 
         // 2. Substring match (member alias fully contained in player name or vice versa)
-        if (!matched) {
+        // Both strings must be ≥ 4 chars to avoid short-name false positives (e.g. "Res" ↔ "Ares")
+        if (!matched && playerStripped.length >= 4) {
             for (const m of members) {
                 for (const alias of m.aliases) {
                     const aliasNorm = normalize(alias)
-                    if (aliasNorm.length < 3) continue
+                    if (aliasNorm.length < 4) continue
                     if (playerStripped.includes(aliasNorm) || aliasNorm.includes(playerStripped)) {
                         matched = m
                         break
@@ -204,6 +205,22 @@ export async function matchPlayersToMembers(playerStats: ParsedPlayerStat[]): Pr
             username:    matched?.username,
         }
     })
+
+    // Deduplicate by userId — same member matched to multiple OCAP entities (e.g. reconnects)
+    // merge their kills/deaths into a single entry rather than showing duplicates.
+    const mergedByUserId = new Map<string, OcapPlayerStat>()
+    const unmatched: OcapPlayerStat[] = []
+    for (const s of rawMatched) {
+        if (!s.userId) { unmatched.push(s); continue }
+        const existing = mergedByUserId.get(s.userId)
+        if (existing) {
+            existing.kills  += s.kills
+            existing.deaths += s.deaths
+        } else {
+            mergedByUserId.set(s.userId, { ...s })
+        }
+    }
+    return [...mergedByUserId.values(), ...unmatched].sort((a, b) => b.kills - a.kills)
 }
 
 // ── Viewer URL builder ────────────────────────────────────────────────────────
