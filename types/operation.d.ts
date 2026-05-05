@@ -142,6 +142,42 @@ declare global {
         after: string
     }
 
+    interface OcapPlayerStat {
+        /** Raw player name from the OCAP recording */
+        name: string
+        kills: number
+        deaths: number
+        shots: number
+        hits: number
+        side: string
+        /** Discord user ID if successfully matched to a website member */
+        userId?: string
+        /** Display name of the matched member */
+        displayName?: string
+        /** Milpac username for profile linking */
+        username?: string
+    }
+
+    interface OcapData {
+        /** OCAP internal operation ID */
+        recordingId: number
+        /** OCAP filename (spaces encoded as 20, no extension) */
+        filename: string
+        /** Full URL to the OCAP web viewer for this recording */
+        viewerUrl: string
+        worldName: string
+        missionName: string
+        /** Duration in seconds */
+        missionDuration: number
+        date: string
+        playerCount: number
+        killCount: number
+        playerKillCount: number
+        sideComposition: Record<string, { players: number; units: number; dead: number; kills: number }>
+        playerStats: OcapPlayerStat[]
+        syncedAt: Date
+    }
+
     interface Operation {
         _id: ObjectId
 
@@ -170,6 +206,9 @@ declare global {
         // J6-only — only visible to members with the J6-Game Master role
         zeusNotes?: string
         campaignId?: ObjectId
+
+        // OCAP recording data — linked and synced by HQ
+        ocap?: OcapData
 
         // Soft delete
         deletedAt?: Date
