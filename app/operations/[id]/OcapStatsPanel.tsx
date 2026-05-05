@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 interface Props {
@@ -256,12 +256,20 @@ function OrbatView({ attendance, loading, statsById, c, r, g, b }: {
     const orderedCats = CATEGORY_ORDER.filter(cat => byCategory.has(cat))
 
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
             {orderedCats.map(cat => (
-                <div key={cat} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: c(0.4), paddingBottom: 4, borderBottom: `1px solid ${c(0.12)}` }}>
+                <React.Fragment key={cat}>
+                    {/* Full-width category divider */}
+                    <div style={{
+                        gridColumn: '1 / -1',
+                        fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase',
+                        color: c(0.4),
+                        paddingBottom: 4, marginTop: 4,
+                        borderBottom: `1px solid ${c(0.12)}`,
+                    }}>
                         {CATEGORY_LABELS[cat] ?? cat}
                     </div>
+                    {/* Section cards flow horizontally across the grid */}
                     {Array.from(byCategory.get(cat)!.entries()).map(([sectionTitle, sectionRecords]) => (
                         <OrbatSectionCard
                             key={sectionTitle}
@@ -271,7 +279,7 @@ function OrbatView({ attendance, loading, statsById, c, r, g, b }: {
                             c={c} r={r} g={g} b={b}
                         />
                     ))}
-                </div>
+                </React.Fragment>
             ))}
         </div>
     )
