@@ -177,7 +177,7 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
 
                 {activePageId === OCAP_TAB && ocap ? (
                     <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
-                        <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} />
+                        <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
                     </div>
                 ) : (
                     <>
@@ -387,7 +387,7 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                     </div>
                 ) : activePageId === OCAP_TAB && ocap ? (
                     <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
-                        <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} />
+                        <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
                     </div>
                 ) : (
                     <>

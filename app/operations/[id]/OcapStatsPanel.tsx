@@ -1,3 +1,6 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 interface Props {
@@ -7,6 +10,7 @@ interface Props {
     g: number
     b: number
     pageTheme: 'modern' | 'oldfashioned' | 'scifi'
+    operationId?: string
 }
 
 const SIDE_COLORS: Record<string, string> = {
@@ -15,6 +19,16 @@ const SIDE_COLORS: Record<string, string> = {
     GUER: 'rgba(100,200,100,0.9)',
     CIV:  'rgba(200,160,60,0.9)',
 }
+
+const CATEGORY_LABELS: Record<string, string> = {
+    companyHQ:  'India Company HQ',
+    platoon11:  '1-1 Infantry Platoon',
+    platoon12:  '1-2 Infantry Platoon',
+    support:    '1-3 Support Platoon',
+    gamemaster: 'Gamemaster',
+}
+
+type RecordWithUser = OperationAttendanceWithUsers['recordsWithUsers'][number] & { category?: string }
 
 function KdRatio(kills: number, deaths: number) {
     if (deaths === 0) return kills > 0 ? kills.toFixed(2) : '—'
@@ -28,35 +42,54 @@ function Medal({ rank }: { rank: number }) {
     return <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', fontWeight: 700, minWidth: 18, textAlign: 'center', display: 'inline-block' }}>{rank}</span>
 }
 
-export default function OcapStatsPanel({ ocap, themeColor, r, g, b, pageTheme }: Props) {
+export default function OcapStatsPanel({ ocap, themeColor, r, g, b, pageTheme, operationId }: Props) {
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
     const isOF = pageTheme === 'oldfashioned'
     const isSF = pageTheme === 'scifi'
 
-    const sorted = [...ocap.playerStats].sort((a, b) => b.kills - a.kills)
-    const topKills = sorted[0]?.kills ?? 0
+    const [view, setView]             = useState<'orbat' | 'leaderboard'>('orbat')
+    const [attendance, setAttendance] = useState<OperationAttendanceWithUsers | null>(null)
+    const [loading, setLoading]       = useState(false)
 
-    const sides = Object.entries(ocap.sideComposition).filter(([, v]) => v.players > 0)
+    useEffect(() => {
+        if (!attendance && !loading && operationId) {
+            setLoading(true)
+            fetch(`/api/operations/${operationId}/attendance`)
+                .then(r => r.json())
+                .then(data => { setAttendance(data); setLoading(false) })
+                .catch(() => setLoading(false))
+        }
+    }, [attendance, loading, operationId])
+
+    const statsById = new Map(
+        ocap.playerStats.filter(s => s.userId).map(s => [s.userId!, s])
+    )
+
+    const sorted   = [...ocap.playerStats].sort((a, b) => b.kills - a.kills)
+    const topKills = sorted[0]?.kills ?? 0
+    const sides    = Object.entries(ocap.sideComposition).filter(([, v]) => v.players > 0)
+
+    const wrapperStyle = isOF ? {
+        position: 'relative' as const,
+        border: '1px solid rgba(160,120,50,0.25)',
+        borderTop: '2px solid rgba(160,120,50,0.7)',
+        background: '#1d1408',
+    } : isSF ? {
+        position: 'relative' as const,
+        border: `1px solid ${c(0.3)}`,
+        borderTop: `2px solid ${c(0.8)}`,
+        background: 'rgba(0,4,14,0.82)',
+        boxShadow: `0 0 20px ${c(0.1)}, inset 0 0 30px ${c(0.03)}`,
+    } : {
+        position: 'relative' as const,
+        border: `1px solid ${c(0.18)}`,
+        borderTop: `2px solid ${c(0.6)}`,
+    }
 
     return (
-        <div style={isOF ? {
-            position: 'relative',
-            border: '1px solid rgba(160,120,50,0.25)',
-            borderTop: '2px solid rgba(160,120,50,0.7)',
-            background: '#1d1408',
-        } : isSF ? {
-            position: 'relative',
-            border: `1px solid ${c(0.3)}`,
-            borderTop: `2px solid ${c(0.8)}`,
-            background: 'rgba(0,4,14,0.82)',
-            boxShadow: `0 0 20px ${c(0.1)}, inset 0 0 30px ${c(0.03)}`,
-        } : {
-            position: 'relative',
-            border: `1px solid ${c(0.18)}`,
-            borderTop: `2px solid ${c(0.6)}`,
-        }}>
+        <div style={wrapperStyle}>
 
-            {/* Section header */}
+            {/* Header */}
             <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8,
                 padding: '8px 20px',
@@ -98,8 +131,8 @@ export default function OcapStatsPanel({ ocap, themeColor, r, g, b, pageTheme }:
 
             <div style={{ padding: '20px 20px' }}>
 
-                {/* ── Summary stats ─────────────────────────────────────────── */}
-                <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap', marginBottom: 20, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.3)' }}>
+                {/* Summary stats */}
+                <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap', marginBottom: 16, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.3)' }}>
                     {[
                         ['Map',          ocap.worldName],
                         ['Players',      String(ocap.playerCount)],
@@ -117,9 +150,9 @@ export default function OcapStatsPanel({ ocap, themeColor, r, g, b, pageTheme }:
                     ))}
                 </div>
 
-                {/* ── Side composition ──────────────────────────────────────── */}
+                {/* Side composition */}
                 {sides.length > 0 && (
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
                         {sides.map(([side, data]) => (
                             <div key={side} style={{
                                 flex: 1, minWidth: 100,
@@ -131,11 +164,7 @@ export default function OcapStatsPanel({ ocap, themeColor, r, g, b, pageTheme }:
                                 <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: SIDE_COLORS[side] ?? 'rgba(237,237,237,0.5)', marginBottom: 6 }}>
                                     {side}
                                 </div>
-                                {[
-                                    ['Players', data.players],
-                                    ['Kills',   data.kills],
-                                    ['KIA',     data.dead],
-                                ].map(([lbl, val]) => (
+                                {[['Players', data.players], ['Kills', data.kills], ['KIA', data.dead]].map(([lbl, val]) => (
                                     <div key={String(lbl)} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
                                         <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)' }}>{lbl}</span>
                                         <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'rgba(237,237,237,0.65)' }}>{val}</span>
@@ -146,112 +175,258 @@ export default function OcapStatsPanel({ ocap, themeColor, r, g, b, pageTheme }:
                     </div>
                 )}
 
-                {/* ── Kill leaderboard ──────────────────────────────────────── */}
-                <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.22)', marginBottom: 10 }}>
-                    Kill Leaderboard
+                {/* View tabs */}
+                <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                    {([['orbat', 'ORBAT'] as const, ['leaderboard', 'Leaderboard'] as const]).map(([v, label]) => (
+                        <button
+                            key={v}
+                            onClick={() => setView(v)}
+                            style={{
+                                padding: '6px 16px',
+                                fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase',
+                                cursor: 'pointer',
+                                background: 'none', border: 'none',
+                                borderBottom: view === v ? `2px solid ${c(0.9)}` : '2px solid transparent',
+                                color: view === v ? c(0.9) : 'rgba(237,237,237,0.3)',
+                                marginBottom: -1,
+                                transition: 'color 0.12s',
+                            }}
+                        >
+                            {label}
+                        </button>
+                    ))}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {/* Header row */}
-                    <div style={{
-                        display: 'grid', gridTemplateColumns: '28px 1fr 80px 60px 60px 50px',
-                        padding: '4px 10px', gap: 8, alignItems: 'center',
-                        borderBottom: '1px solid rgba(255,255,255,0.06)',
-                    }}>
-                        {['#', 'Player', 'Side', 'Kills', 'Deaths', 'K/D'].map(h => (
-                            <span key={h} style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.22)' }}>
-                                {h}
-                            </span>
-                        ))}
-                    </div>
+                {/* ORBAT view */}
+                {view === 'orbat' && (
+                    <OrbatView
+                        attendance={attendance}
+                        loading={loading}
+                        statsById={statsById}
+                        c={c} r={r} g={g} b={b}
+                    />
+                )}
 
-                    {sorted.map((player, i) => {
-                        const rank = i + 1
-                        const barWidth = topKills > 0 ? (player.kills / topKills) * 100 : 0
-
-                        return (
-                            <div key={`${player.name}-${i}`} style={{
-                                position: 'relative', overflow: 'hidden',
-                                display: 'grid', gridTemplateColumns: '28px 1fr 80px 60px 60px 50px',
-                                padding: '6px 10px', gap: 8, alignItems: 'center',
-                                background: rank <= 3 ? `rgba(${r},${g},${b},0.04)` : 'rgba(0,0,0,0.2)',
-                                borderBottom: '1px solid rgba(255,255,255,0.03)',
-                            }}>
-                                {/* Kill bar background */}
-                                <div style={{
-                                    position: 'absolute', left: 0, top: 0, bottom: 0,
-                                    width: `${barWidth}%`,
-                                    background: `rgba(${r},${g},${b},0.06)`,
-                                    pointerEvents: 'none',
-                                }} />
-
-                                {/* Rank */}
-                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Medal rank={rank} />
-                                </div>
-
-                                {/* Player name */}
-                                <div style={{ position: 'relative', minWidth: 0 }}>
-                                    {player.username ? (
-                                        <Link
-                                            href={`/milpacs/${player.username}`}
-                                            style={{ textDecoration: 'none' }}
-                                        >
-                                            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: c(0.9), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                                                {player.displayName ?? player.name}
-                                            </span>
-                                            {player.displayName && player.displayName !== player.name && (
-                                                <span style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.3)' }}>
-                                                    {player.name}
-                                                </span>
-                                            )}
-                                        </Link>
-                                    ) : (
-                                        <>
-                                            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(237,237,237,0.65)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
-                                                {player.name}
-                                            </span>
-                                        </>
-                                    )}
-                                </div>
-
-                                {/* Side */}
-                                <div style={{ position: 'relative' }}>
-                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: SIDE_COLORS[player.side] ?? 'rgba(237,237,237,0.4)' }}>
-                                        {player.side}
-                                    </span>
-                                </div>
-
-                                {/* Kills */}
-                                <div style={{ position: 'relative' }}>
-                                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: player.kills > 0 ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.25)' }}>
-                                        {player.kills}
-                                    </span>
-                                </div>
-
-                                {/* Deaths */}
-                                <div style={{ position: 'relative' }}>
-                                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(237,237,237,0.45)' }}>
-                                        {player.deaths}
-                                    </span>
-                                </div>
-
-                                {/* K/D */}
-                                <div style={{ position: 'relative' }}>
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'rgba(237,237,237,0.5)' }}>
-                                        {KdRatio(player.kills, player.deaths)}
-                                    </span>
-                                </div>
-                            </div>
-                        )
-                    })}
-                </div>
+                {/* Leaderboard view */}
+                {view === 'leaderboard' && (
+                    <LeaderboardView sorted={sorted} topKills={topKills} c={c} r={r} g={g} b={b} />
+                )}
 
                 {/* Footer */}
                 <div style={{ marginTop: 12, fontSize: '0.52rem', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.1em' }}>
                     Synced from OCAP on {new Date(ocap.syncedAt).toLocaleDateString()} · {ocap.filename}
                 </div>
             </div>
+        </div>
+    )
+}
+
+// ── ORBAT View ────────────────────────────────────────────────────────────────
+
+const CATEGORY_ORDER = ['companyHQ', 'platoon11', 'platoon12', 'support', 'gamemaster', 'other']
+
+function OrbatView({ attendance, loading, statsById, c, r, g, b }: {
+    attendance: OperationAttendanceWithUsers | null
+    loading: boolean
+    statsById: Map<string, OcapPlayerStat>
+    c: (a: number) => string
+    r: number; g: number; b: number
+}) {
+    if (loading || !attendance) {
+        return (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: 'rgba(237,237,237,0.3)', fontSize: '0.78rem', fontStyle: 'italic' }}>
+                {loading ? 'Loading attendance data…' : 'No attendance data available.'}
+            </div>
+        )
+    }
+
+    const records = attendance.recordsWithUsers as RecordWithUser[]
+
+    // Group: category → section → records
+    const byCategory = new Map<string, Map<string, RecordWithUser[]>>()
+    for (const rec of records) {
+        const cat  = rec.category ?? 'other'
+        const sect = rec.orbatSection ?? 'Other'
+        if (!byCategory.has(cat)) byCategory.set(cat, new Map())
+        const bySect = byCategory.get(cat)!
+        if (!bySect.has(sect)) bySect.set(sect, [])
+        bySect.get(sect)!.push(rec)
+    }
+
+    const orderedCats = CATEGORY_ORDER.filter(cat => byCategory.has(cat))
+
+    return (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16, alignItems: 'start' }}>
+            {orderedCats.map(cat => (
+                <div key={cat} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: c(0.4), paddingBottom: 4, borderBottom: `1px solid ${c(0.12)}` }}>
+                        {CATEGORY_LABELS[cat] ?? cat}
+                    </div>
+                    {Array.from(byCategory.get(cat)!.entries()).map(([sectionTitle, sectionRecords]) => (
+                        <OrbatSectionCard
+                            key={sectionTitle}
+                            title={sectionTitle}
+                            records={sectionRecords}
+                            statsById={statsById}
+                            c={c} r={r} g={g} b={b}
+                        />
+                    ))}
+                </div>
+            ))}
+        </div>
+    )
+}
+
+function OrbatSectionCard({ title, records, statsById, c, r, g, b }: {
+    title: string
+    records: RecordWithUser[]
+    statsById: Map<string, OcapPlayerStat>
+    c: (a: number) => string
+    r: number; g: number; b: number
+}) {
+    return (
+        <div style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            {/* Section header */}
+            <div style={{
+                padding: '5px 10px',
+                background: `rgba(${r},${g},${b},0.12)`,
+                borderBottom: `1px solid rgba(${r},${g},${b},0.18)`,
+                borderLeft: `3px solid rgba(${r},${g},${b},0.7)`,
+            }}>
+                <span style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: c(0.8) }}>
+                    {title}
+                </span>
+            </div>
+
+            {/* Column headers */}
+            <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 28px 28px 40px',
+                gap: 4, padding: '3px 10px',
+                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                background: 'rgba(0,0,0,0.2)',
+            }}>
+                <span style={{ fontSize: '0.42rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)' }}>Player</span>
+                {['K', 'D', 'K/D'].map(h => (
+                    <span key={h} style={{ fontSize: '0.42rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)', textAlign: 'right' }}>{h}</span>
+                ))}
+            </div>
+
+            {/* Rows */}
+            {records.map((rec, i) => {
+                const stats    = rec.user?.id ? statsById.get(rec.user.id) : undefined
+                const hasStats = !!stats
+                const isVacant = !rec.user
+
+                return (
+                    <div key={rec.userId + i} style={{
+                        display: 'grid', gridTemplateColumns: '1fr 28px 28px 40px',
+                        gap: 4, padding: '5px 10px', alignItems: 'center',
+                        borderBottom: i < records.length - 1 ? '1px solid rgba(255,255,255,0.04)' : undefined,
+                        background: hasStats && stats!.kills > 0 ? `rgba(${r},${g},${b},0.03)` : undefined,
+                        opacity: isVacant ? 0.35 : 1,
+                    }}>
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '0.45rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.28)', lineHeight: 1, marginBottom: 2 }}>
+                                {rec.orbatRole}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', fontWeight: 600, color: isVacant ? 'rgba(237,237,237,0.25)' : c(0.85), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {rec.user?.displayName ?? '— Vacant —'}
+                            </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: hasStats && stats!.kills > 0 ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.2)' }}>
+                                {hasStats ? stats!.kills : '—'}
+                            </span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'rgba(237,237,237,0.35)' }}>
+                                {hasStats ? stats!.deaths : '—'}
+                            </span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: '0.62rem', fontWeight: 600, color: 'rgba(237,237,237,0.3)' }}>
+                                {hasStats ? KdRatio(stats!.kills, stats!.deaths) : '—'}
+                            </span>
+                        </div>
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
+// ── Leaderboard View ──────────────────────────────────────────────────────────
+
+function LeaderboardView({ sorted, topKills, c, r, g, b }: {
+    sorted: OcapPlayerStat[]
+    topKills: number
+    c: (a: number) => string
+    r: number; g: number; b: number
+}) {
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{
+                display: 'grid', gridTemplateColumns: '28px 1fr 80px 60px 60px 50px',
+                padding: '4px 10px', gap: 8, alignItems: 'center',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+            }}>
+                {['#', 'Player', 'Side', 'Kills', 'Deaths', 'K/D'].map(h => (
+                    <span key={h} style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.22)' }}>
+                        {h}
+                    </span>
+                ))}
+            </div>
+
+            {sorted.map((player, i) => {
+                const rank     = i + 1
+                const barWidth = topKills > 0 ? (player.kills / topKills) * 100 : 0
+
+                return (
+                    <div key={`${player.name}-${i}`} style={{
+                        position: 'relative', overflow: 'hidden',
+                        display: 'grid', gridTemplateColumns: '28px 1fr 80px 60px 60px 50px',
+                        padding: '6px 10px', gap: 8, alignItems: 'center',
+                        background: rank <= 3 ? `rgba(${r},${g},${b},0.04)` : 'rgba(0,0,0,0.2)',
+                        borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    }}>
+                        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${barWidth}%`, background: `rgba(${r},${g},${b},0.06)`, pointerEvents: 'none' }} />
+
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Medal rank={rank} />
+                        </div>
+
+                        <div style={{ position: 'relative', minWidth: 0 }}>
+                            {player.username ? (
+                                <Link href={`/milpacs/${player.username}`} style={{ textDecoration: 'none' }}>
+                                    <span style={{ fontSize: '0.78rem', fontWeight: 600, color: c(0.9), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                                        {player.displayName ?? player.name}
+                                    </span>
+                                    {player.displayName && player.displayName !== player.name && (
+                                        <span style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.3)' }}>{player.name}</span>
+                                    )}
+                                </Link>
+                            ) : (
+                                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'rgba(237,237,237,0.65)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>
+                                    {player.name}
+                                </span>
+                            )}
+                        </div>
+
+                        <div style={{ position: 'relative' }}>
+                            <span style={{ fontSize: '0.6rem', fontWeight: 700, color: SIDE_COLORS[player.side] ?? 'rgba(237,237,237,0.4)' }}>{player.side}</span>
+                        </div>
+                        <div style={{ position: 'relative' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: player.kills > 0 ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.25)' }}>{player.kills}</span>
+                        </div>
+                        <div style={{ position: 'relative' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(237,237,237,0.45)' }}>{player.deaths}</span>
+                        </div>
+                        <div style={{ position: 'relative' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'rgba(237,237,237,0.5)' }}>{KdRatio(player.kills, player.deaths)}</span>
+                        </div>
+                    </div>
+                )
+            })}
         </div>
     )
 }

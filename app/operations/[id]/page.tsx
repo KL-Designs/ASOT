@@ -689,6 +689,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                                     themeColor={operation.themeColor || '#db001d'}
                                     r={r} g={g} b={b}
                                     pageTheme={pageTheme}
+                                    operationId={id}
                                 />
                             )}
 
