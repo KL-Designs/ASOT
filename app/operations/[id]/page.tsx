@@ -392,7 +392,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             )}
 
             {/* ── Content + attendance sidebar ──────────────────────────────── */}
-            <div className='w-full max-w-[1800px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+            <div className='w-full max-w-[2400px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
                 {/* Left: document content */}
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -414,8 +414,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                             rel='noopener noreferrer'
                             className='print-hide'
                             style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 8,
-                                padding: '7px 16px', textDecoration: 'none', marginBottom: 4,
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '7px 16px', textDecoration: 'none', marginTop: 16, marginBottom: 16,
                                 border: `1px solid ${c(0.35)}`,
                                 background: c(0.07),
                                 color: c(0.85),
@@ -442,6 +442,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                             isJ6={isJ6}
                             operationId={id}
                             zeusNotes={operation.zeusNotes ?? ''}
+                            ocap={isLoggedIn && operation.ocap?.playerStats?.length ? operation.ocap : null}
+                            r={r} g={g} b={b}
                         />
                     )}
 

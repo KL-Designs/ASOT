@@ -56,15 +56,9 @@ async function* bufferChunks(buf: Buffer, size = 65536): AsyncGenerator<Buffer> 
  * Does two passes over the in-memory buffer — never converts to a string,
  * so recordings of any size are handled safely.
  */
-export async function parseOcapBuffer(
-    data: Buffer,
-    onLog?: (msg: string) => void,
-): Promise<ParsedPlayerStat[]> {
-    const log = (msg: string) => { console.log('[ocap]', msg); if (onLog) onLog(msg) }
-
+export async function parseOcapBuffer(data: Buffer): Promise<ParsedPlayerStat[]> {
     // ── Pass 1: collect player entities ──────────────────────────────────────
     const playerMap = new Map<number, { name: string; side: string }>()
-    let entityTotal = 0
 
     const entStream = chain([
         Readable.from(bufferChunks(data)),
@@ -74,7 +68,6 @@ export async function parseOcapBuffer(
     ])
 
     for await (const { value } of entStream as AsyncIterable<{ value: any }>) {
-        entityTotal++
         if (value.isPlayer === 1 || value.isPlayer === true) {
             playerMap.set(Number(value.id), {
                 name: String(value.name ?? ''),
@@ -82,9 +75,6 @@ export async function parseOcapBuffer(
             })
         }
     }
-
-    log(`Entities pass: ${entityTotal} total entities, ${playerMap.size} players found`)
-    if (playerMap.size === 0) log('WARNING: no players found — check that "entities" key exists and isPlayer field is set')
 
     // ── Pass 2: tally kills / deaths from kill events ─────────────────────────
     type Stat = { name: string; side: string; kills: number; deaths: number }
@@ -98,24 +88,13 @@ export async function parseOcapBuffer(
         streamArray(),
     ])
 
-    let eventTotal = 0
-    let killEventTotal = 0
-    let sampleEvents: any[] = []
-    let sampleKillEvents: any[] = []
-
     for await (const { value } of evStream as AsyncIterable<{ value: any }>) {
-        eventTotal++
-        if (sampleEvents.length < 3) sampleEvents.push(value)
-
         // Events are arrays: [frameTime, type, ...args]
         const evType = Array.isArray(value) ? value[1] : value.type
         if (evType !== 'killed') continue
-        killEventTotal++
-        if (sampleKillEvents.length < 3) sampleKillEvents.push(value)
 
         // Array format: [frameTime, 'killed', victimId, [killerId, ...], distance]
-        // value[3] is always an array; [0] is the killer id (string "null" = world kill)
-        // Object format fallback: { ids: [killerId, victimId] }
+        // value[3][0] is the killer id; string "null" means a world/environment kill
         let killerId: number, victimId: number
         if (Array.isArray(value)) {
             victimId = Number(value[2])
@@ -131,15 +110,7 @@ export async function parseOcapBuffer(
         const v = stats.get(victimId); if (v) v.deaths++
     }
 
-    log(`Events pass: ${eventTotal} total events, ${killEventTotal} kill events`)
-    if (sampleEvents.length > 0) log(`Sample events (first ${sampleEvents.length}): ${JSON.stringify(sampleEvents)}`)
-    if (sampleKillEvents.length > 0) log(`Sample kill events: ${JSON.stringify(sampleKillEvents)}`)
-
-    const sorted = Array.from(stats.values()).sort((a, b) => b.kills - a.kills)
-    const topFive = sorted.slice(0, 5).map(s => `${s.name} ${s.kills}K/${s.deaths}D`).join(', ')
-    if (topFive) log(`Top players: ${topFive}`)
-
-    return sorted
+    return Array.from(stats.values()).sort((a, b) => b.kills - a.kills)
 }
 
 // ── Member matching ───────────────────────────────────────────────────────────

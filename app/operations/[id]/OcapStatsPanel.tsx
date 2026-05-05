@@ -17,7 +17,7 @@ const SIDE_COLORS: Record<string, string> = {
 }
 
 function KdRatio(kills: number, deaths: number) {
-    if (deaths === 0) return kills > 0 ? '∞' : '—'
+    if (deaths === 0) return kills > 0 ? kills.toFixed(2) : '—'
     return (kills / deaths).toFixed(2)
 }
 

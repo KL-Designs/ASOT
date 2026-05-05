@@ -102,7 +102,7 @@ async function processAndSave(
     // ── Stage 2: Parse (streaming — never converts to string) ────────────────
     send({ stage: 'parsing', message: 'Parsing kill events from recording…' })
 
-    const playerStats = await parseOcapBuffer(recordingBuffer, msg => send({ stage: 'parsing', message: msg }))
+    const playerStats = await parseOcapBuffer(recordingBuffer)
     send({
         stage:   'parsing',
         message: `Found ${playerStats.length} players, ${playerStats.reduce((s, p) => s + p.kills, 0)} total kills`,

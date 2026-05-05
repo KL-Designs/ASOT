@@ -4,8 +4,10 @@ import React, { useEffect, useState } from 'react'
 import DocBody from './doc-body'
 import SectionNav from './section-nav'
 import ZeusNotesPanel from './ZeusNotesPanel'
+import OcapStatsPanel from './OcapStatsPanel'
 
 const ZEUS_TAB = '__zeus__'
+const OCAP_TAB = '__ocap__'
 
 interface Props {
     pages: OperationPage[]
@@ -17,6 +19,10 @@ interface Props {
     isJ6?: boolean
     operationId?: string
     zeusNotes?: string
+    ocap?: OcapData | null
+    r?: number
+    g?: number
+    b?: number
 }
 
 function hexToRgb(hex: string) {
@@ -28,7 +34,7 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, operationId, zeusNotes }: Props) {
+export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, operationId, zeusNotes, ocap, r: rProp, g: gProp, b: bProp }: Props) {
     const [activePageId, setActivePageId] = useState<string>(pages[0]?.id ?? 'main')
     const [isMobile, setIsMobile] = useState(false)
 
@@ -39,7 +45,10 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
         return () => window.removeEventListener('resize', check)
     }, [])
 
-    const { r, g, b } = hexToRgb(themeColor)
+    const { r: rHex, g: gHex, b: bHex } = hexToRgb(themeColor)
+    const r = rProp ?? rHex
+    const g = gProp ?? gHex
+    const b = bProp ?? bHex
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
     const isOF = pageTheme === 'oldfashioned'
@@ -135,35 +144,69 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                             </span>
                         </button>
                     )}
+                    {ocap && (
+                        <button
+                            type='button'
+                            onClick={() => setActivePageId(OCAP_TAB)}
+                            style={{
+                                flexShrink: 0,
+                                padding: '7px 14px',
+                                background: activePageId === OCAP_TAB ? 'rgba(0,195,120,0.1)' : 'transparent',
+                                border: activePageId === OCAP_TAB
+                                    ? '1px solid rgba(0,195,120,0.35)'
+                                    : '1px solid rgba(255,255,255,0.06)',
+                                borderBottom: activePageId === OCAP_TAB ? '2px solid rgba(0,195,120,0.7)' : '2px solid transparent',
+                                cursor: 'pointer',
+                                transition: 'all 0.12s',
+                                borderRadius: 3,
+                            }}
+                        >
+                            <span style={{
+                                fontSize: '0.65rem',
+                                fontWeight: activePageId === OCAP_TAB ? 700 : 500,
+                                letterSpacing: '0.06em',
+                                textTransform: 'uppercase',
+                                whiteSpace: 'nowrap',
+                                color: activePageId === OCAP_TAB ? 'rgba(0,195,120,0.9)' : 'rgba(237,237,237,0.4)',
+                            }}>
+                                Game Stats
+                            </span>
+                        </button>
+                    )}
                 </div>
 
-                {/* Section nav */}
-                {activeSections.length > 1 && (
-                    <SectionNav
-                        className='print-hide'
-                        themeColor={themeColor}
-                        pageTheme={pageTheme}
-                        sections={activeSections.map(s => ({ id: s.id, title: s.title }))}
-                    />
+                {activePageId === OCAP_TAB && ocap ? (
+                    <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
+                        <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} />
+                    </div>
+                ) : (
+                    <>
+                        {activeSections.length > 1 && (
+                            <SectionNav
+                                className='print-hide'
+                                themeColor={themeColor}
+                                pageTheme={pageTheme}
+                                sections={activeSections.map(s => ({ id: s.id, title: s.title }))}
+                            />
+                        )}
+                        <div className='w-full max-w-[900px] mx-auto px-4 pb-16' style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            {activeSections.map(s => (
+                                <SectionCard
+                                    key={s.id}
+                                    s={s}
+                                    isOF={isOF}
+                                    isSF={isSF}
+                                    c={c}
+                                    r={r} g={g} b={b}
+                                    isLoggedIn={isLoggedIn}
+                                    themeColor={themeColor}
+                                    pageTheme={pageTheme}
+                                    operationTitle={operationTitle}
+                                />
+                            ))}
+                        </div>
+                    </>
                 )}
-
-                {/* Sections */}
-                <div className='w-full max-w-[900px] mx-auto px-4 pb-16' style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {activeSections.map(s => (
-                        <SectionCard
-                            key={s.id}
-                            s={s}
-                            isOF={isOF}
-                            isSF={isSF}
-                            c={c}
-                            r={r} g={g} b={b}
-                            isLoggedIn={isLoggedIn}
-                            themeColor={themeColor}
-                            pageTheme={pageTheme}
-                            operationTitle={operationTitle}
-                        />
-                    ))}
-                </div>
             </div>
         )
     }
@@ -255,11 +298,7 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                 {/* Zeus Notes tab — J6 only */}
                 {isJ6 && (
                     <>
-                        <div style={{
-                            height: 1,
-                            background: 'rgba(0,195,255,0.12)',
-                            margin: '6px 0',
-                        }} />
+                        <div style={{ height: 1, background: 'rgba(0,195,255,0.12)', margin: '6px 0' }} />
                         <button
                             type='button'
                             onClick={() => setActivePageId(ZEUS_TAB)}
@@ -296,6 +335,47 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                         </button>
                     </>
                 )}
+
+                {/* Game Stats tab — shown when an OCAP recording is synced */}
+                {ocap && (
+                    <>
+                        <div style={{ height: 1, background: 'rgba(0,195,120,0.12)', margin: '6px 0' }} />
+                        <button
+                            type='button'
+                            onClick={() => setActivePageId(OCAP_TAB)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '8px 10px',
+                                textAlign: 'left',
+                                background: activePageId === OCAP_TAB ? 'rgba(0,195,120,0.08)' : 'transparent',
+                                borderTop: activePageId === OCAP_TAB ? '1px solid rgba(0,195,120,0.25)' : '1px solid transparent',
+                                borderRight: activePageId === OCAP_TAB ? '1px solid rgba(0,195,120,0.25)' : '1px solid transparent',
+                                borderBottom: activePageId === OCAP_TAB ? '1px solid rgba(0,195,120,0.25)' : '1px solid transparent',
+                                borderLeft: activePageId === OCAP_TAB ? '3px solid rgba(0,195,120,0.7)' : '3px solid transparent',
+                                cursor: 'pointer',
+                                transition: 'all 0.12s',
+                                width: '100%',
+                            }}
+                            onMouseEnter={e => {
+                                if (activePageId !== OCAP_TAB) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,195,120,0.04)'
+                            }}
+                            onMouseLeave={e => {
+                                if (activePageId !== OCAP_TAB) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                            }}
+                        >
+                            <span style={{
+                                fontSize: '0.65rem',
+                                fontWeight: activePageId === OCAP_TAB ? 700 : 500,
+                                letterSpacing: '0.06em',
+                                textTransform: 'uppercase',
+                                color: activePageId === OCAP_TAB ? 'rgba(0,195,120,0.9)' : 'rgba(0,195,120,0.4)',
+                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                                Game Stats
+                            </span>
+                        </button>
+                    </>
+                )}
             </div>
 
             {/* Right content area */}
@@ -304,6 +384,10 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                 {activePageId === ZEUS_TAB ? (
                     <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
                         <ZeusNotesPanel operationId={operationId ?? ''} initialNotes={zeusNotes ?? ''} />
+                    </div>
+                ) : activePageId === OCAP_TAB && ocap ? (
+                    <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
+                        <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} />
                     </div>
                 ) : (
                     <>
