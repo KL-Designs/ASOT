@@ -15,6 +15,8 @@ export interface ParsedPlayerStat {
     name: string
     kills: number
     deaths: number
+    shots: number
+    hits: number
     side: string
 }
 
@@ -57,8 +59,8 @@ async function* bufferChunks(buf: Buffer, size = 65536): AsyncGenerator<Buffer> 
  * so recordings of any size are handled safely.
  */
 export async function parseOcapBuffer(data: Buffer): Promise<ParsedPlayerStat[]> {
-    // ── Pass 1: collect player entities ──────────────────────────────────────
-    const playerMap = new Map<number, { name: string; side: string }>()
+    // ── Pass 1: collect player entities + shots fired ────────────────────────
+    const playerMap = new Map<number, { name: string; side: string; shots: number }>()
 
     const entStream = chain([
         Readable.from(bufferChunks(data)),
@@ -69,17 +71,19 @@ export async function parseOcapBuffer(data: Buffer): Promise<ParsedPlayerStat[]>
 
     for await (const { value } of entStream as AsyncIterable<{ value: any }>) {
         if (value.isPlayer === 1 || value.isPlayer === true) {
+            const shots = Array.isArray(value.framesFired) ? value.framesFired.length : 0
             playerMap.set(Number(value.id), {
-                name: String(value.name ?? ''),
-                side: String(value.side ?? ''),
+                name:  String(value.name ?? ''),
+                side:  String(value.side ?? ''),
+                shots,
             })
         }
     }
 
-    // ── Pass 2: tally kills / deaths from kill events ─────────────────────────
-    type Stat = { name: string; side: string; kills: number; deaths: number }
+    // ── Pass 2: tally kills / deaths / hits from events ──────────────────────
+    type Stat = { name: string; side: string; kills: number; deaths: number; shots: number; hits: number }
     const stats = new Map<number, Stat>()
-    for (const [id, p] of playerMap) stats.set(id, { ...p, kills: 0, deaths: 0 })
+    for (const [id, p] of playerMap) stats.set(id, { ...p, kills: 0, deaths: 0, hits: 0 })
 
     const evStream = chain([
         Readable.from(bufferChunks(data)),
@@ -89,25 +93,22 @@ export async function parseOcapBuffer(data: Buffer): Promise<ParsedPlayerStat[]>
     ])
 
     for await (const { value } of evStream as AsyncIterable<{ value: any }>) {
-        // Events are arrays: [frameTime, type, ...args]
-        const evType = Array.isArray(value) ? value[1] : value.type
-        if (evType !== 'killed') continue
+        if (!Array.isArray(value)) continue
+        const evType = value[1]
 
-        // Array format: [frameTime, 'killed', victimId, [killerId, ...], distance]
-        // value[3][0] is the killer id; string "null" means a world/environment kill
-        let killerId: number, victimId: number
-        if (Array.isArray(value)) {
-            victimId = Number(value[2])
+        if (evType === 'killed') {
+            // [frameTime, 'killed', victimId, [killerId, ...], distance]
+            const victimId = Number(value[2])
             const killerRaw = Array.isArray(value[3]) ? value[3][0] : value[3]
-            killerId = (killerRaw == null || killerRaw === 'null') ? NaN : Number(killerRaw)
-        } else {
-            const ids: number[] = value.ids ?? value.id ?? []
-            if (ids.length < 2) continue
-            ;[killerId, victimId] = ids
+            const killerId = (killerRaw == null || killerRaw === 'null') ? NaN : Number(killerRaw)
+            if (killerId !== victimId) { const k = stats.get(killerId); if (k) k.kills++ }
+            const v = stats.get(victimId); if (v) v.deaths++
+        } else if (evType === 'hit') {
+            // [frameTime, 'hit', victimId, [shooterId, weaponName], distance]
+            const shooterRaw = Array.isArray(value[3]) ? value[3][0] : null
+            const shooterId = (shooterRaw == null || shooterRaw === 'null') ? NaN : Number(shooterRaw)
+            const s = stats.get(shooterId); if (s) s.hits++
         }
-
-        if (killerId !== victimId) { const k = stats.get(killerId); if (k) k.kills++ }
-        const v = stats.get(victimId); if (v) v.deaths++
     }
 
     return Array.from(stats.values()).sort((a, b) => b.kills - a.kills)
@@ -199,6 +200,8 @@ export async function matchPlayersToMembers(playerStats: ParsedPlayerStat[]): Pr
             name:        stat.name,
             kills:       stat.kills,
             deaths:      stat.deaths,
+            shots:       stat.shots,
+            hits:        stat.hits,
             side:        stat.side,
             userId:      matched?.userId,
             displayName: matched?.displayName,
@@ -207,7 +210,7 @@ export async function matchPlayersToMembers(playerStats: ParsedPlayerStat[]): Pr
     })
 
     // Deduplicate by userId — same member matched to multiple OCAP entities (e.g. reconnects)
-    // merge their kills/deaths into a single entry rather than showing duplicates.
+    // merge their stats into a single entry rather than showing duplicates.
     const mergedByUserId = new Map<string, OcapPlayerStat>()
     const unmatched: OcapPlayerStat[] = []
     for (const s of rawMatched) {
@@ -216,6 +219,8 @@ export async function matchPlayersToMembers(playerStats: ParsedPlayerStat[]): Pr
         if (existing) {
             existing.kills  += s.kills
             existing.deaths += s.deaths
+            existing.shots  += s.shots
+            existing.hits   += s.hits
         } else {
             mergedByUserId.set(s.userId, { ...s })
         }

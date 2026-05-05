@@ -86,12 +86,14 @@ export default function OcapStatsPanel({ ocap, themeColor, r, g, b, pageTheme, o
     }
     // Map userId → section hex color (section preferred, fall back to category)
     const userSectionColor = new Map<string, string>()
+    const userSection      = new Map<string, string>()
     if (attendance) {
         for (const rec of attendance.recordsWithUsers) {
             if (!rec.user?.id) continue
             const color = (rec.orbatSection && sectionColors.get(rec.orbatSection))
                 ?? (rec.category && categoryColors.get(rec.category))
             if (color) userSectionColor.set(rec.user.id, color)
+            if (rec.orbatSection) userSection.set(rec.user.id, rec.orbatSection)
         }
     }
 
@@ -166,7 +168,7 @@ export default function OcapStatsPanel({ ocap, themeColor, r, g, b, pageTheme, o
                 {/* Summary stats */}
                 <div style={{ display: 'flex', gap: 0, flexWrap: 'wrap', marginBottom: 16, border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.3)' }}>
                     {[
-                        ['Map',          ocap.worldName],
+                        ['Map',          ocap.worldName.toUpperCase()],
                         ['Players',      String(ocap.playerCount)],
                         ['Player Kills', String(ocap.playerKillCount)],
                         ['Total Kills',  String(ocap.killCount)],
@@ -243,7 +245,7 @@ export default function OcapStatsPanel({ ocap, themeColor, r, g, b, pageTheme, o
 
                 {/* Leaderboard view */}
                 {view === 'leaderboard' && (
-                    <LeaderboardView sorted={sorted} topKills={topKills} userSectionColor={userSectionColor} c={c} r={r} g={g} b={b} />
+                    <LeaderboardView sorted={sorted} topKills={topKills} userSectionColor={userSectionColor} userSection={userSection} c={c} r={r} g={g} b={b} />
                 )}
 
                 {/* Footer */}
@@ -355,13 +357,13 @@ function OrbatSectionCard({ title, records, statsById, sectionColor, c, r, g, b 
 
             {/* Column headers */}
             <div style={{
-                display: 'grid', gridTemplateColumns: '1fr 28px 28px 40px',
+                display: 'grid', gridTemplateColumns: '1fr 28px 28px 40px 42px',
                 gap: 4, padding: '3px 10px',
                 borderBottom: '1px solid rgba(255,255,255,0.05)',
                 background: 'rgba(0,0,0,0.2)',
             }}>
                 <span style={{ fontSize: '0.42rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)' }}>Player</span>
-                {['K', 'D', 'K/D'].map(h => (
+                {['K', 'D', 'K/D', 'Acc'].map(h => (
                     <span key={h} style={{ fontSize: '0.42rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)', textAlign: 'right' }}>{h}</span>
                 ))}
             </div>
@@ -371,10 +373,13 @@ function OrbatSectionCard({ title, records, statsById, sectionColor, c, r, g, b 
                 const stats    = rec.user?.id ? statsById.get(rec.user.id) : undefined
                 const hasStats = !!stats
                 const isVacant = !rec.user
+                const accuracy = hasStats && stats!.shots > 0
+                    ? ((stats!.hits / stats!.shots) * 100).toFixed(1) + '%'
+                    : '—'
 
                 return (
                     <div key={rec.userId + i} style={{
-                        display: 'grid', gridTemplateColumns: '1fr 28px 28px 40px',
+                        display: 'grid', gridTemplateColumns: '1fr 28px 28px 40px 42px',
                         gap: 4, padding: '5px 10px', alignItems: 'center',
                         borderBottom: i < records.length - 1 ? '1px solid rgba(255,255,255,0.04)' : undefined,
                         background: hasStats && stats!.kills > 0 ? accentRow : undefined,
@@ -403,6 +408,11 @@ function OrbatSectionCard({ title, records, statsById, sectionColor, c, r, g, b 
                                 {hasStats ? KdRatio(stats!.kills, stats!.deaths) : '—'}
                             </span>
                         </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: '0.62rem', fontWeight: 600, color: hasStats && stats!.shots > 0 ? 'rgba(237,237,237,0.6)' : 'rgba(237,237,237,0.2)' }}>
+                                {accuracy}
+                            </span>
+                        </div>
                     </div>
                 )
             })}
@@ -412,22 +422,23 @@ function OrbatSectionCard({ title, records, statsById, sectionColor, c, r, g, b 
 
 // ── Leaderboard View ──────────────────────────────────────────────────────────
 
-function LeaderboardView({ sorted, topKills, userSectionColor, c, r, g, b }: {
+function LeaderboardView({ sorted, topKills, userSectionColor, userSection, c, r, g, b }: {
     sorted: OcapPlayerStat[]
     topKills: number
     userSectionColor: Map<string, string>
+    userSection: Map<string, string>
     c: (a: number) => string
     r: number; g: number; b: number
 }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div style={{
-                display: 'grid', gridTemplateColumns: '28px 1fr 80px 60px 60px 50px',
+                display: 'grid', gridTemplateColumns: '28px 1fr 160px 50px 50px 44px 50px 50px 50px',
                 padding: '4px 10px', gap: 8, alignItems: 'center',
                 borderBottom: '1px solid rgba(255,255,255,0.06)',
             }}>
-                {['#', 'Player', 'Side', 'Kills', 'Deaths', 'K/D'].map(h => (
-                    <span key={h} style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.22)' }}>
+                {['#', 'Player', 'Section', 'Kills', 'Deaths', 'K/D', 'Shots', 'Hits', 'Acc'].map(h => (
+                    <span key={h} style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.22)', textAlign: h === '#' || h === 'Player' || h === 'Section' ? 'left' : 'right' }}>
                         {h}
                     </span>
                 ))}
@@ -437,13 +448,15 @@ function LeaderboardView({ sorted, topKills, userSectionColor, c, r, g, b }: {
                 const rank      = i + 1
                 const barWidth  = topKills > 0 ? (player.kills / topKills) * 100 : 0
                 const sectHex   = player.userId ? userSectionColor.get(player.userId) : undefined
+                const sectName  = player.userId ? userSection.get(player.userId) : undefined
                 const barColor  = sectHex ? hexToRgba(sectHex, 0.1) : `rgba(${r},${g},${b},0.06)`
                 const rowAccent = sectHex ? hexToRgba(sectHex, 0.04) : `rgba(${r},${g},${b},0.04)`
+                const accuracy  = player.shots > 0 ? ((player.hits / player.shots) * 100).toFixed(1) + '%' : '—'
 
                 return (
                     <div key={`${player.name}-${i}`} style={{
                         position: 'relative', overflow: 'hidden',
-                        display: 'grid', gridTemplateColumns: '28px 1fr 80px 60px 60px 50px',
+                        display: 'grid', gridTemplateColumns: '28px 1fr 160px 50px 50px 44px 50px 50px 50px',
                         padding: '6px 10px', gap: 8, alignItems: 'center',
                         borderLeft: sectHex ? `3px solid ${hexToRgba(sectHex, 0.55)}` : '3px solid transparent',
                         background: rank <= 3 ? rowAccent : 'rgba(0,0,0,0.2)',
@@ -472,17 +485,32 @@ function LeaderboardView({ sorted, topKills, userSectionColor, c, r, g, b }: {
                             )}
                         </div>
 
-                        <div style={{ position: 'relative' }}>
-                            <span style={{ fontSize: '0.6rem', fontWeight: 700, color: SIDE_COLORS[player.side] ?? 'rgba(237,237,237,0.4)' }}>{player.side}</span>
+                        <div style={{ position: 'relative', minWidth: 0 }}>
+                            <span style={{
+                                fontSize: '0.58rem', fontWeight: 700,
+                                color: sectHex ? hexToRgba(sectHex, 0.85) : 'rgba(237,237,237,0.3)',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block',
+                            }}>
+                                {sectName ?? '—'}
+                            </span>
                         </div>
-                        <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'relative', textAlign: 'right' }}>
                             <span style={{ fontSize: '0.85rem', fontWeight: 800, color: player.kills > 0 ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.25)' }}>{player.kills}</span>
                         </div>
-                        <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'relative', textAlign: 'right' }}>
                             <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(237,237,237,0.45)' }}>{player.deaths}</span>
                         </div>
-                        <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'relative', textAlign: 'right' }}>
                             <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'rgba(237,237,237,0.5)' }}>{KdRatio(player.kills, player.deaths)}</span>
+                        </div>
+                        <div style={{ position: 'relative', textAlign: 'right' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'rgba(237,237,237,0.35)' }}>{player.shots > 0 ? player.shots : '—'}</span>
+                        </div>
+                        <div style={{ position: 'relative', textAlign: 'right' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'rgba(237,237,237,0.35)' }}>{player.hits > 0 ? player.hits : '—'}</span>
+                        </div>
+                        <div style={{ position: 'relative', textAlign: 'right' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: player.shots > 0 ? 'rgba(237,237,237,0.65)' : 'rgba(237,237,237,0.2)' }}>{accuracy}</span>
                         </div>
                     </div>
                 )

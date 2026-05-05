@@ -147,6 +147,8 @@ declare global {
         name: string
         kills: number
         deaths: number
+        shots: number
+        hits: number
         side: string
         /** Discord user ID if successfully matched to a website member */
         userId?: string

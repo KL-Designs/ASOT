@@ -37,12 +37,15 @@ export default function OcapLinkPanel({ operationId, initialOcap }: Props) {
     const [elapsed, setElapsed]           = useState(0)
     const startRef                        = useRef<number>(0)
     const timerRef                        = useRef<ReturnType<typeof setInterval> | null>(null)
+    const [inspecting, setInspecting]     = useState(false)
+    const [inspectResult, setInspectResult] = useState<any | null>(null)
+    const [inspectError, setInspectError] = useState('')
 
     // Auto-fetch recordings when panel expands
     useEffect(() => {
         if (!expanded || recordings.length > 0) return
         fetchRecordings()
-    }, [expanded])
+    }, [expanded]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Elapsed timer while syncing
     useEffect(() => {
@@ -71,6 +74,24 @@ export default function OcapLinkPanel({ operationId, initialOcap }: Props) {
             setListError(err.message ?? 'Failed to load recordings')
         } finally {
             setLoadingList(false)
+        }
+    }
+
+    async function handleInspect() {
+        const recording = recordings.find(r => r.id === selectedId)
+        if (!recording) return
+        setInspecting(true)
+        setInspectResult(null)
+        setInspectError('')
+        try {
+            const res = await fetch(`/api/operations/ocap/inspect?filename=${encodeURIComponent(recording.filename)}`)
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+            setInspectResult(data)
+        } catch (err: any) {
+            setInspectError(err.message ?? 'Inspect failed')
+        } finally {
+            setInspecting(false)
         }
     }
 
@@ -170,7 +191,7 @@ export default function OcapLinkPanel({ operationId, initialOcap }: Props) {
                     </span>
                     {ocap && !expanded && (
                         <span style={{ fontSize: '0.55rem', fontWeight: 600, letterSpacing: '0.1em', color: 'rgba(0,195,120,0.45)', marginLeft: 4 }}>
-                            // {ocap.missionName}
+                            {'// '}{ocap.missionName}
                         </span>
                     )}
                 </div>
@@ -373,23 +394,124 @@ export default function OcapLinkPanel({ operationId, initialOcap }: Props) {
                         </div>
                     )}
 
-                    {/* Sync button */}
-                    {stage !== 'complete' && (
+                    {/* Buttons row */}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {stage !== 'complete' && (
+                            <button
+                                onClick={handleSync}
+                                disabled={syncing || inspecting || !selectedId || loadingList || recordings.length === 0}
+                                style={{
+                                    fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+                                    padding: '7px 20px', cursor: syncing ? 'not-allowed' : 'pointer',
+                                    background: syncing ? accentD : 'rgba(0,195,120,0.12)',
+                                    border: `1px solid ${syncing ? 'rgba(0,195,120,0.2)' : accentC}`,
+                                    color: syncing ? 'rgba(0,195,120,0.4)' : accentB,
+                                    transition: 'background 0.15s, border-color 0.15s',
+                                }}
+                            >
+                                {syncing ? 'Syncing…' : ocap ? 'Re-sync Recording' : 'Sync Recording'}
+                            </button>
+                        )}
                         <button
-                            onClick={handleSync}
-                            disabled={syncing || !selectedId || loadingList || recordings.length === 0}
+                            onClick={handleInspect}
+                            disabled={inspecting || syncing || !selectedId || loadingList || recordings.length === 0}
                             style={{
-                                alignSelf: 'flex-start',
                                 fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-                                padding: '7px 20px', cursor: syncing ? 'not-allowed' : 'pointer',
-                                background: syncing ? accentD : 'rgba(0,195,120,0.12)',
-                                border: `1px solid ${syncing ? 'rgba(0,195,120,0.2)' : accentC}`,
-                                color: syncing ? 'rgba(0,195,120,0.4)' : accentB,
-                                transition: 'background 0.15s, border-color 0.15s',
+                                padding: '7px 20px', cursor: inspecting ? 'not-allowed' : 'pointer',
+                                background: 'rgba(255,255,255,0.04)',
+                                border: '1px solid rgba(255,255,255,0.12)',
+                                color: inspecting ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.45)',
+                                transition: 'color 0.15s',
                             }}
                         >
-                            {syncing ? 'Syncing…' : ocap ? 'Re-sync Recording' : 'Sync Recording'}
+                            {inspecting ? 'Inspecting…' : 'Inspect Format'}
                         </button>
+                    </div>
+
+                    {/* Inspect results */}
+                    {(inspectResult || inspectError) && (
+                        <div style={{
+                            padding: '10px 12px',
+                            background: inspectError ? 'rgba(180,30,30,0.07)' : 'rgba(255,255,255,0.03)',
+                            border: `1px solid ${inspectError ? 'rgba(180,30,30,0.25)' : 'rgba(255,255,255,0.1)'}`,
+                            display: 'flex', flexDirection: 'column', gap: 10,
+                        }}>
+                            {inspectError && (
+                                <span style={{ fontSize: '0.72rem', color: 'rgba(220,80,80,0.9)' }}>{inspectError}</span>
+                            )}
+                            {inspectResult && (() => {
+                                const { eventTypes, eventSamples, entityFrameSample, framesFiredSample, entityTopLevelKeys } = inspectResult
+                                return (
+                                    <>
+                                        {/* Event types */}
+                                        <div>
+                                            <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>
+                                                Event Types
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                                {Object.entries(eventTypes as Record<string, number>).map(([type, count]) => (
+                                                    <div key={type} style={{ padding: '3px 8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', gap: 6, alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(237,237,237,0.8)' }}>{type}</span>
+                                                        <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.35)' }}>{count.toLocaleString()}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Entity top-level keys */}
+                                        {entityTopLevelKeys && (
+                                            <div>
+                                                <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>
+                                                    Entity Fields
+                                                </div>
+                                                <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.6)', fontFamily: 'monospace' }}>
+                                                    {(entityTopLevelKeys as string[]).join(', ')}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* framesFired sample */}
+                                        {framesFiredSample && (
+                                            <div>
+                                                <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>
+                                                    framesFired (player: {framesFiredSample.playerName})
+                                                </div>
+                                                <pre style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.6)', fontFamily: 'monospace', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                    {JSON.stringify(framesFiredSample, null, 2)}
+                                                </pre>
+                                            </div>
+                                        )}
+
+                                        {/* Entity frame sample */}
+                                        {entityFrameSample && (
+                                            <div>
+                                                <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>
+                                                    Position Frame
+                                                </div>
+                                                <pre style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.6)', fontFamily: 'monospace', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                                    {JSON.stringify(entityFrameSample, null, 2)}
+                                                </pre>
+                                            </div>
+                                        )}
+
+                                        {/* Event samples */}
+                                        <div>
+                                            <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: 6 }}>
+                                                Event Samples
+                                            </div>
+                                            {Object.entries(eventSamples as Record<string, any>).map(([type, sample]) => (
+                                                <div key={type} style={{ marginBottom: 6 }}>
+                                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'rgba(237,237,237,0.4)', fontFamily: 'monospace' }}>{type}: </span>
+                                                    <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.55)', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                                                        {JSON.stringify(sample)}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )
+                            })()}
+                        </div>
                     )}
 
                 </div>
