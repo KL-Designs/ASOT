@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { TeamSpeak, QueryProtocol } from 'ts3-nodejs-library'
+import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 
 async function connect() {
     return TeamSpeak.connect({
@@ -14,6 +16,10 @@ async function connect() {
 
 // POST /api/teamspeak/clients/[cldbid]/groups — add a server group
 export async function POST(req: NextRequest, { params }: { params: Promise<{ cldbid: string }> }) {
+    let me: User
+    try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
     const { cldbid } = await params
     const { sgid } = await req.json()
 
@@ -32,6 +38,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cld
 
 // DELETE /api/teamspeak/clients/[cldbid]/groups?sgid=X — remove a server group
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ cldbid: string }> }) {
+    let me: User
+    try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
     const { cldbid } = await params
     const sgid = req.nextUrl.searchParams.get('sgid')
 

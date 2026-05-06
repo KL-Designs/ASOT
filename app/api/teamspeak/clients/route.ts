@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
 import { TeamSpeak, QueryProtocol } from 'ts3-nodejs-library'
+import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 
 export async function GET() {
+    let me: User
+    try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
     let ts: TeamSpeak | undefined
 
     try {
