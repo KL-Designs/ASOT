@@ -94,5 +94,5 @@ export default async function () {
         }
     })
 
-    return { content: '', embeds: [armaEmbed.toJSON(), otherEmbed.toJSON()] }
+    return { content: '', embeds: [armaEmbed.toJSON()] }
 }
