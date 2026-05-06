@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import { downloadOcapRecording } from '@/lib/ocap'
+import { downloadOcapRecording, bufferChunks } from '@/lib/ocap'
 import { Readable } from 'node:stream'
 import { chain } from 'stream-chain'
 import { parser } from 'stream-json'
@@ -9,12 +9,6 @@ import pick from 'stream-json/filters/pick.js'
 import streamArray from 'stream-json/streamers/stream-array.js'
 
 export const maxDuration = 120
-
-async function* bufferChunks(buf: Buffer, size = 65536): AsyncGenerator<Buffer> {
-    for (let i = 0; i < buf.length; i += size) {
-        yield buf.subarray(i, Math.min(i + size, buf.length))
-    }
-}
 
 // GET /api/operations/ocap/inspect?filename=<ocapFilename>
 // Returns unique event types found in the recording and a sample entity frame.

@@ -158,6 +158,13 @@ declare global {
         username?: string
     }
 
+    interface OcapSyncStatus {
+        stage: 'downloading' | 'parsing' | 'matching' | 'saving' | 'complete' | 'error'
+        message: string
+        startedAt: Date
+        completedAt?: Date
+    }
+
     interface OcapData {
         /** OCAP internal operation ID */
         recordingId: number
@@ -209,6 +216,8 @@ declare global {
 
         // OCAP recording data — linked and synced by HQ
         ocap?: OcapData
+        // Transient sync progress — written during sync, cleared on next sync start
+        ocapSync?: OcapSyncStatus
 
         // Soft delete
         deletedAt?: Date

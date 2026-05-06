@@ -47,8 +47,11 @@ export async function downloadOcapRecording(apiUrl: string, filename: string): P
 
 // Emit a Buffer in 64 KB chunks so stream-json never receives a chunk too large
 // for V8's string limit when it calls .toString() internally on each piece.
-async function* bufferChunks(buf: Buffer, size = 65536): AsyncGenerator<Buffer> {
+// setImmediate between chunks lets the event loop handle incoming HTTP requests
+// instead of starving them while CPU-bound JSON parsing runs on the main thread.
+export async function* bufferChunks(buf: Buffer, size = 65536): AsyncGenerator<Buffer> {
     for (let i = 0; i < buf.length; i += size) {
+        if (i > 0) await new Promise<void>(r => setImmediate(r))
         yield buf.subarray(i, Math.min(i + size, buf.length))
     }
 }

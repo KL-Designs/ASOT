@@ -37,9 +37,56 @@ export default function OcapLinkPanel({ operationId, initialOcap }: Props) {
     const [elapsed, setElapsed]           = useState(0)
     const startRef                        = useRef<number>(0)
     const timerRef                        = useRef<ReturnType<typeof setInterval> | null>(null)
-    const [inspecting, setInspecting]     = useState(false)
+    const [inspecting, setInspecting]       = useState(false)
     const [inspectResult, setInspectResult] = useState<any | null>(null)
-    const [inspectError, setInspectError] = useState('')
+    const [inspectError, setInspectError]   = useState('')
+    const [syncReconnected, setSyncReconnected] = useState(false)
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+    // On mount: check if a sync is already running (e.g. user refreshed mid-sync)
+    useEffect(() => {
+        async function checkActive() {
+            try {
+                const res = await fetch(`/api/operations/ocap/sync-status?operationId=${operationId}`)
+                if (!res.ok) return
+                const { ocapSync } = await res.json()
+                if (!ocapSync || ocapSync.completedAt) return
+                // Ignore stale jobs older than 10 minutes
+                if (Date.now() - new Date(ocapSync.startedAt).getTime() > 10 * 60 * 1000) return
+                setExpanded(true)
+                setStage(ocapSync.stage as SyncStage)
+                setStageMsg(ocapSync.message ?? '')
+                setSyncing(true)
+                setSyncReconnected(true)
+            } catch { /* ignore */ }
+        }
+        checkActive()
+    }, [operationId])
+
+    // Poll for status updates when reconnected after a refresh
+    useEffect(() => {
+        if (!syncReconnected || !syncing) {
+            if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+            return
+        }
+        pollRef.current = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/operations/ocap/sync-status?operationId=${operationId}`)
+                if (!res.ok) return
+                const { ocapSync } = await res.json()
+                if (!ocapSync) return
+                setStage(ocapSync.stage as SyncStage)
+                setStageMsg(ocapSync.message ?? '')
+                if (ocapSync.completedAt) {
+                    setSyncing(false)
+                    setSyncReconnected(false)
+                    if (ocapSync.stage === 'complete') window.location.reload()
+                    else setSyncError(ocapSync.message ?? 'Sync failed')
+                }
+            } catch { /* ignore */ }
+        }, 2000)
+        return () => { if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null } }
+    }, [syncReconnected, syncing, operationId])
 
     // Auto-fetch recordings when panel expands
     useEffect(() => {

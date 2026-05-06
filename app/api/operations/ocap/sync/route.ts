@@ -59,6 +59,11 @@ export async function POST(request: NextRequest) {
 
             try {
                 // ── Stage 1: Download + decompress ────────────────────────────
+                const startedAt = new Date()
+                await Db.operations.updateOne(
+                    { _id: new ObjectId(operationId) },
+                    { $set: { ocapSync: { stage: 'downloading', message: 'Downloading recording from OCAP server…', startedAt } } },
+                )
                 send({ stage: 'downloading', message: 'Downloading recording from OCAP server…' })
                 const recordingBuffer = await downloadOcapRecording(apiUrl, ocapFilename)
 
@@ -70,7 +75,12 @@ export async function POST(request: NextRequest) {
                 })
 
             } catch (err: any) {
-                send({ stage: 'error', message: err?.message ?? 'Unknown error' })
+                const msg = err?.message ?? 'Unknown error'
+                send({ stage: 'error', message: msg })
+                await Db.operations.updateOne(
+                    { _id: new ObjectId(operationId) },
+                    { $set: { 'ocapSync.stage': 'error', 'ocapSync.message': msg, 'ocapSync.completedAt': new Date() } },
+                ).catch(() => {})
                 controller.close()
             }
         },
@@ -99,23 +109,38 @@ async function processAndSave(
         ocapPlayerKillCount, ocapSideComposition,
     } = payload
 
+    const syncStage = async (stage: string, message: string) => {
+        await Db.operations.updateOne(
+            { _id: new ObjectId(operationId) },
+            { $set: { 'ocapSync.stage': stage, 'ocapSync.message': message } },
+        ).catch(() => {})
+    }
+
     // ── Stage 2: Parse (streaming — never converts to string) ────────────────
-    send({ stage: 'parsing', message: 'Parsing kill events from recording…' })
+    let msg = 'Parsing kill events from recording…'
+    send({ stage: 'parsing', message: msg })
+    await syncStage('parsing', msg)
 
     const playerStats = await parseOcapBuffer(recordingBuffer)
-    send({
-        stage:   'parsing',
-        message: `Found ${playerStats.length} players, ${playerStats.reduce((s, p) => s + p.kills, 0)} total kills`,
-    })
+    msg = `Found ${playerStats.length} players, ${playerStats.reduce((s, p) => s + p.kills, 0)} total kills`
+    send({ stage: 'parsing', message: msg })
+    await syncStage('parsing', msg)
 
     // ── Stage 3: Match members ───────────────────────────────────────────────
-    send({ stage: 'matching', message: 'Matching player names to website members…' })
+    msg = 'Matching player names to website members…'
+    send({ stage: 'matching', message: msg })
+    await syncStage('matching', msg)
+
     const matchedStats = await matchPlayersToMembers(playerStats)
     const matchedCount = matchedStats.filter(s => s.userId).length
-    send({ stage: 'matching', message: `Matched ${matchedCount} of ${matchedStats.length} players to members` })
+    msg = `Matched ${matchedCount} of ${matchedStats.length} players to members`
+    send({ stage: 'matching', message: msg })
+    await syncStage('matching', msg)
 
     // ── Stage 4: Save ────────────────────────────────────────────────────────
-    send({ stage: 'saving', message: 'Saving stats to database…' })
+    msg = 'Saving stats to database…'
+    send({ stage: 'saving', message: msg })
+    await syncStage('saving', msg)
 
     const ocapData: OcapData = {
         recordingId:     ocapId,
@@ -139,6 +164,10 @@ async function processAndSave(
     )
 
     // ── Done ─────────────────────────────────────────────────────────────────
+    await Db.operations.updateOne(
+        { _id: new ObjectId(operationId) },
+        { $set: { 'ocapSync.stage': 'complete', 'ocapSync.message': 'OCAP data synced successfully', 'ocapSync.completedAt': new Date() } },
+    ).catch(() => {})
     send({
         stage:       'complete',
         message:     'OCAP data synced successfully',
