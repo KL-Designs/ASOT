@@ -43,34 +43,11 @@ export default function TsRolesPage() {
                 )}
 
                 {!loading && !err && (
-                    <>
-                        <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.25)', marginBottom: 16 }}>
-                            {groups.length} groups · displayed in TeamSpeak sort order
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            {groups.map((g, i) => (
-                                <div
-                                    key={g.id}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 14,
-                                        padding: '7px 12px',
-                                        background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                                        borderLeft: '2px solid rgba(255,255,255,0.05)',
-                                    }}
-                                >
-                                    <span style={{ width: 28, textAlign: 'right', fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)', flexShrink: 0 }}>
-                                        {i + 1}
-                                    </span>
-                                    <span style={{ fontSize: '0.88rem', flex: 1 }}>{g.name}</span>
-                                    <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.2)', flexShrink: 0 }}>
-                                        sgid {g.id}{g.sortid > 0 ? ` · sort ${g.sortid}` : ''}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    </>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        {groups.map(g => (
+                            <div key={g.id} style={{ fontSize: '0.88rem' }}>{g.name}</div>
+                        ))}
+                    </div>
                 )}
             </div>
         </div>

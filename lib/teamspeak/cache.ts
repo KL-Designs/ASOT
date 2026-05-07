@@ -13,6 +13,7 @@ export interface TsClientOnlineCached {
     clid: string
     nickname: string
     uid: string
+    online: true
     groups: { id: number; name: string }[]
 }
 
@@ -187,18 +188,19 @@ export async function refreshOnlineCache(): Promise<void> {
         const onlineHumans = onlineList.filter(c => c.type === 0)
         console.log(`[TS online] ${onlineHumans.length} human clients — fetching groups per client`)
 
+        const regularGroupIds = new Set(regularGroups.map(g => String(g.sgid)))
         const clients: TsClientOnlineCached[] = await Promise.all(onlineHumans.map(async c => {
             let groups: { id: number; name: string }[] = []
             try {
-                const clientGroups = await ts.serverGroupsByClientId(c.clid) as unknown as Array<{ sgid: string | number; name: string; type: number }>
+                const clientGroups = await ts.serverGroupsByClientId(c.databaseId) as unknown as Array<{ sgid: string | number; name: string }>
                 groups = clientGroups
-                    .filter(g => g.type === 1)
+                    .filter(g => regularGroupIds.has(String(g.sgid)))
                     .map(g => ({ id: Number(g.sgid), name: g.name }))
                     .sort((a, b) => a.name.localeCompare(b.name))
             } catch {
                 // ignore
             }
-            return { cldbid: Number(c.databaseId), clid: c.clid, nickname: c.nickname, uid: c.uniqueIdentifier, groups }
+            return { cldbid: Number(c.databaseId), clid: c.clid, nickname: c.nickname, uid: c.uniqueIdentifier, online: true as const, groups }
         }))
         clients.sort((a, b) => a.nickname.localeCompare(b.nickname))
         const roles = regularGroups.map(g => ({ id: Number(g.sgid), name: g.name })).sort((a, b) => a.name.localeCompare(b.name))
