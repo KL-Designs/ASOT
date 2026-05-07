@@ -3,11 +3,11 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { RANKS_FLAT } from '@/lib/ranks'
-import { parseORBAT, parseRow } from '@/lib/orbat-csv-parser'
-import { CERTIFICATIONS } from '@/lib/certifications'
-import { AWARDS } from '@/lib/awards'
-import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/points'
+import { RANKS_FLAT } from '@/lib/military/ranks'
+import { parseORBAT, parseRow } from '@/lib/orbat/csv-parser'
+import { CERTIFICATIONS } from '@/lib/military/certifications'
+import { AWARDS } from '@/lib/military/awards'
+import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/military/points'
 
 // ── Mastersheet CSV parser ────────────────────────────────────────────────────
 

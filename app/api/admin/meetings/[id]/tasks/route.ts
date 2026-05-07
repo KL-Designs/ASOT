@@ -4,7 +4,7 @@ import crypto from 'crypto'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { notifyMeetingUser, notifyMeetingRole } from '@/lib/meetingNotifications'
+import { notifyMeetingUser, notifyMeetingRole } from '@/lib/notifications/meeting'
 
 // POST /api/admin/meetings/[id]/tasks
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -7,15 +7,15 @@ import { generateUniform } from '@/lib/milpac-gen/uniform'
 import { generateBox } from '@/lib/milpac-gen/box'
 import { buildUniformData, buildBoxData, computeUniformHash } from '@/lib/milpac-gen/data-mapper'
 import { AWARD_TO_CITATION, QUAL_TO_BADGE } from '@/lib/milpac-gen/maps'
-import { RANK_TRACKS } from '@/lib/promotionRequirements'
-import { calculateOpPoints } from '@/lib/points'
+import { RANK_TRACKS } from '@/lib/military/promotion-requirements'
+import { calculateOpPoints } from '@/lib/military/points'
 import Image from 'next/image'
 import Avatar from '@/components/member/avatar'
 import Banner from '@/public/images/home/Droneteam7.png'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { getOrbatEntryByUserId } from '@/lib/orbat'
-import { resolveMilpacProfile } from '@/lib/milpac-profile'
+import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 import { CoverUpload } from './cover-upload'
 import { BiographyEditor } from './bio-editor'
 import { RequestAwardButton } from './RequestAwardButton'
@@ -169,7 +169,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const billetCounts = member.milpac?.billetCounts
 	let promotionPts: number
 	if (billetCounts) {
-		const { calculatePromotionPoints } = await import('@/lib/points')
+		const { calculatePromotionPoints } = await import('@/lib/military/points')
 		promotionPts = calculatePromotionPoints({
 			...billetCounts,
 			primaryNightOps:   0,

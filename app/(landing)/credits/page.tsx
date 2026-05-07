@@ -6,7 +6,7 @@ import { Typography } from '@mui/material'
 import Container from '@/components/container'
 import Db from '@/lib/mongo'
 import { getOrbatEntriesForUsers } from '@/lib/orbat'
-import { resolveMilpacProfile } from '@/lib/milpac-profile'
+import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 
 import BannerImg from '@/public/images/home/3DMA_Final2.png'
 

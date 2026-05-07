@@ -3,9 +3,9 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
+import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
 import { logAction } from '@/lib/logs'
-import { syncOrbatDiscordRoles } from '@/lib/orbat-discord'
+import { syncOrbatDiscordRoles } from '@/lib/orbat/discord'
 
 
 async function authStructure() {

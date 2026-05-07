@@ -7,7 +7,7 @@ import { Api, Tune, CalendarToday, ManageAccounts } from '@mui/icons-material'
 
 import ConvertColor from '@/lib/discord/color'
 import { getOrbatEntryByUserId } from '@/lib/orbat'
-import { rankNameFromAbbr } from '@/lib/ranks'
+import { rankNameFromAbbr } from '@/lib/military/ranks'
 import { BioSections } from './bio'
 import TSLinkButton from './TSLinkButton'
 import Avatar from '@/components/member/avatar'

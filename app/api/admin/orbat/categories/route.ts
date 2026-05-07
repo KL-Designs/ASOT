@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES } from '@/lib/orbat-constants'
+import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES } from '@/lib/orbat/constants'
 
 
 async function auth(request: NextRequest) {

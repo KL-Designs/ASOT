@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { parseAttendanceCSV, collectOperations } from '@/lib/attendance-csv-parser'
+import { parseAttendanceCSV, collectOperations } from '@/lib/attendance/csv-parser'
 
 // Fuzzy operation name matcher — strips "OPERATION " prefix for comparison
 function normaliseOpName(name: string): string {

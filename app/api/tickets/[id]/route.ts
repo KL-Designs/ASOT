@@ -4,7 +4,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { logAction } from '@/lib/logAction'
-import { notifyTicketDeptLeads } from '@/lib/ticketNotifications'
+import { notifyTicketDeptLeads } from '@/lib/notifications/ticket'
 import { sendFeedbackStatusDM } from '@/lib/discord/bot'
 import { createNotification } from '@/lib/notifications'
 

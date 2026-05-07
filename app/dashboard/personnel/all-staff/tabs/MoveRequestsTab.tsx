@@ -6,7 +6,7 @@ import {
     Button, Chip, CircularProgress, Typography, Alert, ListSubheader,
 } from '@mui/material'
 import { Send, CheckCircle, Cancel } from '@mui/icons-material'
-import { PLATOON_CATEGORIES, RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
+import { PLATOON_CATEGORIES, RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 
 type TicketRow = Ticket & { _id: string }

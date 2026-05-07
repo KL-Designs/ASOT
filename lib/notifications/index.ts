@@ -1,5 +1,5 @@
 import Db from '@/lib/mongo'
-import notificationEmitter from '@/lib/notificationEmitter'
+import notificationEmitter from '@/lib/notifications/emitter'
 
 export interface CreateNotificationInput {
     userId: string

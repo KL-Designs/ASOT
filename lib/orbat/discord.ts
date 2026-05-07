@@ -1,5 +1,5 @@
-import Db from './mongo'
-import { addGuildRole, removeGuildRole } from './discord/bot'
+import Db from '../mongo'
+import { addGuildRole, removeGuildRole } from '../discord/bot'
 
 /**
  * Adds or removes a user's Discord roles for an ORBAT section.

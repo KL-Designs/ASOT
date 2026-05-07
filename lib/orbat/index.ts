@@ -1,5 +1,5 @@
 import Db from '@/lib/mongo'
-import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
+import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
 
 
 export interface Member { role: string; name: string; rankAbbr?: string; username?: string }

@@ -1,6 +1,6 @@
 import { ensureVisible } from '@/lib/discord/color'
 import type { OrbatEntry } from '@/lib/orbat'
-import { rankNameFromAbbr } from '@/lib/ranks'
+import { rankNameFromAbbr } from '@/lib/military/ranks'
 
 export function resolveMilpacProfile(member: User, orbatEntry: OrbatEntry | null) {
     const accent = ensureVisible(member.hexAccentColor || '#db001d')

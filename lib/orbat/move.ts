@@ -1,6 +1,6 @@
-import Db from './mongo'
-import { RESERVIST_CATEGORY_IDS } from './orbat-constants'
-import { syncOrbatDiscordRoles } from './orbat-discord'
+import Db from '../mongo'
+import { RESERVIST_CATEGORY_IDS } from './constants'
+import { syncOrbatDiscordRoles } from './discord'
 
 /**
  * Applies an ORBAT position swap when a move request is approved.

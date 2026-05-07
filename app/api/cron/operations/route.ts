@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
-import { createAttendanceTasksForOperation } from '@/lib/attendance-tasks'
+import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
 
 /**
  * GET /api/cron/operations?secret=...

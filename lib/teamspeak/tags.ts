@@ -7,9 +7,9 @@
  * exactly which spacer groups must be present alongside it.
  */
 
-import type { Award } from '@/lib/awards'
-import type { Certification } from '@/lib/certifications'
-import type { RankEntry } from '@/lib/ranks'
+import type { Award } from '@/lib/military/awards'
+import type { Certification } from '@/lib/military/certifications'
+import type { RankEntry } from '@/lib/military/ranks'
 
 export type TsCategory =
     | 'award'          // Citations & Awards

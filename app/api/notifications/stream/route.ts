@@ -1,6 +1,6 @@
 import { type NextRequest } from 'next/server'
 import client from '@/lib/discord'
-import notificationEmitter from '@/lib/notificationEmitter'
+import notificationEmitter from '@/lib/notifications/emitter'
 
 export const dynamic = 'force-dynamic'
 

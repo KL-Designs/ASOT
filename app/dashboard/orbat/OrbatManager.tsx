@@ -11,7 +11,7 @@ import {
     Edit, Close, AccountTree, Warning, ArrowUpward, ArrowDownward,
     Add, Delete, MoreVert, DragIndicator,
 } from '@mui/icons-material'
-import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat-constants'
+import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat/constants'
 import MilpacEditor from '@/app/members/[username]/MilpacEditor'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import {

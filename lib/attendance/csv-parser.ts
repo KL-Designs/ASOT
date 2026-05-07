@@ -1,4 +1,4 @@
-import { parseRow } from './orbat-csv-parser'
+import { parseRow } from '../orbat/csv-parser'
 
 export interface ParsedAttendanceOperation {
     name: string

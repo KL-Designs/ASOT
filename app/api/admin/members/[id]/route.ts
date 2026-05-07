@@ -4,7 +4,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logs'
 import { addGuildRole, removeGuildRole, setGuildNickname } from '@/lib/discord/bot'
-import { syncDeptDiscordRole } from '@/lib/deptDiscordRoles'
+import { syncDeptDiscordRole } from '@/lib/discord/dept-roles'
 import { buildNickname } from '@/lib/buildNickname'
 
 // PATCH /api/admin/members/[id] — J4 only: update display name, department, or chaplain status

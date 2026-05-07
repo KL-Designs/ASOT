@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Autocomplete, TextField, Typography } from '@mui/material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
-import { rankNameFromAbbr } from '@/lib/ranks'
+import { rankNameFromAbbr } from '@/lib/military/ranks'
 
 type MemberOption = { id: string; displayName: string; currentRank: string | null; teamLeadDepts: string[] }
 

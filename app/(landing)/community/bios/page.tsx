@@ -6,7 +6,7 @@ import Image from 'next/image'
 import Container from '@/components/container'
 import BannerImg from '@/public/images/home/VicPose2.png'
 import { getOrbatEntriesForUsers } from '@/lib/orbat'
-import { resolveMilpacProfile } from '@/lib/milpac-profile'
+import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 
 
 export default async function Page() {

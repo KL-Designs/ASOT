@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
-import { NOTIFICATION_TYPES } from '@/lib/notificationTypes'
+import { NOTIFICATION_TYPES } from '@/lib/notifications/types'
 
 // GET /api/preferences — get current user's preferences
 export async function GET() {

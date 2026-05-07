@@ -6,7 +6,7 @@ import {
     Button, Chip, CircularProgress, Typography, Alert, Switch, FormControlLabel,
 } from '@mui/material'
 import { Send, Group, Person } from '@mui/icons-material'
-import { CERTIFICATIONS } from '@/lib/certifications'
+import { CERTIFICATIONS } from '@/lib/military/certifications'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 
 type TicketRow = Ticket & { _id: string }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
 import { getOrbatEntriesForUsers } from '@/lib/orbat'
-import { resolveMilpacProfile } from '@/lib/milpac-profile'
+import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 
 const CONTRIBUTOR_ORDER = ['240786290600181761', '224086573560365057', '683343114865606686']
 

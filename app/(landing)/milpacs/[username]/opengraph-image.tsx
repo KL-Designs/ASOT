@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og'
 import client from '@/lib/discord'
 import { getOrbatEntryByUserId } from '@/lib/orbat'
-import { resolveMilpacProfile } from '@/lib/milpac-profile'
+import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 
 export const size = { width: 1300, height: 630 }
 export const contentType = 'image/png'

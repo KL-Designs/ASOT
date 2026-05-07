@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { createAttendanceTasksForOperation } from '@/lib/attendance-tasks'
+import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     await client.updateRoles()

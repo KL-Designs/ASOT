@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { notifyMeetingUser, notifyMeetingRole } from '@/lib/meetingNotifications'
-import { initMeetingAttendance } from '@/lib/meetingAttendanceInit'
+import { notifyMeetingUser, notifyMeetingRole } from '@/lib/notifications/meeting'
+import { initMeetingAttendance } from '@/lib/attendance/meeting-init'
 import { logAction } from '@/lib/logAction'
 
 const DEPT_NAMES: Record<string, string> = {

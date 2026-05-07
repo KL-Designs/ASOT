@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { SINGLE_SECTION_CATEGORIES } from '@/lib/orbat-constants'
+import { SINGLE_SECTION_CATEGORIES } from '@/lib/orbat/constants'
 import { logAction } from '@/lib/logs'
 
 
