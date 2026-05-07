@@ -1,5 +1,6 @@
 import { TeamSpeak, QueryProtocol } from 'ts3-nodejs-library'
 import Db from '@/lib/mongo'
+import { checkTsGate } from '@/lib/teamspeak/devmode'
 
 function connect() {
     return TeamSpeak.connect({
@@ -45,6 +46,14 @@ export async function syncOrbatTeamspeakGroups(
     const cldbid = user?.teamspeak?.cldbid
     if (!cldbid) {
         return { skipped: true, reason: 'Member has no linked TeamSpeak account' }
+    }
+
+    const tsUid = user?.teamspeak?.uid as string | undefined
+    if (tsUid) {
+        const gate = await checkTsGate(tsUid)
+        if (!gate.allowed) {
+            return { skipped: true, reason: 'Blocked by TeamSpeak dev mode' }
+        }
     }
 
     let ts: TeamSpeak | undefined
