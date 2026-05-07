@@ -404,7 +404,7 @@ export default function TeamspeakTab() {
         )
     }
 
-    function loadOnline() {
+    const loadOnline = useCallback(() => {
         setOnlineLoading(true)
         setOnlineErr(null)
         fetch('/api/teamspeak/clients?type=online')
@@ -426,9 +426,9 @@ export default function TeamspeakTab() {
                 }
             })
             .catch(e => { setOnlineErr(e.message); setOnlineLoading(false) })
-    }
+    }, [])
 
-    function loadOffline() {
+    const loadOffline = useCallback(() => {
         fetch('/api/teamspeak/clients?type=offline')
             .then(r => r.json())
             .then(d => {
@@ -443,7 +443,7 @@ export default function TeamspeakTab() {
                 )
             })
             .catch(e => setOfflineErr(e.message))
-    }
+    }, [])
 
     function triggerOfflineRefresh() {
         setOfflineRefreshing(true)
@@ -469,7 +469,7 @@ export default function TeamspeakTab() {
     useEffect(() => {
         loadOnline()
         loadOffline()
-    }, [])
+    }, [loadOnline, loadOffline])
 
     const allGroups = onlineRoles
 
