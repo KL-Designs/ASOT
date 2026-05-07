@@ -22,6 +22,7 @@ declare global {
         channel: string
         messageId: string | null
         repeatRaw: string | null
+        sendFailed: boolean
     }
 
 }

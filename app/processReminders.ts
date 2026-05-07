@@ -95,17 +95,21 @@ export default async function processReminders() {
                         expected: new Date(reminder.expected.getTime() + reminder.repeat),
                         nextCheck: reminder.chaseUpOffset !== null ? new Date(reminder.expected.getTime() + reminder.chaseUpOffset) : null,
                         acknowledged: [...reminder.who],
-                        messageId: sent.id
+                        messageId: sent.id,
+                        sendFailed: false
                     }
                 })
 
                 console.log(`Reminder ${reminder._id} has been sent`)
             } catch {
                 console.error(`Failed to send reminder in "${reminder.channel}" (${reminder.message})`)
-                try {
-                    await author.send(`Failed to send your reminder **${reminder.message}** in <#${reminder.channel}>. The bot may not have access to that channel.`)
-                } catch {
-                    console.error(`Failed to DM author ${reminder.by} about failed reminder (${reminder.message})`)
+                if (!reminder.sendFailed) {
+                    try {
+                        await author.send(`Failed to send your reminder **${reminder.message}** in <#${reminder.channel}>. The bot may not have access to that channel.`)
+                    } catch {
+                        console.error(`Failed to DM author ${reminder.by} about failed reminder (${reminder.message})`)
+                    }
+                    await Db.reminders.updateOne({ _id: reminder._id }, { $set: { sendFailed: true } })
                 }
             }
             continue
