@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { Typography } from '@mui/material'
 
 import Container from '@/components/container'
-import { getCreditsData } from '@/app/api/credits/route'
+import { getCreditsData } from '@/lib/credits'
 
 import BannerImg from '@/public/images/home/3DMA_Final2.png'
 

@@ -13,7 +13,7 @@ import {
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
-import type { CreditContributor, CreditThanks, CreditsResponse } from '@/app/api/credits/route'
+import type { CreditContributor, CreditThanks, CreditsResponse } from '@/lib/credits'
 
 
 export default function CreditsModal() {
