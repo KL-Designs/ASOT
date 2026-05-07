@@ -10,7 +10,7 @@ export default async function processReminders() {
 
     for (const reminder of reminders) {
         const channel = await App.channel(reminder.channel) as Discord.TextChannel
-        if (!reminder.enabled && reminder.expected.getTime() < today.getTime()) { Db.reminders.updateOne({ _id: reminder._id }, { $set: { expected: new Date(reminder.expected.getTime() + reminder.repeat) } }); break }
+        if (!reminder.enabled && reminder.expected.getTime() < today.getTime()) { Db.reminders.updateOne({ _id: reminder._id }, { $set: { expected: new Date(reminder.expected.getTime() + reminder.repeat) } }); continue }
 
         const author = await App.user(reminder.by)
 
@@ -46,7 +46,7 @@ export default async function processReminders() {
                     console.error(`Failed to send chase-up in "${reminder.channel}" (${reminder.message})`)
                 }
             }
-            break
+            continue
         }
 
 
@@ -103,10 +103,10 @@ export default async function processReminders() {
             } catch {
                 console.error(`Failed to send reminder in "${reminder.channel}" (${reminder.message})`)
             }
-            break
+            continue
         }
 
 
-        if (reminder.repeat === 0 && reminder.acknowledged === true) { Db.reminders.deleteOne({ _id: reminder._id }), console.log(`Reminder ${reminder._id} has been removed`); break }
+        if (reminder.repeat === 0 && reminder.acknowledged === true) { Db.reminders.deleteOne({ _id: reminder._id }), console.log(`Reminder ${reminder._id} has been removed`); continue }
     }
 }
