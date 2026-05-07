@@ -44,6 +44,7 @@ const DbInterface = {
     userPreferences: client.db(process.env.MONGO_DB!).collection('user_preferences') as MongoCollection<UserPreferences>,
     notifPolicyConfig: client.db(process.env.MONGO_DB!).collection('notif_policy_config') as MongoCollection<NotifPolicyConfig>,
     sops: client.db(process.env.MONGO_DB!).collection('sops') as MongoCollection<SopDocument>,
+    teamspeakSnapshots: client.db(process.env.MONGO_DB!).collection('teamspeak_snapshots') as MongoCollection<TsSnapshot>,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,

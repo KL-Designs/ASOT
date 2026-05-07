@@ -14,6 +14,7 @@ import SnapshotsTab from './SnapshotsTab'
 import CommunityTicketsTab from './tabs/CommunityTicketsTab'
 import J4MeetingsTab from './tabs/J4MeetingsTab'
 import LogsTab from './tabs/LogsTab'
+import TeamspeakTab from './tabs/TeamspeakTab'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -769,16 +770,22 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Tools'     pinLabel='J4 — Tools'     href='/dashboard/j4' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Snapshots' pinLabel='J4 — Snapshots' href='/dashboard/j4' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'  pinLabel='J4 — Meetings'  href='/dashboard/j4' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tickets'   pinLabel='J4 — Tickets'   href='/dashboard/j4' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Tools'      pinLabel='J4 — Tools'      href='/dashboard/j4' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Snapshots'  pinLabel='J4 — Snapshots'  href='/dashboard/j4' tabIndex={1} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'   pinLabel='J4 — Meetings'   href='/dashboard/j4' tabIndex={2} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Tickets'    pinLabel='J4 — Tickets'    href='/dashboard/j4' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Teamspeak'  pinLabel='J4 — Teamspeak'  href='/dashboard/j4' tabIndex={4} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0' style={{ display: 'flex', flexDirection: 'column' }}>
                         {tab === 1 && <SnapshotsTab />}
                         {tab === 2 && <J4MeetingsTab userId={userId} />}
+                        {tab === 4 && (
+                            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                                <TeamspeakTab />
+                            </div>
+                        )}
                         {tab === 3 && (
                             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                                 <CommunityTicketsTab />

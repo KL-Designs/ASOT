@@ -1,25 +1,49 @@
-import { NextResponse } from 'next/server'
-import { TeamSpeak, QueryProtocol } from 'ts3-nodejs-library'
+import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { getConnection, getOfflineCache, getOnlineCache, isOfflineRefreshing, isOnlineRefreshing, refreshOfflineCache, refreshOnlineCache } from '@/lib/teamspeak/cache'
 
-export async function GET() {
+/**
+ * GET /api/teamspeak/clients
+ *
+ * ?type=online  — fast: only currently connected clients (~1-2s)
+ * ?type=offline — returns cached offline clients + cache metadata
+ * ?type=all     — (default) full fetch including paginated DB clients (~60s)
+ */
+export async function GET(req: NextRequest) {
     let me: User
     try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
     if (!client.hasRoles(me, PERMISSIONS.departments.j4)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    let ts: TeamSpeak | undefined
+    const type = req.nextUrl.searchParams.get('type') ?? 'all'
+
+    if (type === 'offline') {
+        const cache = getOfflineCache()
+        if (!cache) {
+            return NextResponse.json({ clients: [], roles: [], refreshedAt: null, refreshing: isOfflineRefreshing() })
+        }
+        return NextResponse.json({ clients: cache.clients, roles: [], refreshedAt: cache.refreshedAt, refreshing: isOfflineRefreshing() })
+    }
+
+    if (type === 'online') {
+        const cache = getOnlineCache()
+        if (!cache) {
+            // First ever load — wait for fresh data so the tab isn't blank
+            await refreshOnlineCache().catch(err => console.error('[TeamSpeak] Online cache error:', err))
+            const fresh = getOnlineCache()
+            return NextResponse.json({ clients: fresh?.clients ?? [], roles: fresh?.roles ?? [], refreshedAt: fresh?.refreshedAt ?? null, refreshing: false })
+        }
+        // Cache exists — serve it immediately and refresh in background
+        if (!isOnlineRefreshing()) {
+            refreshOnlineCache().catch(err => console.error('[TeamSpeak] Online cache refresh error:', err))
+        }
+        return NextResponse.json({ clients: cache.clients, roles: cache.roles, refreshedAt: cache.refreshedAt, refreshing: isOnlineRefreshing() })
+    }
 
     try {
-        ts = await TeamSpeak.connect({
-            host: process.env.TS_HOST!,
-            queryport: Number(process.env.TS_QUERY_PORT ?? 10022),
-            protocol: QueryProtocol.SSH,
-            username: 'serveradmin',
-            password: process.env.TS_SERVERADMIN_PASSWORD!,
-            serverport: Number(process.env.TS_SERVER_PORT ?? 9987),
-        })
+        const ts = await getConnection()
 
+        // type=all — original full behaviour (backward compat)
         const [allGroups, onlineList] = await Promise.all([
             ts.serverGroupList(),
             ts.clientList(),
@@ -48,7 +72,7 @@ export async function GET() {
         const membershipMap: Record<string, { id: number; name: string }[]> = {}
         await Promise.all(regularGroups.map(async g => {
             try {
-                const members = await ts!.serverGroupClientList(g.sgid)
+                const members = await ts.serverGroupClientList(g.sgid)
                 for (const m of members) {
                     if (!membershipMap[m.cldbid]) membershipMap[m.cldbid] = []
                     membershipMap[m.cldbid].push({ id: Number(g.sgid), name: groupNameMap[g.sgid] })
@@ -82,7 +106,19 @@ export async function GET() {
     } catch (err) {
         console.error('[TeamSpeak] Failed to fetch clients:', err)
         return NextResponse.json({ error: 'Failed to connect to TeamSpeak server' }, { status: 500 })
-    } finally {
-        if (ts) await ts.quit()
     }
+}
+
+// POST /api/teamspeak/clients/refresh-cache — trigger background refresh
+export async function POST() {
+    let me: User
+    try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
+    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    if (isOfflineRefreshing()) {
+        return NextResponse.json({ queued: false, message: 'Already refreshing' })
+    }
+
+    refreshOfflineCache().catch(err => console.error('[TeamSpeak] Cache refresh error:', err))
+    return NextResponse.json({ queued: true })
 }
