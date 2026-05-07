@@ -492,3 +492,35 @@ setTimeout(() => {
     setInterval(triggerScheduledSnapshot, 48 * 60 * 60 * 1000)
 }, msUntilNext3am())
 console.log(`[snapshots] Next auto-snapshot in ${Math.round(msUntilNext3am() / 1000 / 60)} minutes`)
+
+// ── TeamSpeak daily snapshot (every 24h at 3am) ───────────────────────────────
+
+async function triggerTsSnapshot() {
+    try {
+        const res = await fetch(`http://localhost:${port}/api/cron/teamspeak-snapshots?secret=${process.env.CRON_SECRET}`)
+        const data = await res.json()
+        console.log('[teamspeak-snapshots] Daily snapshot triggered:', data)
+    } catch (e) {
+        console.error('[teamspeak-snapshots] Error:', e.message)
+    }
+}
+
+setTimeout(() => {
+    triggerTsSnapshot()
+    setInterval(triggerTsSnapshot, 24 * 60 * 60 * 1000)
+}, msUntilNext3am())
+
+// ── TeamSpeak offline client cache (refresh every 15 min) ────────────────────
+
+async function triggerTsCacheRefresh() {
+    try {
+        const res = await fetch(`http://localhost:${port}/api/cron/teamspeak-cache?secret=${process.env.CRON_SECRET}`)
+        const data = await res.json()
+        console.log('[teamspeak-cache] Refresh triggered:', data)
+    } catch (e) {
+        console.error('[teamspeak-cache] Error:', e.message)
+    }
+}
+
+setInterval(triggerTsCacheRefresh, 15 * 60 * 1000)
+triggerTsCacheRefresh()

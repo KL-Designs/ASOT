@@ -14,6 +14,7 @@ import SnapshotsTab from './SnapshotsTab'
 import CommunityTicketsTab from './tabs/CommunityTicketsTab'
 import J4MeetingsTab from './tabs/J4MeetingsTab'
 import LogsTab from './tabs/LogsTab'
+import TeamspeakTab from './tabs/TeamspeakTab'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -687,12 +688,18 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
 
     const [devMode, setDevMode]           = useState<boolean | null>(null)
     const [devModeLoading, setDevModeLoading] = useState(false)
+    const [tsDevMode, setTsDevMode]       = useState<boolean | null>(null)
+    const [tsDevModeLoading, setTsDevModeLoading] = useState(false)
 
     useEffect(() => {
         fetch('/api/admin/discord-devmode')
             .then(r => r.json())
             .then(d => setDevMode(!!d.enabled))
             .catch(() => setDevMode(false))
+        fetch('/api/admin/teamspeak-devmode')
+            .then(r => r.json())
+            .then(d => setTsDevMode(!!d.enabled))
+            .catch(() => setTsDevMode(false))
     }, [])
 
     async function toggleDevMode() {
@@ -704,6 +711,18 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
             setDevMode(!!data.enabled)
         } finally {
             setDevModeLoading(false)
+        }
+    }
+
+    async function toggleTsDevMode() {
+        if (tsDevModeLoading) return
+        setTsDevModeLoading(true)
+        try {
+            const res = await fetch('/api/admin/teamspeak-devmode', { method: 'POST' })
+            const data = await res.json()
+            setTsDevMode(!!data.enabled)
+        } finally {
+            setTsDevModeLoading(false)
         }
     }
 
@@ -769,16 +788,22 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Tools'     pinLabel='J4 — Tools'     href='/dashboard/j4' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Snapshots' pinLabel='J4 — Snapshots' href='/dashboard/j4' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'  pinLabel='J4 — Meetings'  href='/dashboard/j4' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tickets'   pinLabel='J4 — Tickets'   href='/dashboard/j4' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Tools'      pinLabel='J4 — Tools'      href='/dashboard/j4' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Snapshots'  pinLabel='J4 — Snapshots'  href='/dashboard/j4' tabIndex={1} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'   pinLabel='J4 — Meetings'   href='/dashboard/j4' tabIndex={2} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Tickets'    pinLabel='J4 — Tickets'    href='/dashboard/j4' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Teamspeak'  pinLabel='J4 — Teamspeak'  href='/dashboard/j4' tabIndex={4} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0' style={{ display: 'flex', flexDirection: 'column' }}>
                         {tab === 1 && <SnapshotsTab />}
                         {tab === 2 && <J4MeetingsTab userId={userId} />}
+                        {tab === 4 && (
+                            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                                <TeamspeakTab />
+                            </div>
+                        )}
                         {tab === 3 && (
                             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                                 <CommunityTicketsTab />
@@ -881,6 +906,53 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                         </Typography>
                                         <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: devMode ? 'rgba(255,180,0,0.7)' : 'rgba(237,237,237,0.25)', textTransform: 'uppercase' }}>
                                             {devMode === null ? 'Loading…' : devMode ? 'Active — msgs blocked' : 'Inactive'}
+                                        </Typography>
+                                    </div>
+                                </button>
+
+                                {/* TeamSpeak Developer Mode toggle */}
+                                <button
+                                    onClick={toggleTsDevMode}
+                                    disabled={tsDevModeLoading || tsDevMode === null}
+                                    className='flex-1 min-w-[160px]'
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: tsDevModeLoading || tsDevMode === null ? 'default' : 'pointer', textAlign: 'left' }}
+                                >
+                                    <div
+                                        className='flex flex-col justify-center items-center gap-3 p-6 h-[160px] transition-colors duration-200'
+                                        style={{
+                                            background: tsDevMode ? 'rgba(255,180,0,0.07)' : 'rgba(255,255,255,0.04)',
+                                            border: `1px solid ${tsDevMode ? 'rgba(255,180,0,0.35)' : 'rgba(255,255,255,0.08)'}`,
+                                            borderTop: `2px solid ${tsDevMode ? 'rgb(255,180,0)' : 'rgba(255,255,255,0.15)'}`,
+                                            opacity: tsDevMode === null ? 0.4 : 1,
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: 32, height: 18, borderRadius: 9,
+                                            background: tsDevMode ? 'rgba(255,180,0,0.9)' : 'rgba(255,255,255,0.15)',
+                                            border: `1px solid ${tsDevMode ? 'rgba(255,180,0,0.6)' : 'rgba(255,255,255,0.1)'}`,
+                                            position: 'relative', transition: 'background 0.2s',
+                                            flexShrink: 0,
+                                        }}>
+                                            <div style={{
+                                                position: 'absolute', top: 2,
+                                                left: tsDevMode ? 14 : 2,
+                                                width: 12, height: 12, borderRadius: '50%',
+                                                background: '#fff',
+                                                transition: 'left 0.2s',
+                                                boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                                            }} />
+                                        </div>
+                                        <Typography
+                                            fontWeight={700}
+                                            fontSize='0.78rem'
+                                            letterSpacing={3}
+                                            textAlign='center'
+                                            style={{ textTransform: 'uppercase', color: tsDevMode ? 'rgb(255,180,0)' : 'rgba(237,237,237,0.5)' }}
+                                        >
+                                            TeamSpeak<br />Dev Mode
+                                        </Typography>
+                                        <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: tsDevMode ? 'rgba(255,180,0,0.7)' : 'rgba(237,237,237,0.25)', textTransform: 'uppercase' }}>
+                                            {tsDevMode === null ? 'Loading…' : tsDevMode ? 'Active — changes blocked' : 'Inactive'}
                                         </Typography>
                                     </div>
                                 </button>

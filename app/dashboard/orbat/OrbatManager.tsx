@@ -192,6 +192,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
     const [discordRoles, setDiscordRoles] = useState<Role[]>([])
     const [rolePickerTarget, setRolePickerTarget] = useState<{ category: string; sectionTitle: string | null } | null>(null)
     const [roleSearch, setRoleSearch] = useState('')
+
     const colorInputRef = useRef<HTMLInputElement>(null)
     const patchInputRef = useRef<HTMLInputElement>(null)
     const colorSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -209,7 +210,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         ]
         if (canManageStructure) {
             fetches.push(
-                fetch('/api/admin/orbat/discord-roles').then(r => r.ok ? r.json() : null).then(d => { if (d) setDiscordRoles(d.roles ?? []) })
+                fetch('/api/admin/orbat/discord-roles').then(r => r.ok ? r.json() : null).then(d => { if (d) setDiscordRoles(d.roles ?? []) }),
             )
         }
         await Promise.all(fetches)
@@ -311,6 +312,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             })
         }
     }
+
 
 
     // ── Local state helpers ──────────────────────────────────────────────────

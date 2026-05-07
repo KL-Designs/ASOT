@@ -91,7 +91,6 @@ export async function PATCH(
             const evictedId = position.userId
             Promise.allSettled([
                 syncOrbatDiscordRoles(evictedId, 'remove', position.category, position.sectionTitle),
-                // Add reservist role if they were auto-moved there
                 reservistPosition ? syncOrbatDiscordRoles(evictedId, 'add', 'activeReservist', '') : Promise.resolve(),
             ]).catch(err => console.error('[orbat] Discord role sync failed:', err))
         } else if (!isUnassign && userId) {

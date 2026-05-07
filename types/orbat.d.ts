@@ -51,7 +51,8 @@ declare global {
         sectionTitle: string | null // null = category/platoon-level metadata
         patch?: string             // stored filename in ./uploads/orbat/
         color?: string             // hex string e.g., '#c0392b'
-        discordRoleId?: string     // Discord role ID for future role sync
+        discordRoleId?: string     // Discord role ID for role sync
+        tsGroupId?: number         // TeamSpeak server group ID for role sync
     }
 
 }
