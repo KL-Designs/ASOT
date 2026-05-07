@@ -28,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
 	return {
 		metadataBase: base,
 		title: "Australian Special Operations Taskforce",
-		description: "Australia's premiere ARMA 3 milsim community. Recruiting now! 17+ unless vouched for by a current member. Any experience level is welcome!",
+		description: "Home of the Australian Special Operations Taskforce — Australia's premier ARMA 3 milsim unit. Tactical gameplay, real military structure, and a welcoming community.",
 		keywords: ["arma", "arma 3", "australian", "special", "operations", "taskforce", "asot", "milsim"],
 	}
 }

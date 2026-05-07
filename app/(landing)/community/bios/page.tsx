@@ -1,5 +1,11 @@
+import type { Metadata } from 'next'
 import { connection } from 'next/server'
 import Db from '@/lib/mongo'
+
+export const metadata: Metadata = {
+	title: "Member Bios | Australian Special Operations Taskforce",
+	description: "Personnel bios and profiles for members of the Australian Special Operations Taskforce.",
+}
 
 import Image from 'next/image'
 

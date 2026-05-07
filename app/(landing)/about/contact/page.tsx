@@ -6,7 +6,8 @@ import { HeadsetMic, Groups, Email as EmailIcon, Forum, Launch } from '@mui/icon
 
 
 export const metadata: Metadata = {
-	title: "Contact | Australian Special Operations Taskforce"
+	title: "Contact | Australian Special Operations Taskforce",
+	description: "Get in touch with the Australian Special Operations Taskforce leadership and staff team.",
 }
 
 

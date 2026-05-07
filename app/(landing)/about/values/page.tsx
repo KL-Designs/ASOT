@@ -7,7 +7,8 @@ import InfoCard from '@/components/info-card'
 
 
 export const metadata: Metadata = {
-	title: "Principles and Values | Australian Special Operations Taskforce"
+	title: "Principles and Values | Australian Special Operations Taskforce",
+	description: "The core principles and values that guide every member of the Australian Special Operations Taskforce.",
 }
 
 

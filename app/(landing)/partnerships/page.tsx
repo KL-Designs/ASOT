@@ -17,6 +17,7 @@ import Img2A from '@/public/images/partners/2AM.png'
 
 export const metadata: Metadata = {
 	title: "Partnerships | Australian Special Operations Taskforce",
+	description: "Community partners and affiliated organisations of the Australian Special Operations Taskforce in the milsim community.",
 }
 
 

@@ -20,7 +20,8 @@ import Image_R from '@/public/images/home/callsigns/R.jpg'
 
 
 export const metadata: Metadata = {
-	title: "Callsigns | Australian Special Operations Taskforce"
+	title: "Callsigns | Australian Special Operations Taskforce",
+	description: "Browse the callsign registry of the Australian Special Operations Taskforce — designations and roles within our unit.",
 }
 
 

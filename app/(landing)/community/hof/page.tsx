@@ -1,6 +1,12 @@
+import type { Metadata } from 'next'
 import Image, { StaticImageData } from 'next/image'
 
 import { Divider, Typography } from '@mui/material'
+
+export const metadata: Metadata = {
+	title: "Hall of Fame | Australian Special Operations Taskforce",
+	description: "Recognising distinguished service and outstanding contributions to the Australian Special Operations Taskforce.",
+}
 import { EmojiEvents, CalendarMonth, MilitaryTech } from '@mui/icons-material'
 
 import FallbackPfp from '@/public/images/fallback_pfp.png'

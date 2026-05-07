@@ -14,7 +14,8 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 
 export const metadata: Metadata = {
-	title: "ORBAT | Australian Special Operations Taskforce"
+	title: "ORBAT | Australian Special Operations Taskforce",
+	description: "View the current Order of Battle (ORBAT) for the Australian Special Operations Taskforce — unit structure and active personnel.",
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
