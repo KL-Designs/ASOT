@@ -13,13 +13,13 @@ import {
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
-import type { CreditContributor } from '@/app/api/credits/route'
+import type { CreditContributor, CreditThanks, CreditsResponse } from '@/app/api/credits/route'
 
 
 export default function CreditsModal() {
     const [open, setOpen]         = useState(false)
     const [loading, setLoading]   = useState(false)
-    const [data, setData]         = useState<CreditContributor[] | null>(null)
+    const [data, setData]         = useState<CreditsResponse | null>(null)
     const fetched                 = useRef(false)
 
     const handleOpen = useCallback(async () => {
@@ -28,7 +28,7 @@ export default function CreditsModal() {
         setLoading(true)
         try {
             const res = await fetch('/api/credits')
-            const json: CreditContributor[] = await res.json()
+            const json: CreditsResponse = await res.json()
             setData(json)
             fetched.current = true
         } finally {
@@ -155,7 +155,7 @@ export default function CreditsModal() {
                     )}
 
                     {!loading && data && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
 
                             {/* Intro */}
                             <div style={{ textAlign: 'center', maxWidth: 500, margin: '0 auto' }}>
@@ -170,16 +170,40 @@ export default function CreditsModal() {
                                 </Typography>
                             </div>
 
-                            {/* Cards */}
+                            {/* Contributor cards */}
                             <div style={{
                                 display: 'grid',
                                 gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
                                 gap: 16,
                             }}>
-                                {data.map((c, index) => (
+                                {data.contributors.map((c, index) => (
                                     <ContributorCard key={c.id} contributor={c} index={index} />
                                 ))}
                             </div>
+
+                            {/* Special Thanks */}
+                            {data.thanks.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textAlign: 'center' }}>
+                                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', color: 'rgba(219,0,29,0.5)', textTransform: 'uppercase' }}>
+                                            Honourable Mentions
+                                        </div>
+                                        <div style={{ fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
+                                            Special Thanks
+                                        </div>
+                                        <div style={{ height: 1, width: 40, background: 'rgba(219,0,29,0.2)' }} />
+                                    </div>
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                                        gap: 10,
+                                    }}>
+                                        {data.thanks.map(t => (
+                                            <ThanksCard key={t.id} thanks={t} />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                         </div>
                     )}
@@ -341,6 +365,46 @@ function ContributorCard({ contributor: c, index }: { contributor: CreditContrib
                         {c.qualCount > 0 && <Stat label='Quals' value={c.qualCount} />}
                     </div>
                 )}
+            </div>
+        </div>
+    )
+}
+
+
+function ThanksCard({ thanks: t }: { thanks: CreditThanks }) {
+    return (
+        <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '10px 14px',
+            border: '1px solid rgba(255,255,255,0.05)',
+            borderLeft: `2px solid ${t.accent}60`,
+            background: 'rgba(255,255,255,0.01)',
+        }}>
+            <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
+                <Image
+                    src={t.avatarURL}
+                    alt={t.name}
+                    fill
+                    className='rounded-full object-cover'
+                    style={{ outline: `2px solid ${t.accent}44`, outlineOffset: 2 }}
+                />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                    {t.rankAbbr && (
+                        <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', color: t.accent, textTransform: 'uppercase' }}>
+                            {t.rankAbbr}
+                        </span>
+                    )}
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.75)' }}>
+                        {t.name}
+                    </span>
+                </div>
+                <span style={{ fontSize: '0.68rem', lineHeight: 1.6, color: 'rgba(237,237,237,0.32)' }}>
+                    {t.reason}
+                </span>
             </div>
         </div>
     )

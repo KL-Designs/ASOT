@@ -4,9 +4,7 @@ import Image from 'next/image'
 import { Typography } from '@mui/material'
 
 import Container from '@/components/container'
-import Db from '@/lib/mongo'
-import { getOrbatEntriesForUsers } from '@/lib/orbat'
-import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
+import { getCreditsData } from '@/app/api/credits/route'
 
 import BannerImg from '@/public/images/home/3DMA_Final2.png'
 
@@ -17,33 +15,10 @@ export const metadata: Metadata = {
 }
 
 
-const CONTRIBUTOR_ORDER = ['240786290600181761', '224086573560365057', '683343114865606686']
-
-const CONTRIBUTIONS: Record<string, { title: string; description: string }> = {
-    '240786290600181761': {
-        title: 'Website Developer',
-        description: 'Designed and built the underlying systems and architecture of the ASOT platform - from the operations management tools and ORBAT editor to the collaborative briefing system, milpac pipeline, and the overall site design.',
-    },
-    '224086573560365057': {
-        title: 'Founder & Departments Developer',
-        description: 'Creator and owner of ASOT, and the driving force behind the unit itself. Also built the departments dashboard and most of its core functionality, giving leadership the tools they need to effectively manage unit administration.',
-    },
-    '683343114865606686': {
-        title: 'MILPAC Systems Architect',
-        description: 'Original creator of the MILPAC system, designing and building the uniform generator, promotion certificates, and award certificates used by the unit.',
-    },
-}
-
-
 export default async function Page() {
     await connection()
 
-    const users = await Db.users.find({ _id: { $in: CONTRIBUTOR_ORDER } }).toArray()
-    const orbatEntries = await getOrbatEntriesForUsers(CONTRIBUTOR_ORDER)
-
-    const sorted = CONTRIBUTOR_ORDER
-        .map(id => users.find(u => u._id === id))
-        .filter((u): u is NonNullable<typeof u> => !!u)
+    const { contributors, thanks } = await getCreditsData()
 
     return (
         <Container
@@ -73,215 +48,315 @@ export default async function Page() {
 
             {/* Contributor cards */}
             <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
-                {sorted.map((user, index) => {
-                    const orbatEntry = orbatEntries[user._id] ?? null
-                    const { name, fullRank, rankAbbr, accent } = resolveMilpacProfile(user as unknown as User, orbatEntry)
-                    const contrib = CONTRIBUTIONS[user._id]
-
-                    const awardsCount  = user.milpac?.awards?.length ?? 0
-                    const promoCount   = user.milpac?.promotions?.length ?? 0
-                    const qualCount    = user.milpac?.qualifications?.length ?? 0
-                    const hasStats     = awardsCount > 0 || promoCount > 0 || qualCount > 0
-
-                    return (
+                {contributors.map((c, index) => (
+                    <div
+                        key={c.id}
+                        className='flex flex-col overflow-hidden relative'
+                        style={{
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            borderTop: `3px solid ${c.accent}`,
+                            background: '#0c0c0c',
+                        }}
+                    >
+                        {/* Faint index number watermark */}
                         <div
-                            key={user._id}
-                            className='flex flex-col overflow-hidden relative'
+                            aria-hidden
                             style={{
-                                border: '1px solid rgba(255,255,255,0.06)',
-                                borderTop: `3px solid ${accent}`,
-                                background: '#0c0c0c',
+                                position: 'absolute',
+                                top: '50%',
+                                right: '-0.05em',
+                                transform: 'translateY(-50%)',
+                                fontSize: '14rem',
+                                fontWeight: 900,
+                                color: 'rgba(237,237,237,0.025)',
+                                lineHeight: 1,
+                                fontFamily: 'Montserrat, sans-serif',
+                                letterSpacing: '-0.05em',
+                                pointerEvents: 'none',
+                                userSelect: 'none',
+                                zIndex: 0,
                             }}
                         >
-                            {/* Faint index number watermark */}
-                            <div
-                                aria-hidden
-                                style={{
-                                    position: 'absolute',
-                                    top: '50%',
-                                    right: '-0.05em',
-                                    transform: 'translateY(-50%)',
-                                    fontSize: '14rem',
-                                    fontWeight: 900,
-                                    color: 'rgba(237,237,237,0.025)',
-                                    lineHeight: 1,
-                                    fontFamily: 'Montserrat, sans-serif',
-                                    letterSpacing: '-0.05em',
-                                    pointerEvents: 'none',
-                                    userSelect: 'none',
-                                    zIndex: 0,
-                                }}
-                            >
-                                {String(index + 1).padStart(2, '0')}
+                            {String(index + 1).padStart(2, '0')}
+                        </div>
+
+                        {/* Top — avatar section */}
+                        <div
+                            className='relative z-10 flex flex-col items-center gap-4 px-6 pt-8 pb-6'
+                            style={{
+                                background: `radial-gradient(ellipse at 50% 0%, ${c.accent}14 0%, transparent 65%)`,
+                                borderBottom: '1px solid rgba(255,255,255,0.05)',
+                            }}
+                        >
+                            {/* Avatar */}
+                            <div className='relative shrink-0' style={{ width: 96, height: 96 }}>
+                                <Image
+                                    src={c.avatarURL}
+                                    alt={c.name}
+                                    fill
+                                    className='rounded-full object-cover'
+                                    style={{
+                                        outline: `3px solid ${c.accent}66`,
+                                        outlineOffset: 4,
+                                        boxShadow: `0 0 28px ${c.accent}28`,
+                                    }}
+                                />
                             </div>
 
-                            {/* Top — avatar section */}
-                            <div
-                                className='relative z-10 flex flex-col items-center gap-4 px-6 pt-8 pb-6'
-                                style={{
-                                    background: `radial-gradient(ellipse at 50% 0%, ${accent}14 0%, transparent 65%)`,
-                                    borderBottom: '1px solid rgba(255,255,255,0.05)',
-                                }}
-                            >
-                                {/* Avatar */}
-                                <div className='relative shrink-0' style={{ width: 96, height: 96 }}>
-                                    <Image
-                                        src={user.avatarURL || '/images/fallback_pfp.png'}
-                                        alt={name}
-                                        fill
-                                        className='rounded-full object-cover'
-                                        style={{
-                                            outline: `3px solid ${accent}66`,
-                                            outlineOffset: 4,
-                                            boxShadow: `0 0 28px ${accent}28`,
-                                        }}
-                                    />
-                                </div>
-
-                                {/* Name block */}
-                                <div className='flex flex-col items-center gap-1 text-center'>
-                                    {rankAbbr && (
-                                        <div style={{
-                                            fontSize: '0.63rem',
-                                            fontWeight: 700,
-                                            letterSpacing: '0.24em',
-                                            color: accent,
-                                            textTransform: 'uppercase',
-                                        }}>
-                                            {rankAbbr}
-                                        </div>
-                                    )}
-                                    <h3 style={{
-                                        fontSize: 'clamp(1.3rem, 3vw, 1.6rem)',
-                                        fontWeight: 800,
-                                        letterSpacing: '0.06em',
-                                        margin: 0,
+                            {/* Name block */}
+                            <div className='flex flex-col items-center gap-1 text-center'>
+                                {c.rankAbbr && (
+                                    <div style={{
+                                        fontSize: '0.63rem',
+                                        fontWeight: 700,
+                                        letterSpacing: '0.24em',
+                                        color: c.accent,
                                         textTransform: 'uppercase',
-                                        color: 'rgba(237,237,237,0.95)',
-                                        lineHeight: 1.15,
                                     }}>
-                                        {name}
-                                    </h3>
-                                    {fullRank && fullRank !== rankAbbr && (
-                                        <div style={{
-                                            fontSize: '0.66rem',
-                                            letterSpacing: '0.14em',
-                                            color: 'rgba(237,237,237,0.28)',
-                                            textTransform: 'uppercase',
-                                        }}>
-                                            {fullRank}
-                                        </div>
-                                    )}
-                                </div>
+                                        {c.rankAbbr}
+                                    </div>
+                                )}
+                                <h3 style={{
+                                    fontSize: 'clamp(1.3rem, 3vw, 1.6rem)',
+                                    fontWeight: 800,
+                                    letterSpacing: '0.06em',
+                                    margin: 0,
+                                    textTransform: 'uppercase',
+                                    color: 'rgba(237,237,237,0.95)',
+                                    lineHeight: 1.15,
+                                }}>
+                                    {c.name}
+                                </h3>
+                                {c.fullRank && c.fullRank !== c.rankAbbr && (
+                                    <div style={{
+                                        fontSize: '0.66rem',
+                                        letterSpacing: '0.14em',
+                                        color: 'rgba(237,237,237,0.28)',
+                                        textTransform: 'uppercase',
+                                    }}>
+                                        {c.fullRank}
+                                    </div>
+                                )}
+                            </div>
 
-                                {/* ORBAT entry */}
-                                {orbatEntry && (
-                                    <div className='flex flex-col items-center gap-[5px] text-center w-full'>
-                                        <div style={{ height: 1, width: 36, background: `${accent}50`, marginBottom: 2 }} />
-                                        <div style={{
-                                            fontSize: '0.63rem',
-                                            fontWeight: 700,
-                                            letterSpacing: '0.2em',
-                                            color: `${accent}cc`,
-                                            textTransform: 'uppercase',
-                                        }}>
-                                            {orbatEntry.role}
-                                        </div>
+                            {/* ORBAT entry */}
+                            {c.orbatRole && (
+                                <div className='flex flex-col items-center gap-[5px] text-center w-full'>
+                                    <div style={{ height: 1, width: 36, background: `${c.accent}50`, marginBottom: 2 }} />
+                                    <div style={{
+                                        fontSize: '0.63rem',
+                                        fontWeight: 700,
+                                        letterSpacing: '0.2em',
+                                        color: `${c.accent}cc`,
+                                        textTransform: 'uppercase',
+                                    }}>
+                                        {c.orbatRole}
+                                    </div>
+                                    {c.orbatSection && (
                                         <div style={{
                                             fontSize: '0.6rem',
                                             letterSpacing: '0.12em',
                                             color: 'rgba(237,237,237,0.2)',
                                             textTransform: 'uppercase',
                                         }}>
-                                            {orbatEntry.section}
+                                            {c.orbatSection}
                                         </div>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Bottom — contribution */}
+                        <div className='relative z-10 flex flex-col gap-3 p-5 flex-1'>
+                            <div>
+                                <div style={{
+                                    fontSize: '0.58rem',
+                                    fontWeight: 700,
+                                    letterSpacing: '0.24em',
+                                    color: 'rgba(219,0,29,0.6)',
+                                    textTransform: 'uppercase',
+                                    marginBottom: 4,
+                                }}>
+                                    Contribution
+                                </div>
+                                <div style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    letterSpacing: '0.14em',
+                                    color: c.accent,
+                                    textTransform: 'uppercase',
+                                    marginBottom: 10,
+                                }}>
+                                    {c.title}
+                                </div>
+                                <p style={{
+                                    fontSize: '0.78rem',
+                                    lineHeight: 1.8,
+                                    color: 'rgba(237,237,237,0.45)',
+                                    margin: 0,
+                                }}>
+                                    {c.description}
+                                </p>
                             </div>
 
-                            {/* Bottom — contribution */}
-                            <div className='relative z-10 flex flex-col gap-3 p-5 flex-1'>
-                                <div>
-                                    <div style={{
-                                        fontSize: '0.58rem',
-                                        fontWeight: 700,
-                                        letterSpacing: '0.24em',
-                                        color: 'rgba(219,0,29,0.6)',
-                                        textTransform: 'uppercase',
-                                        marginBottom: 4,
-                                    }}>
-                                        Contribution
-                                    </div>
-                                    <div style={{
-                                        fontSize: '0.68rem',
-                                        fontWeight: 700,
-                                        letterSpacing: '0.14em',
-                                        color: accent,
-                                        textTransform: 'uppercase',
-                                        marginBottom: 10,
-                                    }}>
-                                        {contrib?.title ?? '—'}
-                                    </div>
-                                    <p style={{
-                                        fontSize: '0.78rem',
-                                        lineHeight: 1.8,
-                                        color: 'rgba(237,237,237,0.45)',
-                                        margin: 0,
-                                    }}>
-                                        {contrib?.description ?? ''}
-                                    </p>
+                            {/* Milpac stats */}
+                            {(c.promoCount > 0 || c.awardsCount > 0 || c.qualCount > 0) && (
+                                <div
+                                    className='flex gap-5 mt-auto pt-4'
+                                    style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
+                                >
+                                    {c.promoCount > 0 && (
+                                        <div className='flex flex-col gap-[2px]'>
+                                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'rgba(237,237,237,0.65)', lineHeight: 1 }}>
+                                                {c.promoCount}
+                                            </span>
+                                            <span style={{ fontSize: '0.58rem', letterSpacing: '0.14em', color: 'rgba(237,237,237,0.22)', textTransform: 'uppercase' }}>
+                                                Promotions
+                                            </span>
+                                        </div>
+                                    )}
+                                    {c.awardsCount > 0 && (
+                                        <div className='flex flex-col gap-[2px]'>
+                                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'rgba(237,237,237,0.65)', lineHeight: 1 }}>
+                                                {c.awardsCount}
+                                            </span>
+                                            <span style={{ fontSize: '0.58rem', letterSpacing: '0.14em', color: 'rgba(237,237,237,0.22)', textTransform: 'uppercase' }}>
+                                                Awards
+                                            </span>
+                                        </div>
+                                    )}
+                                    {c.qualCount > 0 && (
+                                        <div className='flex flex-col gap-[2px]'>
+                                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'rgba(237,237,237,0.65)', lineHeight: 1 }}>
+                                                {c.qualCount}
+                                            </span>
+                                            <span style={{ fontSize: '0.58rem', letterSpacing: '0.14em', color: 'rgba(237,237,237,0.22)', textTransform: 'uppercase' }}>
+                                                Quals
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
 
-                                {/* Milpac stats */}
-                                {hasStats && (
-                                    <div
-                                        className='flex gap-5 mt-auto pt-4'
-                                        style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
-                                    >
-                                        {promoCount > 0 && (
-                                            <div className='flex flex-col gap-[2px]'>
-                                                <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'rgba(237,237,237,0.65)', lineHeight: 1 }}>
-                                                    {promoCount}
-                                                </span>
-                                                <span style={{ fontSize: '0.58rem', letterSpacing: '0.14em', color: 'rgba(237,237,237,0.22)', textTransform: 'uppercase' }}>
-                                                    Promotions
-                                                </span>
-                                            </div>
-                                        )}
-                                        {awardsCount > 0 && (
-                                            <div className='flex flex-col gap-[2px]'>
-                                                <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'rgba(237,237,237,0.65)', lineHeight: 1 }}>
-                                                    {awardsCount}
-                                                </span>
-                                                <span style={{ fontSize: '0.58rem', letterSpacing: '0.14em', color: 'rgba(237,237,237,0.22)', textTransform: 'uppercase' }}>
-                                                    Awards
-                                                </span>
-                                            </div>
-                                        )}
-                                        {qualCount > 0 && (
-                                            <div className='flex flex-col gap-[2px]'>
-                                                <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'rgba(237,237,237,0.65)', lineHeight: 1 }}>
-                                                    {qualCount}
-                                                </span>
-                                                <span style={{ fontSize: '0.58rem', letterSpacing: '0.14em', color: 'rgba(237,237,237,0.22)', textTransform: 'uppercase' }}>
-                                                    Quals
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+            {/* Special Thanks */}
+            <div className='flex flex-col gap-6'>
+                <div className='flex flex-col items-center gap-3 text-center'>
+                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.22em', color: 'rgba(219,0,29,0.5)', textTransform: 'uppercase' }}>
+                        Honourable Mentions
+                    </div>
+                    <h2 style={{ fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', margin: 0, color: 'rgba(237,237,237,0.6)' }}>
+                        Special Thanks
+                    </h2>
+                    <div style={{ height: 1, width: 60, background: 'rgba(219,0,29,0.2)' }} />
+                </div>
+
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                    {thanks.map(t => (
+                        <div
+                            key={t.id}
+                            className='flex items-start gap-4 p-4'
+                            style={{
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                borderLeft: `2px solid ${t.accent}60`,
+                                background: 'rgba(255,255,255,0.01)',
+                            }}
+                        >
+                            <div className='relative shrink-0' style={{ width: 44, height: 44 }}>
+                                <Image
+                                    src={t.avatarURL}
+                                    alt={t.name}
+                                    fill
+                                    className='rounded-full object-cover'
+                                    style={{ outline: `2px solid ${t.accent}44`, outlineOffset: 2 }}
+                                />
+                            </div>
+                            <div className='flex flex-col gap-1 min-w-0'>
+                                <div className='flex items-baseline gap-2 flex-wrap'>
+                                    {t.rankAbbr && (
+                                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em', color: t.accent, textTransform: 'uppercase' }}>
+                                            {t.rankAbbr}
+                                        </span>
+                                    )}
+                                    <span style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.8)' }}>
+                                        {t.name}
+                                    </span>
+                                </div>
+                                <p style={{ fontSize: '0.72rem', lineHeight: 1.7, color: 'rgba(237,237,237,0.38)', margin: 0 }}>
+                                    {t.reason}
+                                </p>
                             </div>
                         </div>
-                    )
-                })}
+                    ))}
+                </div>
             </div>
 
             {/* Built-with footer note */}
-            <div className='flex flex-col items-center gap-3 text-center'>
+            <div className='flex flex-col items-center gap-5 text-center'>
                 <div style={{ height: 1, width: 60, background: 'rgba(219,0,29,0.2)', margin: '0 auto' }} />
-                <Typography style={{ fontSize: '0.65rem', letterSpacing: '0.18em', color: 'rgba(237,237,237,0.15)', textTransform: 'uppercase' }}>
-                    Built with Next.js 15, MongoDB &amp; Discord OAuth
-                </Typography>
+
+                <div className='flex flex-col items-center gap-4 w-full'>
+                    {/* Stack */}
+                    <div className='flex flex-col items-center gap-2'>
+                        <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', color: 'rgba(237,237,237,0.12)', textTransform: 'uppercase' }}>
+                            Stack
+                        </span>
+                        <div className='flex flex-wrap justify-center gap-2'>
+                            {['Next.js 15', 'React 19', 'TypeScript', 'MongoDB', 'Tailwind CSS', 'Material UI', 'Discord OAuth'].map(item => (
+                                <span key={item} style={{
+                                    fontSize: '0.6rem',
+                                    fontWeight: 600,
+                                    letterSpacing: '0.12em',
+                                    textTransform: 'uppercase',
+                                    color: 'rgba(237,237,237,0.2)',
+                                    background: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.07)',
+                                    padding: '3px 10px',
+                                }}>
+                                    {item}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div style={{ height: 1, width: 40, background: 'rgba(255,255,255,0.05)' }} />
+
+                    {/* Custom systems */}
+                    <div className='flex flex-col items-center gap-2'>
+                        <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', color: 'rgba(237,237,237,0.12)', textTransform: 'uppercase' }}>
+                            Systems
+                        </span>
+                        <div className='flex flex-wrap justify-center gap-2'>
+                            {[
+                                'MILPAC Pipeline',
+                                'ORBAT System',
+                                'Operations Board',
+                                'Collaborative Briefing',
+                                'Interactive Maps',
+                                'Certificate Generator',
+                                'TeamSpeak Integration',
+                                'Real-time Sync',
+                                'Gallery & SotM',
+                            ].map(item => (
+                                <span key={item} style={{
+                                    fontSize: '0.6rem',
+                                    fontWeight: 600,
+                                    letterSpacing: '0.12em',
+                                    textTransform: 'uppercase',
+                                    color: 'rgba(237,237,237,0.15)',
+                                    background: 'rgba(255,255,255,0.02)',
+                                    border: '1px solid rgba(255,255,255,0.05)',
+                                    padding: '3px 10px',
+                                }}>
+                                    {item}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </Container>
