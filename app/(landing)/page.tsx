@@ -140,12 +140,12 @@ export default function Page() {
 
 				<div className='h-full flex flex-col items-center justify-center gap-6 px-6 relative' style={{ opacity: gameActive ? 0 : 1, transition: 'opacity 0.6s ease', pointerEvents: gameActive ? 'none' : 'auto' }}>
 					<div className='relative w-full max-w-[800px]' style={{ height: 'clamp(160px, 24vw, 340px)' }}>
-						<Image src={LargeLogo} alt='ASOT Logo' fill className='object-contain object-center' />
+						<Image src={LargeLogo} alt='ASOT Logo' fill className='object-contain object-center' style={{ filter: 'drop-shadow(15px 40px 6px rgba(0,0,0,0.5))' }} />
 					</div>
 
 					<div className='flex flex-col items-center gap-2'>
 						<div style={{ height: 2, width: 48, background: 'var(--red)' }} />
-						<p style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.22em', color: 'rgba(237,237,237,0.92)', textTransform: 'uppercase', margin: 0 }}>
+						<p style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.22em', color: 'rgba(237,237,237,0.92)', textTransform: 'uppercase', margin: 0, filter: 'drop-shadow(10px 20px 3px rgba(0,0,0,0.3))' }}>
 							Oceania&apos;s Largest ARMA 3 Milsim Unit
 						</p>
 						<div style={{ height: 2, width: 48, background: 'var(--red)' }} />
