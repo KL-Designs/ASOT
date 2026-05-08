@@ -113,6 +113,7 @@ export default function Page() {
 					: <Image src={Banner} alt='Banner' fill className='object-cover object-center' />
 				}
 				<div className='absolute inset-0' style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.1) 50%, rgba(10,10,10,0.95) 100%)' }} />
+				<MilitaryGrid />
 				<div className='absolute inset-0' style={{ background: 'rgba(0,0,0,0.45)', opacity: gameActive ? 1 : 0, transition: 'opacity 0.7s ease', pointerEvents: 'none', zIndex: 1 }} />
 				<FireEmbers />
 				<PhysicsGame onActivate={() => setGameActive(true)} onGameOver={handleGameOver} onRestart={() => setGameDead(false)} active={gameActive} personalBest={personalBest} globalBest={globalBest} globalBestName={globalBestName} liveUserId={currentUser?.id} liveAccentColor={currentUser?.hexAccentColor} />
