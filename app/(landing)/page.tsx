@@ -164,7 +164,8 @@ export default function Page() {
 
 				<div className='h-full flex flex-col items-center justify-center gap-6 px-6 relative' style={{ opacity: gameActive ? 0 : 1, transition: 'opacity 0.6s ease', pointerEvents: gameActive ? 'none' : 'auto' }}>
 					<div className='relative w-full max-w-[800px]' style={{ height: 'clamp(160px, 24vw, 340px)' }}>
-						<Image src={LargeLogo} alt='ASOT Logo' fill className='object-contain object-center' style={{ filter: 'drop-shadow(15px 40px 6px rgba(0,0,0,0.5))' }} />
+						<style>{`@keyframes logoBob { 0%, 100% { transform: translateY(0px); filter: drop-shadow(10px 15px 5px rgba(0,0,0,0.65)); } 50% { transform: translateY(-7px); filter: drop-shadow(15px 25px 10px rgba(0,0,0,0.5)); } }`}</style>
+						<Image src={LargeLogo} alt='ASOT Logo' fill className='object-contain object-center' style={{ animation: 'logoBob 6s ease-in-out infinite' }} />
 					</div>
 
 					<div className='flex flex-col items-center gap-2'>
