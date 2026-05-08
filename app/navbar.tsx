@@ -112,6 +112,7 @@ export default function Navbar() {
                     backgroundColor: scrolled ? 'rgba(10,10,10,0.82)' : 'var(--background)',
                     backdropFilter: scrolled ? 'blur(16px)' : 'none',
                     WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none',
+                    boxShadow: '0 0.65rem 10px rgba(0,0,0,0.5)',
                     transition: 'background-color 0.3s ease, backdrop-filter 0.3s ease',
                 }}
             >
