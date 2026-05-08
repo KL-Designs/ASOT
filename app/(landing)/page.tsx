@@ -37,6 +37,7 @@ export default function Page() {
 	const [currentUser, setCurrentUser] = useState<User | null>(null)
 	const [scoreboardKey, setScoreboardKey] = useState(0)
 	const [gameDead, setGameDead] = useState(false)
+	const [showEnlistHint, setShowEnlistHint] = useState(false)
 	const [lastScore, setLastScore] = useState<{ score: number; collectScore: number } | undefined>(undefined)
 	const [globalBest, setGlobalBest]       = useState<number | undefined>(undefined)
 	const [globalBestName, setGlobalBestName] = useState<string | undefined>(undefined)
@@ -97,6 +98,7 @@ export default function Page() {
 				const tx = -(dx / dist) * force * 500
 				const ty = -(dy / dist) * force * 500
 				enlistRef.current.style.transform = `translate(${tx}px, ${ty}px)`
+				setShowEnlistHint(true)
 			} else {
 				enlistRef.current.style.transform = 'translate(0,0)'
 			}
@@ -190,32 +192,39 @@ export default function Page() {
 							</Button>
 						</Link>
 						{/* <Link href='/join'> */}
-							<div ref={enlistRef} style={{ display: 'inline-block', transition: 'transform 0.08s ease-out' }}>
-							<Button
-								variant='contained'
-								size='large'
-								endIcon={<ChevronRight />}
-								sx={{
-									'@keyframes enlistPulse': {
-										'0%': { boxShadow: '0 0 0 0 rgba(219,0,29,0.7), 0 0 12px rgba(219,0,29,0.4)' },
-										'70%': { boxShadow: '0 0 0 12px rgba(219,0,29,0), 0 0 18px rgba(219,0,29,0.15)' },
-										'100%': { boxShadow: '0 0 0 0 rgba(219,0,29,0), 0 0 12px rgba(219,0,29,0.4)' },
-									},
-									background: 'var(--red)',
-									fontWeight: 800,
-									letterSpacing: '0.15em',
-									animation: 'enlistPulse 2s ease-in-out infinite',
-									'&:hover': {
-										background: 'rgba(219,0,29,0.85)',
-										transform: 'translateY(-1px)',
-										boxShadow: '0 0 24px rgba(219,0,29,0.6)',
-									},
-									transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-								}}
-								onClick={() => {alert('This system is not live yet, please apply through discord')}}
-							>
-								ENLIST NOW
-							</Button>
+							<div style={{ position: 'relative', display: 'inline-block' }}>
+								{showEnlistHint && (
+									<span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.6)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+										← Just Join through Discord
+									</span>
+								)}
+								<div ref={enlistRef} style={{ display: 'inline-block', transition: 'transform 0.08s ease-out' }}>
+									<Button
+										variant='contained'
+										size='large'
+										endIcon={<ChevronRight />}
+										sx={{
+											'@keyframes enlistPulse': {
+												'0%': { boxShadow: '0 0 0 0 rgba(219,0,29,0.7), 0 0 12px rgba(219,0,29,0.4)' },
+												'70%': { boxShadow: '0 0 0 12px rgba(219,0,29,0), 0 0 18px rgba(219,0,29,0.15)' },
+												'100%': { boxShadow: '0 0 0 0 rgba(219,0,29,0), 0 0 12px rgba(219,0,29,0.4)' },
+											},
+											background: 'var(--red)',
+											fontWeight: 800,
+											letterSpacing: '0.15em',
+											animation: 'enlistPulse 2s ease-in-out infinite',
+											'&:hover': {
+												background: 'rgba(219,0,29,0.85)',
+												transform: 'translateY(-1px)',
+												boxShadow: '0 0 24px rgba(219,0,29,0.6)',
+											},
+											transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+										}}
+										onClick={() => {}}
+									>
+										ENLIST NOW
+									</Button>
+								</div>
 							</div>
 						{/* </Link> */}
 					</div>
