@@ -30,7 +30,8 @@ import MilitaryGrid from '@/components/military-grid'
 
 export default function Page() {
 
-	const ref = useRef<HTMLDivElement>(null)
+	const ref       = useRef<HTMLDivElement>(null)
+	const enlistRef = useRef<HTMLDivElement>(null)
 	const [keys, setKeys] = useState<string>('')
 	const [gameActive, setGameActive] = useState(false)
 	const [currentUser, setCurrentUser] = useState<User | null>(null)
@@ -80,6 +81,29 @@ export default function Page() {
 				setPersonalBest(mine?.total)
 			}).catch(() => {})
 	}, [currentUser, scoreboardKey])
+
+	useEffect(() => {
+		const onMove = (e: MouseEvent) => {
+			if (!enlistRef.current) return
+			const rect = enlistRef.current.getBoundingClientRect()
+			const cx = rect.left + rect.width / 2
+			const cy = rect.top + rect.height / 2
+			const dx = e.clientX - cx
+			const dy = e.clientY - cy
+			const dist = Math.hypot(dx, dy)
+			const threshold = 180
+			if (dist < threshold) {
+				const force = (1 - dist / threshold) ** 0.7
+				const tx = -(dx / dist) * force * 500
+				const ty = -(dy / dist) * force * 500
+				enlistRef.current.style.transform = `translate(${tx}px, ${ty}px)`
+			} else {
+				enlistRef.current.style.transform = 'translate(0,0)'
+			}
+		}
+		window.addEventListener('mousemove', onMove, { passive: true })
+		return () => window.removeEventListener('mousemove', onMove)
+	}, [])
 
 	function handleGameOver(score: number, collectScore: number) {
 		setLastScore({ score, collectScore })
@@ -165,6 +189,7 @@ export default function Page() {
 							</Button>
 						</Link>
 						{/* <Link href='/join'> */}
+							<div ref={enlistRef} style={{ display: 'inline-block', transition: 'transform 0.08s ease-out' }}>
 							<Button
 								variant='contained'
 								size='large'
@@ -190,6 +215,7 @@ export default function Page() {
 							>
 								ENLIST NOW
 							</Button>
+							</div>
 						{/* </Link> */}
 					</div>
 				</div>
