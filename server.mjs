@@ -446,6 +446,28 @@ async function triggerCalendarRemindersCron() {
 setInterval(triggerCalendarRemindersCron, 60 * 1000)
 triggerCalendarRemindersCron()
 
+// ── Task reminders / overdue / escalation cron (every 1 minute) ──────────────
+
+async function triggerTaskRemindersCron() {
+    try {
+        const res = await fetch(`http://localhost:${port}/api/cron/task-reminders?secret=${process.env.CRON_SECRET}`)
+        if (!res.ok) {
+            console.error(`[cron/task-reminders] HTTP ${res.status} — check CRON_SECRET`)
+            return
+        }
+        const data = await res.json()
+        const { remindersFired, overdueFired, escalationsFired } = data
+        if (remindersFired + overdueFired + escalationsFired > 0) {
+            console.log(`[cron/task-reminders] tick — reminders=${remindersFired} overdue=${overdueFired} escalations=${escalationsFired}`)
+        }
+    } catch (e) {
+        console.error('[cron/task-reminders] Error:', e.message)
+    }
+}
+
+setInterval(triggerTaskRemindersCron, 60 * 1000)
+triggerTaskRemindersCron()
+
 // ── Operations cron (every 1 minute) ─────────────────────────────────────────
 
 async function triggerOperationsCron() {

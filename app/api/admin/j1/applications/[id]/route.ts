@@ -39,7 +39,7 @@ export async function PATCH(
         return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
     }
 
-    const { status, notes, linkedUserId, linkedUserDisplayName, assignedReviewerId, assignedReviewerName, recruiterNote, reviewHours } = body as Record<string, string>
+    const { status, notes, linkedUserId, linkedUserDisplayName, assignedReviewerId, assignedReviewerName, recruiterNote, reviewHours, reviewCustomDate } = body as Record<string, string>
     const validStatuses = ['pending', 'reviewing', 'accepted', 'rejected', 'returned']
 
     if (status && !validStatuses.includes(status)) {
@@ -107,9 +107,18 @@ export async function PATCH(
             update.assignedByLeadName = displayName
             // Auto-advance to reviewing when recruiter is assigned
             if (app.status === 'pending') update.status = 'reviewing'
-            // Set due date from reviewHours (default 72)
-            const hours = Math.min(Math.max(Number(reviewHours) || 72, 1), 720)
-            update.reviewDueAt = new Date(Date.now() + hours * 60 * 60 * 1000)
+            // Set due date: custom datetime takes priority over hours
+            if (reviewCustomDate) {
+                const customDate = new Date(reviewCustomDate)
+                if (!isNaN(customDate.getTime()) && customDate > new Date()) {
+                    update.reviewDueAt = customDate
+                } else {
+                    return NextResponse.json({ error: 'Custom deadline must be a valid future date.' }, { status: 400 })
+                }
+            } else {
+                const hours = Math.min(Math.max(Number(reviewHours) || 72, 1), 720)
+                update.reviewDueAt = new Date(Date.now() + hours * 60 * 60 * 1000)
+            }
         }
     }
 

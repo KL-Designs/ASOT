@@ -8,14 +8,19 @@ import {
     sendTaskExtensionRequestDM,
     sendTaskExtensionApprovedDM,
     sendTaskExtensionDeniedDM,
+    sendTaskExtensionAlternativeDM,
+    sendTaskReassignmentRequestDM,
+    sendTaskReassignmentOutcomeDM,
+    sendTaskDeleteRequestDM,
+    sendTaskDeleteOutcomeDM,
 } from '@/lib/discord/bot'
 
+/** Deep-link URL for a specific task — opens My Tasks tab and expands the task. */
+function taskUrl(taskId: string) {
+    return `/dashboard/tasks?taskId=${taskId}`
+}
+
 // PATCH /api/admin/tasks/[id]
-// Actions:
-//   { action: 'complete', notes?: string }
-//   { action: 'extend', dueDate: string }
-//   { action: 'start' }
-//   { action: 'reopen' }
 export async function PATCH(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -40,6 +45,7 @@ export async function PATCH(
     const body = await req.json()
     const { action } = body
 
+    // ── complete ──────────────────────────────────────────────────────────────
     if (action === 'complete') {
         await Db.tasks.updateOne(
             { _id: new ObjectId(id) },
@@ -52,7 +58,7 @@ export async function PATCH(
                 type: 'task_completed',
                 title: 'Task completed',
                 body: task.title,
-                actionUrl: '/admin/tasks',
+                actionUrl: taskUrl(id),
                 relatedId: id,
             })
         }
@@ -60,6 +66,7 @@ export async function PATCH(
         return NextResponse.json({ ok: true })
     }
 
+    // ── extend (creator extends due date directly) ────────────────────────────
     if (action === 'extend') {
         const { dueDate } = body
         if (!dueDate) return NextResponse.json({ error: 'dueDate is required' }, { status: 400 })
@@ -78,13 +85,14 @@ export async function PATCH(
             }
         )
 
-        if (task.assignedBy && task.assignedBy !== me.id && task.assignedBy !== 'system') {
+        if (task.assignedTo && task.assignedTo !== me.id) {
+            const dateStr = newDue.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
             await createNotification({
-                userId: task.assignedBy,
+                userId: task.assignedTo,
                 type: 'task_extended',
                 title: 'Task due date extended',
-                body: `"${task.title}" has been extended to ${newDue.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`,
-                actionUrl: '/admin/tasks',
+                body: `"${task.title}" has been extended to ${dateStr}`,
+                actionUrl: taskUrl(id),
                 relatedId: id,
             })
         }
@@ -92,6 +100,7 @@ export async function PATCH(
         return NextResponse.json({ ok: true })
     }
 
+    // ── request_extension ─────────────────────────────────────────────────────
     if (action === 'request_extension') {
         const { requestedDate, reason } = body
         if (!requestedDate) return NextResponse.json({ error: 'requestedDate is required' }, { status: 400 })
@@ -100,8 +109,13 @@ export async function PATCH(
         const newDue = new Date(requestedDate)
         if (isNaN(newDue.getTime())) return NextResponse.json({ error: 'Invalid requestedDate' }, { status: 400 })
 
+        // Must be after current due date
+        if (task.dueDate && newDue <= new Date(task.dueDate)) {
+            return NextResponse.json({ error: 'Requested date must be after the current due date' }, { status: 400 })
+        }
+
         const requesterName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
-        const formattedDate = newDue.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+        const formattedDate = newDue.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
 
         await Db.tasks.updateOne(
             { _id: new ObjectId(id) },
@@ -118,10 +132,10 @@ export async function PATCH(
         )
 
         if (task.assignedBy && task.assignedBy !== 'system') {
-            // Create an extension_review task for the creator so it appears in their My Tasks
+            const reviewTaskUrl = taskUrl(id)
             await Db.tasks.insertOne({
                 title: `Extension request: ${task.title}`,
-                description: `**${requesterName}** has requested a due-date extension.\n\nRequested date: ${formattedDate}\nReason: ${reason.trim()}`,
+                description: `**${requesterName}** has requested a due-date extension.\n\nRequested date/time: ${formattedDate}\nReason: ${reason.trim()}`,
                 type: 'extension_review' as TaskType,
                 assignedTo: task.assignedBy,
                 assignedToName: task.assignedByName,
@@ -137,7 +151,7 @@ export async function PATCH(
                 type: 'task_extension_requested',
                 title: 'Extension request',
                 body: `${requesterName} requested an extension for "${task.title}" to ${formattedDate}`,
-                actionUrl: '/admin/tasks',
+                actionUrl: reviewTaskUrl,
                 relatedId: id,
             })
             sendTaskExtensionRequestDM(
@@ -146,15 +160,19 @@ export async function PATCH(
                 requesterName,
                 formattedDate,
                 reason.trim(),
-                '/admin/tasks',
+                reviewTaskUrl,
             ).catch(() => {})
         }
 
         return NextResponse.json({ ok: true })
     }
 
-    // approve_extension_review / deny_extension_review — called from the extension_review task in My Tasks
-    if (action === 'approve_extension_review' || action === 'deny_extension_review') {
+    // ── approve_extension_review / deny_extension_review / suggest_alternative_review ──
+    if (
+        action === 'approve_extension_review' ||
+        action === 'deny_extension_review' ||
+        action === 'suggest_alternative_review'
+    ) {
         if (!task.relatedId || !ObjectId.isValid(task.relatedId)) {
             return NextResponse.json({ error: 'Invalid relatedId' }, { status: 400 })
         }
@@ -162,152 +180,302 @@ export async function PATCH(
         const originalTask = await Db.tasks.findOne({ _id: new ObjectId(task.relatedId) })
         if (!originalTask) return NextResponse.json({ error: 'Original task not found' }, { status: 404 })
 
-        const req = originalTask.extensionRequest
-        if (!req || req.status !== 'pending') {
+        const extReq = originalTask.extensionRequest
+        if (!extReq || extReq.status !== 'pending') {
             return NextResponse.json({ error: 'No pending extension request on original task' }, { status: 400 })
         }
 
-        if (action === 'approve_extension_review') {
-            const approvedDate = req.requestedDate instanceof Date ? req.requestedDate : new Date(req.requestedDate)
-            const approvedDateStr = approvedDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+        // Delegate to the matching direct action
+        const delegateAction =
+            action === 'approve_extension_review' ? 'approve_extension' :
+            action === 'deny_extension_review'    ? 'deny_extension' :
+                                                    'suggest_alternative'
 
-            await Db.tasks.updateOne(
-                { _id: new ObjectId(task.relatedId) },
-                {
-                    $set: {
-                        dueDate: approvedDate,
-                        extendedAt: new Date(),
-                        'extensionRequest.status': 'approved',
-                        ...(originalTask.originalDueDate ? {} : { originalDueDate: originalTask.dueDate }),
-                    },
-                }
-            )
-
-            if (originalTask.assignedTo) {
-                await createNotification({
-                    userId: originalTask.assignedTo,
-                    type: 'task_extension_approved',
-                    title: 'Extension approved',
-                    body: `Your extension request for "${originalTask.title}" was approved`,
-                    actionUrl: '/admin/tasks',
-                    relatedId: task.relatedId,
-                })
-                sendTaskExtensionApprovedDM(originalTask.assignedTo, originalTask.title, approvedDateStr, '/admin/tasks').catch(() => {})
-            }
-        } else {
-            await Db.tasks.updateOne(
-                { _id: new ObjectId(task.relatedId) },
-                { $set: { 'extensionRequest.status': 'denied' } }
-            )
-
-            if (originalTask.assignedTo) {
-                await createNotification({
-                    userId: originalTask.assignedTo,
-                    type: 'task_extension_denied',
-                    title: 'Extension denied',
-                    body: `Your extension request for "${originalTask.title}" was denied`,
-                    actionUrl: '/admin/tasks',
-                    relatedId: task.relatedId,
-                })
-                sendTaskExtensionDeniedDM(originalTask.assignedTo, originalTask.title, '/admin/tasks').catch(() => {})
-            }
-        }
-
-        // Complete (remove) the review task now that it's been actioned
-        await Db.tasks.deleteOne({ _id: new ObjectId(id) })
-
-        return NextResponse.json({ ok: true })
+        // Forward the same body but with the delegated action and resolved task ID
+        return handleExtensionDecision(delegateAction, task.relatedId, originalTask, body, me, id)
     }
 
-    // approve_extension / deny_extension — direct action from "Created by Me" tab
-    if (action === 'approve_extension') {
+    // ── approve_extension / deny_extension / suggest_alternative ─────────────
+    if (
+        action === 'approve_extension' ||
+        action === 'deny_extension' ||
+        action === 'suggest_alternative'
+    ) {
         if (task.assignedBy !== me.id) {
             const isElevated = client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
             if (!isElevated) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
-        const req = task.extensionRequest
-        if (!req || req.status !== 'pending') {
+        const extReq = task.extensionRequest
+        if (!extReq || extReq.status !== 'pending') {
             return NextResponse.json({ error: 'No pending extension request' }, { status: 400 })
         }
 
-        const approvedDate = req.requestedDate instanceof Date ? req.requestedDate : new Date(req.requestedDate)
-        const approvedDateStr = approvedDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+        return handleExtensionDecision(action, id, task, body, me, null)
+    }
+
+    // ── request_reassignment ──────────────────────────────────────────────────
+    if (action === 'request_reassignment') {
+        const { requestedToId, requestedToName, reason } = body
+        if (!requestedToId?.trim()) return NextResponse.json({ error: 'requestedToId is required' }, { status: 400 })
+        if (!reason?.trim()) return NextResponse.json({ error: 'Reason is required' }, { status: 400 })
+
+        // Only the assignee can request reassignment
+        if (task.assignedTo !== me.id) {
+            return NextResponse.json({ error: 'Only the assigned member can request reassignment' }, { status: 403 })
+        }
+        if (task.reassignmentRequest?.status === 'pending') {
+            return NextResponse.json({ error: 'A reassignment request is already pending' }, { status: 400 })
+        }
+
+        const requesterName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
 
         await Db.tasks.updateOne(
             { _id: new ObjectId(id) },
             {
                 $set: {
-                    dueDate: approvedDate,
-                    extendedAt: new Date(),
-                    'extensionRequest.status': 'approved',
-                    ...(task.originalDueDate ? {} : { originalDueDate: task.dueDate }),
+                    reassignmentRequest: {
+                        requestedToId: requestedToId.trim(),
+                        requestedToName: requestedToName?.trim() ?? requestedToId.trim(),
+                        reason: reason.trim(),
+                        requestedAt: new Date(),
+                        status: 'pending',
+                    },
                 },
             }
         )
 
-        if (task.assignedTo) {
+        if (task.assignedBy && task.assignedBy !== 'system') {
             await createNotification({
-                userId: task.assignedTo,
-                type: 'task_extension_approved',
-                title: 'Extension approved',
-                body: `Your extension request for "${task.title}" was approved`,
-                actionUrl: '/admin/tasks',
+                userId: task.assignedBy,
+                type: 'task_reassignment_requested',
+                title: 'Reassignment request',
+                body: `${requesterName} requested reassignment of "${task.title}" to ${requestedToName ?? requestedToId}`,
+                actionUrl: taskUrl(id),
                 relatedId: id,
             })
-            sendTaskExtensionApprovedDM(task.assignedTo, task.title, approvedDateStr, '/admin/tasks').catch(() => {})
-        }
-
-        // Delete the companion extension_review task if one exists
-        if (task._id) {
-            await Db.tasks.deleteOne({ type: 'extension_review', relatedId: id })
+            sendTaskReassignmentRequestDM(
+                task.assignedBy,
+                task.title,
+                requesterName,
+                requestedToName ?? requestedToId,
+                reason.trim(),
+                taskUrl(id),
+            ).catch(() => {})
         }
 
         return NextResponse.json({ ok: true })
     }
 
-    if (action === 'deny_extension') {
+    // ── approve_reassignment / deny_reassignment / redirect_reassignment ──────
+    if (
+        action === 'approve_reassignment' ||
+        action === 'deny_reassignment' ||
+        action === 'redirect_reassignment'
+    ) {
         if (task.assignedBy !== me.id) {
             const isElevated = client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
             if (!isElevated) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
-        const req = task.extensionRequest
-        if (!req || req.status !== 'pending') {
-            return NextResponse.json({ error: 'No pending extension request' }, { status: 400 })
+        const reassign = task.reassignmentRequest
+        if (!reassign || reassign.status !== 'pending') {
+            return NextResponse.json({ error: 'No pending reassignment request' }, { status: 400 })
         }
 
-        await Db.tasks.updateOne(
-            { _id: new ObjectId(id) },
-            { $set: { 'extensionRequest.status': 'denied' } }
-        )
+        const { approverNote, newAssigneeId, newAssigneeName, newDueDate, newReminderDate } = body
+        const originalAssigneeId = task.assignedTo
+        const originalAssigneeName = task.assignedToName
 
-        if (task.assignedTo) {
+        if (action === 'deny_reassignment') {
+            await Db.tasks.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: { 'reassignmentRequest.status': 'denied', 'reassignmentRequest.approverNote': approverNote ?? '' } }
+            )
+            if (originalAssigneeId) {
+                await createNotification({
+                    userId: originalAssigneeId,
+                    type: 'task_reassignment_denied',
+                    title: 'Reassignment denied',
+                    body: `Your request to reassign "${task.title}" was denied${approverNote ? `: ${approverNote}` : ''}`,
+                    actionUrl: taskUrl(id),
+                    relatedId: id,
+                })
+                sendTaskReassignmentOutcomeDM(originalAssigneeId, task.title, 'denied', approverNote ?? null, null, taskUrl(id)).catch(() => {})
+            }
+            return NextResponse.json({ ok: true })
+        }
+
+        // approve or redirect
+        const finalId   = action === 'redirect_reassignment' ? (newAssigneeId ?? reassign.requestedToId) : reassign.requestedToId
+        const finalName = action === 'redirect_reassignment' ? (newAssigneeName ?? reassign.requestedToName) : reassign.requestedToName
+
+        const updateFields: Record<string, unknown> = {
+            assignedTo:     finalId,
+            assignedToName: finalName,
+            'reassignmentRequest.status':       action === 'redirect_reassignment' ? 'redirected' : 'approved',
+            'reassignmentRequest.approverNote': approverNote ?? '',
+            'reassignmentRequest.finalAssigneeId':   finalId,
+            'reassignmentRequest.finalAssigneeName': finalName,
+        }
+        if (newDueDate) updateFields.dueDate = new Date(newDueDate)
+        if (newReminderDate) updateFields.reminderDateTime = new Date(newReminderDate)
+
+        await Db.tasks.updateOne({ _id: new ObjectId(id) }, { $set: updateFields })
+
+        // Notify original assignee
+        if (originalAssigneeId && originalAssigneeId !== finalId) {
             await createNotification({
-                userId: task.assignedTo,
-                type: 'task_extension_denied',
-                title: 'Extension denied',
-                body: `Your extension request for "${task.title}" was denied`,
-                actionUrl: '/admin/tasks',
+                userId: originalAssigneeId,
+                type: 'task_reassignment_approved',
+                title: 'Task reassigned',
+                body: `"${task.title}" has been reassigned to ${finalName}`,
+                actionUrl: taskUrl(id),
                 relatedId: id,
             })
-            sendTaskExtensionDeniedDM(task.assignedTo, task.title, '/admin/tasks').catch(() => {})
+            sendTaskReassignmentOutcomeDM(originalAssigneeId, task.title, 'approved', approverNote ?? null, finalName, taskUrl(id)).catch(() => {})
         }
 
-        // Delete the companion extension_review task if one exists
-        await Db.tasks.deleteOne({ type: 'extension_review', relatedId: id })
+        // Notify new assignee
+        if (finalId && finalId !== originalAssigneeId) {
+            await createNotification({
+                userId: finalId,
+                type: 'task_assigned',
+                title: 'Task assigned to you',
+                body: `"${task.title}" has been assigned to you`,
+                actionUrl: taskUrl(id),
+                relatedId: id,
+            })
+            sendTaskReassignmentOutcomeDM(finalId, task.title, 'new_assignment', null, null, taskUrl(id)).catch(() => {})
+        }
 
         return NextResponse.json({ ok: true })
     }
 
+    // ── start ─────────────────────────────────────────────────────────────────
     if (action === 'start') {
         await Db.tasks.updateOne(
             { _id: new ObjectId(id) },
-            { $set: { status: 'in_progress' } }
+            { $set: { status: 'in_progress', startedAt: new Date() } }
         )
         return NextResponse.json({ ok: true })
     }
 
+    // ── request_delete (assignee requests creator approve deletion) ───────────
+    if (action === 'request_delete') {
+        // Creator can delete directly — this action is only for non-creators
+        if (task.assignedBy === me.id) {
+            return NextResponse.json({ error: 'Use DELETE directly to remove your own task' }, { status: 400 })
+        }
+        if (task.deleteRequest?.status === 'pending') {
+            return NextResponse.json({ error: 'A delete request is already pending' }, { status: 400 })
+        }
+
+        const { reason } = body
+        if (!reason?.trim()) {
+            return NextResponse.json({ error: 'A reason is required for a delete request.' }, { status: 400 })
+        }
+        const requesterName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+
+        await Db.tasks.updateOne(
+            { _id: new ObjectId(id) },
+            {
+                $set: {
+                    deleteRequest: {
+                        reason: reason.trim(),
+                        requestedAt: new Date(),
+                        requestedById: me.id,
+                        requestedByName: requesterName,
+                        status: 'pending',
+                    },
+                },
+            }
+        )
+
+        if (task.assignedBy && task.assignedBy !== 'system') {
+            await createNotification({
+                userId: task.assignedBy,
+                type: 'task_delete_requested',
+                title: 'Delete request',
+                body: `${requesterName} requested deletion of "${task.title}"`,
+                actionUrl: taskUrl(id),
+                relatedId: id,
+            })
+            sendTaskDeleteRequestDM(task.assignedBy, task.title, requesterName, reason?.trim() ?? '', taskUrl(id)).catch(() => {})
+        }
+
+        return NextResponse.json({ ok: true })
+    }
+
+    // ── approve_delete ────────────────────────────────────────────────────────
+    if (action === 'approve_delete') {
+        if (task.assignedBy !== me.id) {
+            const isElevated = client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+            if (!isElevated) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+        if (!task.deleteRequest || task.deleteRequest.status !== 'pending') {
+            return NextResponse.json({ error: 'No pending delete request' }, { status: 400 })
+        }
+
+        const { approverNote } = body
+        const requesterId = task.deleteRequest.requestedById
+
+        // Notify the requester that deletion was approved before deleting
+        if (requesterId) {
+            await createNotification({
+                userId: requesterId,
+                type: 'task_delete_approved',
+                title: 'Delete request approved',
+                body: `Your request to delete "${task.title}" was approved`,
+                actionUrl: '/dashboard/tasks',
+                relatedId: id,
+            })
+            sendTaskDeleteOutcomeDM(requesterId, task.title, 'approved', approverNote ?? null).catch(() => {})
+        }
+
+        await Db.tasks.deleteOne({ _id: new ObjectId(id) })
+        return NextResponse.json({ ok: true })
+    }
+
+    // ── deny_delete ───────────────────────────────────────────────────────────
+    if (action === 'deny_delete') {
+        if (task.assignedBy !== me.id) {
+            const isElevated = client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+            if (!isElevated) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+        if (!task.deleteRequest || task.deleteRequest.status !== 'pending') {
+            return NextResponse.json({ error: 'No pending delete request' }, { status: 400 })
+        }
+
+        const { approverNote } = body
+
+        await Db.tasks.updateOne(
+            { _id: new ObjectId(id) },
+            {
+                $set: {
+                    'deleteRequest.status': 'denied',
+                    'deleteRequest.approverNote': approverNote ?? '',
+                },
+            }
+        )
+
+        const requesterId = task.deleteRequest.requestedById
+        if (requesterId) {
+            await createNotification({
+                userId: requesterId,
+                type: 'task_delete_denied',
+                title: 'Delete request denied',
+                body: `Your request to delete "${task.title}" was denied${approverNote ? `. Note: ${approverNote}` : ''}`,
+                actionUrl: taskUrl(id),
+                relatedId: id,
+            })
+            sendTaskDeleteOutcomeDM(requesterId, task.title, 'denied', approverNote ?? null, taskUrl(id)).catch(() => {})
+        }
+
+        return NextResponse.json({ ok: true })
+    }
+
+    // ── reopen ────────────────────────────────────────────────────────────────
     if (action === 'reopen') {
         await Db.tasks.updateOne(
             { _id: new ObjectId(id) },
@@ -319,7 +487,116 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }
 
-// DELETE /api/admin/tasks/[id] — hard delete (creator, J4-Administration, or HQ Staff)
+// ── Shared extension decision handler ─────────────────────────────────────────
+
+async function handleExtensionDecision(
+    action: string,
+    taskId: string,
+    task: Task,
+    body: Record<string, unknown>,
+    me: User,
+    reviewTaskIdToDelete: string | null,
+): Promise<NextResponse> {
+    const extReq = task.extensionRequest!
+    const { approverNote, alternativeDate, alternativeReminderDate } = body as Record<string, string>
+
+    const url = taskUrl(taskId)
+    const taskObjId = new ObjectId(taskId)
+
+    if (action === 'approve_extension') {
+        const approvedDate = extReq.requestedDate instanceof Date ? extReq.requestedDate : new Date(extReq.requestedDate)
+        const dateStr = approvedDate.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+
+        await Db.tasks.updateOne(
+            { _id: taskObjId },
+            {
+                $set: {
+                    dueDate: approvedDate,
+                    extendedAt: new Date(),
+                    'extensionRequest.status': 'approved',
+                    'extensionRequest.approverNote': approverNote ?? '',
+                    ...(task.originalDueDate ? {} : { originalDueDate: task.dueDate }),
+                },
+            }
+        )
+
+        if (task.assignedTo) {
+            await createNotification({
+                userId: task.assignedTo,
+                type: 'task_extension_approved',
+                title: 'Extension approved',
+                body: `Your extension for "${task.title}" was approved. New due date: ${dateStr}${approverNote ? `. Note: ${approverNote}` : ''}`,
+                actionUrl: url,
+                relatedId: taskId,
+            })
+            sendTaskExtensionApprovedDM(task.assignedTo, task.title, dateStr, url).catch(() => {})
+        }
+    } else if (action === 'deny_extension') {
+        await Db.tasks.updateOne(
+            { _id: taskObjId },
+            { $set: { 'extensionRequest.status': 'denied', 'extensionRequest.approverNote': approverNote ?? '' } }
+        )
+
+        if (task.assignedTo) {
+            await createNotification({
+                userId: task.assignedTo,
+                type: 'task_extension_denied',
+                title: 'Extension denied',
+                body: `Your extension request for "${task.title}" was denied${approverNote ? `. Note: ${approverNote}` : ''}`,
+                actionUrl: url,
+                relatedId: taskId,
+            })
+            sendTaskExtensionDeniedDM(task.assignedTo, task.title, url).catch(() => {})
+        }
+    } else if (action === 'suggest_alternative') {
+        if (!alternativeDate) {
+            return NextResponse.json({ error: 'alternativeDate is required for suggest_alternative' }, { status: 400 })
+        }
+        const altDate = new Date(alternativeDate)
+        if (isNaN(altDate.getTime())) {
+            return NextResponse.json({ error: 'Invalid alternativeDate' }, { status: 400 })
+        }
+        const altDateStr = altDate.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+        const altReminder = alternativeReminderDate ? new Date(alternativeReminderDate) : undefined
+
+        await Db.tasks.updateOne(
+            { _id: taskObjId },
+            {
+                $set: {
+                    'extensionRequest.status': 'alternative',
+                    'extensionRequest.approverNote': approverNote ?? '',
+                    'extensionRequest.alternativeDate': altDate,
+                    ...(altReminder ? { 'extensionRequest.alternativeReminderDate': altReminder } : {}),
+                },
+            }
+        )
+
+        if (task.assignedTo) {
+            await createNotification({
+                userId: task.assignedTo,
+                type: 'task_extension_alternative',
+                title: 'Alternative due date suggested',
+                body: `Your request for "${task.title}" — a different date has been suggested: ${altDateStr}${approverNote ? `. Note: ${approverNote}` : ''}`,
+                actionUrl: url,
+                relatedId: taskId,
+            })
+            sendTaskExtensionAlternativeDM(task.assignedTo, task.title, altDateStr, approverNote ?? '', url).catch(() => {})
+        }
+    }
+
+    // Clean up review task if this was called from a review task
+    if (reviewTaskIdToDelete) {
+        await Db.tasks.deleteOne({ _id: new ObjectId(reviewTaskIdToDelete) })
+    } else {
+        // Direct action — delete any companion review task
+        await Db.tasks.deleteOne({ type: 'extension_review', relatedId: taskId })
+    }
+
+    const approverName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+    return NextResponse.json({ ok: true, approverName })
+}
+
+// DELETE /api/admin/tasks/[id]
 export async function DELETE(
     _req: NextRequest,
     { params }: { params: Promise<{ id: string }> }

@@ -362,30 +362,58 @@ export default function JoinForm() {
         </div>
     )
 
-    const canAdvance = (): boolean => {
-        switch (step) {
+    const isStepComplete = (s: number): boolean => {
+        switch (s) {
             case 1: return !!discord
             case 2: return steamStatus === 'resolved'
             case 3: return !!fields.inGameName.trim() && nameStatus === 'available' && !nameOffensive
             case 4: return !!fields.age && !!fields.region
             case 5: return !!fields.availableNights && !!fields.opsPerMonth
             case 6: return !!fields.primaryRole
-            default: return false
+            default: return true
         }
+    }
+
+    const canAdvance = (): boolean => isStepComplete(step)
+
+    function handleStepClick(targetStep: number) {
+        if (targetStep === step) return
+        if (targetStep < step) { setStep(targetStep); return }
+        // Going forward: all steps up to target must be complete
+        for (let s = 1; s < targetStep; s++) {
+            if (!isStepComplete(s)) return
+        }
+        setStep(targetStep)
     }
 
     const progressBar = (
         <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 8 }}>
             {STEP_LABELS.map((label, i) => {
-                const stepNum = i + 1
-                const isDone   = stepNum < step
-                const isActive = stepNum === step
-                const isFirst  = i === 0
-                const isLast   = i === STEP_LABELS.length - 1
+                const stepNum   = i + 1
+                const isDone    = stepNum < step
+                const isActive  = stepNum === step
+                const isFirst   = i === 0
+                const isLast    = i === STEP_LABELS.length - 1
+                // A future step is reachable only if all steps before it are complete
+                const reachable = stepNum < step || (stepNum > step && (() => {
+                    for (let s = 1; s < stepNum; s++) { if (!isStepComplete(s)) return false }
+                    return true
+                })())
+                const clickable = !isActive && reachable
                 return (
                     <div key={label} style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
                         <div style={{ height: 1, flex: 1, marginBottom: 18, background: isFirst ? 'transparent' : isDone ? 'rgba(0,195,100,0.4)' : 'rgba(255,255,255,0.07)' }} />
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
+                        <div
+                            onClick={clickable ? () => handleStepClick(stepNum) : undefined}
+                            title={clickable ? `Go to ${label}` : undefined}
+                            style={{
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                                flex: '0 0 auto',
+                                cursor: clickable ? 'pointer' : 'default',
+                                opacity: !reachable && !isDone && !isActive ? 0.5 : 1,
+                                transition: 'opacity 0.15s',
+                            }}
+                        >
                             <div style={{
                                 width: 24, height: 24, borderRadius: '50%',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -393,7 +421,12 @@ export default function JoinForm() {
                                 background: isDone ? '#00c364' : isActive ? 'rgba(219,0,29,0.15)' : 'rgba(255,255,255,0.05)',
                                 border: isDone ? '1px solid #00c364' : isActive ? '1px solid var(--red)' : '1px solid rgba(255,255,255,0.1)',
                                 color: isDone ? '#fff' : isActive ? 'var(--red)' : 'rgba(237,237,237,0.25)',
-                            }}>
+                                transition: 'box-shadow 0.15s',
+                                boxShadow: clickable ? '0 0 0 0 transparent' : undefined,
+                            }}
+                                onMouseEnter={e => { if (clickable) (e.currentTarget as HTMLElement).style.boxShadow = isDone ? '0 0 6px rgba(0,195,100,0.4)' : '0 0 6px rgba(219,0,29,0.3)' }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 0 transparent' }}
+                            >
                                 {isDone ? '✓' : stepNum}
                             </div>
                             <span style={{

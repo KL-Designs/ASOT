@@ -69,7 +69,9 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
         app.assignedReviewerId ? (members.find(m => m.id === app.assignedReviewerId) ?? null) : null
     )
     const [recruiterNote, setRecruiterNote] = useState(app.recruiterNote ?? '')
-    const [reviewHours, setReviewHours] = useState(72)
+    const [reviewDeadline, setReviewDeadline] = useState<string>('72')
+    const [reviewCustomDate, setReviewCustomDate] = useState('')
+    const [assigningMode, setAssigningMode] = useState(false)
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
     const [statusChanging, setStatusChanging] = useState(false)
@@ -105,7 +107,11 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                 body.assignedReviewerName = recruiter?.displayName ?? null
                 body.recruiterNote = recruiterNote
                 if (recruiter && recruiter.id !== app.assignedReviewerId) {
-                    body.reviewHours = reviewHours
+                    if (reviewDeadline === 'custom') {
+                        body.reviewCustomDate = reviewCustomDate
+                    } else {
+                        body.reviewHours = Number(reviewDeadline)
+                    }
                 }
             }
             await fetch(`/api/admin/j1/applications/${app._id}`, {
@@ -384,12 +390,9 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                             {app.status !== 'accepted' && app.status !== 'rejected' && (
                                 <div style={{ border: '1px solid rgba(219,0,29,0.18)', background: 'rgba(255,255,255,0.02)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-                                    {/* Assign Recruiter (J1 Lead only) */}
-                                    {isLead && (
+                                    {/* Assign Recruiter form — only shown in assign mode (J1 Lead) */}
+                                    {isLead && assigningMode && (
                                         <div>
-                                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 8 }}>
-                                                Assign Recruiter
-                                            </div>
                                             <div className='flex items-center gap-2'>
                                                 <Autocomplete
                                                     size='small'
@@ -423,48 +426,86 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                     <div style={{ fontSize: '0.72rem', color: '#f59e0b' }}>
                                                         ● Will assign <strong>{recruiter.displayName}</strong> — they'll receive a task notification
                                                     </div>
-                                                    <div className='flex items-center gap-2'>
+                                                    <div className='flex flex-wrap items-center gap-2'>
                                                         <FormControl size='small' sx={{ ...inputSx, minWidth: 160 }}>
                                                             <InputLabel>Review deadline</InputLabel>
                                                             <Select
-                                                                value={reviewHours}
+                                                                value={reviewDeadline}
                                                                 label='Review deadline'
-                                                                onChange={e => setReviewHours(Number(e.target.value))}
+                                                                onChange={e => { setReviewDeadline(e.target.value as string); setReviewCustomDate('') }}
                                                             >
-                                                                <MenuItem value={24}>24 hours</MenuItem>
-                                                                <MenuItem value={48}>48 hours</MenuItem>
-                                                                <MenuItem value={72}>72 hours</MenuItem>
-                                                                <MenuItem value={120}>5 days</MenuItem>
-                                                                <MenuItem value={168}>7 days</MenuItem>
+                                                                <MenuItem value='24'>24 hours</MenuItem>
+                                                                <MenuItem value='48'>48 hours</MenuItem>
+                                                                <MenuItem value='72'>72 hours</MenuItem>
+                                                                <MenuItem value='120'>5 days</MenuItem>
+                                                                <MenuItem value='168'>7 days</MenuItem>
+                                                                <MenuItem value='custom'>Custom…</MenuItem>
                                                             </Select>
                                                         </FormControl>
+                                                        {reviewDeadline === 'custom' && (
+                                                            <input
+                                                                type='datetime-local'
+                                                                value={reviewCustomDate}
+                                                                onChange={e => setReviewCustomDate(e.target.value)}
+                                                                min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                                                                style={{
+                                                                    background: 'rgba(255,255,255,0.04)',
+                                                                    border: '1px solid rgba(219,0,29,0.32)',
+                                                                    color: 'rgba(237,237,237,0.85)',
+                                                                    padding: '7px 10px',
+                                                                    fontSize: '0.82rem',
+                                                                    outline: 'none',
+                                                                    borderRadius: 0,
+                                                                    colorScheme: 'dark',
+                                                                    cursor: 'pointer',
+                                                                }}
+                                                            />
+                                                        )}
                                                     </div>
+                                                    {reviewDeadline === 'custom' && !reviewCustomDate && (
+                                                        <div style={{ fontSize: '0.68rem', color: 'rgba(219,0,29,0.8)' }}>
+                                                            Select a custom date and time for the review deadline.
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
 
-                                            {/* Existing assignment: show who is assigned */}
-                                            {recruiter && recruiter.id === app.assignedReviewerId && (
-                                                <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', marginTop: 6 }}>
-                                                    Currently assigned to <strong>{recruiter.displayName}</strong>
-                                                    {app.assignedByLeadName && ` (by ${app.assignedByLeadName})`}
-                                                </div>
-                                            )}
+                                            {/* Note for recruiter — in assign mode */}
+                                            <TextField
+                                                label='Note for recruiter (optional)'
+                                                value={recruiterNote}
+                                                onChange={e => setRecruiterNote(e.target.value)}
+                                                multiline
+                                                minRows={2}
+                                                fullWidth
+                                                size='small'
+                                                placeholder='Add a note for the recruiter...'
+                                                inputProps={{ maxLength: 500 }}
+                                                sx={inputSx}
+                                            />
+                                        </div>
+                                    )}
 
-                                            {/* Note for recruiter — always visible to lead when a recruiter is assigned */}
-                                            {recruiter && (
-                                                <TextField
-                                                    label='Note for recruiter'
-                                                    value={recruiterNote}
-                                                    onChange={e => setRecruiterNote(e.target.value)}
-                                                    multiline
-                                                    minRows={2}
-                                                    fullWidth
-                                                    size='small'
-                                                    placeholder='Enter a note for the recruiter (required to send back for review)...'
-                                                    inputProps={{ maxLength: 500 }}
-                                                    sx={inputSx}
-                                                />
-                                            )}
+                                    {/* Current assignment info — shown outside assign mode */}
+                                    {isLead && !assigningMode && app.assignedReviewerName && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)' }}>
+                                                Assigned recruiter: <strong style={{ color: '#f59e0b' }}>{app.assignedReviewerName}</strong>
+                                                {app.assignedByLeadName && <span style={{ color: 'rgba(237,237,237,0.2)' }}> (assigned by {app.assignedByLeadName})</span>}
+                                            </div>
+                                            {/* Note field for send back — always visible to lead when a recruiter is assigned */}
+                                            <TextField
+                                                label='Note for recruiter (required to send back)'
+                                                value={recruiterNote}
+                                                onChange={e => setRecruiterNote(e.target.value)}
+                                                multiline
+                                                minRows={2}
+                                                fullWidth
+                                                size='small'
+                                                placeholder='Enter a note for the recruiter (required to send back for review)...'
+                                                inputProps={{ maxLength: 500 }}
+                                                sx={inputSx}
+                                            />
                                         </div>
                                     )}
 
@@ -493,23 +534,19 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                         </div>
                                     )}
 
-                                    {/* Approve / Reject / Send Back / Resubmit */}
+                                    {/* Action buttons: Approve / Reject / Assign Recruiter (lead) or Resubmit (recruiter returned) */}
                                     {(() => {
                                         const hasRecruiter = !!app.assignedReviewerId
                                         const normalCanAct = hasRecruiter && canChangeStatus
                                         const j4Override = !hasRecruiter && isJ4
-                                        if (!normalCanAct && !j4Override) return null
-                                        const dividerStyle = { borderTop: isLead || app.assignedReviewerName ? '1px solid rgba(219,0,29,0.15)' : undefined, paddingTop: isLead || app.assignedReviewerName ? 10 : 0 }
-                                        return (
-                                            <div style={dividerStyle}>
-                                                {j4Override && (
-                                                    <div style={{ fontSize: '0.65rem', color: '#f59e0b', marginBottom: 8, letterSpacing: '0.05em' }}>
-                                                        ⚠ No recruiter assigned — J4 override
-                                                    </div>
-                                                )}
+                                        if (!normalCanAct && !j4Override && !isLead) return null
 
-                                                {/* Recruiter resubmit (returned status only) */}
-                                                {isAssignedRecruiter && !isLead && app.status === 'returned' ? (
+                                        const dividerStyle = { borderTop: '1px solid rgba(219,0,29,0.15)', paddingTop: 10, marginTop: 4 }
+
+                                        // Recruiter resubmit (returned status only — non-lead recruiter)
+                                        if (isAssignedRecruiter && !isLead && app.status === 'returned') {
+                                            return (
+                                                <div style={dividerStyle}>
                                                     <button
                                                         onClick={handleResubmit}
                                                         disabled={statusChanging}
@@ -517,34 +554,86 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                     >
                                                         ↩ Resubmit to J1 Lead
                                                     </button>
-                                                ) : (
-                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                </div>
+                                            )
+                                        }
+
+                                        // Assign Recruiter mode (lead): show form + confirm + cancel
+                                        if (isLead && assigningMode) {
+                                            const canAssign = !!recruiter && (reviewDeadline !== 'custom' || !!reviewCustomDate)
+                                            return (
+                                                <div style={dividerStyle}>
+                                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 10 }}>
+                                                        Assign Recruiter
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                                                         <button
-                                                            onClick={() => handleStatusChange('accepted')}
-                                                            disabled={statusChanging}
-                                                            style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(0,195,100,0.15)', border: '1px solid rgba(0,195,100,0.4)', color: '#00c364', opacity: statusChanging ? 0.5 : 1 }}
+                                                            onClick={() => { if (canAssign) handleSave() }}
+                                                            disabled={saving || !canAssign}
+                                                            style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: canAssign && !saving ? 'pointer' : 'not-allowed', background: 'rgba(0,120,255,0.15)', border: '1px solid rgba(0,120,255,0.4)', color: '#60a5fa', opacity: saving || !canAssign ? 0.45 : 1 }}
                                                         >
-                                                            ✓ Approve
+                                                            {saving ? '…' : '✓ Assign Recruiter'}
                                                         </button>
                                                         <button
-                                                            onClick={() => handleStatusChange('rejected')}
-                                                            disabled={statusChanging}
-                                                            style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'var(--red)', opacity: statusChanging ? 0.5 : 1 }}
+                                                            onClick={() => { setAssigningMode(false); setRecruiter(app.assignedReviewerId ? (members.find(m => m.id === app.assignedReviewerId) ?? null) : null) }}
+                                                            disabled={saving}
+                                                            style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.5)', opacity: saving ? 0.5 : 1 }}
                                                         >
-                                                            ✗ Reject
+                                                            Cancel
                                                         </button>
-                                                        {isLead && (
-                                                            <button
-                                                                onClick={handleSendBack}
-                                                                disabled={statusChanging || !recruiterNote.trim()}
-                                                                title={!recruiterNote.trim() ? 'Enter a note for the recruiter before sending back' : 'Send back to recruiter for review'}
-                                                                style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: !recruiterNote.trim() ? 'not-allowed' : 'pointer', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', color: '#f59e0b', opacity: statusChanging || !recruiterNote.trim() ? 0.45 : 1 }}
-                                                            >
-                                                                ↩ Send Back
-                                                            </button>
-                                                        )}
+                                                    </div>
+                                                </div>
+                                            )
+                                        }
+
+                                        // Normal mode: Approve / Reject / Assign Recruiter
+                                        return (
+                                            <div style={dividerStyle}>
+                                                {j4Override && (
+                                                    <div style={{ fontSize: '0.65rem', color: '#f59e0b', marginBottom: 8, letterSpacing: '0.05em' }}>
+                                                        ⚠ No recruiter assigned — J4 override
                                                     </div>
                                                 )}
+                                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                    {(normalCanAct || j4Override) && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleStatusChange('accepted')}
+                                                                disabled={statusChanging}
+                                                                style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(0,195,100,0.15)', border: '1px solid rgba(0,195,100,0.4)', color: '#00c364', opacity: statusChanging ? 0.5 : 1 }}
+                                                            >
+                                                                ✓ Approve
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleStatusChange('rejected')}
+                                                                disabled={statusChanging}
+                                                                style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'var(--red)', opacity: statusChanging ? 0.5 : 1 }}
+                                                            >
+                                                                ✗ Reject
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {isLead && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => setAssigningMode(true)}
+                                                                style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(0,120,255,0.1)', border: '1px solid rgba(0,120,255,0.35)', color: '#60a5fa' }}
+                                                            >
+                                                                ＋ Assign Recruiter
+                                                            </button>
+                                                            {(normalCanAct || j4Override) && app.assignedReviewerId && (
+                                                                <button
+                                                                    onClick={handleSendBack}
+                                                                    disabled={statusChanging || !recruiterNote.trim()}
+                                                                    title={!recruiterNote.trim() ? 'Enter a note for the recruiter before sending back' : 'Send back to recruiter for review'}
+                                                                    style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: !recruiterNote.trim() ? 'not-allowed' : 'pointer', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', color: '#f59e0b', opacity: statusChanging || !recruiterNote.trim() ? 0.45 : 1 }}
+                                                                >
+                                                                    ↩ Send Back
+                                                                </button>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
                                         )
                                     })()}

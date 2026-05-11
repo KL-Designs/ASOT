@@ -111,6 +111,61 @@ export const NOTIFICATION_TYPES: NotifTypeMeta[] = [
         description: 'When a task you assigned is marked complete.',
         category: 'Tasks',
     },
+    {
+        type: 'task_reminder',
+        label: 'Task reminder (chase-up)',
+        description: 'Reminder notification when a task chase-up date is reached.',
+        category: 'Tasks',
+    },
+    {
+        type: 'task_overdue',
+        label: 'Task overdue',
+        description: 'When a task assigned to you becomes overdue.',
+        category: 'Tasks',
+        alwaysOn: true,
+    },
+    {
+        type: 'task_extension_requested',
+        label: 'Extension request received',
+        description: 'When an assignee requests a due date extension on your task.',
+        category: 'Tasks',
+    },
+    {
+        type: 'task_extension_approved',
+        label: 'Extension approved',
+        description: 'When your extension request is approved.',
+        category: 'Tasks',
+    },
+    {
+        type: 'task_extension_denied',
+        label: 'Extension denied',
+        description: 'When your extension request is denied.',
+        category: 'Tasks',
+    },
+    {
+        type: 'task_extension_alternative',
+        label: 'Alternative due date suggested',
+        description: 'When the approver suggests a different due date for your extension request.',
+        category: 'Tasks',
+    },
+    {
+        type: 'task_reassignment_requested',
+        label: 'Reassignment request received',
+        description: 'When an assignee requests that your task be reassigned.',
+        category: 'Tasks',
+    },
+    {
+        type: 'task_reassignment_approved',
+        label: 'Task reassigned',
+        description: 'When a task you were assigned is successfully reassigned.',
+        category: 'Tasks',
+    },
+    {
+        type: 'task_reassignment_denied',
+        label: 'Reassignment denied',
+        description: 'When your reassignment request is denied.',
+        category: 'Tasks',
+    },
 
     // ── Calendar ──────────────────────────────────────────────────────────────
     {

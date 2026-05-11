@@ -553,6 +553,221 @@ export async function sendTaskExtensionDeniedDM(
     await sendDM(userId, { embeds: [embed] }, 'task')
 }
 
+/**
+ * Notify an assignee that the approver has suggested an alternative due date.
+ */
+export async function sendTaskExtensionAlternativeDM(
+    userId: string,
+    taskTitle: string,
+    suggestedDate: string,
+    note: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '🔄 Alternative Due Date Suggested',
+        description: `Your extension request for **${taskTitle}** was not approved as requested. An alternative date has been suggested.`,
+        color: 0xf59e0b,
+        fields: [{ name: 'Suggested date', value: suggestedDate, inline: true }],
+        footer: { text: 'ASOT Dashboard — review in Tasks' },
+        timestamp: new Date().toISOString(),
+    }
+    if (note) embed.fields!.push({ name: 'Note from approver', value: note, inline: false })
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields!.push({ name: '​', value: `[View Task](${base}${actionUrl})`, inline: false })
+    }
+    await sendDM(userId, { embeds: [embed] }, 'task')
+}
+
+/**
+ * Notify the task creator that an assignee has requested reassignment.
+ */
+export async function sendTaskReassignmentRequestDM(
+    creatorId: string,
+    taskTitle: string,
+    requesterName: string,
+    requestedToName: string,
+    reason: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '🔁 Reassignment Requested',
+        description: `**${requesterName}** has requested reassignment of:\n**${taskTitle}**`,
+        color: 0x3b82f6,
+        fields: [
+            { name: 'Requested assignee', value: requestedToName, inline: true },
+            { name: 'Reason', value: reason, inline: false },
+        ],
+        footer: { text: 'ASOT Dashboard — approve or deny in Tasks' },
+        timestamp: new Date().toISOString(),
+    }
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields!.push({ name: '​', value: `[View Task](${base}${actionUrl})`, inline: false })
+    }
+    await sendDM(creatorId, { embeds: [embed] }, 'task')
+}
+
+/**
+ * Notify a member about the outcome of a reassignment request.
+ * outcome: 'approved' | 'denied' | 'new_assignment'
+ */
+export async function sendTaskReassignmentOutcomeDM(
+    userId: string,
+    taskTitle: string,
+    outcome: 'approved' | 'denied' | 'new_assignment',
+    note: string | null,
+    newAssigneeName: string | null,
+    actionUrl?: string,
+): Promise<void> {
+    const configs: Record<string, { title: string; color: number; desc: string }> = {
+        approved:       { title: '✅ Reassignment Approved', color: 0x22c55e, desc: `Task **${taskTitle}** has been reassigned to ${newAssigneeName ?? 'the requested member'}.` },
+        denied:         { title: '❌ Reassignment Denied',   color: 0xdb001d, desc: `Your reassignment request for **${taskTitle}** was denied.` },
+        new_assignment: { title: '📋 New Task Assigned',     color: 0xdb001d, desc: `You have been assigned the task: **${taskTitle}**` },
+    }
+    const cfg = configs[outcome] ?? configs.denied
+    const embed: DiscordEmbed = {
+        title: cfg.title,
+        description: cfg.desc,
+        color: cfg.color,
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+    if (note) embed.fields = [{ name: 'Note', value: note, inline: false }]
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        const fields = embed.fields ?? (embed.fields = [])
+        fields.push({ name: '​', value: `[View Task](${base}${actionUrl})`, inline: false })
+    }
+    await sendDM(userId, { embeds: [embed] }, 'task')
+}
+
+/**
+ * Remind an assignee about an upcoming task (chase-up / reminder date reached).
+ */
+export async function sendTaskReminderDM(
+    userId: string,
+    taskTitle: string,
+    dueDate: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '🔔 Task Reminder',
+        description: `You have a task coming up:\n**${taskTitle}**`,
+        color: 0xf59e0b,
+        fields: [{ name: 'Due', value: dueDate, inline: true }],
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields!.push({ name: '​', value: `[View Task](${base}${actionUrl})`, inline: false })
+    }
+    await sendDM(userId, { embeds: [embed] }, 'task')
+}
+
+/**
+ * Notify an assignee that their task is now overdue.
+ */
+export async function sendTaskOverdueDM(
+    userId: string,
+    taskTitle: string,
+    dueDate: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '⚠️ Task Overdue',
+        description: `A task assigned to you is now overdue:\n**${taskTitle}**`,
+        color: 0xdb001d,
+        fields: [{ name: 'Was due', value: dueDate, inline: true }],
+        footer: { text: 'ASOT Dashboard — please action this task immediately' },
+        timestamp: new Date().toISOString(),
+    }
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields!.push({ name: '​', value: `[View Task](${base}${actionUrl})`, inline: false })
+    }
+    await sendDM(userId, { embeds: [embed] }, 'task')
+}
+
+/**
+ * Notify a higher-level staff member about a task limit escalation.
+ */
+export async function sendTaskEscalationDM(
+    userId: string,
+    memberName: string,
+    taskCount: number,
+    threshold: number,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '📊 Task Limit Escalation',
+        description: `**${memberName}** has reached **${taskCount} incomplete tasks** (threshold: ${threshold}).`,
+        color: 0xf97316,
+        footer: { text: 'ASOT Dashboard — task limit policy' },
+        timestamp: new Date().toISOString(),
+    }
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields = [{ name: '​', value: `[View Member Tasks](${base}${actionUrl})`, inline: false }]
+    }
+    await sendDM(userId, { embeds: [embed] }, 'task')
+}
+
+/**
+ * Notify the task creator that an assignee has requested task deletion.
+ */
+export async function sendTaskDeleteRequestDM(
+    creatorId: string,
+    taskTitle: string,
+    requesterName: string,
+    reason: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '🗑️ Task Deletion Requested',
+        description: `**${requesterName}** has requested deletion of:\n**${taskTitle}**`,
+        color: 0xdb001d,
+        fields: [{ name: 'Reason', value: reason || 'No reason provided', inline: false }],
+        footer: { text: 'ASOT Dashboard — approve or deny in Tasks' },
+        timestamp: new Date().toISOString(),
+    }
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields!.push({ name: '​', value: `[View Task](${base}${actionUrl})`, inline: false })
+    }
+    await sendDM(creatorId, { embeds: [embed] }, 'task')
+}
+
+/**
+ * Notify the assignee of the outcome of their delete request.
+ * outcome: 'approved' | 'denied'
+ */
+export async function sendTaskDeleteOutcomeDM(
+    userId: string,
+    taskTitle: string,
+    outcome: 'approved' | 'denied',
+    note: string | null,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: outcome === 'approved' ? '✅ Delete Request Approved' : '❌ Delete Request Denied',
+        description: outcome === 'approved'
+            ? `Your request to delete **${taskTitle}** was approved. The task has been removed.`
+            : `Your request to delete **${taskTitle}** was denied. The task remains active.`,
+        color: outcome === 'approved' ? 0x22c55e : 0xdb001d,
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+    if (note) embed.fields = [{ name: 'Note', value: note, inline: false }]
+    if (actionUrl && outcome === 'denied') {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        const fields = embed.fields ?? (embed.fields = [])
+        fields.push({ name: '​', value: `[View Task](${base}${actionUrl})`, inline: false })
+    }
+    await sendDM(userId, { embeds: [embed] }, 'task')
+}
+
 const FEEDBACK_STATUS_LABELS: Record<string, string> = {
     open: 'Open',
     in_progress: 'In Progress',

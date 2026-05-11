@@ -42,6 +42,76 @@ interface MemberOption {
     isActiveMember: boolean
 }
 
+// Extended option used in the grouped dropdown
+interface CombinedOption extends MemberOption {
+    optionGroup: 'Applicants' | 'Current Members'
+    isTestApplicant?: boolean
+    hasJoinData?: boolean
+    applicationData?: {
+        discordUsername?: string; discordId?: string
+        joiningName?: string; steamUrl?: string; steamId64?: string
+        age?: string; region?: string; armaHours?: string
+        ownsArma?: boolean; priorMilsim?: boolean; dualClan?: boolean
+        previousUnits?: string; currentUnit?: string
+        availableNights?: string; opsPerMonth?: string
+        primaryRole?: string; additionalRoles?: string[]; departmentInterest?: string[]
+        experience?: string; heardAbout?: string; heardAboutOther?: string
+    }
+}
+
+const TEST_APPLICANTS: CombinedOption[] = [
+    {
+        id: 'test-app-1',
+        displayName: 'TestApp1',
+        username: 'testapp1',
+        inGameName: 'TestApp1',
+        discharged: false,
+        isSkeleton: false,
+        isActiveMember: false,
+        optionGroup: 'Applicants',
+        isTestApplicant: true,
+        hasJoinData: true,
+        applicationData: {
+            discordUsername: 'testapp1',
+            discordId: '100000000000000001',
+            joiningName: 'TestApp1',
+            steamUrl: 'https://steamcommunity.com/id/testapp1',
+            steamId64: '76561198000000001',
+            age: '22',
+            region: 'Oceania',
+            armaHours: '500',
+            ownsArma: true,
+            priorMilsim: true,
+            dualClan: false,
+            previousUnits: 'Test Milsim Unit',
+            currentUnit: '',
+            availableNights: 'Both',
+            opsPerMonth: '3+',
+            primaryRole: 'Infantry',
+            additionalRoles: ['Combat First Aider (CFA)'],
+            departmentInterest: ['J3 — Training'],
+            experience: 'Development test applicant — simulates a completed website join application. Full join application data pre-filled.',
+            heardAbout: 'Friend / Referral',
+        },
+    },
+    {
+        id: 'test-app-2',
+        displayName: 'Test Applicant 2 - No Join',
+        username: 'testapp2',
+        inGameName: null,
+        discharged: false,
+        isSkeleton: false,
+        isActiveMember: false,
+        optionGroup: 'Applicants',
+        isTestApplicant: true,
+        hasJoinData: false,
+        applicationData: {
+            discordUsername: 'testapp2',
+            discordId: '100000000000000002',
+        },
+    },
+]
+
 interface RecruitMemberTabProps {
     displayName: string
 }
@@ -81,11 +151,16 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
     const [error,    setError]    = useState<string | null>(null)
     const [success,  setSuccess]  = useState(false)
 
-    // Member picker
-    const [memberList,     setMemberList]     = useState<MemberOption[]>([])
-    const [membersLoading, setMembersLoading] = useState(true)
-    const [selectedMember, setSelectedMember] = useState<MemberOption | null>(null)
-    const [manualEntry,    setManualEntry]     = useState(false)
+    const isDev = process.env.NODE_ENV === 'development'
+
+    // Member + applicant picker
+    const [memberList,        setMemberList]        = useState<CombinedOption[]>([])
+    const [applicantList,     setApplicantList]     = useState<CombinedOption[]>([])
+    const [membersLoading,    setMembersLoading]    = useState(true)
+    const [selectedMember,    setSelectedMember]    = useState<CombinedOption | null>(null)
+    const [pendingSelection,  setPendingSelection]  = useState<CombinedOption | null>(null)
+    const [changeConfirmOpen, setChangeConfirmOpen] = useState(false)
+    const [manualEntry,       setManualEntry]        = useState(false)
 
     // Returning member status
     const [returningStatus, setReturningStatus] = useState<'active' | 'discharged' | null>(null)
@@ -106,15 +181,72 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
     const [steamError,  setSteamError]  = useState<string | null>(null)
 
     useEffect(() => {
+        // Fetch Discord members (Current Members group)
         fetch('/api/admin/j1/members')
             .then(r => r.json())
-            .then(data => setMemberList(data.members ?? []))
+            .then(data => {
+                const members: CombinedOption[] = (data.members ?? []).map((m: MemberOption) => ({
+                    ...m,
+                    optionGroup: 'Current Members' as const,
+                }))
+                setMemberList(members)
+            })
             .catch(() => {})
             .finally(() => setMembersLoading(false))
+
+        // Fetch pending/reviewing/returned applications (Applicants group)
+        fetch('/api/admin/j1/applications')
+            .then(r => r.json())
+            .then(data => {
+                const apps: J1Application[] = Array.isArray(data) ? data : (data.applications ?? [])
+                const activeApps = apps.filter(a =>
+                    ['pending', 'reviewing', 'returned'].includes(a.status as string)
+                )
+                const appOptions: CombinedOption[] = activeApps.map(a => ({
+                    id: a.discordId || String((a as unknown as { _id?: unknown })._id ?? '') || a.discordUsername,
+                    displayName: a.discordName || a.discordUsername,
+                    username: a.discordUsername,
+                    inGameName: a.inGameName || null,
+                    discharged: false,
+                    isSkeleton: false,
+                    isActiveMember: false,
+                    optionGroup: 'Applicants' as const,
+                    isTestApplicant: false,
+                    hasJoinData: !a.isDirectRecruit && !!a.steamId64,
+                    applicationData: {
+                        discordUsername: a.discordUsername,
+                        discordId: a.discordId || '',
+                        joiningName: a.inGameName || '',
+                        steamUrl: a.steamUrl || '',
+                        steamId64: a.steamId64 || '',
+                        age: a.age != null ? String(a.age) : '',
+                        region: a.region || '',
+                        armaHours: a.armaHours != null ? String(a.armaHours) : '',
+                        ownsArma: a.ownsArma ?? true,
+                        priorMilsim: a.priorMilsim ?? false,
+                        dualClan: a.dualClan ?? false,
+                        previousUnits: a.previousUnits || '',
+                        currentUnit: a.currentUnit || '',
+                        availableNights: a.availableNights || '',
+                        opsPerMonth: a.opsPerMonth || '',
+                        primaryRole: a.primaryRole || '',
+                        additionalRoles: a.additionalRoles || [],
+                        departmentInterest: a.departmentInterest || [],
+                        experience: a.experience || '',
+                        heardAbout: a.heardAbout || '',
+                        heardAboutOther: a.heardAboutOther || '',
+                    },
+                }))
+                setApplicantList(appOptions)
+            })
+            .catch(() => {})
     }, [])
 
     useEffect(() => {
-        if (!selectedMember) { setReturningStatus(null); return }
+        if (!selectedMember || selectedMember.optionGroup === 'Applicants') {
+            setReturningStatus(null)
+            return
+        }
         if (selectedMember.discharged) {
             setReturningStatus('discharged')
             setReturningName(selectedMember.displayName)
@@ -184,10 +316,10 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         })
         setSelectedMember(null)
         setManualEntry(false)
-        setReturningStatus(null)
-        setReturningName(null)
         setSteamStatus('idle')
         setSteamError(null)
+        setReturningStatus(null)
+        setReturningName(null)
         setNameStatus('idle')
         setNameOffensive(false)
         setNameSimilar([])
@@ -221,8 +353,84 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         }
     }
 
-    const canAdvance = (): boolean => {
-        switch (step) {
+    // Returns true if the user has entered data beyond step 1 (steam / name / background etc.)
+    function hasUnsavedProgress(): boolean {
+        return step > 1 ||
+            steamStatus === 'resolved' ||
+            !!fields.joiningName.trim() ||
+            !!fields.age ||
+            !!fields.region ||
+            !!fields.primaryRole
+    }
+
+    // Apply a new selection: reset all step state then pre-fill from the new applicant
+    function applySelection(val: CombinedOption | null) {
+        const defaultFields = {
+            discordUsername: '', discordId: '', joiningName: '', recruiter: displayName,
+            steamUrl: '', steamId64: '', region: '', regionCustom: '',
+            age: '', armaHours: '', ownsArma: true, priorMilsim: false, dualClan: false,
+            previousUnits: '', currentUnit: '', availableNights: '', opsPerMonth: '',
+            primaryRole: '', additionalRoles: [] as string[], departmentInterest: [] as string[],
+            heardAbout: '', heardAboutOther: '', experience: '', notes: '', ageExemptionNote: '',
+        }
+        setSteamStatus('idle')
+        setSteamError(null)
+        setNameStatus('idle')
+        setNameOffensive(false)
+        setNameSimilar([])
+        setArmaHoursAlert(false)
+        setOwnsArmaTouched(false)
+        setReturningStatus(null)
+        setReturningName(null)
+        setStep(1)
+        setSelectedMember(val)
+
+        if (!val) {
+            setFields(defaultFields)
+            return
+        }
+        if (val.optionGroup === 'Applicants' && val.applicationData) {
+            const a = val.applicationData
+            setFields({
+                ...defaultFields,
+                discordUsername: a.discordUsername || val.username || val.displayName,
+                discordId: a.discordId || val.id,
+                ...(val.hasJoinData ? {
+                    joiningName: a.joiningName || '',
+                    steamUrl: a.steamUrl || '',
+                    steamId64: a.steamId64 || '',
+                    age: a.age || '',
+                    region: a.region || '',
+                    armaHours: a.armaHours || '',
+                    ownsArma: a.ownsArma ?? true,
+                    priorMilsim: a.priorMilsim ?? false,
+                    dualClan: a.dualClan ?? false,
+                    previousUnits: a.previousUnits || '',
+                    currentUnit: a.currentUnit || '',
+                    availableNights: a.availableNights || '',
+                    opsPerMonth: a.opsPerMonth || '',
+                    primaryRole: a.primaryRole || '',
+                    additionalRoles: a.additionalRoles || [],
+                    departmentInterest: a.departmentInterest || [],
+                    experience: a.experience || '',
+                    heardAbout: a.heardAbout || '',
+                    heardAboutOther: a.heardAboutOther || '',
+                } : {}),
+            })
+            if (val.hasJoinData && a.steamId64) {
+                setSteamStatus('resolved')
+            }
+        } else {
+            setFields({
+                ...defaultFields,
+                discordUsername: val.username ?? val.displayName,
+                discordId: val.id,
+            })
+        }
+    }
+
+    function isStepComplete(s: number): boolean {
+        switch (s) {
             case 1: return !!fields.discordId.trim()
             case 2: return steamStatus === 'resolved'
             case 3: return !!fields.joiningName.trim() && nameStatus === 'available' && !nameOffensive
@@ -233,8 +441,18 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
             }
             case 5: return !!fields.availableNights && !!fields.opsPerMonth
             case 6: return !!fields.primaryRole
-            default: return false
+            default: return true
         }
+    }
+
+    const canAdvance = (): boolean => isStepComplete(step)
+
+    function canNavigateTo(targetStep: number): boolean {
+        if (targetStep <= step) return true
+        for (let s = 1; s < targetStep; s++) {
+            if (!isStepComplete(s)) return false
+        }
+        return true
     }
 
     const inputSx = {
@@ -265,36 +483,49 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         : undefined
     const nameColor = nameStatus === 'available' && !nameOffensive ? '#00c364' : nameStatus === 'taken' ? '#db001d' : undefined
 
-    // Progress bar
-    const progressBar = (
-        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 8 }}>
+    // Vertical step nav (used inside split-screen layout)
+    const verticalStepNav = (
+        <div style={{ width: 158, flexShrink: 0, borderRight: '1px solid rgba(219,0,29,0.12)', paddingTop: 8, paddingBottom: 16 }}>
             {STEP_LABELS.map((label, i) => {
-                const stepNum  = i + 1
-                const isDone   = stepNum < step
-                const isActive = stepNum === step
+                const stepNum   = i + 1
+                const isDone    = stepNum < step && isStepComplete(stepNum)
+                const isActive  = stepNum === step
+                const reachable = canNavigateTo(stepNum)
+                const clickable = !isActive && reachable
                 return (
-                    <div key={label} style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                        <div style={{ height: 1, flex: 1, marginBottom: 18, background: i === 0 ? 'transparent' : isDone ? 'rgba(0,195,100,0.4)' : 'rgba(255,255,255,0.07)' }} />
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flex: '0 0 auto' }}>
-                            <div style={{
-                                width: 22, height: 22, borderRadius: '50%',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: '0.6rem', fontWeight: 700,
-                                background: isDone ? '#00c364' : isActive ? 'rgba(219,0,29,0.15)' : 'rgba(255,255,255,0.05)',
-                                border: isDone ? '1px solid #00c364' : isActive ? '1px solid var(--red)' : '1px solid rgba(255,255,255,0.1)',
-                                color: isDone ? '#fff' : isActive ? 'var(--red)' : 'rgba(237,237,237,0.25)',
-                            }}>
-                                {isDone ? '✓' : stepNum}
-                            </div>
-                            <span style={{
-                                fontSize: '0.55rem', fontWeight: 600, letterSpacing: '0.06em',
-                                textTransform: 'uppercase', whiteSpace: 'nowrap',
-                                color: isDone ? '#00c364' : isActive ? 'rgba(237,237,237,0.7)' : 'rgba(237,237,237,0.2)',
-                            }}>
-                                {label}
-                            </span>
+                    <div
+                        key={label}
+                        onClick={clickable ? () => setStep(stepNum) : undefined}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '9px 14px',
+                            cursor: clickable ? 'pointer' : 'default',
+                            background: isActive ? 'rgba(219,0,29,0.07)' : 'transparent',
+                            borderLeft: `2px solid ${isActive ? 'var(--red)' : isDone ? 'rgba(0,195,100,0.5)' : 'transparent'}`,
+                            opacity: !reachable && !isActive ? 0.38 : 1,
+                            transition: 'background 0.12s',
+                        }}
+                        onMouseEnter={e => { if (clickable) (e.currentTarget as HTMLElement).style.background = isActive ? 'rgba(219,0,29,0.07)' : 'rgba(255,255,255,0.03)' }}
+                        onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                    >
+                        <div style={{
+                            width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '0.6rem', fontWeight: 700,
+                            background: isDone ? '#00c364' : isActive ? 'rgba(219,0,29,0.18)' : 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${isDone ? '#00c364' : isActive ? 'var(--red)' : 'rgba(255,255,255,0.1)'}`,
+                            color: isDone ? '#fff' : isActive ? 'var(--red)' : 'rgba(237,237,237,0.25)',
+                        }}>
+                            {isDone ? '✓' : stepNum}
                         </div>
-                        <div style={{ height: 1, flex: 1, marginBottom: 18, background: i === STEP_LABELS.length - 1 ? 'transparent' : isDone ? 'rgba(0,195,100,0.4)' : 'rgba(255,255,255,0.07)' }} />
+                        <span style={{
+                            fontSize: '0.62rem', fontWeight: isActive ? 700 : 400,
+                            letterSpacing: '0.08em', textTransform: 'uppercase',
+                            color: isActive ? 'rgba(237,237,237,0.9)' : isDone ? '#00c364' : 'rgba(237,237,237,0.35)',
+                            lineHeight: 1.2,
+                        }}>
+                            {label}
+                        </span>
                     </div>
                 )
             })}
@@ -349,41 +580,104 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         </div>
     )
 
+    // ── Document panel placeholder content ────────────────────────────────────
+    const DocSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
+        <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', marginBottom: 8, fontFamily: 'monospace' }}>
+                {'// ' + title.toUpperCase()}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.7 }}>{children}</div>
+        </div>
+    )
+
     if (success) return (
-        <div className='flex flex-col gap-4 p-5 max-w-[680px]'>
-            <div
-                className='flex items-center gap-3 px-4 py-4'
-                style={{ border: '1px solid rgba(0,195,100,0.2)', borderLeft: '2px solid #00c364', background: 'rgba(0,195,100,0.04)' }}
-            >
+        <div style={{ padding: '20px 24px', maxWidth: 560 }} className='flex flex-col gap-4'>
+            <div className='flex items-center gap-3 px-4 py-4' style={{ border: '1px solid rgba(0,195,100,0.2)', borderLeft: '2px solid #00c364', background: 'rgba(0,195,100,0.04)' }}>
                 <CheckCircle style={{ fontSize: 20, color: '#00c364', flexShrink: 0 }} />
                 <div>
                     <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)', marginBottom: 2 }}>Recruit logged — pending J1 lead approval</div>
                     <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.4)' }}>The record is in the Applications tab and awaits sign-off from a J1 lead.</div>
                 </div>
             </div>
-            <Button
-                onClick={() => setSuccess(false)}
-                sx={{ borderRadius: 0, color: 'rgba(237,237,237,0.5)', border: '1px solid rgba(255,255,255,0.1)', alignSelf: 'flex-start', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', padding: '6px 16px', '&:hover': { background: 'rgba(255,255,255,0.04)' } }}
-            >
+            <Button onClick={() => setSuccess(false)} sx={{ borderRadius: 0, color: 'rgba(237,237,237,0.5)', border: '1px solid rgba(255,255,255,0.1)', alignSelf: 'flex-start', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', padding: '6px 16px', '&:hover': { background: 'rgba(255,255,255,0.04)' } }}>
                 ADD ANOTHER RECRUIT
             </Button>
         </div>
     )
 
     return (
-        <div className='flex flex-col gap-4 p-5 max-w-[680px]'>
-            <div>
-                <Typography style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 4 }}>
-                    Direct Recruitment
-                </Typography>
-                <Typography style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.6 }}>
-                    Use this form to log a member who was directly recruited. A record will be created in the Applications Register with &quot;Accepted&quot; status.
-                </Typography>
-            </div>
+        // ── Split-screen layout: LEFT (form) + RIGHT (document panel) ─────────────
+        <div className='flex flex-col xl:flex-row' style={{ minHeight: 0 }}>
 
-            {progressBar}
+            {/* Change-applicant confirmation modal */}
+            {changeConfirmOpen && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 1300,
+                    background: 'rgba(0,0,0,0.7)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                    <div style={{
+                        background: '#0f0f0f',
+                        border: '1px solid rgba(219,0,29,0.4)',
+                        borderTop: '2px solid var(--red)',
+                        padding: '24px 28px',
+                        maxWidth: 420,
+                        width: '90%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12,
+                    }}>
+                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace' }}>
+                            {'// CONFIRM'}
+                        </div>
+                        <div style={{ fontSize: '0.92rem', fontWeight: 700, letterSpacing: '0.05em', color: 'rgba(237,237,237,0.9)', textTransform: 'uppercase' }}>
+                            Change Applicant?
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>
+                            You have unsaved changes. Changing applicant will clear the current form data.
+                        </p>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+                            <button
+                                onClick={() => { setChangeConfirmOpen(false); setPendingSelection(null) }}
+                                style={{ background: 'none', border: '1px solid rgba(237,237,237,0.15)', color: 'rgba(237,237,237,0.5)', padding: '7px 18px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em' }}
+                            >
+                                CANCEL
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setChangeConfirmOpen(false)
+                                    applySelection(pendingSelection)
+                                    setPendingSelection(null)
+                                }}
+                                style={{ background: 'rgba(219,0,29,0.2)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.9)', padding: '7px 18px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em' }}
+                            >
+                                CHANGE APPLICANT
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-            <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
+            {/* ── LEFT COLUMN: step nav + form ─────────────────────────────────── */}
+            <div className='xl:w-[60%]' style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(219,0,29,0.15)', minWidth: 0 }}>
+
+                {/* Header */}
+                <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
+                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 4, fontFamily: 'monospace' }}>
+                        J1 — DIRECT RECRUITMENT
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.45)', lineHeight: 1.5 }}>
+                        Complete all steps to log a recruit. Data is preserved when navigating between steps.
+                    </div>
+                </div>
+
+                {/* Vertical step nav + form content */}
+                <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+                    {verticalStepNav}
+
+                    {/* Form content */}
+                    <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '20px 24px' }}>
+                        <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
 
                 {/* ── Step 1: Discord ── */}
                 {step === 1 && (
@@ -393,16 +687,23 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                         {!manualEntry ? (
                             <>
                                 <Autocomplete
-                                    options={memberList}
+                                    options={[
+                                        // Test applicants (dev only) + real applicants + members
+                                        ...(isDev ? TEST_APPLICANTS : TEST_APPLICANTS.map(t => ({ ...t, isTestApplicant: true }))),
+                                        ...applicantList,
+                                        ...memberList,
+                                    ]}
                                     loading={membersLoading}
                                     value={selectedMember}
+                                    groupBy={o => o.optionGroup}
                                     onChange={(_, val) => {
-                                        setSelectedMember(val)
-                                        setFields(prev => ({
-                                            ...prev,
-                                            discordUsername: val ? (val.username ?? val.displayName) : '',
-                                            discordId: val?.id ?? '',
-                                        }))
+                                        // If meaningful progress exists, prompt before discarding
+                                        if (hasUnsavedProgress() && val?.id !== selectedMember?.id) {
+                                            setPendingSelection(val)
+                                            setChangeConfirmOpen(true)
+                                            return
+                                        }
+                                        applySelection(val)
                                     }}
                                     getOptionLabel={o => o.displayName}
                                     isOptionEqualToValue={(a, b) => a.id === b.id}
@@ -416,15 +717,48 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                             (o.inGameName && o.inGameName.toLowerCase().includes(q))
                                         )
                                     }}
+                                    renderGroup={params => (
+                                        <div key={params.key}>
+                                            <div style={{
+                                                padding: '6px 12px 4px',
+                                                fontSize: '0.55rem',
+                                                fontWeight: 700,
+                                                letterSpacing: '0.18em',
+                                                textTransform: 'uppercase',
+                                                color: params.group === 'Applicants' ? 'rgba(219,0,29,0.7)' : 'rgba(237,237,237,0.3)',
+                                                background: params.group === 'Applicants' ? 'rgba(219,0,29,0.04)' : 'rgba(255,255,255,0.02)',
+                                                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                                                fontFamily: 'monospace',
+                                            }}>
+                                                {params.group === 'Applicants' ? '// APPLICANTS' : '// CURRENT MEMBERS'}
+                                            </div>
+                                            {params.children}
+                                        </div>
+                                    )}
                                     renderOption={(props, option) => {
                                         const { key, ...liProps } = props
                                         return (
                                             <li key={option.id} {...liProps} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', padding: '6px 12px' }}>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                                         <span>{option.displayName}</span>
                                                         {option.username && (
                                                             <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)' }}>@{option.username}</span>
+                                                        )}
+                                                        {option.isTestApplicant && (
+                                                            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', padding: '1px 5px', flexShrink: 0 }}>
+                                                                TEST
+                                                            </span>
+                                                        )}
+                                                        {option.optionGroup === 'Applicants' && !option.isTestApplicant && (
+                                                            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(219,0,29,0.7)', background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.3)', padding: '1px 5px', flexShrink: 0 }}>
+                                                                APPLICANT
+                                                            </span>
+                                                        )}
+                                                        {option.hasJoinData && (
+                                                            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: '#00c364', background: 'rgba(0,195,100,0.08)', border: '1px solid rgba(0,195,100,0.3)', padding: '1px 5px', flexShrink: 0 }}>
+                                                                JOIN
+                                                            </span>
                                                         )}
                                                     </div>
                                                     <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)', fontFamily: 'monospace', marginTop: 1 }}>{option.id}</div>
@@ -433,14 +767,10 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                                     <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', fontFamily: 'monospace', flexShrink: 0 }}>{option.inGameName}</span>
                                                 )}
                                                 {option.isSkeleton && (
-                                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 5px', flexShrink: 0 }}>
-                                                        CSV
-                                                    </span>
+                                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 5px', flexShrink: 0 }}>CSV</span>
                                                 )}
                                                 {option.discharged && (
-                                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', padding: '1px 5px', flexShrink: 0 }}>
-                                                        DISCHARGED
-                                                    </span>
+                                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', padding: '1px 5px', flexShrink: 0 }}>DISCHARGED</span>
                                                 )}
                                             </li>
                                         )
@@ -448,7 +778,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                     renderInput={params => (
                                         <TextField
                                             {...params}
-                                            label='Select Discord member'
+                                            label='Select applicant or Discord member'
                                             placeholder='Search by name, @username, or Discord ID...'
                                             required
                                             sx={inputSx}
@@ -470,6 +800,17 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                         </div>
                                     )}
                                 />
+                                {selectedMember?.optionGroup === 'Applicants' && selectedMember.hasJoinData && (
+                                    <div style={{ fontSize: '0.72rem', color: '#00c364', padding: '8px 12px', background: 'rgba(0,195,100,0.04)', border: '1px solid rgba(0,195,100,0.2)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <CheckCircle style={{ fontSize: 14, flexShrink: 0 }} />
+                                        Application data pre-filled — review each step and confirm details with the applicant.
+                                    </div>
+                                )}
+                                {selectedMember?.optionGroup === 'Applicants' && !selectedMember.hasJoinData && (
+                                    <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.45)', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                        No join application — enter all details manually through each step.
+                                    </div>
+                                )}
                                 <button
                                     type='button'
                                     onClick={() => setManualEntry(true)}
@@ -916,7 +1257,91 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                         {nav(true)}
                     </div>
                 )}
-            </form>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── RIGHT COLUMN: Recruitment Process document panel ─────────────── */}
+            <div
+                className='xl:w-[40%]'
+                style={{
+                    overflowY: 'auto',
+                    padding: '20px 24px',
+                    background: 'rgba(0,0,0,0.14)',
+                }}
+            >
+                {/* Panel header */}
+                <div style={{ marginBottom: 20, paddingBottom: 14, borderBottom: '1px solid rgba(219,0,29,0.2)' }}>
+                    <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 6, fontFamily: 'monospace' }}>
+                        {'// RECRUITER GUIDE'}
+                    </div>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.85)' }}>
+                        Recruitment Process
+                    </div>
+                </div>
+
+                {/* Placeholder sections */}
+                <DocSection title='Overview'>
+                    <p style={{ margin: '0 0 8px' }}>
+                        Recruitment instructions and process guidance will appear in this panel.
+                        This section will provide step-by-step guidance for each stage of the recruitment workflow.
+                    </p>
+                    <p style={{ margin: 0 }}>
+                        Interview questions and recruiter notes for the current step will be displayed here once content is finalised.
+                    </p>
+                </DocSection>
+
+                <DocSection title='Recruiter Instructions'>
+                    <p style={{ margin: '0 0 8px' }}>
+                        Placeholder — recruiter instructions for each step will be added here.
+                        Instructions will update based on the active step to guide the recruiter through the process.
+                    </p>
+                    <ul style={{ margin: '0', paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <li>Review all applicant-provided information carefully.</li>
+                        <li>Confirm details directly with the applicant where required.</li>
+                        <li>Flag any concerns or exemptions before proceeding.</li>
+                        <li>Complete all mandatory fields before advancing to the next step.</li>
+                    </ul>
+                </DocSection>
+
+                <DocSection title='Questions to Ask'>
+                    <p style={{ margin: '0 0 8px' }}>
+                        Placeholder — interview questions and discussion points for each step will be listed here.
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <li>Example: How did they find ASOT, and what draws them to milsim?</li>
+                        <li>Example: Do they understand the operation schedule and time commitment?</li>
+                        <li>Example: Are they familiar with basic infantry and communication procedures?</li>
+                        <li>Example: Do they have any prior milsim or clan experience to discuss?</li>
+                    </ul>
+                </DocSection>
+
+                <DocSection title='Notes'>
+                    <p style={{ margin: 0 }}>
+                        Placeholder — recruiter notes, flags, and observations will be captured here.
+                        This section will support step-aware notes that follow the recruitment record.
+                    </p>
+                </DocSection>
+
+                <DocSection title='Completion Requirements'>
+                    <p style={{ margin: '0 0 8px' }}>
+                        Placeholder — required conditions before finalising this recruitment record.
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <li>All mandatory fields across all seven steps must be completed.</li>
+                        <li>Steam profile must be verified and resolved.</li>
+                        <li>In-game name must be confirmed as available and appropriate.</li>
+                        <li>Age requirements confirmed or exemption noted.</li>
+                        <li>Primary role confirmed.</li>
+                    </ul>
+                </DocSection>
+
+                <div style={{ marginTop: 12, padding: '10px 12px', background: 'rgba(219,0,29,0.04)', border: '1px solid rgba(219,0,29,0.15)', fontSize: '0.68rem', color: 'rgba(237,237,237,0.28)', lineHeight: 1.6, fontStyle: 'italic' }}>
+                    Detailed recruitment questions and step-specific guidance will be added to this panel in a future update.
+                </div>
+            </div>
+
         </div>
     )
 }
