@@ -6,7 +6,7 @@ import {
     Button, Chip, CircularProgress, Typography, Alert, ListSubheader,
 } from '@mui/material'
 import { Send } from '@mui/icons-material'
-import { RANK_GROUPS } from '@/lib/ranks'
+import { RANK_GROUPS } from '@/lib/military/ranks'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 
 type TicketRow = Ticket & { _id: string }

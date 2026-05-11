@@ -1131,7 +1131,7 @@ export default function Page() {
             {opID && (
                 <div style={{
                     position: 'fixed',
-                    top: 0,
+                    top: 64,
                     right: 0,
                     bottom: 0,
                     width: 'clamp(280px, 30vw, 460px)',
@@ -1150,7 +1150,7 @@ export default function Page() {
             {opID && (
                 <div style={{
                     position: 'fixed',
-                    top: 0,
+                    top: 64,
                     right: 0,
                     bottom: 0,
                     width: 'clamp(360px, 40vw, 700px)',
@@ -1256,8 +1256,7 @@ function MapWorldPicker({
                 }}
             >
                 {selected?.hasPreview && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={`/maps/${selected.name}/preview.jpg`} alt='' style={{ width: 28, height: 20, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }} />
+                    <img src={`/map-assets/${selected.name}/preview.jpg`} alt='' style={{ width: 28, height: 20, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }} />
                 )}
                 <span style={{ flex: 1, textAlign: 'left' }}>{selected?.displayName ?? 'No Map'}</span>
                 <span style={{ fontSize: '0.6rem', opacity: 0.4 }}>▾</span>
@@ -1308,8 +1307,7 @@ function MapWorldPicker({
                             >
                                 {!isActive && <div className='mwp-hover' style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.04)', opacity: 0, transition: 'opacity 0.1s ease', pointerEvents: 'none', willChange: 'opacity' }} />}
                                 {w.hasPreview ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={`/maps/${w.name}/preview.jpg`} alt='' loading='lazy' style={{ width: 42, height: 30, objectFit: 'cover', flexShrink: 0, border: `1px solid ${isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}` }} />
+                                    <img src={`/map-assets/${w.name}/preview.jpg`} alt='' loading='lazy' style={{ width: 42, height: 30, objectFit: 'cover', flexShrink: 0, border: `1px solid ${isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}` }} />
                                 ) : (
                                     <div style={{ width: 42, height: 30, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }} />
                                 )}

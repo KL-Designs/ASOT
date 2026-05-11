@@ -1,12 +1,18 @@
+import type { Metadata } from 'next'
 import { connection } from 'next/server'
 import Db from '@/lib/mongo'
+
+export const metadata: Metadata = {
+	title: "Member Bios | Australian Special Operations Taskforce",
+	description: "Personnel bios and profiles for members of the Australian Special Operations Taskforce.",
+}
 
 import Image from 'next/image'
 
 import Container from '@/components/container'
 import BannerImg from '@/public/images/home/VicPose2.png'
 import { getOrbatEntriesForUsers } from '@/lib/orbat'
-import { resolveMilpacProfile } from '@/lib/milpac-profile'
+import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 
 
 export default async function Page() {

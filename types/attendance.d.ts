@@ -38,6 +38,7 @@ declare global {
     /** Shape returned by the attendance GET endpoint with user details populated */
     interface OperationAttendanceWithUsers extends OperationAttendance {
         recordsWithUsers: (OperationAttendanceRecord & {
+            category?: string
             user: {
                 id: string
                 displayName: string
@@ -46,6 +47,7 @@ declare global {
                 csvName?: string
             } | null
         })[]
+        sectionMeta?: Array<{ category: string; sectionTitle: string | null; color?: string }>
     }
 
 }

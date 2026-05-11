@@ -7,8 +7,9 @@ import { Api, Tune, CalendarToday, ManageAccounts } from '@mui/icons-material'
 
 import ConvertColor from '@/lib/discord/color'
 import { getOrbatEntryByUserId } from '@/lib/orbat'
-import { rankNameFromAbbr } from '@/lib/ranks'
+import { rankNameFromAbbr } from '@/lib/military/ranks'
 import { BioSections } from './bio'
+import TSLinkButton from './TSLinkButton'
 import Avatar from '@/components/member/avatar'
 
 
@@ -106,6 +107,10 @@ export default async function Page() {
                 {/* Left column */}
                 <div className='flex flex-col gap-5 flex-grow min-w-0'>
                     <BioSections canUploadImage={isHQ} isHQ={isHQ} />
+                    <TSLinkButton
+                        linked={me.teamspeak ? { cldbid: me.teamspeak.cldbid, linkedAt: me.teamspeak.linkedAt } : null}
+                        expectedNickname={bioRankAbbr ? `[${bioRankAbbr}] ${bioDisplayName}` : bioDisplayName}
+                    />
 
                     {/* Navigation cards */}
                     <div className='flex flex-wrap gap-4'>

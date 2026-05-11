@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
-import { AWARDS } from '@/lib/awards'
+import { AWARDS } from '@/lib/military/awards'
 
 const VALID_AWARDS = new Set(AWARDS.map(a => a.label))
 

@@ -3,8 +3,8 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { RANK_GROUPS } from '@/lib/ranks'
-import { applyOrbatMove } from '@/lib/orbat-move'
+import { RANK_GROUPS } from '@/lib/military/ranks'
+import { applyOrbatMove } from '@/lib/orbat/move'
 
 // PATCH /api/admin/tickets/[id] — approve or reject a ticket
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

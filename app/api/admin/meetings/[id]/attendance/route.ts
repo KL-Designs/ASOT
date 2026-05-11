@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { initMeetingAttendance } from '@/lib/meetingAttendanceInit'
+import { initMeetingAttendance } from '@/lib/attendance/meeting-init'
 
 function isInvited(meeting: { invitedUserIds?: string[] }, userId: string) {
     return (meeting.invitedUserIds ?? []).includes(userId)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { AWARDS } from '@/lib/awards'
+import { AWARDS } from '@/lib/military/awards'
 
 const AWARD_TYPE_ORDER = [
     'Non-Operational Award',

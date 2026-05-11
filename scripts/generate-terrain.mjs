@@ -229,7 +229,16 @@ async function processSatImages(worldDir) {
 
     for (const colEntry of colDirs) {
         const colDir = join(satDir, colEntry.name)
-        const pngFiles = readdirSync(colDir).filter(f => f.endsWith('.png'))
+        const files = readdirSync(colDir)
+        const pngFiles = files.filter(f => f.endsWith('.png'))
+        if (pngFiles.length === 0) continue
+
+        // Fast path: if JPG count matches PNG count the whole column is done
+        if (!FORCE && files.filter(f => f.endsWith('.jpg')).length >= pngFiles.length) {
+            skipped += pngFiles.length
+            continue
+        }
+
         for (const pngFile of pngFiles) {
             const pngPath = join(colDir, pngFile)
             const jpgPath = pngPath.replace(/\.png$/, '.jpg')

@@ -8,7 +8,8 @@ import InfoCard from '@/components/info-card'
 
 
 export const metadata: Metadata = {
-	title: "FAQ | Australian Special Operations Taskforce"
+	title: "FAQ | Australian Special Operations Taskforce",
+	description: "Frequently asked questions about the Australian Special Operations Taskforce — joining, operations, and community life.",
 }
 
 

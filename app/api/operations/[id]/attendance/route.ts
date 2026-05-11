@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
-import { createAttendanceTasksForOperation } from '@/lib/attendance-tasks'
+import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -33,12 +33,40 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const coveredUserIds = new Set<string>()
 
     let sectionRolesMap: Record<string, { role: string; userId: string | null }[]> = {}
+    let sectionMeta: Array<{ category: string; sectionTitle: string | null; color?: string }> = []
 
     if (true) {
         const categoriesToFetch = [...new Set([
             ...CATEGORY_ORDER.filter(c => assignedPlatoons.includes(c)),
             'gamemaster',
         ])]
+
+        const metaRecords = await Db.orbatSectionMeta.find(
+            { category: { $in: categoriesToFetch } },
+            { projection: { category: 1, sectionTitle: 1, color: 1, discordRoleId: 1 } },
+        ).toArray()
+
+        // Resolve Discord role colors for entries that have no explicit color
+        const roleIds = metaRecords
+            .filter(m => !m.color && m.discordRoleId)
+            .map(m => m.discordRoleId!)
+        const roleColorMap = new Map<string, number>()
+        if (roleIds.length > 0) {
+            const roles = await Db.roles.find({ id: { $in: roleIds } } as any).toArray() as any[]
+            for (const role of roles) {
+                if (role.id && role.color) roleColorMap.set(role.id, role.color)
+            }
+        }
+
+        sectionMeta = metaRecords.map(m => {
+            let color = m.color
+            if (!color && m.discordRoleId) {
+                const n = roleColorMap.get(m.discordRoleId)
+                if (n && n > 0) color = `#${n.toString(16).padStart(6, '0')}`
+            }
+            return { category: m.category, sectionTitle: m.sectionTitle ?? null, color }
+        })
+
         const positions = await Db.orbatPositions
             .find({ category: { $in: categoriesToFetch }, userId: { $ne: null } })
             .sort({ sectionOrder: 1, positionOrder: 1 })
@@ -154,10 +182,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             confirmationOpen: false,
             recordsWithUsers,
             sectionRolesMap,
+            sectionMeta,
         })
     }
 
-    return NextResponse.json({ ...attendance, recordsWithUsers, sectionRolesMap })
+    return NextResponse.json({ ...attendance, recordsWithUsers, sectionRolesMap, sectionMeta })
 }
 
 // POST /api/operations/[id]/attendance — initialise an attendance doc for an operation

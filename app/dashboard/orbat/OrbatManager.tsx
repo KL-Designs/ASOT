@@ -11,7 +11,7 @@ import {
     Edit, Close, AccountTree, Warning, ArrowUpward, ArrowDownward,
     Add, Delete, MoreVert, DragIndicator,
 } from '@mui/icons-material'
-import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat-constants'
+import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat/constants'
 import MilpacEditor from '@/app/members/[username]/MilpacEditor'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import {
@@ -192,6 +192,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
     const [discordRoles, setDiscordRoles] = useState<Role[]>([])
     const [rolePickerTarget, setRolePickerTarget] = useState<{ category: string; sectionTitle: string | null } | null>(null)
     const [roleSearch, setRoleSearch] = useState('')
+
     const colorInputRef = useRef<HTMLInputElement>(null)
     const patchInputRef = useRef<HTMLInputElement>(null)
     const colorSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -209,7 +210,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         ]
         if (canManageStructure) {
             fetches.push(
-                fetch('/api/admin/orbat/discord-roles').then(r => r.ok ? r.json() : null).then(d => { if (d) setDiscordRoles(d.roles ?? []) })
+                fetch('/api/admin/orbat/discord-roles').then(r => r.ok ? r.json() : null).then(d => { if (d) setDiscordRoles(d.roles ?? []) }),
             )
         }
         await Promise.all(fetches)
@@ -311,6 +312,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             })
         }
     }
+
 
 
     // ── Local state helpers ──────────────────────────────────────────────────
@@ -1234,7 +1236,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
 
     return (
-        <div className='h-full w-full p-6 md:p-8 flex flex-col gap-5 max-w-[1600px] mx-auto'>
+        <div className='h-full w-full p-6 md:p-8 flex flex-col gap-5'>
 
             {/* Hidden inputs for color picker + patch upload (J4-Admin only) */}
             {canManageStructure && (

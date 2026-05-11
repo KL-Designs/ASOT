@@ -67,6 +67,19 @@ declare global {
         teamLeadDepts?: string[] // dept codes this user is a team lead of, e.g. ['j3']
         isChaplain?: boolean
 
+        teamspeak?: {
+            uid: string
+            cldbid: number
+            nickname: string
+            linkedAt: number
+        }
+        tsVerifyCode?: string
+        tsPending?: {
+            cldbid: string
+            uid: string
+            nickname: string
+        }
+
         bio?: {
             content: string
         }

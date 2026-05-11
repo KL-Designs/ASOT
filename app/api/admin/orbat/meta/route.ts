@@ -30,14 +30,15 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
     if (!await authStructure()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { category, sectionTitle, color, discordRoleId } = await request.json()
+    const { category, sectionTitle, color, discordRoleId, tsGroupId } = await request.json()
     if (!category) {
         return NextResponse.json({ error: 'Missing category' }, { status: 400 })
     }
 
-    const setFields: Record<string, string> = {}
+    const setFields: Record<string, string | number> = {}
     if (typeof color === 'string') setFields.color = color
     if (typeof discordRoleId === 'string') setFields.discordRoleId = discordRoleId
+    if (typeof tsGroupId === 'number') setFields.tsGroupId = tsGroupId
 
     if (Object.keys(setFields).length === 0) {
         return NextResponse.json({ error: 'No fields to update' }, { status: 400 })

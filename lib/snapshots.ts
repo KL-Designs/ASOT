@@ -19,14 +19,22 @@ export const MAX_SNAPSHOTS = 5
 export const GALLERY_DIR   = resolve('./gallery')
 export const UPLOADS_DIR   = resolve('./uploads')
 
-// Actual MongoDB collection names (not Db property names)
-export const COLLECTIONS = [
-    'users', 'roles', 'milpacs', 'optionals',
-    'operations', 'operation_activity', 'operation_attendance', 'operation_campaigns',
-    'operation_templates', 'orbat_positions', 'orbat_section_meta',
-    'j1_applications', 'tickets', 'calendar_events', 'calendar_reminders',
-    'meetings', 'tasks', 'notifications', 'minigame_scores', 'minigame_live', 'site_settings',
-]
+export type SnapshotOptions = {
+    database:        boolean
+    galleryContent:  boolean
+    galleryFeatured: boolean
+    gallerySotm:     boolean
+    uploads:         boolean
+}
+
+export const DEFAULT_SNAPSHOT_OPTIONS: SnapshotOptions = {
+    database:        true,
+    galleryContent:  true,
+    galleryFeatured: true,
+    gallerySotm:     true,
+    uploads:         true,
+}
+
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -130,11 +138,11 @@ export function listSnapshots(): SnapshotInfo[] {
 
 // ── Create ────────────────────────────────────────────────────────────────────
 
-export async function createSnapshot(): Promise<void> {
+export async function createSnapshot(options: SnapshotOptions = DEFAULT_SNAPSHOT_OPTIONS): Promise<void> {
     ensureSnapshotsDir()
 
-    const now      = new Date()
-    const ts       = snapshotTimestamp(now)
+    const now       = new Date()
+    const ts        = snapshotTimestamp(now)
     const finalPath = join(SNAPSHOTS_DIR, `snapshot-${ts}.zip`)
     const tmpPath   = finalPath + '.tmp'
 
@@ -156,19 +164,31 @@ export async function createSnapshot(): Promise<void> {
             output.on('error', reject)
             archive.pipe(output)
 
-            // Manifest
-            archive.append(
-                JSON.stringify({ version: 1, createdAt: now.toISOString(), collections: COLLECTIONS }),
-                { name: 'manifest.json' }
-            )
-
-            // File trees (registered synchronously; streamed before finalize)
-            if (existsSync(GALLERY_DIR)) archive.directory(GALLERY_DIR, 'gallery')
-            if (existsSync(UPLOADS_DIR)) archive.directory(UPLOADS_DIR, 'uploads')
+            // File trees
+            const galleryContent  = join(GALLERY_DIR, 'content')
+            const galleryFeatured = join(GALLERY_DIR, 'featured')
+            const gallerySotm     = join(GALLERY_DIR, 'sotm')
+            if (options.galleryContent  && existsSync(galleryContent))  archive.directory(galleryContent,  'gallery/content')
+            if (options.galleryFeatured && existsSync(galleryFeatured)) archive.directory(galleryFeatured, 'gallery/featured')
+            if (options.gallerySotm     && existsSync(gallerySotm))     archive.directory(gallerySotm,     'gallery/sotm')
+            if (options.uploads && existsSync(UPLOADS_DIR)) archive.directory(UPLOADS_DIR, 'uploads')
 
             // DB export — must complete before finalize()
             const dbExport = (async () => {
-                for (const collName of COLLECTIONS) {
+                if (!options.database) return
+                const collInfos = await db.listCollections({}, { nameOnly: true }).toArray()
+                const collections = collInfos
+                    .map(c => c.name)
+                    .filter(n => !n.startsWith('system.'))
+                    .sort()
+
+                // Manifest written after we know the real collection list
+                archive.append(
+                    JSON.stringify({ version: 1, createdAt: now.toISOString(), collections, options }),
+                    { name: 'manifest.json' }
+                )
+
+                for (const collName of collections) {
                     const docs = await db.collection(collName).find({}).toArray()
                     archive.append(
                         EJSON.stringify(docs, { relaxed: false }),
@@ -234,9 +254,14 @@ export async function revertSnapshot(zipPath: string): Promise<void> {
         await mongoClient.connect()
         const db = mongoClient.db(process.env.MONGO_DB!)
 
-        for (const collName of COLLECTIONS) {
-            const ejsonPath = join(tmpDir, 'db', `${collName}.ejson`)
-            if (!existsSync(ejsonPath)) continue  // older snapshot may not have this collection
+        const dbDir = join(tmpDir, 'db')
+        const collectionNames = existsSync(dbDir)
+            ? readdirSync(dbDir).filter(f => f.endsWith('.ejson')).map(f => f.slice(0, -6)).sort()
+            : []
+
+        for (const collName of collectionNames) {
+            const ejsonPath = join(dbDir, `${collName}.ejson`)
+            if (!existsSync(ejsonPath)) continue
 
             const raw  = await readFile(ejsonPath, 'utf-8')
             const docs = EJSON.parse(raw) as unknown[]

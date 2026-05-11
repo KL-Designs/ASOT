@@ -30,12 +30,14 @@ import MilitaryGrid from '@/components/military-grid'
 
 export default function Page() {
 
-	const ref = useRef<HTMLDivElement>(null)
+	const ref       = useRef<HTMLDivElement>(null)
+	const enlistRef = useRef<HTMLDivElement>(null)
 	const [keys, setKeys] = useState<string>('')
 	const [gameActive, setGameActive] = useState(false)
 	const [currentUser, setCurrentUser] = useState<User | null>(null)
 	const [scoreboardKey, setScoreboardKey] = useState(0)
 	const [gameDead, setGameDead] = useState(false)
+	const [showEnlistHint, setShowEnlistHint] = useState(false)
 	const [lastScore, setLastScore] = useState<{ score: number; collectScore: number } | undefined>(undefined)
 	const [globalBest, setGlobalBest]       = useState<number | undefined>(undefined)
 	const [globalBestName, setGlobalBestName] = useState<string | undefined>(undefined)
@@ -81,6 +83,30 @@ export default function Page() {
 			}).catch(() => {})
 	}, [currentUser, scoreboardKey])
 
+	useEffect(() => {
+		const onMove = (e: MouseEvent) => {
+			if (!enlistRef.current) return
+			const rect = enlistRef.current.getBoundingClientRect()
+			const cx = rect.left + rect.width / 2
+			const cy = rect.top + rect.height / 2
+			const dx = e.clientX - cx
+			const dy = e.clientY - cy
+			const dist = Math.hypot(dx, dy)
+			const threshold = 180
+			if (dist < threshold) {
+				const force = (1 - dist / threshold) ** 0.7
+				const tx = -(dx / dist) * force * 500
+				const ty = -(dy / dist) * force * 500
+				enlistRef.current.style.transform = `translate(${tx}px, ${ty}px)`
+				setShowEnlistHint(true)
+			} else {
+				enlistRef.current.style.transform = 'translate(0,0)'
+			}
+		}
+		window.addEventListener('mousemove', onMove, { passive: true })
+		return () => window.removeEventListener('mousemove', onMove)
+	}, [])
+
 	function handleGameOver(score: number, collectScore: number) {
 		setLastScore({ score, collectScore })
 		setGameDead(true)
@@ -113,6 +139,7 @@ export default function Page() {
 					: <Image src={Banner} alt='Banner' fill className='object-cover object-center' />
 				}
 				<div className='absolute inset-0' style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.1) 50%, rgba(10,10,10,0.95) 100%)' }} />
+				<MilitaryGrid gradient />
 				<div className='absolute inset-0' style={{ background: 'rgba(0,0,0,0.45)', opacity: gameActive ? 1 : 0, transition: 'opacity 0.7s ease', pointerEvents: 'none', zIndex: 1 }} />
 				<FireEmbers />
 				<PhysicsGame onActivate={() => setGameActive(true)} onGameOver={handleGameOver} onRestart={() => setGameDead(false)} active={gameActive} personalBest={personalBest} globalBest={globalBest} globalBestName={globalBestName} liveUserId={currentUser?.id} liveAccentColor={currentUser?.hexAccentColor} />
@@ -139,12 +166,13 @@ export default function Page() {
 
 				<div className='h-full flex flex-col items-center justify-center gap-6 px-6 relative' style={{ opacity: gameActive ? 0 : 1, transition: 'opacity 0.6s ease', pointerEvents: gameActive ? 'none' : 'auto' }}>
 					<div className='relative w-full max-w-[800px]' style={{ height: 'clamp(160px, 24vw, 340px)' }}>
-						<Image src={LargeLogo} alt='ASOT Logo' fill className='object-contain object-center' />
+						<style>{`@keyframes logoBob { 0%, 100% { transform: translateY(0px); filter: drop-shadow(10px 15px 5px rgba(0,0,0,0.65)); } 50% { transform: translateY(-7px); filter: drop-shadow(15px 25px 10px rgba(0,0,0,0.5)); } }`}</style>
+						<Image src={LargeLogo} alt='ASOT Logo' fill className='object-contain object-center' style={{ animation: 'logoBob 6s ease-in-out infinite' }} />
 					</div>
 
 					<div className='flex flex-col items-center gap-2'>
 						<div style={{ height: 2, width: 48, background: 'var(--red)' }} />
-						<p style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.22em', color: 'rgba(237,237,237,0.92)', textTransform: 'uppercase', margin: 0 }}>
+						<p style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.22em', color: 'rgba(237,237,237,0.92)', textTransform: 'uppercase', margin: 0, filter: 'drop-shadow(10px 20px 3px rgba(0,0,0,0.3))' }}>
 							Oceania&apos;s Largest ARMA 3 Milsim Unit
 						</p>
 						<div style={{ height: 2, width: 48, background: 'var(--red)' }} />
@@ -164,31 +192,40 @@ export default function Page() {
 							</Button>
 						</Link>
 						{/* <Link href='/join'> */}
-							<Button
-								variant='contained'
-								size='large'
-								endIcon={<ChevronRight />}
-								sx={{
-									'@keyframes enlistPulse': {
-										'0%': { boxShadow: '0 0 0 0 rgba(219,0,29,0.7), 0 0 12px rgba(219,0,29,0.4)' },
-										'70%': { boxShadow: '0 0 0 12px rgba(219,0,29,0), 0 0 18px rgba(219,0,29,0.15)' },
-										'100%': { boxShadow: '0 0 0 0 rgba(219,0,29,0), 0 0 12px rgba(219,0,29,0.4)' },
-									},
-									background: 'var(--red)',
-									fontWeight: 800,
-									letterSpacing: '0.15em',
-									animation: 'enlistPulse 2s ease-in-out infinite',
-									'&:hover': {
-										background: 'rgba(219,0,29,0.85)',
-										transform: 'translateY(-1px)',
-										boxShadow: '0 0 24px rgba(219,0,29,0.6)',
-									},
-									transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-								}}
-								onClick={() => {alert('This system is not live yet, please apply through discord')}}
-							>
-								ENLIST NOW
-							</Button>
+							<div style={{ position: 'relative', display: 'inline-block' }}>
+								{showEnlistHint && (
+									<span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.6)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+										← Just Join through Discord
+									</span>
+								)}
+								<div ref={enlistRef} style={{ display: 'inline-block', transition: 'transform 0.08s ease-out' }}>
+									<Button
+										variant='contained'
+										size='large'
+										endIcon={<ChevronRight />}
+										sx={{
+											'@keyframes enlistPulse': {
+												'0%': { boxShadow: '0 0 0 0 rgba(219,0,29,0.7), 0 0 12px rgba(219,0,29,0.4)' },
+												'70%': { boxShadow: '0 0 0 12px rgba(219,0,29,0), 0 0 18px rgba(219,0,29,0.15)' },
+												'100%': { boxShadow: '0 0 0 0 rgba(219,0,29,0), 0 0 12px rgba(219,0,29,0.4)' },
+											},
+											background: 'var(--red)',
+											fontWeight: 800,
+											letterSpacing: '0.15em',
+											animation: 'enlistPulse 2s ease-in-out infinite',
+											'&:hover': {
+												background: 'rgba(219,0,29,0.85)',
+												transform: 'translateY(-1px)',
+												boxShadow: '0 0 24px rgba(219,0,29,0.6)',
+											},
+											transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+										}}
+										onClick={() => {}}
+									>
+										ENLIST NOW
+									</Button>
+								</div>
+							</div>
 						{/* </Link> */}
 					</div>
 				</div>

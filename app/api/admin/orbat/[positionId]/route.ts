@@ -3,9 +3,9 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
+import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
 import { logAction } from '@/lib/logs'
-import { syncOrbatDiscordRoles } from '@/lib/orbat-discord'
+import { syncOrbatDiscordRoles } from '@/lib/orbat/discord'
 
 
 async function authStructure() {
@@ -91,7 +91,6 @@ export async function PATCH(
             const evictedId = position.userId
             Promise.allSettled([
                 syncOrbatDiscordRoles(evictedId, 'remove', position.category, position.sectionTitle),
-                // Add reservist role if they were auto-moved there
                 reservistPosition ? syncOrbatDiscordRoles(evictedId, 'add', 'activeReservist', '') : Promise.resolve(),
             ]).catch(err => console.error('[orbat] Discord role sync failed:', err))
         } else if (!isUnassign && userId) {

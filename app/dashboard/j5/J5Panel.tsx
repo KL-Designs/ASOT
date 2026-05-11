@@ -4,7 +4,8 @@ import { Typography, Tabs, Tab } from '@mui/material'
 import { PeopleAlt, CalendarMonth, HistoryEdu } from '@mui/icons-material'
 import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
-import GalleryManager from '@/app/dashboard/gallery/GalleryManager'
+import GalleryOperationsTab from '@/app/dashboard/j5/tabs/GalleryOperationsTab'
+import GalleryFeaturedTab from '@/app/dashboard/j5/tabs/GalleryFeaturedTab'
 import ScreenshotOfMonthTab from '@/app/dashboard/j5/tabs/ScreenshotOfMonthTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
@@ -50,7 +51,7 @@ export default function J5Panel({
     })
 
     return (
-        <div className='h-full w-full flex flex-col max-w-[1100px]'>
+        <div className='h-full w-full flex flex-col'>
             <div
                 className='flex items-center justify-between px-5 py-3 mx-6 mt-6'
                 style={{
@@ -102,18 +103,20 @@ export default function J5Panel({
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Gallery'             pinLabel='J5 — Gallery'  href='/dashboard/j5' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Screenshot of Month' pinLabel='J5 — SOTM'     href='/dashboard/j5' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'            pinLabel='J5 — Meetings' href='/dashboard/j5' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tickets' pinLabel='J5 — Tickets' href='/dashboard/j5' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Operations'          pinLabel='J5 — Operations' href='/dashboard/j5' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Featured Images'     pinLabel='J5 — Featured'   href='/dashboard/j5' tabIndex={1} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Screenshot of Month' pinLabel='J5 — SOTM'       href='/dashboard/j5' tabIndex={2} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'            pinLabel='J5 — Meetings'   href='/dashboard/j5' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Tickets'             pinLabel='J5 — Tickets'    href='/dashboard/j5' tabIndex={4} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
-                        {tab === 0 && <GalleryManager hideHeader />}
-                        {tab === 1 && <ScreenshotOfMonthTab canManage={canManageMembers} />}
-                        {tab === 2 && <MeetingsTab department='j5' userId={userId} isLead={canManageMembers || isJ4} />}
-                        {tab === 3 && <DeptTicketsTab department='j5' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
+                        {tab === 0 && <GalleryOperationsTab />}
+                        {tab === 1 && <GalleryFeaturedTab />}
+                        {tab === 2 && <ScreenshotOfMonthTab canManage={canManageMembers} />}
+                        {tab === 3 && <MeetingsTab department='j5' userId={userId} isLead={canManageMembers || isJ4} />}
+                        {tab === 4 && <DeptTicketsTab department='j5' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                     </div>
                 </>
             )}

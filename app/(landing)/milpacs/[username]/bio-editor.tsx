@@ -104,7 +104,7 @@ export function BiographyEditor({ initial, accent }: { initial: string | null; a
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                 {value ? (
-                    <p style={{ margin: 0, lineHeight: 1.8, color: 'rgba(237,237,237,0.65)', fontSize: '0.9rem' }}>
+                    <p style={{ margin: 0, lineHeight: 1.8, color: 'rgba(237,237,237,0.65)', fontSize: '0.9rem', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                         {value}
                     </p>
                 ) : (

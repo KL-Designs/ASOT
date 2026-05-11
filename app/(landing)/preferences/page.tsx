@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { CircularProgress } from '@mui/material'
 import { Mouse, Notifications, Check, Lock } from '@mui/icons-material'
-import { NOTIFICATION_TYPES, NOTIF_CATEGORIES } from '@/lib/notificationTypes'
+import { NOTIFICATION_TYPES, NOTIF_CATEGORIES } from '@/lib/notifications/types'
 
 interface Prefs {
     cursorCustom: boolean

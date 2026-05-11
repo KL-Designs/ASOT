@@ -4,7 +4,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { fetchAllGuildMembers } from '@/lib/discord/bot'
 import { logAction } from '@/lib/logs'
-import { DEPT_ROLES } from '@/lib/deptDiscordRoles'
+import { DEPT_ROLES } from '@/lib/discord/dept-roles'
 
 // POST /api/admin/members/sync-dept — J4 only
 // Reads current Discord guild members for the given department's roles and

@@ -404,6 +404,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 
 		// ── Live presence ─────────────────────────────────────────────
 		let heartbeatInterval: ReturnType<typeof setInterval> | null = null
+		let liveSource: EventSource | null = null
 
 		const stopHeartbeat = () => {
 			if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null }
@@ -451,8 +452,31 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 				.then(data => { if (Array.isArray(data)) livePlayersRef.current = data })
 				.catch(() => {})
 		}
+
+		const startLiveStream = () => {
+			if (liveSource && liveSource.readyState !== EventSource.CLOSED) return
+			liveSource = new EventSource('/api/minigame/live/stream')
+			liveSource.onmessage = (e) => {
+				try {
+					const data = JSON.parse(e.data)
+					if (Array.isArray(data)) livePlayersRef.current = data
+				} catch { /* ignore malformed frames */ }
+			}
+			liveSource.onerror = () => {
+				liveSource?.close()
+				liveSource = null
+			}
+		}
+
 		fetchLive()
-		const livePollingInterval = setInterval(fetchLive, 3000)
+		startLiveStream()
+		// Slow fallback — re-fetches and reconnects if the SSE stream is closed
+		const livePollingInterval = setInterval(() => {
+			if (!liveSource || liveSource.readyState === EventSource.CLOSED) {
+				fetchLive()
+				startLiveStream()
+			}
+		}, 10_000)
 
 		const die = () => {
 			if (state.dead) return
@@ -1704,6 +1728,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			window.removeEventListener('keyup',   onKeyUp)
 			window.removeEventListener('resize',  resize)
 			clearInterval(livePollingInterval)
+			liveSource?.close()
+			liveSource = null
 			stopHeartbeat()
 			removeLive()
 			bgMusic.pause()

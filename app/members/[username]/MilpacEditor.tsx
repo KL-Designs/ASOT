@@ -3,12 +3,12 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
-import { RANK_GROUPS, RANKS_FLAT, rankAbbrFromName, rankNameFromAbbr } from '@/lib/ranks'
-import { AWARDS } from '@/lib/awards'
-import { CERTIFICATIONS } from '@/lib/certifications'
-import { OP_POINTS, DEPT_POINTS, calculateOpPoints } from '@/lib/points'
-import { getSuggestedRank } from '@/lib/promotionRequirements'
-import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/points'
+import { RANK_GROUPS, RANKS_FLAT, rankAbbrFromName, rankNameFromAbbr } from '@/lib/military/ranks'
+import { AWARDS } from '@/lib/military/awards'
+import { CERTIFICATIONS } from '@/lib/military/certifications'
+import { OP_POINTS, DEPT_POINTS, calculateOpPoints } from '@/lib/military/points'
+import { getSuggestedRank } from '@/lib/military/promotion-requirements'
+import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/military/points'
 
 type ConfirmedOp = { operationId: string; name: string; date?: string | null; confirmedAt: string | null }
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'

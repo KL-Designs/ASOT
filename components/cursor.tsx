@@ -56,8 +56,8 @@ export default function CustomCursor() {
 			ring.style.borderRadius = on ? '0' : '50%'
 			ring.style.borderColor = on ? 'transparent' : '#fff'
 			corners.style.opacity = on ? '1' : '0'
-			// Order matches: transform, border-radius, border-color, opacity
-			ring.style.transitionDuration = on ? '0s, 0.15s, 0.15s, 0.3s' : '60ms, 0.15s, 0.15s, 0.3s'
+			// Order matches: border-radius, border-color, opacity
+			ring.style.transitionDuration = '0.15s, 0.15s, 0.3s'
 		}
 
 		// MutationObserver handles suppress-class changes without polling in rAF
@@ -120,11 +120,11 @@ export default function CustomCursor() {
 				ref={ringRef}
 				style={{
 					position: 'fixed', top: 0, left: 0,
-					width: 32, height: 32, borderRadius: '50%',
+					width: 30, height: 30, borderRadius: '50%',
 					border: '1.5px solid #fff',
 					pointerEvents: 'none', zIndex: 99999,
 					opacity: 0, willChange: 'transform',
-					transition: 'transform 10ms linear, border-radius 0.15s ease, border-color 0.15s ease, opacity 0.3s ease',
+					transition: 'border-radius 0.15s ease, border-color 0.15s ease, opacity 0.3s ease',
 				}}
 			>
 				<div ref={cornersRef} style={{ opacity: 0, transition: 'opacity 0.1s ease' }}>

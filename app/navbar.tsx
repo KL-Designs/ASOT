@@ -11,7 +11,7 @@ import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse, Switch }
 import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, Dashboard as DashboardIcon, Api, Tune, MapOutlined, Mouse } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
-import { rankNameFromAbbr } from '@/lib/ranks'
+import { rankNameFromAbbr } from '@/lib/military/ranks'
 import Avatar from '@/components/member/avatar'
 import NotificationBell from '@/app/dashboard/_components/NotificationBell'
 
@@ -76,7 +76,7 @@ export default function Navbar() {
             name: 'Operations', href: '/operations', icon: <TrackChanges />,
             subLinks: [
                 { name: 'Operations', link: '/operations', icon: <TrackChanges />, description: 'Browse all unit operations' },
-                { name: 'Interactive Map', link: '/map', icon: <MapOutlined />, description: 'Explore available maps interactively' },
+                { name: 'Interactive Map', link: '/maps', icon: <MapOutlined />, description: 'Explore available maps interactively' },
             ]
         },
         { name: 'Gallery', href: '/gallery', icon: <Collections /> },
@@ -112,6 +112,7 @@ export default function Navbar() {
                     backgroundColor: scrolled ? 'rgba(10,10,10,0.82)' : 'var(--background)',
                     backdropFilter: scrolled ? 'blur(16px)' : 'none',
                     WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none',
+                    boxShadow: '0 0.65rem 10px rgba(0,0,0,0.5)',
                     transition: 'background-color 0.3s ease, backdrop-filter 0.3s ease',
                 }}
             >

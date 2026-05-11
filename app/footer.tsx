@@ -3,9 +3,10 @@ import Link from 'next/link'
 
 import { Typography } from '@mui/material'
 
-import Logo from '@/public/ASOT-logo.png'
+import Logo from '@/public/logo.png'
 import MapBg from '@/public/designs/map.png'
 import Signature from '@/components/signature'
+import CreditsModal from '@/components/credits-modal'
 
 
 const navColumns = [
@@ -121,6 +122,11 @@ export default function Footer() {
                         ))}
                     </div>
 
+                </div>
+
+                {/* Credits button */}
+                <div className='flex justify-center'>
+                    <CreditsModal />
                 </div>
 
                 {/* Divider */}

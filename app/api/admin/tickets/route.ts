@@ -3,12 +3,12 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { CERTIFICATIONS } from '@/lib/certifications'
-import { RANK_GROUPS } from '@/lib/ranks'
-import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat-constants'
-import { applyOrbatMove } from '@/lib/orbat-move'
+import { CERTIFICATIONS } from '@/lib/military/certifications'
+import { RANK_GROUPS } from '@/lib/military/ranks'
+import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
+import { applyOrbatMove } from '@/lib/orbat/move'
 import { createNotification, createNotificationForRole } from '@/lib/notifications'
-import { syncDeptDiscordRole } from '@/lib/deptDiscordRoles'
+import { syncDeptDiscordRole } from '@/lib/discord/dept-roles'
 
 // Maps ticket department → role(s) that should be notified
 const TICKET_NOTIFY_ROLES: Record<string, string[]> = {

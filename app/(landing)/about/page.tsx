@@ -8,7 +8,8 @@ import TimeZones from './timezones'
 
 
 export const metadata: Metadata = {
-	title: "About Us | Australian Special Operations Taskforce"
+	title: "About Us | Australian Special Operations Taskforce",
+	description: "Learn about the Australian Special Operations Taskforce — our history, structure, and mission in the ARMA 3 milsim community.",
 }
 
 

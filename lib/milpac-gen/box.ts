@@ -54,7 +54,7 @@ export async function generateBox(rawData: BoxData): Promise<void> {
         .concat(highestCampaign ? [highestCampaign] : [])
 
     // Find medals that exist in the hierarchy, in display order
-    const foundMedals = CONJOINED.filter(m => normalisedMedals.includes(m)).reverse()
+    const foundMedals = CONJOINED.filter(m => normalisedMedals.includes(m))
 
     const canvas = createCanvas(951, 340)
     const ctx = canvas.getContext('2d')

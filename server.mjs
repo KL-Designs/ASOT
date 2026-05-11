@@ -38,6 +38,7 @@ console.log('[collab] MongoDB connected')
 const db = mongoClient.db(process.env.MONGO_DB || 'test')
 const operations = db.collection('operations')
 const activityLogs = db.collection('operation_activity')
+const sopsCollection = db.collection('sops')
 console.log(`[collab] MongoDB db=${db.databaseName} collection=operations`)
 
 // ── Activity tracking ─────────────────────────────────────────────────────────
@@ -108,9 +109,10 @@ async function flushActivity(documentName, document) {
 // We don't call server.listen() — connections are fed in via the upgrade hook.
 
 const collab = new Hocuspocus({
-    async onAuthenticate({ token }) {
-        // Auth callback hits our own Next.js API over loopback
-        const res = await fetch(`http://localhost:${port}/api/auth/collab`, {
+    async onAuthenticate({ token, documentName }) {
+        // Auth callback hits our own Next.js API over loopback; pass documentName so
+        // the route can apply different permission checks (e.g. sop-* docs allow all members)
+        const res = await fetch(`http://localhost:${port}/api/auth/collab?doc=${encodeURIComponent(documentName ?? '')}`, {
             headers: { 'x-collab-token': token ?? '' },
         })
         const json = await res.json()
@@ -128,6 +130,7 @@ const collab = new Hocuspocus({
 
     async onLoadDocument({ documentName, document }) {
         console.log(`[collab] >> load        doc=${documentName}`)
+        if (documentName.startsWith('sop-')) return  // SOPs don't use activity tracking
         const existing = activityState.get(documentName)
         if (existing?.timer) {
             clearTimeout(existing.timer)
@@ -141,6 +144,7 @@ const collab = new Hocuspocus({
     },
 
     async onChange({ documentName, document, context }) {
+        if (documentName.startsWith('sop-')) return  // SOPs don't use activity tracking
         let state = activityState.get(documentName)
         if (!state) {
             state = { lastFlushedText: extractSectionTexts(document), timer: null, lastUser: null }
@@ -164,6 +168,21 @@ const collab = new Hocuspocus({
         new Database({
             fetch: async ({ documentName }) => {
                 try {
+                    // SOP documents — prefixed "sop-{sopId}"
+                    if (documentName.startsWith('sop-')) {
+                        const sopId = documentName.slice(4)
+                        const sop = await sopsCollection.findOne(
+                            { _id: new ObjectId(sopId) },
+                            { projection: { yjsState: 1 } }
+                        )
+                        if (sop?.yjsState) {
+                            console.log(`[collab] DB fetch OK  doc=${documentName}  (${sop.yjsState.length} bytes)`)
+                            return sop.yjsState.buffer
+                        }
+                        console.log(`[collab] DB fetch     doc=${documentName}  (no state — new sop)`)
+                        return null
+                    }
+
                     // Map documents are named "{operationId}-map"
                     const isMap = documentName.endsWith('-map')
                     const opId = isMap ? documentName.slice(0, -4) : documentName
@@ -188,6 +207,21 @@ const collab = new Hocuspocus({
             store: async ({ documentName, state, document }) => {
                 console.log(`[collab] DB store     doc=${documentName}  (${state.length} bytes) — attempting…`)
                 try {
+                    // SOP documents — just persist the raw Yjs state and update timestamp
+                    if (documentName.startsWith('sop-')) {
+                        const sopId = documentName.slice(4)
+                        const result = await sopsCollection.updateOne(
+                            { _id: new ObjectId(sopId) },
+                            { $set: { yjsState: state, updatedAt: new Date() } }
+                        )
+                        if (result.matchedCount === 0) {
+                            console.warn(`[collab] DB store WARN doc=${documentName}  no SOP matched`)
+                        } else {
+                            console.log(`[collab] DB store OK  doc=${documentName}  (sop state)`)
+                        }
+                        return
+                    }
+
                     // Map documents — just persist the raw Yjs state
                     if (documentName.endsWith('-map')) {
                         const opId = documentName.slice(0, -4)
@@ -480,3 +514,35 @@ setTimeout(() => {
     setInterval(triggerScheduledSnapshot, 48 * 60 * 60 * 1000)
 }, msUntilNext3am())
 console.log(`[snapshots] Next auto-snapshot in ${Math.round(msUntilNext3am() / 1000 / 60)} minutes`)
+
+// ── TeamSpeak daily snapshot (every 24h at 3am) ───────────────────────────────
+
+async function triggerTsSnapshot() {
+    try {
+        const res = await fetch(`http://localhost:${port}/api/cron/teamspeak-snapshots?secret=${process.env.CRON_SECRET}`)
+        const data = await res.json()
+        console.log('[teamspeak-snapshots] Daily snapshot triggered:', data)
+    } catch (e) {
+        console.error('[teamspeak-snapshots] Error:', e.message)
+    }
+}
+
+setTimeout(() => {
+    triggerTsSnapshot()
+    setInterval(triggerTsSnapshot, 24 * 60 * 60 * 1000)
+}, msUntilNext3am())
+
+// ── TeamSpeak offline client cache (refresh every 15 min) ────────────────────
+
+async function triggerTsCacheRefresh() {
+    try {
+        const res = await fetch(`http://localhost:${port}/api/cron/teamspeak-cache?secret=${process.env.CRON_SECRET}`)
+        const data = await res.json()
+        console.log('[teamspeak-cache] Refresh triggered:', data)
+    } catch (e) {
+        console.error('[teamspeak-cache] Error:', e.message)
+    }
+}
+
+setInterval(triggerTsCacheRefresh, 15 * 60 * 1000)
+triggerTsCacheRefresh()

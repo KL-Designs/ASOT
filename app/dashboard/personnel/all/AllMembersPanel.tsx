@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Avatar from '@/components/member/avatar'
-import { rankNameFromAbbr } from '@/lib/ranks'
+import { rankNameFromAbbr } from '@/lib/military/ranks'
 import MilpacEditor from '@/app/members/[username]/MilpacEditor'
 
 const PAGE_SIZE = 25

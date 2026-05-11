@@ -7,6 +7,7 @@ import Banner from '@/public/images/home/adf_peaking3.png'
 
 export const metadata: Metadata = {
 	title: "Gallery | Australian Special Operations Taskforce",
+	description: "Photos and screenshots from Australian Special Operations Taskforce operations, training, and community events.",
 }
 
 

@@ -12,6 +12,7 @@ import Banner from '@/public/images/home/Rooftopincert.jpg'
 
 export const metadata: Metadata = {
 	title: "Donate | Australian Special Operations Taskforce",
+	description: "Support the Australian Special Operations Taskforce — contributions help cover server and community infrastructure costs.",
 }
 
 const infoCards = [

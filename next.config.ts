@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
 
 	// @napi-rs/canvas ships a native .node binary that webpack cannot bundle.
 	// Marking it external keeps it as a require() at runtime on the server.
-	serverExternalPackages: ['@napi-rs/canvas', 'unzipper', 'archiver'],
+	serverExternalPackages: ['@napi-rs/canvas', 'unzipper', 'archiver', 'ts3-nodejs-library'],
 
 	webpack(config) {
 		config.resolve.alias['yjs'] = path.resolve('./node_modules/yjs')
@@ -91,7 +91,7 @@ const nextConfig: NextConfig = {
 	async rewrites() {
 		return [
 			{
-				source: '/maps/:path*',
+				source: '/map-assets/:path*',
 				destination: '/api/maps/assets/:path*',
 			},
 		]
@@ -99,6 +99,31 @@ const nextConfig: NextConfig = {
 
 	async redirects() {
 		return [
+			{
+				source: '/dashboard/gallery',
+				destination: '/dashboard/j5',
+				permanent: true,
+			},
+			{
+				source: '/community/tickets',
+				destination: '/tickets',
+				permanent: true,
+			},
+			{
+				source: '/community/tickets/:path*',
+				destination: '/tickets/:path*',
+				permanent: true,
+			},
+			{
+				source: '/feedback',
+				destination: '/tickets',
+				permanent: true,
+			},
+			{
+				source: '/feedback/:path*',
+				destination: '/tickets/:path*',
+				permanent: true,
+			},
 			{
 				source: '/ts',
 				destination: `ts3server://ts.asotmilsim.com`,

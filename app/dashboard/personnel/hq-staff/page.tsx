@@ -12,7 +12,7 @@ export default async function Page() {
     if (!client.hasRoles(me, PERMISSIONS.pages.members)) redirect('/dashboard')
 
     return (
-        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6 max-w-[800px]'>
+        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-6'>
             <div
                 className='flex flex-col px-5 py-4'
                 style={{

@@ -1,6 +1,12 @@
-﻿import Image from 'next/image'
+﻿import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import { connection } from 'next/server'
+
+export const metadata: Metadata = {
+	title: "MilPacs | Australian Special Operations Taskforce",
+	description: "Military personnel files for the Australian Special Operations Taskforce — service records, ranks, and awards.",
+}
 import Banner from '@/public/images/home/Droneteam7.png'
 
 import { fetchORBAT } from '@/lib/orbat'

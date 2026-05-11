@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
-import { rankNameFromAbbr } from '@/lib/ranks'
+import { rankNameFromAbbr } from '@/lib/military/ranks'
 
 type OrbatEntry = { role: string; section: string } | null
 
