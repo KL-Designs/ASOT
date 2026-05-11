@@ -31,29 +31,41 @@ interface Toast extends NotificationItem { key: number }
 let toastKey = 0
 
 const TYPE_LABELS: Record<string, string> = {
-    task_assigned:  'Task',
-    task_extended:  'Extension',
-    task_completed: 'Completed',
-    task_extension_requested: 'Ext. Request',
-    task_extension_approved:  'Ext. Approved',
-    task_extension_denied:    'Ext. Denied',
-    calendar_reminder: 'Reminder',
-    quiz_result:         'Assessment',
-    quiz_review_requested: 'Quiz Review',
-    system: 'System',
+    task_assigned:                 'Task',
+    task_extended:                 'Extended',
+    task_completed:                'Completed',
+    task_reminder:                 'Reminder',
+    task_overdue:                  'Overdue',
+    task_extension_requested:      'Ext. Request',
+    task_extension_approved:       'Ext. Approved',
+    task_extension_denied:         'Ext. Denied',
+    task_extension_alternative:    'Alt. Date',
+    task_reassignment_requested:   'Reassign Request',
+    task_reassignment_approved:    'Reassigned',
+    task_reassignment_denied:      'Reassign Denied',
+    calendar_reminder:             'Reminder',
+    quiz_result:                   'Assessment',
+    quiz_review_requested:         'Quiz Review',
+    system:                        'System',
 }
 
 const TYPE_COLORS: Record<string, string> = {
-    task_assigned:  '#3b82f6',
-    task_extended:  '#f59e0b',
-    task_completed: '#10b981',
-    task_extension_requested: '#f59e0b',
-    task_extension_approved:  '#10b981',
-    task_extension_denied:    'rgba(219,0,29,0.85)',
-    calendar_reminder: 'rgba(219,0,29,0.85)',
-    quiz_result:         '#60a5fa',
-    quiz_review_requested: '#a78bfa',
-    system: 'rgba(237,237,237,0.4)',
+    task_assigned:                 '#3b82f6',
+    task_extended:                 '#f59e0b',
+    task_completed:                '#10b981',
+    task_reminder:                 '#f59e0b',
+    task_overdue:                  'rgba(219,0,29,0.9)',
+    task_extension_requested:      '#f59e0b',
+    task_extension_approved:       '#10b981',
+    task_extension_denied:         'rgba(219,0,29,0.85)',
+    task_extension_alternative:    '#f59e0b',
+    task_reassignment_requested:   '#60a5fa',
+    task_reassignment_approved:    '#10b981',
+    task_reassignment_denied:      'rgba(219,0,29,0.85)',
+    calendar_reminder:             'rgba(219,0,29,0.85)',
+    quiz_result:                   '#60a5fa',
+    quiz_review_requested:         '#a78bfa',
+    system:                        'rgba(237,237,237,0.4)',
 }
 
 function timeAgo(iso: string) {
@@ -348,6 +360,13 @@ export default function NotificationBell() {
                     return (
                         <div
                             key={t.key}
+                            onClick={() => {
+                                if (t.actionUrl) {
+                                    markRead(t._id)
+                                    dismissToast(t.key)
+                                    router.push(t.actionUrl as never)
+                                }
+                            }}
                             style={{
                                 pointerEvents: 'auto',
                                 width: 300,
@@ -360,6 +379,7 @@ export default function NotificationBell() {
                                 display: 'flex',
                                 gap: 10,
                                 alignItems: 'flex-start',
+                                cursor: t.actionUrl ? 'pointer' : 'default',
                             }}
                         >
                             {/* Bell icon */}

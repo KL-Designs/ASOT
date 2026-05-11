@@ -12,6 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     if (!client.hasRoles(me, PERMISSIONS.pages.member)) redirect('/me')
 
     const isStaff = client.hasRoles(me, PERMISSIONS.pages.admin)
+
     const permissions = {
         displayName:     me.guild?.nickname || me.globalName || me.username || '',
         isStaff,

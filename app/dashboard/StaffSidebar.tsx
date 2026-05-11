@@ -11,6 +11,7 @@ import {
     Dashboard, TaskAlt,
 } from '@mui/icons-material'
 import type { DashboardPermissions } from './StaffDashboardShell'
+import { useLockout } from './StaffDashboardShell'
 import { useFavourites } from '@/hooks/useFavourites'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 
@@ -73,17 +74,28 @@ function NavRow({
     onNavigate?: () => void
 }) {
     const { isPinned, pin, unpin } = useFavourites()
+    const { lockoutActive, showLockoutModal } = useLockout()
     const searchParams = useSearchParams()
     const [hovered, setHovered] = useState(false)
     const [subExpanded, setSubExpanded] = useState(isActive)
     const pinned = isPinned(item.href)
     const hasTabs = item.tabs && item.tabs.length > 0
     const activeTab = isActive ? Number(searchParams.get('tab') ?? -1) : -1
+    const isTasksLink = item.href.startsWith('/dashboard/tasks')
 
     // Auto-expand when navigating to this section
     useEffect(() => {
         if (isActive && hasTabs) setSubExpanded(true)
     }, [isActive, hasTabs])
+
+    function guardedClick(e: React.MouseEvent) {
+        if (lockoutActive && !isTasksLink) {
+            e.preventDefault()
+            showLockoutModal()
+            return
+        }
+        onNavigate?.()
+    }
 
     return (
         <div>
@@ -94,7 +106,7 @@ function NavRow({
             >
                 <Link
                     href={item.href as never}
-                    onClick={onNavigate}
+                    onClick={guardedClick}
                     style={{
                         flex: 1,
                         display: 'flex',
@@ -195,7 +207,7 @@ function NavRow({
                                 <Link
                                     key={t.tab}
                                     href={`${item.href}?tab=${t.tab}` as never}
-                                    onClick={onNavigate}
+                                    onClick={guardedClick}
                                     style={{
                                         padding: '5px 16px 5px 44px',
                                         fontSize: '0.65rem',
@@ -238,14 +250,24 @@ function NavRow({
 // ── Home button ───────────────────────────────────────────────────────────────
 
 function HomeButton({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+    const { lockoutActive, showLockoutModal } = useLockout()
     const isActive = pathname === '/dashboard'
     const [hovered, setHovered] = useState(false)
+
+    function handleClick(e: React.MouseEvent) {
+        if (lockoutActive) {
+            e.preventDefault()
+            showLockoutModal()
+            return
+        }
+        onNavigate?.()
+    }
 
     return (
         <div style={{ padding: '6px 0 2px' }}>
             <Link
                 href='/dashboard'
-                onClick={onNavigate}
+                onClick={handleClick}
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
                 style={{
@@ -289,10 +311,65 @@ function HomeButton({ pathname, onNavigate }: { pathname: string; onNavigate?: (
     )
 }
 
+// ── Tasks shortcut button (pinned below Dashboard) ────────────────────────────
+
+function TasksShortcutButton({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+    const isActive = pathname === '/dashboard/tasks' || pathname.startsWith('/dashboard/tasks/')
+    const [hovered, setHovered] = useState(false)
+
+    return (
+        <div>
+            <Link
+                href='/dashboard/tasks'
+                onClick={onNavigate}
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '7px 16px',
+                    fontSize: '0.72rem',
+                    fontWeight: isActive ? 700 : 400,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    textDecoration: 'none',
+                    color: isActive ? 'rgba(237,237,237,0.95)' : 'rgba(237,237,237,0.45)',
+                    borderLeft: isActive ? '2px solid var(--red)' : '2px solid transparent',
+                    background: isActive
+                        ? 'rgba(219,0,29,0.07)'
+                        : hovered ? 'rgba(255,255,255,0.025)' : 'transparent',
+                    transition: 'background 0.12s, color 0.12s',
+                }}
+            >
+                <span style={{
+                    fontSize: '0.55rem',
+                    color: isActive ? 'var(--red)' : 'transparent',
+                    flexShrink: 0,
+                    transition: 'color 0.12s',
+                    lineHeight: 1,
+                }}>▸</span>
+                <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    flexShrink: 0,
+                    color: isActive ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.22)',
+                    transition: 'color 0.12s',
+                    fontSize: 14,
+                }}>
+                    <TaskAlt sx={{ fontSize: 14 }} />
+                </span>
+                Tasks
+            </Link>
+        </div>
+    )
+}
+
 // ── Pinned section ────────────────────────────────────────────────────────────
 
 function PinnedSection({ onNavigate }: { onNavigate?: () => void }) {
     const { favourites, unpin } = useFavourites()
+    const { lockoutActive, showLockoutModal } = useLockout()
     const router = useRouter()
     const pathname = usePathname()
     const [expanded, setExpanded] = useState(true)
@@ -300,10 +377,12 @@ function PinnedSection({ onNavigate }: { onNavigate?: () => void }) {
     if (favourites.length === 0) return null
 
     function handleClick(fav: typeof favourites[number]) {
+        const href = fav.tabIndex !== undefined ? `${fav.href}?tab=${fav.tabIndex}` : fav.href
+        if (lockoutActive && !href.startsWith('/dashboard/tasks')) {
+            showLockoutModal()
+            return
+        }
         onNavigate?.()
-        const href = fav.tabIndex !== undefined
-            ? `${fav.href}?tab=${fav.tabIndex}`
-            : fav.href
         router.push(href as never)
     }
 
@@ -487,7 +566,6 @@ export default function StaffSidebar({
                 { label: 'Training Docs', href: '/dashboard/unit/training-docs', visible: true,                    icon: <MenuBook sx={{ fontSize: 14 }} /> },
                 { label: 'SOPs',          href: '/dashboard/unit/sops',          visible: true,                    icon: <Policy sx={{ fontSize: 14 }} /> },
                 { label: 'Tickets',       href: '/community/tickets',            visible: true,                    icon: <ConfirmationNumber sx={{ fontSize: 14 }} /> },
-                { label: 'Tasks',         href: '/dashboard/tasks',              visible: permissions.isStaff,     icon: <TaskAlt sx={{ fontSize: 14 }} /> },
             ],
         },
     ]
@@ -544,6 +622,9 @@ export default function StaffSidebar({
 
             {/* ── Home button ─────────────────────────────────────────────── */}
             <HomeButton pathname={pathname} onNavigate={onNavigate} />
+
+            {/* ── Tasks shortcut ──────────────────────────────────────────── */}
+            {permissions.isStaff && <TasksShortcutButton pathname={pathname} onNavigate={onNavigate} />}
 
             {/* ── Pinned section ──────────────────────────────────────────── */}
             <PinnedSection onNavigate={onNavigate} />

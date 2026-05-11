@@ -18,6 +18,15 @@ type NotificationType =
     | 'task_extension_requested'
     | 'task_extension_approved'
     | 'task_extension_denied'
+    | 'task_extension_alternative'   // Approver suggests an alternative due date
+    | 'task_reminder'                // Chase-up reminder fired at reminderDateTime
+    | 'task_overdue'                 // Task is past due and not completed
+    | 'task_reassignment_requested'  // Assignee wants task reassigned
+    | 'task_reassignment_approved'   // Reassignment approved — new member notified
+    | 'task_reassignment_denied'     // Reassignment denied — original member notified
+    | 'task_delete_requested'        // Assignee requested task deletion
+    | 'task_delete_approved'         // Task deletion approved — task removed
+    | 'task_delete_denied'           // Task deletion denied — task stays
     | 'calendar_reminder'
     | 'meeting_created'
     | 'meeting_started'
@@ -51,12 +60,27 @@ interface Task {
     dueDate?: Date
     originalDueDate?: Date      // Set when due date is extended
     extendedAt?: Date
+    startedAt?: Date            // Set when status changes to in_progress
     completedAt?: Date
     extensionRequest?: {
-        requestedDate: Date
+        requestedDate: Date          // Requested new due date/time (datetime, not date-only)
         reason: string
         requestedAt: Date
-        status: 'pending' | 'approved' | 'denied'
+        status: 'pending' | 'approved' | 'denied' | 'alternative'
+        approverNote?: string        // Optional note from the approver
+        alternativeDate?: Date       // Set when approver suggests a different date
+        alternativeReminderDate?: Date  // Optional new reminder if approver suggests alternative
+    }
+    // Reassignment request (assignee requests task be given to someone else)
+    reassignmentRequest?: {
+        requestedToId: string        // Discord user ID of requested new assignee
+        requestedToName: string      // Display name of requested new assignee
+        reason: string
+        requestedAt: Date
+        status: 'pending' | 'approved' | 'denied' | 'redirected'
+        approverNote?: string
+        finalAssigneeId?: string     // Set when approver redirects to a different person
+        finalAssigneeName?: string
     }
     createdAt: Date
     status: TaskStatus
@@ -65,6 +89,23 @@ interface Task {
     type?: TaskType             // Task category; 'manual' if unset
     actionUrl?: string          // Deep link for task completion context
     relatedId?: string          // ID of related entity (operationId, applicationId, etc.)
+    // Delete request (assignee requests creator approve deletion)
+    deleteRequest?: {
+        reason?: string
+        requestedAt: Date
+        requestedById: string
+        requestedByName: string
+        status: 'pending' | 'approved' | 'denied'
+        approverNote?: string
+    }
+    // Reminder / chase-up
+    reminderDateTime?: Date     // Optional chase-up date — notification fires at this time
+    reminderNotifiedAt?: Date   // Set once the reminder notification has been dispatched
+    // Due / overdue notifications
+    dueNotificationSentAt?: Date // Set once the due/overdue notification has been dispatched
+    // Escalation tracking
+    escalationLevel?: number    // 0=none, 1=first threshold notified, 2=second threshold notified
+    escalationNotifiedAt?: Date // When last escalation notification was sent
 }
 
 type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'overdue'

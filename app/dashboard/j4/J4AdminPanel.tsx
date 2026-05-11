@@ -619,7 +619,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                         {/* Manage Preferences */}
                         <div>
                             <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 12 }}>
-                                Member Preferences
+                                Settings and Management
                             </Typography>
                             <div className='flex flex-wrap gap-4'>
                                 <a href='/dashboard/j4/preferences' style={{ textDecoration: 'none', flex: 1, minWidth: 160, maxWidth: 220 }}>
@@ -629,7 +629,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                     >
                                         <Settings sx={{ fontSize: 28, color: 'rgba(237,237,237,0.4)' }} />
                                         <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                            Notification<br />Policy
+                                            Website Settings
                                         </Typography>
                                     </div>
                                 </a>
