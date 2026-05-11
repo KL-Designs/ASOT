@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { CircularProgress } from '@mui/material'
 import { ArrowBack, Lock, LockOpen, Add, Delete } from '@mui/icons-material'
 import Link from 'next/link'
-import { NOTIFICATION_TYPES, NOTIF_CATEGORIES } from '@/lib/notificationTypes'
+import { NOTIFICATION_TYPES, NOTIF_CATEGORIES } from '@/lib/notifications/types'
 import type { EscalationGroup } from '@/lib/lockout'
 import type { LockoutGroup } from '@/lib/lockout'
 
