@@ -45,6 +45,9 @@ const DbInterface = {
     notifPolicyConfig: client.db(process.env.MONGO_DB!).collection('notif_policy_config') as MongoCollection<NotifPolicyConfig>,
     sops: client.db(process.env.MONGO_DB!).collection('sops') as MongoCollection<SopDocument>,
     teamspeakSnapshots: client.db(process.env.MONGO_DB!).collection('teamspeak_snapshots') as MongoCollection<TsSnapshot>,
+    recruitSessions: client.db(process.env.MONGO_DB!).collection('recruit_sessions') as MongoCollection<RecruitSession>,
+    tfarPlugins: client.db(process.env.MONGO_DB!).collection('tfar_plugins'),
+    inProgressRecruitments: client.db(process.env.MONGO_DB!).collection('in_progress_recruitments') as any,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,

@@ -27,7 +27,7 @@ type RbcEvent = {
     start: Date
     end: Date
     allDay?: boolean
-    resource: CalendarEventRow
+    resource: CalendarEventRow & { isBCTAvailability?: boolean }
 }
 
 interface DeptCalendarTabProps {
@@ -43,6 +43,8 @@ export default function DeptCalendarTab({ department, userId, isJ4 }: DeptCalend
     const [selectedEvent, setSelectedEvent] = useState<CalendarEventRow | undefined>(undefined)
     const [currentView, setCurrentView] = useState<View>(Views.MONTH)
     const [currentDate, setCurrentDate] = useState(new Date())
+    const [showBCT, setShowBCT] = useState(true)
+    const [showQuiz, setShowQuiz] = useState(true)
 
     const fetchEvents = useCallback(async () => {
         setLoading(true)
@@ -78,30 +80,76 @@ export default function DeptCalendarTab({ department, userId, isJ4 }: DeptCalend
 
     const deptColor = DEPT_COLORS[department] ?? 'rgba(219,0,29,0.8)'
 
+    const hasBCT = events.some(e => e.resource?.isBCTAvailability && !e.resource?.isQuizAvailability)
+    const hasQuiz = events.some(e => e.resource?.isQuizAvailability)
+    const visibleEvents = events.filter(e => {
+        if (e.resource?.isQuizAvailability) return showQuiz
+        if (e.resource?.isBCTAvailability) return showBCT
+        return true
+    })
+
     return (
         <div className='p-5 flex flex-col gap-4' style={{ minHeight: 500 }}>
-            {/* Add button */}
-            <div className='flex items-center justify-between'>
+            {/* Header row */}
+            <div className='flex items-center justify-between gap-3' style={{ flexWrap: 'wrap' }}>
                 <Typography style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
                     Department Calendar
                 </Typography>
-                <Button
-                    variant='outlined'
-                    size='small'
-                    startIcon={<Add sx={{ fontSize: 14 }} />}
-                    onClick={handleAddClick}
-                    sx={{
-                        borderRadius: 0,
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        letterSpacing: '0.1em',
-                        borderColor: 'rgba(219,0,29,0.42)',
-                        color: 'var(--red)',
-                        '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.06)' },
-                    }}
-                >
-                    Add Event
-                </Button>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* BCT Availability filter — only shown when standard BCT events exist */}
+                    {hasBCT && (
+                        <button
+                            onClick={() => setShowBCT(v => !v)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 5,
+                                padding: '4px 12px', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em',
+                                textTransform: 'uppercase', cursor: 'pointer',
+                                background: showBCT ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.03)',
+                                border: showBCT ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                                color: showBCT ? '#10b981' : 'rgba(237,237,237,0.3)',
+                                transition: 'all 0.12s',
+                            }}
+                        >
+                            <span style={{ width: 8, height: 8, border: `2px dashed ${showBCT ? '#10b981' : 'rgba(237,237,237,0.2)'}`, borderRadius: 1, flexShrink: 0 }} />
+                            BCT Availability
+                        </button>
+                    )}
+                    {/* Quiz Availability filter — only shown when quiz events exist */}
+                    {hasQuiz && (
+                        <button
+                            onClick={() => setShowQuiz(v => !v)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 5,
+                                padding: '4px 12px', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em',
+                                textTransform: 'uppercase', cursor: 'pointer',
+                                background: showQuiz ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)',
+                                border: showQuiz ? '1px solid rgba(139,92,246,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                                color: showQuiz ? '#8b5cf6' : 'rgba(237,237,237,0.3)',
+                                transition: 'all 0.12s',
+                            }}
+                        >
+                            <span style={{ width: 8, height: 8, border: `2px dashed ${showQuiz ? '#8b5cf6' : 'rgba(237,237,237,0.2)'}`, borderRadius: 1, flexShrink: 0 }} />
+                            Quiz Availability
+                        </button>
+                    )}
+                    <Button
+                        variant='outlined'
+                        size='small'
+                        startIcon={<Add sx={{ fontSize: 14 }} />}
+                        onClick={handleAddClick}
+                        sx={{
+                            borderRadius: 0,
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.1em',
+                            borderColor: 'rgba(219,0,29,0.42)',
+                            color: 'var(--red)',
+                            '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.06)' },
+                        }}
+                    >
+                        Add Event
+                    </Button>
+                </div>
             </div>
 
             {/* Calendar */}
@@ -111,21 +159,51 @@ export default function DeptCalendarTab({ department, userId, isJ4 }: DeptCalend
                 ) : (
                     <Calendar
                         localizer={localizer}
-                        events={events}
+                        events={visibleEvents}
                         view={currentView}
                         onView={setCurrentView}
                         date={currentDate}
                         onNavigate={setCurrentDate}
                         views={[Views.MONTH, Views.WEEK, Views.AGENDA]}
                         onSelectEvent={handleSelectEvent}
-                        eventPropGetter={() => ({
-                            style: {
-                                backgroundColor: deptColor,
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: 0,
-                            },
-                        })}
+                        eventPropGetter={(event: RbcEvent) => {
+                            if (event.resource?.isQuizAvailability) {
+                                return {
+                                    style: {
+                                        backgroundColor: 'rgba(139,92,246,0.55)',
+                                        borderLeft: '3px solid rgba(139,92,246,0.9)',
+                                        color: '#fff',
+                                        borderTop: 'none',
+                                        borderRight: 'none',
+                                        borderBottom: 'none',
+                                        borderRadius: 0,
+                                        fontSize: '0.68rem',
+                                    },
+                                }
+                            }
+                            if (event.resource?.isBCTAvailability) {
+                                return {
+                                    style: {
+                                        backgroundColor: 'rgba(16,185,129,0.55)',
+                                        borderLeft: '3px solid rgba(16,185,129,0.9)',
+                                        color: '#fff',
+                                        borderTop: 'none',
+                                        borderRight: 'none',
+                                        borderBottom: 'none',
+                                        borderRadius: 0,
+                                        fontSize: '0.68rem',
+                                    },
+                                }
+                            }
+                            return {
+                                style: {
+                                    backgroundColor: deptColor,
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 0,
+                                },
+                            }
+                        }}
                         style={{ height: 540 }}
                         popup
                     />

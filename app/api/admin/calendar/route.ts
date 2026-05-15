@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { title, description, start, end, allDay, department } = body
+    const { title, description, start, end, allDay, department, isBCTAvailability, isQuizAvailability, applicantId, applicantName, timePeriod } = body
 
     if (!title?.trim()) {
         return NextResponse.json({ error: 'Title is required' }, { status: 400 })
@@ -115,6 +115,11 @@ export async function POST(req: NextRequest) {
         createdByName: displayName,
         createdAt: new Date(),
         ...(description?.trim() ? { description: description.trim() } : {}),
+        ...(isBCTAvailability ? { isBCTAvailability: true } : {}),
+        ...(isQuizAvailability ? { isQuizAvailability: true } : {}),
+        ...(applicantId ? { applicantId } : {}),
+        ...(applicantName ? { applicantName } : {}),
+        ...(timePeriod ? { timePeriod } : {}),
     }
 
     const result = await Db.calendarEvents.insertOne(event as CalendarEvent)

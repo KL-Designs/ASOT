@@ -326,6 +326,222 @@ const collab = new Hocuspocus({
 const wss = new WebSocketServer({ noServer: true })
 wss.on('connection', (ws, req) => collab.handleConnection(ws, req))
 
+// ── Recruit Session WebSocket ─────────────────────────────────────────────────
+// In-memory store: sessionId -> { recruiterWs, applicantWs, step, raisedHand, applicantLastActive, applicantCursor }
+
+const recruitSessionWss = new WebSocketServer({ noServer: true })
+const recruitActiveSessions = new Map()
+
+function rssSend(ws, msg) {
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg))
+}
+
+function rssGetOrCreate(sessionId, step = 1) {
+    if (!recruitActiveSessions.has(sessionId)) {
+        recruitActiveSessions.set(sessionId, {
+            recruiterWs: null, applicantWs: null,
+            step, raisedHand: false,
+            applicantLastActive: null, applicantCursor: null,
+            cache: {},
+        })
+    }
+    return recruitActiveSessions.get(sessionId)
+}
+
+recruitSessionWss.on('connection', async (ws, req) => {
+    const url = new URL(req.url, `http://localhost:${port}`)
+    const sessionId = url.searchParams.get('id')
+    const role = url.searchParams.get('role')
+    const token = url.searchParams.get('token')
+
+    if (!sessionId || !role) { ws.close(1008, 'Missing parameters'); return }
+
+    // Load session from DB
+    const sessionDoc = await db.collection('recruit_sessions').findOne({ sessionId })
+    if (!sessionDoc) { ws.close(1008, 'Session not found'); return }
+    if (sessionDoc.expiresAt && new Date() > sessionDoc.expiresAt) {
+        ws.close(1008, 'Session expired'); return
+    }
+
+    const mem = rssGetOrCreate(sessionId, sessionDoc.step)
+
+    if (role === 'recruiter') {
+        if (token !== sessionDoc.recruiterToken) { ws.close(1008, 'Invalid token'); return }
+
+        // Close any existing recruiter connection
+        if (mem.recruiterWs && mem.recruiterWs.readyState === 1) mem.recruiterWs.close()
+        mem.recruiterWs = ws
+        console.log(`[recruit-session] recruiter connected  session=${sessionId}`)
+
+        // Send full state
+        rssSend(ws, {
+            type: 'state',
+            step: mem.step,
+            raisedHand: mem.raisedHand,
+            applicantConnected: mem.applicantWs?.readyState === 1,
+            applicantLastActive: mem.applicantLastActive,
+        })
+
+        ws.on('message', async (raw) => {
+            let msg
+            try { msg = JSON.parse(raw) } catch { return }
+
+            if (msg.type === 'step' && typeof msg.step === 'number') {
+                mem.step = msg.step
+                rssSend(mem.applicantWs, { type: 'step', step: msg.step })
+                // Persist step to DB
+                db.collection('recruit_sessions').updateOne(
+                    { sessionId },
+                    { $set: { step: msg.step, lastActivity: new Date() } }
+                ).catch(() => {})
+            } else if (msg.type === 'lower-hand') {
+                mem.raisedHand = false
+                rssSend(mem.applicantWs, { type: 'hand', value: false })
+                db.collection('recruit_sessions').updateOne(
+                    { sessionId },
+                    { $set: { raisedHand: false } }
+                ).catch(() => {})
+            } else if (msg.type === 'intro-sub') {
+                const payload = { warmWelcome: !!msg.warmWelcome, processExplained: !!msg.processExplained, backgroundExplained: !!msg.backgroundExplained, valuesExplained: !!msg.valuesExplained }
+                mem.cache.introSub = payload
+                rssSend(mem.applicantWs, { type: 'intro-sub', ...payload })
+            } else if (msg.type === 'name-preview') {
+                mem.cache.namePreview = msg.name ?? ''
+                mem.cache.nameStatus = msg.nameStatus ?? 'idle'
+                mem.cache.nameOffensive = !!msg.nameOffensive
+                mem.cache.nameSimilar = Array.isArray(msg.nameSimilar) ? msg.nameSimilar : []
+                rssSend(mem.applicantWs, { type: 'name-preview', name: msg.name ?? '', nameStatus: mem.cache.nameStatus, nameOffensive: mem.cache.nameOffensive, nameSimilar: mem.cache.nameSimilar })
+            } else if (msg.type === 'bg-sub') {
+                const payload = { ageConfirmed: !!msg.ageConfirmed, regionDiscussed: !!msg.regionDiscussed, armaOwnershipConfirmed: !!msg.armaOwnershipConfirmed, milsimDiscussed: !!msg.milsimDiscussed, unitsDiscussed: !!msg.unitsDiscussed, communityIssuesCompleted: !!msg.communityIssuesCompleted }
+                mem.cache.bgSub = payload
+                rssSend(mem.applicantWs, { type: 'bg-sub', ...payload })
+            } else if (msg.type === 'field-preview') {
+                if (!mem.cache.fields) mem.cache.fields = {}
+                mem.cache.fields[msg.field] = msg.value ?? ''
+                rssSend(mem.applicantWs, { type: 'field-preview', field: msg.field, value: msg.value ?? '' })
+            } else if (msg.type === 'avail-preview') {
+                const payload = { availableNights: msg.availableNights ?? '', opsPerMonth: msg.opsPerMonth ?? '' }
+                mem.cache.availPreview = payload
+                rssSend(mem.applicantWs, { type: 'avail-preview', ...payload })
+            } else if (msg.type === 'roles-preview') {
+                const payload = { primaryRole: msg.primaryRole ?? '', additionalRoles: Array.isArray(msg.additionalRoles) ? msg.additionalRoles : [], departmentInterest: Array.isArray(msg.departmentInterest) ? msg.departmentInterest : [] }
+                mem.cache.rolesPreview = payload
+                rssSend(mem.applicantWs, { type: 'roles-preview', ...payload })
+            } else if (msg.type === 'rules-question') {
+                mem.cache.rulesQuestionIndex = typeof msg.questionIndex === 'number' ? msg.questionIndex : 0
+                rssSend(mem.applicantWs, { type: 'rules-question', questionIndex: mem.cache.rulesQuestionIndex })
+            } else if (msg.type === 'orbat-highlight') {
+                mem.cache.orbatHighlight = msg.platoon ?? null
+                rssSend(mem.applicantWs, { type: 'orbat-highlight', platoon: msg.platoon ?? null })
+            } else if (msg.type === 'orbat-subview') {
+                mem.cache.orbatSubView = msg.subView ?? 'main'
+                rssSend(mem.applicantWs, { type: 'orbat-subview', subView: msg.subView ?? 'main' })
+            } else if (msg.type === 'recruiter-cursor') {
+                // Forward recruiter's cursor position to applicant (only on step 9 / BCT calendar)
+                rssSend(mem.applicantWs, { type: 'recruiter-cursor', x: msg.x, y: msg.y })
+            } else if (msg.type === 'bct-quiz-mode') {
+                mem.cache.bctQuizMode = !!msg.isQuiz
+                rssSend(mem.applicantWs, { type: 'bct-quiz-mode', isQuiz: mem.cache.bctQuizMode })
+            } else if (msg.type === 'bct-slot-added' && msg.slot) {
+                if (!mem.cache.bctSlots) mem.cache.bctSlots = []
+                // Replace existing slot for same date or append
+                const idx = mem.cache.bctSlots.findIndex(s => s.id === msg.slot.id || s.date === msg.slot.date)
+                if (idx >= 0) mem.cache.bctSlots[idx] = msg.slot
+                else mem.cache.bctSlots.push(msg.slot)
+                rssSend(mem.applicantWs, { type: 'bct-slots', slots: mem.cache.bctSlots })
+            } else if (msg.type === 'ts-link-status') {
+                mem.cache.tsLinkStatus = msg.status ?? 'idle'
+                rssSend(mem.applicantWs, { type: 'ts-link-status', status: msg.status ?? 'idle' })
+            } else if (msg.type === 'ping') {
+                rssSend(ws, { type: 'pong' })
+            }
+        })
+
+        ws.on('close', () => {
+            console.log(`[recruit-session] recruiter disconnected  session=${sessionId}`)
+            mem.recruiterWs = null
+            rssSend(mem.applicantWs, { type: 'recruiter-disconnected' })
+        })
+
+    } else if (role === 'applicant') {
+        // Close any existing applicant connection
+        if (mem.applicantWs && mem.applicantWs.readyState === 1) mem.applicantWs.close()
+        mem.applicantWs = ws
+        console.log(`[recruit-session] applicant connected   session=${sessionId}`)
+
+        // Notify recruiter
+        rssSend(mem.recruiterWs, { type: 'applicant-connected' })
+
+        // Send full state
+        rssSend(ws, {
+            type: 'state',
+            step: mem.step,
+            raisedHand: mem.raisedHand,
+            recruiterConnected: mem.recruiterWs?.readyState === 1,
+        })
+
+        // Replay cached live preview so applicant sees current state immediately
+        const c = mem.cache
+        if (c.namePreview !== undefined) rssSend(ws, { type: 'name-preview', name: c.namePreview, nameStatus: c.nameStatus ?? 'idle', nameOffensive: !!c.nameOffensive, nameSimilar: c.nameSimilar ?? [] })
+        if (c.introSub) rssSend(ws, { type: 'intro-sub', ...c.introSub })
+        if (c.bgSub) rssSend(ws, { type: 'bg-sub', ...c.bgSub })
+        if (c.fields) {
+            for (const [field, value] of Object.entries(c.fields)) {
+                rssSend(ws, { type: 'field-preview', field, value })
+            }
+        }
+        if (c.availPreview) rssSend(ws, { type: 'avail-preview', ...c.availPreview })
+        if (c.rolesPreview) rssSend(ws, { type: 'roles-preview', ...c.rolesPreview })
+        if (c.rulesQuestionIndex !== undefined) rssSend(ws, { type: 'rules-question', questionIndex: c.rulesQuestionIndex })
+        if (c.orbatHighlight !== undefined) rssSend(ws, { type: 'orbat-highlight', platoon: c.orbatHighlight })
+        if (c.orbatSubView !== undefined) rssSend(ws, { type: 'orbat-subview', subView: c.orbatSubView })
+        if (c.bctSlots?.length) rssSend(ws, { type: 'bct-slots', slots: c.bctSlots })
+        if (c.bctQuizMode !== undefined) rssSend(ws, { type: 'bct-quiz-mode', isQuiz: c.bctQuizMode })
+        if (c.tsLinkStatus) rssSend(ws, { type: 'ts-link-status', status: c.tsLinkStatus })
+
+        ws.on('message', (raw) => {
+            let msg
+            try { msg = JSON.parse(raw) } catch { return }
+
+            if (msg.type === 'raise-hand') {
+                mem.raisedHand = !!msg.value
+                rssSend(mem.recruiterWs, { type: 'raised-hand', value: mem.raisedHand })
+                db.collection('recruit_sessions').updateOne(
+                    { sessionId },
+                    { $set: { raisedHand: mem.raisedHand } }
+                ).catch(() => {})
+            } else if (msg.type === 'active') {
+                mem.applicantLastActive = Date.now()
+                rssSend(mem.recruiterWs, { type: 'applicant-active', lastActive: mem.applicantLastActive })
+            } else if (msg.type === 'cursor') {
+                mem.applicantCursor = { x: msg.x, y: msg.y }
+                rssSend(mem.recruiterWs, { type: 'cursor', x: msg.x, y: msg.y })
+            } else if (msg.type === 'rules-answer') {
+                if (!mem.cache.rulesAnswers) mem.cache.rulesAnswers = {}
+                mem.cache.rulesAnswers[msg.questionIndex] = !!msg.answer
+                rssSend(mem.recruiterWs, { type: 'rules-answer', questionIndex: msg.questionIndex, answer: !!msg.answer })
+                rssSend(ws, { type: 'rules-answer-ack', questionIndex: msg.questionIndex })
+            } else if (msg.type === 'ts-link-request') {
+                mem.cache.tsLinkStatus = 'pending'
+                rssSend(mem.recruiterWs, { type: 'ts-link-request' })
+                rssSend(ws, { type: 'ts-link-status', status: 'pending' })
+            } else if (msg.type === 'ping') {
+                rssSend(ws, { type: 'pong' })
+            }
+        })
+
+        ws.on('close', () => {
+            console.log(`[recruit-session] applicant disconnected session=${sessionId}`)
+            mem.applicantWs = null
+            mem.applicantCursor = null
+            rssSend(mem.recruiterWs, { type: 'applicant-disconnected', lastActive: mem.applicantLastActive })
+        })
+
+    } else {
+        ws.close(1008, 'Invalid role')
+    }
+})
+
 // ── Next.js ───────────────────────────────────────────────────────────────────
 
 const app    = next({ dev, port })
@@ -343,6 +559,10 @@ httpServer.on('upgrade', (request, socket, head) => {
     if (pathname === '/collab') {
         wss.handleUpgrade(request, socket, head, (ws) => {
             wss.emit('connection', ws, request)
+        })
+    } else if (pathname === '/recruit-session') {
+        recruitSessionWss.handleUpgrade(request, socket, head, (ws) => {
+            recruitSessionWss.emit('connection', ws, request)
         })
     }
     // Other paths (e.g. /_next/webpack-hmr) are handled by Next.js itself

@@ -6,13 +6,14 @@ import { Typography } from '@mui/material'
 interface Props {
     linked: { cldbid: number; linkedAt: number } | null
     expectedNickname: string
+    onLinked?: () => void
 }
 
 type Step = 'searching' | 'confirm' | 'manual' | 'awaiting-code' | 'success' | 'error'
 
 interface OnlineClient { clid: string; nickname: string }
 
-export default function TSLinkButton({ linked, expectedNickname }: Props) {
+export default function TSLinkButton({ linked, expectedNickname, onLinked }: Props) {
     const [open, setOpen] = useState(false)
     const [step, setStep] = useState<Step>('searching')
     const [errorMsg, setErrorMsg] = useState('')
@@ -94,6 +95,7 @@ export default function TSLinkButton({ linked, expectedNickname }: Props) {
         if (!res.ok) { setErrorMsg(data.error); return }
         setIsLinked(true)
         setStep('success')
+        onLinked?.()
     }
 
     async function unlink() {
