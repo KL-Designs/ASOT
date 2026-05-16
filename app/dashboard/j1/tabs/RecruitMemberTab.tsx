@@ -657,6 +657,12 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         }
     }, [fields.experience, step, sessionId, wsReadyState])
 
+    useEffect(() => {
+        if (step === 5 && sessionId && sessionWsRef.current?.readyState === WebSocket.OPEN) {
+            sessionWsRef.current.send(JSON.stringify({ type: 'field-preview', field: 'region', value: fields.region }))
+        }
+    }, [fields.region, step, sessionId, wsReadyState])
+
     // Availability step — selected nights + ops per month
     useEffect(() => {
         if (step === 6 && sessionId && sessionWsRef.current?.readyState === WebSocket.OPEN) {

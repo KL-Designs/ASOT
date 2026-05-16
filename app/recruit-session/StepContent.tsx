@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { lazy, Suspense } from 'react'
 import OrbatOnboarding from './OrbatOnboarding'
 
 const BCTAvailabilityCalendar = lazy(() => import('@/app/dashboard/j1/tabs/BCTAvailabilityCalendar'))
@@ -36,6 +36,7 @@ export interface LivePreview {
     nameOffensive?: boolean
     nameSimilar?: string[]
     bgProgress?: BgProgress
+    region?: string
     previousUnits?: string
     currentUnit?: string
     experience?: string
@@ -212,48 +213,36 @@ function OpsSchedule() {
     )
 }
 
-// ── Ping indicator ────────────────────────────────────────────────────────────
+// ── Region-based estimated latency ───────────────────────────────────────────
 
-function PingIndicator() {
-    const [ping, setPing] = useState<number | null>(null)
-    const [checking, setChecking] = useState(true)
+const REGION_LATENCY: Record<string, number> = {
+    'Oceania':        20,
+    'Asia':          120,
+    'North America':  200,
+    'Europe':         270,
+    'Middle East':    230,
+    'South America':  330,
+    'Africa':         370,
+}
 
-    async function check() {
-        setChecking(true)
-        const start = performance.now()
-        try {
-            await fetch('/api/ping', { cache: 'no-store' })
-            setPing(Math.round(performance.now() - start))
-        } catch {
-            setPing(null)
-        } finally {
-            setChecking(false)
-        }
-    }
+function RegionLatencyBadge({ region }: { region?: string }) {
+    const ms = region ? (REGION_LATENCY[region] ?? null) : null
 
-    useEffect(() => {
-        check()
-        const t = setInterval(check, 10_000)
-        return () => clearInterval(t)
-    }, [])
-
-    const quality = ping === null ? null
-        : ping < 80  ? { label: 'Excellent', color: '#00c364' }
-        : ping < 150 ? { label: 'Good',      color: '#00c364' }
-        : ping < 300 ? { label: 'Moderate',  color: '#f59e0b' }
-        :              { label: 'High Latency', color: '#ef4444' }
+    const quality = ms === null ? null
+        : ms < 80  ? { label: 'Excellent', color: '#00c364' }
+        : ms < 150 ? { label: 'Good',      color: '#a3e635' }
+        : ms < 250 ? { label: 'Fair',      color: '#f59e0b' }
+        :            { label: 'High ping',  color: '#ef4444' }
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', marginBottom: 14 }}>
-            <div style={{ width: 10, height: 10, borderRadius: '50%', background: checking || !quality ? 'rgba(255,255,255,0.2)' : quality.color, flexShrink: 0, transition: 'background 0.3s' }} />
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: quality ? quality.color : 'rgba(255,255,255,0.15)', flexShrink: 0, transition: 'background 0.3s' }} />
             <div>
-                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: checking ? 'rgba(237,237,237,0.35)' : (quality?.color ?? 'rgba(237,237,237,0.35)') }}>
-                    {checking && ping === null ? 'Checking connection…'
-                        : !quality ? 'Connection check failed'
-                        : quality.label}
+                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: quality ? quality.color : 'rgba(237,237,237,0.25)' }}>
+                    {quality ? quality.label : 'Awaiting region…'}
                 </div>
-                {ping !== null && !checking && (
-                    <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', marginTop: 1 }}>{ping}ms to server</div>
+                {ms !== null && (
+                    <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', marginTop: 1 }}>~{ms}ms estimated to server</div>
                 )}
             </div>
         </div>
@@ -344,7 +333,7 @@ function BgContent({ bp, lp }: { bp: BgProgress, lp: LivePreview }) {
             <PageHeading>Region &amp; Connection</PageHeading>
             <p style={base}>Your recruiter is discussing your region and time zone.</p>
             <SubHead>Your Connection Quality</SubHead>
-            <PingIndicator />
+            <RegionLatencyBadge region={lp.region} />
             <InfoBox>Operation times are covered in the Availability section later in this interview.</InfoBox>
         </div>
     )
