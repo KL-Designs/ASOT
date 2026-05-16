@@ -5,7 +5,8 @@
  * during the recruitment onboarding ORBAT overview step.
  *
  * Shows the structural ORBAT (roles, no real member names) with the same
- * visual style as the community page. Supports platoon highlighting/zoom.
+ * visual style as the community page. When a platoon is highlighted it
+ * expands to fill the full width with its sections laid out horizontally.
  */
 
 // ── Static structure ──────────────────────────────────────────────────────────
@@ -14,14 +15,13 @@ type RoleRow = { role: string }
 
 type Section = {
     title: string
-    color?: string
     rows: RoleRow[]
 }
 
 type Platoon = {
     id: string
-    category: string
     label: string
+    subtitle: string
     color: string
     sections: Section[]
 }
@@ -29,8 +29,8 @@ type Platoon = {
 const PLATOONS: Platoon[] = [
     {
         id: '1P',
-        category: '1-1 Infantry Platoon',
         label: '1-1 Infantry Platoon',
+        subtitle: 'Saturday nights',
         color: '#3b82f6',
         sections: [
             {
@@ -67,8 +67,8 @@ const PLATOONS: Platoon[] = [
     },
     {
         id: '2P',
-        category: '1-2 Infantry Platoon',
         label: '1-2 Infantry Platoon',
+        subtitle: 'Sunday nights',
         color: '#8b5cf6',
         sections: [
             {
@@ -105,8 +105,8 @@ const PLATOONS: Platoon[] = [
     },
     {
         id: '3P',
-        category: '1-3 Support Platoon',
         label: '1-3 Support Platoon',
+        subtitle: 'Support — Sat & Sun',
         color: '#10b981',
         sections: [
             {
@@ -151,8 +151,8 @@ const PLATOONS: Platoon[] = [
     },
     {
         id: 'RES',
-        category: 'Reservists',
         label: 'Reservists',
+        subtitle: 'Both nights as needed',
         color: '#f59e0b',
         sections: [
             {
@@ -178,7 +178,7 @@ const PLATOONS: Platoon[] = [
     },
 ]
 
-// ── Visual components (matching /community/orbat style) ───────────────────────
+// ── Visual components ─────────────────────────────────────────────────────────
 
 function SectionHeader({ children, color }: { children: React.ReactNode; color?: string }) {
     const bg = color
@@ -202,12 +202,11 @@ function SectionHeader({ children, color }: { children: React.ReactNode; color?:
 function RoleRow({ role, index }: { role: string; index: number }) {
     return (
         <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr',
             padding: '3px 8px',
             background: index % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.18)',
             borderBottom: '1px solid rgba(219,0,29,0.06)',
             minHeight: 22,
+            display: 'flex',
             alignItems: 'center',
         }}>
             <span style={{ fontSize: '0.66rem', color: 'rgba(237,237,237,0.6)', letterSpacing: '0.02em' }}>
@@ -229,15 +228,6 @@ function UnitCard({ section, accentColor }: { section: Section; accentColor?: st
     )
 }
 
-// ── Zoom config: transform-origin per platoon column ─────────────────────────
-
-const ZOOM_ORIGINS: Record<string, string> = {
-    '1P':  '12% 50%',
-    '2P':  '37% 50%',
-    '3P':  '63% 50%',
-    'RES': '88% 50%',
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface Props {
@@ -245,13 +235,12 @@ interface Props {
 }
 
 export default function OrbatOnboarding({ highlight }: Props) {
-    const zoomed = !!highlight
-    const transformOrigin = highlight ? (ZOOM_ORIGINS[highlight] ?? '50% 50%') : '50% 50%'
-
+    const activePlatoon = highlight ? PLATOONS.find(p => p.id === highlight) ?? null : null
     const hqColor = '#db001d'
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
             {/* Company HQ banner */}
             <div style={{ border: `1px solid ${hqColor}4d`, borderTop: `3px solid ${hqColor}`, overflow: 'hidden' }}>
                 <div style={{
@@ -298,64 +287,88 @@ export default function OrbatOnboarding({ highlight }: Props) {
                 </div>
             </div>
 
-            {/* 4-column platoon grid — zooms toward highlighted column */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: 8,
-                transform: zoomed ? 'scale(1.08)' : 'scale(1)',
-                transformOrigin,
-                transition: 'transform 0.45s cubic-bezier(0.22,1,0.36,1), transform-origin 0.4s ease',
-            }}>
-                {PLATOONS.map(platoon => {
-                    const active = highlight === platoon.id
-                    const borderColor = active ? `${platoon.color}aa` : `${platoon.color}33`
-                    const catColorFaint = active ? `${platoon.color}18` : `${platoon.color}0a`
+            {activePlatoon ? (
+                /* ── Expanded single-platoon view ── */
+                <div style={{
+                    border: `1px solid ${activePlatoon.color}66`,
+                    borderTop: `2px solid ${activePlatoon.color}`,
+                    overflow: 'hidden',
+                    animation: 'orbat-fadein 0.25s ease',
+                }}>
+                    {/* Platoon header — full width */}
+                    <div style={{
+                        background: `linear-gradient(90deg, ${activePlatoon.color}dd 0%, ${activePlatoon.color}88 100%)`,
+                        padding: '10px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        borderBottom: `1px solid ${activePlatoon.color}44`,
+                    }}>
+                        <div>
+                            <div style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#fff', lineHeight: 1.2 }}>
+                                {activePlatoon.label}
+                            </div>
+                            <div style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.65)', marginTop: 2, letterSpacing: '0.06em' }}>
+                                {activePlatoon.subtitle}
+                            </div>
+                        </div>
+                    </div>
 
-                    return (
+                    {/* Sections side by side */}
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${activePlatoon.sections.length}, 1fr)`,
+                        gap: 1,
+                        background: `${activePlatoon.color}18`,
+                        padding: 8,
+                    }}>
+                        {activePlatoon.sections.map((sec, si) => (
+                            <div key={si} style={{ display: 'flex', flexDirection: 'column' }}>
+                                <UnitCard section={sec} accentColor={activePlatoon.color} />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                /* ── Default 4-column overview ── */
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: 8,
+                }}>
+                    {PLATOONS.map(platoon => (
                         <div key={platoon.id} style={{
                             display: 'flex',
                             flexDirection: 'column',
-                            border: `1px solid ${borderColor}`,
-                            borderTop: `2px solid ${active ? platoon.color : `${platoon.color}66`}`,
-                            boxShadow: active ? `0 0 18px ${platoon.color}22, 0 0 0 1px ${platoon.color}33` : 'none',
-                            transition: 'all 0.35s ease',
-                            background: catColorFaint,
+                            border: `1px solid ${platoon.color}33`,
+                            borderTop: `2px solid ${platoon.color}66`,
+                            background: `${platoon.color}0a`,
                             overflow: 'hidden',
                         }}>
                             {/* Column header */}
                             <div style={{
-                                background: active
-                                    ? `linear-gradient(90deg, ${platoon.color}dd 0%, ${platoon.color}99 100%)`
-                                    : `linear-gradient(90deg, ${platoon.color}66 0%, ${platoon.color}44 100%)`,
+                                background: `linear-gradient(90deg, ${platoon.color}66 0%, ${platoon.color}44 100%)`,
                                 padding: '7px 10px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
                                 borderBottom: `1px solid ${platoon.color}33`,
-                                transition: 'background 0.35s',
                             }}>
-                                <div>
-                                    <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fff', lineHeight: 1.2 }}>
-                                        {platoon.label}
-                                    </div>
-                                    <div style={{ fontSize: '0.57rem', color: 'rgba(255,255,255,0.6)', marginTop: 1, letterSpacing: '0.04em' }}>
-                                        {platoon.id === '1P' ? 'Saturday nights'
-                                            : platoon.id === '2P' ? 'Sunday nights'
-                                            : platoon.id === '3P' ? 'Support — Sat & Sun'
-                                            : 'Both nights as needed'}
-                                    </div>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fff', lineHeight: 1.2 }}>
+                                    {platoon.label}
+                                </div>
+                                <div style={{ fontSize: '0.57rem', color: 'rgba(255,255,255,0.6)', marginTop: 1, letterSpacing: '0.04em' }}>
+                                    {platoon.subtitle}
                                 </div>
                             </div>
 
                             {/* Section cards */}
                             {platoon.sections.map((sec, si) => (
-                                <UnitCard key={si} section={sec} accentColor={active ? platoon.color : undefined} />
+                                <UnitCard key={si} section={sec} />
                             ))}
                         </div>
-                    )
-                })}
-            </div>
+                    ))}
+                </div>
+            )}
+
+            <style>{`@keyframes orbat-fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }`}</style>
         </div>
     )
 }
