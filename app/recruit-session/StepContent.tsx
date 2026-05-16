@@ -813,26 +813,25 @@ export function StepContent({ step, introProgress, livePreview = {} }: {
                         : 'Your recruiter is selecting your available times on the calendar below. This will be shared with the J3 training team to schedule your BCT Stage 1 session.'
                     }</p>
 
-                    {/* Recruiter cursor overlay */}
-                    {cx !== undefined && cy !== undefined && (
-                        <div style={{
-                            position: 'fixed',
-                            left: `${cx * 100}vw`,
-                            top: `${cy * 100}vh`,
-                            width: 18, height: 18,
-                            borderRadius: '50%',
-                            background: 'rgba(219,0,29,0.85)',
-                            border: '2px solid rgba(255,255,255,0.9)',
-                            boxShadow: '0 0 10px rgba(219,0,29,0.6)',
-                            pointerEvents: 'none',
-                            zIndex: 9999,
-                            transform: 'translate(-50%,-50%)',
-                            transition: 'left 0.08s linear, top 0.08s linear',
-                        }} />
-                    )}
-
                     {/* Mirrored read-only calendar */}
-                    <div style={{ margin: '14px 0' }}>
+                    <div style={{ position: 'relative', margin: '14px 0' }}>
+                        {/* Recruiter cursor overlay — positioned relative to the calendar element */}
+                        {cx !== undefined && cy !== undefined && (
+                            <div style={{
+                                position: 'absolute',
+                                left: `${cx * 100}%`,
+                                top: `${cy * 100}%`,
+                                width: 18, height: 18,
+                                borderRadius: '50%',
+                                background: 'rgba(219,0,29,0.85)',
+                                border: '2px solid rgba(255,255,255,0.9)',
+                                boxShadow: '0 0 10px rgba(219,0,29,0.6)',
+                                pointerEvents: 'none',
+                                zIndex: 9999,
+                                transform: 'translate(-50%,-50%)',
+                                transition: 'left 0.08s linear, top 0.08s linear',
+                            }} />
+                        )}
                         <Suspense fallback={
                             <div style={{ padding: '24px', textAlign: 'center', color: 'rgba(237,237,237,0.3)', fontSize: '0.78rem' }}>Loading calendar…</div>
                         }>

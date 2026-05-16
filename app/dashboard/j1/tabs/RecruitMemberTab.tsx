@@ -762,17 +762,20 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
 
     // Recruiter cursor — broadcast to applicant when on step 9 (BCT calendar)
     const bctCursorTimer = useRef<number>(0)
+    const calendarRef = useRef<HTMLDivElement>(null)
     useEffect(() => {
         if (step !== 9 || !sessionId) return
         function onMove(e: MouseEvent) {
+            if (!calendarRef.current) return
             const now = Date.now()
             if (now - bctCursorTimer.current < 60) return
             bctCursorTimer.current = now
             if (sessionWsRef.current?.readyState === WebSocket.OPEN) {
+                const rect = calendarRef.current.getBoundingClientRect()
                 sessionWsRef.current.send(JSON.stringify({
                     type: 'recruiter-cursor',
-                    x: Math.round((e.clientX / window.innerWidth) * 100) / 100,
-                    y: Math.round((e.clientY / window.innerHeight) * 100) / 100,
+                    x: Math.round(((e.clientX - rect.left) / rect.width) * 1000) / 1000,
+                    y: Math.round(((e.clientY - rect.top) / rect.height) * 1000) / 1000,
                 }))
             }
         }
@@ -2736,17 +2739,19 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                 <div className='flex flex-col gap-4'>
                                     {sectionLabel('Section 2 — Step 9: BCT Availability', 'Click days on the calendar to record Morning / Afternoon / Evening availability for BCT Stage 1.')}
 
-                                    <BCTAvailabilityCalendar
-                                        applicantId={selectedMember?.id ?? fields.discordId}
-                                        applicantName={fields.joiningName || fields.discordUsername || 'Applicant'}
-                                        recruiterName={displayName}
-                                        isQuiz={bctQuizRequested}
-                                        onSlotCreated={(slot: BCTSlotSummary) => {
-                                            if (sessionWsRef.current?.readyState === WebSocket.OPEN) {
-                                                sessionWsRef.current.send(JSON.stringify({ type: 'bct-slot-added', slot }))
-                                            }
-                                        }}
-                                    />
+                                    <div ref={calendarRef}>
+                                        <BCTAvailabilityCalendar
+                                            applicantId={selectedMember?.id ?? fields.discordId}
+                                            applicantName={fields.joiningName || fields.discordUsername || 'Applicant'}
+                                            recruiterName={displayName}
+                                            isQuiz={bctQuizRequested}
+                                            onSlotCreated={(slot: BCTSlotSummary) => {
+                                                if (sessionWsRef.current?.readyState === WebSocket.OPEN) {
+                                                    sessionWsRef.current.send(JSON.stringify({ type: 'bct-slot-added', slot }))
+                                                }
+                                            }}
+                                        />
+                                    </div>
 
                                     <FormControlLabel
                                         control={
