@@ -2773,7 +2773,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                 <div className='flex flex-col gap-4'>
                                     {sectionLabel('Section 2 — Step 10: ORBAT Overview', 'Explain unit structure, platoons, attendance, and LOA policy.')}
 
-                                    <OrbatOnboarding highlight={orbatHighlight} compact />
+                                    <OrbatOnboarding highlight={orbatHighlight} />
                                     <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', lineHeight: 1.6 }}>
                                         Tick each platoon in the right guide panel as you explain it. The diagram highlights live on the applicant&apos;s page.
                                     </div>

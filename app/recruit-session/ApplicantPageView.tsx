@@ -108,19 +108,19 @@ export default function ApplicantPageView({
 
                 {/* TS Link widget — above content card for step 14, so it's the first action */}
                 {step === 14 && !staticMode && tsLinkWidget && (
-                    <div style={{ width: '100%', maxWidth: 640, marginBottom: 16 }}>
+                    <div style={{ width: '100%', maxWidth: 860, marginBottom: 16 }}>
                         {tsLinkWidget}
                     </div>
                 )}
 
                 {/* Content card */}
-                <div style={{ width: '100%', maxWidth: 640, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid rgba(219,0,29,0.4)', padding: '28px 32px', opacity: animating ? 0 : 1, transform: animating ? 'translateY(12px)' : 'translateY(0)', transition: 'opacity 0.3s ease, transform 0.3s ease' }}>
+                <div style={{ width: '100%', maxWidth: 860, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid rgba(219,0,29,0.4)', padding: '28px 32px', opacity: animating ? 0 : 1, transform: animating ? 'translateY(12px)' : 'translateY(0)', transition: 'opacity 0.3s ease, transform 0.3s ease' }}>
                     <StepContent step={step} introProgress={introProgress} livePreview={livePreview} />
                 </div>
 
                 {/* YES/NO for joining agreement — inline, always visible with the question */}
                 {step === 12 && !staticMode && (
-                    <div style={{ width: '100%', maxWidth: 640, marginTop: 16, display: 'flex', gap: 12, justifyContent: 'center' }}>
+                    <div style={{ width: '100%', maxWidth: 860, marginTop: 16, display: 'flex', gap: 12, justifyContent: 'center' }}>
                         <button
                             onClick={onRulesAnswer ? () => onRulesAnswer(qi, true) : undefined}
                             style={{ flex: 1, maxWidth: 180, padding: '14px 20px', fontSize: '0.88rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', background: currentAnswer === true ? 'rgba(0,195,100,0.2)' : 'rgba(0,195,100,0.06)', border: currentAnswer === true ? '2px solid #00c364' : '1px solid rgba(0,195,100,0.3)', color: currentAnswer === true ? '#00c364' : 'rgba(237,237,237,0.6)', cursor: 'pointer', transition: 'all 0.12s' }}
