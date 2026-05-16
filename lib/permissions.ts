@@ -60,12 +60,12 @@ const PERMISSIONS = {
          *  - `app/api/me/route.ts` (sets `isStaff` flag)
          */
         admin: [
-            'J1-Recruiting', 'J1-Staff',
-            'J2-Mission Making',
-            'J3-Training',
-            'J5-Media',
-            'J6-Game Master',
-            'J7 Community Development',
+            'J1 - Recruiting',
+            'J2 - Mission Making',
+            'J3 - Training',
+            'J5 - Media',
+            'J6 - Game Master',
+            'J7 - Community Development',
             'HQ Staff',
             'All Staff',
         ],
@@ -80,10 +80,12 @@ const PERMISSIONS = {
          *  - `app/admin/page.tsx` + `layout.tsx` (controls `canSeePersonnel` sidebar flag)
          */
         members: [
-            'J1-Recruiting', 'J1-Staff',
-            'J2-Mission Making',
-            'J3-Training',
-            'J5-Media',
+            'J1 - Recruiting',
+            'J2 - Mission Making',
+            'J3 - Training',
+            'J5 - Media',
+            'J6 - Game Master',
+            'J7 - Community Development',
             'HQ Staff',
             'All Staff',
         ],
@@ -97,7 +99,7 @@ const PERMISSIONS = {
          *  - `app/operations/[id]/page.tsx` (sets `isHQ` flag)
          *  - `app/operations/edit/page.tsx` (sets `isHQ` flag for editor features)
          */
-        operationsEdit: ['HQ Staff', 'J2-Mission Making'],
+        operationsEdit: ['HQ Staff', 'J2 - Mission Making'],
     },
 
     // ── Department access ─────────────────────────────────────────────────────
@@ -119,7 +121,7 @@ const PERMISSIONS = {
          *  - `app/api/admin/j1/members/route.ts`
          *  - `app/api/admin/j1/import/route.ts`
          */
-        j1: ['J1-Recruiting', 'J1-Staff'],
+        j1: ['J1 - Recruiting'],
 
         /**
          * J2 — Mission Making.
@@ -130,7 +132,7 @@ const PERMISSIONS = {
          *  - `app/admin/unit/tickets/page.tsx` (`canSeeJ2` — read-only ticket visibility)
          *  - `app/api/admin/tickets/route.ts` (qualification + promotion ticket creation)
          */
-        j2: ['J2-Mission Making'],
+        j2: ['J2 - Mission Making'],
 
         /**
          * J3 — Training.
@@ -141,7 +143,7 @@ const PERMISSIONS = {
          *  - `app/admin/unit/tickets/page.tsx` (`canSeeJ3` — read-only ticket visibility)
          *  - `app/api/admin/tickets/route.ts` (qualification + promotion ticket creation)
          */
-        j3: ['J3-Training'],
+        j3: ['J3 - Training'],
 
         /**
          * J4 — Administration.
@@ -159,7 +161,7 @@ const PERMISSIONS = {
          *  - `app/api/admin/tickets/route.ts` (discharge ticket creation)
          *  - `app/api/admin/members/discharged/route.ts`
          */
-        j4: ['J4-Administration'],
+        j4: ['J4 - Administration'],
 
         /**
          * J5 — Media.
@@ -168,7 +170,7 @@ const PERMISSIONS = {
          *  - `app/admin/j5/page.tsx` (page gate)
          *  - `app/admin/page.tsx` + `layout.tsx` (sidebar `canSeeJ5` flag)
          */
-        j5: ['J5-Media'],
+        j5: ['J5 - Media'],
 
         /**
          * J6 — Game Masters.
@@ -178,7 +180,7 @@ const PERMISSIONS = {
          *  - `app/admin/page.tsx` + `layout.tsx` (sidebar `canSeeJ6` flag)
          *  - `app/admin/unit/tickets/page.tsx` (`canSeeJ6` — read-only ticket visibility)
          */
-        j6: ['J6-Game Master'],
+        j6: ['J6 - Game Master'],
 
         /**
          * J7 — Community Development.
@@ -188,7 +190,7 @@ const PERMISSIONS = {
          *  - `app/admin/page.tsx` + `layout.tsx` (sidebar `canSeeJ7` flag)
          *  - `app/admin/unit/tickets/page.tsx` (`canSeeJ7` — read-only ticket visibility)
          */
-        j7: ['J7 Community Development'],
+        j7: ['J7 - Community Development'],
     },
 
     // ── Operations (mission making) ───────────────────────────────────────────
@@ -212,7 +214,7 @@ const PERMISSIONS = {
          *  - `app/api/operations/campaigns/route.ts` + `campaigns/assign/route.ts`
          *  - `app/api/operations/templates/route.ts` + `templates/apply/route.ts`
          */
-        write: ['HQ Staff', 'J2-Mission Making'],
+        write: ['HQ Staff', 'J2 - Mission Making'],
 
         /**
          * Allows viewing operations with status "In Development" on the
@@ -221,7 +223,7 @@ const PERMISSIONS = {
          * Used by:
          *  - `app/api/operations/route.ts` (sets `isHQ` flag to include in-dev ops)
          */
-        viewInDevelopment: ['HQ Staff', 'J2-Mission Making'],
+        viewInDevelopment: ['HQ Staff', 'J2 - Mission Making'],
     },
 
     // ── Uploads ───────────────────────────────────────────────────────────────
@@ -245,7 +247,7 @@ const PERMISSIONS = {
          * Used by:
          *  - `app/api/members/[username]/confirmed-ops/route.ts`
          */
-        edit: ['J4-Administration'],
+        edit: ['J4 - Administration'],
 
         /**
          * Edit restricted milpac fields — billet points, rank, enlistment date.
@@ -257,7 +259,7 @@ const PERMISSIONS = {
          *  - `app/admin/personnel/all/page.tsx` (`canEditRestricted` flag)
          *  - `app/api/members/[username]/route.ts` (field-level guard on PUT)
          */
-        editRestricted: ['J4-Administration'],
+        editRestricted: ['J4 - Administration'],
 
         /**
          * Edit standard milpac fields — promotions, qualifications, awards,
@@ -270,7 +272,7 @@ const PERMISSIONS = {
          *  - `app/api/milpacs/[name]/route.ts` (milpac image upload)
          *  - `app/api/members/[username]/route.ts` (GET + PUT guards)
          */
-        editStandard: ['J4-Administration'],
+        editStandard: ['J4 - Administration'],
     },
 
     // ── Admin panel features ──────────────────────────────────────────────────
@@ -285,7 +287,7 @@ const PERMISSIONS = {
          *  - `app/admin/personnel/all/page.tsx` (`canImpersonate` flag)
          *  - `app/api/admin/impersonate/route.ts`
          */
-        impersonate: ['J4-Administration'],
+        impersonate: ['J4 - Administration'],
 
         /**
          * Full ORBAT access — view and navigate the order of battle.
@@ -299,7 +301,7 @@ const PERMISSIONS = {
          *  - `app/api/operations/[id]/attendance/platoons/route.ts`
          *  - `app/api/operations/[id]/attendance/manage/route.ts`
          */
-        manageOrbat: ['J4-Administration'],
+        manageOrbat: ['J4 - Administration'],
 
         /**
          * ORBAT structural edits — create, rename, delete, and reorder
@@ -311,7 +313,7 @@ const PERMISSIONS = {
          *  - `app/api/admin/orbat/sections/route.ts`
          *  - `app/api/admin/orbat/meta/route.ts` + `meta/patch/route.ts`
          */
-        manageOrbatStructure: ['J4-Administration'],
+        manageOrbatStructure: ['J4 - Administration'],
 
         /**
          * ORBAT member assignment — assign or remove users from positions,
@@ -322,7 +324,7 @@ const PERMISSIONS = {
          *  - `app/api/admin/orbat/[positionId]/route.ts` (member assign/unassign)
          *  - `app/api/admin/orbat/reservists/route.ts`
          */
-        manageOrbatMembers: ['J4-Administration'],
+        manageOrbatMembers: ['J4 - Administration'],
 
         /**
          * Mass import — wipe and replace all milpac and ORBAT data from CSV files.
@@ -334,7 +336,7 @@ const PERMISSIONS = {
          *  - `app/api/admin/mass-import/route.ts`
          *  - `app/api/admin/attendance-import/route.ts` + `attendance-import/resolve/route.ts`
          */
-        massImport: ['J4-Administration'],
+        massImport: ['J4 - Administration'],
     },
 
     // ── Optionals (mod list management) ──────────────────────────────────────
@@ -347,7 +349,7 @@ const PERMISSIONS = {
          *  - `app/optionals/manage/route.ts`
          *  - `app/optionals/me/route.ts` (sets `isAdmin` flag)
          */
-        manage: ['J4-Administration'],
+        manage: ['J4 - Administration'],
     },
 
     // ── Feedback (bug reports & feature requests) ─────────────────────────────
@@ -361,7 +363,7 @@ const PERMISSIONS = {
          * Used by:
          *  - `app/api/feedback/[id]/status/route.ts` (PATCH)
          */
-        manageStatus: ['J4-Administration'],
+        manageStatus: ['J4 - Administration'],
     },
 
     // ── Community Tickets ─────────────────────────────────────────────────────
@@ -376,7 +378,7 @@ const PERMISSIONS = {
          *  - `app/api/feedback/route.ts`
          *  - `app/api/feedback/[id]/route.ts`
          */
-        manage: ['J4-Administration'],
+        manage: ['J4 - Administration'],
     },
 
     // ── Gallery ───────────────────────────────────────────────────────────────
@@ -393,7 +395,7 @@ const PERMISSIONS = {
          *  - `app/api/gallery/admin/featured/route.ts`
          *  - `app/api/gallery/sotm/route.ts` (Shot of the Month — uses departmentLeads.j5)
          */
-        manage: ['J5-Media'],
+        manage: ['J5 - Media'],
     },
 
     // ── Attendance ────────────────────────────────────────────────────────────
@@ -421,7 +423,7 @@ const PERMISSIONS = {
          * Used by:
          *  - `app/api/auth/collab/route.ts`
          */
-        collab: ['HQ Staff', 'J2-Mission Making'],
+        collab: ['HQ Staff', 'J2 - Mission Making'],
     },
 
     // ── Department leads ──────────────────────────────────────────────────────
@@ -441,7 +443,7 @@ const PERMISSIONS = {
          *  - `app/admin/j1/page.tsx` (`canManageMembers` flag)
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J1)
          */
-        j1: ['J1-Staff'],
+        j1: ['J1 - Department Leader', 'J1 - Head Recruiter', 'J1 - Recruiter Trainer'],
 
         /**
          * J2 lead — can add/remove J2 members and manage department membership tickets.
@@ -450,7 +452,7 @@ const PERMISSIONS = {
          *  - `app/admin/j2/page.tsx` (`canManageMembers` flag)
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J2)
          */
-        j2: ['J2-Team Lead'],
+        j2: ['J2 - Department Leader', 'J2 - Team Leader', 'J2 - Creator Trainer'],
 
         /**
          * J3 lead — can add/remove J3 members and manage department membership tickets.
@@ -459,7 +461,7 @@ const PERMISSIONS = {
          *  - `app/admin/j3/page.tsx` (`canManageMembers` flag)
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J3)
          */
-        j3: ['J3-Team Lead'],
+        j3: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
 
         /**
          * J5 lead — can add/remove J5 members, manage department membership tickets,
@@ -470,7 +472,7 @@ const PERMISSIONS = {
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J5)
          *  - `app/api/gallery/sotm/route.ts`
          */
-        j5: ['J5-Media'],
+        j5: ['J5 - Department Leader', 'J5 - Team Leader', 'J5 - Lead Content Creator'],
 
         /**
          * J6 lead — can add/remove J6 members and manage department membership tickets.
@@ -479,7 +481,7 @@ const PERMISSIONS = {
          *  - `app/admin/j6/page.tsx` (`canManageMembers` flag)
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J6)
          */
-        j6: ['J6-Department Lead'],
+        j6: ['J6 - Department Leader', 'J6 - Team Leader', 'J6 - Assistant Team Leader'],
 
         /**
          * J7 lead — can add/remove J7 members and manage department membership tickets.
@@ -488,7 +490,7 @@ const PERMISSIONS = {
          *  - `app/admin/j7/page.tsx` (`canManageMembers` flag)
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J7)
          */
-        j7: ['J7 Staff'],
+        j7: ['J7 - Department Leader', 'J7 - Team Leader', 'J7 - Assistant Team Leader'],
     },
 
     // ── Tickets ───────────────────────────────────────────────────────────────
@@ -510,13 +512,13 @@ const PERMISSIONS = {
     // Regular department members can create and edit meetings; only leads can lock.
 
     meetings: {
-        lockJ1: ['J1-Staff'],
-        lockJ2: ['J2-Team Lead'],
-        lockJ3: ['J3-Team Lead'],
+        lockJ1: ['J1 - Department Leader', 'J1 - Head Recruiter', 'J1 - Recruiter Trainer'],
+        lockJ2: ['J2 - Department Leader', 'J2 - Team Leader', 'J2 - Creator Trainer'],
+        lockJ3: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
         lockJ4: ['J4-Administration'],
-        lockJ5: ['J5-Media'],
-        lockJ6: ['J6-Department Lead'],
-        lockJ7: ['J7 Staff'],
+        lockJ5: ['J5 - Department Leader', 'J5 - Team Leader', 'J5 - Lead Content Creator'],
+        lockJ6: ['J6 - Department Leader', 'J6 - Team Leader', 'J6 - Assistant Team Leader'],
+        lockJ7: ['J7 - Department Leader', 'J7 - Team Leader', 'J7 - Assistant Team Leader'],
     },
 
     // ── Quiz / Training ───────────────────────────────────────────────────────
@@ -526,18 +528,18 @@ const PERMISSIONS = {
          * Assign a BCT quiz to a recruit and view training records.
          * All J3 trainers can assign; J3 leads and J4 can also review escalations.
          */
-        assign: ['J3-Training', 'J3-Team Lead'],
+        assign: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
 
         /**
          * Review a submitted quiz attempt and issue a Pass, Fail, or escalation.
          */
-        review: ['J3-Training', 'J3-Team Lead'],
+        review: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
 
         /**
          * Escalated review — available to J3 leads when a trainer sends for review,
          * and to J4 when a J3 lead escalates further.
          */
-        reviewEscalated: ['J3-Team Lead', 'J4-Administration'],
+        reviewEscalated: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer', 'J4 - Administration'],
     },
 
     // ── SOPs ──────────────────────────────────────────────────────────────────
@@ -552,7 +554,7 @@ const PERMISSIONS = {
          *  - `app/api/sops/[id]/route.ts` (PATCH + DELETE)
          *  - `app/dashboard/unit/sops/page.tsx` (isJ4 flag)
          */
-        manage: ['J4-Administration'],
+        manage: ['J4 - Administration'],
     },
 
     tickets: {
@@ -564,7 +566,7 @@ const PERMISSIONS = {
          *  - `app/admin/unit/tickets/page.tsx` (`canActionJ1` + `canSeeJ1`)
          *  - `app/api/admin/tickets/[id]/route.ts` (PATCH auth check)
          */
-        actionJ1: ['J1-Staff'],
+        actionJ1: ['J1 - Department Leader', 'J1 - Head Recruiter', 'J1 - Recruiter Trainer'],
 
         /**
          * Approve or reject J2 department tickets.
@@ -574,7 +576,7 @@ const PERMISSIONS = {
          *  - `app/admin/unit/tickets/page.tsx` (`canActionJ2` + `canSeeJ2`)
          *  - `app/api/admin/tickets/[id]/route.ts` (PATCH auth check)
          */
-        actionJ2: ['J2-Team Lead'],
+        actionJ2: ['J2 - Department Leader', 'J2 - Team Leader', 'J2 - Creator Trainer'],
 
         /**
          * Approve or reject J3 qualification and promotion tickets.
@@ -584,7 +586,7 @@ const PERMISSIONS = {
          *  - `app/admin/unit/tickets/page.tsx` (`canActionJ3` + `canSeeJ3`)
          *  - `app/api/admin/tickets/[id]/route.ts` (PATCH auth check)
          */
-        actionJ3: ['J3-Team Lead'],
+        actionJ3: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
 
         /**
          * Approve or reject J4 tickets — awards, discharges, and performance reports.
@@ -595,7 +597,7 @@ const PERMISSIONS = {
          *  - `app/admin/unit/tickets/page.tsx` (`canActionJ4` + `canSeeJ4`)
          *  - `app/api/admin/tickets/[id]/route.ts` (PATCH auth check)
          */
-        actionJ4: ['J4-Administration'],
+        actionJ4: ['J4 - Administration'],
 
         /**
          * Approve or reject J6 department tickets.
@@ -605,7 +607,7 @@ const PERMISSIONS = {
          *  - `app/admin/unit/tickets/page.tsx` (`canActionJ6` + `canSeeJ6`)
          *  - `app/api/admin/tickets/[id]/route.ts` (PATCH auth check)
          */
-        actionJ6: ['J6-Department Lead'],
+        actionJ6: ['J6 - Department Leader', 'J6 - Team Leader', 'J6 - Assistant Team Leader'],
 
         /**
          * Approve or reject J7 department tickets.
@@ -615,7 +617,7 @@ const PERMISSIONS = {
          *  - `app/admin/unit/tickets/page.tsx` (`canActionJ7` + `canSeeJ7`)
          *  - `app/api/admin/tickets/[id]/route.ts` (PATCH auth check)
          */
-        actionJ7: ['J7 Staff'],
+        actionJ7: ['J7 - Department Leader', 'J7 - Team Leader', 'J7 - Assistant Team Leader'],
 
         /**
          * Override-action move request tickets — bypasses the specific-approver
@@ -637,7 +639,7 @@ const PERMISSIONS = {
          *  - `app/admin/unit/tickets/page.tsx` (`canActionDiscipline`)
          *  - `app/api/admin/tickets/[id]/route.ts` (PATCH auth check — allstaff dept)
          */
-        actionDiscipline: ['J4-Administration'],
+        actionDiscipline: ['J4 - Administration'],
     },
 
 } satisfies Record<string, Record<string, string[]>>

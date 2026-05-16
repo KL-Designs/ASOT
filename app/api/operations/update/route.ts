@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const coverImage = searchParams.get('coverImage')
     const status = searchParams.get('status')
     const mapWorld = searchParams.get('mapWorld')
+    const customTheme = searchParams.get('customTheme')
 
     if (!id) return NextResponse.json({ error: 'Operation ID Missing' }, { status: 401 })
 
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
         if (coverImage !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { coverImage } })
         if (status) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { status: status as Operation['status'] } })
         if (mapWorld !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { mapWorld: mapWorld || undefined } })
+        if (customTheme !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { customTheme } })
 
         return NextResponse.json({ success: true }, { status: 200 })
     }

@@ -494,6 +494,7 @@ export default function StaffSidebar({
                         { label: 'Statistics',     tab: 3 },
                         { label: 'Meetings',       tab: 4 },
                         { label: 'Tickets',        tab: 5 },
+                        ...(permissions.canManageJ1 ? [{ label: 'TFAR Plugin', tab: 6 }] : []),
                     ],
                 },
                 {

@@ -6,6 +6,7 @@ import { ObjectId } from 'mongodb'
 import DocBody from './doc-body'
 import SectionNav from './section-nav'
 import PagedView from './paged-view'
+import PageNavClient from './PageNavClient'
 import LocalDate from './local-date'
 import PrintButton from './print-button'
 import client from '@/lib/discord'
@@ -26,8 +27,10 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
     const { id } = await params
+    const sp = searchParams ? await searchParams : {}
+    const activePageParam = typeof sp?.page === 'string' ? sp.page : undefined
     await connection()
 
     const [operation, me] = await Promise.all([
@@ -379,8 +382,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, background: isOF ? 'linear-gradient(to bottom, transparent, #140f07)' : isSF ? 'linear-gradient(to bottom, transparent, #01050a)' : 'linear-gradient(to bottom, transparent, var(--background))', zIndex: 5, pointerEvents: 'none' }} />
             </div>
 
-            {/* ── Section nav (single-page only) ────────────────────────────── */}
-            {(!operation.pages || operation.pages.length <= 1) && operation.sections && operation.sections.length > 1 && (
+            {/* ── Section nav (single-page only, no zeus/ocap tabs available) ─── */}
+            {(!operation.pages || operation.pages.length <= 1) && !isJ6 && !operation.ocap && operation.sections && operation.sections.length > 1 && (
                 <SectionNav
                     className='print-hide'
                     themeColor={operation.themeColor || '#db001d'}
@@ -395,7 +398,58 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             <div className='w-full max-w-[2400px] mx-auto px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', gap: 24, alignItems: 'flex-start' }}>
 
                 {/* Left: document content */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 0, alignItems: 'flex-start' }}>
+
+                    {/* Left page nav — shown for multi-page OR single-page with Zeus/OCAP tabs */}
+                    {(() => {
+                        const isSinglePage = !operation.pages || operation.pages.length <= 1
+                        const hasZeus = isJ6
+                        const hasOcap = !!(isHQ || (isLoggedIn && operation.ocap))
+                        const showPageNav = !isSinglePage || hasZeus || hasOcap
+                        if (!showPageNav) return null
+
+                        // Build nav items
+                        type NavItem = { id: string; title: string; color?: string; isSeparator?: boolean }
+                        const navItems: NavItem[] = []
+
+                        if (!isSinglePage && operation.pages) {
+                            for (const pg of operation.pages) {
+                                navItems.push({ id: pg.id, title: pg.title, color: pg.pageColor || undefined })
+                            }
+                        } else {
+                            // Single page — add the main page as the first item
+                            navItems.push({ id: 'main', title: 'Operation Orders' })
+                        }
+
+                        if (hasZeus) {
+                            navItems.push({ id: '__sep_zeus__', title: '', isSeparator: true, color: 'rgba(0,195,255,0.8)' })
+                            navItems.push({ id: '__zeus__', title: 'Zeus Notes', color: 'rgba(0,195,255,0.8)' })
+                        }
+
+                        if (hasOcap) {
+                            navItems.push({ id: '__sep_ocap__', title: '', isSeparator: true, color: 'rgba(16,185,129,0.8)' })
+                            navItems.push({ id: '__ocap__', title: 'OCAP', color: 'rgba(16,185,129,0.8)' })
+                        }
+
+                        // Determine active page for nav
+                        const validIds = navItems.filter(i => !i.isSeparator).map(i => i.id)
+                        const activePage = activePageParam && validIds.includes(activePageParam)
+                            ? activePageParam
+                            : (isSinglePage ? 'main' : (operation.pages?.[0]?.id ?? 'main'))
+
+                        return (
+                            <PageNavClient
+                                items={navItems}
+                                activePage={activePage}
+                                themeColor={operation.themeColor || '#db001d'}
+                                pageTheme={pageTheme}
+                                r={r} g={g} b={b}
+                            />
+                        )
+                    })()}
+
+                    {/* Main content area */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
 
                     {/* Op status / automation timeline bar */}
                     <OperationStatusBar
@@ -406,8 +460,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                         r={r} g={g} b={b}
                     />
 
-                    {/* OCAP viewer button — shown when a recording has been linked */}
-                    {operation.ocap && (
+                    {/* OCAP viewer button — shown when a recording has been linked (only on main/non-ocap tab) */}
+                    {operation.ocap && activePageParam !== '__ocap__' && (
                         <a
                             href={operation.ocap.viewerUrl}
                             target='_blank'
@@ -446,6 +500,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                             ocap={isLoggedIn && operation.ocap?.playerStats?.length ? operation.ocap : null}
                             initialOcap={isHQ ? (operation.ocap ?? null) : null}
                             r={r} g={g} b={b}
+                            initialPageId={activePageParam}
                         />
                     )}
 
@@ -453,8 +508,34 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                     {(!operation.pages || operation.pages.length <= 1) && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-                            {/* Zeus Notes — J6 only; no sidebar in single-page layout so render inline */}
-                            {isJ6 && (
+                            {/* Zeus Notes tab — J6 only */}
+                            {isJ6 && activePageParam === '__zeus__' && (
+                                <ZeusNotesPanel operationId={id} initialNotes={operation.zeusNotes ?? ''} />
+                            )}
+
+                            {/* OCAP tab */}
+                            {activePageParam === '__ocap__' && (isHQ || (isLoggedIn && operation.ocap)) && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    {isHQ && (
+                                        <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />
+                                    )}
+                                    {isLoggedIn && operation.ocap && operation.ocap.playerStats?.length > 0 && (
+                                        <OcapStatsPanel
+                                            ocap={operation.ocap}
+                                            themeColor={operation.themeColor || '#db001d'}
+                                            r={r} g={g} b={b}
+                                            pageTheme={pageTheme}
+                                            operationId={id}
+                                        />
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Main content — shown when not on a special tab */}
+                            {activePageParam !== '__zeus__' && activePageParam !== '__ocap__' && (
+                                <>
+                            {/* Zeus Notes — J6 only; show inline when no left-nav tab active */}
+                            {isJ6 && !activePageParam && (
                                 <ZeusNotesPanel operationId={id} initialNotes={operation.zeusNotes ?? ''} />
                             )}
 
@@ -728,9 +809,13 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                                     </div>
                                 </a>
                             )}
+                                </>
+                            )}
                         </div>
                     )}
-                </div>
+
+                    </div>{/* /Main content area */}
+                </div>{/* /Left document+nav flex */}
 
                 {/* Right: attendance sidebar / mobile drawer */}
                 <AttendanceDrawer

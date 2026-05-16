@@ -9,6 +9,7 @@ export interface DashboardPermissions {
     displayName: string
     isStaff: boolean
     canSeeJ1: boolean
+    canManageJ1: boolean
     canSeeJ2: boolean
     canSeeJ3: boolean
     canSeeJ4: boolean

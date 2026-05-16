@@ -336,7 +336,7 @@ export async function POST(req: NextRequest) {
     if (type === 'department-membership') {
         const { targetUserId, targetUserName, deptCode, memberAction } = body
         const validDepts = ['j1', 'j2', 'j3', 'j6', 'j7']
-        const validActions = ['add', 'remove', 'set-lead', 'remove-lead']
+        const validActions = ['add', 'remove', 'set-lead', 'remove-lead', 'set-2ic', 'remove-2ic', 'set-3ic', 'remove-3ic']
 
         if (!targetUserId || !targetUserName || !validDepts.includes(deptCode) || !validActions.includes(memberAction)) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -358,11 +358,21 @@ export async function POST(req: NextRequest) {
             await Db.users.updateOne({ id: targetUserId }, { $addToSet: { teamLeadDepts: deptCode } })
         } else if (memberAction === 'remove-lead') {
             await Db.users.updateOne({ id: targetUserId }, { $pull: { teamLeadDepts: deptCode } })
+        } else if (memberAction === 'set-2ic') {
+            await Db.users.updateOne({ id: targetUserId }, { $addToSet: { dept2icRoles: deptCode } })
+        } else if (memberAction === 'remove-2ic') {
+            await Db.users.updateOne({ id: targetUserId }, { $pull: { dept2icRoles: deptCode } })
+        } else if (memberAction === 'set-3ic') {
+            await Db.users.updateOne({ id: targetUserId }, { $addToSet: { dept3icRoles: deptCode } })
+        } else if (memberAction === 'remove-3ic') {
+            await Db.users.updateOne({ id: targetUserId }, { $pull: { dept3icRoles: deptCode } })
         }
 
-        syncDeptDiscordRole(targetUserId, deptCode, memberAction as 'add' | 'remove' | 'set-lead' | 'remove-lead').catch(err =>
-            console.error('[tickets] dept Discord role sync failed:', err)
-        )
+        if (['add', 'remove', 'set-lead', 'remove-lead'].includes(memberAction)) {
+            syncDeptDiscordRole(targetUserId, deptCode, memberAction as 'add' | 'remove' | 'set-lead' | 'remove-lead').catch(err =>
+                console.error('[tickets] dept Discord role sync failed:', err)
+            )
+        }
 
         // Log as pre-actioned ticket
         const ticket: Omit<Ticket, '_id'> = {

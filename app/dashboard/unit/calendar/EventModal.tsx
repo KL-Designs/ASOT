@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     Button, TextField, MenuItem, FormControlLabel, Switch,
-    CircularProgress, Alert, Typography, Divider,
+    CircularProgress, Alert, Typography, Divider, Portal,
 } from '@mui/material'
 import { Delete, Close, OpenInNew, NotificationsNone, NotificationsActive } from '@mui/icons-material'
 
@@ -21,6 +21,11 @@ export type CalendarEventRow = {
     createdAt: string
     isOperation?: boolean
     operationId?: string
+    isBCTAvailability?: boolean
+    isQuizAvailability?: boolean
+    applicantId?: string
+    applicantName?: string
+    timePeriod?: string
 }
 
 export const DEPT_COLORS: Record<string, string> = {
@@ -102,6 +107,7 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
     const [department, setDepartment] = useState(defaultDepartment ?? 'unit')
     const [submitting, setSubmitting] = useState(false)
     const [deleting, setDeleting] = useState(false)
+    const [deleteConfirming, setDeleteConfirming] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     // Reminder state (view mode only)
@@ -145,17 +151,6 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
             .catch(() => {})
             .finally(() => setReminderLoading(false))
     }, [open, event])
-
-    function handleClose() {
-        setTitle('')
-        setDescription('')
-        setStart(defaultStart)
-        setEnd(defaultEnd)
-        setAllDay(false)
-        setDepartment(defaultDepartment ?? 'unit')
-        setError(null)
-        onClose()
-    }
 
     async function handleSubmit() {
         if (!title.trim()) { setError('Title is required'); return }
@@ -276,6 +271,19 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
         }
     }
 
+    // Reset delete confirming on close
+    function handleClose() {
+        setDeleteConfirming(false)
+        setTitle('')
+        setDescription('')
+        setStart(defaultStart)
+        setEnd(defaultEnd)
+        setAllDay(false)
+        setDepartment(defaultDepartment ?? 'unit')
+        setError(null)
+        onClose()
+    }
+
     const canDelete = event && (event.createdById === userId || isJ4)
 
     const labelStyle = {
@@ -293,6 +301,7 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
     }
 
     return (
+    <>
         <Dialog
             open={open}
             onClose={handleClose}
@@ -549,7 +558,11 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                                     size='small'
                                     type='date'
                                     value={start.split('T')[0]}
-                                    onChange={e => setStart(e.target.value + 'T00:00')}
+                                    onChange={e => {
+                                        const d = e.target.value
+                                        setStart(d + 'T00:00')
+                                        setEnd(d + 'T23:59')
+                                    }}
                                     InputLabelProps={{ shrink: true }}
                                     sx={inputSx}
                                 />
@@ -570,7 +583,20 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                                     size='small'
                                     type='datetime-local'
                                     value={start}
-                                    onChange={e => setStart(e.target.value)}
+                                    onChange={e => {
+                                        const v = e.target.value
+                                        setStart(v)
+                                        // Always sync end date to start date; preserve existing end time
+                                        const existingEndTime = end?.split('T')[1]
+                                        if (existingEndTime) {
+                                            setEnd(v.split('T')[0] + 'T' + existingEndTime)
+                                        } else {
+                                            const d = new Date(v)
+                                            d.setHours(d.getHours() + 1)
+                                            const p = (n: number) => String(n).padStart(2, '0')
+                                            setEnd(`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`)
+                                        }
+                                    }}
                                     InputLabelProps={{ shrink: true }}
                                     sx={inputSx}
                                 />
@@ -635,9 +661,8 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                 ) : isViewMode && canDelete ? (
                     <Button
                         size='small'
-                        startIcon={deleting ? <CircularProgress size={12} /> : <Delete sx={{ fontSize: 14 }} />}
-                        disabled={deleting}
-                        onClick={handleDelete}
+                        startIcon={<Delete sx={{ fontSize: 14 }} />}
+                        onClick={() => setDeleteConfirming(true)}
                         sx={{
                             borderRadius: 0,
                             fontSize: '0.7rem',
@@ -647,7 +672,7 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                             '&:hover': { background: 'rgba(219,0,29,0.08)', color: 'var(--red)' },
                         }}
                     >
-                        {deleting ? 'Deleting…' : 'Delete Event'}
+                        Delete Event
                     </Button>
                 ) : <span />}
 
@@ -690,5 +715,42 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                 </div>
             </DialogActions>
         </Dialog>
+
+        {/* ── Delete confirmation overlay — portaled to body so it sits above the Dialog ── */}
+        <Portal>
+        {deleteConfirming && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                onClick={e => { if (e.target === e.currentTarget) setDeleteConfirming(false) }}
+            >
+                <div style={{ width: '100%', maxWidth: 420, background: '#0f0f10', border: '1px solid rgba(219,0,29,0.4)', borderTop: '2px solid var(--red)', padding: '24px 24px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', fontFamily: 'monospace' }}>
+                        {'// CONFIRM DELETE'}
+                    </div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
+                        Delete Training Event
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.55)', lineHeight: 1.65 }}>
+                        Are you sure you want to delete <strong style={{ color: 'rgba(237,237,237,0.85)' }}>{event?.title}</strong>?
+                        This action cannot be undone.
+                    </div>
+                    {error && (
+                        <div style={{ fontSize: '0.75rem', color: '#ef4444', padding: '8px 10px', background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.25)' }}>{error}</div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <button onClick={() => setDeleteConfirming(false)}
+                            style={{ padding: '8px 18px', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}
+                        >CANCEL</button>
+                        <button onClick={async () => {
+                            await handleDelete()
+                            setDeleteConfirming(false)
+                        }} disabled={deleting}
+                            style={{ padding: '8px 18px', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', background: 'rgba(219,0,29,0.2)', border: '1px solid rgba(219,0,29,0.5)', color: 'rgba(237,237,237,0.85)', cursor: deleting ? 'default' : 'pointer', opacity: deleting ? 0.6 : 1 }}
+                        >{deleting ? 'DELETING…' : 'DELETE EVENT'}</button>
+                    </div>
+                </div>
+            </div>
+        )}
+        </Portal>
+    </>
     )
 }

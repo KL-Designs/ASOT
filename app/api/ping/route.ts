@@ -1,6 +1,6 @@
+import { NextResponse } from 'next/server'
+
+// Lightweight endpoint for applicant follow-along page connection latency check.
 export async function GET() {
-    return new Response(null, {
-        status: 204,
-        headers: { 'Cache-Control': 'no-store' },
-    })
+    return new NextResponse(null, { status: 204 })
 }

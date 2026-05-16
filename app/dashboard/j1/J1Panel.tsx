@@ -7,6 +7,7 @@ import ApplicationsTab from './tabs/ApplicationsTab'
 import RecruitMemberTab from './tabs/RecruitMemberTab'
 import MastersheetTab from './tabs/MastersheetTab'
 import StatisticsTab from './tabs/StatisticsTab'
+import TFARPluginTab from './tabs/TFARPluginTab'
 import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
@@ -131,6 +132,9 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                             <Tab label={<PinTabLabel label='Statistics'     pinLabel='J1 — Statistics'     href='/dashboard/j1' tabIndex={3} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Meetings'       pinLabel='J1 — Meetings'       href='/dashboard/j1' tabIndex={4} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Tickets' pinLabel='J1 — Tickets' href='/dashboard/j1' tabIndex={5} />} sx={tabSx} />
+                            {(canManageMembers || isJ4) && (
+                                <Tab label={<PinTabLabel label='TFAR Plugin' pinLabel='J1 — TFAR Plugin' href='/dashboard/j1' tabIndex={6} />} sx={tabSx} />
+                            )}
                         </Tabs>
                     </div>
 
@@ -159,6 +163,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                         {tab === 3 && <StatisticsTab />}
                         {tab === 4 && <MeetingsTab department='j1' userId={userId} isLead={canManageMembers || isJ4} />}
                         {tab === 5 && <DeptTicketsTab department='j1' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
+                        {tab === 6 && (canManageMembers || isJ4) && <TFARPluginTab />}
                     </div>
                 </>
             )}
