@@ -8,7 +8,7 @@
 
 import { createServer } from 'http'
 import { parse } from 'url'
-import { readdirSync, unlinkSync, existsSync, statSync } from 'fs'
+import { readdirSync, unlinkSync, existsSync, statSync, mkdirSync } from 'fs'
 import { resolve, join } from 'path'
 import next from 'next'
 import { Hocuspocus } from '@hocuspocus/server'
@@ -39,6 +39,7 @@ const db = mongoClient.db(process.env.MONGO_DB || 'test')
 const operations = db.collection('operations')
 const activityLogs = db.collection('operation_activity')
 const sopsCollection = db.collection('sops')
+const workspaceDocsCollection = db.collection('workspace_docs')
 console.log(`[collab] MongoDB db=${db.databaseName} collection=operations`)
 
 // ── Activity tracking ─────────────────────────────────────────────────────────
@@ -130,7 +131,7 @@ const collab = new Hocuspocus({
 
     async onLoadDocument({ documentName, document }) {
         console.log(`[collab] >> load        doc=${documentName}`)
-        if (documentName.startsWith('sop-')) return  // SOPs don't use activity tracking
+        if (documentName.startsWith('sop-') || documentName.startsWith('ws-')) return  // SOPs + workspace docs don't use activity tracking
         const existing = activityState.get(documentName)
         if (existing?.timer) {
             clearTimeout(existing.timer)
@@ -144,7 +145,7 @@ const collab = new Hocuspocus({
     },
 
     async onChange({ documentName, document, context }) {
-        if (documentName.startsWith('sop-')) return  // SOPs don't use activity tracking
+        if (documentName.startsWith('sop-') || documentName.startsWith('ws-')) return  // SOPs + workspace docs don't use activity tracking
         let state = activityState.get(documentName)
         if (!state) {
             state = { lastFlushedText: extractSectionTexts(document), timer: null, lastUser: null }
@@ -183,6 +184,21 @@ const collab = new Hocuspocus({
                         return null
                     }
 
+                    // Workspace documents — prefixed "ws-{docId}"
+                    if (documentName.startsWith('ws-')) {
+                        const docId = documentName.slice(3)
+                        const wdoc = await workspaceDocsCollection.findOne(
+                            { _id: new ObjectId(docId) },
+                            { projection: { yjsState: 1 } }
+                        )
+                        if (wdoc?.yjsState) {
+                            console.log(`[collab] DB fetch OK  doc=${documentName}  (${wdoc.yjsState.length} bytes)`)
+                            return wdoc.yjsState.buffer
+                        }
+                        console.log(`[collab] DB fetch     doc=${documentName}  (no state — new workspace doc)`)
+                        return null
+                    }
+
                     // Map documents are named "{operationId}-map"
                     const isMap = documentName.endsWith('-map')
                     const opId = isMap ? documentName.slice(0, -4) : documentName
@@ -218,6 +234,21 @@ const collab = new Hocuspocus({
                             console.warn(`[collab] DB store WARN doc=${documentName}  no SOP matched`)
                         } else {
                             console.log(`[collab] DB store OK  doc=${documentName}  (sop state)`)
+                        }
+                        return
+                    }
+
+                    // Workspace documents — persist Yjs state + update lastModifiedAt
+                    if (documentName.startsWith('ws-')) {
+                        const docId = documentName.slice(3)
+                        const result = await workspaceDocsCollection.updateOne(
+                            { _id: new ObjectId(docId) },
+                            { $set: { yjsState: state, lastModifiedAt: new Date() } }
+                        )
+                        if (result.matchedCount === 0) {
+                            console.warn(`[collab] DB store WARN doc=${documentName}  no workspace doc matched`)
+                        } else {
+                            console.log(`[collab] DB store OK  doc=${documentName}  (workspace doc state)`)
                         }
                         return
                     }
@@ -567,6 +598,13 @@ httpServer.on('upgrade', (request, socket, head) => {
     }
     // Other paths (e.g. /_next/webpack-hmr) are handled by Next.js itself
 })
+
+// ── Storage directory initialisation ─────────────────────────────────────────
+// Creates the structured storage/ tree on startup if any folder is missing.
+
+;['j1','j2','j3','j4','j5','j6','j7','hq','all','members'].forEach(d =>
+    mkdirSync(resolve(`./storage/${d}`), { recursive: true })
+)
 
 // ── Operation image cleanup ───────────────────────────────────────────────────
 

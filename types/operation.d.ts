@@ -127,6 +127,8 @@ declare global {
         id: string       // 'main' or random slug
         title: string
         isMain: boolean
+        pageType?: string   // e.g. 'zeus' for Zeus Notes pages
+        pageColor?: string  // hex color for page theme accent
     }
 
     interface OperationActivityLog {
@@ -200,7 +202,8 @@ declare global {
         extraPageSections?: Record<string, OperationSection[]>
 
         themeColor?: string
-        pageTheme?: 'modern' | 'oldfashioned' | 'scifi'
+        pageTheme?: 'modern' | 'wwii' | 'vietnam' | 'coldwar' | 'fantasy' | 'scifi' | 'other'
+        customTheme?: string
         coverImage?: string
         mapWorld?: string
 
@@ -213,6 +216,8 @@ declare global {
         // J6-only — only visible to members with the J6-Game Master role
         zeusNotes?: string
         campaignId?: ObjectId
+        campaignMissionId?: string
+        daySlot?: 'saturday' | 'sunday'
 
         // OCAP recording data — linked and synced by HQ
         ocap?: OcapData
@@ -231,6 +236,16 @@ declare global {
         description?: string
         createdBy: string    // Discord user ID
         createdAt: string    // ISO timestamp
+    }
+
+    interface CampaignMission {
+        _id?: import('mongodb').ObjectId
+        campaignId: string
+        name: string        // "Operation Iron Dagger I"
+        sequence: number    // 1, 2, 3...
+        saturdayOpId?: string
+        sundayOpId?: string
+        createdAt: Date
     }
 
     interface OperationTemplate {

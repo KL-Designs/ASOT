@@ -9,11 +9,13 @@ export async function GET(request: NextRequest) {
         const me = await client.fetchMe(token)
         if (!me) return NextResponse.json({ authorized: false })
 
-        // SOP documents (prefixed sop-) allow all ASOT Members; all others require staff collab role
+        // sop-* → any ASOT member; ws-* → J2 members/leads; all others → staff collab role
         const doc = request.nextUrl.searchParams.get('doc') ?? ''
         const authorized = doc.startsWith('sop-')
             ? client.hasRoles(me, PERMISSIONS.pages.member)
-            : client.hasRoles(me, PERMISSIONS.auth.collab)
+            : doc.startsWith('ws-')
+                ? client.hasRoles(me, PERMISSIONS.departments.j2) || client.hasRoles(me, PERMISSIONS.departmentLeads.j2) || client.hasRoles(me, PERMISSIONS.pages.admin)
+                : client.hasRoles(me, PERMISSIONS.auth.collab)
 
         const userName = me.guild?.displayName || me.globalName || me.username || 'Unknown'
         const userAvatar = me.guild?.avatarURL || me.avatarURL || null

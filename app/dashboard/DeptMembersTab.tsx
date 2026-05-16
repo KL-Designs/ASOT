@@ -1,11 +1,29 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { Autocomplete, TextField, Typography } from '@mui/material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import { rankNameFromAbbr } from '@/lib/military/ranks'
 
-type MemberOption = { id: string; displayName: string; currentRank: string | null; teamLeadDepts: string[] }
+type MemberOption = {
+    id: string
+    displayName: string
+    currentRank: string | null
+    teamLeadDepts: string[]
+    dept2icRoles: string[]
+    dept3icRoles: string[]
+}
+
+// Position names per department: [Department Leader, 2IC, 3IC]
+const DEPT_LEADERSHIP_POSITIONS: Record<string, [string, string, string]> = {
+    j1: ['Department Leader', 'Head Recruiter',        'Recruiter Trainer'],
+    j2: ['Department Leader', 'Team Leader',            'Creator Trainer'],
+    j3: ['Department Leader', 'Head Trainer',           'Assistant Head Trainer'],
+    j4: ['Department Leader', '',                       ''],
+    j5: ['Department Leader', 'Team Leader',            'Lead Content Creator'],
+    j6: ['Department Leader', 'Team Leader',            'Assistant Team Leader'],
+    j7: ['Department Leader', 'Team Leader',            'Assistant Team Leader'],
+}
 
 const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -69,7 +87,10 @@ export default function DeptMembersTab({
     const [loadingAll, setLoadingAll] = useState(false)
 
     const [selected, setSelected] = useState<MemberOption | null>(null)
-    const [selectedLead, setSelectedLead] = useState<MemberOption | null>(null)
+    // Which leadership slot is currently being assigned (null | 'leader' | '2ic' | '3ic')
+    const [assigningSlot, setAssigningSlot] = useState<'leader' | '2ic' | '3ic' | null>(null)
+    const [selectedForSlot, setSelectedForSlot] = useState<MemberOption | null>(null)
+
     const [submitting, setSubmitting] = useState(false)
     const [removingId, setRemovingId] = useState<string | null>(null)
     const [leadActionId, setLeadActionId] = useState<string | null>(null)
@@ -81,7 +102,11 @@ export default function DeptMembersTab({
         try {
             const res = await fetch(`/api/admin/members?department=${department}`)
             const data = await res.json()
-            setDeptMembers(data.members ?? [])
+            setDeptMembers((data.members ?? []).map((m: MemberOption) => ({
+                ...m,
+                dept2icRoles: m.dept2icRoles ?? [],
+                dept3icRoles: m.dept3icRoles ?? [],
+            })))
         } finally {
             setLoading(false)
         }
@@ -93,7 +118,11 @@ export default function DeptMembersTab({
             setLoadingAll(true)
             fetch('/api/admin/members?limit=1000')
                 .then(r => r.json())
-                .then(d => setAllMembers(d.members ?? []))
+                .then(d => setAllMembers((d.members ?? []).map((m: MemberOption) => ({
+                    ...m,
+                    dept2icRoles: m.dept2icRoles ?? [],
+                    dept3icRoles: m.dept3icRoles ?? [],
+                }))))
                 .finally(() => setLoadingAll(false))
         }
     }, [fetchDeptMembers, canManage])
@@ -163,47 +192,57 @@ export default function DeptMembersTab({
         }
     }
 
-    async function handleSetLead() {
-        if (!selectedLead) return
-        setLeadActionId(selectedLead.id)
+    async function handleAssignSlot() {
+        if (!selectedForSlot || !assigningSlot) return
+        const actionMap = { leader: 'set-lead', '2ic': 'set-2ic', '3ic': 'set-3ic' }
+        const action = actionMap[assigningSlot]
+        const posNames = DEPT_LEADERSHIP_POSITIONS[department] ?? ['Department Leader', '2IC', '3IC']
+        const posLabel = assigningSlot === 'leader' ? posNames[0] : assigningSlot === '2ic' ? posNames[1] : posNames[2]
+        setLeadActionId(selectedForSlot.id)
         try {
-            await postMemberAction(selectedLead.id, selectedLead.displayName, 'set-lead')
-            showFeedback('success', `${selectedLead.displayName} set as team lead.`)
-            setSelectedLead(null)
+            await postMemberAction(selectedForSlot.id, selectedForSlot.displayName, action)
+            showFeedback('success', `${selectedForSlot.displayName} assigned as ${posLabel}.`)
+            setAssigningSlot(null)
+            setSelectedForSlot(null)
             fetchDeptMembers()
         } catch (e: unknown) {
-            showFeedback('error', e instanceof Error ? e.message : 'Failed to set team lead')
+            showFeedback('error', e instanceof Error ? e.message : 'Failed to assign position')
         } finally {
             setLeadActionId(null)
         }
     }
 
-    async function handleRemoveLead(member: MemberOption) {
+    async function handleRemoveFromSlot(member: MemberOption, slot: 'leader' | '2ic' | '3ic') {
+        const actionMap = { leader: 'remove-lead', '2ic': 'remove-2ic', '3ic': 'remove-3ic' }
+        const action = actionMap[slot]
         setLeadActionId(member.id)
         try {
-            await postMemberAction(member.id, member.displayName, 'remove-lead')
-            showFeedback('success', `${member.displayName} removed as team lead.`)
+            await postMemberAction(member.id, member.displayName, action)
+            showFeedback('success', `${member.displayName} removed from position.`)
             fetchDeptMembers()
         } catch (e: unknown) {
-            showFeedback('error', e instanceof Error ? e.message : 'Failed to remove team lead')
+            showFeedback('error', e instanceof Error ? e.message : 'Failed to remove from position')
         } finally {
             setLeadActionId(null)
         }
     }
 
-    const teamLeads = deptMembers.filter(m => m.teamLeadDepts?.includes(department))
+    const posNames = DEPT_LEADERSHIP_POSITIONS[department] ?? ['Department Leader', '2IC', '3IC']
+
+    const leaderHolder = deptMembers.find(m => m.teamLeadDepts?.includes(department)) ?? null
+    const secondHolder = deptMembers.find(m => m.dept2icRoles?.includes(department)) ?? null
+    const thirdHolder  = deptMembers.find(m => m.dept3icRoles?.includes(department)) ?? null
+
     const deptMemberIds = new Set(deptMembers.map(m => m.id))
     const addOptions = allMembers.filter(m => !deptMemberIds.has(m.id))
-    // Can set as lead: current dept members not already a lead
-    const setLeadOptions = deptMembers.filter(m => !m.teamLeadDepts?.includes(department))
 
     return (
         <div className='p-6 flex flex-col gap-5'>
 
-            {/* Team Lead */}
+            {/* Leadership Positions */}
             <div style={cardStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <Typography style={{ ...labelStyle, marginBottom: 0 }}>Team Lead</Typography>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <Typography style={{ ...labelStyle, marginBottom: 0 }}>Department Leadership</Typography>
                     {isJ4 && (
                         <button
                             onClick={handleSyncDiscord}
@@ -225,9 +264,7 @@ export default function DeptMembersTab({
 
                 {feedback && (
                     <div style={{
-                        marginBottom: 12,
-                        padding: '8px 12px',
-                        fontSize: '0.78rem',
+                        marginBottom: 12, padding: '8px 12px', fontSize: '0.78rem',
                         background: feedback.type === 'success' ? 'rgba(34,197,94,0.08)' : 'rgba(219,0,29,0.08)',
                         border: `1px solid ${feedback.type === 'success' ? 'rgba(34,197,94,0.25)' : 'rgba(219,0,29,0.25)'}`,
                         color: feedback.type === 'success' ? 'rgba(34,197,94,0.9)' : 'rgba(219,0,29,0.9)',
@@ -238,84 +275,79 @@ export default function DeptMembersTab({
 
                 {loading ? (
                     <TacticalSkeleton rows={3} />
-                ) : teamLeads.length === 0 ? (
-                    <Typography style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.3)', padding: '8px 0' }}>
-                        No team lead assigned.
-                    </Typography>
                 ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
-                                    <th style={thStyle}>Name</th>
-                                    <th style={thStyle}>Rank</th>
-                                    {canManage && <th style={{ ...thStyle, textAlign: 'right' }} />}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {teamLeads.map(m => (
-                                    <tr key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                        <td style={tdStyle}>
-                                            <span style={{ color: 'rgba(251,191,36,0.9)', marginRight: 6, fontSize: '0.75rem' }}>★</span>
-                                            {m.displayName}
-                                        </td>
-                                        <td style={{ ...tdStyle, color: 'rgba(219,0,29,0.7)', fontSize: '0.72rem' }}>
-                                            {m.currentRank ? rankNameFromAbbr(m.currentRank) : '—'}
-                                        </td>
-                                        {canManage && (
-                                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                                                <button
-                                                    onClick={() => handleRemoveLead(m)}
-                                                    disabled={leadActionId === m.id}
-                                                    style={{
-                                                        fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.08em',
-                                                        textTransform: 'uppercase', cursor: 'pointer',
-                                                        color: leadActionId === m.id ? 'rgba(251,191,36,0.3)' : 'rgba(251,191,36,0.7)',
-                                                        background: 'none', border: '1px solid rgba(251,191,36,0.25)',
-                                                        padding: '3px 10px',
-                                                    }}
-                                                >
-                                                    {leadActionId === m.id ? '…' : 'Remove Lead'}
-                                                </button>
-                                            </td>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        {([
+                            { slot: 'leader' as const, label: posNames[0], holder: leaderHolder, color: '#fbbf24' },
+                            ...(posNames[1] ? [{ slot: '2ic' as const, label: posNames[1], holder: secondHolder, color: 'rgba(219,0,29,0.7)' }] : []),
+                            ...(posNames[2] ? [{ slot: '3ic' as const, label: posNames[2], holder: thirdHolder,  color: 'rgba(237,237,237,0.5)' }] : []),
+                        ]).map(({ slot, label, holder, color }) => (
+                            <div key={slot} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '12px 0' }}>
+                                {assigningSlot === slot ? (
+                                    /* Inline assign row */
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color, minWidth: 150, flexShrink: 0 }}>{label}</span>
+                                        <Autocomplete
+                                            options={deptMembers.filter(m => m.id !== holder?.id)}
+                                            getOptionLabel={m => m.displayName}
+                                            isOptionEqualToValue={(o, v) => o.id === v.id}
+                                            value={selectedForSlot}
+                                            onChange={(_, v) => setSelectedForSlot(v)}
+                                            sx={{ flex: 1, maxWidth: 280, ...inputSx }}
+                                            renderOption={(props, m) => <li {...props} key={m.id}>{m.displayName}</li>}
+                                            renderInput={params => <TextField {...params} label='Select member' size='small' sx={inputSx} />}
+                                            size='small'
+                                        />
+                                        <button
+                                            onClick={handleAssignSlot}
+                                            disabled={!selectedForSlot || leadActionId !== null}
+                                            style={{ padding: '6px 16px', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', background: selectedForSlot ? `${color}33` : 'rgba(255,255,255,0.04)', border: `1px solid ${color}66`, color, cursor: selectedForSlot ? 'pointer' : 'default', flexShrink: 0 }}
+                                        >
+                                            {leadActionId !== null ? '…' : 'Assign'}
+                                        </button>
+                                        <button
+                                            onClick={() => { setAssigningSlot(null); setSelectedForSlot(null) }}
+                                            style={{ padding: '6px 12px', fontSize: '0.68rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.35)', cursor: 'pointer', flexShrink: 0 }}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                ) : (
+                                    /* Display row */
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color, minWidth: 150, flexShrink: 0 }}>{label}</span>
+                                        {holder ? (
+                                            <>
+                                                <span style={{ flex: 1, fontSize: '0.82rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)' }}>
+                                                    {holder.displayName}
+                                                </span>
+                                                {canManage && (
+                                                    <button
+                                                        onClick={() => handleRemoveFromSlot(holder, slot)}
+                                                        disabled={leadActionId === holder.id}
+                                                        style={{ padding: '3px 10px', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.06em', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.35)', cursor: 'pointer', flexShrink: 0 }}
+                                                    >
+                                                        {leadActionId === holder.id ? '…' : 'Remove'}
+                                                    </button>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span style={{ flex: 1, fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>Not assigned</span>
+                                                {canManage && (
+                                                    <button
+                                                        onClick={() => { setAssigningSlot(slot); setSelectedForSlot(null) }}
+                                                        style={{ padding: '3px 10px', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.06em', background: `${color}18`, border: `1px solid ${color}44`, color, cursor: 'pointer', flexShrink: 0 }}
+                                                    >
+                                                        + Assign
+                                                    </button>
+                                                )}
+                                            </>
                                         )}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-
-                {canManage && !loading && (
-                    <div className='flex items-center gap-3 mt-4'>
-                        <Autocomplete
-                            options={setLeadOptions}
-                            getOptionLabel={m => m.displayName}
-                            isOptionEqualToValue={(o, v) => o.id === v.id}
-                            value={selectedLead}
-                            onChange={(_, v) => setSelectedLead(v)}
-                            sx={{ flex: 1, maxWidth: 360, ...inputSx }}
-                            renderOption={(props, m) => <li {...props} key={m.id}>{m.displayName}</li>}
-                            renderInput={params => (
-                                <TextField {...params} label='Set team lead' size='small' sx={inputSx} />
-                            )}
-                            size='small'
-                            noOptionsText={deptMembers.length === 0 ? 'No department members' : 'All members are already leads'}
-                        />
-                        <button
-                            onClick={handleSetLead}
-                            disabled={!selectedLead || leadActionId !== null}
-                            style={{
-                                fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-                                padding: '7px 20px', cursor: (!selectedLead || leadActionId !== null) ? 'not-allowed' : 'pointer',
-                                background: (!selectedLead || leadActionId !== null) ? 'rgba(251,191,36,0.15)' : 'rgba(251,191,36,0.8)',
-                                border: '1px solid rgba(251,191,36,0.5)', color: leadActionId !== null ? 'rgba(0,0,0,0.4)' : '#000',
-                                transition: 'background 0.15s',
-                                flexShrink: 0,
-                            }}
-                        >
-                            {leadActionId !== null ? '…' : '★ Set Lead'}
-                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
@@ -337,22 +369,27 @@ export default function DeptMembersTab({
                                 <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                                     <th style={thStyle}>Name</th>
                                     <th style={thStyle}>Rank</th>
+                                    <th style={thStyle}>Position</th>
                                     {canManage && <th style={{ ...thStyle, textAlign: 'right' }} />}
                                 </tr>
                             </thead>
                             <tbody>
                                 {deptMembers.map(m => {
-                                    const isLead = m.teamLeadDepts?.includes(department)
+                                    const isLeader = m.teamLeadDepts?.includes(department)
+                                    const is2ic    = m.dept2icRoles?.includes(department)
+                                    const is3ic    = m.dept3icRoles?.includes(department)
+                                    const position = isLeader ? posNames[0] : is2ic ? posNames[1] : is3ic ? posNames[2] : null
                                     return (
                                         <tr key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                                             <td style={tdStyle}>
-                                                {isLead && (
-                                                    <span style={{ color: 'rgba(251,191,36,0.8)', marginRight: 6, fontSize: '0.72rem' }}>★</span>
-                                                )}
+                                                {isLeader && <span style={{ color: 'rgba(251,191,36,0.8)', marginRight: 6, fontSize: '0.72rem' }}>★</span>}
                                                 {m.displayName}
                                             </td>
                                             <td style={{ ...tdStyle, color: 'rgba(219,0,29,0.7)', fontSize: '0.72rem' }}>
                                                 {m.currentRank ? rankNameFromAbbr(m.currentRank) : '—'}
+                                            </td>
+                                            <td style={{ ...tdStyle, fontSize: '0.68rem', color: isLeader ? '#fbbf24' : 'rgba(219,0,29,0.55)' }}>
+                                                {position ?? '—'}
                                             </td>
                                             {canManage && (
                                                 <td style={{ padding: '8px 12px', textAlign: 'right' }}>

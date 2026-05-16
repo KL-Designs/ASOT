@@ -27,6 +27,7 @@ const DbInterface = {
     siteSettings: client.db(process.env.MONGO_DB!).collection('site_settings') as MongoCollection<{ _id: string } & Record<string, unknown>>,
     operationTemplates: client.db(process.env.MONGO_DB!).collection('operation_templates') as MongoCollection<OperationTemplate>,
     operationCampaigns: client.db(process.env.MONGO_DB!).collection('operation_campaigns') as MongoCollection<OperationCampaign>,
+    campaignMissions: client.db(process.env.MONGO_DB!).collection('campaign_missions') as any,
     notifications: client.db(process.env.MONGO_DB!).collection('notifications') as MongoCollection<Notification>,
     tasks: client.db(process.env.MONGO_DB!).collection('tasks') as MongoCollection<Task>,
     calendarReminders: client.db(process.env.MONGO_DB!).collection('calendar_reminders') as MongoCollection<CalendarReminder>,
@@ -48,6 +49,9 @@ const DbInterface = {
     recruitSessions: client.db(process.env.MONGO_DB!).collection('recruit_sessions') as MongoCollection<RecruitSession>,
     tfarPlugins: client.db(process.env.MONGO_DB!).collection('tfar_plugins'),
     inProgressRecruitments: client.db(process.env.MONGO_DB!).collection('in_progress_recruitments') as any,
+    workspaceFiles: client.db(process.env.MONGO_DB!).collection('workspace_files') as any,
+    workspaceDocs: client.db(process.env.MONGO_DB!).collection('workspace_docs') as any,
+    workspaceVersions: client.db(process.env.MONGO_DB!).collection('workspace_versions') as any,
 
     // ranks: client.db(process.env.MONGO_DB!).collection('ranks') as MongoCollection<Rank>,
     // roles: client.db(process.env.MONGO_DB!).collection('roles') as MongoCollection<Role>,

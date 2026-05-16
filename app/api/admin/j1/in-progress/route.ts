@@ -13,8 +13,7 @@ export async function GET() {
     }
     const doc = await Db.inProgressRecruitments.findOne({ recruiterId: me.id })
     if (!doc) return NextResponse.json({ draft: null })
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { _id, ...rest } = doc
+    const { _id: _omit, ...rest } = doc
     return NextResponse.json({ draft: rest })
 }
 

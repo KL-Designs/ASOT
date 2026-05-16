@@ -8,6 +8,8 @@ interface PageEntry {
     id: string
     title: string
     isMain: boolean
+    pageType?: string  // 'orders' | 'zeus'
+    pageColor?: string
 }
 
 interface Props {
@@ -35,7 +37,11 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
     const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
+    const [showTypeModal, setShowTypeModal] = useState(false)
+    const [colorPickerPageId, setColorPickerPageId] = useState<string | null>(null)
     const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+
+    const PAGE_COLOR_PRESETS = ['', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899']
     const dragSrcRef = useRef<number>(-1)
     const renameInputRef = useRef<HTMLInputElement>(null)
 
@@ -48,7 +54,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             setPages(ids.map(id => {
                 const pmeta = ydoc.getMap<string>('pmeta-' + id)
                 const fallback = id === 'main' ? 'Main' : 'Untitled'
-                return { id, title: pmeta.get('title') || fallback, isMain: id === 'main' }
+                return { id, title: pmeta.get('title') || fallback, isMain: id === 'main', pageType: pmeta.get('pageType') || 'orders', pageColor: pmeta.get('pageColor') || '' }
             }))
         }
 
@@ -80,9 +86,9 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
         if (renamingId) renameInputRef.current?.focus()
     }, [renamingId])
 
-    function addPage() {
+    function addPage(type: 'orders' | 'zeus' = 'orders') {
         const id = Math.random().toString(36).slice(2, 10)
-        const newPageName = 'New Page'
+        const newPageName = type === 'zeus' ? 'Zeus Notes' : 'New Page'
         ydoc.transact(() => {
             const pageOrder = ydoc.getArray<string>('pageOrder')
             if (pageOrder.length === 0) {
@@ -93,11 +99,15 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             const pmeta = ydoc.getMap<string>('pmeta-' + id)
             pmeta.set('title', newPageName)
             pmeta.set('isMain', 'false')
+            pmeta.set('pageType', type)
         })
+        setShowTypeModal(false)
         setTimeout(() => {
             onSelectPage(id)
-            setRenameValue(newPageName)
-            setRenamingId(id)
+            if (type === 'orders') {
+                setRenameValue(newPageName)
+                setRenamingId(id)
+            }
         }, 0)
     }
 
@@ -236,7 +246,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 })}
                 <button
                     type='button'
-                    onClick={addPage}
+                    onClick={() => setShowTypeModal(true)}
                     style={{
                         flexShrink: 0,
                         padding: '5px 10px',
@@ -296,8 +306,9 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             display: 'flex', alignItems: 'center', gap: 4,
                             padding: '6px 8px',
                             borderRadius: 4,
-                            background: isDragOver ? c(0.08) : isActive ? c(0.12) : 'transparent',
-                            border: isActive ? `1px solid ${c(0.3)}` : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
+                            background: isDragOver ? c(0.08) : isActive ? (page.pageColor ? `${page.pageColor}18` : c(0.12)) : 'transparent',
+                            border: isActive ? `1px solid ${page.pageColor ? `${page.pageColor}66` : c(0.3)}` : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
+                            borderLeft: page.pageColor ? `2px solid ${page.pageColor}` : undefined,
                             cursor: 'pointer',
                             transition: 'all 0.1s',
                             position: 'relative',
@@ -311,7 +322,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                         }}
                     >
                         <DragIndicator style={{ fontSize: 14, flexShrink: 0, color: 'rgba(237,237,237,0.15)', cursor: 'grab' }} />
-                        <Description style={{ fontSize: 13, color: isActive ? c(0.85) : 'rgba(237,237,237,0.3)', flexShrink: 0 }} />
+                        <Description style={{ fontSize: 13, color: page.pageType === 'zeus' ? (isActive ? 'rgba(0,195,255,0.85)' : 'rgba(0,195,255,0.4)') : isActive ? c(0.85) : 'rgba(237,237,237,0.3)', flexShrink: 0 }} />
 
                         {isRenaming ? (
                             <input
@@ -342,15 +353,57 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                 style={{
                                     flex: 1, minWidth: 0,
                                     fontSize: '0.72rem', fontWeight: isActive ? 700 : 500,
-                                    color: isActive ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.5)',
+                                    color: page.pageType === 'zeus'
+                                        ? (isActive ? 'rgba(0,195,255,0.9)' : 'rgba(0,195,255,0.5)')
+                                        : (isActive ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.5)'),
                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                     letterSpacing: '0.02em',
                                 }}
                                 onDoubleClick={e => { e.stopPropagation(); startRename(page.id, page.title) }}
-                                title={`${page.title} (double-click to rename)`}
+                                title={`${page.title}${page.pageType === 'zeus' ? ' (Zeus Notes — J6 only)' : ''} (double-click to rename)`}
                             >
                                 {page.title}
                             </span>
+                        )}
+
+                        {/* Color dot — click to open palette */}
+                        {!isRenaming && (
+                            <div style={{ position: 'relative', flexShrink: 0 }}>
+                                <button type='button'
+                                    title='Set page colour'
+                                    onClick={e => { e.stopPropagation(); setColorPickerPageId(colorPickerPageId === page.id ? null : page.id) }}
+                                    style={{
+                                        width: 10, height: 10, borderRadius: '50%', border: 'none',
+                                        background: page.pageColor || 'rgba(255,255,255,0.12)',
+                                        cursor: 'pointer', padding: 0, flexShrink: 0,
+                                        outline: colorPickerPageId === page.id ? `2px solid ${page.pageColor || 'rgba(255,255,255,0.3)'}` : 'none',
+                                        outlineOffset: 1,
+                                    }}
+                                />
+                                {colorPickerPageId === page.id && (
+                                    <div style={{ position: 'absolute', left: 14, top: -4, zIndex: 20, display: 'flex', gap: 4, padding: '5px 7px', background: '#0f0f10', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
+                                        onClick={e => e.stopPropagation()}
+                                    >
+                                        {PAGE_COLOR_PRESETS.map(color => (
+                                            <button key={color || 'none'} type='button'
+                                                title={color || 'No colour'}
+                                                onClick={() => {
+                                                    const pmeta = ydoc.getMap<string>('pmeta-' + page.id)
+                                                    if (color) pmeta.set('pageColor', color)
+                                                    else pmeta.delete('pageColor')
+                                                    setColorPickerPageId(null)
+                                                }}
+                                                style={{
+                                                    width: 14, height: 14, borderRadius: '50%', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0,
+                                                    background: color || 'rgba(255,255,255,0.06)',
+                                                    boxShadow: page.pageColor === color ? `0 0 0 2px white` : 'none',
+                                                    outline: color ? 'none' : '1px dashed rgba(255,255,255,0.25)',
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         )}
 
                         {!page.isMain && !isRenaming && (
@@ -380,7 +433,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 )
             })}
 
-            <button type='button' onClick={addPage}
+            <button type='button' onClick={() => setShowTypeModal(true)}
                 style={{
                     marginTop: 8, padding: '6px 8px',
                     background: 'transparent',
@@ -394,6 +447,37 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             >
                 + Add Page
             </button>
+
+            {/* Page type selection modal */}
+            {showTypeModal && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={e => { if (e.target === e.currentTarget) setShowTypeModal(false) }}
+                >
+                    <div style={{ background: '#0f0f10', border: `1px solid ${c(0.35)}`, borderTop: `2px solid ${c(0.8)}`, padding: '24px 28px', maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: c(0.5), fontFamily: 'monospace' }}>{'// ADD PAGE'}</div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Choose Page Type</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <button type='button' onClick={() => addPage('orders')}
+                                style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: `${c(0.06)}`, border: `1px solid ${c(0.3)}`, color: c(0.85), cursor: 'pointer' }}
+                            >
+                                Orders Page
+                                <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(237,237,237,0.4)', marginTop: 3 }}>Standard operation orders, briefings, and planning content.</div>
+                            </button>
+                            <button type='button' onClick={() => addPage('zeus')}
+                                style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(0,195,255,0.06)', border: '1px solid rgba(0,195,255,0.3)', color: 'rgba(0,195,255,0.85)', cursor: 'pointer' }}
+                            >
+                                Zeus Notes Page
+                                <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(0,195,255,0.45)', marginTop: 3 }}>J6-only notes and gamemaster planning. Visible to J6 staff only.</div>
+                            </button>
+                        </div>
+                        <button type='button' onClick={() => setShowTypeModal(false)}
+                            style={{ alignSelf: 'flex-end', padding: '6px 14px', fontSize: '0.7rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.35)', cursor: 'pointer' }}
+                        >
+                            CANCEL
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

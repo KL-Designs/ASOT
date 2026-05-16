@@ -742,7 +742,6 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                 }),
             }).then(() => setHasDraft(true)).catch(() => {})
         }, 1500)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         draftLoaded, step, sessionId, sessionToken, sessionUrl,
         selectedMember, manualEntry, fields,
@@ -3319,7 +3318,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                     {/* Preview chrome header */}
                     <div ref={previewHeaderRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0, background: 'rgba(0,0,0,0.5)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>// APPLICANT VIEW PREVIEW</div>
+                            <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>{'// APPLICANT VIEW PREVIEW'}</div>
                             {applicantCursor && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.6rem', color: 'rgba(219,0,29,0.45)' }}>
                                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(219,0,29,0.6)' }} />

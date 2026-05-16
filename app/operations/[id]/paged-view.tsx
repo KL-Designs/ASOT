@@ -26,6 +26,8 @@ interface Props {
     r?: number
     g?: number
     b?: number
+    /** If provided (from URL ?page= param), use this as the initial active page */
+    initialPageId?: string
 }
 
 function hexToRgb(hex: string) {
@@ -37,8 +39,17 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, isHQ, operationId, zeusNotes, ocap, initialOcap, r: rProp, g: gProp, b: bProp }: Props) {
-    const [activePageId, setActivePageId] = useState<string>(pages[0]?.id ?? 'main')
+export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, isHQ, operationId, zeusNotes, ocap, initialOcap, r: rProp, g: gProp, b: bProp, initialPageId }: Props) {
+    const [activePageId, setActivePageId] = useState<string>(() => {
+        if (initialPageId) {
+            // Validate that it's a real page id or a special tab
+            const validPageIds = pages.map(p => p.id)
+            if (validPageIds.includes(initialPageId) || initialPageId === '__zeus__' || initialPageId === '__ocap__') {
+                return initialPageId
+            }
+        }
+        return pages[0]?.id ?? 'main'
+    })
     const [isMobile, setIsMobile] = useState(false)
 
     useEffect(() => {

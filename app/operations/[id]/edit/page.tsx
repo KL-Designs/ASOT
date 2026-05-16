@@ -43,9 +43,11 @@ export default function Page() {
     const [title, setTitle] = useState('')
     const [date, setDate] = useState<Dayjs | null>(null)
     const [loreDate, setLoreDate] = useState<string>('')
+    const [loreDateDayjs, setLoreDateDayjs] = useState<Dayjs | null>(null)
     const [department, setDepartment] = useState('')
     const [themeColor, setThemeColor] = useState('#db001d')
-    const [pageTheme, setPageTheme] = useState<'modern' | 'oldfashioned' | 'scifi'>('modern')
+    const [pageTheme, setPageTheme] = useState<Operation['pageTheme']>('modern')
+    const [customTheme, setCustomTheme] = useState<string>('')
     const [status, setStatus] = useState<string>('Upcoming')
     const [coverImage, setCoverImage] = useState<string | null>(null)
     const [coverUploading, setCoverUploading] = useState(false)
@@ -70,6 +72,8 @@ export default function Page() {
     const [draftRsvpOpenAt, setDraftRsvpOpenAt] = useState<string | null>(null)
     const [draftRsvpCloseOffsetMins, setDraftRsvpCloseOffsetMins] = useState(60)
     const [scheduleSaving, setScheduleSaving] = useState(false)
+    const [attendanceOpen, setAttendanceOpen] = useState(true)
+    const [scheduleOpen, setScheduleOpen] = useState(true)
 
     const [attStage, setAttStage] = useState<AttendanceStage>('preparing')
     const [confirmStage, setConfirmStage] = useState<AttendanceStage | null>(null)
@@ -174,10 +178,14 @@ export default function Page() {
                 const opDate = op.date ? dayjs(op.date) : null
                 setDate(opDate)
                 setDraftDate(opDate)
-                setLoreDate(op.loreDate instanceof Date ? op.loreDate.toLocaleDateString() : (op.loreDate ?? ''))
+                const loreDateStr = op.loreDate instanceof Date ? op.loreDate.toISOString() : (op.loreDate ?? '')
+                setLoreDate(loreDateStr)
+                const parsed = loreDateStr ? dayjs(loreDateStr) : null
+                setLoreDateDayjs(parsed?.isValid() ? parsed : null)
                 setDepartment(op.department || '')
                 setThemeColor(op.themeColor || '#db001d')
-                setPageTheme((op.pageTheme as any) || 'modern')
+                setPageTheme((op.pageTheme as Operation['pageTheme']) || 'modern')
+                setCustomTheme((op as any).customTheme || '')
                 setStatus(op.status || 'Upcoming')
                 setCoverImage(op.coverImage || null)
                 setMapWorld(op.mapWorld || '')
@@ -327,10 +335,10 @@ export default function Page() {
     }
 
     const PLATOON_OPTS = [
-        { id: 'companyHQ', label: '1-0 HQ' },
-        { id: 'platoon11', label: '1-1 Platoon' },
-        { id: 'platoon12', label: '1-2 Platoon' },
-        { id: 'support',   label: '1-3 Support Platoon' },
+        { id: 'companyHQ', label: '1-0 HQ',            color: 'rgba(219,0,29,0.65)' },
+        { id: 'platoon11', label: '1-1 Platoon',         color: 'rgba(245,158,11,0.65)' },
+        { id: 'platoon12', label: '1-2 Platoon',         color: 'rgba(16,185,129,0.65)' },
+        { id: 'support',   label: '1-3 Support Platoon', color: 'rgba(59,130,246,0.65)' },
     ]
 
     const { r, g, b } = hexToRgb(themeColor)
@@ -614,8 +622,12 @@ export default function Page() {
                         </label>
                         {/* Page Theme */}
                         <select
-                            value={pageTheme}
-                            onChange={e => { setPageTheme(e.target.value as typeof pageTheme); scheduleSave({ pageTheme: e.target.value }) }}
+                            value={pageTheme ?? 'modern'}
+                            onChange={e => {
+                                const v = e.target.value as Operation['pageTheme']
+                                setPageTheme(v)
+                                scheduleSave({ pageTheme: e.target.value })
+                            }}
                             style={{
                                 background: 'rgba(0,0,0,0.4)',
                                 border: `1px solid ${c(0.35)}`,
@@ -629,10 +641,35 @@ export default function Page() {
                                 fontWeight: 700,
                             }}
                         >
-                            <option value='modern' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Modern</option>
-                            <option value='oldfashioned' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Old Fashioned</option>
-                            <option value='scifi' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Sci-Fi</option>
+                            <option value='modern'  style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Modern</option>
+                            <option value='wwii'    style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>WWII</option>
+                            <option value='vietnam' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Vietnam</option>
+                            <option value='coldwar' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Cold War</option>
+                            <option value='fantasy' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Fantasy</option>
+                            <option value='scifi'   style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Sci-Fi</option>
+                            <option value='other'   style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Other…</option>
                         </select>
+                        {/* Custom theme name — shown only when "Other" is selected */}
+                        {pageTheme === 'other' && (
+                            <input
+                                value={customTheme}
+                                placeholder='Custom theme name…'
+                                onChange={e => {
+                                    setCustomTheme(e.target.value)
+                                    scheduleSave({ customTheme: e.target.value })
+                                }}
+                                style={{
+                                    background: 'rgba(0,0,0,0.4)',
+                                    border: `1px solid ${c(0.35)}`,
+                                    color: c(0.8),
+                                    fontSize: '0.8rem',
+                                    letterSpacing: '0.06em',
+                                    outline: 'none',
+                                    padding: '8px 12px',
+                                    minWidth: 140,
+                                }}
+                            />
+                        )}
                         {/* Map World */}
                         <MapWorldPicker
                             value={mapWorld}
@@ -641,26 +678,22 @@ export default function Page() {
                             themeColor={themeColor}
                         />
                     </div>
-                    {/* In-Game (lore) date — free text, auto-saves */}
-                    <input
-                        value={loreDate}
-                        placeholder='In-Game Date (e.g. 14th of Secundus, 999.M41)'
-                        onChange={e => {
-                            setLoreDate(e.target.value)
-                            metaHandleRef.current?.set('loreDate', e.target.value)
-                            scheduleSave({ loreDate: e.target.value })
-                        }}
-                        style={{
-                            background: 'transparent',
-                            border: '1px solid rgba(255,255,255,0.1)',
-                            color: 'rgba(237,237,237,0.75)',
-                            fontSize: '0.8rem',
-                            letterSpacing: '0.06em',
-                            outline: 'none',
-                            padding: '8px 12px',
-                            width: '100%',
-                        }}
-                    />
+                    {/* In-Game date/time — datetime picker */}
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <DateTimePicker
+                            label='In-Game Date & Time'
+                            value={loreDateDayjs}
+                            format='DD/MM/YYYY HH:mm'
+                            onChange={v => {
+                                setLoreDateDayjs(v)
+                                const str = v?.isValid() ? v.format('DD/MM/YYYY HH:mm') : ''
+                                setLoreDate(str)
+                                metaHandleRef.current?.set('loreDate', str)
+                                scheduleSave({ loreDate: str })
+                            }}
+                            slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
+                        />
+                    </LocalizationProvider>
 
                     {/* Cover image */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -695,17 +728,21 @@ export default function Page() {
             {/* Attendance settings — HQ only */}
             {isHQ && opID && (
                 <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(0.5)}`, background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
-                    <div className='flex items-center justify-between px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <button type='button' onClick={() => setAttendanceOpen(v => !v)}
+                        className='flex items-center justify-between px-4 py-3'
+                        style={{ borderBottom: attendanceOpen ? '1px solid rgba(255,255,255,0.05)' : 'none', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                    >
                         <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
                             Attendance Settings
                         </span>
-                        {attendanceSaving && (
-                            <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>
-                                Saving…
-                            </span>
-                        )}
-                    </div>
-                    <div className='flex flex-col gap-4 p-4'>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            {attendanceSaving && (
+                                <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>Saving…</span>
+                            )}
+                            <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>{attendanceOpen ? '[−]' : '[+]'}</span>
+                        </div>
+                    </button>
+                    {attendanceOpen && <div className='flex flex-col gap-4 p-4'>
                         {/* Platoon checkboxes */}
                         <div>
                             <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10 }}>
@@ -727,9 +764,9 @@ export default function Page() {
                                             style={{
                                                 display: 'flex', alignItems: 'center', gap: 6,
                                                 padding: '6px 12px',
-                                                border: checked ? `1px solid ${c(0.7)}` : '1px solid rgba(255,255,255,0.12)',
-                                                background: checked ? c(0.12) : 'rgba(255,255,255,0.03)',
-                                                color: checked ? c(0.95) : 'rgba(237,237,237,0.35)',
+                                                border: checked ? `1px solid ${opt.color}` : '1px solid rgba(255,255,255,0.12)',
+                                                background: checked ? opt.color.replace('0.65)', '0.14)') : 'rgba(255,255,255,0.03)',
+                                                color: checked ? opt.color.replace('0.65)', '1)') : 'rgba(237,237,237,0.35)',
                                                 fontSize: '0.75rem', fontWeight: 700,
                                                 letterSpacing: '0.07em', textTransform: 'uppercase',
                                                 cursor: 'pointer', userSelect: 'none',
@@ -815,7 +852,7 @@ export default function Page() {
                                 </div>
                             )
                         })()}
-                    </div>
+                    </div>}
                 </div>
             )}
 
@@ -881,7 +918,10 @@ export default function Page() {
                         background: 'rgba(255,255,255,0.01)',
                         marginBottom: 20,
                     }}>
-                        <div className='flex items-center justify-between px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <button type='button' onClick={() => setScheduleOpen(v => !v)}
+                            className='flex items-center justify-between px-4 py-3'
+                            style={{ borderBottom: scheduleOpen ? '1px solid rgba(255,255,255,0.05)' : 'none', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                        >
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
                                     Schedule &amp; Automation
@@ -892,14 +932,15 @@ export default function Page() {
                                     </span>
                                 )}
                             </div>
-                            {scheduleSaving && (
-                                <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>
-                                    Saving…
-                                </span>
-                            )}
-                        </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                {scheduleSaving && (
+                                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>Saving…</span>
+                                )}
+                                <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>{scheduleOpen ? '[−]' : '[+]'}</span>
+                            </div>
+                        </button>
 
-                        <div className='flex flex-wrap gap-6 p-4'>
+                        {scheduleOpen && <div className='flex flex-wrap gap-6 p-4'>
                             {/* ── Settings column ── */}
                             <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
@@ -1076,7 +1117,7 @@ export default function Page() {
                                     </div>
                                 )))}
                             </div>
-                        </div>
+                        </div>}
                     </div>
                 )
             })()}

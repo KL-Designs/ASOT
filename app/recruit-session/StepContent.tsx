@@ -489,7 +489,7 @@ export function OrbatDiagram({ highlight, compact = false }: { highlight?: strin
     return (
         <div style={{ marginTop: compact ? 6 : 12, overflow: 'hidden' }}>
             <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.45)', marginBottom: compact ? 8 : 12, fontFamily: 'monospace', textAlign: 'center' }}>
-                // ORBAT — ASOT UNIT STRUCTURE
+                {'// ORBAT — ASOT UNIT STRUCTURE'}
             </div>
 
             {/* Company HQ banner (compact: just a label; full: styled banner) */}
@@ -625,7 +625,7 @@ export function StepContent({ step, introProgress, livePreview = {} }: {
                     {/* Live name preview */}
                     <div style={{ margin: '20px 0', padding: '16px 20px', background: 'rgba(219,0,29,0.06)', border: '1px solid rgba(219,0,29,0.25)', borderTop: '2px solid rgba(219,0,29,0.5)' }}>
                         <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 8, fontFamily: 'monospace' }}>
-                            // YOUR ASOT NAME
+                            {'// YOUR ASOT NAME'}
                         </div>
                         {name ? (
                             <div style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.9)' }}>
