@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mongodb": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mongodb-mcp-server",
+        "--connectionString",
+        "mongodb://127.0.0.1:27017/ASOT"
+      ]
+    }
+  }
+}

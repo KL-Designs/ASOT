@@ -65,6 +65,20 @@ const nextConfig: NextConfig = {
 				pathname: "/api/gallery/featured/**",
 			},
 
+			{
+				protocol: "http",
+				hostname: "192.168.0.125",
+				port: "3000",
+				pathname: "/api/gallery/fetch/**",
+			},
+
+			{
+				protocol: "http",
+				hostname: "192.168.0.125",
+				port: "3000",
+				pathname: "/api/gallery/featured/**",
+			},
+
 
 			{
 				protocol: 'https',
@@ -81,6 +95,13 @@ const nextConfig: NextConfig = {
 			{
 				protocol: "http",
 				hostname: "localhost",
+				port: "3000",
+				pathname: "/api/uploads/**",
+			},
+
+			{
+				protocol: "http",
+				hostname: "192.168.0.125",
 				port: "3000",
 				pathname: "/api/uploads/**",
 			},

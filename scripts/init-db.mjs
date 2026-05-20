@@ -184,7 +184,7 @@ async function waitForOAuthCode(port, callbackPath) {
             )
         })
 
-        server.listen(port, () => console.log(`\n  ${dim(`Waiting for Discord callback on port ${port}...`)}`))
+        server.listen(port, '0.0.0.0', () => console.log(`\n  ${dim(`Waiting for Discord callback on port ${port}...`)}`))
     })
 }
 
@@ -268,7 +268,8 @@ async function stepUser(vars) {
     // Close readline before blocking on HTTP server
     rl.close()
 
-    console.log(`\n  Opening Discord in your browser...\n`)
+    console.log(`\n  Open this URL in your browser to authorise:\n`)
+    console.log(`    ${bold(authUrl.toString())}\n`)
     openBrowser(authUrl.toString())
 
     const code = await waitForOAuthCode(callbackPort, callbackPath)
