@@ -60,9 +60,12 @@ export async function POST(request: NextRequest) {
     if (steamUrl && String(steamUrl).length > 200) return NextResponse.json({ error: 'Steam URL is too long.' }, { status: 400 })
     if (previousUnits && String(previousUnits).length > 500) return NextResponse.json({ error: 'Previous units field is too long.' }, { status: 400 })
 
-    // IP rate limiting — max 2 submissions per IP per 24 hours
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-        || request.headers.get('x-real-ip')
+    // IP rate limiting — max 2 submissions per IP per 24 hours.
+    // x-real-ip is set by Apache from the TCP connection and cannot be spoofed by clients.
+    // x-forwarded-for is used only as fallback; rightmost entry is taken as it is injected
+    // by the trusted proxy rather than the client.
+    const ip = request.headers.get('x-real-ip')
+        || request.headers.get('x-forwarded-for')?.split(',').pop()?.trim()
         || 'unknown'
 
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
