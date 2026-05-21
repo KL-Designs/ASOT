@@ -546,13 +546,13 @@ function OpsTeaser() {
 	const [loading, setLoading] = useState(true)
 
 	useEffect(() => {
-		fetch('/api/operations?status=Active,Upcoming,Completed')
+		fetch('/api/operations?status=Active,Upcoming,Completed&limit=3')
 			.then(r => r.json())
 			.then(data => {
 				const sorted = (data.missions || []).sort((a: Operation, b: Operation) =>
 					(STATUS_ORDER[a.status ?? ''] ?? 99) - (STATUS_ORDER[b.status ?? ''] ?? 99)
 				)
-				setOps(sorted.slice(0, 3))
+				setOps(sorted)
 				setLoading(false)
 			})
 			.catch(() => setLoading(false))

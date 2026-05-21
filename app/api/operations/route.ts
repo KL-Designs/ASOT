@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get('year')
     const statusFilter = searchParams.get('status') // comma-separated, e.g. "Active,Upcoming"
     const search = searchParams.get('search')
+    const limitParam = searchParams.get('limit')
 
     let isHQ = false
     try {
@@ -65,7 +66,9 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        const missions = await Db.operations.find(query).sort({ date: -1 }).toArray()
+        const limit = limitParam ? parseInt(limitParam) : 0
+        const cursor = Db.operations.find(query).sort({ date: -1 })
+        const missions = await (limit > 0 ? cursor.limit(limit) : cursor).toArray()
         return NextResponse.json({ missions, isHQ }, { status: 200 })
     }
 

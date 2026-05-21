@@ -134,10 +134,16 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 		}
 		initStars()
 
-		const bgMusic = new Audio('/audio/dream.mp3')
-		bgMusic.loop  = true
-		bgMusic.muted = mutedRef.current || bgMusicMutedRef.current
-		bgMusicRef.current = bgMusic
+		let bgMusic: HTMLAudioElement | null = null
+		const lazyBgMusic = () => {
+			if (!bgMusic) {
+				bgMusic = new Audio('/audio/dream.mp3')
+				bgMusic.loop  = true
+				bgMusic.muted = mutedRef.current || bgMusicMutedRef.current
+				bgMusicRef.current = bgMusic
+			}
+			return bgMusic
+		}
 
 		// ── Synthesized SFX ───────────────────────────────────────────
 		const sfx = {
@@ -385,8 +391,8 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') {
 				e.preventDefault()
-				if (!state.active) { state.active = true; reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current || bgMusicMutedRef.current; bgMusic.play().catch(() => {}); onActivate(); startHeartbeat(); return }
-				if (state.dead && state.deadTimer <= 0) { reset(); bgMusic.currentTime = 0; bgMusic.muted = mutedRef.current || bgMusicMutedRef.current; bgMusic.play().catch(() => {}); onRestartRef.current?.(); startHeartbeat(); return }
+				if (!state.active) { state.active = true; reset(); const bg1 = lazyBgMusic(); bg1.currentTime = 0; bg1.muted = mutedRef.current || bgMusicMutedRef.current; bg1.play().catch(() => {}); onActivate(); startHeartbeat(); return }
+				if (state.dead && state.deadTimer <= 0) { reset(); const bg2 = lazyBgMusic(); bg2.currentTime = 0; bg2.muted = mutedRef.current || bgMusicMutedRef.current; bg2.play().catch(() => {}); onRestartRef.current?.(); startHeartbeat(); return }
 				if (state.countdown < 0 && !e.repeat && !state.thrusting) sfx.thrust()
 				if (state.countdown < 0) state.thrusting = true
 			}
@@ -483,8 +489,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			state.y         = Math.max(0, Math.min(canvas.height - TRI, state.y))
 			state.dead      = true
 			state.deadTimer = 80
-			bgMusic.pause()
-			bgMusic.currentTime = 0
+			if (bgMusic) { bgMusic.pause(); bgMusic.currentTime = 0 }
 			stopHeartbeat()
 			notifyDeath()
 			if (!mutedRef.current) new Audio('/audio/death.wav').play().catch(() => {})
@@ -1732,7 +1737,7 @@ export default function PhysicsGame({ onActivate, onGameOver, onRestart, active,
 			liveSource = null
 			stopHeartbeat()
 			removeLive()
-			bgMusic.pause()
+			bgMusic?.pause()
 		}
 	}, []) // eslint-disable-line react-hooks/exhaustive-deps
 
