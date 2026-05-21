@@ -10,7 +10,7 @@ export async function POST() {
     }
 
     const response = NextResponse.json({ success: true })
-    response.cookies.set('token', originalToken, { httpOnly: true, maxAge: 60 * 60 * 24 * 30 })
+    response.cookies.set('token', originalToken, { httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 30 })
     response.cookies.delete('original_token')
     response.cookies.delete('is_impersonating')
     return response

@@ -23,10 +23,10 @@ export async function POST(request: NextRequest) {
     if (!target.token) return NextResponse.json({ error: 'User has no token' }, { status: 400 })
 
     const response = NextResponse.json({ success: true })
-    response.cookies.set('token', target.token, { httpOnly: true, maxAge: 60 * 60 * 24 * 30 })
+    response.cookies.set('token', target.token, { httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 30 })
     if (originalToken) {
-        response.cookies.set('original_token', originalToken, { httpOnly: true, maxAge: 60 * 60 * 24 * 30 })
-        response.cookies.set('is_impersonating', '1', { httpOnly: false, maxAge: 60 * 60 * 24 * 30 })
+        response.cookies.set('original_token', originalToken, { httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 30 })
+        response.cookies.set('is_impersonating', '1', { httpOnly: false, sameSite: 'lax', maxAge: 60 * 60 * 24 * 30 })
     }
     return response
 }
