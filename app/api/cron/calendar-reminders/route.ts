@@ -3,9 +3,10 @@ import { ObjectId } from 'mongodb'
 import { sendCalendarReminderDM, sendMeetingDM } from '@/lib/discord/bot'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 /**
- * GET /api/cron/calendar-reminders?secret=...
+ * GET /api/cron/calendar-reminders
  *
  * Handles all time-based notifications in one pass:
  *   1. Calendar event reminders (existing)
@@ -15,8 +16,7 @@ import { createNotification } from '@/lib/notifications'
  * Call this on a schedule (e.g. every 5 minutes via an external cron service).
  */
 export async function GET(request: NextRequest) {
-    const secret = request.nextUrl.searchParams.get('secret')
-    if (!secret || secret !== process.env.CRON_SECRET) {
+    if (!verifyCronSecret(request)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

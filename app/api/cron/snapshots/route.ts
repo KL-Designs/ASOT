@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readStatus, createSnapshot } from '@/lib/snapshots'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 /**
- * GET /api/cron/snapshots?secret=...
+ * GET /api/cron/snapshots
  *
  * Creates a snapshot and enforces the 6-snapshot retention limit.
  * Called automatically by the server.mjs scheduler every 2 days at 3am,
- * or externally via CRON_SECRET for manual triggers.
+ * or externally via Authorization: Bearer <CRON_SECRET>.
  */
 export async function GET(request: NextRequest) {
-    const secret = request.nextUrl.searchParams.get('secret')
-    if (!secret || secret !== process.env.CRON_SECRET) {
+    if (!verifyCronSecret(request)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
 import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 /**
- * GET /api/cron/operations?secret=...
+ * GET /api/cron/operations
  *
  * Runs every 5 minutes via the server.mjs scheduler. Handles:
  *  1. RSVP auto-close       — 1 hour before op start date
@@ -12,8 +13,7 @@ import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
  *  4. Confirmation auto-close — 24 hours after confirmation opened
  */
 export async function GET(request: NextRequest) {
-    const secret = request.nextUrl.searchParams.get('secret')
-    if (!secret || secret !== process.env.CRON_SECRET) {
+    if (!verifyCronSecret(request)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

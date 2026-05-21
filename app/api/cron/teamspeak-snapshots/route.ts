@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import { TeamSpeak, QueryProtocol } from 'ts3-nodejs-library'
 import Db from '@/lib/mongo'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 const MAX_SNAPSHOTS = 14
 
@@ -54,13 +55,12 @@ async function createAutoSnapshot() {
 }
 
 /**
- * GET /api/cron/teamspeak-snapshots?secret=...
+ * GET /api/cron/teamspeak-snapshots
  * Creates a daily auto-snapshot and enforces the 14-snapshot retention limit.
  * Called from server.mjs at 3 AM daily.
  */
 export async function GET(request: NextRequest) {
-    const secret = request.nextUrl.searchParams.get('secret')
-    if (!secret || secret !== process.env.CRON_SECRET) {
+    if (!verifyCronSecret(request)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

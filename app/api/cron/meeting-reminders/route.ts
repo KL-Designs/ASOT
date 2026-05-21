@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
 import { sendMeetingDM } from '@/lib/discord/bot'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 /**
  * GET /api/cron/meeting-reminders
@@ -14,12 +15,10 @@ import { sendMeetingDM } from '@/lib/discord/bot'
  *   - Sends in-app notification + Discord DM to each recipient
  *   - Marks the record as fired
  *
- * Protect with CRON_SECRET env var (passed as Bearer token or ?secret= query param).
+ * Requires Authorization: Bearer <CRON_SECRET>.
  */
 export async function GET(request: NextRequest) {
-    const secret = request.nextUrl.searchParams.get('secret')
-        ?? request.headers.get('authorization')?.replace('Bearer ', '')
-    if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    if (!verifyCronSecret(request)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

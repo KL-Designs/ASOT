@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { refreshOfflineCache, isOfflineRefreshing } from '@/lib/teamspeak/cache'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 /**
- * GET /api/cron/teamspeak-cache?secret=...
+ * GET /api/cron/teamspeak-cache
  * Triggers a background refresh of the TeamSpeak offline client cache.
  * Called every 15 minutes by server.mjs.
  */
 export async function GET(request: NextRequest) {
-    const secret = request.nextUrl.searchParams.get('secret')
-    if (!secret || secret !== process.env.CRON_SECRET) {
+    if (!verifyCronSecret(request)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

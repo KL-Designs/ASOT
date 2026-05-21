@@ -3,9 +3,10 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
 import { sendDM } from '@/lib/discord/bot'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 /**
- * GET /api/cron/application-reminders?secret=...
+ * GET /api/cron/application-reminders
  *
  * Finds all J1 applications that are still "reviewing" past their reviewDueAt
  * deadline and haven't yet been reminded. Marks the linked task as overdue,
@@ -14,8 +15,7 @@ import { sendDM } from '@/lib/discord/bot'
  * Call on a schedule every 15 minutes via an external cron service.
  */
 export async function GET(request: NextRequest) {
-    const secret = request.nextUrl.searchParams.get('secret')
-    if (!secret || secret !== process.env.CRON_SECRET) {
+    if (!verifyCronSecret(request)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

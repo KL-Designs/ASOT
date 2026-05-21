@@ -3,9 +3,10 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
 import { sendTaskReminderDM, sendTaskOverdueDM, sendTaskEscalationDM } from '@/lib/discord/bot'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 /**
- * GET /api/cron/task-reminders?secret=...
+ * GET /api/cron/task-reminders
  *
  * Fires every minute (via server.mjs). Each pass handles:
  *   1. Reminder (chase-up) notifications — reminderDateTime has passed, reminderNotifiedAt not yet set
@@ -16,8 +17,7 @@ import { sendTaskReminderDM, sendTaskOverdueDM, sendTaskEscalationDM } from '@/l
  * and explicitly-null fields are matched — prevents missed notifications after restarts.
  */
 export async function GET(request: NextRequest) {
-    const secret = request.nextUrl.searchParams.get('secret')
-    if (!secret || secret !== process.env.CRON_SECRET) {
+    if (!verifyCronSecret(request)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

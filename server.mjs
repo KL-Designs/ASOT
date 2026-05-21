@@ -689,7 +689,7 @@ httpServer.listen(port, '0.0.0.0', () => {
 
 async function triggerCalendarRemindersCron() {
     try {
-        const res = await fetch(`http://localhost:${port}/api/cron/calendar-reminders?secret=${process.env.CRON_SECRET}`)
+        const res = await fetch(`http://localhost:${port}/api/cron/calendar-reminders`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
         if (!res.ok) {
             console.error(`[cron/calendar-reminders] HTTP ${res.status} — check CRON_SECRET`)
             return
@@ -708,7 +708,7 @@ triggerCalendarRemindersCron()
 
 async function triggerTaskRemindersCron() {
     try {
-        const res = await fetch(`http://localhost:${port}/api/cron/task-reminders?secret=${process.env.CRON_SECRET}`)
+        const res = await fetch(`http://localhost:${port}/api/cron/task-reminders`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
         if (!res.ok) {
             console.error(`[cron/task-reminders] HTTP ${res.status} — check CRON_SECRET`)
             return
@@ -730,7 +730,7 @@ triggerTaskRemindersCron()
 
 async function triggerOperationsCron() {
     try {
-        const res = await fetch(`http://localhost:${port}/api/cron/operations?secret=${process.env.CRON_SECRET}`)
+        const res = await fetch(`http://localhost:${port}/api/cron/operations`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
         if (!res.ok) {
             console.error(`[cron/operations] HTTP ${res.status} — check CRON_SECRET`)
             return
@@ -759,7 +759,7 @@ function msUntilNext3am() {
 
 async function triggerScheduledSnapshot() {
     try {
-        const res = await fetch(`http://localhost:${port}/api/cron/snapshots?secret=${process.env.CRON_SECRET}`)
+        const res = await fetch(`http://localhost:${port}/api/cron/snapshots`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
         const data = await res.json()
         console.log('[snapshots] Scheduled snapshot triggered:', data)
     } catch (e) {
@@ -777,7 +777,7 @@ console.log(`[snapshots] Next auto-snapshot in ${Math.round(msUntilNext3am() / 1
 
 async function triggerTsSnapshot() {
     try {
-        const res = await fetch(`http://localhost:${port}/api/cron/teamspeak-snapshots?secret=${process.env.CRON_SECRET}`)
+        const res = await fetch(`http://localhost:${port}/api/cron/teamspeak-snapshots`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
         const data = await res.json()
         console.log('[teamspeak-snapshots] Daily snapshot triggered:', data)
     } catch (e) {
@@ -794,7 +794,7 @@ setTimeout(() => {
 
 async function triggerTsCacheRefresh() {
     try {
-        const res = await fetch(`http://localhost:${port}/api/cron/teamspeak-cache?secret=${process.env.CRON_SECRET}`)
+        const res = await fetch(`http://localhost:${port}/api/cron/teamspeak-cache`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
         const data = await res.json()
         console.log('[teamspeak-cache] Refresh triggered:', data)
     } catch (e) {
