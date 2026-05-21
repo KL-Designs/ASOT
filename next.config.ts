@@ -3,6 +3,7 @@ import path from 'path'
 
 const nextConfig: NextConfig = {
 	typedRoutes: true,
+	poweredByHeader: false,
 
 	// @napi-rs/canvas ships a native .node binary that webpack cannot bundle.
 	// Marking it external keeps it as a require() at runtime on the server.
@@ -106,6 +107,21 @@ const nextConfig: NextConfig = {
 				pathname: "/api/uploads/**",
 			},
 
+		]
+	},
+
+	async headers() {
+		return [
+			{
+				source: '/(.*)',
+				headers: [
+					{ key: 'X-Frame-Options', value: 'DENY' },
+					{ key: 'X-Content-Type-Options', value: 'nosniff' },
+					{ key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+					{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+					{ key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+				],
+			},
 		]
 	},
 
