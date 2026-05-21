@@ -13,7 +13,7 @@ const extensions = [
     StarterKit,
     Underline,
     Image,
-    Link.configure({ HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
+    Link.configure({ HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' }, protocols: ['http', 'https'] }),
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
     Highlight,
 ]
