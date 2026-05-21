@@ -3,8 +3,11 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import fs from 'fs'
 
+const SAFE_NAME_RE = /^[a-zA-Z0-9._-]+$/
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
 	const { name } = await params
+	if (!SAFE_NAME_RE.test(name)) return NextResponse.json('Bad request', { status: 400 })
 	const type = request.nextUrl.searchParams.get('type')
 	const filename = type === 'medals' ? `${name}-medals.png` : `${name}.png`
 	const path = `./milpacs/${filename}`
@@ -25,6 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ nam
 	if (!client.hasRoles(me, PERMISSIONS.members.editStandard)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
 	const { name } = await params
+	if (!SAFE_NAME_RE.test(name)) return NextResponse.json({ error: 'Bad request' }, { status: 400 })
 	const formData = await req.formData()
 	const file = formData.get('file') as File | null
 	const type = formData.get('type') as string | null
