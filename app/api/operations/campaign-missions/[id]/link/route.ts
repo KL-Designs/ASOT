@@ -56,10 +56,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { $set: { [slotField]: operationId } }
     )
 
-    // Stamp the operation with the mission reference
+    // Fetch campaign mission to get the parent campaignId
+    const campaignMission = await Db.campaignMissions.findOne({ _id: missionId })
+
+    // Stamp the operation with both the mission reference AND parent campaign
     await Db.operations.updateOne(
         { _id: opId },
-        { $set: { campaignMissionId: id, daySlot } }
+        {
+            $set: {
+                campaignMissionId: id,
+                daySlot,
+                ...(campaignMission?.campaignId ? { campaignId: new ObjectId(campaignMission.campaignId) } : {}),
+            }
+        }
     )
 
     return NextResponse.json({ ok: true })
@@ -105,7 +114,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         try {
             await Db.operations.updateOne(
                 { _id: new ObjectId(linkedOpId) },
-                { $unset: { campaignMissionId: '', daySlot: '' } }
+                { $unset: { campaignMissionId: '', daySlot: '', campaignId: '' } }
             )
         } catch { /* ignore */ }
     }

@@ -42,7 +42,6 @@ function hexToRgb(hex: string) {
 export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, isHQ, operationId, zeusNotes, ocap, initialOcap, r: rProp, g: gProp, b: bProp, initialPageId }: Props) {
     const [activePageId, setActivePageId] = useState<string>(() => {
         if (initialPageId) {
-            // Validate that it's a real page id or a special tab
             const validPageIds = pages.map(p => p.id)
             if (validPageIds.includes(initialPageId) || initialPageId === '__zeus__' || initialPageId === '__ocap__') {
                 return initialPageId
@@ -50,6 +49,14 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
         }
         return pages[0]?.id ?? 'main'
     })
+
+    useEffect(() => {
+        if (!initialPageId) return
+        const validPageIds = pages.map(p => p.id)
+        if (validPageIds.includes(initialPageId) || initialPageId === '__zeus__' || initialPageId === '__ocap__') {
+            setActivePageId(initialPageId)
+        }
+    }, [initialPageId, pages])
     const [isMobile, setIsMobile] = useState(false)
 
     useEffect(() => {
@@ -69,6 +76,8 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
     const isSF = pageTheme === 'scifi'
 
     const activeSections = (sectionsByPage[activePageId] ?? []).filter(s => isLoggedIn || s.isPublic)
+    const activePageMeta = pages.find(p => p.id === activePageId)
+    const isOcapPage = activePageMeta?.pageType === 'ocap'
 
     // ── Mobile: horizontal tab strip ─────────────────────────────────────────
     if (isMobile) {
@@ -209,6 +218,7 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                             />
                         )}
                         <div className='w-full max-w-[900px] mx-auto px-4 pb-16' style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            {isOcapPage && activeSections.length === 0 && <OcapDefaultMessage />}
                             {activeSections.map(s => (
                                 <SectionCard
                                     key={s.id}
@@ -230,174 +240,11 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
         )
     }
 
-    // ── Desktop: left sidebar + content ──────────────────────────────────────
+    // ── Desktop: content only (nav handled by PageNavClient in parent) ───────
     return (
         <div style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
 
-            {/* Left page tabs */}
-            <div style={{
-                width: 180,
-                flexShrink: 0,
-                position: 'sticky',
-                top: 80,
-                alignSelf: 'flex-start',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-                padding: '24px 12px 24px 16px',
-                borderRight: isOF ? '1px solid rgba(160,120,50,0.2)' : isSF ? `1px solid ${c(0.2)}` : '1px solid rgba(255,255,255,0.07)',
-                maxHeight: 'calc(100vh - 100px)',
-                overflowY: 'auto',
-            }}>
-                <div style={{
-                    fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
-                    color: isOF ? 'rgba(160,120,50,0.35)' : isSF ? c(0.3) : 'rgba(237,237,237,0.2)',
-                    marginBottom: 8, paddingLeft: 8,
-                    fontFamily: isOF || isSF ? '"Courier New", monospace' : undefined,
-                }}>
-                    Documents
-                </div>
-
-                {pages.map(page => {
-                    const isActive = page.id === activePageId
-                    return (
-                        <button
-                            key={page.id}
-                            type='button'
-                            onClick={() => setActivePageId(page.id)}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: 8,
-                                padding: '8px 10px',
-                                textAlign: 'left',
-                                background: isActive
-                                    ? isOF ? 'rgba(160,120,50,0.1)' : c(0.1)
-                                    : 'transparent',
-                                borderTop: isActive
-                                    ? isOF ? '1px solid rgba(160,120,50,0.35)' : isSF ? `1px solid ${c(0.35)}` : `1px solid ${c(0.25)}`
-                                    : '1px solid transparent',
-                                borderRight: isActive
-                                    ? isOF ? '1px solid rgba(160,120,50,0.35)' : isSF ? `1px solid ${c(0.35)}` : `1px solid ${c(0.25)}`
-                                    : '1px solid transparent',
-                                borderBottom: isActive
-                                    ? isOF ? '1px solid rgba(160,120,50,0.35)' : isSF ? `1px solid ${c(0.35)}` : `1px solid ${c(0.25)}`
-                                    : '1px solid transparent',
-                                borderLeft: isActive
-                                    ? isOF ? `3px solid rgba(160,120,50,0.8)` : `3px solid ${c(0.85)}`
-                                    : '3px solid transparent',
-                                cursor: 'pointer',
-                                transition: 'all 0.12s',
-                                width: '100%',
-                                ...(isSF && isActive ? { boxShadow: `0 0 8px ${c(0.15)}, inset 0 0 8px ${c(0.04)}` } : {}),
-                            }}
-                            onMouseEnter={e => {
-                                if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = isOF ? 'rgba(160,120,50,0.05)' : 'rgba(255,255,255,0.04)'
-                            }}
-                            onMouseLeave={e => {
-                                if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-                            }}
-                        >
-                            <span style={{
-                                fontSize: '0.65rem',
-                                fontWeight: isActive ? 700 : 500,
-                                letterSpacing: '0.06em',
-                                textTransform: 'uppercase',
-                                color: isActive
-                                    ? isOF ? '#c8a850' : isSF ? c(0.95) : 'rgba(237,237,237,0.9)'
-                                    : isOF ? 'rgba(160,120,50,0.45)' : isSF ? c(0.4) : 'rgba(237,237,237,0.4)',
-                                fontFamily: isOF || isSF ? '"Courier New", monospace' : undefined,
-                                ...(isSF && isActive ? { textShadow: `0 0 6px ${c(0.6)}` } : {}),
-                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
-                                {page.title}
-                            </span>
-                        </button>
-                    )
-                })}
-
-                {/* Zeus Notes tab — J6 only */}
-                {isJ6 && (
-                    <>
-                        <div style={{ height: 1, background: 'rgba(0,195,255,0.12)', margin: '6px 0' }} />
-                        <button
-                            type='button'
-                            onClick={() => setActivePageId(ZEUS_TAB)}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: 8,
-                                padding: '8px 10px',
-                                textAlign: 'left',
-                                background: activePageId === ZEUS_TAB ? 'rgba(0,195,255,0.08)' : 'transparent',
-                                borderTop: activePageId === ZEUS_TAB ? '1px solid rgba(0,195,255,0.25)' : '1px solid transparent',
-                                borderRight: activePageId === ZEUS_TAB ? '1px solid rgba(0,195,255,0.25)' : '1px solid transparent',
-                                borderBottom: activePageId === ZEUS_TAB ? '1px solid rgba(0,195,255,0.25)' : '1px solid transparent',
-                                borderLeft: activePageId === ZEUS_TAB ? '3px solid rgba(0,195,255,0.7)' : '3px solid transparent',
-                                cursor: 'pointer',
-                                transition: 'all 0.12s',
-                                width: '100%',
-                            }}
-                            onMouseEnter={e => {
-                                if (activePageId !== ZEUS_TAB) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,195,255,0.04)'
-                            }}
-                            onMouseLeave={e => {
-                                if (activePageId !== ZEUS_TAB) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-                            }}
-                        >
-                            <span style={{
-                                fontSize: '0.65rem',
-                                fontWeight: activePageId === ZEUS_TAB ? 700 : 500,
-                                letterSpacing: '0.06em',
-                                textTransform: 'uppercase',
-                                color: activePageId === ZEUS_TAB ? 'rgba(0,195,255,0.9)' : 'rgba(0,195,255,0.4)',
-                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
-                                Zeus Notes
-                            </span>
-                        </button>
-                    </>
-                )}
-
-                {/* OCAP tab — shown to HQ always, others when stats are synced */}
-                {(isHQ || ocap) && (
-                    <>
-                        <div style={{ height: 1, background: 'rgba(0,195,120,0.12)', margin: '6px 0' }} />
-                        <button
-                            type='button'
-                            onClick={() => setActivePageId(OCAP_TAB)}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: 8,
-                                padding: '8px 10px',
-                                textAlign: 'left',
-                                background: activePageId === OCAP_TAB ? 'rgba(0,195,120,0.08)' : 'transparent',
-                                borderTop: activePageId === OCAP_TAB ? '1px solid rgba(0,195,120,0.25)' : '1px solid transparent',
-                                borderRight: activePageId === OCAP_TAB ? '1px solid rgba(0,195,120,0.25)' : '1px solid transparent',
-                                borderBottom: activePageId === OCAP_TAB ? '1px solid rgba(0,195,120,0.25)' : '1px solid transparent',
-                                borderLeft: activePageId === OCAP_TAB ? '3px solid rgba(0,195,120,0.7)' : '3px solid transparent',
-                                cursor: 'pointer',
-                                transition: 'all 0.12s',
-                                width: '100%',
-                            }}
-                            onMouseEnter={e => {
-                                if (activePageId !== OCAP_TAB) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,195,120,0.04)'
-                            }}
-                            onMouseLeave={e => {
-                                if (activePageId !== OCAP_TAB) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-                            }}
-                        >
-                            <span style={{
-                                fontSize: '0.65rem',
-                                fontWeight: activePageId === OCAP_TAB ? 700 : 500,
-                                letterSpacing: '0.06em',
-                                textTransform: 'uppercase',
-                                color: activePageId === OCAP_TAB ? 'rgba(0,195,120,0.9)' : 'rgba(0,195,120,0.4)',
-                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
-                                OCAP
-                            </span>
-                        </button>
-                    </>
-                )}
-            </div>
-
-            {/* Right content area */}
+            {/* Content area — full width, nav is in the outer PageNavClient */}
             <div style={{ flex: 1, minWidth: 0 }}>
 
                 {activePageId === ZEUS_TAB ? (
@@ -425,6 +272,9 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                         )}
 
                         <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: activeSections.length > 1 ? 32 : 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            {isOcapPage && activeSections.length === 0 && (
+                                <OcapDefaultMessage />
+                            )}
                             {activeSections.map(s => (
                                 <SectionCard
                                     key={s.id}
@@ -565,6 +415,21 @@ function SectionCard({ s, isOF, isSF, c, r, g, b, isLoggedIn, themeColor, pageTh
                 </span>
             </div>
 
+        </div>
+    )
+}
+
+// ── OCAP default message ──────────────────────────────────────────────────────
+
+function OcapDefaultMessage() {
+    return (
+        <div style={{ border: '1px solid rgba(16,185,129,0.2)', borderTop: '2px solid rgba(16,185,129,0.5)', background: 'rgba(16,185,129,0.04)', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(16,185,129,0.6)', flexShrink: 0 }} />
+                <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(16,185,129,0.7)' }}>OCAP</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'rgba(237,237,237,0.55)', lineHeight: 1.6 }}>OCAP will be linked after mission completion. No action is required at this stage.</p>
+            <p style={{ margin: 0, fontSize: '0.72rem', color: 'rgba(237,237,237,0.28)', lineHeight: 1.5 }}>Once the mission has concluded, the OCAP recording will be synced to this page and the full playback viewer will become available here.</p>
         </div>
     )
 }

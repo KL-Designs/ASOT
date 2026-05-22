@@ -23,6 +23,9 @@ export async function GET(request: NextRequest) {
         defaultDate.setDate(defaultDate.getDate() + 7)
         defaultDate.setMinutes(0, 0, 0) // round to the hour
 
+        const zeusPageId = new ObjectId().toHexString()
+        const ocapPageId = new ObjectId().toHexString()
+
         const newOp = await Db.operations.insertOne({
             _id: new ObjectId(),
             title: `New Mission ${formatted}`,
@@ -30,6 +33,10 @@ export async function GET(request: NextRequest) {
             date: defaultDate,
             loreDate: '',
             status: 'In Development' as const,
+            pages: [
+                { id: zeusPageId, title: 'Zeus Notes', isMain: false, pageType: 'zeus', pageColor: '' },
+                { id: ocapPageId, title: 'OCAP', isMain: false, pageType: 'ocap', pageColor: '#10b981' },
+            ],
         })
 
         return NextResponse.json({ success: true, id: newOp.insertedId }, { status: 200 })

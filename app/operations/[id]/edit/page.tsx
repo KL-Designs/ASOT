@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import ConfirmDialog from '@/components/confirm-dialog'
 import dayjs, { Dayjs } from 'dayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
@@ -38,6 +38,8 @@ function hexToRgb(hex: string) {
 
 export default function Page() {
     const { id: routeId } = useParams<{ id: string }>()
+    const editSearchParams = useSearchParams()
+    const fromJ2 = editSearchParams?.get('from') === 'j2'
 
     const [opID, setOpID] = useState(routeId || '')
     const [title, setTitle] = useState('')
@@ -59,6 +61,8 @@ export default function Page() {
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
     const [assignedPlatoons, setAssignedPlatoons] = useState<string[]>([])
+    const [discordPingEnabled, setDiscordPingEnabled] = useState(false)
+    const [discordPingRoles, setDiscordPingRoles] = useState<string[]>([])
     const [rsvpOpen, setRsvpOpen] = useState(false)
     const [confirmationOpen, setConfirmationOpen] = useState(false)
     const [confirmationOpenedAt, setConfirmationOpenedAt] = useState<Date | null>(null)
@@ -198,6 +202,8 @@ export default function Page() {
             .then(json => {
                 if (json.error) return
                 setAssignedPlatoons(json.assignedPlatoons ?? [])
+                setDiscordPingEnabled(json.discordPingEnabled ?? false)
+                setDiscordPingRoles(json.discordPingRoles ?? [])
                 setRsvpOpen(json.rsvpOpen ?? false)
                 setConfirmationOpen(json.confirmationOpen ?? false)
                 setConfirmationOpenedAt(json.confirmationOpenedAt ? new Date(json.confirmationOpenedAt) : null)
@@ -258,6 +264,8 @@ export default function Page() {
 
     async function saveAttendanceSettings(updates: {
         assignedPlatoons?: string[]
+        discordPingEnabled?: boolean
+        discordPingRoles?: string[]
         rsvpOpen?: boolean
         confirmationOpen?: boolean
         rsvpOpenAt?: string | null
@@ -271,6 +279,8 @@ export default function Page() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     assignedPlatoons: updates.assignedPlatoons ?? assignedPlatoons,
+                    discordPingEnabled: updates.discordPingEnabled ?? discordPingEnabled,
+                    discordPingRoles: updates.discordPingRoles ?? discordPingRoles,
                     reservistAssignments: [],
                     ...(updates.rsvpOpen !== undefined && { rsvpOpen: updates.rsvpOpen }),
                     ...(updates.confirmationOpen !== undefined && { confirmationOpen: updates.confirmationOpen }),
@@ -335,10 +345,10 @@ export default function Page() {
     }
 
     const PLATOON_OPTS = [
-        { id: 'companyHQ', label: '1-0 HQ',            color: 'rgba(219,0,29,0.65)' },
-        { id: 'platoon11', label: '1-1 Platoon',         color: 'rgba(245,158,11,0.65)' },
-        { id: 'platoon12', label: '1-2 Platoon',         color: 'rgba(16,185,129,0.65)' },
-        { id: 'support',   label: '1-3 Support Platoon', color: 'rgba(59,130,246,0.65)' },
+        { id: 'companyHQ', label: '1-0 HQ',            color: 'rgba(185,0,24,0.7)' },
+        { id: 'platoon11', label: '1-1 Platoon',         color: 'rgba(194,120,0,0.7)' },
+        { id: 'platoon12', label: '1-2 Platoon',         color: 'rgba(12,155,100,0.7)' },
+        { id: 'support',   label: '1-3 Support Platoon', color: 'rgba(42,95,185,0.7)' },
     ]
 
     const { r, g, b } = hexToRgb(themeColor)
@@ -424,10 +434,10 @@ export default function Page() {
             <div className='flex items-center justify-between gap-4' style={{ marginBottom: 20 }}>
                 <div className='flex items-center gap-4'>
                     <Link
-                        href='/operations'
+                        href={fromJ2 ? '/dashboard/j2' : '/operations'}
                         style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', textDecoration: 'none' }}
                     >
-                        ← Back
+                        {fromJ2 ? '← J2 Operations' : '← Back'}
                     </Link>
                     <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
                     <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)' }}>
@@ -764,9 +774,9 @@ export default function Page() {
                                             style={{
                                                 display: 'flex', alignItems: 'center', gap: 6,
                                                 padding: '6px 12px',
-                                                border: checked ? `1px solid ${opt.color}` : '1px solid rgba(255,255,255,0.12)',
-                                                background: checked ? opt.color.replace('0.65)', '0.14)') : 'rgba(255,255,255,0.03)',
-                                                color: checked ? opt.color.replace('0.65)', '1)') : 'rgba(237,237,237,0.35)',
+                                                border: checked ? `2px solid ${opt.color}` : '1px solid rgba(255,255,255,0.1)',
+                                                background: checked ? opt.color.replace(/[\d.]+\)$/, '0.1)') : 'rgba(255,255,255,0.02)',
+                                                color: checked ? opt.color.replace(/[\d.]+\)$/, '1)') : 'rgba(237,237,237,0.35)',
                                                 fontSize: '0.75rem', fontWeight: 700,
                                                 letterSpacing: '0.07em', textTransform: 'uppercase',
                                                 cursor: 'pointer', userSelect: 'none',
@@ -783,6 +793,80 @@ export default function Page() {
                                     )
                                 })}
                             </div>
+                        </div>
+
+                        {/* Discord Ping Roles */}
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: c(0.6) }}>
+                                    Discord Ping Roles
+                                </div>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginLeft: 'auto' }}>
+                                    <span style={{ fontSize: '0.62rem', color: discordPingEnabled ? '#10b981' : 'rgba(237,237,237,0.3)' }}>
+                                        {discordPingEnabled ? 'Enabled' : 'Disabled'}
+                                    </span>
+                                    <div
+                                        onClick={() => {
+                                            const next = !discordPingEnabled
+                                            setDiscordPingEnabled(next)
+                                            saveAttendanceSettings({ discordPingEnabled: next })
+                                        }}
+                                        style={{
+                                            width: 32, height: 18, borderRadius: 9, cursor: 'pointer',
+                                            background: discordPingEnabled ? 'rgba(16,185,129,0.7)' : 'rgba(255,255,255,0.12)',
+                                            position: 'relative', transition: 'background 0.15s',
+                                        }}
+                                    >
+                                        <div style={{
+                                            position: 'absolute', top: 3, left: discordPingEnabled ? 17 : 3,
+                                            width: 12, height: 12, borderRadius: '50%', background: '#fff',
+                                            transition: 'left 0.15s',
+                                        }} />
+                                    </div>
+                                </label>
+                            </div>
+                            {discordPingEnabled && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                    {[
+                                        { id: '@everyone', label: '@everyone', color: 'rgba(139,92,246,0.65)' },
+                                        { id: '@here', label: '@here', color: 'rgba(59,130,246,0.65)' },
+                                        { id: '@friend of unit', label: '@friend of unit', color: 'rgba(16,185,129,0.65)' },
+                                        { id: '@veteran member', label: '@veteran member', color: 'rgba(245,158,11,0.65)' },
+                                    ].map(role => {
+                                        const checked = discordPingRoles.includes(role.id)
+                                        return (
+                                            <button
+                                                key={role.id}
+                                                onClick={() => {
+                                                    const updated = checked
+                                                        ? discordPingRoles.filter(r => r !== role.id)
+                                                        : [...discordPingRoles, role.id]
+                                                    setDiscordPingRoles(updated)
+                                                    saveAttendanceSettings({ discordPingRoles: updated })
+                                                }}
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', gap: 6,
+                                                    padding: '6px 12px',
+                                                    border: checked ? `1px solid ${role.color}` : '1px solid rgba(255,255,255,0.12)',
+                                                    background: checked ? role.color.replace('0.65)', '0.14)') : 'rgba(255,255,255,0.03)',
+                                                    color: checked ? role.color.replace('0.65)', '1)') : 'rgba(237,237,237,0.35)',
+                                                    fontSize: '0.75rem', fontWeight: 700,
+                                                    letterSpacing: '0.07em',
+                                                    cursor: 'pointer', userSelect: 'none',
+                                                    transition: 'all 0.15s',
+                                                }}
+                                            >
+                                                {checked && (
+                                                    <svg width='11' height='11' viewBox='0 0 12 12' fill='none'>
+                                                        <path d='M2 6l3 3 5-5' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' />
+                                                    </svg>
+                                                )}
+                                                {role.label}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            )}
                         </div>
 
                         {/* Mission Stage bar */}
@@ -1127,7 +1211,7 @@ export default function Page() {
                 <OperationEditor
                     documentId={opID}
                     uploadUrl='/api/operations/upload'
-                    defaultSectionTitle='Orders'
+                    defaultSectionTitle='Situation'
                     initialContent={initialContent}
                     themeColor={themeColor}
                     initialMeta={{ title, department, date: date?.toISOString() ?? '', loreDate: loreDate ?? '' }}
@@ -1257,6 +1341,28 @@ export default function Page() {
     )
 }
 
+// ─── Popular Arma 3 maps (shown when not in maps system) ─────────────────────
+
+const POPULAR_MAPS: { name: string; displayName: string }[] = [
+    { name: 'altis', displayName: 'Altis' },
+    { name: 'stratis', displayName: 'Stratis' },
+    { name: 'tanoa', displayName: 'Tanoa' },
+    { name: 'malden', displayName: 'Malden' },
+    { name: 'livonia', displayName: 'Livonia' },
+    { name: 'chernarus', displayName: 'Chernarus' },
+    { name: 'takistan', displayName: 'Takistan' },
+    { name: 'sahrani', displayName: 'Sahrani' },
+    { name: 'panthera', displayName: 'Panthera' },
+    { name: 'lingor', displayName: 'Lingor' },
+    { name: 'namalsk', displayName: 'Namalsk' },
+    { name: 'fallujah', displayName: 'Fallujah' },
+    { name: 'clafghan', displayName: 'Clafghan' },
+    { name: 'porto', displayName: 'Porto' },
+    { name: 'utes', displayName: 'Utes' },
+    { name: 'zargabad', displayName: 'Zargabad' },
+    { name: 'desert_e', displayName: 'Desert (IRL)' },
+]
+
 // ─── Map World Picker ─────────────────────────────────────────────────────────
 
 function MapWorldPicker({
@@ -1271,8 +1377,20 @@ function MapWorldPicker({
     themeColor: string
 }) {
     const [open, setOpen] = useState(false)
+    const [search, setSearch] = useState('')
+    const [customValue, setCustomValue] = useState('')
+    const [showCustom, setShowCustom] = useState(false)
     const ref = useRef<HTMLDivElement>(null)
-    const selected = worlds.find(w => w.name === value) ?? null
+    const searchRef = useRef<HTMLInputElement>(null)
+
+    const selected = worlds.find(w => w.name === value)
+        ?? POPULAR_MAPS.find(m => m.name === value)
+        ?? (value ? { name: value, displayName: value } : null)
+
+    useEffect(() => {
+        if (!open) { setSearch(''); setShowCustom(false) }
+        else setTimeout(() => searchRef.current?.focus(), 50)
+    }, [open])
 
     useEffect(() => {
         if (!open) return
@@ -1280,6 +1398,52 @@ function MapWorldPicker({
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
     }, [open])
+
+    // Merge maps-system worlds with popular maps (deduplicate by name)
+    const systemNames = new Set(worlds.map(w => w.name))
+    const popularFiltered = POPULAR_MAPS.filter(m => !systemNames.has(m.name))
+
+    const allMaps: { name: string; displayName: string; hasPreview: boolean; isSystem?: boolean }[] = [
+        ...worlds.map(w => ({ ...w, isSystem: true })),
+        ...popularFiltered.map(m => ({ ...m, hasPreview: false, isSystem: false })),
+    ]
+
+    const q = search.toLowerCase()
+    const filtered = q
+        ? allMaps.filter(m => m.displayName.toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
+        : allMaps
+
+    const systemMaps = filtered.filter(m => m.isSystem)
+    const popularMaps = filtered.filter(m => !m.isSystem)
+
+    function MapItem({ w }: { w: typeof allMaps[number] }) {
+        const isActive = w.name === value
+        return (
+            <div
+                className='mwp-item'
+                onClick={() => { onChange(w.name); setOpen(false) }}
+                style={{
+                    position: 'relative',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '7px 12px', cursor: 'pointer',
+                    background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
+                    borderLeft: isActive ? `2px solid ${themeColor}` : '2px solid transparent',
+                    fontSize: '0.78rem', color: isActive ? 'rgba(237,237,237,0.95)' : 'rgba(237,237,237,0.6)',
+                }}
+            >
+                {!isActive && <div className='mwp-hover' style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.04)', opacity: 0, transition: 'opacity 0.1s ease', pointerEvents: 'none', willChange: 'opacity' }} />}
+                {w.hasPreview ? (
+                    <img src={`/map-assets/${w.name}/preview.jpg`} alt='' loading='lazy' style={{ width: 40, height: 28, objectFit: 'cover', flexShrink: 0, border: `1px solid ${isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}` }} />
+                ) : (
+                    <div style={{ width: 40, height: 28, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.15)' }}>MAP</span>
+                    </div>
+                )}
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.displayName}</span>
+                {w.isSystem && <span style={{ fontSize: '0.55rem', color: 'rgba(34,197,94,0.6)', flexShrink: 0, letterSpacing: '0.08em' }}>SYSTEM</span>}
+            </div>
+        )
+    }
 
     return (
         <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
@@ -1296,8 +1460,8 @@ function MapWorldPicker({
                     transition: 'border-color 0.15s',
                 }}
             >
-                {selected?.hasPreview && (
-                    <img src={`/map-assets/${selected.name}/preview.jpg`} alt='' style={{ width: 28, height: 20, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }} />
+                {selected && worlds.find(w => w.name === value)?.hasPreview && (
+                    <img src={`/map-assets/${value}/preview.jpg`} alt='' style={{ width: 28, height: 20, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }} />
                 )}
                 <span style={{ flex: 1, textAlign: 'left' }}>{selected?.displayName ?? 'No Map'}</span>
                 <span style={{ fontSize: '0.6rem', opacity: 0.4 }}>▾</span>
@@ -1305,57 +1469,82 @@ function MapWorldPicker({
 
             {open && (
                 <div style={{
-                    position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 200,
+                    position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 400,
                     background: 'rgb(14,14,14)', border: '1px solid rgba(255,255,255,0.12)',
-                    minWidth: 220, maxHeight: 320, overflowY: 'auto',
+                    minWidth: 260, maxHeight: 380,
                     boxShadow: '0 8px 24px rgba(0,0,0,0.7)',
+                    display: 'flex', flexDirection: 'column',
                 }}>
                     <style>{`.mwp-item:hover .mwp-hover{opacity:1!important}`}</style>
-                    {/* No map option */}
-                    <div
-                        className='mwp-item'
-                        onClick={() => { onChange(''); setOpen(false) }}
-                        style={{
-                            position: 'relative',
-                            display: 'flex', alignItems: 'center', gap: 10,
-                            padding: '8px 12px', cursor: 'pointer',
-                            background: !value ? 'rgba(255,255,255,0.06)' : 'transparent',
-                            borderBottom: '1px solid rgba(255,255,255,0.06)',
-                            fontSize: '0.8rem', color: 'rgba(237,237,237,0.35)',
-                        }}
-                    >
-                        <div className='mwp-hover' style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.04)', opacity: 0, transition: 'opacity 0.1s ease', pointerEvents: 'none', willChange: 'opacity' }} />
-                        <div style={{ width: 42, height: 30, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>—</span>
-                        </div>
-                        No Map
+
+                    {/* Search */}
+                    <div style={{ padding: '8px 10px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+                        <input
+                            ref={searchRef}
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder='Search maps…'
+                            style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.75rem', padding: '5px 8px', outline: 'none', fontFamily: 'inherit' }}
+                        />
                     </div>
-                    {worlds.map(w => {
-                        const isActive = w.name === value
-                        return (
-                            <div
-                                key={w.name}
-                                className='mwp-item'
-                                onClick={() => { onChange(w.name); setOpen(false) }}
-                                style={{
-                                    position: 'relative',
-                                    display: 'flex', alignItems: 'center', gap: 10,
-                                    padding: '8px 12px', cursor: 'pointer',
-                                    background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
-                                    borderLeft: isActive ? `2px solid ${themeColor}` : '2px solid transparent',
-                                    fontSize: '0.8rem', color: isActive ? 'rgba(237,237,237,0.95)' : 'rgba(237,237,237,0.6)',
+
+                    {/* Custom map option */}
+                    {!showCustom ? (
+                        <button
+                            type='button'
+                            onClick={() => setShowCustom(true)}
+                            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', background: 'rgba(219,0,29,0.05)', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: 'rgba(219,0,29,0.7)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'left' }}
+                        >
+                            + Custom Map…
+                        </button>
+                    ) : (
+                        <div style={{ flexShrink: 0, display: 'flex', gap: 4, padding: '6px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                            <input
+                                autoFocus
+                                value={customValue}
+                                onChange={e => setCustomValue(e.target.value)}
+                                placeholder='Enter map name…'
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter' && customValue.trim()) { onChange(customValue.trim()); setOpen(false) }
+                                    if (e.key === 'Escape') setShowCustom(false)
                                 }}
-                            >
-                                {!isActive && <div className='mwp-hover' style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.04)', opacity: 0, transition: 'opacity 0.1s ease', pointerEvents: 'none', willChange: 'opacity' }} />}
-                                {w.hasPreview ? (
-                                    <img src={`/map-assets/${w.name}/preview.jpg`} alt='' loading='lazy' style={{ width: 42, height: 30, objectFit: 'cover', flexShrink: 0, border: `1px solid ${isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}` }} />
-                                ) : (
-                                    <div style={{ width: 42, height: 30, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }} />
-                                )}
-                                {w.displayName}
+                                style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(219,0,29,0.3)', color: 'rgba(237,237,237,0.85)', fontSize: '0.75rem', padding: '4px 8px', outline: 'none', fontFamily: 'inherit' }}
+                            />
+                            <button type='button' onClick={() => { if (customValue.trim()) { onChange(customValue.trim()); setOpen(false) } }} style={{ background: 'rgba(219,0,29,0.15)', border: '1px solid rgba(219,0,29,0.35)', color: 'rgba(219,0,29,0.8)', fontSize: '0.68rem', fontWeight: 700, padding: '4px 10px', cursor: 'pointer' }}>OK</button>
+                        </div>
+                    )}
+
+                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                        {/* No map option */}
+                        <div className='mwp-item' onClick={() => { onChange(''); setOpen(false) }}
+                            style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', cursor: 'pointer', background: !value ? 'rgba(255,255,255,0.06)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '0.78rem', color: 'rgba(237,237,237,0.35)' }}>
+                            <div className='mwp-hover' style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.04)', opacity: 0, transition: 'opacity 0.1s ease', pointerEvents: 'none', willChange: 'opacity' }} />
+                            <div style={{ width: 40, height: 28, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>—</span>
                             </div>
-                        )
-                    })}
+                            No Map
+                        </div>
+
+                        {/* Maps system maps */}
+                        {systemMaps.length > 0 && (
+                            <>
+                                <div style={{ padding: '5px 12px 3px', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(34,197,94,0.5)' }}>Maps System</div>
+                                {systemMaps.map(w => <MapItem key={w.name} w={w} />)}
+                            </>
+                        )}
+
+                        {/* Popular Arma 3 maps */}
+                        {popularMaps.length > 0 && (
+                            <>
+                                <div style={{ padding: '5px 12px 3px', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)' }}>Arma 3 Maps</div>
+                                {popularMaps.map(w => <MapItem key={w.name} w={w} />)}
+                            </>
+                        )}
+
+                        {filtered.length === 0 && q && (
+                            <div style={{ padding: '16px', textAlign: 'center', fontSize: '0.72rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No maps matching "{search}"</div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

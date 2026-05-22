@@ -4,7 +4,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 
-/** GET ?campaignId=X — list missions for a campaign sorted by sequence */
+/** GET ?campaignId=X[&includeDeleted=true] — list missions for a campaign sorted by sequence */
 export async function GET(request: NextRequest) {
     try {
         await client.fetchMe()
@@ -14,10 +14,17 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const campaignId = searchParams.get('campaignId')
-    if (!campaignId) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
+    const includeDeleted = searchParams.get('includeDeleted') === 'true'
+
+    const query: Record<string, unknown> = {}
+    if (campaignId) query.campaignId = campaignId
+    if (!includeDeleted) query.isDeleted = { $ne: true }
+    else if (campaignId) query.isDeleted = true   // when includeDeleted without campaignId, get all deleted
+
+    if (!campaignId && !includeDeleted) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
 
     const missions = await Db.campaignMissions
-        .find({ campaignId })
+        .find(query)
         .sort({ sequence: 1 })
         .toArray()
 
@@ -47,6 +54,7 @@ export async function POST(request: NextRequest) {
         name,
         sequence,
         createdAt: new Date(),
+        createdBy: me.id,
     }
 
     const result = await Db.campaignMissions.insertOne(mission)

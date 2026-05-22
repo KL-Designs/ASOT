@@ -31,6 +31,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     const { id } = await params
     const sp = searchParams ? await searchParams : {}
     const activePageParam = typeof sp?.page === 'string' ? sp.page : undefined
+    const fromJ2 = sp?.from === 'j2'
     await connection()
 
     const [operation, me] = await Promise.all([
@@ -185,10 +186,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                     {/* Back nav + edit */}
                     <div className='print-hide' style={{ position: 'absolute', top: 20, left: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
                         <Link
-                            href='/operations'
+                            href={fromJ2 ? '/dashboard/j2' : '/operations'}
                             style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: isOF ? 'rgba(180,145,60,0.45)' : 'rgba(237,237,237,0.28)', textDecoration: 'none' }}
                         >
-                            ← Operations
+                            {fromJ2 ? '← J2 Operations' : '← Operations'}
                         </Link>
                         {isHQ && (
                             <>
@@ -534,18 +535,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                             {/* Main content — shown when not on a special tab */}
                             {activePageParam !== '__zeus__' && activePageParam !== '__ocap__' && (
                                 <>
-                            {/* Zeus Notes — J6 only; show inline when no left-nav tab active */}
-                            {isJ6 && !activePageParam && (
-                                <ZeusNotesPanel operationId={id} initialNotes={operation.zeusNotes ?? ''} />
-                            )}
-
-                            {/* OCAP sync panel — HQ only */}
-                            {isHQ && (
-                                <OcapLinkPanel
-                                    operationId={id}
-                                    initialOcap={operation.ocap ?? null}
-                                />
-                            )}
 
                             {operation.sections && operation.sections.length > 0 ? (
                                 operation.sections
@@ -765,16 +754,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                                 </div>
                             )}
 
-                            {/* OCAP stats / kill leaderboard — shown to logged-in users once synced */}
-                            {isLoggedIn && operation.ocap && operation.ocap.playerStats?.length > 0 && (
-                                <OcapStatsPanel
-                                    ocap={operation.ocap}
-                                    themeColor={operation.themeColor || '#db001d'}
-                                    r={r} g={g} b={b}
-                                    pageTheme={pageTheme}
-                                    operationId={id}
-                                />
-                            )}
 
                             {/* Classified banner — shown to logged-out users when sections are hidden */}
                             {hasHiddenSections && (

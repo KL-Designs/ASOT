@@ -44,6 +44,38 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     const PAGE_COLOR_PRESETS = ['', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899']
     const dragSrcRef = useRef<number>(-1)
     const renameInputRef = useRef<HTMLInputElement>(null)
+    const defaultInitRef = useRef(false)
+
+    // Auto-create default Zeus Notes page for brand-new empty documents
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (defaultInitRef.current) return
+            const pageOrder = ydoc.getArray<string>('pageOrder')
+            if (pageOrder.length === 0) {
+                defaultInitRef.current = true
+                const zeusId = Math.random().toString(36).slice(2, 10)
+                const ocapId = Math.random().toString(36).slice(2, 10)
+                ydoc.transact(() => {
+                    pageOrder.push(['main'])
+                    ydoc.getMap<string>('pmeta-main').set('title', 'Main')
+                    pageOrder.push([zeusId])
+                    const zeusM = ydoc.getMap<string>('pmeta-' + zeusId)
+                    zeusM.set('title', 'Zeus Notes')
+                    zeusM.set('isMain', 'false')
+                    zeusM.set('pageType', 'zeus')
+                    pageOrder.push([ocapId])
+                    const ocapM = ydoc.getMap<string>('pmeta-' + ocapId)
+                    ocapM.set('title', 'OCAP')
+                    ocapM.set('isMain', 'false')
+                    ocapM.set('pageType', 'ocap')
+                    ocapM.set('pageColor', '#10b981')
+                })
+            } else {
+                defaultInitRef.current = true
+            }
+        }, 900)
+        return () => clearTimeout(timer)
+    }, [ydoc])
 
     useEffect(() => {
         const pageOrder = ydoc.getArray<string>('pageOrder')
@@ -293,6 +325,13 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 const isConfirmingDelete = confirmingDeleteId === page.id
                 const isDragOver = dragOverIdx === idx
 
+                // Per-page-type accent colors (only applied when active)
+                const accent = page.pageType === 'zeus'
+                    ? { bg: 'rgba(0,195,255,0.08)', border: 'rgba(0,195,255,0.25)', left: '2px solid rgba(0,195,255,0.7)', icon: isActive ? 'rgba(0,195,255,0.85)' : 'rgba(0,195,255,0.4)', text: isActive ? 'rgba(0,195,255,0.9)' : 'rgba(0,195,255,0.5)' }
+                    : page.pageType === 'ocap'
+                    ? { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', left: '2px solid rgba(16,185,129,0.7)', icon: isActive ? 'rgba(16,185,129,0.85)' : 'rgba(16,185,129,0.4)', text: isActive ? 'rgba(16,185,129,0.9)' : 'rgba(16,185,129,0.5)' }
+                    : { bg: c(0.12), border: c(0.3), left: `2px solid ${c(0.85)}`, icon: isActive ? c(0.85) : 'rgba(237,237,237,0.3)', text: isActive ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.5)' }
+
                 return (
                     <div
                         key={page.id}
@@ -306,9 +345,11 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             display: 'flex', alignItems: 'center', gap: 4,
                             padding: '6px 8px',
                             borderRadius: 4,
-                            background: isDragOver ? c(0.08) : isActive ? (page.pageColor ? `${page.pageColor}18` : c(0.12)) : 'transparent',
-                            border: isActive ? `1px solid ${page.pageColor ? `${page.pageColor}66` : c(0.3)}` : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
-                            borderLeft: page.pageColor ? `2px solid ${page.pageColor}` : undefined,
+                            background: isDragOver ? c(0.08) : isActive ? accent.bg : 'transparent',
+                            borderTop: isActive ? `1px solid ${accent.border}` : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
+                            borderRight: isActive ? `1px solid ${accent.border}` : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
+                            borderBottom: isActive ? `1px solid ${accent.border}` : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
+                            borderLeft: isActive ? accent.left : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
                             cursor: 'pointer',
                             transition: 'all 0.1s',
                             position: 'relative',
@@ -322,7 +363,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                         }}
                     >
                         <DragIndicator style={{ fontSize: 14, flexShrink: 0, color: 'rgba(237,237,237,0.15)', cursor: 'grab' }} />
-                        <Description style={{ fontSize: 13, color: page.pageType === 'zeus' ? (isActive ? 'rgba(0,195,255,0.85)' : 'rgba(0,195,255,0.4)') : isActive ? c(0.85) : 'rgba(237,237,237,0.3)', flexShrink: 0 }} />
+                        <Description style={{ fontSize: 13, color: accent.icon, flexShrink: 0 }} />
 
                         {isRenaming ? (
                             <input
@@ -353,57 +394,15 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                 style={{
                                     flex: 1, minWidth: 0,
                                     fontSize: '0.72rem', fontWeight: isActive ? 700 : 500,
-                                    color: page.pageType === 'zeus'
-                                        ? (isActive ? 'rgba(0,195,255,0.9)' : 'rgba(0,195,255,0.5)')
-                                        : (isActive ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.5)'),
+                                    color: accent.text,
                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                     letterSpacing: '0.02em',
                                 }}
                                 onDoubleClick={e => { e.stopPropagation(); startRename(page.id, page.title) }}
-                                title={`${page.title}${page.pageType === 'zeus' ? ' (Zeus Notes — J6 only)' : ''} (double-click to rename)`}
+                                title={`${page.title}${page.pageType === 'zeus' ? ' (Zeus Notes — J6 only)' : page.pageType === 'ocap' ? ' (OCAP)' : ''} (double-click to rename)`}
                             >
                                 {page.title}
                             </span>
-                        )}
-
-                        {/* Color dot — click to open palette */}
-                        {!isRenaming && (
-                            <div style={{ position: 'relative', flexShrink: 0 }}>
-                                <button type='button'
-                                    title='Set page colour'
-                                    onClick={e => { e.stopPropagation(); setColorPickerPageId(colorPickerPageId === page.id ? null : page.id) }}
-                                    style={{
-                                        width: 10, height: 10, borderRadius: '50%', border: 'none',
-                                        background: page.pageColor || 'rgba(255,255,255,0.12)',
-                                        cursor: 'pointer', padding: 0, flexShrink: 0,
-                                        outline: colorPickerPageId === page.id ? `2px solid ${page.pageColor || 'rgba(255,255,255,0.3)'}` : 'none',
-                                        outlineOffset: 1,
-                                    }}
-                                />
-                                {colorPickerPageId === page.id && (
-                                    <div style={{ position: 'absolute', left: 14, top: -4, zIndex: 20, display: 'flex', gap: 4, padding: '5px 7px', background: '#0f0f10', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
-                                        onClick={e => e.stopPropagation()}
-                                    >
-                                        {PAGE_COLOR_PRESETS.map(color => (
-                                            <button key={color || 'none'} type='button'
-                                                title={color || 'No colour'}
-                                                onClick={() => {
-                                                    const pmeta = ydoc.getMap<string>('pmeta-' + page.id)
-                                                    if (color) pmeta.set('pageColor', color)
-                                                    else pmeta.delete('pageColor')
-                                                    setColorPickerPageId(null)
-                                                }}
-                                                style={{
-                                                    width: 14, height: 14, borderRadius: '50%', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0,
-                                                    background: color || 'rgba(255,255,255,0.06)',
-                                                    boxShadow: page.pageColor === color ? `0 0 0 2px white` : 'none',
-                                                    outline: color ? 'none' : '1px dashed rgba(255,255,255,0.25)',
-                                                }}
-                                            />
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
                         )}
 
                         {!page.isMain && !isRenaming && (

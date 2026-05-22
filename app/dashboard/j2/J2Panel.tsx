@@ -62,24 +62,24 @@ export default function J2Panel({
             >
                 <CornerBrackets />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ color: 'rgba(219,0,29,0.35)' }}>{'//'}</span> DEPARTMENTS
-                        </span>
+                    <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ color: 'rgba(219,0,29,0.35)' }}>{'//'}</span> DEPARTMENTS
+                    </span>
                     <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
                         [J2] Mission Making
                     </Typography>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button style={{ ...btnSx(view === 'members'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>
-                            <PeopleAlt sx={{ fontSize: '0.85rem' }} />Members
-                        </button>
-                        <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
-                            <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
-                        </button>
-                        <button style={{ ...btnSx(view === 'activity'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'activity' ? 'dept' : 'activity')}>
-                            <HistoryEdu sx={{ fontSize: '0.85rem' }} />Activity Logs
-                        </button>
-                    </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button style={{ ...btnSx(view === 'members'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>
+                        <PeopleAlt sx={{ fontSize: '0.85rem' }} />Members
+                    </button>
+                    <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
+                        <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
+                    </button>
+                    <button style={{ ...btnSx(view === 'activity'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'activity' ? 'dept' : 'activity')}>
+                        <HistoryEdu sx={{ fontSize: '0.85rem' }} />Activity Logs
+                    </button>
+                </div>
             </div>
 
             {view === 'members' && (
@@ -102,10 +102,10 @@ export default function J2Panel({
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Operations' pinLabel='J2 — Operations' href='/dashboard/j2' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'   pinLabel='J2 — Meetings'   href='/dashboard/j2' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tickets' pinLabel='J2 — Tickets' href='/dashboard/j2' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Members Workspace' pinLabel='J2 — Workspace' href='/dashboard/j2' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Operations'        pinLabel='J2 — Operations'  href='/dashboard/j2' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'          pinLabel='J2 — Meetings'    href='/dashboard/j2' tabIndex={1} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Tickets'           pinLabel='J2 — Tickets'     href='/dashboard/j2' tabIndex={2} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Members Workspace' pinLabel='J2 — Workspace'   href='/dashboard/j2' tabIndex={3} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
