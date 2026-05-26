@@ -54,6 +54,7 @@ interface Props {
     applicantName: string
     recruiterName: string
     onSlotCreated?: (slot: BCTSlotSummary) => void
+    onSlotDeleted?: (slotId: string) => void
     readOnly?: boolean
     externalSlots?: BCTSlotSummary[]  // used in read-only (applicant) mode
     isQuiz?: boolean
@@ -61,7 +62,7 @@ interface Props {
 
 export default function BCTAvailabilityCalendar({
     applicantId, applicantName, recruiterName,
-    onSlotCreated, readOnly = false, externalSlots, isQuiz = false,
+    onSlotCreated, onSlotDeleted, readOnly = false, externalSlots, isQuiz = false,
 }: Props) {
     const [localSlots, setLocalSlots] = useState<LocalSlot[]>([])
     const [existingEvents, setExistingEvents] = useState<RbcEvent[]>([])
@@ -75,6 +76,8 @@ export default function BCTAvailabilityCalendar({
     const [repeatWeekly, setRepeatWeekly] = useState(false)
     const [repeatWeeks, setRepeatWeeks] = useState(2)
     const [saving, setSaving] = useState(false)
+    const [deleting, setDeleting] = useState(false)
+    const [editingExistingSlotId, setEditingExistingSlotId] = useState<string | null>(null)
 
     // Fetch background J3 events (non-BCT, for context)
     const fetchExisting = useCallback(async () => {
@@ -125,12 +128,29 @@ export default function BCTAvailabilityCalendar({
     function openPicker(date: Date) {
         if (readOnly) return
         setPickerDate(date)
-        // Pre-select periods already saved for this day
         const existing = localSlots.find(s => isSameDay(s.date, date))
         setPickerSelections(existing?.periods ?? [])
+        setEditingExistingSlotId(existing?.id ?? null)
         setRepeatWeekly(false)
         setRepeatWeeks(2)
         setPickerOpen(true)
+    }
+
+    async function deleteSlot() {
+        if (!pickerDate) return
+        const existing = localSlots.find(s => isSameDay(s.date, pickerDate))
+        if (!existing) return
+        setDeleting(true)
+        try {
+            if (existing.j3EventId) {
+                await fetch(`/api/admin/calendar/${existing.j3EventId}`, { method: 'DELETE' })
+            }
+            setLocalSlots(prev => prev.filter(s => s.id !== existing.id))
+            onSlotDeleted?.(existing.id)
+            setPickerOpen(false)
+        } finally {
+            setDeleting(false)
+        }
     }
 
     function togglePeriod(label: string) {
@@ -350,7 +370,10 @@ export default function BCTAvailabilityCalendar({
                                 {dayLabel}
                             </div>
                             <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', marginTop: 4 }}>
-                                Select all time periods when {applicantName || 'the applicant'} is available.
+                                {editingExistingSlotId
+                                    ? `Edit or delete this availability entry. Use Delete to remove it entirely.`
+                                    : `Select all time periods when ${applicantName || 'the applicant'} is available.`
+                                }
                             </div>
                         </div>
 
@@ -418,14 +441,19 @@ export default function BCTAvailabilityCalendar({
                         )}
 
                         {/* Actions */}
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4, flexWrap: 'wrap' }}>
+                            {editingExistingSlotId && (
+                                <button type='button' onClick={deleteSlot} disabled={deleting || saving}
+                                    style={{ padding: '8px 18px', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', background: 'rgba(219,0,29,0.1)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.8)', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.6 : 1, marginRight: 'auto' }}
+                                >{deleting ? 'DELETING…' : 'DELETE'}</button>
+                            )}
                             <button type='button' onClick={() => setPickerOpen(false)}
                                 style={{ padding: '8px 18px', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}
                             >CANCEL</button>
                             <button type='button' onClick={saveSlots}
                                 disabled={pickerSelections.length === 0 || saving}
                                 style={{ padding: '8px 18px', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', background: pickerSelections.length === 0 ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.15)', border: pickerSelections.length === 0 ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(16,185,129,0.5)', color: pickerSelections.length === 0 ? 'rgba(237,237,237,0.2)' : '#10b981', cursor: pickerSelections.length === 0 ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}
-                            >{saving ? 'SAVING…' : 'CONFIRM'}</button>
+                            >{saving ? 'SAVING…' : (editingExistingSlotId ? 'UPDATE' : 'CONFIRM')}</button>
                         </div>
                     </div>
                 </div>

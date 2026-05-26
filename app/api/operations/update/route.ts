@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const mapWorld = searchParams.get('mapWorld')
     const customTheme = searchParams.get('customTheme')
+    const isSingleMission = searchParams.get('isSingleMission')
 
     if (!id) return NextResponse.json({ error: 'Operation ID Missing' }, { status: 401 })
 
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
         if (status) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { status: status as Operation['status'] } })
         if (mapWorld !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { mapWorld: mapWorld || undefined } })
         if (customTheme !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { customTheme } })
+        if (isSingleMission !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { isSingleMission: isSingleMission === 'true' } })
 
         return NextResponse.json({ success: true }, { status: 200 })
     }

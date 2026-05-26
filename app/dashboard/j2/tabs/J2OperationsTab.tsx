@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Typography, LinearProgress } from '@mui/material'
 import {
     Edit, ContentCopy, Delete, Add, BookmarkAdd, BookmarkAdded,
@@ -30,7 +31,8 @@ const STATUS_BORDER: Record<string, string> = {
 
 const ALL_STATUSES = ['All', 'In Development', 'Upcoming', 'Active', 'Completed'] as const
 type StatusFilter = typeof ALL_STATUSES[number]
-type ViewMode = 'list' | 'campaigns' | 'bin'
+type TypeFilter = 'All' | 'Campaigns' | 'Single Missions'
+type ViewMode = 'list' | 'bin'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -55,6 +57,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
     const [templates, setTemplates] = useState<OperationTemplate[]>([])
     const [loading, setLoading] = useState(true)
     const [applying, setApplying] = useState<string | null>(null)
+    const router = useRouter()
 
     useEffect(() => {
         fetch('/api/operations/templates')
@@ -72,7 +75,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
                 body: JSON.stringify({ templateId }),
             })
             const data = await res.json()
-            if (data.id) { window.open(`/operations/${data.id}/edit`, '_blank'); onClose() }
+            if (data.id) { router.push(`/operations/${data.id}/edit`); onClose() }
         } finally { setApplying(null) }
     }
 
@@ -362,9 +365,7 @@ function OpRow({ op, onDelete, onDuplicate, onNotesSaved, onTemplateSaved, onAss
                 </div>
                 <StatusBadge status={op.status} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
-                    <a href={`/operations/${id}/edit`} target='_blank' rel='noreferrer' title='Edit mission'>
-                        <button style={iconBtn()} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.3)')}><Edit style={{ fontSize: 15 }} /></button>
-                    </a>
+                    <button onClick={() => window.location.href = `/operations/${id}/edit?from=j2`} title='Edit mission' style={iconBtn()} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.3)')}><Edit style={{ fontSize: 15 }} /></button>
                     <button onClick={duplicate} disabled={duplicating} title='Duplicate' style={iconBtn()} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.3)')}><ContentCopy style={{ fontSize: 14 }} /></button>
                     {onConvertToCampaign && !op.campaignId && (
                         <button onClick={() => onConvertToCampaign(op)} title='Convert to Campaign' style={{ ...iconBtn(), color: 'rgba(100,150,237,0.3)' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(100,150,237,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,150,237,0.3)')}>
@@ -509,15 +510,16 @@ function NewMissionModal({
     campaigns: OperationCampaign[]
     onClose: () => void
     onCreatedSingle: () => void
-    onCreatedCampaign: (campaign: OperationCampaign, mission: CampaignMission) => void
+    onCreatedCampaign: (campaign: OperationCampaign, missions: CampaignMission[]) => void
 }) {
     const [step, setStep] = useState<'type' | 'campaign'>('type')
     const [campaignMode, setCampaignMode] = useState<'existing' | 'new'>('existing')
     const [selectedCampaignId, setSelectedCampaignId] = useState('')
     const [newCampaignName, setNewCampaignName] = useState('')
-    const [plannedCount, setPlannedCount] = useState(1)
+    const [plannedCount, setPlannedCount] = useState(3)
     const [creating, setCreating] = useState(false)
     const [error, setError] = useState('')
+    const nmRouter = useRouter()
 
     async function createSingle() {
         setCreating(true)
@@ -525,7 +527,7 @@ function NewMissionModal({
             const res = await fetch('/api/operations/new')
             const data = await res.json()
             if (data.id) {
-                window.open(`/operations/${data.id}/edit`, '_blank')
+                nmRouter.push(`/operations/${data.id}/edit`)
                 onCreatedSingle()
             }
         } finally { setCreating(false) }
@@ -540,6 +542,7 @@ function NewMissionModal({
 
             if (campaignMode === 'new') {
                 if (!newCampaignName.trim()) { setError('Campaign name required'); setCreating(false); return }
+                if (plannedCount < 3) { setError('Campaigns must contain a minimum of three missions.'); setCreating(false); return }
                 const res = await fetch('/api/operations/campaigns', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -554,23 +557,29 @@ function NewMissionModal({
                 if (!campaign) { setError('Select a campaign'); setCreating(false); return }
             }
 
-            // Figure out what sequence number to use (next after existing missions)
+            // Fetch current missions to determine next sequence
             const mRes = await fetch(`/api/operations/campaign-missions?campaignId=${campaignId}`)
             const mData = await mRes.json()
             const existingMissions: CampaignMission[] = mData.missions ?? []
-            const nextSeq = existingMissions.length + 1
-            const missionName = `${campaign.name} ${toRoman(nextSeq)}`
+            const startSeq = existingMissions.length + 1
 
-            const mRes2 = await fetch('/api/operations/campaign-missions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ campaignId, name: missionName, sequence: nextSeq }),
-            })
-            const mData2 = await mRes2.json()
-            if (!mRes2.ok) { setError(mData2.error ?? 'Failed'); setCreating(false); return }
+            const count = campaignMode === 'new' ? plannedCount : 1
+            const createdMissions: CampaignMission[] = []
 
-            const newMission: CampaignMission = mData2.mission
-            onCreatedCampaign(campaign, newMission)
+            for (let i = 0; i < count; i++) {
+                const seq = startSeq + i
+                const missionName = `${campaign.name} ${toRoman(seq)}`
+                const mRes2 = await fetch('/api/operations/campaign-missions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ campaignId, name: missionName, sequence: seq }),
+                })
+                const mData2 = await mRes2.json()
+                if (!mRes2.ok) { setError(mData2.error ?? 'Failed'); setCreating(false); return }
+                createdMissions.push(mData2.mission)
+            }
+
+            onCreatedCampaign(campaign, createdMissions)
         } catch { setError('Network error') }
         finally { setCreating(false) }
     }
@@ -677,16 +686,21 @@ function NewMissionModal({
                                     onFocus={e => (e.currentTarget.style.borderColor = 'rgba(100,150,237,0.5)')}
                                     onBlur={e => (e.currentTarget.style.borderColor = error ? 'rgba(219,0,29,0.5)' : 'rgba(100,150,237,0.2)')}
                                 />
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)', whiteSpace: 'nowrap' }}>Planned missions (optional):</span>
-                                    <input
-                                        type='number' min={1} max={10} value={plannedCount}
-                                        onChange={e => setPlannedCount(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
-                                        style={{
-                                            width: 60, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(100,150,237,0.2)',
-                                            color: '#ededed', fontSize: '0.82rem', padding: '4px 8px', outline: 'none', fontFamily: 'inherit', textAlign: 'center',
-                                        }}
-                                    />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)', whiteSpace: 'nowrap' }}>Planned missions:</span>
+                                        <input
+                                            type='number' min={3} max={10} value={plannedCount}
+                                            onChange={e => setPlannedCount(Math.max(3, Math.min(10, parseInt(e.target.value) || 3)))}
+                                            style={{
+                                                width: 60, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(100,150,237,0.2)',
+                                                color: '#ededed', fontSize: '0.82rem', padding: '4px 8px', outline: 'none', fontFamily: 'inherit', textAlign: 'center',
+                                            }}
+                                        />
+                                    </div>
+                                    <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>
+                                        Campaigns must contain a minimum of three missions.
+                                    </span>
                                 </div>
                             </div>
                         )}
@@ -704,7 +718,7 @@ function NewMissionModal({
                                 opacity: campaignMode === 'existing' && !selectedCampaignId ? 0.4 : 1,
                             }}
                         >
-                            <Add style={{ fontSize: 14 }} />{creating ? 'Creating…' : 'Create Campaign Mission'}
+                            <Add style={{ fontSize: 14 }} />{creating ? 'Creating…' : (campaignMode === 'new' ? 'Create Campaign' : 'Add Mission')}
                         </button>
                     </div>
                 )}
@@ -733,6 +747,7 @@ function AddDaySlotModal({
     const [selectedSections, setSelectedSections] = useState<string[]>([])
     const [creating, setCreating] = useState(false)
     const [error, setError] = useState('')
+    const slotRouter = useRouter()
 
     const missionId = mission._id?.toString() ?? ''
     const hasSaturdayOp = !!saturdayOp
@@ -797,10 +812,10 @@ function AddDaySlotModal({
             if (!linkRes.ok) { setError('Failed to link operation'); setCreating(false); return }
 
             // Fetch the new op to pass back
-            const opRes = await fetch(`/api/operations/${newOpId}`)
+            const opRes = await fetch(`/api/operations?id=${newOpId}`)
             const opData = await opRes.json()
-            onLinked(mission, newOpId, opData.operation ?? { _id: newOpId, title: 'New Operation', date: new Date() } as any)
-            window.open(`/operations/${newOpId}/edit`, '_blank')
+            onLinked(mission, newOpId, opData.mission ?? { _id: newOpId, title: 'New Operation', date: new Date() } as any)
+            slotRouter.push(`/operations/${newOpId}/edit`)
         } catch { setError('Network error') }
         finally { setCreating(false) }
     }
@@ -1027,7 +1042,7 @@ function CampaignMissionRow({
     onMissionRenamed: (id: string, name: string) => void
     onMissionDeleted: (id: string) => void
 }) {
-    const [open, setOpen] = useState(true)
+    const [open, setOpen] = useState(false)
     const [editing, setEditing] = useState(false)
     const [editName, setEditName] = useState(mission.name)
     const [saving, setSaving] = useState(false)
@@ -1064,9 +1079,12 @@ function CampaignMissionRow({
             return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: accent, flexShrink: 0, width: 56 }}>{label}</span>
-                    <a href={`/operations/${op._id.toString()}/edit`} target='_blank' rel='noreferrer' style={{ flex: 1, fontSize: '0.78rem', fontWeight: 600, color: 'rgba(237,237,237,0.8)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <button onClick={() => window.location.href = `/operations/${op._id.toString()}/edit?from=j2`} style={{ all: 'unset', cursor: 'pointer', flex: 1, fontSize: '0.78rem', fontWeight: 600, color: 'rgba(237,237,237,0.8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {op.title}
-                    </a>
+                    </button>
+                    <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.22)', flexShrink: 0 }}>
+                        {new Date(op.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
+                    </span>
                     {op.status && (
                         <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: STATUS_COLORS[op.status] ?? 'rgba(237,237,237,0.35)', border: `1px solid ${STATUS_BORDER[op.status] ?? 'rgba(237,237,237,0.2)'}`, padding: '1px 5px', flexShrink: 0 }}>
                             {op.status}
@@ -1165,7 +1183,7 @@ function CampaignGroupHierarchy({
     onCampaignRenamed: (id: string, name: string) => void
     onCampaignDeleted: (id: string) => void
 }) {
-    const [open, setOpen] = useState(true)
+    const [open, setOpen] = useState(false)
     const [editing, setEditing] = useState(false)
     const [editName, setEditName] = useState(campaign.name)
     const [confirmDelete, setConfirmDelete] = useState(false)
@@ -1174,6 +1192,13 @@ function CampaignGroupHierarchy({
     const [addingMission, setAddingMission] = useState(false)
 
     const campaignId = campaign._id.toString()
+
+    const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+    const campaignDateRange = campaign.startDate && campaign.endDate
+        ? `${fmtDate(campaign.startDate)} — ${fmtDate(campaign.endDate)}`
+        : campaign.startDate ? fmtDate(campaign.startDate)
+        : campaign.endDate ? fmtDate(campaign.endDate)
+        : null
 
     async function saveName() {
         if (!campaign || !editName.trim() || editName.trim() === campaign.name) { setEditing(false); return }
@@ -1258,9 +1283,14 @@ function CampaignGroupHierarchy({
                             style={{ flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(100,150,237,0.4)', color: '#ededed', fontSize: '0.82rem', fontWeight: 700, padding: '2px 8px', outline: 'none', fontFamily: 'inherit', opacity: saving ? 0.5 : 1 }}
                         />
                     ) : (
-                        <button onClick={() => { setEditName(campaign.name); setEditing(true) }} title='Click to rename' style={{ all: 'unset', cursor: 'pointer', flex: 1, fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(100,150,237,0.9)' }}>
-                            {campaign.name}
-                        </button>
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <button onClick={() => { setEditName(campaign.name); setEditing(true) }} title='Click to rename' style={{ all: 'unset', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(100,150,237,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {campaign.name}
+                            </button>
+                            {campaignDateRange && (
+                                <span style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.28)', letterSpacing: '0.04em' }}>{campaignDateRange}</span>
+                            )}
+                        </div>
                     )}
 
                     <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.06em' }}>
@@ -1383,6 +1413,630 @@ function CreateCampaignForm({ onCreated }: { onCreated: (c: OperationCampaign) =
     )
 }
 
+// ── Campaign Organiser Modal ──────────────────────────────────────────────────
+
+function detectDaySlot(title: string): { stripped: string; day: 'saturday' | 'sunday' | null } {
+    const sat = title.match(/\s*[-–]?\s*(sat|saturday)\s*$/i)
+    if (sat) return { stripped: title.slice(0, title.length - sat[0].length).trim(), day: 'saturday' }
+    const sun = title.match(/\s*[-–]?\s*(sun|sunday)\s*$/i)
+    if (sun) return { stripped: title.slice(0, title.length - sun[0].length).trim(), day: 'sunday' }
+    return { stripped: title, day: null }
+}
+function detectRomanSuffix(title: string): { stripped: string; roman: string | null } {
+    const m = title.match(/\s+(I{1,3}|IV|VI{0,3}|IX|X)\s*$/i)
+    if (m) return { stripped: title.slice(0, title.length - m[0].length).trim(), roman: m[1].toUpperCase() }
+    return { stripped: title, roman: null }
+}
+function makeTempId() { return Math.random().toString(36).slice(2, 10) }
+
+interface OrgMission { tempId: string; name: string; saturday: Operation | null; sunday: Operation | null; standalone: Operation | null; isSingleEvent?: boolean }
+interface OrgGroup { tempId: string; name: string; missions: OrgMission[]; selected: boolean; startDate: string; endDate: string; dateOverridden: boolean }
+
+function computeGroupDates(missions: OrgMission[]): { startDate: string; endDate: string } {
+    const ts = missions.flatMap(m => [m.saturday?.date, m.sunday?.date, m.standalone?.date])
+        .filter(Boolean).map(d => new Date(d!).getTime())
+    if (ts.length === 0) return { startDate: '', endDate: '' }
+    const fmt = (t: number) => new Date(t).toISOString().split('T')[0]
+    return { startDate: fmt(Math.min(...ts)), endDate: fmt(Math.max(...ts)) }
+}
+
+function buildOrgGroups(allOps: Operation[], existingCampaigns: OperationCampaign[]): { groups: OrgGroup[]; unassigned: Operation[] } {
+    const existingCampaignIds = new Set(existingCampaigns.map(c => c._id.toString()))
+    const pool = allOps.filter(op =>
+        !op.isSingleMission &&
+        (!op.campaignId || !existingCampaignIds.has(op.campaignId?.toString() ?? ''))
+    )
+
+    const analysed = pool.map(op => {
+        const { stripped: withoutDay, day } = detectDaySlot(op.title)
+        const { stripped: campaignBase } = detectRomanSuffix(withoutDay)
+        return { op, day, missionKey: withoutDay.toLowerCase(), campaignKey: campaignBase.toLowerCase(), campaignName: campaignBase }
+    })
+
+    const campaignMap = new Map<string, typeof analysed>()
+    for (const a of analysed) {
+        if (!campaignMap.has(a.campaignKey)) campaignMap.set(a.campaignKey, [])
+        campaignMap.get(a.campaignKey)!.push(a)
+    }
+
+    const groups: OrgGroup[] = []
+    const usedIds = new Set<string>()
+
+    for (const [, items] of campaignMap) {
+        const missionKeys = new Set(items.map(i => i.missionKey))
+        const hasSatSun = items.some(i => i.day !== null)
+        if (missionKeys.size < 2 && !hasSatSun) continue
+
+        const missionMap = new Map<string, typeof items>()
+        for (const item of items) {
+            if (!missionMap.has(item.missionKey)) missionMap.set(item.missionKey, [])
+            missionMap.get(item.missionKey)!.push(item)
+        }
+
+        const campaignName = items[0]?.campaignName ?? 'Campaign'
+        const missions: OrgMission[] = []
+
+        for (const [, mItems] of missionMap) {
+            const sat = mItems.find(i => i.day === 'saturday')?.op ?? null
+            const sun = mItems.find(i => i.day === 'sunday')?.op ?? null
+            const standalone = mItems.find(i => i.day === null)?.op ?? null
+            const missionName = (sat ?? sun ?? standalone)?.title
+                .replace(/\s*[-–]?\s*(sat|saturday|sun|sunday)\s*$/i, '').trim() ?? ''
+            missions.push({ tempId: makeTempId(), name: missionName, saturday: sat, sunday: sun, standalone })
+            mItems.forEach(i => usedIds.add(i.op._id.toString()))
+        }
+
+        missions.sort((a, b) => {
+            const t = (m: OrgMission) => new Date(m.saturday?.date ?? m.sunday?.date ?? m.standalone?.date ?? 0).getTime()
+            return t(a) - t(b)
+        })
+        missions.forEach((m, i) => { m.name = `${campaignName} ${toRoman(i + 1)}` })
+        const { startDate, endDate } = computeGroupDates(missions)
+        groups.push({ tempId: makeTempId(), name: campaignName, missions, selected: false, startDate, endDate, dateOverridden: false })
+    }
+
+    const unassigned = pool.filter(op => !usedIds.has(op._id.toString()))
+    return { groups: groups.sort((a, b) => a.name.localeCompare(b.name)), unassigned }
+}
+
+type DragItem =
+    | { kind: 'mission'; groupId: string; missionId: string }
+    | { kind: 'slot'; groupId: string; missionId: string; slot: 'saturday' | 'sunday' | 'standalone'; op: Operation }
+    | { kind: 'unassigned'; op: Operation }
+
+function AutoOrganiseModal({
+    allOps, existingCampaigns, onClose, onOrganised,
+}: {
+    allOps: Operation[]
+    existingCampaigns: OperationCampaign[]
+    onClose: () => void
+    onOrganised: (campaigns: OperationCampaign[], missionsMap: Record<string, CampaignMission[]>) => void
+}) {
+    const [groups, setGroups] = useState<OrgGroup[]>([])
+    const [unassigned, setUnassigned] = useState<Operation[]>([])
+    const [applying, setApplying] = useState(false)
+    const [error, setError] = useState('')
+    const [showConfirm, setShowConfirm] = useState(false)
+    const [deletedCampaigns, setDeletedCampaigns] = useState<OperationCampaign[]>([])
+    const [deletedMissions, setDeletedMissions] = useState<CampaignMission[]>([])
+    const [showDeletedView, setShowDeletedView] = useState(false)
+    const [restoringCampaignId, setRestoringCampaignId] = useState<string | null>(null)
+    const [restoringMissionId, setRestoringMissionId] = useState<string | null>(null)
+    // Drag state: stored in ref (avoids re-renders), dragOver state for visual feedback
+    const dragRef = useRef<DragItem | null>(null)
+    const [dragOver, setDragOver] = useState<string | null>(null) // target key
+
+    useEffect(() => {
+        const { groups: g, unassigned: u } = buildOrgGroups(allOps, existingCampaigns)
+        setGroups(g)
+        setUnassigned(u)
+        // Load soft-deleted campaigns + missions
+        fetch('/api/operations/campaigns?includeDeleted=true')
+            .then(r => r.json())
+            .then(d => setDeletedCampaigns((d.campaigns ?? []).filter((c: OperationCampaign) => c.isDeleted)))
+        fetch('/api/operations/campaign-missions?includeDeleted=true')
+            .then(r => r.json())
+            .then(d => setDeletedMissions(d.missions ?? []))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    async function markSingleMission(opId: string) {
+        await fetch(`/api/operations/update?id=${opId}&isSingleMission=true`)
+        setUnassigned(u => u.filter(o => o._id.toString() !== opId))
+    }
+
+    async function restoreDeletedCampaign(campaignId: string) {
+        setRestoringCampaignId(campaignId)
+        try {
+            await fetch('/api/operations/campaigns', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: campaignId, restore: true }),
+            })
+            setDeletedCampaigns(cs => cs.filter(c => c._id.toString() !== campaignId))
+        } finally { setRestoringCampaignId(null) }
+    }
+
+    async function restoreDeletedMission(missionId: string) {
+        setRestoringMissionId(missionId)
+        try {
+            await fetch(`/api/operations/campaign-missions/${missionId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ restore: true }),
+            })
+            setDeletedMissions(ms => ms.filter(m => m._id?.toString() !== missionId))
+        } finally { setRestoringMissionId(null) }
+    }
+
+    const selectedGroups = groups.filter(g => g.selected)
+
+    const updGroup = (id: string, fn: (g: OrgGroup) => OrgGroup) =>
+        setGroups(gs => gs.map(g => g.tempId === id ? fn(g) : g))
+    const updMission = (gId: string, mId: string, fn: (m: OrgMission) => OrgMission) =>
+        updGroup(gId, g => ({ ...g, missions: g.missions.map(m => m.tempId === mId ? fn(m) : m) }))
+
+    // Auto-recompute dates when missions change, unless overridden
+    function recheckDates(gs: OrgGroup[]): OrgGroup[] {
+        return gs.map(g => {
+            if (g.dateOverridden) return g
+            const { startDate, endDate } = computeGroupDates(g.missions)
+            return { ...g, startDate, endDate }
+        })
+    }
+    const setGroupsWithDates = (fn: (gs: OrgGroup[]) => OrgGroup[]) =>
+        setGroups(gs => recheckDates(fn(gs)))
+
+    function unlinkOp(gId: string, mId: string, slot: 'saturday' | 'sunday' | 'standalone') {
+        let freed: Operation | null = null
+        setGroupsWithDates(gs => gs.map(g => g.tempId !== gId ? g : {
+            ...g, missions: g.missions.map(m => {
+                if (m.tempId !== mId) return m
+                freed = m[slot]; return { ...m, [slot]: null }
+            })
+        }))
+        if (freed) setUnassigned(u => [...u, freed!])
+    }
+
+    function removeGroup(gId: string) {
+        const g = groups.find(x => x.tempId === gId)
+        if (!g) return
+        const freed = g.missions.flatMap(m => [m.saturday, m.sunday, m.standalone].filter(Boolean) as Operation[])
+        setGroups(gs => gs.filter(x => x.tempId !== gId))
+        setUnassigned(u => [...u, ...freed])
+    }
+
+    function removeMission(gId: string, mId: string) {
+        let freed: Operation[] = []
+        setGroupsWithDates(gs => gs.map(g => g.tempId !== gId ? g : {
+            ...g, missions: g.missions.filter(x => {
+                if (x.tempId !== mId) return true
+                freed = [x.saturday, x.sunday, x.standalone].filter(Boolean) as Operation[]
+                return false
+            })
+        }))
+        setUnassigned(u => [...u, ...freed])
+    }
+
+    function moveMissionBtn(gId: string, mId: string, dir: -1 | 1) {
+        setGroupsWithDates(gs => gs.map(g => {
+            if (g.tempId !== gId) return g
+            const idx = g.missions.findIndex(m => m.tempId === mId)
+            if (idx < 0 || idx + dir < 0 || idx + dir >= g.missions.length) return g
+            const ms = [...g.missions];
+            [ms[idx], ms[idx + dir]] = [ms[idx + dir], ms[idx]]
+            return { ...g, missions: ms }
+        }))
+    }
+
+    function addOpToGroup(op: Operation, gId: string) {
+        const g = groups.find(x => x.tempId === gId)
+        if (!g) return
+        const { day } = detectDaySlot(op.title)
+        const newM: OrgMission = { tempId: makeTempId(), name: `${g.name} ${toRoman(g.missions.length + 1)}`, saturday: day === 'saturday' ? op : null, sunday: day === 'sunday' ? op : null, standalone: day === null ? op : null }
+        setGroupsWithDates(gs => gs.map(x => x.tempId !== gId ? x : { ...x, missions: [...x.missions, newM] }))
+        setUnassigned(u => u.filter(o => o._id.toString() !== op._id.toString()))
+    }
+
+    // ── Drag helpers ──────────────────────────────────────────────────────────
+
+    function handleMissionDragStart(e: React.DragEvent, groupId: string, missionId: string) {
+        e.stopPropagation()
+        dragRef.current = { kind: 'mission', groupId, missionId }
+        e.dataTransfer.effectAllowed = 'move'
+    }
+
+    function handleSlotDragStart(e: React.DragEvent, groupId: string, missionId: string, slot: 'saturday' | 'sunday' | 'standalone', op: Operation) {
+        e.stopPropagation()
+        dragRef.current = { kind: 'slot', groupId, missionId, slot, op }
+        e.dataTransfer.effectAllowed = 'move'
+    }
+
+    function handleUnassignedDragStart(e: React.DragEvent, op: Operation) {
+        dragRef.current = { kind: 'unassigned', op }
+        e.dataTransfer.effectAllowed = 'move'
+    }
+
+    // Drop on a campaign body — receive a mission (from another group or same group)
+    function handleGroupDrop(e: React.DragEvent, targetGroupId: string) {
+        e.preventDefault(); e.stopPropagation()
+        setDragOver(null)
+        const item = dragRef.current; dragRef.current = null
+        if (!item) return
+
+        if (item.kind === 'mission') {
+            if (item.groupId === targetGroupId) return
+            // Move mission from source to target group
+            let moved: OrgMission | null = null
+            setGroupsWithDates(gs => {
+                const src = gs.find(g => g.tempId === item.groupId)
+                moved = src?.missions.find(m => m.tempId === item.missionId) ?? null
+                return gs.map(g => {
+                    if (g.tempId === item.groupId) return { ...g, missions: g.missions.filter(m => m.tempId !== item.missionId) }
+                    if (g.tempId === targetGroupId && moved) return { ...g, missions: [...g.missions, { ...moved, tempId: makeTempId() }] }
+                    return g
+                })
+            })
+        } else if (item.kind === 'unassigned') {
+            addOpToGroup(item.op, targetGroupId)
+        }
+    }
+
+    // Drop on a mission row (reorder or receive a slot)
+    function handleMissionDrop(e: React.DragEvent, targetGroupId: string, targetMissionId: string) {
+        e.preventDefault(); e.stopPropagation()
+        setDragOver(null)
+        const item = dragRef.current; dragRef.current = null
+        if (!item) return
+
+        if (item.kind === 'mission') {
+            if (item.missionId === targetMissionId && item.groupId === targetGroupId) return
+            setGroupsWithDates(gs => {
+                let moved: OrgMission | null = null
+                const cleaned = gs.map(g => {
+                    if (g.tempId !== item.groupId) return g
+                    moved = g.missions.find(m => m.tempId === item.missionId) ?? null
+                    return { ...g, missions: g.missions.filter(m => m.tempId !== item.missionId) }
+                })
+                return cleaned.map(g => {
+                    if (g.tempId !== targetGroupId || !moved) return g
+                    if (item.groupId !== targetGroupId) {
+                        // Cross-campaign: always append to bottom
+                        return { ...g, missions: [...g.missions, { ...moved, tempId: makeTempId() }] }
+                    }
+                    // Same campaign: insert before target (reorder)
+                    const tIdx = g.missions.findIndex(m => m.tempId === targetMissionId)
+                    const ms = [...g.missions]
+                    ms.splice(tIdx >= 0 ? tIdx : ms.length, 0, moved)
+                    return { ...g, missions: ms }
+                })
+            })
+        } else if (item.kind === 'slot' || item.kind === 'unassigned') {
+            const op = item.kind === 'slot' ? item.op : item.op
+            const { day } = detectDaySlot(op.title)
+            const slot: 'saturday' | 'sunday' | 'standalone' = day === 'saturday' ? 'saturday' : day === 'sunday' ? 'sunday' : 'standalone'
+            // If came from a slot, clear the source slot
+            if (item.kind === 'slot') {
+                setGroupsWithDates(gs => gs.map(g => g.tempId !== item.groupId ? g : {
+                    ...g, missions: g.missions.map(m => m.tempId !== item.missionId ? m : { ...m, [item.slot]: null })
+                }))
+                setUnassigned(u => u.filter(o => o._id.toString() !== op._id.toString()))
+            } else {
+                setUnassigned(u => u.filter(o => o._id.toString() !== op._id.toString()))
+            }
+            setGroupsWithDates(gs => gs.map(g => g.tempId !== targetGroupId ? g : {
+                ...g, missions: g.missions.map(m => m.tempId !== targetMissionId ? m : { ...m, [slot]: op })
+            }))
+        }
+    }
+
+    // Drop on a specific slot (SAT/SUN/OP zone)
+    function handleSlotDrop(e: React.DragEvent, targetGroupId: string, targetMissionId: string, targetSlot: 'saturday' | 'sunday' | 'standalone') {
+        e.preventDefault(); e.stopPropagation()
+        setDragOver(null)
+        const item = dragRef.current; dragRef.current = null
+        if (!item || item.kind === 'mission') return
+
+        const op = item.op
+        // Clear from source
+        if (item.kind === 'slot') {
+            setGroupsWithDates(gs => gs.map(g => g.tempId !== item.groupId ? g : {
+                ...g, missions: g.missions.map(m => m.tempId !== item.missionId ? m : { ...m, [item.slot]: null })
+            }))
+        } else { setUnassigned(u => u.filter(o => o._id.toString() !== op._id.toString())) }
+        // Set target slot
+        setGroupsWithDates(gs => gs.map(g => g.tempId !== targetGroupId ? g : {
+            ...g, missions: g.missions.map(m => m.tempId !== targetMissionId ? m : { ...m, [targetSlot]: op })
+        }))
+    }
+
+    function dvOver(e: React.DragEvent, key: string) { e.preventDefault(); setDragOver(key) }
+    function dvLeave() { setDragOver(null) }
+
+    // ── Apply ─────────────────────────────────────────────────────────────────
+
+    async function applyOrganisation() {
+        setApplying(true); setError('')
+        try {
+            const newCampaigns: OperationCampaign[] = []
+            const newMissionsMap: Record<string, CampaignMission[]> = {}
+
+            for (const group of selectedGroups) {
+                const cRes = await fetch('/api/operations/campaigns', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: group.name, startDate: group.startDate || undefined, endDate: group.endDate || undefined })
+                })
+                const cData = await cRes.json()
+                if (!cRes.ok) { setError(cData.error ?? 'Failed to create campaign'); setApplying(false); return }
+                const campaignId = cData.id.toString()
+                newCampaigns.push({ _id: cData.id, name: group.name, createdBy: '', createdAt: new Date().toISOString(), startDate: group.startDate, endDate: group.endDate })
+                newMissionsMap[campaignId] = []
+
+                for (let i = 0; i < group.missions.length; i++) {
+                    const m = group.missions[i]
+                    const mRes = await fetch('/api/operations/campaign-missions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ campaignId, name: m.name, sequence: i + 1 }) })
+                    const mData = await mRes.json()
+                    if (!mRes.ok) continue
+                    const mId = mData.id.toString()
+                    newMissionsMap[campaignId].push(mData.mission)
+                    if (m.saturday) await fetch(`/api/operations/campaign-missions/${mId}/link`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ daySlot: 'saturday', operationId: m.saturday._id.toString() }) })
+                    if (m.sunday) await fetch(`/api/operations/campaign-missions/${mId}/link`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ daySlot: 'sunday', operationId: m.sunday._id.toString() }) })
+                    if (m.standalone) await fetch('/api/operations/campaigns/assign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operationId: m.standalone._id.toString(), campaignId }) })
+                }
+            }
+            onOrganised(newCampaigns, newMissionsMap)
+        } catch { setError('Network error') }
+        finally { setApplying(false) }
+    }
+
+    // ── Slot renderer ─────────────────────────────────────────────────────────
+
+    function OpSlot({ gId, mId, slot, label, op, accent }: { gId: string; mId: string; slot: 'saturday' | 'sunday' | 'standalone'; label: string; op: Operation | null; accent: string }) {
+        const dropKey = `slot:${gId}:${mId}:${slot}`
+        const isDragTarget = dragOver === dropKey && !!dragRef.current && dragRef.current.kind !== 'mission'
+        if (op) return (
+            <div draggable onDragStart={e => handleSlotDragStart(e, gId, mId, slot, op)}
+                onDragOver={e => dvOver(e, dropKey)} onDragLeave={dvLeave} onDrop={e => handleSlotDrop(e, gId, mId, slot)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', background: isDragTarget ? 'rgba(100,150,237,0.12)' : 'rgba(255,255,255,0.025)', border: `1px solid ${isDragTarget ? 'rgba(100,150,237,0.5)' : 'rgba(255,255,255,0.05)'}`, cursor: 'grab' }}>
+                <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: accent, width: 26, flexShrink: 0 }}>{label}</span>
+                <span style={{ flex: 1, fontSize: '0.68rem', color: 'rgba(237,237,237,0.65)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.title}</span>
+                <span style={{ fontSize: '0.52rem', color: 'rgba(237,237,237,0.18)', flexShrink: 0 }}>{new Date(op.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}</span>
+                <button type='button' onClick={() => unlinkOp(gId, mId, slot)} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(219,0,29,0.25)', display: 'flex', flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.7)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.25)')}><Close style={{ fontSize: 11 }} /></button>
+            </div>
+        )
+        return (
+            <div onDragOver={e => dvOver(e, dropKey)} onDragLeave={dvLeave} onDrop={e => handleSlotDrop(e, gId, mId, slot)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px', background: isDragTarget ? 'rgba(100,150,237,0.1)' : 'rgba(255,255,255,0.01)', border: `1px dashed ${isDragTarget ? 'rgba(100,150,237,0.5)' : 'rgba(255,255,255,0.07)'}`, transition: 'all 0.1s' }}>
+                <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: `${accent.replace(/[\d.]+\)$/, '0.35)')}`, width: 26, flexShrink: 0 }}>{label}</span>
+                <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.18)', fontStyle: 'italic' }}>Drop here</span>
+            </div>
+        )
+    }
+
+    const fmtDate = (iso: string) => {
+        if (!iso) return ''
+        const d = new Date(iso)
+        return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+    }
+
+    return (
+        <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 700, maxHeight: 'calc(100vh - 32px)', background: 'rgb(13,13,13)', border: '1px solid rgba(100,150,237,0.25)', borderTop: '2px solid rgba(100,150,237,0.6)', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.8)' }}>
+
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+                    <div>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.8)' }}>Campaign Organiser</span>
+                        <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>Drag missions and day slots into the correct campaign structure, then apply.</div>
+                    </div>
+                    <button onClick={onClose} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.35)', display: 'flex' }}><Close style={{ fontSize: 18 }} /></button>
+                </div>
+
+                {/* Toolbar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)', flexShrink: 0, flexWrap: 'wrap' }}>
+                    <button onClick={() => setGroups(gs => gs.map(g => ({ ...g, selected: true })))} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.7)', padding: '3px 8px', border: '1px solid rgba(100,150,237,0.2)' }}>Select All</button>
+                    <button onClick={() => setGroups(gs => gs.map(g => ({ ...g, selected: false })))} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', padding: '3px 8px', border: '1px solid rgba(255,255,255,0.1)' }}>Deselect All</button>
+                    <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)', margin: '0 2px' }} />
+                    <button onClick={() => { const id = makeTempId(); setGroups(gs => [...gs, { tempId: id, name: 'New Campaign', missions: [], selected: true, startDate: '', endDate: '', dateOverridden: false }]) }} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.6)', padding: '3px 8px', border: '1px solid rgba(100,150,237,0.15)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <Add style={{ fontSize: 11 }} />New Campaign
+                    </button>
+                    <button onClick={() => setShowDeletedView(true)} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', padding: '3px 8px', border: '1px solid rgba(219,0,29,0.2)', display: 'flex', alignItems: 'center', gap: 4 }} onMouseEnter={e => { e.currentTarget.style.color = 'rgba(219,0,29,0.9)'; e.currentTarget.style.borderColor = 'rgba(219,0,29,0.45)' }} onMouseLeave={e => { e.currentTarget.style.color = 'rgba(219,0,29,0.55)'; e.currentTarget.style.borderColor = 'rgba(219,0,29,0.2)' }}>
+                        <Delete style={{ fontSize: 11 }} />View Deleted{(deletedCampaigns.length + deletedMissions.length) > 0 ? ` (${deletedCampaigns.length + deletedMissions.length})` : ''}
+                    </button>
+                    <span style={{ marginLeft: 'auto', fontSize: '0.58rem', color: 'rgba(237,237,237,0.22)' }}>{selectedGroups.length}/{groups.length} groups · {unassigned.length} unassigned</span>
+                </div>
+
+                {/* Body — normal organiser OR deleted view */}
+                {showDeletedView ? (
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                            <button type='button' onClick={() => setShowDeletedView(false)} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.7)', display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', border: '1px solid rgba(100,150,237,0.2)' }}>← Back to Organiser</button>
+                            <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>Recycle Bin</span>
+                        </div>
+
+                        {deletedCampaigns.length === 0 && deletedMissions.length === 0 && (
+                            <div style={{ padding: '24px 0', textAlign: 'center', color: 'rgba(237,237,237,0.2)', fontSize: '0.72rem', fontStyle: 'italic' }}>Recycle bin is empty.</div>
+                        )}
+
+                        {deletedCampaigns.length > 0 && (
+                            <>
+                                <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.5)', marginTop: 4 }}>Campaigns</div>
+                                {deletedCampaigns.map(c => (
+                                    <div key={c._id.toString()} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', border: '1px solid rgba(219,0,29,0.15)', background: 'rgba(219,0,29,0.03)' }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(237,237,237,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                            {c.deletedAt && <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.22)', marginTop: 2 }}>Deleted {new Date(c.deletedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
+                                        </div>
+                                        <button type='button' onClick={() => restoreDeletedCampaign(c._id.toString())} disabled={restoringCampaignId === c._id.toString()} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(16,185,129,0.75)', border: '1px solid rgba(16,185,129,0.25)', padding: '4px 12px', flexShrink: 0, transition: 'color 0.12s' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(16,185,129,1)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(16,185,129,0.75)')}>
+                                            {restoringCampaignId === c._id.toString() ? 'Restoring…' : 'Restore'}
+                                        </button>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+
+                        {deletedMissions.length > 0 && (
+                            <>
+                                <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.5)', marginTop: 8 }}>Campaign Missions</div>
+                                {deletedMissions.map(m => {
+                                    const mId = m._id?.toString() ?? ''
+                                    return (
+                                        <div key={mId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', border: '1px solid rgba(219,160,0,0.12)', background: 'rgba(219,160,0,0.02)' }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(237,237,237,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
+                                                {m.deletedAt && <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.22)', marginTop: 2 }}>
+                                                    Deleted {new Date(m.deletedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                    {m.deletedByName && ` by ${m.deletedByName}`}
+                                                </div>}
+                                            </div>
+                                            <button type='button' onClick={() => restoreDeletedMission(mId)} disabled={restoringMissionId === mId} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(16,185,129,0.75)', border: '1px solid rgba(16,185,129,0.25)', padding: '4px 12px', flexShrink: 0, transition: 'color 0.12s' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(16,185,129,1)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(16,185,129,0.75)')}>
+                                                {restoringMissionId === mId ? 'Restoring…' : 'Restore'}
+                                            </button>
+                                        </div>
+                                    )
+                                })}
+                            </>
+                        )}
+                    </div>
+                ) : null}
+
+                {/* Body */}
+                {!showDeletedView && (
+                <div style={{ flex: 1, overflowY: 'auto', padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {groups.length === 0 && unassigned.length === 0 && <div style={{ padding: '32px 0', textAlign: 'center', color: 'rgba(237,237,237,0.2)', fontSize: '0.75rem', fontStyle: 'italic' }}>No operations available to organise.</div>}
+
+                    {groups.map(group => {
+                        const groupDropKey = `group:${group.tempId}`
+                        const isGroupTarget = dragOver === groupDropKey
+                        return (
+                            <div key={group.tempId}
+                                onDragOver={e => dvOver(e, groupDropKey)} onDragLeave={dvLeave} onDrop={e => handleGroupDrop(e, group.tempId)}
+                                style={{ border: `1px solid ${isGroupTarget ? 'rgba(100,150,237,0.55)' : group.selected ? 'rgba(100,150,237,0.28)' : 'rgba(255,255,255,0.06)'}`, background: isGroupTarget ? 'rgba(100,150,237,0.07)' : group.selected ? 'rgba(100,150,237,0.03)' : 'transparent', transition: 'all 0.1s' }}>
+
+                                {/* Campaign header */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap' }}>
+                                    <input type='checkbox' checked={group.selected} onChange={e => updGroup(group.tempId, g => ({ ...g, selected: e.target.checked }))} style={{ accentColor: 'rgba(100,150,237,0.9)', cursor: 'pointer', width: 14, height: 14, flexShrink: 0 }} />
+                                    <input value={group.name} onChange={e => updGroup(group.tempId, g => ({ ...g, name: e.target.value }))} style={{ flex: 1, minWidth: 100, background: 'transparent', border: 'none', borderBottom: '1px solid rgba(100,150,237,0.2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.8rem', fontWeight: 700, padding: '1px 4px', outline: 'none', fontFamily: 'inherit' }} />
+                                    {/* Date range */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                                        <input type='date' value={group.startDate} onChange={e => updGroup(group.tempId, g => ({ ...g, startDate: e.target.value, dateOverridden: true }))}
+                                            style={{ background: 'rgba(100,150,237,0.06)', border: '1px solid rgba(100,150,237,0.15)', color: 'rgba(100,150,237,0.65)', fontSize: '0.58rem', padding: '2px 4px', outline: 'none', fontFamily: 'inherit', colorScheme: 'dark', width: 108 }} />
+                                        <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.2)' }}>→</span>
+                                        <input type='date' value={group.endDate} onChange={e => updGroup(group.tempId, g => ({ ...g, endDate: e.target.value, dateOverridden: true }))}
+                                            style={{ background: 'rgba(100,150,237,0.06)', border: '1px solid rgba(100,150,237,0.15)', color: 'rgba(100,150,237,0.65)', fontSize: '0.58rem', padding: '2px 4px', outline: 'none', fontFamily: 'inherit', colorScheme: 'dark', width: 108 }} />
+                                        {group.dateOverridden && (
+                                            <button type='button' title='Reset to auto-detect' onClick={() => { const { startDate, endDate } = computeGroupDates(group.missions); updGroup(group.tempId, g => ({ ...g, startDate, endDate, dateOverridden: false })) }} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.55rem', color: 'rgba(237,237,237,0.25)' }}>↺</button>
+                                        )}
+                                    </div>
+                                    <span style={{ fontSize: '0.56rem', color: 'rgba(237,237,237,0.22)', flexShrink: 0 }}>{group.missions.length}m</span>
+                                    <button type='button' onClick={() => removeGroup(group.tempId)} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(219,0,29,0.22)', display: 'flex', flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.75)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.22)')}><Delete style={{ fontSize: 14 }} /></button>
+                                </div>
+
+                                {/* Missions */}
+                                <div style={{ padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                    {group.missions.map((mission, mIdx) => {
+                                        const mDropKey = `mission:${group.tempId}:${mission.tempId}`
+                                        const isMDrop = dragOver === mDropKey
+                                        return (
+                                            <div key={mission.tempId}
+                                                draggable onDragStart={e => handleMissionDragStart(e, group.tempId, mission.tempId)}
+                                                onDragOver={e => dvOver(e, mDropKey)} onDragLeave={dvLeave} onDrop={e => handleMissionDrop(e, group.tempId, mission.tempId)}
+                                                style={{ borderTop: `2px solid ${isMDrop ? 'rgba(16,185,129,0.7)' : 'transparent'}`, borderRight: '1px solid rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.04)', borderLeft: '1px solid rgba(255,255,255,0.04)', background: isMDrop ? 'rgba(16,185,129,0.05)' : 'rgba(255,255,255,0.01)', padding: '5px 8px', display: 'flex', flexDirection: 'column', gap: 4, cursor: 'grab', transition: 'all 0.1s' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
+                                                        <button type='button' onClick={() => moveMissionBtn(group.tempId, mission.tempId, -1)} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.18)', lineHeight: 1, fontSize: '0.5rem', transition: 'color 0.1s' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(16,185,129,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.18)')}>▲</button>
+                                                        <button type='button' onClick={() => moveMissionBtn(group.tempId, mission.tempId, 1)} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.18)', lineHeight: 1, fontSize: '0.5rem', transition: 'color 0.1s' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(16,185,129,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.18)')}>▼</button>
+                                                    </div>
+                                                    <span style={{ fontSize: '0.58rem', color: 'rgba(100,150,237,0.55)', fontWeight: 700, width: 20, flexShrink: 0 }}>{toRoman(mIdx + 1)}</span>
+                                                    <input value={mission.name} onChange={e => updMission(group.tempId, mission.tempId, m => ({ ...m, name: e.target.value }))} onClick={e => e.stopPropagation()} onDragStart={e => e.stopPropagation()} style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.7)', fontSize: '0.72rem', padding: '1px 3px', outline: 'none', fontFamily: 'inherit', cursor: 'text' }} />
+                                                    {/* Mark as Single Event — applies to the whole mission block */}
+                                                    {mission.isSingleEvent ? (
+                                                        <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.8)', border: '1px solid rgba(219,160,0,0.3)', padding: '1px 5px', flexShrink: 0, whiteSpace: 'nowrap' }}>Single Event</span>
+                                                    ) : (
+                                                        <button type='button' onClick={async e => {
+                                                            e.stopPropagation()
+                                                            // Mark all ops in this mission as isSingleMission
+                                                            const ops = [mission.saturday, mission.sunday, mission.standalone].filter(Boolean) as Operation[]
+                                                            await Promise.all(ops.map(op => fetch(`/api/operations/update?id=${op._id.toString()}&isSingleMission=true`)))
+                                                            updMission(group.tempId, mission.tempId, m => ({ ...m, isSingleEvent: true }))
+                                                        }} title='Mark as Single Event — excludes from campaign organiser' style={{ all: 'unset', cursor: 'pointer', fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.4)', border: '1px solid rgba(219,160,0,0.15)', padding: '1px 5px', flexShrink: 0, whiteSpace: 'nowrap' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,160,0,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,160,0,0.4)')}>Single Event</button>
+                                                    )}
+                                                    <button type='button' onClick={() => removeMission(group.tempId, mission.tempId)} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(219,0,29,0.18)', display: 'flex', flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.65)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.18)')}><Close style={{ fontSize: 12 }} /></button>
+                                                </div>
+                                                <div style={{ paddingLeft: 30, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                    <OpSlot gId={group.tempId} mId={mission.tempId} slot='saturday' label='SAT' op={mission.saturday} accent='rgba(219,160,0,0.7)' />
+                                                    <OpSlot gId={group.tempId} mId={mission.tempId} slot='sunday' label='SUN' op={mission.sunday} accent='rgba(100,150,237,0.7)' />
+                                                    <OpSlot gId={group.tempId} mId={mission.tempId} slot='standalone' label='OP' op={mission.standalone} accent='rgba(237,237,237,0.4)' />
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                    <button type='button' onClick={() => setGroupsWithDates(gs => gs.map(g => g.tempId !== group.tempId ? g : { ...g, missions: [...g.missions, { tempId: makeTempId(), name: `${g.name} ${toRoman(g.missions.length + 1)}`, saturday: null, sunday: null, standalone: null }] }))} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.35)', display: 'flex', alignItems: 'center', gap: 3, padding: '3px 0' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(100,150,237,0.75)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,150,237,0.35)')}><Add style={{ fontSize: 11 }} />Add Mission</button>
+                                </div>
+                            </div>
+                        )
+                    })}
+
+                    {unassigned.length > 0 && (
+                        <div style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                            <div style={{ padding: '6px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.28)' }}>Unassigned — drag into a campaign or use dropdown</div>
+                            <div style={{ padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                {unassigned.map(op => (
+                                    <div key={op._id.toString()} draggable onDragStart={e => handleUnassignedDragStart(e, op)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px', cursor: 'grab', border: '1px solid rgba(255,255,255,0.03)', background: 'rgba(255,255,255,0.01)' }}>
+                                        <span style={{ flex: 1, fontSize: '0.7rem', color: 'rgba(237,237,237,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.title}</span>
+                                        <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.18)', flexShrink: 0 }}>{new Date(op.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                        {groups.length > 0 && <select value='' onChange={e => { if (e.target.value) addOpToGroup(op, e.target.value) }} style={{ background: 'rgba(100,150,237,0.08)', border: '1px solid rgba(100,150,237,0.18)', color: 'rgba(100,150,237,0.65)', fontSize: '0.58rem', padding: '2px 4px', cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}><option value=''>+ Add to…</option>{groups.map(g => <option key={g.tempId} value={g.tempId}>{g.name}</option>)}</select>}
+                                        <button type='button' onClick={() => markSingleMission(op._id.toString())} title='Mark as single mission (exclude from future organiser)' style={{ all: 'unset', cursor: 'pointer', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(219,160,0,0.55)', border: '1px solid rgba(219,160,0,0.2)', padding: '1px 5px', flexShrink: 0, whiteSpace: 'nowrap' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,160,0,0.9)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,160,0,0.55)')}>Single</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+                )}
+
+                {/* Footer */}
+                <div style={{ padding: '12px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {error && <span style={{ fontSize: '0.68rem', color: 'rgba(219,0,29,0.8)', flex: 1 }}>{error}</span>}
+                    {!error && <span style={{ flex: 1, fontSize: '0.6rem', color: 'rgba(237,237,237,0.28)' }}>{selectedGroups.length} group{selectedGroups.length !== 1 ? 's' : ''} selected</span>}
+                    <button onClick={onClose} style={{ padding: '6px 14px', fontSize: '0.68rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}>CANCEL</button>
+                    <button onClick={() => { if (selectedGroups.length > 0) { setError(''); setShowConfirm(true) } else setError('Select at least one group to apply.') }} style={{ padding: '6px 14px', fontSize: '0.68rem', fontWeight: 700, background: 'rgba(100,150,237,0.12)', border: '1px solid rgba(100,150,237,0.35)', color: 'rgba(100,150,237,0.9)', cursor: 'pointer' }}>
+                        Apply Organisation →
+                    </button>
+                </div>
+            </div>
+
+            {/* Confirmation modal */}
+            {showConfirm && (
+                <div onClick={() => setShowConfirm(false)} style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                    <div onClick={e => e.stopPropagation()} style={{ background: 'rgb(18,18,18)', border: '1px solid rgba(219,0,29,0.28)', borderTop: '2px solid var(--red)', padding: '22px 24px', maxWidth: 440, width: '100%', display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 24px 64px rgba(0,0,0,0.95)' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.9)' }}>Apply campaign organisation?</div>
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', lineHeight: 1.65 }}>
+                            This will create {selectedGroups.length} campaign{selectedGroups.length !== 1 ? 's' : ''} and link the operations into the campaign hierarchy.
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 140, overflowY: 'auto' }}>
+                            {selectedGroups.map(g => (
+                                <div key={g.tempId} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span style={{ fontSize: '0.7rem', color: 'rgba(100,150,237,0.8)', fontWeight: 700 }}>{g.name} — {g.missions.length} mission{g.missions.length !== 1 ? 's' : ''}</span>
+                                    {(g.startDate || g.endDate) && <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.3)' }}>{fmtDate(g.startDate)} → {fmtDate(g.endDate)}</span>}
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button onClick={() => setShowConfirm(false)} style={{ padding: '7px 16px', fontSize: '0.7rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.45)', cursor: 'pointer' }}>CANCEL</button>
+                            <button onClick={() => { setShowConfirm(false); applyOrganisation() }} disabled={applying} style={{ padding: '7px 16px', fontSize: '0.7rem', fontWeight: 700, background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.35)', color: 'rgba(219,0,29,0.85)', cursor: applying ? 'not-allowed' : 'pointer' }}>
+                                {applying ? 'Applying…' : 'Confirm & Apply'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
 // ── Templates management section ──────────────────────────────────────────────
 
 function TemplatesSection({ refreshKey }: { refreshKey: number }) {
@@ -1450,6 +2104,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
     const [loading, setLoading] = useState(true)
     const [viewMode, setViewMode] = useState<ViewMode>('list')
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('All')
+    const [typeFilter, setTypeFilter] = useState<TypeFilter>('All')
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(0)
     const [creating, setCreating] = useState(false)
@@ -1460,6 +2115,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
     const [campaignsLoaded, setCampaignsLoaded] = useState(false)
     const [campaignMissionsMap, setCampaignMissionsMap] = useState<Record<string, CampaignMission[]>>({})
     const [convertOp, setConvertOp] = useState<Operation | null>(null)
+    const [autoOrganiseOpen, setAutoOrganiseOpen] = useState(false)
 
     // Undo toast
     const [undoItem, setUndoItem] = useState<{ id: string; title: string } | null>(null)
@@ -1491,9 +2147,9 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
         } finally { setLoadingBin(false) }
     }, [])
 
-    // Lazy-load campaigns (and their missions) when first switching to campaigns view
+    // Load campaigns + missions on mount (used in unified list view)
     useEffect(() => {
-        if (viewMode !== 'campaigns' || campaignsLoaded) return
+        if (campaignsLoaded) return
         fetch('/api/operations/campaigns')
             .then(r => r.json())
             .then(async data => {
@@ -1514,9 +2170,9 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                     setCampaignMissionsMap(newMap)
                 }
             })
-    }, [viewMode, campaignsLoaded])
+    }, [campaignsLoaded])
 
-    useEffect(() => { setPage(0) }, [statusFilter, search])
+    useEffect(() => { setPage(0) }, [statusFilter, typeFilter, search])
 
     const handleDelete = useCallback((id: string, title: string) => {
         setMissions(ms => ms.filter(m => m._id.toString() !== id))
@@ -1582,27 +2238,79 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
         setNewMissionModalOpen(false)
     }
 
-    function handleCampaignMissionCreated(campaign: OperationCampaign, mission: CampaignMission) {
-        // Ensure campaign exists in list
+    function handleCampaignMissionCreated(campaign: OperationCampaign, missions: CampaignMission[]) {
         setCampaigns(cs => cs.find(c => c._id.toString() === campaign._id.toString()) ? cs : [...cs, campaign])
         setCampaignMissionsMap(m => ({
             ...m,
-            [campaign._id.toString()]: [...(m[campaign._id.toString()] ?? []), mission],
+            [campaign._id.toString()]: [...(m[campaign._id.toString()] ?? []), ...missions],
         }))
         setNewMissionModalOpen(false)
     }
 
+    // ── Compute effective campaign status from linked ops ─────────────────────
+
+    function campaignEffectiveStatus(campaign: OperationCampaign): string {
+        // 1. Explicit campaign status always wins
+        if (campaign.status) return campaign.status
+        // 2. Derive from linked operations
+        const cid = campaign._id.toString()
+        // Include ops linked by campaignId OR by campaignMissionId (for ops linked via mission slots)
+        const campaignMissionIds = new Set(
+            (campaignMissionsMap[cid] ?? []).map(m => m._id?.toString()).filter(Boolean) as string[]
+        )
+        const linked = missions.filter(op =>
+            op.campaignId?.toString() === cid ||
+            (op.campaignMissionId && campaignMissionIds.has(op.campaignMissionId))
+        )
+        if (linked.some(op => op.status === 'Active')) return 'Active'
+        if (linked.some(op => op.status === 'Upcoming')) return 'Upcoming'
+        if (linked.length > 0 && linked.every(op => !op.status || op.status === 'Completed')) return 'Completed'
+        if (linked.length > 0) return 'In Development'
+        return 'In Development'
+    }
+
+    const STATUS_ORDER = ['Active', 'Upcoming', 'In Development', 'Completed'] as const
+    type SortableStatus = typeof STATUS_ORDER[number]
+
     // ── List view ──────────────────────────────────────────────────────────────
 
-    const filtered = missions.filter(m => {
+    // Standalone missions (no campaignId)
+    const standaloneFiltered = missions.filter(m => {
+        if (m.campaignId) return false  // campaign ops handled separately
+        if (typeFilter === 'Campaigns') return false
         if (statusFilter !== 'All' && m.status !== statusFilter) return false
         if (search && !m.title.toLowerCase().includes(search.toLowerCase())) return false
         return true
     })
-    const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-    const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
-    // ── Campaigns view ─────────────────────────────────────────────────────────
+    const filtered = missions.filter(m => {
+        if (statusFilter !== 'All' && m.status !== statusFilter) return false
+        if (search && !m.title.toLowerCase().includes(search.toLowerCase())) return false
+        if (typeFilter === 'Campaigns' && !m.campaignId) return false
+        if (typeFilter === 'Single Missions' && m.campaignId) return false
+        return true
+    })
+    const totalPages = Math.ceil(standaloneFiltered.length / PAGE_SIZE)
+    const paginatedStandalone = standaloneFiltered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+    // Campaigns grouped by effective status
+    const campaignsByStatus: Record<string, OperationCampaign[]> = { Active: [], Upcoming: [], 'In Development': [], Completed: [] }
+    const visibleCampaigns = typeFilter === 'Single Missions' ? [] :
+        campaigns.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()))
+    for (const c of visibleCampaigns) {
+        const s = campaignEffectiveStatus(c)
+        if (statusFilter !== 'All' && s !== statusFilter) continue
+        ;(campaignsByStatus[s] ?? (campaignsByStatus[s] = [])).push(c)
+    }
+
+    // Standalone grouped by status
+    const standaloneByStatus: Record<string, Operation[]> = { Active: [], Upcoming: [], 'In Development': [], Completed: [] }
+    for (const op of paginatedStandalone) {
+        const s = op.status ?? 'In Development'
+        ;(standaloneByStatus[s] ?? (standaloneByStatus[s] = [])).push(op)
+    }
+
+    // ── Campaigns view (legacy, unused now) ────────────────────────────────────
 
     const missionsByCampaign = new Map<string, Operation[]>()
     for (const c of campaigns) missionsByCampaign.set(c._id.toString(), [])
@@ -1632,40 +2340,20 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                     {missions.length} Mission{missions.length !== 1 ? 's' : ''}
                 </span>
 
-                {/* View toggle */}
+                {/* View toggle — List only (campaigns merged in), + bin */}
                 <div style={{ display: 'flex', border: '1px solid rgba(255,255,255,0.1)' }}>
-                    {(['list', 'campaigns'] as ('list' | 'campaigns')[]).map(v => {
-                        const active = viewMode === v
-                        return (
-                            <button key={v} onClick={() => setViewMode(v)} style={{
-                                display: 'flex', alignItems: 'center', gap: 5,
-                                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-                                padding: '5px 12px', cursor: 'pointer',
-                                background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
-                                border: 'none', borderRight: '1px solid rgba(255,255,255,0.1)',
-                                color: active ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.3)',
-                                transition: 'all 0.15s',
-                            }}>
-                                {v === 'list' ? <ViewList style={{ fontSize: 13 }} /> : <AccountTree style={{ fontSize: 13 }} />}
-                                {v === 'list' ? 'List' : 'Campaigns'}
-                            </button>
-                        )
-                    })}
-                    <button
-                        onClick={() => { setViewMode('bin'); fetchBin() }}
-                        title='Recycle Bin'
-                        style={{
-                            display: 'flex', alignItems: 'center',
-                            padding: '5px 10px', cursor: 'pointer',
-                            background: viewMode === 'bin' ? 'rgba(219,0,29,0.12)' : 'transparent',
-                            border: 'none',
-                            color: viewMode === 'bin' ? 'rgba(219,0,29,0.8)' : 'rgba(237,237,237,0.3)',
-                            transition: 'all 0.15s',
-                        }}
-                    >
+                    <button onClick={() => setViewMode('list')} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer', background: viewMode === 'list' ? 'rgba(255,255,255,0.08)' : 'transparent', border: 'none', borderRight: '1px solid rgba(255,255,255,0.1)', color: viewMode === 'list' ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.3)', transition: 'all 0.15s' }}>
+                        <ViewList style={{ fontSize: 13 }} />List
+                    </button>
+                    <button onClick={() => { setViewMode('bin'); fetchBin() }} title='Recycle Bin' style={{ display: 'flex', alignItems: 'center', padding: '5px 10px', cursor: 'pointer', background: viewMode === 'bin' ? 'rgba(219,0,29,0.12)' : 'transparent', border: 'none', color: viewMode === 'bin' ? 'rgba(219,0,29,0.8)' : 'rgba(237,237,237,0.3)', transition: 'all 0.15s' }}>
                         <DeleteSweep style={{ fontSize: 15 }} />
                     </button>
                 </div>
+
+                {/* Auto-organise button (was in campaigns view, now accessible from list) */}
+                <button onClick={() => setAutoOrganiseOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer', background: 'rgba(100,150,237,0.06)', border: '1px solid rgba(100,150,237,0.2)', color: 'rgba(100,150,237,0.65)' }}>
+                    <AccountTree style={{ fontSize: 13 }} />Organise
+                </button>
 
                 <button onClick={() => setTemplatePickerOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '6px 14px', cursor: 'pointer', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.6)' }}>
                     <BookmarkAdd style={{ fontSize: 14 }} />From Template
@@ -1677,7 +2365,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
 
             {loading && <LinearProgress sx={{ mb: 1, backgroundColor: 'rgba(219,0,29,0.1)', '& .MuiLinearProgress-bar': { backgroundColor: 'var(--red)' } }} />}
 
-            {/* ── LIST VIEW ── */}
+            {/* ── UNIFIED LIST VIEW (campaigns + standalone) ── */}
             {viewMode === 'list' && (
                 <>
                     <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1686,6 +2374,16 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                             <input value={search} onChange={e => setSearch(e.target.value)} placeholder='Search missions…' style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'rgba(237,237,237,0.8)', fontSize: '0.78rem' }} />
                             {search && <button onClick={() => setSearch('')} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.25)', display: 'flex' }}><Close style={{ fontSize: 14 }} /></button>}
                         </div>
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            {(['All', 'Campaigns', 'Single Missions'] as TypeFilter[]).map(t => {
+                                const active = typeFilter === t
+                                const color = t === 'Campaigns' ? 'rgba(100,150,237,0.75)' : 'rgba(237,237,237,0.6)'
+                                return (
+                                    <button key={t} onClick={() => setTypeFilter(t)} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '3px 10px', cursor: 'pointer', background: active ? 'rgba(255,255,255,0.06)' : 'transparent', border: `1px solid ${active ? color : 'rgba(255,255,255,0.1)'}`, color: active ? color : 'rgba(237,237,237,0.3)', transition: 'all 0.15s' }}>{t}</button>
+                                )
+                            })}
+                        </div>
+                        <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.08)', flexShrink: 0 }} />
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                             {ALL_STATUSES.map(s => {
                                 const active = statusFilter === s
@@ -1697,63 +2395,87 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                         </div>
                     </div>
 
-                    {!loading && filtered.length === 0 && (
-                        <Typography style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.25)', padding: '16px 0', fontStyle: 'italic' }}>
-                            No missions found{search ? ` matching "${search}"` : statusFilter !== 'All' ? ` with status "${statusFilter}"` : ''}.
-                        </Typography>
-                    )}
+                    {/* Status-grouped unified view: Active → Upcoming → In Development → Completed */}
+                    {STATUS_ORDER.map(status => {
+                        const cs = (campaignsByStatus[status] ?? []).filter(() => typeFilter !== 'Single Missions')
+                        const ss = (standaloneByStatus[status] ?? []).filter(() => typeFilter !== 'Campaigns')
+                        const isEmpty = cs.length === 0 && ss.length === 0
+                        // When a specific status filter is selected, skip sections that don't match
+                        if (statusFilter !== 'All' && status !== statusFilter) return null
+                        const statusColor = STATUS_COLORS[status] ?? 'rgba(237,237,237,0.35)'
+                        const emptyMessages: Record<string, string> = {
+                            'Active': 'No campaigns or missions active.',
+                            'Upcoming': 'No campaigns or missions upcoming.',
+                            'In Development': 'No campaigns or missions in development.',
+                            'Completed': 'No campaigns or missions completed.',
+                        }
+                        return (
+                            <div key={status} style={{
+                                marginBottom: 10,
+                                border: `1px solid ${statusColor.replace(/[\d.]+\)$/, '0.12)')}`,
+                                borderTop: `2px solid ${statusColor.replace(/[\d.]+\)$/, '0.45)')}`,
+                                background: 'rgba(255,255,255,0.01)',
+                            }}>
+                                {/* Section header */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderBottom: `1px solid ${statusColor.replace(/[\d.]+\)$/, '0.08)')}` }}>
+                                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor, flexShrink: 0 }} />
+                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: statusColor }}>{status}</span>
+                                    {!isEmpty && <span style={{ fontSize: '0.54rem', color: 'rgba(237,237,237,0.2)', marginLeft: 2 }}>{cs.length + ss.length}</span>}
+                                </div>
 
-                    <div>
-                        {paginated.map(op => <OpRow key={op._id.toString()} op={op} {...opRowProps} />)}
-                    </div>
+                                {/* Section body */}
+                                {isEmpty ? (
+                                    <div style={{ padding: '10px 14px' }}>
+                                        <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>
+                                            {emptyMessages[status] ?? 'No items.'}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div style={{ padding: '6px 0 2px' }}>
+                                        {/* Campaigns */}
+                                        {cs.length > 0 && (
+                                            <div style={{ marginBottom: 4 }}>
+                                                {cs.map(c => (
+                                                    <CampaignGroupHierarchy
+                                                        key={c._id.toString()}
+                                                        campaign={c}
+                                                        missions={campaignMissionsMap[c._id.toString()] ?? []}
+                                                        allOperations={missions}
+                                                        onMissionsChange={(campaignId, updatedMissions) => setCampaignMissionsMap(m => ({ ...m, [campaignId]: updatedMissions }))}
+                                                        onCampaignRenamed={(id, name) => setCampaigns(cs => cs.map(x => x._id.toString() === id ? { ...x, name } : x))}
+                                                        onCampaignDeleted={id => {
+                                                            setCampaigns(cs => cs.filter(x => x._id.toString() !== id))
+                                                            setCampaignMissionsMap(m => { const n = { ...m }; delete n[id]; return n })
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                        {/* Standalone missions */}
+                                        {ss.length > 0 && (
+                                            <div>
+                                                {ss.map(op => <OpRow key={op._id.toString()} op={op} {...opRowProps} />)}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    })}
 
-                    {totalPages > 1 && (
+                    {/* Pagination for standalone missions */}
+                    {typeFilter !== 'Campaigns' && totalPages > 1 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, justifyContent: 'flex-end' }}>
                             <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.06em' }}>
-                                {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                                {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, standaloneFiltered.length)} of {standaloneFiltered.length}
                             </span>
                             <button onClick={() => setPage(p => p - 1)} disabled={page === 0} style={{ all: 'unset', cursor: page === 0 ? 'not-allowed' : 'pointer', color: page === 0 ? 'rgba(237,237,237,0.15)' : 'rgba(237,237,237,0.5)', display: 'flex' }}><ChevronLeft style={{ fontSize: 20 }} /></button>
                             <button onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1} style={{ all: 'unset', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', color: page >= totalPages - 1 ? 'rgba(237,237,237,0.15)' : 'rgba(237,237,237,0.5)', display: 'flex' }}><ChevronRight style={{ fontSize: 20 }} /></button>
                         </div>
                     )}
 
-                    <TemplatesSection refreshKey={templateRefreshKey} />
-                </>
-            )}
-
-            {/* ── CAMPAIGNS VIEW ── */}
-            {viewMode === 'campaigns' && (
-                <>
-                    {!campaignsLoaded && <Typography style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.3)' }}>Loading campaigns…</Typography>}
-
-                    {campaignsLoaded && campaigns.map(c => (
-                        <CampaignGroupHierarchy
-                            key={c._id.toString()}
-                            campaign={c}
-                            missions={campaignMissionsMap[c._id.toString()] ?? []}
-                            allOperations={missions}
-                            onMissionsChange={(campaignId, updatedMissions) =>
-                                setCampaignMissionsMap(m => ({ ...m, [campaignId]: updatedMissions }))
-                            }
-                            onCampaignRenamed={(id, name) => setCampaigns(cs => cs.map(x => x._id.toString() === id ? { ...x, name } : x))}
-                            onCampaignDeleted={id => {
-                                setCampaigns(cs => cs.filter(x => x._id.toString() !== id))
-                                setCampaignMissionsMap(m => { const n = { ...m }; delete n[id]; return n })
-                            }}
-                        />
-                    ))}
-
-                    {campaignsLoaded && (
-                        <CampaignGroup
-                            campaign={null}
-                            missions={standalone}
-                            {...opRowProps}
-                            onCampaignRenamed={() => {}}
-                            onCampaignDeleted={() => {}}
-                        />
-                    )}
-
-                    {campaignsLoaded && (
+                    {/* Create campaign form (visible when not filtering to single missions only) */}
+                    {typeFilter !== 'Single Missions' && campaignsLoaded && (
                         <div style={{ marginTop: 12 }}>
                             <CreateCampaignForm onCreated={c => {
                                 setCampaigns(cs => [...cs, c])
@@ -1761,6 +2483,8 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                             }} />
                         </div>
                     )}
+
+                    <TemplatesSection refreshKey={templateRefreshKey} />
                 </>
             )}
 
@@ -1873,6 +2597,23 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                     onClose={() => setNewMissionModalOpen(false)}
                     onCreatedSingle={handleNewMissionCreated}
                     onCreatedCampaign={handleCampaignMissionCreated}
+                />
+            )}
+
+            {autoOrganiseOpen && (
+                <AutoOrganiseModal
+                    allOps={missions}
+                    existingCampaigns={campaigns}
+                    onClose={() => setAutoOrganiseOpen(false)}
+                    onOrganised={(newCampaigns, newMissionsMap) => {
+                        setCampaigns(cs => {
+                            const existing = new Set(cs.map(c => c._id.toString()))
+                            return [...cs, ...newCampaigns.filter(c => !existing.has(c._id.toString()))]
+                        })
+                        setCampaignMissionsMap(m => ({ ...m, ...newMissionsMap }))
+                        fetchMissions()
+                        setAutoOrganiseOpen(false)
+                    }}
                 />
             )}
 

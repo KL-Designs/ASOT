@@ -500,9 +500,10 @@ export default function StaffSidebar({
                 {
                     label: '[J2] Mission Making', href: '/dashboard/j2', visible: permissions.canSeeJ2, icon: <Map sx={{ fontSize: 14 }} />,
                     tabs: [
-                        { label: 'Operations', tab: 0 },
-                        { label: 'Meetings',   tab: 1 },
-                        { label: 'Tickets',    tab: 2 },
+                        { label: 'Operations',        tab: 0 },
+                        { label: 'Meetings',          tab: 1 },
+                        { label: 'Tickets',           tab: 2 },
+                        { label: 'Members Workspace', tab: 3 },
                     ],
                 },
                 {

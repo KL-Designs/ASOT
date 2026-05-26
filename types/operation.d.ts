@@ -218,6 +218,7 @@ declare global {
         campaignId?: ObjectId
         campaignMissionId?: string
         daySlot?: 'saturday' | 'sunday'
+        isSingleMission?: boolean  // explicitly standalone — excluded from campaign organiser detection
 
         // OCAP recording data — linked and synced by HQ
         ocap?: OcapData
@@ -236,6 +237,12 @@ declare global {
         description?: string
         createdBy: string    // Discord user ID
         createdAt: string    // ISO timestamp
+        startDate?: string   // ISO date string e.g. "2026-05-12"
+        endDate?: string     // ISO date string e.g. "2026-05-26"
+        status?: 'Active' | 'Upcoming' | 'Completed' | 'In Development'  // explicit override
+        isDeleted?: boolean
+        deletedAt?: string
+        deletedBy?: string
     }
 
     interface CampaignMission {
@@ -246,6 +253,11 @@ declare global {
         saturdayOpId?: string
         sundayOpId?: string
         createdAt: Date
+        createdBy?: string       // Discord user ID of creator
+        isDeleted?: boolean
+        deletedAt?: string
+        deletedBy?: string       // Discord user ID
+        deletedByName?: string
     }
 
     interface OperationTemplate {
