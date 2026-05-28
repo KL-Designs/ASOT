@@ -10,12 +10,8 @@
             "runtimeExecutable": "deno",
             "runtimeArgs": [
                 "run",
-                "--inspect-brk", // Enables debugging
-                "--allow-net",
-                "--allow-env",
-                "--allow-read",
-                "--allow-write",
-                "--allow-sys" // Adjust permissions as needed
+                "--inspect-brk",
+                "--allow-all"
             ],
             "attachSimplePort": 9229,
             "outputCapture": "std"

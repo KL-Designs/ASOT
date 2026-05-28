@@ -1,15 +1,14 @@
-# Use official Node.js LTS image
 FROM denoland/deno:latest
 
-# Set working directory
+RUN apt-get update && apt-get install -y ffmpeg curl && rm -rf /var/lib/apt/lists/*
+
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+    && chmod +x /usr/local/bin/yt-dlp
+
 WORKDIR /app
 
-# Copy the rest of the project
 COPY . .
 
-ENV TZ=Australia/Sydney
-RUN apt-get update && apt-get install -y tzdata
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN deno cache index.ts
 
-# Run your Deno app
 CMD ["deno", "task", "start"]

@@ -10,8 +10,8 @@
     },
 
     "tasks": {
-        "start": "deno run --allow-all index.ts",
-        "compile": "deno compile --allow-all --no-check --output app index.ts"
+        "start": "deno run --allow-all --allow-run index.ts",
+        "compile": "deno compile --allow-all --allow-run --no-check --output app index.ts"
     },
 
     "imports": {

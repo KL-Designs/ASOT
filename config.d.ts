@@ -9,6 +9,7 @@ declare global {
             memberRole: string
             adminRole: string
             notificationChannel: string
+            songSubmissionChannel: string
         }
 
         api: string
