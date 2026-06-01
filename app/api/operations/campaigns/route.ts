@@ -42,15 +42,17 @@ async function checkAuth() {
     } catch { return null }
 }
 
-/** GET — list campaigns. Pass ?includeDeleted=true to include soft-deleted ones. */
+/** GET — list campaigns. Public for normal reads; ?includeDeleted=true requires write access. */
 export async function GET(request: NextRequest) {
-    const me = await checkAuth()
-    if (!me) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
-
     const { searchParams } = new URL(request.url)
     const includeDeleted = searchParams.get('includeDeleted') === 'true'
-    const query = includeDeleted ? {} : { isDeleted: { $ne: true } }
 
+    if (includeDeleted) {
+        const me = await checkAuth()
+        if (!me) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+    }
+
+    const query = includeDeleted ? {} : { isDeleted: { $ne: true } }
     const campaigns = await Db.operationCampaigns.find(query).sort({ createdAt: -1 }).toArray()
     return NextResponse.json({ campaigns })
 }
@@ -94,12 +96,27 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ success: true })
     }
 
-    const { name, description, startDate, endDate } = body
+    // Status-only update (no name required)
+    if (body.status !== undefined && !body.name) {
+        const validStatuses = ['Active', 'Upcoming', 'Completed', 'In Development']
+        if (body.status !== null && !validStatuses.includes(body.status)) {
+            return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+        }
+        if (body.status === null) {
+            await Db.operationCampaigns.updateOne({ _id: oid }, { $unset: { status: '' } })
+        } else {
+            await Db.operationCampaigns.updateOne({ _id: oid }, { $set: { status: body.status } })
+        }
+        return NextResponse.json({ success: true })
+    }
+
+    const { name, description, startDate, endDate, status } = body
     if (!name?.trim()) return NextResponse.json({ error: 'Campaign name required' }, { status: 400 })
 
     const updates: Record<string, unknown> = { name: name.trim(), description: description?.trim() || undefined }
     if (startDate !== undefined) updates.startDate = startDate || undefined
     if (endDate !== undefined) updates.endDate = endDate || undefined
+    if (status !== undefined) updates.status = status || undefined
 
     await Db.operationCampaigns.updateOne({ _id: oid }, { $set: updates })
     return NextResponse.json({ success: true })

@@ -10,9 +10,12 @@ export async function GET() {
         const me = await client.fetchMe()
         if (!client.hasRoles(me, PERMISSIONS.operations.write)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
-        // Lazy-purge operations deleted more than 30 days ago
-        const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        // Lazy-purge operations deleted more than 180 days ago
+        const cutoff = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)
         await Db.operations.deleteMany({ deletedAt: { $lt: cutoff } })
+        // Also purge soft-deleted campaigns and missions older than 180 days
+        await Db.operationCampaigns.deleteMany({ isDeleted: true, deletedAt: { $lt: cutoff.toISOString() } })
+        await Db.campaignMissions.deleteMany({ isDeleted: true, deletedAt: { $lt: cutoff.toISOString() } })
 
         const operations = await Db.operations
             .find({ deletedAt: { $exists: true } })

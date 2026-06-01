@@ -10,6 +10,19 @@ import { useRef } from 'react'
 const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X'] as const
 function toRoman(n: number): string { return ROMAN[n - 1] ?? String(n) }
 
+function detectDaySlotFromTitle(title: string): { stripped: string; day: 'saturday' | 'sunday' | null } {
+    const sat = title.match(/\s*[-–—]?\s*(sat|saturday)\s*$/i)
+    if (sat) return { stripped: title.slice(0, title.length - sat[0].length).trim(), day: 'saturday' }
+    const sun = title.match(/\s*[-–—]?\s*(sun|sunday)\s*$/i)
+    if (sun) return { stripped: title.slice(0, title.length - sun[0].length).trim(), day: 'sunday' }
+    return { stripped: title, day: null }
+}
+function detectRomanSuffixFromTitle(title: string): { stripped: string; roman: string | null } {
+    const m = title.match(/\s+(I{1,3}|IV|VI{0,3}|IX|X)\s*$/i)
+    if (m) return { stripped: title.slice(0, title.length - m[0].length).trim(), roman: m[1].toUpperCase() }
+    return { stripped: title, roman: null }
+}
+
 
 // ── Colour helpers ─────────────────────────────────────────────────────────────
 
@@ -554,14 +567,23 @@ function ActiveMissionCard({ mission }: { mission: Operation }) {
 // ── Campaign hierarchy types ───────────────────────────────────────────────────
 
 interface MissionSlot { op: Operation; daySlot: 'saturday' | 'sunday' | 'standalone' }
-interface MissionDisplay { missionId: string; missionName: string; sequence: number; slots: MissionSlot[] }
+interface MissionDisplay { missionId: string; missionName: string; sequence: number; slots: MissionSlot[]; missingSatNote?: string; missingSunNote?: string }
 interface CampaignDisplay { campaignId: string; campaignName: string; campaign: OperationCampaign; missions: MissionDisplay[]; unstructured: Operation[] }
 
-function CampaignEntry({ entry, hasAccess }: { entry: CampaignDisplay; hasAccess: boolean }) {
+function CampaignEntry({ entry, hasAccess, year, month }: { entry: CampaignDisplay; hasAccess: boolean; year?: number; month?: number | null }) {
     const [open, setOpen] = useState(false)
     const [openMissions, setOpenMissions] = useState<Set<string>>(new Set())
     const totalOps = entry.missions.reduce((s, m) => s + m.slots.length, 0) + entry.unstructured.length
     const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+
+    // No campaign-level month note — notes appear at individual mission/slot level
+
+    // Shared small button style factory for action buttons inside hierarchy rows
+    const actionBtn = (bg: string, border: string, color: string): React.CSSProperties => ({
+        display: 'flex', alignItems: 'center', gap: 3, padding: '2px 6px',
+        background: bg, border: `1px solid ${border}`, color,
+        fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
+    })
 
     return (
         <div style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
@@ -582,6 +604,16 @@ function CampaignEntry({ entry, hasAccess }: { entry: CampaignDisplay; hasAccess
                         )}
                     </div>
                 </div>
+                {entry.campaign.status && <StatusBadge status={entry.campaign.status} />}
+                {hasAccess && (
+                    <div onClick={e => e.stopPropagation()} style={{ flexShrink: 0 }}>
+                        <Link href='/dashboard/j2?tab=0' style={{ textDecoration: 'none' }}>
+                            <div style={actionBtn('rgba(100,150,237,0.07)', 'rgba(100,150,237,0.3)', 'rgba(100,150,237,0.75)')}>
+                                <Dashboard style={{ fontSize: 10 }} /> J2
+                            </div>
+                        </Link>
+                    </div>
+                )}
             </div>
 
             {/* Expanded missions */}
@@ -596,23 +628,89 @@ function CampaignEntry({ entry, hasAccess }: { entry: CampaignDisplay; hasAccess
                                     <span style={{ fontSize: '0.65rem', color: 'rgba(100,150,237,0.5)', flexShrink: 0 }}>{mOpen ? '▼' : '▶'}</span>
                                     <span style={{ flex: 1, fontSize: '0.75rem', fontWeight: 600, color: 'rgba(237,237,237,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.missionName}</span>
                                     <span style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.25)', flexShrink: 0 }}>{m.slots.length} op{m.slots.length !== 1 ? 's' : ''}</span>
+                                    {hasAccess && (
+                                        <div onClick={e => e.stopPropagation()} style={{ flexShrink: 0 }}>
+                                            <Link href='/dashboard/j2?tab=0' style={{ textDecoration: 'none' }}>
+                                                <div style={actionBtn('rgba(100,150,237,0.07)', 'rgba(100,150,237,0.3)', 'rgba(100,150,237,0.75)')}>
+                                                    <Dashboard style={{ fontSize: 10 }} /> J2
+                                                </div>
+                                            </Link>
+                                        </div>
+                                    )}
                                 </div>
                                 {mOpen && (
                                     <div style={{ background: 'rgba(0,0,0,0.15)' }}>
-                                        {m.slots.map(s => (
-                                            <div key={s.op._id.toString()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 6px 44px', borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                                                {s.daySlot !== 'standalone' && (
-                                                    <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: s.daySlot === 'saturday' ? 'rgba(219,160,0,0.7)' : 'rgba(100,150,237,0.7)', width: 28, flexShrink: 0 }}>
-                                                        {s.daySlot === 'saturday' ? 'SAT' : 'SUN'}
-                                                    </span>
-                                                )}
-                                                <Link href={`/operations/${s.op._id.toString()}`} style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(237,237,237,0.7)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {s.op.title}
-                                                </Link>
-                                                <StatusBadge status={s.op.status} />
-                                                {hasAccess && <Link href={`/operations/${s.op._id.toString()}/edit`} onClick={e => e.stopPropagation()} style={{ textDecoration: 'none' }}><div style={{ padding: '2px 7px', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'rgba(219,160,0,0.07)', border: '1px solid rgba(219,160,0,0.25)', color: 'rgba(219,160,0,0.65)', cursor: 'pointer' }}>Edit</div></Link>}
+                                        {m.slots.length === 0 && !m.missingSatNote && !m.missingSunNote && (
+                                            <div style={{ padding: '8px 16px 8px 44px', fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No operations in this period.</div>
+                                        )}
+                                        {/* All ops outside this month — show a single combined note */}
+                                        {m.slots.length === 0 && (m.missingSatNote || m.missingSunNote) && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px 6px 44px', borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                                <span style={{ fontSize: '0.62rem', color: 'rgba(219,0,29,0.6)', fontStyle: 'italic' }}>
+                                                    ↳ Missions were run {m.missingSatNote ?? m.missingSunNote}.
+                                                </span>
                                             </div>
-                                        ))}
+                                        )}
+                                        {/* Ordered render: Saturday (slot or note) → Sunday (slot or note) → Standalones */}
+                                        {m.slots.length > 0 && (() => {
+                                            const satSlot = m.slots.find(s => s.daySlot === 'saturday')
+                                            const sunSlot = m.slots.find(s => s.daySlot === 'sunday')
+                                            const standalones = m.slots.filter(s => s.daySlot === 'standalone')
+                                            const renderSlotRow = (s: MissionSlot) => (
+                                                <div key={s.op._id.toString()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px 6px 44px', borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                                    {s.daySlot !== 'standalone' && (
+                                                        <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.04em', color: s.daySlot === 'saturday' ? 'rgba(219,160,0,0.7)' : 'rgba(100,150,237,0.7)', width: 46, flexShrink: 0 }}>
+                                                            {s.daySlot === 'saturday' ? 'Saturday' : 'Sunday'}
+                                                        </span>
+                                                    )}
+                                                    <Link href={`/operations/${s.op._id.toString()}`} style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(237,237,237,0.7)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {s.op.title}
+                                                    </Link>
+                                                    <StatusBadge status={s.op.status} />
+                                                    <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                                                        {hasAccess && (
+                                                            <>
+                                                                <Link href='/dashboard/j2?tab=0' style={{ textDecoration: 'none' }}>
+                                                                    <div style={actionBtn('rgba(100,150,237,0.07)', 'rgba(100,150,237,0.3)', 'rgba(100,150,237,0.75)')}><Dashboard style={{ fontSize: 9 }} /> J2</div>
+                                                                </Link>
+                                                                <Link href={`/operations/${s.op._id.toString()}/edit`} style={{ textDecoration: 'none' }}>
+                                                                    <div style={actionBtn('rgba(219,160,0,0.07)', 'rgba(219,160,0,0.25)', 'rgba(219,160,0,0.65)')}><Edit style={{ fontSize: 9 }} /> Edit</div>
+                                                                </Link>
+                                                            </>
+                                                        )}
+                                                        <Link href={`/operations/${s.op._id.toString()}/map`} style={{ textDecoration: 'none' }}>
+                                                            <div style={actionBtn('rgba(34,197,94,0.07)', 'rgba(34,197,94,0.3)', 'rgba(34,197,94,0.75)')}><Map style={{ fontSize: 9 }} /> Map</div>
+                                                        </Link>
+                                                        <Link href={`/operations/${s.op._id.toString()}`} style={{ textDecoration: 'none' }}>
+                                                            <div style={actionBtn('rgba(219,0,29,0.07)', 'rgba(219,0,29,0.3)', 'rgba(219,0,29,0.75)')}>View <ArrowForward style={{ fontSize: 9 }} /></div>
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            )
+                                            return (
+                                                <>
+                                                    {satSlot
+                                                        ? renderSlotRow(satSlot)
+                                                        : m.missingSatNote && (
+                                                            <div key='sat-note' style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px 6px 44px', borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                                                <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.04em', color: 'rgba(219,160,0,0.45)', width: 46, flexShrink: 0 }}>Saturday</span>
+                                                                <span style={{ flex: 1, fontSize: '0.62rem', color: 'rgba(219,0,29,0.6)', fontStyle: 'italic' }}>↳ Mission was run {m.missingSatNote}.</span>
+                                                            </div>
+                                                        )
+                                                    }
+                                                    {sunSlot
+                                                        ? renderSlotRow(sunSlot)
+                                                        : m.missingSunNote && (
+                                                            <div key='sun-note' style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 16px 6px 44px', borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                                                <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.04em', color: 'rgba(100,150,237,0.45)', width: 46, flexShrink: 0 }}>Sunday</span>
+                                                                <span style={{ flex: 1, fontSize: '0.62rem', color: 'rgba(219,0,29,0.6)', fontStyle: 'italic' }}>↳ Mission was run {m.missingSunNote}.</span>
+                                                            </div>
+                                                        )
+                                                    }
+                                                    {standalones.map(renderSlotRow)}
+                                                </>
+                                            )
+                                        })()}
                                     </div>
                                 )}
                             </div>
@@ -622,7 +720,24 @@ function CampaignEntry({ entry, hasAccess }: { entry: CampaignDisplay; hasAccess
                         <div key={op._id.toString()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 16px 7px 28px', borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
                             <Link href={`/operations/${op._id.toString()}`} style={{ flex: 1, fontSize: '0.75rem', color: 'rgba(237,237,237,0.65)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.title}</Link>
                             <StatusBadge status={op.status} />
-                            {hasAccess && <Link href={`/operations/${op._id.toString()}/edit`} style={{ textDecoration: 'none' }}><div style={{ padding: '2px 7px', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', background: 'rgba(219,160,0,0.07)', border: '1px solid rgba(219,160,0,0.25)', color: 'rgba(219,160,0,0.65)', cursor: 'pointer' }}>Edit</div></Link>}
+                            <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                                {hasAccess && (
+                                    <>
+                                        <Link href='/dashboard/j2?tab=0' style={{ textDecoration: 'none' }}>
+                                            <div style={actionBtn('rgba(100,150,237,0.07)', 'rgba(100,150,237,0.3)', 'rgba(100,150,237,0.75)')}><Dashboard style={{ fontSize: 9 }} /> J2</div>
+                                        </Link>
+                                        <Link href={`/operations/${op._id.toString()}/edit`} style={{ textDecoration: 'none' }}>
+                                            <div style={actionBtn('rgba(219,160,0,0.07)', 'rgba(219,160,0,0.25)', 'rgba(219,160,0,0.65)')}><Edit style={{ fontSize: 9 }} /> Edit</div>
+                                        </Link>
+                                    </>
+                                )}
+                                <Link href={`/operations/${op._id.toString()}/map`} style={{ textDecoration: 'none' }}>
+                                    <div style={actionBtn('rgba(34,197,94,0.07)', 'rgba(34,197,94,0.3)', 'rgba(34,197,94,0.75)')}><Map style={{ fontSize: 9 }} /> Map</div>
+                                </Link>
+                                <Link href={`/operations/${op._id.toString()}`} style={{ textDecoration: 'none' }}>
+                                    <div style={actionBtn('rgba(219,0,29,0.07)', 'rgba(219,0,29,0.3)', 'rgba(219,0,29,0.75)')}>View <ArrowForward style={{ fontSize: 9 }} /></div>
+                                </Link>
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -715,8 +830,60 @@ function MonthlyMissionsPanel({
                 })
 
                 const structuredIds = new Set(missions.flatMap(m => m.slots.map(s => s.op._id.toString())))
-                const unstructured = cOps.filter(o => !structuredIds.has(o._id.toString()))
-                return { campaignId: cid, campaignName: campaign.name, campaign, missions, unstructured }
+                const unstructuredAll = cOps.filter(o => !structuredIds.has(o._id.toString()))
+
+                // Derive virtual mission groups from unstructured ops that have Roman numeral + day patterns
+                type VGroup = { name: string; slots: MissionSlot[]; romanIdx: number }
+                const virtualGroupMap: Record<string, VGroup> = {}
+                const trueUnstructured: Operation[] = []
+
+                for (const op of unstructuredAll) {
+                    const { stripped: withoutDay, day } = detectDaySlotFromTitle(op.title)
+                    const { roman } = detectRomanSuffixFromTitle(withoutDay)
+                    if (!roman) { trueUnstructured.push(op); continue }
+                    const key = withoutDay.toLowerCase()
+                    if (!virtualGroupMap[key]) {
+                        const romanIdx = (ROMAN as readonly string[]).indexOf(roman)
+                        virtualGroupMap[key] = { name: withoutDay, slots: [], romanIdx: romanIdx >= 0 ? romanIdx : 99 }
+                    }
+                    const daySlot: 'saturday' | 'sunday' | 'standalone' =
+                        day === 'saturday' ? 'saturday' : day === 'sunday' ? 'sunday' : 'standalone'
+                    virtualGroupMap[key].slots.push({ op, daySlot })
+                }
+
+                const virtualMissions: MissionDisplay[] = Object.values(virtualGroupMap)
+                    .sort((a, b) => a.romanIdx - b.romanIdx)
+                    .map((v, i) => ({
+                        missionId: `virtual-${cid}-${i}`,
+                        missionName: v.name,
+                        sequence: missions.length + i + 1,
+                        slots: v.slots,
+                    }))
+
+                // Annotate missions with notes for ops that exist but are in an adjacent month
+                if (month !== null) {
+                    const currentMonthStart = new Date(year, month - 1, 1)
+                    const currentMonthEnd = new Date(year, month, 1)
+                    let missingDir = ''
+                    if (campaign.endDate && new Date(campaign.endDate) >= currentMonthEnd) missingDir = 'the following month'
+                    else if (campaign.startDate && new Date(campaign.startDate) < currentMonthStart) missingDir = 'the previous month'
+                    if (missingDir) {
+                        for (const m of missions) {
+                            const rawM = cMissions.find(cm => cm._id?.toString() === m.missionId)
+                            if (!rawM) continue
+                            if (rawM.saturdayOpId && !m.slots.some(s => s.daySlot === 'saturday')) m.missingSatNote = missingDir
+                            if (rawM.sundayOpId && !m.slots.some(s => s.daySlot === 'sunday')) m.missingSunNote = missingDir
+                        }
+                    }
+                }
+
+                return {
+                    campaignId: cid,
+                    campaignName: campaign.name,
+                    campaign,
+                    missions: [...missions, ...virtualMissions],
+                    unstructured: trueUnstructured,
+                }
             }).filter(Boolean) as CampaignDisplay[]
 
             // Standalone = ops not assigned to any campaign
@@ -733,21 +900,10 @@ function MonthlyMissionsPanel({
             })
             setCampaignEntries(sorted)
         })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [year, month])
 
     const empty = totalCount === 0 && campaignEntries.length === 0
 
-    // Month-view continuation indicators
-    const continuationNote = month !== null && campaignEntries.length > 0 ? (() => {
-        const monthStart = new Date(year, month - 1, 1)
-        const monthEnd = new Date(year, month, 1)
-        const allCampaignOps = campaignEntries.flatMap(c => [...c.missions.flatMap(m => m.slots.map(s => s.op)), ...c.unstructured])
-        const notes: string[] = []
-        if (allCampaignOps.some(op => new Date(op.date) < monthStart)) notes.push('Some campaigns started in a previous month')
-        if (allCampaignOps.some(op => new Date(op.date) >= monthEnd)) notes.push('Some campaigns continue into a later month')
-        return notes.length > 0 ? notes : null
-    })() : null
 
     return (
         <div style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.01)', flex: 1 }}>
@@ -755,12 +911,6 @@ function MonthlyMissionsPanel({
                 <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>Operations</span>
                 <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>{label}</span>
             </div>
-
-            {continuationNote && (
-                <div style={{ padding: '5px 16px', background: 'rgba(100,150,237,0.05)', borderBottom: '1px solid rgba(100,150,237,0.1)', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {continuationNote.map(n => <span key={n} style={{ fontSize: '0.58rem', color: 'rgba(100,150,237,0.55)', letterSpacing: '0.04em', fontStyle: 'italic' }}>↳ {n}</span>)}
-                </div>
-            )}
 
             {empty ? (
                 <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(237,237,237,0.12)', fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', fontStyle: 'italic' }}>
@@ -785,7 +935,7 @@ function MonthlyMissionsPanel({
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         {items.map(item =>
                             item.kind === 'campaign'
-                                ? <CampaignEntry key={item.entry.campaignId} entry={item.entry} hasAccess={hasAccess} />
+                                ? <CampaignEntry key={item.entry.campaignId} entry={item.entry} hasAccess={hasAccess} year={year} month={month} />
                                 : <MissionRow key={item.op._id.toString()} mission={item.op} hasAccess={hasAccess} />
                         )}
                     </div>

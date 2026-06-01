@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Typography, LinearProgress } from '@mui/material'
 import {
@@ -384,7 +385,7 @@ function OpRow({ op, onDelete, onDuplicate, onNotesSaved, onTemplateSaved, onAss
             <NotesRow op={op} onSaved={onNotesSaved} />
 
             <ConfirmDialog open={confirmOpen} title='Delete Mission' message={`Delete "${op.title}"? You can restore it from the recycle bin within 30 days.`}
-                onConfirm={() => { setConfirmOpen(false); fetch(`/api/operations/delete?id=${id}`).then(() => onDelete(id, op.title)) }}
+                onConfirm={() => { setConfirmOpen(false); fetch(`/api/operations/delete?id=${id}`).then(r => { if (r.ok) onDelete(id, op.title) }) }}
                 onCancel={() => setConfirmOpen(false)} />
         </div>
     )
@@ -486,7 +487,7 @@ function CampaignGroup({ campaign, missions, onDelete, onDuplicate, onNotesSaved
             )}
 
             {confirmDelete && (
-                <ConfirmDialog open title={`Delete Campaign`} message={`Delete "${campaign?.name}"? All missions will become standalone.`}
+                <ConfirmDialog open danger title='Delete Campaign' message={`Are you sure you want to delete "${campaign?.name}"? You can restore it from View Deleted.`}
                     onConfirm={() => { setConfirmDelete(false); deleteCampaign() }}
                     onCancel={() => setConfirmDelete(false)} />
             )}
@@ -527,7 +528,7 @@ function NewMissionModal({
             const res = await fetch('/api/operations/new')
             const data = await res.json()
             if (data.id) {
-                nmRouter.push(`/operations/${data.id}/edit`)
+                nmRouter.push(`/operations/${data.id}/edit?from=j2`)
                 onCreatedSingle()
             }
         } finally { setCreating(false) }
@@ -815,7 +816,7 @@ function AddDaySlotModal({
             const opRes = await fetch(`/api/operations?id=${newOpId}`)
             const opData = await opRes.json()
             onLinked(mission, newOpId, opData.mission ?? { _id: newOpId, title: 'New Operation', date: new Date() } as any)
-            slotRouter.push(`/operations/${newOpId}/edit`)
+            slotRouter.push(`/operations/${newOpId}/edit?from=j2`)
         } catch { setError('Network error') }
         finally { setCreating(false) }
     }
@@ -1067,7 +1068,8 @@ function CampaignMissionRow({
     }
 
     async function deleteMission() {
-        await fetch(`/api/operations/campaign-missions/${missionId}`, { method: 'DELETE' })
+        const res = await fetch(`/api/operations/campaign-missions/${missionId}`, { method: 'DELETE' })
+        if (!res.ok) return
         onMissionDeleted(missionId)
     }
 
@@ -1158,11 +1160,103 @@ function CampaignMissionRow({
             )}
 
             {confirmDelete && (
-                <ConfirmDialog open title='Delete Mission' message={`Delete "${mission.name}"? Saturday and Sunday operations will be unlinked.`}
+                <ConfirmDialog open danger title='Delete Mission' message={`Are you sure you want to delete "${mission.name}"? You can restore it from View Deleted.`}
                     onConfirm={() => { setConfirmDelete(false); deleteMission() }}
                     onCancel={() => setConfirmDelete(false)} />
             )}
         </div>
+    )
+}
+
+// ── Virtual mission groups (for ops linked to campaign but no CampaignMission) ──
+
+function VirtualMissionGroups({ campaignId, allOperations }: { campaignId: string; allOperations: Operation[] }) {
+    const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
+
+    const unlinkedOps = allOperations.filter(op =>
+        op.campaignId?.toString() === campaignId &&
+        !op.campaignMissionId &&
+        !op.isSingleMission
+    )
+    if (unlinkedOps.length === 0) return null
+
+    // Group by title pattern (Roman numeral + day slot)
+    const groupMap = new Map<string, { name: string; slots: { op: Operation; slot: 'saturday' | 'sunday' | 'standalone' }[]; romanIdx: number }>()
+    const ungrouped: Operation[] = []
+
+    for (const op of unlinkedOps) {
+        const { stripped: withoutDay, day } = detectDaySlot(op.title)
+        const { roman } = detectRomanSuffix(withoutDay)
+        if (!roman) { ungrouped.push(op); continue }
+        const key = withoutDay.toLowerCase()
+        if (!groupMap.has(key)) {
+            const romanIdx = ROMAN.indexOf(roman.toUpperCase() as typeof ROMAN[number])
+            groupMap.set(key, { name: withoutDay, slots: [], romanIdx: romanIdx >= 0 ? romanIdx : 99 })
+        }
+        const slot: 'saturday' | 'sunday' | 'standalone' = day === 'saturday' ? 'saturday' : day === 'sunday' ? 'sunday' : 'standalone'
+        groupMap.get(key)!.slots.push({ op, slot })
+    }
+
+    const groups = Array.from(groupMap.entries())
+        .sort(([, a], [, b]) => a.romanIdx - b.romanIdx)
+
+    const satAccent = 'rgba(219,160,0,0.6)'
+    const sunAccent = 'rgba(100,150,237,0.6)'
+
+    return (
+        <>
+            {groups.map(([key, group]) => {
+                const isOpen = openGroups.has(key)
+                return (
+                    <div key={key} style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.01)', marginBottom: 6, marginLeft: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderBottom: isOpen ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                            <button onClick={() => setOpenGroups(s => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n })} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.3)', display: 'flex' }}>
+                                {isOpen ? <ExpandLess style={{ fontSize: 14 }} /> : <ExpandMore style={{ fontSize: 14 }} />}
+                            </button>
+                            <span style={{ flex: 1, fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.04em', color: 'rgba(237,237,237,0.65)' }}>{group.name}</span>
+                            <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.06em' }}>{group.slots.length} op{group.slots.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        {isOpen && (
+                            <div style={{ padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {group.slots.map(({ op, slot }) => {
+                                    const label = slot === 'saturday' ? 'Saturday' : slot === 'sunday' ? 'Sunday' : 'Op'
+                                    const accent = slot === 'saturday' ? satAccent : slot === 'sunday' ? sunAccent : 'rgba(237,237,237,0.4)'
+                                    return (
+                                        <div key={op._id.toString()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: accent, flexShrink: 0, width: 56 }}>{label}</span>
+                                            <span style={{ flex: 1, fontSize: '0.78rem', fontWeight: 600, color: 'rgba(237,237,237,0.8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                {op.title}
+                                            </span>
+                                            <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.22)', flexShrink: 0 }}>
+                                                {new Date(op.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
+                                            </span>
+                                            {op.status && (
+                                                <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: STATUS_COLORS[op.status] ?? 'rgba(237,237,237,0.35)', border: `1px solid ${STATUS_BORDER[op.status] ?? 'rgba(237,237,237,0.2)'}`, padding: '1px 5px', flexShrink: 0 }}>
+                                                    {op.status}
+                                                </span>
+                                            )}
+                                            <button onClick={() => window.location.href = `/operations/${op._id.toString()}/edit?from=j2`} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.55)', border: '1px solid rgba(219,160,0,0.2)', padding: '1px 6px', flexShrink: 0, transition: 'color 0.12s, border-color 0.12s' }} onMouseEnter={e => { e.currentTarget.style.color = 'rgba(219,160,0,0.9)'; e.currentTarget.style.borderColor = 'rgba(219,160,0,0.5)' }} onMouseLeave={e => { e.currentTarget.style.color = 'rgba(219,160,0,0.55)'; e.currentTarget.style.borderColor = 'rgba(219,160,0,0.2)' }}>Edit</button>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )
+            })}
+            {ungrouped.map(op => (
+                <div key={op._id.toString()} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', border: '1px solid rgba(255,255,255,0.04)', background: 'rgba(255,255,255,0.01)', marginBottom: 4, marginLeft: 12 }}>
+                    <button onClick={() => window.location.href = `/operations/${op._id.toString()}/edit?from=j2`} style={{ all: 'unset', cursor: 'pointer', flex: 1, fontSize: '0.78rem', fontWeight: 600, color: 'rgba(237,237,237,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {op.title}
+                    </button>
+                    {op.status && (
+                        <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: STATUS_COLORS[op.status] ?? 'rgba(237,237,237,0.35)', border: `1px solid ${STATUS_BORDER[op.status] ?? 'rgba(237,237,237,0.2)'}`, padding: '1px 5px', flexShrink: 0 }}>
+                            {op.status}
+                        </span>
+                    )}
+                </div>
+            ))}
+        </>
     )
 }
 
@@ -1175,6 +1269,8 @@ function CampaignGroupHierarchy({
     onMissionsChange,
     onCampaignRenamed,
     onCampaignDeleted,
+    onCampaignStatusChanged,
+    onRefreshOps,
 }: {
     campaign: OperationCampaign
     missions: CampaignMission[]
@@ -1182,6 +1278,8 @@ function CampaignGroupHierarchy({
     onMissionsChange: (campaignId: string, missions: CampaignMission[]) => void
     onCampaignRenamed: (id: string, name: string) => void
     onCampaignDeleted: (id: string) => void
+    onCampaignStatusChanged?: (id: string, status: string | null) => void
+    onRefreshOps?: () => void
 }) {
     const [open, setOpen] = useState(false)
     const [editing, setEditing] = useState(false)
@@ -1190,8 +1288,21 @@ function CampaignGroupHierarchy({
     const [saving, setSaving] = useState(false)
     const [addDaySlot, setAddDaySlot] = useState<{ mission: CampaignMission; slot: 'saturday' | 'sunday' } | null>(null)
     const [addingMission, setAddingMission] = useState(false)
+    const [normalising, setNormalising] = useState(false)
+    const [statusUpdating, setStatusUpdating] = useState(false)
+    const [completionPromptDismissed, setCompletionPromptDismissed] = useState(false)
 
     const campaignId = campaign._id.toString()
+
+    // Count virtual mission groups (ops linked by campaignId only, title-parsed)
+    const unlinkedOps = allOperations.filter(o => o.campaignId?.toString() === campaignId && !o.campaignMissionId && !o.isSingleMission)
+    const virtualGroupKeys = new Set<string>()
+    for (const op of unlinkedOps) {
+        const { stripped: withoutDay } = detectDaySlot(op.title)
+        const { roman } = detectRomanSuffix(withoutDay)
+        if (roman) virtualGroupKeys.add(withoutDay.toLowerCase())
+    }
+    const totalMissions = missions.length + virtualGroupKeys.size
 
     const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
     const campaignDateRange = campaign.startDate && campaign.endDate
@@ -1215,7 +1326,8 @@ function CampaignGroupHierarchy({
     }
 
     async function deleteCampaign() {
-        await fetch(`/api/operations/campaigns?id=${campaignId}`, { method: 'DELETE' })
+        const res = await fetch(`/api/operations/campaigns?id=${campaignId}`, { method: 'DELETE' })
+        if (!res.ok) return
         onCampaignDeleted(campaignId)
     }
 
@@ -1235,6 +1347,40 @@ function CampaignGroupHierarchy({
             }
         } finally { setAddingMission(false) }
     }
+
+    async function normalise() {
+        setNormalising(true)
+        try {
+            const res = await fetch(`/api/operations/campaigns/${campaignId}/normalise`, { method: 'POST' })
+            if (!res.ok) return
+            // Refresh campaign missions and all operations
+            const mRes = await fetch(`/api/operations/campaign-missions?campaignId=${campaignId}`)
+            const mData = await mRes.json()
+            onMissionsChange(campaignId, mData.missions ?? [])
+            onRefreshOps?.()
+        } finally { setNormalising(false) }
+    }
+
+    async function updateCampaignStatus(newStatus: string | null) {
+        setStatusUpdating(true)
+        try {
+            await fetch('/api/operations/campaigns', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: campaignId, status: newStatus }),
+            })
+            onCampaignStatusChanged?.(campaignId, newStatus)
+        } finally { setStatusUpdating(false) }
+    }
+
+    // Determine if all linked ops are completed (for the completion prompt)
+    const campaignMissionIds = new Set(missions.map(m => m._id?.toString()).filter(Boolean) as string[])
+    const linkedOps = allOperations.filter(op =>
+        op.campaignId?.toString() === campaignId ||
+        (op.campaignMissionId && campaignMissionIds.has(op.campaignMissionId))
+    )
+    const allOpsCompleted = linkedOps.length > 0 && linkedOps.every(op => op.status === 'Completed')
+    const showCompletionPrompt = open && allOpsCompleted && !campaign.status && !completionPromptDismissed
 
     function handleUnlinkSlot(mission: CampaignMission, slot: 'saturday' | 'sunday') {
         const mId = mission._id?.toString() ?? ''
@@ -1269,7 +1415,7 @@ function CampaignGroupHierarchy({
         <>
             <div style={{ border: '1px solid rgba(100,150,237,0.18)', borderTop: '2px solid rgba(100,150,237,0.5)', background: 'rgba(100,150,237,0.05)', marginBottom: 12 }}>
                 {/* Campaign header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: open ? '1px solid rgba(100,150,237,0.1)' : 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: open ? '1px solid rgba(100,150,237,0.1)' : 'none', flexWrap: 'wrap' }}>
                     <button onClick={() => setOpen(o => !o)} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.35)', display: 'flex' }}>
                         {open ? <ExpandLess style={{ fontSize: 16 }} /> : <ExpandMore style={{ fontSize: 16 }} />}
                     </button>
@@ -1294,19 +1440,53 @@ function CampaignGroupHierarchy({
                     )}
 
                     <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.06em' }}>
-                        {missions.length} mission{missions.length !== 1 ? 's' : ''}
+                        {totalMissions} mission{totalMissions !== 1 ? 's' : ''}
                     </span>
+
+                    {/* Status selector */}
+                    <select
+                        value={campaign.status ?? ''}
+                        onChange={e => updateCampaignStatus(e.target.value || null)}
+                        disabled={statusUpdating}
+                        title='Set campaign status'
+                        style={{
+                            background: 'rgba(0,0,0,0.35)',
+                            border: `1px solid ${STATUS_BORDER[campaign.status ?? ''] ?? 'rgba(255,255,255,0.12)'}`,
+                            color: STATUS_COLORS[campaign.status ?? ''] ?? 'rgba(237,237,237,0.3)',
+                            fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                            padding: '2px 5px', cursor: statusUpdating ? 'not-allowed' : 'pointer',
+                            outline: 'none', fontFamily: 'inherit', flexShrink: 0,
+                        }}
+                    >
+                        <option value=''>Auto</option>
+                        <option value='In Development'>In Development</option>
+                        <option value='Upcoming'>Upcoming</option>
+                        <option value='Active'>Active</option>
+                        <option value='Completed'>Completed</option>
+                    </select>
 
                     <button onClick={() => setConfirmDelete(true)} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(219,0,29,0.35)', display: 'flex', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.8)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.35)')}>
                         <Delete style={{ fontSize: 15 }} />
                     </button>
                 </div>
 
+                {/* All missions completed — prompt to mark campaign complete */}
+                {showCompletionPrompt && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', background: 'rgba(100,150,237,0.07)', borderBottom: '1px solid rgba(100,150,237,0.12)' }}>
+                        <span style={{ flex: 1, fontSize: '0.68rem', color: 'rgba(100,150,237,0.85)' }}>
+                            All missions in this campaign are completed. Mark the campaign as completed?
+                        </span>
+                        <button onClick={() => { updateCampaignStatus('Completed'); setCompletionPromptDismissed(true) }} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '3px 10px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.35)', color: 'rgba(16,185,129,0.9)', flexShrink: 0 }}>
+                            Yes, complete
+                        </button>
+                        <button onClick={() => setCompletionPromptDismissed(true)} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.62rem', color: 'rgba(237,237,237,0.3)', flexShrink: 0, padding: '3px 6px' }}>
+                            Not yet
+                        </button>
+                    </div>
+                )}
+
                 {open && (
                     <div style={{ padding: '8px 8px 4px' }}>
-                        {missions.length === 0 && (
-                            <Typography style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.2)', padding: '8px 6px', fontStyle: 'italic' }}>No missions yet.</Typography>
-                        )}
                         {missions.map(m => (
                             <CampaignMissionRow
                                 key={m._id?.toString() ?? m.name}
@@ -1318,28 +1498,57 @@ function CampaignGroupHierarchy({
                                 onMissionDeleted={id => onMissionsChange(campaignId, missions.filter(x => x._id?.toString() !== id))}
                             />
                         ))}
-                        <button
-                            onClick={addMission}
-                            disabled={addingMission}
-                            style={{
-                                all: 'unset', cursor: addingMission ? 'not-allowed' : 'pointer',
-                                display: 'flex', alignItems: 'center', gap: 6,
-                                padding: '6px 12px', marginTop: 4,
-                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-                                color: addingMission ? 'rgba(100,150,237,0.3)' : 'rgba(100,150,237,0.6)',
-                                transition: 'color 0.15s',
-                            }}
-                            onMouseEnter={e => { if (!addingMission) e.currentTarget.style.color = 'rgba(100,150,237,0.9)' }}
-                            onMouseLeave={e => { if (!addingMission) e.currentTarget.style.color = 'rgba(100,150,237,0.6)' }}
-                        >
-                            <Add style={{ fontSize: 13 }} />{addingMission ? 'Adding…' : '+ Add Mission'}
-                        </button>
+
+                        {/* Virtual mission groups derived from ops with campaignId but no campaignMissionId */}
+                        <VirtualMissionGroups campaignId={campaignId} allOperations={allOperations} />
+
+                        {missions.length === 0 && allOperations.filter(o => o.campaignId?.toString() === campaignId && !o.campaignMissionId && !o.isSingleMission).length === 0 && (
+                            <Typography style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.2)', padding: '8px 6px', fontStyle: 'italic' }}>No missions yet.</Typography>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
+                            <button
+                                onClick={addMission}
+                                disabled={addingMission}
+                                style={{
+                                    all: 'unset', cursor: addingMission ? 'not-allowed' : 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: 6,
+                                    padding: '6px 12px',
+                                    fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                                    color: addingMission ? 'rgba(100,150,237,0.3)' : 'rgba(100,150,237,0.6)',
+                                    transition: 'color 0.15s',
+                                }}
+                                onMouseEnter={e => { if (!addingMission) e.currentTarget.style.color = 'rgba(100,150,237,0.9)' }}
+                                onMouseLeave={e => { if (!addingMission) e.currentTarget.style.color = 'rgba(100,150,237,0.6)' }}
+                            >
+                                <Add style={{ fontSize: 13 }} />{addingMission ? 'Adding…' : '+ Add Mission'}
+                            </button>
+                            {unlinkedOps.length > 0 && (
+                                <button
+                                    onClick={normalise}
+                                    disabled={normalising}
+                                    title={`Auto-group ${unlinkedOps.length} unlinked op${unlinkedOps.length !== 1 ? 's' : ''} into mission hierarchy`}
+                                    style={{
+                                        all: 'unset', cursor: normalising ? 'not-allowed' : 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: 5,
+                                        padding: '4px 10px',
+                                        fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                                        color: normalising ? 'rgba(16,185,129,0.3)' : 'rgba(16,185,129,0.7)',
+                                        border: '1px solid rgba(16,185,129,0.25)',
+                                        transition: 'all 0.15s',
+                                    }}
+                                    onMouseEnter={e => { if (!normalising) { e.currentTarget.style.color = 'rgba(16,185,129,1)'; e.currentTarget.style.borderColor = 'rgba(16,185,129,0.5)' } }}
+                                    onMouseLeave={e => { if (!normalising) { e.currentTarget.style.color = 'rgba(16,185,129,0.7)'; e.currentTarget.style.borderColor = 'rgba(16,185,129,0.25)' } }}
+                                >
+                                    {normalising ? 'Grouping…' : `⟳ Auto-group ${unlinkedOps.length} op${unlinkedOps.length !== 1 ? 's' : ''}`}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
 
             {confirmDelete && (
-                <ConfirmDialog open title='Delete Campaign' message={`Delete "${campaign.name}"? All missions will be removed.`}
+                <ConfirmDialog open danger title='Delete Campaign' message={`Are you sure you want to delete "${campaign.name}"? You can restore it from View Deleted.`}
                     onConfirm={() => { setConfirmDelete(false); deleteCampaign() }}
                     onCancel={() => setConfirmDelete(false)} />
             )}
@@ -1416,9 +1625,9 @@ function CreateCampaignForm({ onCreated }: { onCreated: (c: OperationCampaign) =
 // ── Campaign Organiser Modal ──────────────────────────────────────────────────
 
 function detectDaySlot(title: string): { stripped: string; day: 'saturday' | 'sunday' | null } {
-    const sat = title.match(/\s*[-–]?\s*(sat|saturday)\s*$/i)
+    const sat = title.match(/\s*[-–—]?\s*(sat|saturday)\s*$/i)
     if (sat) return { stripped: title.slice(0, title.length - sat[0].length).trim(), day: 'saturday' }
-    const sun = title.match(/\s*[-–]?\s*(sun|sunday)\s*$/i)
+    const sun = title.match(/\s*[-–—]?\s*(sun|sunday)\s*$/i)
     if (sun) return { stripped: title.slice(0, title.length - sun[0].length).trim(), day: 'sunday' }
     return { stripped: title, day: null }
 }
@@ -1440,11 +1649,11 @@ function computeGroupDates(missions: OrgMission[]): { startDate: string; endDate
     return { startDate: fmt(Math.min(...ts)), endDate: fmt(Math.max(...ts)) }
 }
 
-function buildOrgGroups(allOps: Operation[], existingCampaigns: OperationCampaign[]): { groups: OrgGroup[]; unassigned: Operation[] } {
-    const existingCampaignIds = new Set(existingCampaigns.map(c => c._id.toString()))
+function buildOrgGroups(allOps: Operation[], _existingCampaigns: OperationCampaign[]): { groups: OrgGroup[]; unassigned: Operation[] } {
+    // Only include ops with no campaign assignment (excludes ops from active AND deleted campaigns)
     const pool = allOps.filter(op =>
         !op.isSingleMission &&
-        (!op.campaignId || !existingCampaignIds.has(op.campaignId?.toString() ?? ''))
+        !op.campaignId
     )
 
     const analysed = pool.map(op => {
@@ -1519,9 +1728,16 @@ function AutoOrganiseModal({
     const [showConfirm, setShowConfirm] = useState(false)
     const [deletedCampaigns, setDeletedCampaigns] = useState<OperationCampaign[]>([])
     const [deletedMissions, setDeletedMissions] = useState<CampaignMission[]>([])
+    const [deletedOps, setDeletedOps] = useState<(Operation & { deletedAt: Date; deletedByName?: string })[]>([])
     const [showDeletedView, setShowDeletedView] = useState(false)
     const [restoringCampaignId, setRestoringCampaignId] = useState<string | null>(null)
     const [restoringMissionId, setRestoringMissionId] = useState<string | null>(null)
+    const [restoringOpId, setRestoringOpId] = useState<string | null>(null)
+    const [confirmRemoveGroupId, setConfirmRemoveGroupId] = useState<string | null>(null)
+    const [confirmRemoveMission, setConfirmRemoveMission] = useState<{ gId: string; mId: string } | null>(null)
+    const [orgSearch, setOrgSearch] = useState('')
+    const [markedSingleMissions, setMarkedSingleMissions] = useState<Operation[]>([])
+    const [singleMissionError, setSingleMissionError] = useState<string | null>(null)
     // Drag state: stored in ref (avoids re-renders), dragOver state for visual feedback
     const dragRef = useRef<DragItem | null>(null)
     const [dragOver, setDragOver] = useState<string | null>(null) // target key
@@ -1530,19 +1746,33 @@ function AutoOrganiseModal({
         const { groups: g, unassigned: u } = buildOrgGroups(allOps, existingCampaigns)
         setGroups(g)
         setUnassigned(u)
-        // Load soft-deleted campaigns + missions
+        // Load soft-deleted campaigns, missions, and operations (same sources as J2 bin view)
         fetch('/api/operations/campaigns?includeDeleted=true')
             .then(r => r.json())
             .then(d => setDeletedCampaigns((d.campaigns ?? []).filter((c: OperationCampaign) => c.isDeleted)))
         fetch('/api/operations/campaign-missions?includeDeleted=true')
             .then(r => r.json())
-            .then(d => setDeletedMissions(d.missions ?? []))
+            .then(d => setDeletedMissions((d.missions ?? []).filter((m: CampaignMission) => m.isDeleted)))
+        fetch('/api/operations/bin')
+            .then(r => r.json())
+            .then(d => setDeletedOps(d.operations ?? []))
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     async function markSingleMission(opId: string) {
-        await fetch(`/api/operations/update?id=${opId}&isSingleMission=true`)
-        setUnassigned(u => u.filter(o => o._id.toString() !== opId))
+        setSingleMissionError(null)
+        const op = unassigned.find(o => o._id.toString() === opId)
+        try {
+            const res = await fetch(`/api/operations/update?id=${opId}&isSingleMission=true`)
+            if (!res.ok) {
+                setSingleMissionError('Failed to mark as single mission — item kept in unassigned.')
+                return
+            }
+            setUnassigned(u => u.filter(o => o._id.toString() !== opId))
+            if (op) setMarkedSingleMissions(ms => [...ms, op])
+        } catch {
+            setSingleMissionError('Network error — item kept in unassigned.')
+        }
     }
 
     async function restoreDeletedCampaign(campaignId: string) {
@@ -1599,23 +1829,16 @@ function AutoOrganiseModal({
     }
 
     function removeGroup(gId: string) {
-        const g = groups.find(x => x.tempId === gId)
-        if (!g) return
-        const freed = g.missions.flatMap(m => [m.saturday, m.sunday, m.standalone].filter(Boolean) as Operation[])
         setGroups(gs => gs.filter(x => x.tempId !== gId))
-        setUnassigned(u => [...u, ...freed])
+        // Ops are NOT returned to unassigned — they had no campaignId in DB
+        // and will re-appear in the next organiser session automatically.
     }
 
     function removeMission(gId: string, mId: string) {
-        let freed: Operation[] = []
         setGroupsWithDates(gs => gs.map(g => g.tempId !== gId ? g : {
-            ...g, missions: g.missions.filter(x => {
-                if (x.tempId !== mId) return true
-                freed = [x.saturday, x.sunday, x.standalone].filter(Boolean) as Operation[]
-                return false
-            })
+            ...g, missions: g.missions.filter(x => x.tempId !== mId)
         }))
-        setUnassigned(u => [...u, ...freed])
+        // Ops are NOT returned to unassigned.
     }
 
     function moveMissionBtn(gId: string, mId: string, dir: -1 | 1) {
@@ -1819,8 +2042,19 @@ function AutoOrganiseModal({
         return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
     }
 
-    return (
-        <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+    const searchTerm = orgSearch.trim().toLowerCase()
+    const filteredGroups = searchTerm
+        ? groups.filter(g =>
+            g.name.toLowerCase().includes(searchTerm) ||
+            g.missions.some(m => m.name.toLowerCase().includes(searchTerm))
+        )
+        : groups
+    const filteredUnassigned = searchTerm
+        ? unassigned.filter(op => op.title.toLowerCase().includes(searchTerm))
+        : unassigned
+
+    const modalContent = (
+        <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 9900, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
             <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 700, maxHeight: 'calc(100vh - 32px)', background: 'rgb(13,13,13)', border: '1px solid rgba(100,150,237,0.25)', borderTop: '2px solid rgba(100,150,237,0.6)', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.8)' }}>
 
                 {/* Header */}
@@ -1841,9 +2075,20 @@ function AutoOrganiseModal({
                         <Add style={{ fontSize: 11 }} />New Campaign
                     </button>
                     <button onClick={() => setShowDeletedView(true)} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', padding: '3px 8px', border: '1px solid rgba(219,0,29,0.2)', display: 'flex', alignItems: 'center', gap: 4 }} onMouseEnter={e => { e.currentTarget.style.color = 'rgba(219,0,29,0.9)'; e.currentTarget.style.borderColor = 'rgba(219,0,29,0.45)' }} onMouseLeave={e => { e.currentTarget.style.color = 'rgba(219,0,29,0.55)'; e.currentTarget.style.borderColor = 'rgba(219,0,29,0.2)' }}>
-                        <Delete style={{ fontSize: 11 }} />View Deleted{(deletedCampaigns.length + deletedMissions.length) > 0 ? ` (${deletedCampaigns.length + deletedMissions.length})` : ''}
+                        <Delete style={{ fontSize: 11 }} />View Deleted{(deletedCampaigns.length + deletedMissions.length + deletedOps.length) > 0 ? ` (${deletedCampaigns.length + deletedMissions.length + deletedOps.length})` : ''}
                     </button>
-                    <span style={{ marginLeft: 'auto', fontSize: '0.58rem', color: 'rgba(237,237,237,0.22)' }}>{selectedGroups.length}/{groups.length} groups · {unassigned.length} unassigned</span>
+                    {/* Search */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 8px', flex: 1, minWidth: 120 }}>
+                        <Search style={{ fontSize: 12, color: 'rgba(237,237,237,0.25)', flexShrink: 0 }} />
+                        <input
+                            value={orgSearch}
+                            onChange={e => setOrgSearch(e.target.value)}
+                            placeholder='Search campaigns, missions…'
+                            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'rgba(237,237,237,0.7)', fontSize: '0.6rem', fontFamily: 'inherit' }}
+                        />
+                        {orgSearch && <button type='button' onClick={() => setOrgSearch('')} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.25)', display: 'flex' }}><Close style={{ fontSize: 11 }} /></button>}
+                    </div>
+                    <span style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.22)', flexShrink: 0 }}>{selectedGroups.length}/{groups.length} · {unassigned.length} unassigned</span>
                 </div>
 
                 {/* Body — normal organiser OR deleted view */}
@@ -1854,7 +2099,7 @@ function AutoOrganiseModal({
                             <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>Recycle Bin</span>
                         </div>
 
-                        {deletedCampaigns.length === 0 && deletedMissions.length === 0 && (
+                        {deletedCampaigns.length === 0 && deletedMissions.length === 0 && deletedOps.length === 0 && (
                             <div style={{ padding: '24px 0', textAlign: 'center', color: 'rgba(237,237,237,0.2)', fontSize: '0.72rem', fontStyle: 'italic' }}>Recycle bin is empty.</div>
                         )}
 
@@ -1897,6 +2142,36 @@ function AutoOrganiseModal({
                                 })}
                             </>
                         )}
+
+                        {deletedOps.length > 0 && (
+                            <>
+                                <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginTop: 8 }}>Operations</div>
+                                {deletedOps.map(op => {
+                                    const opId = op._id.toString()
+                                    const isRestoring = restoringOpId === opId
+                                    return (
+                                        <div key={opId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', border: '1px solid rgba(219,0,29,0.12)', background: 'rgba(219,0,29,0.02)' }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(237,237,237,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.title}</div>
+                                                {op.deletedAt && <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.22)', marginTop: 2 }}>
+                                                    Deleted {new Date(op.deletedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                    {op.deletedByName && ` by ${op.deletedByName}`}
+                                                </div>}
+                                            </div>
+                                            <button type='button' onClick={async () => {
+                                                setRestoringOpId(opId)
+                                                try {
+                                                    const res = await fetch(`/api/operations/restore?id=${opId}`)
+                                                    if (res.ok) setDeletedOps(ops => ops.filter(o => o._id.toString() !== opId))
+                                                } finally { setRestoringOpId(null) }
+                                            }} disabled={isRestoring} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(16,185,129,0.75)', border: '1px solid rgba(16,185,129,0.25)', padding: '4px 12px', flexShrink: 0, transition: 'color 0.12s' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(16,185,129,1)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(16,185,129,0.75)')}>
+                                                {isRestoring ? 'Restoring…' : 'Restore'}
+                                            </button>
+                                        </div>
+                                    )
+                                })}
+                            </>
+                        )}
                     </div>
                 ) : null}
 
@@ -1904,8 +2179,9 @@ function AutoOrganiseModal({
                 {!showDeletedView && (
                 <div style={{ flex: 1, overflowY: 'auto', padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {groups.length === 0 && unassigned.length === 0 && <div style={{ padding: '32px 0', textAlign: 'center', color: 'rgba(237,237,237,0.2)', fontSize: '0.75rem', fontStyle: 'italic' }}>No operations available to organise.</div>}
+                    {searchTerm && filteredGroups.length === 0 && filteredUnassigned.length === 0 && groups.length > 0 && <div style={{ padding: '16px 0', textAlign: 'center', color: 'rgba(237,237,237,0.2)', fontSize: '0.72rem', fontStyle: 'italic' }}>No results for "{orgSearch}".</div>}
 
-                    {groups.map(group => {
+                    {filteredGroups.map(group => {
                         const groupDropKey = `group:${group.tempId}`
                         const isGroupTarget = dragOver === groupDropKey
                         return (
@@ -1929,7 +2205,7 @@ function AutoOrganiseModal({
                                         )}
                                     </div>
                                     <span style={{ fontSize: '0.56rem', color: 'rgba(237,237,237,0.22)', flexShrink: 0 }}>{group.missions.length}m</span>
-                                    <button type='button' onClick={() => removeGroup(group.tempId)} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(219,0,29,0.22)', display: 'flex', flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.75)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.22)')}><Delete style={{ fontSize: 14 }} /></button>
+                                    <button type='button' onClick={() => setConfirmRemoveGroupId(group.tempId)} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(219,0,29,0.22)', display: 'flex', flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.75)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.22)')}><Delete style={{ fontSize: 14 }} /></button>
                                 </div>
 
                                 {/* Missions */}
@@ -1961,7 +2237,7 @@ function AutoOrganiseModal({
                                                             updMission(group.tempId, mission.tempId, m => ({ ...m, isSingleEvent: true }))
                                                         }} title='Mark as Single Event — excludes from campaign organiser' style={{ all: 'unset', cursor: 'pointer', fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.4)', border: '1px solid rgba(219,160,0,0.15)', padding: '1px 5px', flexShrink: 0, whiteSpace: 'nowrap' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,160,0,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,160,0,0.4)')}>Single Event</button>
                                                     )}
-                                                    <button type='button' onClick={() => removeMission(group.tempId, mission.tempId)} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(219,0,29,0.18)', display: 'flex', flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.65)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.18)')}><Close style={{ fontSize: 12 }} /></button>
+                                                    <button type='button' onClick={() => setConfirmRemoveMission({ gId: group.tempId, mId: mission.tempId })} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(219,0,29,0.18)', display: 'flex', flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.65)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.18)')}><Close style={{ fontSize: 12 }} /></button>
                                                 </div>
                                                 <div style={{ paddingLeft: 30, display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                     <OpSlot gId={group.tempId} mId={mission.tempId} slot='saturday' label='SAT' op={mission.saturday} accent='rgba(219,160,0,0.7)' />
@@ -1977,11 +2253,91 @@ function AutoOrganiseModal({
                         )
                     })}
 
-                    {unassigned.length > 0 && (
+                    {singleMissionError && (
+                        <div style={{ padding: '8px 12px', background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.3)', fontSize: '0.68rem', color: 'rgba(219,0,29,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                            <span>{singleMissionError}</span>
+                            <button type='button' onClick={() => setSingleMissionError(null)} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(219,0,29,0.5)', display: 'flex' }}><Close style={{ fontSize: 13 }} /></button>
+                        </div>
+                    )}
+
+                    {markedSingleMissions.length > 0 && (
+                        <div style={{ border: '1px solid rgba(219,160,0,0.18)', borderTop: '2px solid rgba(219,160,0,0.45)', background: 'rgba(219,160,0,0.03)' }}>
+                            <div style={{ padding: '5px 12px', borderBottom: '1px solid rgba(219,160,0,0.1)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.65)' }}>Marked as Single Missions</span>
+                                <span style={{ fontSize: '0.55rem', color: 'rgba(219,160,0,0.4)' }}>— will appear in J2 Dashboard after closing</span>
+                            </div>
+                            <div style={{ padding: '5px 10px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {markedSingleMissions.map(op => (
+                                    <div key={op._id.toString()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 6px', background: 'rgba(219,160,0,0.04)', border: '1px solid rgba(219,160,0,0.1)' }}>
+                                        <span style={{ fontSize: '0.62rem', color: 'rgba(219,160,0,0.75)', letterSpacing: '0.04em', flexShrink: 0 }}>★</span>
+                                        <span style={{ flex: 1, fontSize: '0.7rem', color: 'rgba(237,237,237,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.title}</span>
+                                        <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.2)', flexShrink: 0 }}>{new Date(op.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {(filteredUnassigned.length > 0 || (!searchTerm && unassigned.length > 0)) && (
+                        <>
+                        {/* Drop zones: Create New Single Mission / Create New Campaign */}
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                            <div
+                                onDragOver={e => dvOver(e, 'new-single')}
+                                onDragLeave={dvLeave}
+                                onDrop={e => {
+                                    e.preventDefault(); setDragOver(null)
+                                    const item = dragRef.current; dragRef.current = null
+                                    if (!item || item.kind !== 'unassigned') return
+                                    markSingleMission(item.op._id.toString())
+                                }}
+                                style={{
+                                    flex: 1, padding: '8px 10px', textAlign: 'center',
+                                    border: `2px dashed ${dragOver === 'new-single' ? 'rgba(219,160,0,0.7)' : 'rgba(219,160,0,0.2)'}`,
+                                    background: dragOver === 'new-single' ? 'rgba(219,160,0,0.07)' : 'rgba(219,160,0,0.01)',
+                                    transition: 'all 0.1s', cursor: 'default',
+                                }}
+                            >
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: dragOver === 'new-single' ? 'rgba(219,160,0,0.9)' : 'rgba(219,160,0,0.5)' }}>
+                                    + Single Mission
+                                </div>
+                                <div style={{ fontSize: '0.52rem', color: 'rgba(219,160,0,0.35)', marginTop: 2 }}>Drag here to mark as standalone</div>
+                            </div>
+                            <div
+                                onDragOver={e => dvOver(e, 'new-campaign')}
+                                onDragLeave={dvLeave}
+                                onDrop={e => {
+                                    e.preventDefault(); setDragOver(null)
+                                    const item = dragRef.current; dragRef.current = null
+                                    if (!item || item.kind !== 'unassigned') return
+                                    const op = item.op
+                                    const { stripped: withoutDay, day } = detectDaySlot(op.title)
+                                    const { stripped: campaignBase } = detectRomanSuffix(withoutDay)
+                                    const newCampaignName = campaignBase || op.title
+                                    const newM: OrgMission = { tempId: makeTempId(), name: `${newCampaignName} I`, saturday: day === 'saturday' ? op : null, sunday: day === 'sunday' ? op : null, standalone: day === null ? op : null }
+                                    const { startDate, endDate } = computeGroupDates([newM])
+                                    const newGroup: OrgGroup = { tempId: makeTempId(), name: newCampaignName, missions: [newM], selected: true, startDate, endDate, dateOverridden: false }
+                                    setGroupsWithDates(gs => [...gs, newGroup])
+                                    setUnassigned(u => u.filter(o => o._id.toString() !== op._id.toString()))
+                                }}
+                                style={{
+                                    flex: 1, padding: '8px 10px', textAlign: 'center',
+                                    border: `2px dashed ${dragOver === 'new-campaign' ? 'rgba(100,150,237,0.7)' : 'rgba(100,150,237,0.2)'}`,
+                                    background: dragOver === 'new-campaign' ? 'rgba(100,150,237,0.07)' : 'rgba(100,150,237,0.01)',
+                                    transition: 'all 0.1s', cursor: 'default',
+                                }}
+                            >
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: dragOver === 'new-campaign' ? 'rgba(100,150,237,0.9)' : 'rgba(100,150,237,0.5)' }}>
+                                    + New Campaign
+                                </div>
+                                <div style={{ fontSize: '0.52rem', color: 'rgba(100,150,237,0.35)', marginTop: 2 }}>Drag here to start a new campaign</div>
+                            </div>
+                        </div>
+
                         <div style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                             <div style={{ padding: '6px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.28)' }}>Unassigned — drag into a campaign or use dropdown</div>
                             <div style={{ padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                {unassigned.map(op => (
+                                {filteredUnassigned.map(op => (
                                     <div key={op._id.toString()} draggable onDragStart={e => handleUnassignedDragStart(e, op)}
                                         style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px', cursor: 'grab', border: '1px solid rgba(255,255,255,0.03)', background: 'rgba(255,255,255,0.01)' }}>
                                         <span style={{ flex: 1, fontSize: '0.7rem', color: 'rgba(237,237,237,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.title}</span>
@@ -1992,6 +2348,7 @@ function AutoOrganiseModal({
                                 ))}
                             </div>
                         </div>
+                        </>
                     )}
 
                 </div>
@@ -2008,8 +2365,22 @@ function AutoOrganiseModal({
                 </div>
             </div>
 
+            {confirmRemoveGroupId && (
+                <ConfirmDialog open title='Remove Campaign Group'
+                    message='Remove this campaign group from the organiser? Operations will not be lost — they will re-appear in the next organiser session.'
+                    onConfirm={() => { removeGroup(confirmRemoveGroupId); setConfirmRemoveGroupId(null) }}
+                    onCancel={() => setConfirmRemoveGroupId(null)} />
+            )}
+            {confirmRemoveMission && (
+                <ConfirmDialog open title='Remove Mission'
+                    message='Remove this mission from the group? Operations will not be lost — they will re-appear in the next organiser session.'
+                    onConfirm={() => { removeMission(confirmRemoveMission.gId, confirmRemoveMission.mId); setConfirmRemoveMission(null) }}
+                    onCancel={() => setConfirmRemoveMission(null)} />
+            )}
+
             {/* Confirmation modal */}
             {showConfirm && (
+
                 <div onClick={() => setShowConfirm(false)} style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                     <div onClick={e => e.stopPropagation()} style={{ background: 'rgb(18,18,18)', border: '1px solid rgba(219,0,29,0.28)', borderTop: '2px solid var(--red)', padding: '22px 24px', maxWidth: 440, width: '100%', display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 24px 64px rgba(0,0,0,0.95)' }}>
                         <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.9)' }}>Apply campaign organisation?</div>
@@ -2035,6 +2406,7 @@ function AutoOrganiseModal({
             )}
         </div>
     )
+    return typeof document === 'undefined' ? modalContent : createPortal(modalContent, document.body)
 }
 
 // ── Templates management section ──────────────────────────────────────────────
@@ -2123,8 +2495,12 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
 
     // Bin
     const [binOps, setBinOps] = useState<(Operation & { deletedAt: Date; deletedByName?: string })[]>([])
+    const [binCampaigns, setBinCampaigns] = useState<OperationCampaign[]>([])
+    const [binMissions, setBinMissions] = useState<CampaignMission[]>([])
     const [loadingBin, setLoadingBin] = useState(false)
     const [restoringId, setRestoringId] = useState<string | null>(null)
+    const [restoringCampaignBinId, setRestoringCampaignBinId] = useState<string | null>(null)
+    const [restoringMissionBinId, setRestoringMissionBinId] = useState<string | null>(null)
     const [purgingId, setPurgingId] = useState<string | null>(null)
     const [confirmPurgeId, setConfirmPurgeId] = useState<string | null>(null)
 
@@ -2141,9 +2517,17 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
     const fetchBin = useCallback(async () => {
         setLoadingBin(true)
         try {
-            const res = await fetch('/api/operations/bin')
-            const data = await res.json()
-            setBinOps(data.operations ?? [])
+            const [opsRes, campaignsRes, missionsRes] = await Promise.all([
+                fetch('/api/operations/bin'),
+                fetch('/api/operations/campaigns?includeDeleted=true'),
+                fetch('/api/operations/campaign-missions?includeDeleted=true'),
+            ])
+            const [opsData, campaignsData, missionsData] = await Promise.all([
+                opsRes.json(), campaignsRes.json(), missionsRes.json()
+            ])
+            setBinOps(opsData.operations ?? [])
+            setBinCampaigns((campaignsData.campaigns ?? []).filter((c: OperationCampaign) => c.isDeleted))
+            setBinMissions((missionsData.missions ?? []).filter((m: CampaignMission) => m.isDeleted))
         } finally { setLoadingBin(false) }
     }, [])
 
@@ -2194,7 +2578,34 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
         try {
             await fetch(`/api/operations/restore?id=${id}`)
             setBinOps(ops => ops.filter(o => o._id.toString() !== id))
+            fetchMissions()
         } finally { setRestoringId(null) }
+    }
+
+    async function restoreCampaignFromBin(campaignId: string) {
+        setRestoringCampaignBinId(campaignId)
+        try {
+            await fetch('/api/operations/campaigns', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: campaignId, restore: true }),
+            })
+            setBinCampaigns(cs => cs.filter(c => c._id.toString() !== campaignId))
+            setCampaignsLoaded(false)
+        } finally { setRestoringCampaignBinId(null) }
+    }
+
+    async function restoreMissionFromBin(missionId: string) {
+        setRestoringMissionBinId(missionId)
+        try {
+            await fetch(`/api/operations/campaign-missions/${missionId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ restore: true }),
+            })
+            setBinMissions(ms => ms.filter(m => m._id?.toString() !== missionId))
+            setCampaignsLoaded(false)
+        } finally { setRestoringMissionBinId(null) }
     }
 
     async function purgeFromBin(id: string) {
@@ -2447,6 +2858,8 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                                                             setCampaigns(cs => cs.filter(x => x._id.toString() !== id))
                                                             setCampaignMissionsMap(m => { const n = { ...m }; delete n[id]; return n })
                                                         }}
+                                                        onCampaignStatusChanged={(id, status) => setCampaigns(cs => cs.map(x => x._id.toString() === id ? { ...x, status: (status as OperationCampaign['status']) ?? undefined } : x))}
+                                                        onRefreshOps={fetchMissions}
                                                     />
                                                 ))}
                                             </div>
@@ -2493,87 +2906,126 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                 <div>
                     <div style={{ marginBottom: 10 }}>
                         <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)' }}>
-                            Operations in bin are permanently deleted after 30 days
+                            Items in recycle bin are permanently deleted after 6 months
                         </span>
                     </div>
 
                     {loadingBin && <LinearProgress sx={{ mb: 1, backgroundColor: 'rgba(219,0,29,0.1)', '& .MuiLinearProgress-bar': { backgroundColor: 'var(--red)' } }} />}
 
-                    {!loadingBin && binOps.length === 0 && (
+                    {!loadingBin && binOps.length === 0 && binCampaigns.length === 0 && binMissions.length === 0 && (
                         <Typography style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.25)', padding: '16px 0', fontStyle: 'italic' }}>
                             Recycle bin is empty.
                         </Typography>
                     )}
 
+                    {/* Deleted Campaigns */}
+                    {binCampaigns.length > 0 && (
+                        <div style={{ marginBottom: 16 }}>
+                            <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.55)', marginBottom: 6 }}>Campaigns</div>
+                            {binCampaigns.map(c => {
+                                const cid = c._id.toString()
+                                const isRestoring = restoringCampaignBinId === cid
+                                return (
+                                    <div key={cid} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', border: '1px solid rgba(100,150,237,0.12)', background: 'rgba(100,150,237,0.02)', marginBottom: 4 }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(237,237,237,0.65)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
+                                            {c.deletedAt && <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.28)', marginTop: 2 }}>Deleted {new Date(c.deletedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
+                                        </div>
+                                        <button onClick={() => restoreCampaignFromBin(cid)} disabled={isRestoring} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', cursor: isRestoring ? 'not-allowed' : 'pointer', background: 'none', border: '1px solid rgba(34,197,94,0.3)', color: isRestoring ? 'rgba(34,197,94,0.3)' : 'rgba(34,197,94,0.7)' }}>
+                                            <RestoreFromTrash style={{ fontSize: 13 }} />{isRestoring ? 'Restoring…' : 'Restore'}
+                                        </button>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+
+                    {/* Deleted Campaign Missions */}
+                    {binMissions.length > 0 && (
+                        <div style={{ marginBottom: 16 }}>
+                            <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.55)', marginBottom: 6 }}>Campaign Missions</div>
+                            {binMissions.map(m => {
+                                const mId = m._id?.toString() ?? ''
+                                const isRestoring = restoringMissionBinId === mId
+                                return (
+                                    <div key={mId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', border: '1px solid rgba(219,160,0,0.1)', background: 'rgba(219,160,0,0.02)', marginBottom: 4 }}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(237,237,237,0.65)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
+                                            {m.deletedAt && <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.28)', marginTop: 2 }}>
+                                                Deleted {new Date(m.deletedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                {m.deletedByName && ` by ${m.deletedByName}`}
+                                            </div>}
+                                        </div>
+                                        <button onClick={() => restoreMissionFromBin(mId)} disabled={isRestoring} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', cursor: isRestoring ? 'not-allowed' : 'pointer', background: 'none', border: '1px solid rgba(34,197,94,0.3)', color: isRestoring ? 'rgba(34,197,94,0.3)' : 'rgba(34,197,94,0.7)' }}>
+                                            <RestoreFromTrash style={{ fontSize: 13 }} />{isRestoring ? 'Restoring…' : 'Restore'}
+                                        </button>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+
+                    {/* Deleted Operations */}
                     {binOps.length > 0 && (
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                                <thead>
-                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
-                                        {['Title', 'Deleted By', 'Deleted On', 'Days Remaining', ''].map(h => (
-                                            <th key={h} style={{ textAlign: 'left', padding: '6px 12px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>
-                                                {h}
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {binOps.map(op => {
-                                        const id = op._id.toString()
-                                        const daysRemaining = Math.max(0, 30 - Math.floor((Date.now() - new Date(op.deletedAt).getTime()) / 86400000))
-                                        const isRestoring = restoringId === id
-                                        const isPurging = purgingId === id
-                                        return (
-                                            <tr key={id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                                <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.75)', fontWeight: 700 }}>{op.title}</td>
-                                                <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.45)' }}>{op.deletedByName ?? '—'}</td>
-                                                <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>
-                                                    {new Date(op.deletedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                </td>
-                                                <td style={{ padding: '8px 12px', color: daysRemaining <= 5 ? 'rgba(219,0,29,0.8)' : 'rgba(237,237,237,0.45)' }}>
-                                                    {daysRemaining}d
-                                                </td>
-                                                <td style={{ padding: '8px 12px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                                                        <button
-                                                            onClick={() => restoreFromBin(id)}
-                                                            disabled={isRestoring || isPurging}
-                                                            title='Restore'
-                                                            style={{
-                                                                display: 'flex', alignItems: 'center', gap: 4,
-                                                                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
-                                                                padding: '3px 10px', cursor: isRestoring ? 'not-allowed' : 'pointer',
-                                                                background: 'none', border: '1px solid rgba(34,197,94,0.3)',
-                                                                color: isRestoring ? 'rgba(34,197,94,0.3)' : 'rgba(34,197,94,0.7)',
-                                                            }}
-                                                        >
-                                                            <RestoreFromTrash style={{ fontSize: 13 }} />
-                                                            {isRestoring ? 'Restoring…' : 'Restore'}
-                                                        </button>
-                                                        {isJ4 && (
+                        <div>
+                            {(binCampaigns.length > 0 || binMissions.length > 0) && (
+                                <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', marginBottom: 6 }}>Operations</div>
+                            )}
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+                                            {['Title', 'Deleted By', 'Deleted On', 'Days Remaining', ''].map(h => (
+                                                <th key={h} style={{ textAlign: 'left', padding: '6px 12px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {binOps.map(op => {
+                                            const id = op._id.toString()
+                                            const daysRemaining = Math.max(0, 180 - Math.floor((Date.now() - new Date(op.deletedAt).getTime()) / 86400000))
+                                            const isRestoring = restoringId === id
+                                            const isPurging = purgingId === id
+                                            return (
+                                                <tr key={id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                                    <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.75)', fontWeight: 700 }}>{op.title}</td>
+                                                    <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.45)' }}>{op.deletedByName ?? '—'}</td>
+                                                    <td style={{ padding: '8px 12px', color: 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}>
+                                                        {new Date(op.deletedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                    </td>
+                                                    <td style={{ padding: '8px 12px', color: daysRemaining <= 14 ? 'rgba(219,0,29,0.8)' : 'rgba(237,237,237,0.45)' }}>
+                                                        {daysRemaining}d
+                                                    </td>
+                                                    <td style={{ padding: '8px 12px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
                                                             <button
-                                                                onClick={() => setConfirmPurgeId(id)}
+                                                                onClick={() => restoreFromBin(id)}
                                                                 disabled={isRestoring || isPurging}
-                                                                title='Delete Permanently'
-                                                                style={{
-                                                                    display: 'flex', alignItems: 'center', gap: 4,
-                                                                    fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
-                                                                    padding: '3px 10px', cursor: isPurging ? 'not-allowed' : 'pointer',
-                                                                    background: 'none', border: '1px solid rgba(219,0,29,0.42)',
-                                                                    color: isPurging ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.7)',
-                                                                }}
+                                                                title='Restore'
+                                                                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', cursor: isRestoring ? 'not-allowed' : 'pointer', background: 'none', border: '1px solid rgba(34,197,94,0.3)', color: isRestoring ? 'rgba(34,197,94,0.3)' : 'rgba(34,197,94,0.7)' }}
                                                             >
-                                                                <DeleteForever style={{ fontSize: 13 }} />
-                                                                {isPurging ? 'Deleting…' : 'Delete Permanently'}
+                                                                <RestoreFromTrash style={{ fontSize: 13 }} />
+                                                                {isRestoring ? 'Restoring…' : 'Restore'}
                                                             </button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )
-                                    })}
-                                </tbody>
-                            </table>
+                                                            {isJ4 && (
+                                                                <button
+                                                                    onClick={() => setConfirmPurgeId(id)}
+                                                                    disabled={isRestoring || isPurging}
+                                                                    title='Delete Permanently'
+                                                                    style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', cursor: isPurging ? 'not-allowed' : 'pointer', background: 'none', border: '1px solid rgba(219,0,29,0.42)', color: isPurging ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.7)' }}
+                                                                >
+                                                                    <DeleteForever style={{ fontSize: 13 }} />
+                                                                    {isPurging ? 'Deleting…' : 'Delete Permanently'}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
 
@@ -2604,7 +3056,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                 <AutoOrganiseModal
                     allOps={missions}
                     existingCampaigns={campaigns}
-                    onClose={() => setAutoOrganiseOpen(false)}
+                    onClose={() => { setAutoOrganiseOpen(false); fetchMissions() }}
                     onOrganised={(newCampaigns, newMissionsMap) => {
                         setCampaigns(cs => {
                             const existing = new Set(cs.map(c => c._id.toString()))

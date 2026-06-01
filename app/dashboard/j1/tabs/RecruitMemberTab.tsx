@@ -922,7 +922,6 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         fullResetForm()
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     function restoreDraft(d: Record<string, any>) {
         if (typeof d.step === 'number') setStep(d.step)
         if (d.fields) setFields(d.fields)
