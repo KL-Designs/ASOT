@@ -60,8 +60,8 @@ export async function GET() {
         ])
         .toArray()
 
-    const fileMap = Object.fromEntries(fileMeta.map((f: { _id: string; fileCount: number; lastUpload: Date }) => [f._id, f]))
-    const docMap  = Object.fromEntries(docMeta.map((d: { _id: string; docCount: number; lastDoc: Date }) => [d._id, d]))
+    const fileMap = Object.fromEntries(fileMeta.map((f) => [(f as { _id: string })._id, f]))
+    const docMap  = Object.fromEntries(docMeta.map((d) => [(d as { _id: string })._id, d]))
     const opMap   = Object.fromEntries(opMeta.map(o => [o._id, o]))
 
     const members = users.map(u => {

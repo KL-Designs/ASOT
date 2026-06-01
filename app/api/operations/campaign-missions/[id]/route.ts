@@ -66,10 +66,28 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const body = await request.json()
 
     if (body.restore) {
+        const missionToRestore = await Db.campaignMissions.findOne({ _id: missionId })
         await Db.campaignMissions.updateOne(
             { _id: missionId },
             { $unset: { isDeleted: '', deletedAt: '', deletedBy: '', deletedByName: '' } }
         )
+        // Re-link ops that were unlinked when the mission was deleted
+        if (missionToRestore?.saturdayOpId) {
+            try {
+                await Db.operations.updateOne(
+                    { _id: new ObjectId(missionToRestore.saturdayOpId) },
+                    { $set: { campaignMissionId: id, daySlot: 'saturday', campaignId: missionToRestore.campaignId } as Record<string, unknown> }
+                )
+            } catch { /* ignore */ }
+        }
+        if (missionToRestore?.sundayOpId) {
+            try {
+                await Db.operations.updateOne(
+                    { _id: new ObjectId(missionToRestore.sundayOpId) },
+                    { $set: { campaignMissionId: id, daySlot: 'sunday', campaignId: missionToRestore.campaignId } as Record<string, unknown> }
+                )
+            } catch { /* ignore */ }
+        }
         return NextResponse.json({ ok: true })
     }
 
@@ -112,12 +130,12 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
     const displayName: string = (me as any).displayName ?? (me as any).global_name ?? me.id
 
-    // Unlink operations (leave them in place, just remove campaign link)
+    // Unlink operations from this specific mission slot, but keep them in the campaign
     if (mission.saturdayOpId) {
         try {
             await Db.operations.updateOne(
                 { _id: new ObjectId(mission.saturdayOpId) },
-                { $unset: { campaignMissionId: '', daySlot: '', campaignId: '' } }
+                { $unset: { campaignMissionId: '', daySlot: '' } }
             )
         } catch { /* ignore */ }
     }
@@ -125,7 +143,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
         try {
             await Db.operations.updateOne(
                 { _id: new ObjectId(mission.sundayOpId) },
-                { $unset: { campaignMissionId: '', daySlot: '', campaignId: '' } }
+                { $unset: { campaignMissionId: '', daySlot: '' } }
             )
         } catch { /* ignore */ }
     }

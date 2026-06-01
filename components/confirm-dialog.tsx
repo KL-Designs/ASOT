@@ -6,17 +6,25 @@ interface Props {
     message?: string
     confirmLabel?: string
     danger?: boolean
+    restore?: boolean
     onConfirm: () => void
     onCancel: () => void
 }
 
-export default function ConfirmDialog({ open, title, message, confirmLabel = 'Confirm', danger, onConfirm, onCancel }: Props) {
+export default function ConfirmDialog({ open, title, message, confirmLabel, danger, restore, onConfirm, onCancel }: Props) {
     if (!open) return null
 
-    const accentColor = danger ? 'rgba(219,0,29,0.9)' : 'rgba(237,237,237,0.75)'
-    const accentBorder = danger ? 'rgba(219,0,29,0.5)' : 'rgba(255,255,255,0.2)'
-    const accentBg = danger ? 'rgba(219,0,29,0.1)' : 'rgba(255,255,255,0.06)'
-    const accentHover = danger ? 'rgba(219,0,29,0.2)' : 'rgba(255,255,255,0.1)'
+    const defaultLabel = restore ? 'Restore' : danger ? 'Delete' : 'Confirm'
+    const label = confirmLabel ?? defaultLabel
+
+    // Confirm button: red for danger, green for restore, neutral otherwise
+    const confirmColor = danger ? 'rgba(219,0,29,0.9)' : restore ? 'rgba(16,185,129,0.9)' : 'rgba(237,237,237,0.8)'
+    const confirmBorder = danger ? 'rgba(219,0,29,0.5)' : restore ? 'rgba(16,185,129,0.45)' : 'rgba(255,255,255,0.2)'
+    const confirmBg = danger ? 'rgba(219,0,29,0.1)' : restore ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.06)'
+    const confirmHover = danger ? 'rgba(219,0,29,0.22)' : restore ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.12)'
+
+    const topBorder = danger ? 'rgba(219,0,29,0.8)' : restore ? 'rgba(16,185,129,0.7)' : 'rgba(255,255,255,0.35)'
+    const sideBorder = danger ? 'rgba(219,0,29,0.25)' : restore ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.1)'
 
     return (
         <div
@@ -32,8 +40,8 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = 'Co
                 onClick={e => e.stopPropagation()}
                 style={{
                     background: 'rgba(12,12,12,0.98)',
-                    border: `1px solid ${danger ? 'rgba(219,0,29,0.25)' : 'rgba(255,255,255,0.1)'}`,
-                    borderTop: `2px solid ${danger ? 'rgba(219,0,29,0.8)' : 'rgba(255,255,255,0.35)'}`,
+                    border: `1px solid ${sideBorder}`,
+                    borderTop: `2px solid ${topBorder}`,
                     padding: '28px 32px',
                     minWidth: 340,
                     maxWidth: 460,
@@ -63,35 +71,37 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = 'Co
 
                 {/* Buttons */}
                 <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                    {/* Cancel — always blue/neutral */}
                     <button
                         onClick={onCancel}
                         style={{
                             padding: '8px 20px',
                             background: 'transparent',
-                            border: '1px solid rgba(255,255,255,0.12)',
-                            color: 'rgba(237,237,237,0.4)',
+                            border: '1px solid rgba(100,150,237,0.3)',
+                            color: 'rgba(100,150,237,0.65)',
                             fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
                             cursor: 'pointer', transition: 'color 0.15s, border-color 0.15s, background 0.15s',
                         }}
-                        onMouseEnter={e => { const el = e.currentTarget; el.style.color = 'rgba(237,237,237,0.75)'; el.style.borderColor = 'rgba(255,255,255,0.25)'; el.style.background = 'rgba(255,255,255,0.04)' }}
-                        onMouseLeave={e => { const el = e.currentTarget; el.style.color = 'rgba(237,237,237,0.4)'; el.style.borderColor = 'rgba(255,255,255,0.12)'; el.style.background = 'transparent' }}
+                        onMouseEnter={e => { const el = e.currentTarget; el.style.color = 'rgba(100,150,237,0.95)'; el.style.borderColor = 'rgba(100,150,237,0.6)'; el.style.background = 'rgba(100,150,237,0.08)' }}
+                        onMouseLeave={e => { const el = e.currentTarget; el.style.color = 'rgba(100,150,237,0.65)'; el.style.borderColor = 'rgba(100,150,237,0.3)'; el.style.background = 'transparent' }}
                     >
                         Cancel
                     </button>
+                    {/* Confirm — red/green/neutral depending on variant */}
                     <button
                         onClick={onConfirm}
                         style={{
                             padding: '8px 20px',
-                            background: accentBg,
-                            border: `1px solid ${accentBorder}`,
-                            color: accentColor,
+                            background: confirmBg,
+                            border: `1px solid ${confirmBorder}`,
+                            color: confirmColor,
                             fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
                             cursor: 'pointer', transition: 'background 0.15s, border-color 0.15s',
                         }}
-                        onMouseEnter={e => { const el = e.currentTarget; el.style.background = accentHover }}
-                        onMouseLeave={e => { const el = e.currentTarget; el.style.background = accentBg }}
+                        onMouseEnter={e => { const el = e.currentTarget; el.style.background = confirmHover }}
+                        onMouseLeave={e => { const el = e.currentTarget; el.style.background = confirmBg }}
                     >
-                        {confirmLabel}
+                        {label}
                     </button>
                 </div>
             </div>

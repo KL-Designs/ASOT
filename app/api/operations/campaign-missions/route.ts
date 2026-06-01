@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const query: Record<string, unknown> = {}
     if (campaignId) query.campaignId = campaignId
     if (!includeDeleted) query.isDeleted = { $ne: true }
-    else if (campaignId) query.isDeleted = true   // when includeDeleted without campaignId, get all deleted
+    else query.isDeleted = true  // includeDeleted=true: only return soft-deleted items
 
     if (!campaignId && !includeDeleted) return NextResponse.json({ error: 'campaignId required' }, { status: 400 })
 
