@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useEditor, EditorContent, Extension } from '@tiptap/react'
+import { useEditor, EditorContent, Extension, ReactNodeViewRenderer } from '@tiptap/react'
+import ImageNodeView from './ImageNodeView'
 import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align'
 import Underline from '@tiptap/extension-underline'
@@ -119,6 +120,61 @@ const TabIndentExtension = Extension.create({
     },
 })
 
+// ── Custom image node: block-level, with resize / alignment / crop attributes
+const CustomImage = ImageExt.extend({
+    inline: false,
+    group: 'block',
+    addAttributes() {
+        return {
+            ...this.parent?.(),
+            // Display width in px (null = auto)
+            width: {
+                default: null,
+                parseHTML: el => parseInt(el.style.width ?? '') || parseInt(el.getAttribute('width') ?? '') || null,
+                renderHTML: attrs => attrs.width ? { style: `width:${attrs.width}px` } : {},
+            },
+            // Horizontal alignment: null | 'center' | 'right' | 'wrap-left' | 'wrap-right' | 'free'
+            'data-align': {
+                default: null,
+                parseHTML: el => el.getAttribute('data-align') || null,
+                renderHTML: attrs => {
+                    if (!attrs['data-align']) return {}
+                    if (attrs['data-align'] === 'free') {
+                        return { 'data-align': 'free', style: 'position:absolute;z-index:5' }
+                    }
+                    return { 'data-align': attrs['data-align'] }
+                },
+            },
+            // Free-position coordinates (px from top-left of editor/viewer container)
+            'data-pos-x': {
+                default: null,
+                parseHTML: el => parseInt(el.getAttribute('data-pos-x') ?? '') || null,
+                renderHTML: attrs => attrs['data-pos-x'] != null && attrs['data-align'] === 'free'
+                    ? { 'data-pos-x': String(attrs['data-pos-x']), style: `left:${attrs['data-pos-x']}px` }
+                    : {},
+            },
+            'data-pos-y': {
+                default: null,
+                parseHTML: el => parseInt(el.getAttribute('data-pos-y') ?? '') || null,
+                renderHTML: attrs => attrs['data-pos-y'] != null && attrs['data-align'] === 'free'
+                    ? { 'data-pos-y': String(attrs['data-pos-y']), style: `top:${attrs['data-pos-y']}px` }
+                    : {},
+            },
+            // CSS clip-path crop string, e.g. "inset(10% 5% 0% 5%)"
+            'data-crop': {
+                default: null,
+                parseHTML: el => el.getAttribute('data-crop') || (el.style.clipPath ? el.style.clipPath : null),
+                renderHTML: attrs => attrs['data-crop']
+                    ? { 'data-crop': attrs['data-crop'], style: `clip-path:${attrs['data-crop']}` }
+                    : {},
+            },
+        }
+    },
+    addNodeView() {
+        return ReactNodeViewRenderer(ImageNodeView)
+    },
+})
+
 // ── Split HTML: extract leading <style> block (Google Docs list CSS) from body
 function splitStyleBlock(html: string): { styleInner: string; body: string } {
     const m = html.match(/^<style>([\s\S]*?)<\/style>/)
@@ -166,7 +222,7 @@ export default function SimpleEditor({ initialContent = '', onChange, readOnly =
             Highlight.configure({ multicolor: true }),
             TextAlign.configure({ types: ['heading', 'paragraph', 'tableCell', 'tableHeader'] }),
             Link.configure({ openOnClick: false }),
-            ImageExt.configure({ inline: true, allowBase64: false }),
+            CustomImage.configure({ allowBase64: false }),
             Table.configure({ resizable: false }),
             TableRow,
             TableHeader,
@@ -382,6 +438,7 @@ const editorCss = `
     outline: none; color: rgba(237,237,237,0.85);
     font-size: 0.88rem; line-height: 1.7;
     max-width: 794px; margin: 0 auto;
+    position: relative;
 }
 .simple-editor-content h1 {
     font-size: 1.3rem; font-weight: 800; letter-spacing: 0.04em;
@@ -418,7 +475,9 @@ const editorCss = `
 .simple-editor-content mark { background: rgba(249,168,37,0.35); color: inherit; padding: 0 2px; border-radius: 2px; }
 .simple-editor-content hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 1.2rem 0; }
 .simple-editor-content a { color: rgba(219,0,29,0.8); text-decoration: underline; }
-.simple-editor-content img { max-width: 100%; height: auto; display: inline-block; vertical-align: middle; }
+.simple-editor-content img { max-width: 100%; height: auto; display: block; }
+.simple-editor-content .ProseMirror-selectednode > div { outline: none; }
+.simple-editor-content::after { content: ''; display: table; clear: both; }
 .simple-editor-content blockquote {
     border-left: 3px solid rgba(219,0,29,0.4); margin: 0.8rem 0;
     padding: 4px 16px; color: rgba(237,237,237,0.6);

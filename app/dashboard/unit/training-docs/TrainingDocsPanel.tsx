@@ -1080,7 +1080,7 @@ function DocToc({ headings }: { headings: Array<{ id: string; text: string; leve
 
 const docViewerCss = `
 .training-doc-body {
-    color: rgba(237,237,237,0.85); font-size: 0.88rem; line-height: 1.7; max-width: 794px; margin: 0 auto;
+    color: rgba(237,237,237,0.85); font-size: 0.88rem; line-height: 1.7; max-width: 794px; margin: 0 auto; position: relative;
 }
 .training-doc-body h1 {
     font-size: 1.3rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
@@ -1112,6 +1112,12 @@ const docViewerCss = `
 .training-doc-body [style*="text-align: center"] img { margin-left: auto; margin-right: auto; }
 .training-doc-body [style*="text-align:right"] img,
 .training-doc-body [style*="text-align: right"] img { margin-left: auto; margin-right: 0; }
+.training-doc-body img[data-align="center"]     { margin-left: auto; margin-right: auto; }
+.training-doc-body img[data-align="right"]      { margin-left: auto; margin-right: 0; }
+.training-doc-body img[data-align="wrap-left"]  { float: left;  margin: 4px 18px 10px 0; }
+.training-doc-body img[data-align="wrap-right"] { float: right; margin: 4px 0 10px 18px; }
+.training-doc-body img[data-align="free"]       { position: absolute; margin: 0; }
+.training-doc-body::after { content: ''; display: table; clear: both; }
 .training-doc-body a { color: rgba(219,0,29,0.8); text-decoration: underline; text-underline-offset: 3px; }
 .training-doc-body a:hover { color: rgba(219,0,29,1); }
 .training-doc-body hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 1.5rem 0; }
