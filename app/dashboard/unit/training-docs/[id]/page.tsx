@@ -2,9 +2,11 @@ import { redirect } from 'next/navigation'
 import { connection } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import TrainingDocsPanel from './TrainingDocsPanel'
+import TrainingDocsPanel from '../TrainingDocsPanel'
 
-export default async function Page() {
+type Props = { params: Promise<{ id: string }> }
+
+export default async function Page({ params }: Props) {
     await connection()
 
     const me = await client.fetchMe().catch(() => null)
@@ -12,6 +14,7 @@ export default async function Page() {
     if (!client.hasRoles(me, PERMISSIONS.pages.member)) redirect('/me')
 
     const isJ3 = client.hasRoles(me, PERMISSIONS.trainingDocs.manage)
+    const { id } = await params
 
-    return <TrainingDocsPanel isJ3={isJ3} />
+    return <TrainingDocsPanel isJ3={isJ3} initialDocId={id} />
 }
