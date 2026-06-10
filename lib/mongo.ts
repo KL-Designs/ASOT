@@ -52,6 +52,7 @@ const DbInterface = {
     userPreferences: db.collection('user_preferences') as MongoCollection<UserPreferences>,
     notifPolicyConfig: db.collection('notif_policy_config') as MongoCollection<NotifPolicyConfig>,
     sops: db.collection('sops') as MongoCollection<SopDocument>,
+    trainingDocs: db.collection('training_docs') as MongoCollection<TrainingDocItem>,
     teamspeakSnapshots: db.collection('teamspeak_snapshots') as MongoCollection<TsSnapshot>,
     recruitSessions: db.collection('recruit_sessions') as MongoCollection<RecruitSession>,
     tfarPlugins: db.collection('tfar_plugins'),
