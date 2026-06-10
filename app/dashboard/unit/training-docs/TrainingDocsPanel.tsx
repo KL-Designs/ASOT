@@ -172,7 +172,7 @@ export default function TrainingDocsPanel({ isJ3, initialDocId }: { isJ3: boolea
 
     useEffect(() => {
         loadItems(currentParentId)
-    }, [currentParentId]) // eslint-disable-line
+    }, [currentParentId])
 
     // Auto-open document when navigating directly to /training-docs/[id]
     useEffect(() => {
@@ -193,7 +193,7 @@ export default function TrainingDocsPanel({ isJ3, initialDocId }: { isJ3: boolea
                 setView({ type: 'read', item, html: doc.htmlContent ?? '' })
             })
             .catch(() => {})
-    }, [initialDocId]) // eslint-disable-line
+    }, [initialDocId])
 
     // ── Navigation ────────────────────────────────────────────────────────────
 

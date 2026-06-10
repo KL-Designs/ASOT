@@ -256,7 +256,7 @@ export default function SimpleEditor({ initialContent = '', onChange, readOnly =
     // Inject style block once editor container mounts
     useEffect(() => {
         if (styleInnerRef.current) applyStyleBlock(styleInnerRef.current)
-    }, []) // eslint-disable-line
+    }, [])
 
     // Sync readOnly
     useEffect(() => { editor?.setEditable(!readOnly) }, [readOnly, editor])
@@ -269,7 +269,7 @@ export default function SimpleEditor({ initialContent = '', onChange, readOnly =
         if (editor.getHTML() !== body) {
             editor.commands.setContent(body, { emitUpdate: false })
         }
-    }, [initialContent]) // eslint-disable-line
+    }, [initialContent])
 
     if (!editor) return null
 
