@@ -262,6 +262,7 @@ export default function SimpleEditor({ initialContent = '', onChange, readOnly =
     useEffect(() => { editor?.setEditable(!readOnly) }, [readOnly, editor])
 
     // Sync content when initialContent changes externally (doc switch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (!editor) return
         const { styleInner, body } = splitStyleBlock(initialContent)

@@ -1,7 +1,7 @@
 'use client'
 
 import { NodeViewWrapper } from '@tiptap/react'
-import type { NodeViewRendererProps } from '@tiptap/core'
+import type { NodeViewProps } from '@tiptap/core'
 import { useRef, useState } from 'react'
 import {
     FormatAlignLeft, FormatAlignCenter, FormatAlignRight,
@@ -19,7 +19,7 @@ function parseCrop(s: string | null | undefined): CropVals {
     return m ? [+m[1], +m[2], +m[3], +m[4]] : [0, 0, 0, 0]
 }
 
-export default function ImageNodeView({ node, updateAttributes, selected, editor, getPos }: NodeViewRendererProps) {
+export default function ImageNodeView({ node, updateAttributes, selected, editor, getPos }: NodeViewProps) {
     const { src, alt }         = node.attrs
     const width: number | null = node.attrs.width         ?? null
     const align: string | null = node.attrs['data-align'] ?? null
