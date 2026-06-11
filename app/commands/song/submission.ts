@@ -3,9 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { Buffer } from 'node:buffer'
-import App from 'app'
 import Colors from 'lib/colors.ts'
-import config from 'config'
 
 const TEMP_DIR = './data/songs/temp'
 const DISCORD_FILE_LIMIT_BYTES = 25 * 1024 * 1024
@@ -137,6 +135,11 @@ export default {
     ],
 
     async execute(interaction: Discord.ChatInputCommandInteraction) {
+        const member = interaction.member as Discord.GuildMember
+        if (!member.roles.cache.some(r => r.name === 'J7 - Community Development')) {
+            return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true })
+        }
+
         const url    = interaction.options.getString('url', true)
         const name   = interaction.options.getString('name', true)
         const artist = interaction.options.getString('artist', true)
@@ -175,12 +178,9 @@ export default {
             const safeName = name.replace(/[^a-z0-9]/gi, '_')
             const attachment = new Discord.AttachmentBuilder(oggPath, { name: `${safeName}.ogg` })
 
-            const channel = App.channel(config.discord.songSubmissionChannel) as Discord.TextChannel
-            if (!channel) throw new Error('Song submission channel not found. Check songSubmissionChannel in config.json.')
+            await interaction.user.send({ embeds: [embed], files: [attachment] })
 
-            await channel.send({ embeds: [embed], files: [attachment] })
-
-            await interaction.editReply({ content: `Your submission for **${name}** by **${artist}** has been posted!` })
+            await interaction.editReply({ content: `Your submission for **${name}** by **${artist}** has been sent to your DMs!` })
 
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : 'An unknown error occurred.'
