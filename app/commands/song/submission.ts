@@ -25,11 +25,13 @@ class SongProcessor {
         return new Promise((resolve, reject) => {
             const proc = spawn('yt-dlp', ['--dump-json', '--no-playlist', url])
             let stdout = ''
+            let stderr = ''
 
             proc.stdout.on('data', (chunk: Buffer) => stdout += chunk.toString())
+            proc.stderr.on('data', (chunk: Buffer) => stderr += chunk.toString())
 
             proc.on('close', (code) => {
-                if (code !== 0) return reject(new Error('Could not fetch video info'))
+                if (code !== 0) return reject(new Error(`Could not fetch video info: ${stderr.trim() || `exit code ${code}`}`))
                 try {
                     const info = JSON.parse(stdout)
                     resolve({ title: info.title, duration: info.duration || 0 })
@@ -59,9 +61,12 @@ class SongProcessor {
                 '-o', outputTemplate,
                 url
             ])
+            let stderr = ''
+
+            proc.stderr.on('data', (chunk: Buffer) => stderr += chunk.toString())
 
             proc.on('close', (code) => {
-                if (code !== 0) return reject(new Error(`yt-dlp exited with code ${code}`))
+                if (code !== 0) return reject(new Error(`yt-dlp exited with code ${code}: ${stderr.trim()}`))
                 if (!fs.existsSync(outputPath)) return reject(new Error('Conversion failed: output file not found'))
                 resolve(outputPath)
             })

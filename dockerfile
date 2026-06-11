@@ -11,4 +11,4 @@ COPY . .
 
 RUN deno cache index.ts
 
-CMD ["deno", "task", "start"]
+CMD ["sh", "-c", "yt-dlp -U || true && deno task start"]
