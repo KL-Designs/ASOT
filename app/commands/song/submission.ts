@@ -136,7 +136,7 @@ export default {
 
     async execute(interaction: Discord.ChatInputCommandInteraction) {
         const member = interaction.member as Discord.GuildMember
-        if (!member.roles.cache.some(r => r.name === 'J7 - Community Development')) {
+        if (interaction.guildId !== '1366755400023670824' && !member.roles.cache.some(r => r.name === 'J7 - Community Development')) {
             return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true })
         }
 
