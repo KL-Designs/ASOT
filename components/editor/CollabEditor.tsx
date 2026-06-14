@@ -219,13 +219,15 @@ function buildCursorExtension(provider: HocuspocusProvider, user: PresenceUser) 
 
 // ─── Resizable image node view ────────────────────────────────────────────────
 
+type ImgPosition = 'break' | 'wrap-left' | 'wrap-right' | 'inline'
+
 function ResizableImageView({ node, selected, updateAttributes }: {
     node: any; selected: boolean; updateAttributes: (attrs: Record<string, any>) => void
 }) {
     const themeColor = useContext(ThemeContext)
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
-    const { src, alt, title, width, align } = node.attrs
+    const { src, alt, title, width, align, position } = node.attrs as { src: string; alt: string; title: string; width: number | null; align: string; position: ImgPosition }
     const containerRef = useRef<HTMLDivElement>(null)
     const startXRef = useRef(0)
     const startWRef = useRef(0)
@@ -249,15 +251,31 @@ function ResizableImageView({ node, selected, updateAttributes }: {
 
     const justifyMap: Record<string, string> = { left: 'flex-start', center: 'center', right: 'flex-end' }
 
+    const wrapperStyle: React.CSSProperties = position === 'wrap-left'
+        ? { display: 'block', float: 'left', margin: '0 1.2em 0.6em 0', lineHeight: 0, clear: 'left' }
+        : position === 'wrap-right'
+        ? { display: 'block', float: 'right', margin: '0 0 0.6em 1.2em', lineHeight: 0, clear: 'right' }
+        : position === 'inline'
+        ? { display: 'inline-flex', margin: '0 4px', verticalAlign: 'middle', lineHeight: 0 }
+        : { display: 'flex', justifyContent: justifyMap[align] || 'center', margin: '1.5em 0', lineHeight: 0 }
+
+    const POSITION_OPTS: { key: ImgPosition; label: string; title: string }[] = [
+        { key: 'break',      label: 'BRK', title: 'Block — full line break'     },
+        { key: 'wrap-left',  label: '⇐W',  title: 'Wrap Left — text wraps right' },
+        { key: 'wrap-right', label: 'W⇒',  title: 'Wrap Right — text wraps left' },
+        { key: 'inline',     label: 'INL', title: 'Inline — flows with text'     },
+    ]
+
     return (
-        <NodeViewWrapper style={{ display: 'flex', justifyContent: justifyMap[align] || 'center', margin: '1.5em 0', lineHeight: 0 }}>
-            <div ref={containerRef} style={{ position: 'relative', display: 'inline-block', width: width ? `${width}px` : undefined, maxWidth: '100%' }}>
+        <NodeViewWrapper style={wrapperStyle as any}>
+            <div ref={containerRef} style={{ position: 'relative', display: 'inline-block', width: width ? `${width}px` : (position === 'break' ? '100%' : undefined), maxWidth: '100%' }}>
                 {selected && (
                     <div
                         onMouseDown={e => e.preventDefault()}
-                        style={{ position: 'absolute', top: -36, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, padding: '3px 5px', zIndex: 20, whiteSpace: 'nowrap' }}
+                        style={{ position: 'absolute', top: -38, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, padding: '3px 5px', zIndex: 20, whiteSpace: 'nowrap' }}
                     >
-                        {(['left', 'center', 'right'] as const).map(a => (
+                        {/* Alignment (break mode only) */}
+                        {position !== 'inline' && position !== 'wrap-left' && position !== 'wrap-right' && (['left', 'center', 'right'] as const).map(a => (
                             <button key={a} type='button' title={`Align ${a}`}
                                 onMouseDown={e => { e.preventDefault(); updateAttributes({ align: a }) }}
                                 style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', background: align === a ? c(0.2) : 'transparent', border: align === a ? `1px solid ${c(0.4)}` : '1px solid transparent', color: align === a ? c(0.9) : 'rgba(237,237,237,0.5)' }}
@@ -267,13 +285,24 @@ function ResizableImageView({ node, selected, updateAttributes }: {
                                 {a === 'right' && <FormatAlignRight style={{ fontSize: 14 }} />}
                             </button>
                         ))}
-                        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+                        {position === 'break' && <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />}
+                        {/* FIT button */}
                         <button type='button' title='Reset to full width'
                             onMouseDown={e => { e.preventDefault(); updateAttributes({ width: null }) }}
                             style={{ padding: '3px 6px', borderRadius: 2, cursor: 'pointer', background: !width ? c(0.2) : 'transparent', border: !width ? `1px solid ${c(0.4)}` : '1px solid transparent', color: 'rgba(237,237,237,0.5)', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em' }}
                         >
                             FIT
                         </button>
+                        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+                        {/* Position buttons */}
+                        {POSITION_OPTS.map(p => (
+                            <button key={p.key} type='button' title={p.title}
+                                onMouseDown={e => { e.preventDefault(); updateAttributes({ position: p.key }) }}
+                                style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', background: position === p.key ? 'rgba(245,158,11,0.2)' : 'transparent', border: position === p.key ? '1px solid rgba(245,158,11,0.5)' : '1px solid transparent', color: position === p.key ? 'rgba(245,185,11,0.9)' : 'rgba(237,237,237,0.45)', fontSize: 9, fontWeight: 800, letterSpacing: '0.04em' }}
+                            >
+                                {p.label}
+                            </button>
+                        ))}
                     </div>
                 )}
                 <img src={src} alt={alt || ''} title={title || ''} draggable={false}
@@ -305,6 +334,11 @@ const ResizableImage = Image.extend({
                 default: 'center',
                 parseHTML: el => el.getAttribute('data-align') || 'center',
                 renderHTML: attrs => ({ 'data-align': attrs.align || 'center' }),
+            },
+            position: {
+                default: 'break',
+                parseHTML: el => (el.getAttribute('data-position') as ImgPosition) || 'break',
+                renderHTML: attrs => ({ 'data-position': attrs.position || 'break' }),
             },
         }
     },

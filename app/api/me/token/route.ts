@@ -11,7 +11,7 @@ export async function GET() {
         const name = me.guild?.displayName || me.globalName || me.username || 'Unknown'
         const color = me.hexAccentColor || '#db001d'
         const avatar = me.guild?.avatarURL || me.avatarURL || null
-        return NextResponse.json({ name, color, avatar })
+        return NextResponse.json({ token, name, color, avatar })
     } catch {
         return NextResponse.json({ name: 'Unknown', color: '#db001d' })
     }

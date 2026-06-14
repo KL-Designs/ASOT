@@ -46,7 +46,7 @@ type NotificationType =
     | 'ticket_comment'
     | 'system'
 
-type TaskType = 'manual' | 'attendance' | 'application_review' | 'extension_review' | 'quiz_assigned'
+type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check'
 
 interface Task {
     _id?: import('mongodb').ObjectId
@@ -62,6 +62,14 @@ interface Task {
     extendedAt?: Date
     startedAt?: Date            // Set when status changes to in_progress
     completedAt?: Date
+    // Mission development check fields (type === 'dev_check')
+    missionDevCheckId?: string  // Which check stage: 'w16' | 'w12' | 'w10' | 'w8' | 'w6' | 'w4'
+    escalatedAt?: Date          // Set when stage-arrival escalation has been dispatched
+    // Orders check scheduling fields (type === 'orders_check')
+    ordersCheckAt?: string       // ISO timestamp — mission maker's requested datetime
+    ordersCheckStatus?: 'pending' | 'confirmed' | 'proposed'
+    ordersCheckProposedAt?: string   // ISO timestamp — J2 proposed alternative time
+    ordersCheckProposedBy?: string   // Display name of J2 member who proposed alternative
     extensionRequest?: {
         requestedDate: Date          // Requested new due date/time (datetime, not date-only)
         reason: string

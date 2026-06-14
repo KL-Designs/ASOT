@@ -2,6 +2,7 @@ import { Metadata } from 'next'
 import { Suspense } from 'react'
 import Container from '@/components/container'
 import JoinForm from './JoinForm'
+import DevTestApplicationButton from './DevTestApplicationButton'
 import db from '@/lib/mongo'
 
 export const metadata: Metadata = {
@@ -57,6 +58,8 @@ export default async function JoinPage() {
                 </div>
 
                 <Suspense><JoinForm /></Suspense>
+
+                {process.env.NODE_ENV === 'development' && <DevTestApplicationButton />}
             </div>
         </Container>
     )

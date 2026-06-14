@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
     const mapWorld = searchParams.get('mapWorld')
     const customTheme = searchParams.get('customTheme')
     const isSingleMission = searchParams.get('isSingleMission')
+    const ownedBy = searchParams.get('ownedBy')
+    const ownedByName = searchParams.get('ownedByName')
 
     if (!id) return NextResponse.json({ error: 'Operation ID Missing' }, { status: 401 })
 
@@ -38,6 +40,7 @@ export async function GET(request: NextRequest) {
         if (mapWorld !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { mapWorld: mapWorld || undefined } })
         if (customTheme !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { customTheme } })
         if (isSingleMission !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { isSingleMission: isSingleMission === 'true' } })
+        if (ownedBy !== null && ownedByName !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { ownedBy, ownedByName } })
 
         return NextResponse.json({ success: true }, { status: 200 })
     }

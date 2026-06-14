@@ -60,7 +60,7 @@ const PERMISSIONS = {
          *  - `app/api/me/route.ts` (sets `isStaff` flag)
          */
         admin: [
-            'J1 - Recruiting',
+            'J1 - Recruitment',
             'J2 - Mission Making',
             'J3 - Training',
             'J5 - Media',
@@ -80,7 +80,7 @@ const PERMISSIONS = {
          *  - `app/admin/page.tsx` + `layout.tsx` (controls `canSeePersonnel` sidebar flag)
          */
         members: [
-            'J1 - Recruiting',
+            'J1 - Recruitment',
             'J2 - Mission Making',
             'J3 - Training',
             'J5 - Media',
@@ -121,7 +121,7 @@ const PERMISSIONS = {
          *  - `app/api/admin/j1/members/route.ts`
          *  - `app/api/admin/j1/import/route.ts`
          */
-        j1: ['J1 - Recruiting'],
+        j1: ['J1 - Recruitment'],
 
         /**
          * J2 — Mission Making.
@@ -481,7 +481,7 @@ const PERMISSIONS = {
          *  - `app/admin/j6/page.tsx` (`canManageMembers` flag)
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J6)
          */
-        j6: ['J6 - Department Leader', 'J6 - Team Leader', 'J6 - Assistant Team Leader'],
+        j6: ['J6 - Department Lead', 'J6 - Team Leader', 'J6 - Assistant Team Leader'],
 
         /**
          * J7 lead — can add/remove J7 members and manage department membership tickets.
@@ -517,7 +517,7 @@ const PERMISSIONS = {
         lockJ3: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
         lockJ4: ['J4-Administration'],
         lockJ5: ['J5 - Department Leader', 'J5 - Team Leader', 'J5 - Lead Content Creator'],
-        lockJ6: ['J6 - Department Leader', 'J6 - Team Leader', 'J6 - Assistant Team Leader'],
+        lockJ6: ['J6 - Department Lead', 'J6 - Team Leader', 'J6 - Assistant Team Leader'],
         lockJ7: ['J7 - Department Leader', 'J7 - Team Leader', 'J7 - Assistant Team Leader'],
     },
 
@@ -555,6 +555,40 @@ const PERMISSIONS = {
          *  - `app/dashboard/unit/sops/page.tsx` (isJ4 flag)
          */
         manage: ['J4 - Administration'],
+    },
+
+    // ── Master Sheet ─────────────────────────────────────────────────────────
+    //
+    // Governs access to the J4 HQ Master Sheet personnel data.
+    // Discipline records are gated separately and are never shown to regular staff.
+
+    masterSheet: {
+        /**
+         * View non-sensitive master sheet data (leaving history, denied applications).
+         * J4 bypasses this check globally.
+         *
+         * Used by:
+         *  - `app/api/admin/j4/mastersheet/leaving-history/route.ts`
+         *  - `app/api/admin/j4/mastersheet/denied-applications/route.ts`
+         */
+        view: ['J4 - Administration', 'HQ Staff'],
+
+        /**
+         * View discipline records. J4 + CHQ only — no indication this data
+         * exists to anyone outside this permission group.
+         *
+         * Used by:
+         *  - `app/api/admin/j4/mastersheet/discipline/route.ts`
+         */
+        viewDiscipline: ['HQ Staff'],
+
+        /**
+         * Import/replace master sheet data from CSV. J4 only.
+         *
+         * Used by:
+         *  - all POST routes under `/api/admin/j4/mastersheet/import/`
+         */
+        import: ['J4 - Administration'],
     },
 
     tickets: {
@@ -607,7 +641,7 @@ const PERMISSIONS = {
          *  - `app/admin/unit/tickets/page.tsx` (`canActionJ6` + `canSeeJ6`)
          *  - `app/api/admin/tickets/[id]/route.ts` (PATCH auth check)
          */
-        actionJ6: ['J6 - Department Leader', 'J6 - Team Leader', 'J6 - Assistant Team Leader'],
+        actionJ6: ['J6 - Department Lead', 'J6 - Team Leader', 'J6 - Assistant Team Leader'],
 
         /**
          * Approve or reject J7 department tickets.

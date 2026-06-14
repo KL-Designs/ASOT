@@ -59,6 +59,13 @@ const DbInterface = {
     workspaceFiles: db.collection('workspace_files') as MongoCollection<Document>,
     workspaceDocs: db.collection('workspace_docs') as MongoCollection<Document>,
     workspaceVersions: db.collection('workspace_versions') as MongoCollection<Document>,
+    leavingHistory: db.collection('leaving_history') as MongoCollection<LeavingHistoryRecord>,
+    deniedApplicationsHQ: db.collection('denied_applications_hq') as MongoCollection<DeniedApplicationRecord>,
+    disciplineRecords: db.collection('discipline_records') as MongoCollection<DisciplineRecord>,
+    billetExtras: db.collection('billet_extras') as MongoCollection<BilletExtra>,
+    memberEmails: db.collection('member_emails') as MongoCollection<MemberEmail>,
+    mastersheetRecycleBin: db.collection('mastersheet_recycle_bin') as MongoCollection<MastersheetRecycleBinEntry>,
+    dischargeSnapshots: db.collection('discharge_snapshots') as MongoCollection<DischargeSnapshot>,
 }
 
 export default DbInterface

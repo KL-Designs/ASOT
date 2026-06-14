@@ -12,6 +12,7 @@ import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 import MembersWorkspaceTab from '@/app/dashboard/j2/tabs/MembersWorkspaceTab'
+import MissionChecksTab from '@/app/dashboard/j2/tabs/MissionChecksTab'
 
 export default function J2Panel({
     displayName,
@@ -106,6 +107,7 @@ export default function J2Panel({
                             <Tab label={<PinTabLabel label='Meetings'          pinLabel='J2 — Meetings'    href='/dashboard/j2' tabIndex={1} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Tickets'           pinLabel='J2 — Tickets'     href='/dashboard/j2' tabIndex={2} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Members Workspace' pinLabel='J2 — Workspace'   href='/dashboard/j2' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Mission Checks'    pinLabel='J2 — Checks'    href='/dashboard/j2' tabIndex={4} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -114,6 +116,7 @@ export default function J2Panel({
                         {tab === 1 && <MeetingsTab department='j2' userId={userId} isLead={canManageMembers || isJ4} />}
                         {tab === 2 && <DeptTicketsTab department='j2' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                         {tab === 3 && <MembersWorkspaceTab userId={userId} isJ4={isJ4} canManage={canManageMembers} />}
+                        {tab === 4 && <MissionChecksTab userId={userId} isJ2Lead={canManageMembers || isJ4} />}
                     </div>
                 </>
             )}
