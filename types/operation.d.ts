@@ -246,6 +246,7 @@ declare global {
         // Ownership — the J2 member responsible for this mission
         ownedBy?: string         // Discord user ID of owner/mission maker
         ownedByName?: string     // Display name of owner
+        billetPoints?: number    // Billet points awarded to owner on completion (default 2)
 
         // Orders acknowledgement — staff who have read and confirmed the orders
         acknowledgements?: Array<{

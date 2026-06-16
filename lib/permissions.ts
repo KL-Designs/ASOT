@@ -557,6 +557,34 @@ const PERMISSIONS = {
         manage: ['J4 - Administration'],
     },
 
+    // ── Training ──────────────────────────────────────────────────────────────
+
+    training: {
+        /**
+         * Submit a training event request for J3 approval.
+         * J3 trainers and All Staff (non-J3 cross-department trainers) may request
+         * to run a session. All requests go through J3 lead approval regardless.
+         *
+         * Used by:
+         *  - `app/api/training/events/route.ts` (POST — create request)
+         *  - `app/dashboard/unit/training-docs/page.tsx` (isTrainer flag)
+         */
+        create: ['J3 - Training', 'All Staff'],
+
+        /**
+         * Approve or reject training event requests, mark sessions complete,
+         * and manage training type definitions.
+         * J3 department leads only.
+         *
+         * Used by:
+         *  - `app/api/training/events/[id]/approve/route.ts`
+         *  - `app/api/training/events/[id]/complete/route.ts`
+         *  - `app/api/training/types/route.ts` (POST/PATCH/DELETE)
+         *  - `app/dashboard/unit/training-docs/page.tsx` (isJ3Lead flag)
+         */
+        manage: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
+    },
+
     // ── Master Sheet ─────────────────────────────────────────────────────────
     //
     // Governs access to the J4 HQ Master Sheet personnel data.

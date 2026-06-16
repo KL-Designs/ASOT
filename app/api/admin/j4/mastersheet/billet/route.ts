@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
     const search = (searchParams.get('search') ?? '').toLowerCase().trim()
     const membership = searchParams.get('membership') ?? 'active' // 'active' | 'discharged' | 'all'
 
-    const [users, extras, emailDocs, recycleBilletIds, orbatPositions, leavingHistory, asotMemberRole] = await Promise.all([
+    const [users, extras, emailDocs, recycleBilletIds, orbatPositions, leavingHistory, asotMemberRole, completedOpPoints] = await Promise.all([
         Db.users.find({ isSkeletonAccount: { $ne: true } }).project({
             _id: 1, id: 1, name: 1,
             'guild.nickname': 1, 'guild.displayName': 1,
@@ -70,7 +70,16 @@ export async function GET(req: NextRequest) {
         Db.orbatPositions.find({ userId: { $ne: null } }, { projection: { userId: 1 } }).toArray(),
         Db.leavingHistory.find({}, { projection: { discordId: 1, name: 1 } }).toArray(),
         Db.roles.findOne({ name: 'ASOT Member' }, { projection: { id: 1 } }),
+        // Auto-tally: sum billetPoints (default 2) for all completed ops by owner
+        Db.operations.aggregate([
+            { $match: { status: 'Completed', ownedBy: { $exists: true, $ne: null }, deletedAt: { $exists: false } } },
+            { $group: { _id: '$ownedBy', total: { $sum: { $ifNull: ['$billetPoints', 2] } } } },
+        ]).toArray(),
     ])
+
+    const opPointsByDiscordId = new Map<string, number>(
+        completedOpPoints.map((r: any) => [r._id as string, r.total as number])
+    )
 
     const billetExcluded = new Set(recycleBilletIds.map(e => e.originalId))
     const orbatUserIds = new Set(orbatPositions.map(p => (p as any).userId as string).filter(Boolean))
@@ -156,7 +165,7 @@ export async function GET(req: NextRequest) {
                 campaignMedals:     bc.campaignMedals      ?? 0,
                 j1Interviews:       bc.j1Interviews        ?? 0,
                 j1InterviewBonus:   bc.j1InterviewBonus    ?? 0,
-                j2MissionsRun:      bc.j2MissionsRun       ?? 0,
+                j2MissionsRun:      opPointsByDiscordId.get(discordId) ?? 0,
                 j3Bct12:            bc.j3Bct12             ?? 0,
                 j3OtherTrainings:   bc.j3OtherTrainings    ?? 0,
                 j5ContentCreated:   bc.j5ContentCreated    ?? 0,

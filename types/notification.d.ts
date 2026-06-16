@@ -44,6 +44,16 @@ type NotificationType =
     | 'ticket_reopened'
     | 'ticket_task_assigned'
     | 'ticket_comment'
+    | 'training_event_submitted'    // J3 leads: new event needs review
+    | 'training_event_approved'     // Trainer: your event was approved
+    | 'training_event_rejected'     // Trainer: your event was rejected
+    | 'training_event_cancelled'    // Attending members: event was cancelled
+    | 'training_event_completed'    // Trainer: your event was marked complete (billet points awarded)
+    | 'training_rsvp_promoted'      // Waitlisted member auto-promoted to attending
+    | 'training_doc_submitted'          // J3 leads: trainer submitted a document for review
+    | 'training_doc_approved'           // Trainer: your submitted document was approved
+    | 'training_doc_rejected'           // Trainer: your submitted document was rejected
+    | 'training_qualification_awarded'  // Member: qualification added to milpac
     | 'system'
 
 type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check'

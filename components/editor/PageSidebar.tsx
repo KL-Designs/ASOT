@@ -123,7 +123,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     }, [renamingId])
 
     function addPage(type: 'orders' | 'zeus' | 'staff_orders' | 'aar' | 'separator', title?: string) {
-        const id = Math.random().toString(36).slice(2, 10)
+        const id = crypto.randomUUID().replace(/-/g, '').slice(0, 8)
         const defaultTitle = type === 'zeus' ? 'Zeus Notes'
             : type === 'separator' ? '──────────'
             : type === 'staff_orders' ? (title ?? 'Staff Orders')
@@ -198,7 +198,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     }
 
     function duplicatePage(sourceId: string) {
-        const newId = Math.random().toString(36).slice(2, 10)
+        const newId = crypto.randomUUID().replace(/-/g, '').slice(0, 8)
         const srcPmeta = ydoc.getMap<string>('pmeta-' + sourceId)
         const srcTitle = srcPmeta.get('title') || 'Untitled'
         const srcType = srcPmeta.get('pageType') || 'orders'

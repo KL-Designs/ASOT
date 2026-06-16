@@ -160,7 +160,7 @@ function AssignModal({
             }}>
                 <div>
                     <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', color: 'rgba(219,0,29,0.6)', textTransform: 'uppercase', marginBottom: 4 }}>
-                        // ASSIGN REVIEWER
+                        ASSIGN REVIEWER
                     </div>
                     <div style={{ fontWeight: 700, fontSize: '0.95rem', letterSpacing: 1 }}>{checkLabel(weeksOut)}</div>
                     <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)', marginTop: 2 }}>{opTitle}</div>

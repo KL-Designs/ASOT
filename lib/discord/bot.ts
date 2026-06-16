@@ -335,6 +335,55 @@ export async function sendTaskExtensionApprovedDM(
 }
 
 /**
+ * Notify a trainer that their training session was approved.
+ */
+export async function sendTrainingApprovedDM(
+    userId: string,
+    eventTitle: string,
+    scheduledAt: string,   // formatted date string
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '✅ Training Session Approved',
+        description: `Your training session **${eventTitle}** has been approved.`,
+        color: 0x22c55e,
+        fields: [{ name: 'Scheduled', value: scheduledAt, inline: true }],
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields!.push({ name: '​', value: `[View Event](${base}${actionUrl})`, inline: false })
+    }
+    await sendDM(userId, { embeds: [embed] }, 'training')
+}
+
+/**
+ * Notify a trainer that their training session was rejected.
+ */
+export async function sendTrainingRejectedDM(
+    userId: string,
+    eventTitle: string,
+    reason?: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '❌ Training Session Rejected',
+        description: `Your training session **${eventTitle}** was not approved.`,
+        color: 0xdb001d,
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+    if (reason) embed.fields = [{ name: 'Reason', value: reason, inline: false }]
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        const linkField = { name: '​', value: `[View Event](${base}${actionUrl})`, inline: false }
+        embed.fields = embed.fields ? [...embed.fields, linkField] : [linkField]
+    }
+    await sendDM(userId, { embeds: [embed] }, 'training')
+}
+
+/**
  * Add a Discord guild role to a member.
  * Respects developer mode — blocked attempts are logged but not applied.
  */

@@ -22,12 +22,16 @@ export async function GET(request: NextRequest) {
     const isSingleMission = searchParams.get('isSingleMission')
     const ownedBy = searchParams.get('ownedBy')
     const ownedByName = searchParams.get('ownedByName')
+    const billetPoints = searchParams.get('billetPoints')
 
     if (!id) return NextResponse.json({ error: 'Operation ID Missing' }, { status: 401 })
 
     try {
         const me = await client.fetchMe()
         if (!client.hasRoles(me, PERMISSIONS.operations.write)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+
+        const isJ2LeadOrJ4 = client.hasRoles(me, PERMISSIONS.departmentLeads.j2)
+            || client.hasRoles(me, PERMISSIONS.members.editRestricted)
 
         if (title) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { title } })
         if (date) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { date: new Date(date) } })
@@ -40,7 +44,15 @@ export async function GET(request: NextRequest) {
         if (mapWorld !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { mapWorld: mapWorld || undefined } })
         if (customTheme !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { customTheme } })
         if (isSingleMission !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { isSingleMission: isSingleMission === 'true' } })
-        if (ownedBy !== null && ownedByName !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { ownedBy, ownedByName } })
+        if (ownedBy !== null && ownedByName !== null) {
+            if (!isJ2LeadOrJ4) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { ownedBy, ownedByName } })
+        }
+        if (billetPoints !== null) {
+            if (!isJ2LeadOrJ4) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+            const pts = Math.max(0, Math.floor(Number(billetPoints)) || 2)
+            await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { billetPoints: pts } })
+        }
 
         return NextResponse.json({ success: true }, { status: 200 })
     }

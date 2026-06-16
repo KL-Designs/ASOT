@@ -288,7 +288,7 @@ function LeavingHistoryTab({ refreshKey }: { refreshKey: number }) {
 
     useEffect(() => {
         load(page, search, returnFilter, typeFilter, sortBy, sortDir)
-    }, [page, search, returnFilter, typeFilter, sortBy, sortDir, refreshKey, tick, load]) // eslint-disable-line
+    }, [page, search, returnFilter, typeFilter, sortBy, sortDir, refreshKey, tick, load])
 
     const jt = ctx.jumpTarget
     useEffect(() => {
@@ -497,7 +497,7 @@ function DeniedApplicationsTab({ refreshKey }: { refreshKey: number }) {
 
     useEffect(() => {
         load(page, search, sortBy, sortDir)
-    }, [page, search, sortBy, sortDir, refreshKey, tick, load]) // eslint-disable-line
+    }, [page, search, sortBy, sortDir, refreshKey, tick, load])
 
     const jt = ctx.jumpTarget
     useEffect(() => {
@@ -678,7 +678,7 @@ function DisciplineTab({ refreshKey }: { refreshKey: number }) {
 
     useEffect(() => {
         load(page, search, levelFilter, activeOnly, sortBy, sortDir)
-    }, [page, search, levelFilter, activeOnly, sortBy, sortDir, refreshKey, tick, load]) // eslint-disable-line
+    }, [page, search, levelFilter, activeOnly, sortBy, sortDir, refreshKey, tick, load])
 
     const jt = ctx.jumpTarget
     useEffect(() => {
@@ -888,7 +888,7 @@ function RecycleBinTab() {
 
     useEffect(() => {
         load(page, tabFilter)
-    }, [page, tabFilter, tick, load]) // eslint-disable-line
+    }, [page, tabFilter, tick, load])
 
     async function handleRestore(item: RecycleBinItem) {
         setRestoring(item.id); setError(null)

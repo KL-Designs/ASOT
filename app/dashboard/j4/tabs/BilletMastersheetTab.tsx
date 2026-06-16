@@ -666,6 +666,7 @@ function EditCell({
     const inputRef = useRef<HTMLInputElement>(null)
     const [val, setVal] = useState(editValue)
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { if (isEditing) { setVal(String(displayValue ?? '')); inputRef.current?.focus() } }, [isEditing])
 
     const border = isJumpTarget ? '1px solid rgba(96,165,250,0.6)' : isPending ? '1px solid rgba(245,158,11,0.4)' : 'none'
@@ -781,6 +782,7 @@ export default function BilletMastersheetTab() {
             .finally(() => setLoading(false))
     }
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { load('') }, [])
 
     function handleSearch(v: string) {
@@ -829,6 +831,7 @@ export default function BilletMastersheetTab() {
             setEditingCell({ rowId: ctx.jumpTarget.rowId, field: ctx.jumpTarget.field })
             ctx.setJumpTarget(null)
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ctx.jumpTarget])
 
     // Get pending value for a given rowId+field

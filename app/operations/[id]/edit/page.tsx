@@ -57,6 +57,7 @@ export default function Page() {
     const [availableWorlds, setAvailableWorlds] = useState<{ name: string; displayName: string; hasPreview: boolean }[]>([])
     const [isHQ, setIsHQ] = useState(false)
     const [isJ2Lead, setIsJ2Lead] = useState(false)
+    const [isJ4Admin, setIsJ4Admin] = useState(false)
     const [initialContent, setInitialContent] = useState<any>(undefined)
     const [loaded, setLoaded] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
@@ -79,6 +80,7 @@ export default function Page() {
     // Ownership
     const [ownedBy, setOwnedBy] = useState('')
     const [ownedByName, setOwnedByName] = useState('')
+    const [billetPoints, setBilletPoints] = useState(2)
     const [j2Members, setJ2Members] = useState<{ id: string; displayName: string }[]>([])
     const [ownerPickerOpen, setOwnerPickerOpen] = useState(false)
 
@@ -218,6 +220,10 @@ export default function Page() {
             .then(r => r.json())
             .then(json => { if (!json.error) setIsJ2Lead(json.access) })
 
+        fetch(`/api/me/roles?has=${PERMISSIONS.members.editRestricted.join(',')}`)
+            .then(r => r.json())
+            .then(json => { if (!json.error) setIsJ4Admin(json.access) })
+
         fetch('/api/maps/worlds')
             .then(r => r.json())
             .then(worlds => { if (Array.isArray(worlds)) setAvailableWorlds(worlds) })
@@ -269,6 +275,7 @@ export default function Page() {
                 // Ownership
                 if ((op as any).ownedBy) setOwnedBy((op as any).ownedBy)
                 if ((op as any).ownedByName) setOwnedByName((op as any).ownedByName)
+                if ((op as any).billetPoints != null) setBilletPoints((op as any).billetPoints)
 
                 // Acknowledgements
                 fetch(`/api/operations/${id}/acknowledge`)
@@ -1077,7 +1084,7 @@ export default function Page() {
                     {/* Owner row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.68rem' }}>
                         <span style={{ fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: c(0.55), flexShrink: 0 }}>Mission Owner</span>
-                        {ownerPickerOpen && isJ2Lead ? (
+                        {ownerPickerOpen && (isJ2Lead || isJ4Admin) ? (
                             <div style={{ display: 'flex', gap: 6, flex: 1 }}>
                                 <select
                                     defaultValue={ownedBy}
@@ -1101,7 +1108,7 @@ export default function Page() {
                                 <span style={{ color: ownedByName ? 'rgba(237,237,237,0.7)' : 'rgba(237,237,237,0.25)', fontStyle: ownedByName ? 'normal' : 'italic' }}>
                                     {ownedByName || 'Unassigned'}
                                 </span>
-                                {isJ2Lead && (
+                                {(isJ2Lead || isJ4Admin) && (
                                     <button type='button' onClick={async () => {
                                         if (j2Members.length === 0) {
                                             const res = await fetch('/api/admin/members?department=j2')
@@ -1116,6 +1123,25 @@ export default function Page() {
                             </>
                         )}
                     </div>
+
+                    {/* Billet points — J2 leads + J4 admin only */}
+                    {(isJ2Lead || isJ4Admin) && opID && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.68rem' }}>
+                            <span style={{ fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: c(0.55), flexShrink: 0 }}>Billet Points</span>
+                            <input
+                                type='number'
+                                min={0}
+                                step={1}
+                                value={billetPoints}
+                                onChange={e => setBilletPoints(Math.max(0, parseInt(e.target.value) || 0))}
+                                onBlur={async () => {
+                                    await fetch(`/api/operations/update?id=${opID}&billetPoints=${billetPoints}`)
+                                }}
+                                style={{ width: 52, background: 'rgba(0,0,0,0.4)', border: `1px solid ${c(0.25)}`, color: 'rgba(237,237,237,0.8)', fontSize: '0.75rem', padding: '3px 6px', outline: 'none', textAlign: 'center' }}
+                            />
+                            <span style={{ color: c(0.35), fontStyle: 'italic' }}>awarded to owner on completion</span>
+                        </div>
+                    )}
 
                     {/* Acknowledgements panel — shown for Upcoming ops */}
                     {status === 'Upcoming' && (
