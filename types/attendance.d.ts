@@ -33,6 +33,13 @@ declare global {
         confirmationOpen: boolean   // whether section leaders can still confirm
         confirmationOpenedAt?: Date // when confirmation was last opened (for 24h auto-close)
         stage?: 'preparing' | 'rsvp_open' | 'rsvp_closed' | 'op_running' | 'confirmations_open' | 'completed'
+
+        // Custom attendance units — non-ORBAT groups defined manually by HQ
+        customUnits?: Array<{
+            id: string
+            name: string
+            color?: string
+        }>
     }
 
     /** Shape returned by the attendance GET endpoint with user details populated */

@@ -22,7 +22,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const ext = path.extname(safe).toLowerCase().replace('.', '')
     const mimeMap: Record<string, string> = {
         png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
-        gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml',
+        gif: 'image/gif', webp: 'image/webp',
     }
     const contentType = mimeMap[ext] ?? 'application/octet-stream'
 

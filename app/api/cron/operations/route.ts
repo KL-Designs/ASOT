@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
 import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
 import { verifyCronSecret } from '@/lib/cron-auth'
+import { getSectionLeaders } from '@/lib/orbat'
+import { createNotification } from '@/lib/notifications'
 
 /**
  * GET /api/cron/operations
@@ -64,6 +66,24 @@ export async function GET(request: NextRequest) {
             )
             results.rsvpClosed++
             console.log(`[cron/operations] RSVP closed for op=${op._id} "${op.title}"`)
+
+            // Allocation reminder — notify section leaders to review their section
+            try {
+                const leaders = await getSectionLeaders(att.assignedPlatoons ?? [])
+                for (const leader of leaders) {
+                    if (!leader.userId) continue
+                    await createNotification({
+                        userId: leader.userId,
+                        type: 'system',
+                        title: 'RSVP Closed — Review Allocations',
+                        body: `RSVP for "${op.title}" is now closed. Please review your section's attendance allocations before the operation.`,
+                        actionUrl: `/operations/${op._id}`,
+                        relatedId: op._id.toString(),
+                    })
+                }
+            } catch (e) {
+                console.error('[cron/operations] Allocation reminder failed:', e)
+            }
         }
     }
 

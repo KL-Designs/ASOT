@@ -52,11 +52,11 @@ export async function GET() {
         ])
         .toArray()
 
-    // Operations authored by each J2 member (status != deleted)
+    // Operations owned by each J2 member (ownedBy = Discord user ID)
     const opMeta = await Db.operations
         .aggregate([
-            { $match: { authorId: { $in: userIds }, deletedAt: { $exists: false } } },
-            { $group: { _id: '$authorId', opCount: { $sum: 1 } } },
+            { $match: { ownedBy: { $in: userIds }, deletedAt: { $exists: false } } },
+            { $group: { _id: '$ownedBy', opCount: { $sum: 1 } } },
         ])
         .toArray()
 

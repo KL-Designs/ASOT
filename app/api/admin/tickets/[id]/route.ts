@@ -5,6 +5,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { RANK_GROUPS } from '@/lib/military/ranks'
 import { applyOrbatMove } from '@/lib/orbat/move'
+import { generateMilpacForUser, archiveMilpacImages } from '@/lib/milpac-gen/generate-for-user'
 
 // PATCH /api/admin/tickets/[id] — approve or reject a ticket
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -161,20 +162,52 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             { $set: { userId: null } }
         )
 
+        // Generate final MilPac images, then copy to immutable archive files.
+        // Generation errors are non-fatal — the discharge still goes through.
+        try {
+            await generateMilpacForUser(member as unknown as User)
+        } catch (err) {
+            console.error('[discharge-snapshot] MilPac generation failed for', member.id, err)
+        }
+        const { uniformPath, medalPath } = await archiveMilpacImages(String(member._id))
+
+        const dischargeDate = now.toISOString().split('T')[0]
+        const dischargedData = {
+            date: dischargeDate,
+            type: ticket.dischargeType!,
+            reason: ticket.dischargeReason!,
+            dischargedById: ticket.issuedById,
+            dischargedByName: ticket.issuedByName,
+            approvedById: me.id,
+            approvedByName: approverDisplayName,
+        }
+
         // Mark user as discharged
         await Db.users.updateOne({ id: ticket.targetUserId }, {
-            $set: {
-                discharged: {
-                    date: now.toISOString().split('T')[0],
-                    type: ticket.dischargeType!,
-                    reason: ticket.dischargeReason!,
-                    dischargedById: ticket.issuedById,
-                    dischargedByName: ticket.issuedByName,
-                    approvedById: me.id,
-                    approvedByName: approverDisplayName,
-                }
-            }
+            $set: { discharged: dischargedData }
         })
+
+        // Save immutable discharge snapshot
+        const userId     = String(member._id)
+        const displayName = member.guild?.nickname || member.guild?.displayName || (member as any).name || member.globalName || member.username || member.id
+        await Db.dischargeSnapshots.insertOne({
+            _id:              new ObjectId(),
+            userId,
+            discordId:        member.id,
+            username:         member.username ?? '',
+            displayName,
+            rankAtDischarge:  member.milpac?.currentRank ?? '',
+            dischargeDate,
+            dischargeType:    ticket.dischargeType! as 'honorable' | 'dishonorable',
+            enlistedDate:     member.milpac?.enlistedDate ?? '',
+            pointsAtDischarge: member.milpac?.promotionPoints ?? 0,
+            milpac:           (member.milpac ?? {}) as NonNullable<User['milpac']>,
+            archivedUniformPath: uniformPath,
+            archivedMedalPath:   medalPath,
+            createdAt:        now,
+            createdBy:        me.id,
+            createdByName:    approverDisplayName,
+        } as DischargeSnapshot)
     } else if (ticket.type === 'discipline') {
         const pts = Number(disciplinePoints)
         if (!Number.isFinite(pts) || pts <= 0) {

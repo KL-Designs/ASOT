@@ -41,6 +41,9 @@ export async function createAttendanceTasksForOperation(
             if (existing) continue
 
             const description = `Attendance confirmations are open for ${leader.sectionTitle}. Please confirm your section's attendance before the window closes.`
+            // Chase-up reminder fires halfway through the confirmation window (12h in)
+            const chaseUpAt = new Date(confirmationOpenedAt.getTime() + 12 * 60 * 60 * 1000)
+
             const insertResult = await Db.tasks.insertOne({
                 title: taskTitle,
                 description,
@@ -51,6 +54,7 @@ export async function createAttendanceTasksForOperation(
                 actionUrl,
                 relatedId: operation._id.toString(),
                 dueDate,
+                reminderDateTime: chaseUpAt,
                 status: 'pending',
                 createdAt: confirmationOpenedAt,
             } as Task)

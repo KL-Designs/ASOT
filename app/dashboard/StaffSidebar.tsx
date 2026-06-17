@@ -520,10 +520,12 @@ export default function StaffSidebar({
                 {
                     label: '[J4] Administration', href: '/dashboard/j4', visible: permissions.canSeeJ4, icon: <AdminPanelSettings sx={{ fontSize: 14 }} />,
                     tabs: [
-                        { label: 'Tools',      tab: 0 },
-                        { label: 'Snapshots',  tab: 1 },
-                        { label: 'Meetings',   tab: 2 },
-                        { label: 'Tickets',    tab: 3 },
+                        { label: 'Mastersheet',   tab: 0 },
+                        { label: 'Tickets',       tab: 1 },
+                        { label: 'Meetings',      tab: 2 },
+                        { label: 'Snapshots',     tab: 3 },
+                        { label: 'Teamspeak',     tab: 4 },
+                        { label: 'Tools',         tab: 5 },
                     ],
                 },
                 {

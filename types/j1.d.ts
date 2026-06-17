@@ -41,4 +41,19 @@ interface J1Application {
     reviewDueAt?: Date
     overdueReminderSentAt?: Date
     ageExemptionNote?: string
+    // Recruiter submits a recommendation; J1 Lead makes the final accept/reject decision
+    recruiterRecommendation?: 'approve' | 'deny' | 'pend'
+    recruiterRecommendationAt?: string
+    // Returning-member check run when a recruiter is assigned
+    returningMemberCheck?: {
+        status: 'YES' | 'REVIEW' | 'NO'
+        checkedAt: string
+        details?: string
+    }
+    // J4 review (triggered when returningMemberCheck.status is REVIEW or NO)
+    j4ReviewStatus?: 'pending' | 'approved' | 'rejected'
+    j4ReviewTaskId?: string
+    j4ReviewedById?: string
+    j4ReviewedByName?: string
+    j4ReviewNote?: string
 }

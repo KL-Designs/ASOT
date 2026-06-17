@@ -77,9 +77,13 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
     const [statusChanging, setStatusChanging] = useState(false)
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [deleting, setDeleting] = useState(false)
+    const [j4DecisionNote, setJ4DecisionNote] = useState('')
+    const [j4Deciding, setJ4Deciding] = useState(false)
 
     const isAssignedRecruiter = userId === app.assignedReviewerId
     const canChangeStatus = isLead || isAssignedRecruiter
+    const isJ4ReviewPending = app.j4ReviewStatus === 'pending'
+    const recruiterLocked = isAssignedRecruiter && !isLead && isJ4ReviewPending
 
     useEffect(() => {
         if (members.length === 0) return
@@ -188,6 +192,45 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
             onClose()
         } finally {
             setDeleting(false)
+        }
+    }
+
+    async function handleRecommend(rec: 'approve' | 'deny' | 'pend') {
+        setStatusChanging(true)
+        try {
+            const res = await fetch(`/api/admin/j1/applications/${app._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recruiterRecommendation: rec }),
+            })
+            if (res.ok) {
+                onUpdate(app._id, {
+                    recruiterRecommendation: rec,
+                    recruiterRecommendationAt: new Date().toISOString(),
+                } as any)
+            }
+        } finally {
+            setStatusChanging(false)
+        }
+    }
+
+    async function handleJ4Decision(decision: 'approved' | 'rejected') {
+        setJ4Deciding(true)
+        try {
+            const res = await fetch(`/api/admin/j1/applications/${app._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ j4ReviewDecision: decision, j4ReviewNote: j4DecisionNote.trim() || undefined }),
+            })
+            if (res.ok) {
+                onUpdate(app._id, {
+                    j4ReviewStatus: decision,
+                    j4ReviewedByName: 'You',
+                    j4ReviewNote: j4DecisionNote.trim() || undefined,
+                } as any)
+            }
+        } finally {
+            setJ4Deciding(false)
         }
     }
 
@@ -368,6 +411,30 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                         </div>
                     )}
 
+                    {/* Returning-member check result */}
+                    {app.returningMemberCheck && (
+                        <div style={{
+                            padding: '10px 14px',
+                            background: app.returningMemberCheck.status === 'YES' ? 'rgba(0,195,100,0.04)' : 'rgba(245,158,11,0.06)',
+                            border: `1px solid ${app.returningMemberCheck.status === 'YES' ? 'rgba(0,195,100,0.2)' : 'rgba(245,158,11,0.35)'}`,
+                            borderLeft: `3px solid ${app.returningMemberCheck.status === 'YES' ? '#00c364' : '#f59e0b'}`,
+                        }}>
+                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: app.returningMemberCheck.status === 'YES' ? '#00c364' : '#f59e0b', marginBottom: 4 }}>
+                                Returning Member Check — {app.returningMemberCheck.status}
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>
+                                {app.returningMemberCheck.details}
+                            </div>
+                            {app.j4ReviewStatus && (
+                                <div style={{ marginTop: 6, fontSize: '0.72rem', color: app.j4ReviewStatus === 'approved' ? '#00c364' : app.j4ReviewStatus === 'rejected' ? 'var(--red)' : '#f59e0b', fontWeight: 700 }}>
+                                    J4 decision: {app.j4ReviewStatus.toUpperCase()}
+                                    {app.j4ReviewedByName && <span style={{ fontWeight: 400, color: 'rgba(237,237,237,0.4)' }}> by {app.j4ReviewedByName}</span>}
+                                    {app.j4ReviewNote && <span style={{ fontWeight: 400, color: 'rgba(237,237,237,0.5)' }}> — {app.j4ReviewNote}</span>}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Divider */}
                     <div style={{ borderTop: '1px solid rgba(219,0,29,0.22)', paddingTop: 16 }}>
                         <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 14 }}>
@@ -534,23 +601,21 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                         </div>
                                     )}
 
-                                    {/* Action buttons: Approve / Reject / Assign Recruiter (lead) or Resubmit (recruiter returned) */}
+                                    {/* Action buttons — context-sensitive based on role and application state */}
                                     {(() => {
                                         const hasRecruiter = !!app.assignedReviewerId
-                                        const normalCanAct = hasRecruiter && canChangeStatus
-                                        const j4Override = !hasRecruiter && isJ4
-                                        if (!normalCanAct && !j4Override && !isLead) return null
+                                        const j4Override = !hasRecruiter && isJ4 && !isLead
+                                        const dividerStyle: React.CSSProperties = { borderTop: '1px solid rgba(219,0,29,0.15)', paddingTop: 10, marginTop: 4 }
+                                        const btnBase: React.CSSProperties = { fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer' }
 
-                                        const dividerStyle = { borderTop: '1px solid rgba(219,0,29,0.15)', paddingTop: 10, marginTop: 4 }
-
-                                        // Recruiter resubmit (returned status only — non-lead recruiter)
+                                        // Recruiter resubmit (returned status only)
                                         if (isAssignedRecruiter && !isLead && app.status === 'returned') {
                                             return (
                                                 <div style={dividerStyle}>
                                                     <button
                                                         onClick={handleResubmit}
                                                         disabled={statusChanging}
-                                                        style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(0,195,255,0.1)', border: '1px solid rgba(0,195,255,0.35)', color: '#00c3ff', opacity: statusChanging ? 0.5 : 1 }}
+                                                        style={{ ...btnBase, background: 'rgba(0,195,255,0.1)', border: '1px solid rgba(0,195,255,0.35)', color: '#00c3ff', opacity: statusChanging ? 0.5 : 1 }}
                                                     >
                                                         ↩ Resubmit to J1 Lead
                                                     </button>
@@ -558,7 +623,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                             )
                                         }
 
-                                        // Assign Recruiter mode (lead): show form + confirm + cancel
+                                        // Assign Recruiter mode (lead)
                                         if (isLead && assigningMode) {
                                             const canAssign = !!recruiter && (reviewDeadline !== 'custom' || !!reviewCustomDate)
                                             return (
@@ -570,14 +635,14 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                         <button
                                                             onClick={() => { if (canAssign) handleSave() }}
                                                             disabled={saving || !canAssign}
-                                                            style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: canAssign && !saving ? 'pointer' : 'not-allowed', background: 'rgba(0,120,255,0.15)', border: '1px solid rgba(0,120,255,0.4)', color: '#60a5fa', opacity: saving || !canAssign ? 0.45 : 1 }}
+                                                            style={{ ...btnBase, background: 'rgba(0,120,255,0.15)', border: '1px solid rgba(0,120,255,0.4)', color: '#60a5fa', cursor: canAssign && !saving ? 'pointer' : 'not-allowed', opacity: saving || !canAssign ? 0.45 : 1 }}
                                                         >
                                                             {saving ? '…' : '✓ Assign Recruiter'}
                                                         </button>
                                                         <button
                                                             onClick={() => { setAssigningMode(false); setRecruiter(app.assignedReviewerId ? (members.find(m => m.id === app.assignedReviewerId) ?? null) : null) }}
                                                             disabled={saving}
-                                                            style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.5)', opacity: saving ? 0.5 : 1 }}
+                                                            style={{ ...btnBase, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.5)', opacity: saving ? 0.5 : 1 }}
                                                         >
                                                             Cancel
                                                         </button>
@@ -586,56 +651,165 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                             )
                                         }
 
-                                        // Normal mode: Approve / Reject / Assign Recruiter
-                                        return (
-                                            <div style={dividerStyle}>
-                                                {j4Override && (
+                                        // J4 returning-member review panel (shown to J4 when pending)
+                                        if (isJ4 && isJ4ReviewPending) {
+                                            return (
+                                                <div style={dividerStyle}>
+                                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 8 }}>
+                                                        J4 Review Required
+                                                    </div>
+                                                    <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.6)', marginBottom: 10, lineHeight: 1.6 }}>
+                                                        A prior record was found for this applicant. Review the details above and approve or reject their history.
+                                                    </div>
+                                                    <TextField
+                                                        label='Note (optional)'
+                                                        value={j4DecisionNote}
+                                                        onChange={e => setJ4DecisionNote(e.target.value)}
+                                                        size='small'
+                                                        fullWidth
+                                                        multiline
+                                                        minRows={2}
+                                                        inputProps={{ maxLength: 500 }}
+                                                        sx={inputSx}
+                                                    />
+                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                                                        <button
+                                                            onClick={() => handleJ4Decision('approved')}
+                                                            disabled={j4Deciding}
+                                                            style={{ ...btnBase, background: 'rgba(0,195,100,0.15)', border: '1px solid rgba(0,195,100,0.4)', color: '#00c364', opacity: j4Deciding ? 0.5 : 1 }}
+                                                        >
+                                                            ✓ Approve — Allow to Proceed
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleJ4Decision('rejected')}
+                                                            disabled={j4Deciding}
+                                                            style={{ ...btnBase, background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'var(--red)', opacity: j4Deciding ? 0.5 : 1 }}
+                                                        >
+                                                            ✗ Reject — Deny Application
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )
+                                        }
+
+                                        // Recruiter locked — J4 review in progress
+                                        if (recruiterLocked) {
+                                            return (
+                                                <div style={dividerStyle}>
+                                                    <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b', fontSize: '0.78rem', color: '#f59e0b' }}>
+                                                        ⏳ J4 review in progress — you cannot submit a recommendation until J4 approves or rejects the returning-member check.
+                                                    </div>
+                                                </div>
+                                            )
+                                        }
+
+                                        // Recruiter recommendation panel (assigned non-lead)
+                                        if (isAssignedRecruiter && !isLead) {
+                                            if (app.recruiterRecommendation) {
+                                                const recLabel = app.recruiterRecommendation === 'approve' ? 'APPROVE' : app.recruiterRecommendation === 'deny' ? 'DENY' : 'PEND'
+                                                const recColor = app.recruiterRecommendation === 'approve' ? '#00c364' : app.recruiterRecommendation === 'deny' ? 'var(--red)' : '#f59e0b'
+                                                return (
+                                                    <div style={dividerStyle}>
+                                                        <div style={{ padding: '10px 14px', background: 'rgba(0,195,100,0.04)', border: '1px solid rgba(0,195,100,0.2)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                            <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>
+                                                                Your recommendation: <span style={{ fontWeight: 700, color: recColor }}>{recLabel}</span>
+                                                                {' '}<span style={{ color: 'rgba(237,237,237,0.3)' }}>— Awaiting J1 Lead final decision</span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', gap: 6 }}>
+                                                                {(['approve', 'deny', 'pend'] as const).map(r => (
+                                                                    <button
+                                                                        key={r}
+                                                                        onClick={() => handleRecommend(r)}
+                                                                        disabled={statusChanging || app.recruiterRecommendation === r}
+                                                                        style={{ ...btnBase, fontSize: '0.65rem', padding: '5px 12px', background: app.recruiterRecommendation === r ? 'rgba(255,255,255,0.08)' : 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.5)', cursor: app.recruiterRecommendation === r ? 'default' : 'pointer', opacity: statusChanging ? 0.5 : 1 }}
+                                                                    >
+                                                                        {r === 'approve' ? '✓ Approve' : r === 'deny' ? '✗ Deny' : '⏸ Pend'}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            }
+                                            return (
+                                                <div style={dividerStyle}>
+                                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 8 }}>
+                                                        Submit Recommendation
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                        <button
+                                                            onClick={() => handleRecommend('approve')}
+                                                            disabled={statusChanging}
+                                                            style={{ ...btnBase, background: 'rgba(0,195,100,0.15)', border: '1px solid rgba(0,195,100,0.4)', color: '#00c364', opacity: statusChanging ? 0.5 : 1 }}
+                                                        >
+                                                            ✓ Recommend Approve
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleRecommend('deny')}
+                                                            disabled={statusChanging}
+                                                            style={{ ...btnBase, background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'var(--red)', opacity: statusChanging ? 0.5 : 1 }}
+                                                        >
+                                                            ✗ Recommend Deny
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleRecommend('pend')}
+                                                            disabled={statusChanging}
+                                                            style={{ ...btnBase, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', opacity: statusChanging ? 0.5 : 1 }}
+                                                        >
+                                                            ⏸ Pend (flag for lead)
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )
+                                        }
+
+                                        // J4 direct override (no recruiter assigned)
+                                        if (j4Override) {
+                                            return (
+                                                <div style={dividerStyle}>
                                                     <div style={{ fontSize: '0.65rem', color: '#f59e0b', marginBottom: 8, letterSpacing: '0.05em' }}>
                                                         ⚠ No recruiter assigned — J4 override
                                                     </div>
-                                                )}
-                                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                                    {(normalCanAct || j4Override) && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => handleStatusChange('accepted')}
-                                                                disabled={statusChanging}
-                                                                style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(0,195,100,0.15)', border: '1px solid rgba(0,195,100,0.4)', color: '#00c364', opacity: statusChanging ? 0.5 : 1 }}
-                                                            >
-                                                                ✓ Approve
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleStatusChange('rejected')}
-                                                                disabled={statusChanging}
-                                                                style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'var(--red)', opacity: statusChanging ? 0.5 : 1 }}
-                                                            >
-                                                                ✗ Reject
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                    {isLead && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => setAssigningMode(true)}
-                                                                style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer', background: 'rgba(0,120,255,0.1)', border: '1px solid rgba(0,120,255,0.35)', color: '#60a5fa' }}
-                                                            >
-                                                                ＋ Assign Recruiter
-                                                            </button>
-                                                            {(normalCanAct || j4Override) && app.assignedReviewerId && (
-                                                                <button
-                                                                    onClick={handleSendBack}
-                                                                    disabled={statusChanging || !recruiterNote.trim()}
-                                                                    title={!recruiterNote.trim() ? 'Enter a note for the recruiter before sending back' : 'Send back to recruiter for review'}
-                                                                    style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: !recruiterNote.trim() ? 'not-allowed' : 'pointer', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', color: '#f59e0b', opacity: statusChanging || !recruiterNote.trim() ? 0.45 : 1 }}
-                                                                >
-                                                                    ↩ Send Back
-                                                                </button>
-                                                            )}
-                                                        </>
-                                                    )}
+                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                        <button onClick={() => handleStatusChange('accepted')} disabled={statusChanging} style={{ ...btnBase, background: 'rgba(0,195,100,0.15)', border: '1px solid rgba(0,195,100,0.4)', color: '#00c364', opacity: statusChanging ? 0.5 : 1 }}>✓ Approve</button>
+                                                        <button onClick={() => handleStatusChange('rejected')} disabled={statusChanging} style={{ ...btnBase, background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'var(--red)', opacity: statusChanging ? 0.5 : 1 }}>✗ Reject</button>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )
+                                            )
+                                        }
+
+                                        // J1 Lead final decision panel
+                                        if (isLead) {
+                                            return (
+                                                <div style={dividerStyle}>
+                                                    {app.recruiterRecommendation && (
+                                                        <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', marginBottom: 10, fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)' }}>
+                                                            Recruiter recommends:{' '}
+                                                            <span style={{ fontWeight: 700, color: app.recruiterRecommendation === 'approve' ? '#00c364' : app.recruiterRecommendation === 'deny' ? 'var(--red)' : '#f59e0b' }}>
+                                                                {app.recruiterRecommendation.toUpperCase()}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                                        <button onClick={() => handleStatusChange('accepted')} disabled={statusChanging} style={{ ...btnBase, background: 'rgba(0,195,100,0.15)', border: '1px solid rgba(0,195,100,0.4)', color: '#00c364', opacity: statusChanging ? 0.5 : 1 }}>✓ Accept</button>
+                                                        <button onClick={() => handleStatusChange('rejected')} disabled={statusChanging} style={{ ...btnBase, background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'var(--red)', opacity: statusChanging ? 0.5 : 1 }}>✗ Reject</button>
+                                                        <button onClick={() => setAssigningMode(true)} style={{ ...btnBase, background: 'rgba(0,120,255,0.1)', border: '1px solid rgba(0,120,255,0.35)', color: '#60a5fa' }}>＋ Assign Recruiter</button>
+                                                        {hasRecruiter && (
+                                                            <button
+                                                                onClick={handleSendBack}
+                                                                disabled={statusChanging || !recruiterNote.trim()}
+                                                                title={!recruiterNote.trim() ? 'Enter a note for the recruiter before sending back' : 'Send back to recruiter for review'}
+                                                                style={{ ...btnBase, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', color: '#f59e0b', cursor: !recruiterNote.trim() ? 'not-allowed' : 'pointer', opacity: statusChanging || !recruiterNote.trim() ? 0.45 : 1 }}
+                                                            >
+                                                                ↩ Send Back
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )
+                                        }
+
+                                        return null
                                     })()}
                                 </div>
                             )}
@@ -1041,6 +1215,12 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
                                 )}
                                 {app.linkedUserId && (
                                     <LinkIcon style={{ fontSize: 14, color: '#00c364' }} titleAccess={`Linked: ${app.linkedUserDisplayName}`} />
+                                )}
+                                {app.j4ReviewStatus === 'pending' && (
+                                    <span title='J4 review pending' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', padding: '1px 5px' }}>J4</span>
+                                )}
+                                {app.recruiterRecommendation && !app.j4ReviewStatus && (
+                                    <span title={`Recruiter: ${app.recruiterRecommendation}`} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: app.recruiterRecommendation === 'approve' ? '#00c364' : app.recruiterRecommendation === 'deny' ? 'var(--red)' : '#f59e0b', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 5px' }}>REC</span>
                                 )}
                             </div>
                             <span style={{ fontSize: '0.7rem', color: app.assignedReviewerName ? 'rgba(245,158,11,0.8)' : 'rgba(237,237,237,0.2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import { deleteDocImages } from '@/lib/training-docs/parse-gdocs-zip'
+import { deleteDocImages, sanitizeDocHtml } from '@/lib/training-docs/parse-gdocs-zip'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -69,7 +69,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     if (htmlContent !== undefined) {
         if (item.type !== 'document') return NextResponse.json({ error: 'Cannot set content on a folder' }, { status: 400 })
-        updates.htmlContent = htmlContent
+        updates.htmlContent = sanitizeDocHtml(htmlContent)
     }
 
     if (iconName !== undefined) updates.iconName = iconName || undefined

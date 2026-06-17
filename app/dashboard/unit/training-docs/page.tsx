@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { connection } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import TrainingDocsPanel from './TrainingDocsPanel'
+import TrainingHub from './TrainingHub'
 
 export default async function Page() {
     await connection()
@@ -11,7 +11,8 @@ export default async function Page() {
     if (!me) redirect('/login')
     if (!client.hasRoles(me, PERMISSIONS.pages.member)) redirect('/me')
 
-    const isJ3 = client.hasRoles(me, PERMISSIONS.trainingDocs.manage)
+    const isJ3Lead = client.hasRoles(me, PERMISSIONS.training.manage)
+    const isTrainer = client.hasRoles(me, PERMISSIONS.training.create)
 
-    return <TrainingDocsPanel isJ3={isJ3} />
+    return <TrainingHub isJ3Lead={isJ3Lead} isTrainer={isTrainer} myId={me.id} />
 }

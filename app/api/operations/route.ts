@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get('status') // comma-separated, e.g. "Active,Upcoming"
     const search = searchParams.get('search')
     const limitParam = searchParams.get('limit')
+    const authorId = searchParams.get('authorId')  // filter by ownedBy Discord user ID
 
     let isHQ = false
     try {
@@ -49,6 +50,11 @@ export async function GET(request: NextRequest) {
         // Optional full-text search on title
         if (search) {
             query.title = { $regex: search, $options: 'i' }
+        }
+
+        // Filter by mission owner (ownedBy Discord user ID)
+        if (authorId) {
+            query.ownedBy = authorId
         }
 
         // Optional month + year filter (or year-only)

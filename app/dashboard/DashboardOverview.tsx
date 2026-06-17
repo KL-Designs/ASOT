@@ -399,14 +399,165 @@ function TasksWidget() {
     )
 }
 
+// ── Operations overview widget ────────────────────────────────────────────────
+
+type OpOverview = {
+    _id: string
+    title: string
+    date: string
+    status: string
+    department?: string
+    ownedByName?: string
+    coverImage?: string
+    themeColor?: string
+}
+
+function OperationsWidget({ isHQ }: { isHQ: boolean }) {
+    const [active, setActive] = useState<OpOverview[]>([])
+    const [inDev, setInDev] = useState<OpOverview[]>([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const reqs = [fetch('/api/operations?status=Active,Upcoming').then(r => r.json())]
+        if (isHQ) reqs.push(fetch('/api/operations?status=In+Development').then(r => r.json()))
+        Promise.all(reqs).then(([liveJson, devJson]) => {
+            setActive(liveJson.missions ?? [])
+            if (devJson) setInDev(devJson.missions ?? [])
+            setLoading(false)
+        }).catch(() => setLoading(false))
+    }, [isHQ])
+
+    const upcoming = active.filter(o => o.status === 'Upcoming')
+    const live     = active.filter(o => o.status === 'Active')
+
+    if (loading) return (
+        <div>
+            <SectionLabel label='Operations' />
+            <div style={{ border: '1px solid rgba(219,0,29,0.25)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.02)', padding: '18px 16px', fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>
+                Loading…
+            </div>
+        </div>
+    )
+
+    const empty = live.length === 0 && upcoming.length === 0 && inDev.length === 0
+
+    function OpRow({ op }: { op: OpOverview }) {
+        const theme = op.themeColor || '#db001d'
+        const isActive = op.status === 'Active'
+        const isDev    = op.status === 'In Development'
+        const accent = isActive ? 'rgba(0,200,80,0.8)' : isDev ? 'rgba(219,0,29,0.7)' : 'rgba(219,160,0,0.8)'
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                {op.coverImage ? (
+                    <div style={{ width: 40, height: 26, flexShrink: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <img src={op.coverImage} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    </div>
+                ) : (
+                    <div style={{ width: 4, flexShrink: 0, alignSelf: 'stretch', background: accent, opacity: 0.5 }} />
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {op.title}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                        <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', color: accent, textTransform: 'uppercase' }}>
+                            {op.status}
+                        </span>
+                        <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.04em' }}>
+                            {new Date(op.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                        {op.ownedByName && (
+                            <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.25)', letterSpacing: '0.04em' }}>
+                                {op.ownedByName}
+                            </span>
+                        )}
+                    </div>
+                </div>
+                <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                    {isHQ && !isDev && (
+                        <Link href={`/operations/${op._id}/edit`} style={{ textDecoration: 'none' }}>
+                            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', padding: '2px 7px', border: '1px solid rgba(219,160,0,0.3)', color: 'rgba(219,160,0,0.7)', cursor: 'pointer' }}>
+                                EDIT
+                            </span>
+                        </Link>
+                    )}
+                    {isDev ? (
+                        <Link href={`/operations/${op._id}/edit`} style={{ textDecoration: 'none' }}>
+                            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', padding: '2px 7px', border: '1px solid rgba(219,0,29,0.35)', color: 'rgba(219,0,29,0.75)', cursor: 'pointer' }}>
+                                OPEN
+                            </span>
+                        </Link>
+                    ) : (
+                        <Link href={`/operations/${op._id}`} style={{ textDecoration: 'none' }}>
+                            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', padding: '2px 7px', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}>
+                                VIEW
+                            </span>
+                        </Link>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div>
+            <SectionLabel label='Operations' />
+            <div style={{ border: '1px solid rgba(219,0,29,0.25)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.02)', position: 'relative' }}>
+                <CornerBrackets />
+
+                {empty ? (
+                    <div style={{ padding: '20px 16px', fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>
+                        No active or upcoming operations.
+                    </div>
+                ) : (
+                    <div>
+                        {live.length > 0 && (
+                            <div>
+                                <div style={{ padding: '6px 14px 4px', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(0,200,80,0.5)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                    Active
+                                </div>
+                                {live.map(op => <OpRow key={op._id} op={op} />)}
+                            </div>
+                        )}
+                        {upcoming.length > 0 && (
+                            <div>
+                                <div style={{ padding: '6px 14px 4px', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.5)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                    Upcoming
+                                </div>
+                                {upcoming.map(op => <OpRow key={op._id} op={op} />)}
+                            </div>
+                        )}
+                        {isHQ && inDev.length > 0 && (
+                            <div>
+                                <div style={{ padding: '6px 14px 4px', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                    In Development
+                                </div>
+                                {inDev.map(op => <OpRow key={op._id} op={op} />)}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                <div style={{ borderTop: '1px solid rgba(219,0,29,0.12)', padding: '6px 14px', display: 'flex', justifyContent: 'flex-end' }}>
+                    <Link href='/operations' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(219,0,29,0.7)', textDecoration: 'none', textTransform: 'uppercase' }}>
+                        Operations Board →
+                    </Link>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function DashboardOverview({
     displayName,
+    permissions,
 }: {
     displayName: string
     permissions: DashboardPermissions
 }) {
+    const isHQ = permissions.canSeeJ2 || permissions.isStaff
     const router = useRouter()
     const { favourites, unpin, reorder } = useFavourites()
 
@@ -505,6 +656,9 @@ export default function DashboardOverview({
 
             {/* ── Tasks ──────────────────────────────────────────────────────── */}
             <TasksWidget />
+
+            {/* ── Operations overview (staff only) ───────────────────────────── */}
+            {permissions.isStaff && <OperationsWidget isHQ={isHQ} />}
 
         </div>
     )

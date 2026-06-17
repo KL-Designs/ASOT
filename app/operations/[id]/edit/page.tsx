@@ -56,9 +56,47 @@ export default function Page() {
     const [mapWorld, setMapWorld] = useState<string>('')
     const [availableWorlds, setAvailableWorlds] = useState<{ name: string; displayName: string; hasPreview: boolean }[]>([])
     const [isHQ, setIsHQ] = useState(false)
+    const [isJ2Lead, setIsJ2Lead] = useState(false)
+    const [isJ4Admin, setIsJ4Admin] = useState(false)
     const [initialContent, setInitialContent] = useState<any>(undefined)
     const [loaded, setLoaded] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
+
+    // Mission Development
+    const [missionDev, setMissionDev] = useState<MissionDevelopment | null>(null)
+    const [missionDevOpen, setMissionDevOpen] = useState(true)
+    const [missionDevSaving, setMissionDevSaving] = useState(false)
+    const [isCampaignOp, setIsCampaignOp] = useState(false)
+    const [campaignStartDate, setCampaignStartDate] = useState<string | null>(null)
+    const [completingCheckId, setCompletingCheckId] = useState<string | null>(null)
+    const [completionReviewerName, setCompletionReviewerName] = useState('')
+    const [completionComments, setCompletionComments] = useState('')
+    const [completionOutcome, setCompletionOutcome] = useState('')
+
+    // Publish flow
+    const [publishSaving, setPublishSaving] = useState(false)
+    const [publishConfirmOpen, setPublishConfirmOpen] = useState(false)
+
+    // Ownership
+    const [ownedBy, setOwnedBy] = useState('')
+    const [ownedByName, setOwnedByName] = useState('')
+    const [billetPoints, setBilletPoints] = useState(2)
+    const [j2Members, setJ2Members] = useState<{ id: string; displayName: string }[]>([])
+    const [ownerPickerOpen, setOwnerPickerOpen] = useState(false)
+
+    // Acknowledgements
+    const [ackCount, setAckCount] = useState(0)
+    const [ackList, setAckList] = useState<{ userId: string; userName: string; acknowledgedAt: string }[]>([])
+    const [ackExpanded, setAckExpanded] = useState(false)
+    const [remindSaving, setRemindSaving] = useState(false)
+    const [remindSent, setRemindSent] = useState<number | null>(null)
+
+    // Orders Check Request
+    const [ordersCheckModal, setOrdersCheckModal]           = useState(false)
+    const [ordersCheckPreferredAt, setOrdersCheckPreferredAt] = useState<Dayjs | null>(null)
+    const [ordersCheckComments, setOrdersCheckComments]     = useState('')
+    const [ordersCheckSaving, setOrdersCheckSaving]         = useState(false)
+    const [ordersCheckTask, setOrdersCheckTask]             = useState<null | { status: string; ordersCheckAt?: string; ordersCheckStatus?: string; ordersCheckProposedAt?: string; ordersCheckProposedBy?: string }>(null)
 
     const [assignedPlatoons, setAssignedPlatoons] = useState<string[]>([])
     const [discordPingEnabled, setDiscordPingEnabled] = useState(false)
@@ -67,14 +105,16 @@ export default function Page() {
     const [confirmationOpen, setConfirmationOpen] = useState(false)
     const [confirmationOpenedAt, setConfirmationOpenedAt] = useState<Date | null>(null)
     const [rsvpOpenAt, setRsvpOpenAt] = useState<string | null>(null)
-    const [rsvpCloseOffsetMins, setRsvpCloseOffsetMins] = useState(60)
+    const [rsvpCloseOffsetMins, setRsvpCloseOffsetMins] = useState(90)
     const [attendanceSaving, setAttendanceSaving] = useState(false)
     const [tickNow, setTickNow] = useState(() => new Date())
 
     // Draft state for the schedule panel — only committed on "Confirm Schedule"
     const [draftDate, setDraftDate] = useState<Dayjs | null>(null)
     const [draftRsvpOpenAt, setDraftRsvpOpenAt] = useState<string | null>(null)
-    const [draftRsvpCloseOffsetMins, setDraftRsvpCloseOffsetMins] = useState(60)
+    const [draftRsvpCloseOffsetMins, setDraftRsvpCloseOffsetMins] = useState(90)
+    const [draftRsvpCloseMode, setDraftRsvpCloseMode] = useState<'preset' | 'custom'>('preset')
+    const [draftRsvpCloseAt, setDraftRsvpCloseAt] = useState<string | null>(null)
     const [scheduleSaving, setScheduleSaving] = useState(false)
     const [attendanceOpen, setAttendanceOpen] = useState(true)
     const [scheduleOpen, setScheduleOpen] = useState(true)
@@ -86,6 +126,13 @@ export default function Page() {
     const [previewOpen, setPreviewOpen] = useState(false)
     const [activityOpen, setActivityOpen] = useState(false)
     const router = useRouter()
+
+    // Custom attendance units
+    const [customUnits, setCustomUnits] = useState<{ id: string; name: string; color?: string }[]>([])
+    const [customUnitsOpen, setCustomUnitsOpen] = useState(false)
+    const [newUnitName, setNewUnitName] = useState('')
+    const [newUnitColor, setNewUnitColor] = useState('#6366f1')
+    const [customUnitsSaving, setCustomUnitsSaving] = useState(false)
 
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
     const metaHandleRef = useRef<{ set: (key: string, value: string) => void } | null>(null)
@@ -169,6 +216,14 @@ export default function Page() {
             .then(r => r.json())
             .then(json => { if (!json.error) setIsHQ(json.access) })
 
+        fetch(`/api/me/roles?has=${PERMISSIONS.departmentLeads.j2.join(',')}`)
+            .then(r => r.json())
+            .then(json => { if (!json.error) setIsJ2Lead(json.access) })
+
+        fetch(`/api/me/roles?has=${PERMISSIONS.members.editRestricted.join(',')}`)
+            .then(r => r.json())
+            .then(json => { if (!json.error) setIsJ4Admin(json.access) })
+
         fetch('/api/maps/worlds')
             .then(r => r.json())
             .then(worlds => { if (Array.isArray(worlds)) setAvailableWorlds(worlds) })
@@ -195,7 +250,44 @@ export default function Page() {
                 setMapWorld(op.mapWorld || '')
                 setInitialContent(op.content ?? null)
                 setLoaded(true)
+
+                // Mission Development
+                const hasCampaign = !!(op as any).campaignId
+                setIsCampaignOp(hasCampaign)
+                setMissionDev((op as any).missionDevelopment ?? null)
+                if (hasCampaign) {
+                    fetch(`/api/operations/campaigns`)
+                        .then(r => r.json())
+                        .then(data => {
+                            const campId = String((op as any).campaignId)
+                            const camp = (data.campaigns ?? []).find((c: any) => String(c._id) === campId)
+                            if (camp?.startDate) setCampaignStartDate(camp.startDate)
+                        })
+                        .catch(() => {})
+                }
+
+                // Load any existing orders_check task
+                fetch(`/api/operations/${id}/orders-check`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(d => { if (d?.task) setOrdersCheckTask(d.task) })
+                    .catch(() => {})
+
+                // Ownership
+                if ((op as any).ownedBy) setOwnedBy((op as any).ownedBy)
+                if ((op as any).ownedByName) setOwnedByName((op as any).ownedByName)
+                if ((op as any).billetPoints != null) setBilletPoints((op as any).billetPoints)
+
+                // Acknowledgements
+                fetch(`/api/operations/${id}/acknowledge`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(d => { if (d) { setAckCount(d.count ?? 0); setAckList(d.acks ?? []) } })
+                    .catch(() => {})
             })
+
+        fetch(`/api/operations/${id}/attendance/custom-units`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d) setCustomUnits(d.customUnits ?? []) })
+            .catch(() => {})
 
         fetch(`/api/operations/${id}/attendance`)
             .then(r => r.json())
@@ -209,9 +301,9 @@ export default function Page() {
                 setConfirmationOpenedAt(json.confirmationOpenedAt ? new Date(json.confirmationOpenedAt) : null)
                 const openAt = json.rsvpOpenAt ? new Date(json.rsvpOpenAt).toISOString() : null
                 setRsvpOpenAt(openAt)
-                setRsvpCloseOffsetMins(json.rsvpCloseOffsetMins ?? 60)
+                setRsvpCloseOffsetMins(json.rsvpCloseOffsetMins ?? 90)
                 setDraftRsvpOpenAt(openAt)
-                setDraftRsvpCloseOffsetMins(json.rsvpCloseOffsetMins ?? 60)
+                setDraftRsvpCloseOffsetMins(json.rsvpCloseOffsetMins ?? 90)
                 setAttStage(json.stage ?? 'preparing')
                 // If RSVP is already open when we load, mark the auto-open as already fired
                 // so the close→re-open bounce can't happen.
@@ -481,6 +573,49 @@ export default function Page() {
                     <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor }}>
                         {statusLabel}
                     </span>
+                    {/* Publish button — visible when In Development */}
+                    {opID && isHQ && status === 'In Development' && (
+                        publishConfirmOpen ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', background: 'rgba(0,200,80,0.07)', border: '1px solid rgba(0,200,80,0.3)', borderRadius: 2 }}>
+                                <span style={{ fontSize: '0.6rem', color: 'rgba(0,200,80,0.75)', fontWeight: 700, letterSpacing: '0.1em' }}>Publish "{title || 'this op'}"?</span>
+                                <button type='button' disabled={publishSaving} onClick={async () => {
+                                    setPublishSaving(true)
+                                    try {
+                                        const res = await fetch(`/api/operations/${opID}/publish`, { method: 'POST' })
+                                        if (res.ok) {
+                                            setStatus('Upcoming')
+                                            setPublishConfirmOpen(false)
+                                        } else {
+                                            const d = await res.json()
+                                            alert(d.error ?? 'Publish failed')
+                                        }
+                                    } finally {
+                                        setPublishSaving(false)
+                                    }
+                                }}
+                                    style={{ padding: '4px 10px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', background: 'rgba(0,200,80,0.2)', border: '1px solid rgba(0,200,80,0.5)', color: 'rgba(0,200,80,0.95)', cursor: 'pointer' }}
+                                >{publishSaving ? 'Publishing…' : '✓ Confirm'}</button>
+                                <button type='button' onClick={() => setPublishConfirmOpen(false)}
+                                    style={{ padding: '4px 8px', fontSize: '0.6rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}
+                                >Cancel</button>
+                            </div>
+                        ) : (
+                            <button type='button' onClick={() => setPublishConfirmOpen(true)}
+                                style={{
+                                    padding: '6px 14px',
+                                    background: 'rgba(0,200,80,0.08)',
+                                    border: '1px solid rgba(0,200,80,0.35)',
+                                    color: 'rgba(0,200,80,0.75)',
+                                    fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+                                    cursor: 'pointer', transition: 'all 0.15s',
+                                }}
+                                onMouseEnter={e => { const el = e.currentTarget; el.style.background = 'rgba(0,200,80,0.18)'; el.style.color = 'rgba(0,200,80,1)'; el.style.borderColor = 'rgba(0,200,80,0.65)' }}
+                                onMouseLeave={e => { const el = e.currentTarget; el.style.background = 'rgba(0,200,80,0.08)'; el.style.color = 'rgba(0,200,80,0.75)'; el.style.borderColor = 'rgba(0,200,80,0.35)' }}
+                            >
+                                ↑ Publish Operation
+                            </button>
+                        )
+                    )}
                     {opID && (
                         <button
                             onClick={() => setConfirmDelete(true)}
@@ -533,6 +668,392 @@ export default function Page() {
                 </div>
             </div>
 
+            {/* Mission Development */}
+            {opID && (() => {
+                const baseDate = isCampaignOp && campaignStartDate
+                    ? new Date(campaignStartDate)
+                    : date?.toDate() ?? null
+                if (!baseDate) return null
+
+                const weeksList = isCampaignOp ? [16, 12, 10, 8, 6, 4] : [12, 10, 8, 6, 4]
+                const now = new Date()
+                const checks = weeksList.map(weeks => {
+                    const dueDate = new Date(baseDate.getTime() - weeks * 7 * 24 * 3600000)
+                    const completion = missionDev?.completions?.[`w${weeks}`]
+                    return {
+                        id: `w${weeks}`,
+                        label: `${weeks}W`,
+                        weeks,
+                        dueDate,
+                        isOverdue: now > dueDate && !completion,
+                        isCompleted: !!completion,
+                        completion,
+                    }
+                })
+                const allDone = checks.every(ch => ch.isCompleted)
+
+                const fmtDate = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
+
+                async function saveCompletion(checkId: string) {
+                    setMissionDevSaving(true)
+                    try {
+                        const res = await fetch(`/api/operations/${opID}/mission-development`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                checkId,
+                                reviewerName: completionReviewerName.trim() || undefined,
+                                comments: completionComments.trim() || undefined,
+                                outcome: completionOutcome.trim() || undefined,
+                            }),
+                        })
+                        const data = await res.json()
+                        if (data.ok) {
+                            setMissionDev(prev => ({
+                                completions: { ...(prev?.completions ?? {}), [checkId]: data.completion },
+                                lastUpdatedAt: new Date().toISOString(),
+                            }))
+                            setCompletingCheckId(null)
+                            setCompletionReviewerName('')
+                            setCompletionComments('')
+                            setCompletionOutcome('')
+                        }
+                    } finally {
+                        setMissionDevSaving(false)
+                    }
+                }
+
+                async function removeCompletion(checkId: string) {
+                    setMissionDevSaving(true)
+                    try {
+                        await fetch(`/api/operations/${opID}/mission-development?checkId=${checkId}`, { method: 'DELETE' })
+                        setMissionDev(prev => {
+                            if (!prev) return prev
+                            const next = { ...prev, completions: { ...prev.completions } }
+                            delete next.completions[checkId]
+                            return next
+                        })
+                    } finally {
+                        setMissionDevSaving(false)
+                    }
+                }
+
+                return (
+                    <>
+                        <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${allDone ? 'rgba(0,200,80,0.6)' : c(0.5)}`, background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
+                            <button type='button' onClick={() => setMissionDevOpen(v => !v)}
+                                className='flex items-center justify-between px-4 py-3'
+                                style={{ borderBottom: missionDevOpen ? '1px solid rgba(255,255,255,0.05)' : 'none', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: allDone ? 'rgba(0,200,80,0.6)' : 'rgba(237,237,237,0.3)' }}>
+                                        Mission Development
+                                    </span>
+                                    {allDone && <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'rgba(0,200,80,0.8)', letterSpacing: '0.1em' }}>✓ All Checks Complete</span>}
+                                    {!allDone && checks.some(ch => ch.isOverdue) && (
+                                        <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,100,0,0.85)', border: '1px solid rgba(219,100,0,0.35)', padding: '2px 8px' }}>
+                                            {checks.filter(ch => ch.isOverdue).length} Overdue
+                                        </span>
+                                    )}
+                                    {missionDevSaving && <span style={{ fontSize: '0.6rem', color: 'rgba(219,0,29,0.65)', fontWeight: 700 }}>Saving…</span>}
+                                </div>
+                                <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>{missionDevOpen ? '[−]' : '[+]'}</span>
+                            </button>
+
+                            {missionDevOpen && (
+                                <div style={{ padding: '20px 16px 16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 16 }}>
+                                        {checks.map((ch, i) => {
+                                            const nodeColor = ch.isCompleted ? 'rgba(0,200,80,0.7)'
+                                                : ch.isOverdue ? 'rgba(219,80,0,0.55)'
+                                                : 'rgba(255,255,255,0.1)'
+                                            const borderClr = ch.isCompleted ? 'rgba(0,200,80,0.6)'
+                                                : ch.isOverdue ? 'rgba(219,80,0,0.55)'
+                                                : 'rgba(255,255,255,0.15)'
+                                            const labelClr = ch.isCompleted ? 'rgba(0,200,80,0.8)'
+                                                : ch.isOverdue ? 'rgba(219,100,0,0.85)'
+                                                : 'rgba(237,237,237,0.35)'
+                                            const connectorColor = ch.isCompleted && checks[i + 1]?.isCompleted
+                                                ? 'rgba(0,200,80,0.35)'
+                                                : 'rgba(255,255,255,0.08)'
+                                            return (
+                                                <div key={ch.id} style={{ display: 'flex', alignItems: 'flex-start', flex: i < checks.length - 1 ? 1 : undefined }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 52 }}>
+                                                        <button
+                                                            type='button'
+                                                            disabled={!isJ2Lead || missionDevSaving}
+                                                            onClick={() => {
+                                                                if (!isJ2Lead) return
+                                                                if (ch.isCompleted) {
+                                                                    if (confirm(`Remove completion for ${ch.label} check?`)) removeCompletion(ch.id)
+                                                                } else {
+                                                                    setCompletingCheckId(ch.id)
+                                                                    setCompletionReviewerName('')
+                                                                    setCompletionComments('')
+                                                                    setCompletionOutcome('')
+                                                                }
+                                                            }}
+                                                            title={isJ2Lead ? (ch.isCompleted ? 'Click to remove completion' : 'Click to complete this check') : 'J2 leads only'}
+                                                            style={{
+                                                                width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                                                                background: nodeColor, border: `2px solid ${borderClr}`,
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                cursor: isJ2Lead ? 'pointer' : 'default',
+                                                                padding: 0, transition: 'all 0.2s',
+                                                            }}
+                                                        >
+                                                            {ch.isCompleted && <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.9)', lineHeight: 1 }}>✓</span>}
+                                                            {ch.isOverdue && !ch.isCompleted && <span style={{ fontSize: 9, color: 'rgba(219,120,0,0.9)', lineHeight: 1 }}>!</span>}
+                                                        </button>
+                                                        <div style={{ textAlign: 'center', lineHeight: 1.3 }}>
+                                                            <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: labelClr }}>{ch.label}</div>
+                                                            <div style={{ fontSize: '0.48rem', color: 'rgba(237,237,237,0.22)', letterSpacing: '0.04em' }}>{fmtDate(ch.dueDate)}</div>
+                                                        </div>
+                                                        {ch.completion && (
+                                                            <div style={{ fontSize: '0.44rem', color: 'rgba(0,200,80,0.55)', textAlign: 'center', lineHeight: 1.3, maxWidth: 50 }}>
+                                                                {ch.completion.reviewerName}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {i < checks.length - 1 && (
+                                                        <div style={{ flex: 1, height: 2, marginTop: 10, background: connectorColor }} />
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+
+                                    {/* Legend */}
+                                    <div style={{ display: 'flex', gap: 16, fontSize: '0.55rem', color: 'rgba(237,237,237,0.25)' }}>
+                                        <span><span style={{ color: 'rgba(0,200,80,0.7)' }}>●</span> Completed</span>
+                                        <span><span style={{ color: 'rgba(219,80,0,0.7)' }}>●</span> Overdue</span>
+                                        <span><span style={{ color: 'rgba(255,255,255,0.2)' }}>●</span> Pending</span>
+                                        {!isJ2Lead && <span style={{ color: 'rgba(237,237,237,0.18)', fontStyle: 'italic' }}>J2 leads can complete checks</span>}
+                                        <span style={{ marginLeft: 'auto', color: 'rgba(237,237,237,0.18)' }}>
+                                            {isCampaignOp ? 'Campaign — 6 checks from campaign start' : 'Single mission — 5 checks from op date'}
+                                        </span>
+                                    </div>
+
+                                    {/* Per-check detail rows for completed checks */}
+                                    {checks.filter(ch => ch.completion).length > 0 && (
+                                        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            {checks.filter(ch => ch.completion).map(ch => (
+                                                <div key={ch.id} style={{ padding: '8px 12px', background: 'rgba(0,200,80,0.04)', border: '1px solid rgba(0,200,80,0.12)', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'rgba(0,200,80,0.75)', letterSpacing: '0.08em' }}>{ch.label}</span>
+                                                        <span style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.35)' }}>Reviewed by {ch.completion!.reviewerName}</span>
+                                                        <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.22)', marginLeft: 'auto' }}>
+                                                            {new Date(ch.completion!.completedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    </div>
+                                                    {ch.completion!.comments && (
+                                                        <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.4)', paddingLeft: 2 }}>{ch.completion!.comments}</div>
+                                                    )}
+                                                    {ch.completion!.outcome && (
+                                                        <div style={{ fontSize: '0.58rem', color: 'rgba(237,200,0,0.5)', paddingLeft: 2 }}>Outcome: {ch.completion!.outcome}</div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Orders Check Request */}
+                                    <div style={{ marginTop: 16, borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 14 }}>
+                                        {ordersCheckTask ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'rgba(100,150,237,0.06)', border: '1px solid rgba(100,150,237,0.18)' }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.7)', marginBottom: 3 }}>
+                                                        Orders Check {ordersCheckTask.ordersCheckStatus === 'confirmed' ? '✓ Confirmed' : ordersCheckTask.ordersCheckStatus === 'proposed' ? '— Alternative Proposed' : '— Requested'}
+                                                    </div>
+                                                    {ordersCheckTask.ordersCheckAt && (
+                                                        <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.5)' }}>
+                                                            Requested: {new Date(ordersCheckTask.ordersCheckAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                        </div>
+                                                    )}
+                                                    {ordersCheckTask.ordersCheckStatus === 'proposed' && ordersCheckTask.ordersCheckProposedAt && (
+                                                        <div style={{ fontSize: '0.65rem', color: 'rgba(219,160,0,0.75)', marginTop: 2 }}>
+                                                            Alternative by {ordersCheckTask.ordersCheckProposedBy}: {new Date(ordersCheckTask.ordersCheckProposedAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <button type='button' onClick={() => setOrdersCheckModal(true)}
+                                                style={{
+                                                    fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                                                    padding: '7px 16px', background: 'rgba(100,150,237,0.1)', border: '1px solid rgba(100,150,237,0.3)',
+                                                    color: 'rgba(100,150,237,0.85)', cursor: 'pointer',
+                                                }}
+                                            >
+                                                + Request Orders Check
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Completion modal */}
+                        {completingCheckId && (() => {
+                            const ch = checks.find(c => c.id === completingCheckId)
+                            if (!ch) return null
+                            return (
+                                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    onClick={e => { if (e.target === e.currentTarget) setCompletingCheckId(null) }}
+                                >
+                                    <div style={{ background: '#0f0f10', border: `1px solid ${c(0.35)}`, borderTop: `2px solid rgba(0,200,80,0.7)`, padding: '24px 28px', maxWidth: 420, width: '90%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,200,80,0.5)', fontFamily: 'monospace' }}>
+                                            {'// COMPLETE CHECK'}
+                                        </div>
+                                        <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
+                                            {ch.label} Development Check
+                                        </div>
+                                        <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)' }}>
+                                            Due: {ch.dueDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })}
+                                            {ch.isOverdue && <span style={{ color: 'rgba(219,80,0,0.85)', marginLeft: 8 }}>● Overdue</span>}
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                            <div>
+                                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: c(0.55), marginBottom: 6 }}>Reviewer Name</div>
+                                                <input
+                                                    value={completionReviewerName}
+                                                    onChange={e => setCompletionReviewerName(e.target.value)}
+                                                    placeholder='Your name or assigned reviewer…'
+                                                    style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.8rem', padding: '8px 10px', outline: 'none', boxSizing: 'border-box' }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: c(0.55), marginBottom: 6 }}>Comments</div>
+                                                <textarea
+                                                    value={completionComments}
+                                                    onChange={e => setCompletionComments(e.target.value)}
+                                                    placeholder='Review notes, observations…'
+                                                    rows={3}
+                                                    style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', padding: '8px 10px', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: c(0.55), marginBottom: 6 }}>Outcome / Notes</div>
+                                                <textarea
+                                                    value={completionOutcome}
+                                                    onChange={e => setCompletionOutcome(e.target.value)}
+                                                    placeholder='Outcome, decisions made, action items…'
+                                                    rows={2}
+                                                    style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', padding: '8px 10px', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+                                            <button type='button' onClick={() => setCompletingCheckId(null)}
+                                                style={{ padding: '7px 18px', fontSize: '0.7rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}
+                                            >CANCEL</button>
+                                            <button type='button' disabled={missionDevSaving} onClick={() => saveCompletion(completingCheckId)}
+                                                style={{ padding: '7px 18px', fontSize: '0.7rem', fontWeight: 700, background: 'rgba(0,200,80,0.18)', border: '1px solid rgba(0,200,80,0.45)', color: 'rgba(0,200,80,0.9)', cursor: 'pointer' }}
+                                            >{missionDevSaving ? 'Saving…' : '✓ Mark Complete'}</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })()}
+
+                        {/* Orders Check modal */}
+                        {ordersCheckModal && (
+                            <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                onClick={e => { if (e.target === e.currentTarget) setOrdersCheckModal(false) }}
+                            >
+                                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <div style={{ background: '#0f0f10', border: `1px solid rgba(100,150,237,0.35)`, borderTop: `2px solid rgba(100,150,237,0.8)`, padding: '24px 28px', maxWidth: 440, width: '90%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.5)', fontFamily: 'monospace' }}>
+                                            {'// REQUEST ORDERS CHECK'}
+                                        </div>
+                                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'rgba(237,237,237,0.9)' }}>
+                                            {title || 'This Operation'}
+                                        </div>
+                                        <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.45)', lineHeight: 1.5 }}>
+                                            Select a preferred date and time for your orders check. A task will be created for J2 leads to review and confirm.
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                            <div>
+                                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 8 }}>
+                                                    Preferred Date &amp; Time
+                                                </div>
+                                                <DateTimePicker
+                                                    value={ordersCheckPreferredAt}
+                                                    onChange={v => setOrdersCheckPreferredAt(v)}
+                                                    slotProps={{
+                                                        textField: {
+                                                            size: 'small',
+                                                            fullWidth: true,
+                                                            sx: {
+                                                                '& .MuiInputBase-root': { background: 'rgba(0,0,0,0.35)', borderRadius: 0, fontSize: '0.82rem' },
+                                                                '& .MuiOutlinedInput-notchedOutline': { border: '1px solid rgba(255,255,255,0.1)' },
+                                                                '& .MuiInputBase-input': { color: 'rgba(237,237,237,0.85)' },
+                                                                '& .MuiSvgIcon-root': { color: 'rgba(237,237,237,0.4)' },
+                                                            },
+                                                        },
+                                                        popper: { sx: { zIndex: 19999 } },
+                                                    }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 8 }}>
+                                                    Comments (optional)
+                                                </div>
+                                                <textarea
+                                                    value={ordersCheckComments}
+                                                    onChange={e => setOrdersCheckComments(e.target.value)}
+                                                    placeholder='Any notes or context for J2 leads…'
+                                                    rows={3}
+                                                    style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', padding: '8px 10px', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+                                            <button type='button' onClick={() => setOrdersCheckModal(false)}
+                                                style={{ padding: '7px 18px', fontSize: '0.7rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}
+                                            >CANCEL</button>
+                                            <button type='button'
+                                                disabled={!ordersCheckPreferredAt || ordersCheckSaving}
+                                                onClick={async () => {
+                                                    if (!ordersCheckPreferredAt) return
+                                                    setOrdersCheckSaving(true)
+                                                    try {
+                                                        const res = await fetch(`/api/operations/${opID}/orders-check`, {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({
+                                                                preferredAt: ordersCheckPreferredAt.toISOString(),
+                                                                comments: ordersCheckComments.trim() || undefined,
+                                                            }),
+                                                        })
+                                                        if (res.ok) {
+                                                            setOrdersCheckTask({ status: 'pending', ordersCheckAt: ordersCheckPreferredAt.toISOString(), ordersCheckStatus: 'pending' })
+                                                            setOrdersCheckModal(false)
+                                                            setOrdersCheckComments('')
+                                                            setOrdersCheckPreferredAt(null)
+                                                        } else {
+                                                            const d = await res.json()
+                                                            alert(d.error ?? 'Failed to submit orders check request.')
+                                                        }
+                                                    } finally {
+                                                        setOrdersCheckSaving(false)
+                                                    }
+                                                }}
+                                                style={{ padding: '7px 18px', fontSize: '0.7rem', fontWeight: 700, background: ordersCheckPreferredAt && !ordersCheckSaving ? 'rgba(100,150,237,0.2)' : 'rgba(255,255,255,0.05)', border: '1px solid rgba(100,150,237,0.4)', color: ordersCheckPreferredAt && !ordersCheckSaving ? 'rgba(100,150,237,0.9)' : 'rgba(237,237,237,0.3)', cursor: ordersCheckPreferredAt ? 'pointer' : 'not-allowed' }}
+                                            >{ordersCheckSaving ? 'Submitting…' : 'Submit Request'}</button>
+                                        </div>
+                                    </div>
+                                </LocalizationProvider>
+                            </div>
+                        )}
+                    </>
+                )
+            })()}
+
             {/* Metadata card */}
             <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(1)}`, background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
                 <div className='flex items-center px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -560,6 +1081,102 @@ export default function Page() {
                             padding: '4px 0',
                         }}
                     />
+                    {/* Owner row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.68rem' }}>
+                        <span style={{ fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: c(0.55), flexShrink: 0 }}>Mission Owner</span>
+                        {ownerPickerOpen && (isJ2Lead || isJ4Admin) ? (
+                            <div style={{ display: 'flex', gap: 6, flex: 1 }}>
+                                <select
+                                    defaultValue={ownedBy}
+                                    onChange={async e => {
+                                        const sel = j2Members.find(m => m.id === e.target.value)
+                                        if (!sel) return
+                                        setOwnedBy(sel.id)
+                                        setOwnedByName(sel.displayName)
+                                        setOwnerPickerOpen(false)
+                                        await fetch(`/api/operations/update?id=${opID}&ownedBy=${encodeURIComponent(sel.id)}&ownedByName=${encodeURIComponent(sel.displayName)}`)
+                                    }}
+                                    style={{ flex: 1, background: 'rgba(0,0,0,0.4)', border: `1px solid ${c(0.3)}`, color: 'rgba(237,237,237,0.8)', fontSize: '0.75rem', padding: '5px 8px', outline: 'none' }}
+                                >
+                                    <option value=''>— Select member —</option>
+                                    {j2Members.map(m => <option key={m.id} value={m.id}>{m.displayName}</option>)}
+                                </select>
+                                <button type='button' onClick={() => setOwnerPickerOpen(false)} style={{ fontSize: '0.6rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.35)', padding: '3px 8px', cursor: 'pointer' }}>Cancel</button>
+                            </div>
+                        ) : (
+                            <>
+                                <span style={{ color: ownedByName ? 'rgba(237,237,237,0.7)' : 'rgba(237,237,237,0.25)', fontStyle: ownedByName ? 'normal' : 'italic' }}>
+                                    {ownedByName || 'Unassigned'}
+                                </span>
+                                {(isJ2Lead || isJ4Admin) && (
+                                    <button type='button' onClick={async () => {
+                                        if (j2Members.length === 0) {
+                                            const res = await fetch('/api/admin/members?department=j2')
+                                            const data = await res.json()
+                                            setJ2Members((data.members ?? []).map((m: any) => ({ id: m.discordId ?? m._id, displayName: m.displayName ?? m.name ?? 'Unknown' })))
+                                        }
+                                        setOwnerPickerOpen(true)
+                                    }}
+                                        style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', background: 'none', border: `1px solid ${c(0.25)}`, color: c(0.6), padding: '2px 8px', cursor: 'pointer' }}
+                                    >Change</button>
+                                )}
+                            </>
+                        )}
+                    </div>
+
+                    {/* Billet points — J2 leads + J4 admin only */}
+                    {(isJ2Lead || isJ4Admin) && opID && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.68rem' }}>
+                            <span style={{ fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: c(0.55), flexShrink: 0 }}>Billet Points</span>
+                            <input
+                                type='number'
+                                min={0}
+                                step={1}
+                                value={billetPoints}
+                                onChange={e => setBilletPoints(Math.max(0, parseInt(e.target.value) || 0))}
+                                onBlur={async () => {
+                                    await fetch(`/api/operations/update?id=${opID}&billetPoints=${billetPoints}`)
+                                }}
+                                style={{ width: 52, background: 'rgba(0,0,0,0.4)', border: `1px solid ${c(0.25)}`, color: 'rgba(237,237,237,0.8)', fontSize: '0.75rem', padding: '3px 6px', outline: 'none', textAlign: 'center' }}
+                            />
+                            <span style={{ color: c(0.35), fontStyle: 'italic' }}>awarded to owner on completion</span>
+                        </div>
+                    )}
+
+                    {/* Acknowledgements panel — shown for Upcoming ops */}
+                    {status === 'Upcoming' && (
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: ackExpanded ? 10 : 0 }}>
+                                <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: c(0.55) }}>Orders Acknowledged</span>
+                                <span style={{ fontSize: '0.65rem', fontWeight: 700, color: ackCount > 0 ? 'rgba(0,200,80,0.8)' : 'rgba(237,237,237,0.3)' }}>{ackCount} staff</span>
+                                <button type='button' onClick={() => setAckExpanded(v => !v)} style={{ fontSize: '0.58rem', background: 'none', border: 'none', color: 'rgba(237,237,237,0.3)', cursor: 'pointer', padding: '0 4px' }}>{ackExpanded ? '▲ Hide' : '▼ Show'}</button>
+                                <button type='button' disabled={remindSaving} onClick={async () => {
+                                    setRemindSaving(true)
+                                    try {
+                                        const res = await fetch(`/api/operations/${opID}/remind`, { method: 'POST' })
+                                        if (res.ok) { const d = await res.json(); setRemindSent(d.sent ?? 0) }
+                                    } finally { setRemindSaving(false) }
+                                }}
+                                    style={{ marginLeft: 'auto', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: remindSaving ? 'rgba(255,255,255,0.03)' : 'rgba(100,150,237,0.1)', border: '1px solid rgba(100,150,237,0.3)', color: remindSaving ? 'rgba(237,237,237,0.25)' : 'rgba(100,150,237,0.75)', cursor: remindSaving ? 'not-allowed' : 'pointer' }}
+                                >
+                                    {remindSaving ? 'Sending…' : remindSent !== null ? `Sent (${remindSent})` : 'Remind Unacknowledged'}
+                                </button>
+                            </div>
+                            {ackExpanded && ackList.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                    {ackList.map(a => (
+                                        <div key={a.userId} style={{ fontSize: '0.58rem', padding: '3px 8px', background: 'rgba(0,200,80,0.06)', border: '1px solid rgba(0,200,80,0.18)', color: 'rgba(0,200,80,0.7)' }}>
+                                            {a.userName} <span style={{ opacity: 0.5 }}>{new Date(a.acknowledgedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {ackExpanded && ackList.length === 0 && (
+                                <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>No staff have acknowledged yet.</div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Sub-fields row 1 */}
                     <div className='flex flex-wrap gap-4'>
                         <input
@@ -734,6 +1351,313 @@ export default function Page() {
                     </div>
                 </div>
             </div>
+
+            {/* Schedule & Automation panel — HQ only */}
+            {isHQ && opID && (() => {
+                function fmtCountdown(target: Date): string | null {
+                    const diffMs = target.getTime() - tickNow.getTime()
+                    if (diffMs <= 0) return null
+                    const s = Math.floor(diffMs / 1000) % 60
+                    const m = Math.floor(diffMs / 60000) % 60
+                    const h = Math.floor(diffMs / 3600000) % 24
+                    const d = Math.floor(diffMs / 86400000)
+                    if (d > 0) return `${d}d ${h}h ${m}m`
+                    if (h > 0) return `${h}h ${m}m ${s}s`
+                    return `${m}m ${s}s`
+                }
+
+                const inDev = status === 'In Development'
+                const opDate        = draftDate?.toDate() ?? null
+                // inDev only suppresses cron/triggers — editing is always allowed
+                const rsvpCloseDate = opDate ? new Date(opDate.getTime() - draftRsvpCloseOffsetMins * 60000) : null
+                const confirmCloseDate = confirmationOpenedAt ? new Date(confirmationOpenedAt.getTime() + 24 * 3600000) : null
+
+                const scheduleDirty = (
+                    draftDate?.toISOString() !== date?.toISOString() ||
+                    draftRsvpOpenAt !== rsvpOpenAt ||
+                    draftRsvpCloseOffsetMins !== rsvpCloseOffsetMins
+                )
+
+                const RELATIVE_OPTS = [
+                    { label: '1 day before',   mins: 1440 },
+                    { label: '3 days before',  mins: 4320 },
+                    { label: '1 week before',  mins: 10080 },
+                    { label: '2 weeks before', mins: 20160 },
+                ]
+
+                const CLOSE_OPTS = [
+                    { label: '30 min before',   mins: 30 },
+                    { label: '1 hour before',   mins: 60 },
+                    { label: '1.5 hours before', mins: 90 },
+                    { label: '2 hours before',  mins: 120 },
+                    { label: '3 hours before',  mins: 180 },
+                    { label: '6 hours before',  mins: 360 },
+                    { label: '12 hours before', mins: 720 },
+                    { label: '1 day before',    mins: 1440 },
+                ]
+
+                const inputSx: React.CSSProperties = {
+                    background: 'rgba(0,0,0,0.35)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'rgba(237,237,237,0.75)',
+                    fontSize: '0.78rem',
+                    letterSpacing: '0.04em',
+                    outline: 'none',
+                    padding: '6px 10px',
+                    cursor: 'pointer',
+                    width: '100%',
+                }
+
+                const isPreset = CLOSE_OPTS.some(o => o.mins === draftRsvpCloseOffsetMins)
+                const effectiveCloseMode = draftRsvpCloseMode === 'custom' || !isPreset ? 'custom' : 'preset'
+
+                return (
+                    <div style={{
+                        border: `1px solid ${c(0.15)}`,
+                        borderTop: `2px solid ${c(0.5)}`,
+                        background: 'rgba(255,255,255,0.01)',
+                        marginBottom: 20,
+                    }}>
+                        <button type='button' onClick={() => setScheduleOpen(v => !v)}
+                            className='flex items-center justify-between px-4 py-3'
+                            style={{ borderBottom: scheduleOpen ? '1px solid rgba(255,255,255,0.05)' : 'none', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
+                                    Schedule &amp; Automation
+                                </span>
+                                {inDev && (
+                                    <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,160,0,0.7)', border: '1px solid rgba(237,160,0,0.3)', padding: '2px 8px' }}>
+                                        Automation paused — In Development
+                                    </span>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                {scheduleSaving && (
+                                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>Saving…</span>
+                                )}
+                                <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>{scheduleOpen ? '[−]' : '[+]'}</span>
+                            </div>
+                        </button>
+
+                        {scheduleOpen && <div className='flex flex-wrap gap-6 p-4'>
+                            {/* ── Settings column ── */}
+                            <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+                                {/* Operation Date */}
+                                <div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
+                                        {'// OPERATION DATE'}
+                                    </div>
+                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                        <DateTimePicker
+                                            label='Operation Date'
+                                            value={draftDate}
+                                            format='DD/MM/YYYY HH:mm'
+                                            onChange={v => setDraftDate(v)}
+                                            slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
+                                        />
+                                    </LocalizationProvider>
+                                </div>
+
+                                {/* RSVP Open */}
+                                <div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
+                                        {'// RSVP OPEN'}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                                        <button
+                                            onClick={() => setDraftRsvpOpenAt(null)}
+                                            style={{
+                                                padding: '5px 14px', borderRadius: 999,
+                                                border: '1px solid rgba(219,0,29,0.25)',
+                                                background: !draftRsvpOpenAt ? 'rgba(219,0,29,0.3)' : 'rgba(255,255,255,0.05)',
+                                                color: !draftRsvpOpenAt ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.45)',
+                                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em',
+                                                textTransform: 'uppercase', cursor: 'pointer',
+                                            }}
+                                        >Manual</button>
+                                        <button
+                                            onClick={() => {
+                                                if (!draftRsvpOpenAt && draftDate) {
+                                                    setDraftRsvpOpenAt(new Date(draftDate.toDate().getTime() - 3 * 24 * 3600000).toISOString())
+                                                }
+                                            }}
+                                            style={{
+                                                padding: '5px 14px', borderRadius: 999,
+                                                border: '1px solid rgba(219,0,29,0.25)',
+                                                background: draftRsvpOpenAt ? 'rgba(219,0,29,0.3)' : 'rgba(255,255,255,0.05)',
+                                                color: draftRsvpOpenAt ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.45)',
+                                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em',
+                                                textTransform: 'uppercase', cursor: 'pointer',
+                                            }}
+                                        >Scheduled</button>
+                                    </div>
+
+                                    {draftRsvpOpenAt && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                                <DateTimePicker
+                                                    label='RSVP Opens At'
+                                                    value={dayjs(draftRsvpOpenAt)}
+                                                    format='DD/MM/YYYY HH:mm'
+                                                    onChange={v => { if (v) setDraftRsvpOpenAt(v.toISOString()) }}
+                                                    slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
+                                                />
+                                            </LocalizationProvider>
+                                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>
+                                                Quick set
+                                            </div>
+                                            <select
+                                                defaultValue=''
+                                                onChange={e => {
+                                                    const mins = parseInt(e.target.value)
+                                                    if (!mins || !draftDate) return
+                                                    setDraftRsvpOpenAt(new Date(draftDate.toDate().getTime() - mins * 60000).toISOString())
+                                                    e.target.value = ''
+                                                }}
+                                                style={inputSx}
+                                            >
+                                                <option value='' disabled>Relative to op date…</option>
+                                                {RELATIVE_OPTS.map(o => (
+                                                    <option key={o.mins} value={o.mins}>{o.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* RSVP Close */}
+                                <div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
+                                        {'// RSVP CLOSE'}
+                                    </div>
+                                    <select
+                                        value={effectiveCloseMode === 'custom' ? 'custom' : draftRsvpCloseOffsetMins}
+                                        onChange={e => {
+                                            if (e.target.value === 'custom') {
+                                                setDraftRsvpCloseMode('custom')
+                                                if (!draftRsvpCloseAt && draftDate) {
+                                                    setDraftRsvpCloseAt(new Date(draftDate.toDate().getTime() - draftRsvpCloseOffsetMins * 60000).toISOString())
+                                                }
+                                            } else {
+                                                setDraftRsvpCloseMode('preset')
+                                                setDraftRsvpCloseAt(null)
+                                                setDraftRsvpCloseOffsetMins(parseInt(e.target.value))
+                                            }
+                                        }}
+                                        style={inputSx}
+                                    >
+                                        {CLOSE_OPTS.map(o => (
+                                            <option key={o.mins} value={o.mins}>{o.label}</option>
+                                        ))}
+                                        <option value='custom'>Custom…</option>
+                                    </select>
+                                    {effectiveCloseMode === 'custom' && (
+                                        <div style={{ marginTop: 8 }}>
+                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                                <DateTimePicker
+                                                    label='RSVP Closes At'
+                                                    value={draftRsvpCloseAt ? dayjs(draftRsvpCloseAt) : null}
+                                                    format='DD/MM/YYYY HH:mm'
+                                                    onChange={v => {
+                                                        if (!v) return
+                                                        setDraftRsvpCloseAt(v.toISOString())
+                                                        if (draftDate) {
+                                                            const offsetMins = Math.round((draftDate.toDate().getTime() - v.toDate().getTime()) / 60000)
+                                                            setDraftRsvpCloseOffsetMins(Math.max(0, offsetMins))
+                                                        }
+                                                    }}
+                                                    slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
+                                                />
+                                            </LocalizationProvider>
+                                            {!draftDate && (
+                                                <div style={{ fontSize: '0.6rem', color: 'rgba(237,160,0,0.7)', marginTop: 5 }}>
+                                                    Set an operation date first to compute offset.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Confirm button */}
+                                <button
+                                    disabled={!scheduleDirty || scheduleSaving}
+                                    onClick={confirmSchedule}
+                                    style={{
+                                        padding: '9px 20px',
+                                        background: scheduleDirty ? c(0.18) : 'rgba(255,255,255,0.03)',
+                                        border: `1px solid ${scheduleDirty ? c(0.6) : 'rgba(255,255,255,0.1)'}`,
+                                        color: scheduleDirty ? c(0.9) : 'rgba(237,237,237,0.2)',
+                                        fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em',
+                                        textTransform: 'uppercase', cursor: scheduleDirty ? 'pointer' : 'not-allowed',
+                                        transition: 'all 0.15s', alignSelf: 'flex-start',
+                                    }}
+                                >
+                                    {scheduleSaving ? 'Saving…' : scheduleDirty ? '⬆ Confirm Schedule' : '✓ Schedule Confirmed'}
+                                </button>
+                            </div>
+
+                            {/* ── Status column ── */}
+                            <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 14, fontFamily: 'monospace' }}>
+                                    {'// STATUS'}
+                                </div>
+                                {([
+                                    {
+                                        label: 'RSVP Opens',
+                                        color: rsvpOpen || ['rsvp_closed','op_running','confirmations_open','completed'].includes(displayStage) ? 'rgba(0,210,90,0.8)'
+                                            : rsvpOpenAt && !fmtCountdown(new Date(rsvpOpenAt)) ? 'rgba(219,160,0,0.9)'
+                                            : rsvpOpenAt ? 'rgba(219,160,0,0.8)'
+                                            : 'rgba(237,237,237,0.2)',
+                                        detail: rsvpOpen ? '✓ Open'
+                                            : ['rsvp_closed','op_running','confirmations_open','completed'].includes(displayStage) ? '✓ Opened'
+                                            : rsvpOpenAt ? (fmtCountdown(new Date(rsvpOpenAt)) ?? 'Pending cron…')
+                                            : 'Manual',
+                                    },
+                                    {
+                                        label: 'RSVP Closes',
+                                        color: !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? 'rgba(0,210,90,0.8)'
+                                            : rsvpOpen && rsvpCloseDate ? 'rgba(219,160,0,0.8)'
+                                            : 'rgba(237,237,237,0.2)',
+                                        detail: !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? '✓ Closed'
+                                            : rsvpCloseDate ? (fmtCountdown(rsvpCloseDate) ?? 'Firing…')
+                                            : '—',
+                                    },
+                                    {
+                                        label: 'Mission Active',
+                                        color: status === 'Active' || status === 'Completed' ? 'rgba(0,210,90,0.8)'
+                                            : opDate && fmtCountdown(opDate) ? 'rgba(219,160,0,0.8)'
+                                            : 'rgba(237,237,237,0.2)',
+                                        detail: status === 'Completed' ? '✓ Completed'
+                                            : status === 'Active' ? '✓ Active'
+                                            : opDate ? (fmtCountdown(opDate) ?? 'Firing…') : '—',
+                                    },
+                                    {
+                                        label: 'Confirmations',
+                                        color: confirmationOpen ? 'rgba(219,160,0,0.8)'
+                                            : confirmationOpenedAt && !confirmationOpen ? 'rgba(0,210,90,0.8)'
+                                            : status === 'Completed' ? 'rgba(219,160,0,0.6)'
+                                            : 'rgba(237,237,237,0.2)',
+                                        detail: confirmationOpen ? `Open · closes ${confirmCloseDate ? (fmtCountdown(confirmCloseDate) ?? 'soon') : '—'}`
+                                            : confirmationOpenedAt && !confirmationOpen ? '✓ Closed'
+                                            : status === 'Completed' ? 'Pending cron…'
+                                            : 'When mission ends',
+                                    },
+                                ].map((row, i) => (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 0', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                                        <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: row.color, flexShrink: 0, marginTop: 4 }} />
+                                        <div>
+                                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 1 }}>{row.label}</div>
+                                            <div style={{ fontSize: '0.72rem', color: row.color, fontWeight: row.color.includes('160') ? 700 : 400, fontFamily: 'monospace', letterSpacing: '0.03em' }}>{row.detail}</div>
+                                        </div>
+                                    </div>
+                                )))}
+                            </div>
+                        </div>}
+                    </div>
+                )
+            })()}
 
             {/* Attendance settings — HQ only */}
             {isHQ && opID && (
@@ -940,271 +1864,157 @@ export default function Page() {
                 </div>
             )}
 
-            {/* Schedule & Automation panel — HQ only */}
-            {isHQ && opID && (() => {
-                function fmtCountdown(target: Date): string | null {
-                    const diffMs = target.getTime() - tickNow.getTime()
-                    if (diffMs <= 0) return null
-                    const s = Math.floor(diffMs / 1000) % 60
-                    const m = Math.floor(diffMs / 60000) % 60
-                    const h = Math.floor(diffMs / 3600000) % 24
-                    const d = Math.floor(diffMs / 86400000)
-                    if (d > 0) return `${d}d ${h}h ${m}m`
-                    if (h > 0) return `${h}h ${m}m ${s}s`
-                    return `${m}m ${s}s`
-                }
-
-                const inDev = status === 'In Development'
-                const opDate        = draftDate?.toDate() ?? null
-                // inDev only suppresses cron/triggers — editing is always allowed
-                const rsvpCloseDate = opDate ? new Date(opDate.getTime() - draftRsvpCloseOffsetMins * 60000) : null
-                const confirmCloseDate = confirmationOpenedAt ? new Date(confirmationOpenedAt.getTime() + 24 * 3600000) : null
-
-                const scheduleDirty = (
-                    draftDate?.toISOString() !== date?.toISOString() ||
-                    draftRsvpOpenAt !== rsvpOpenAt ||
-                    draftRsvpCloseOffsetMins !== rsvpCloseOffsetMins
-                )
-
-                const RELATIVE_OPTS = [
-                    { label: '1 day before',   mins: 1440 },
-                    { label: '3 days before',  mins: 4320 },
-                    { label: '1 week before',  mins: 10080 },
-                    { label: '2 weeks before', mins: 20160 },
-                ]
-
-                const CLOSE_OPTS = [
-                    { label: '30 min before', mins: 30 },
-                    { label: '1 hour before', mins: 60 },
-                    { label: '2 hours before', mins: 120 },
-                    { label: '3 hours before', mins: 180 },
-                    { label: '6 hours before', mins: 360 },
-                    { label: '12 hours before', mins: 720 },
-                    { label: '1 day before', mins: 1440 },
-                ]
-
-                const inputSx: React.CSSProperties = {
-                    background: 'rgba(0,0,0,0.35)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: 'rgba(237,237,237,0.75)',
-                    fontSize: '0.78rem',
-                    letterSpacing: '0.04em',
-                    outline: 'none',
-                    padding: '6px 10px',
-                    cursor: 'pointer',
-                    width: '100%',
-                }
-
-                return (
-                    <div style={{
-                        border: `1px solid ${c(0.15)}`,
-                        borderTop: `2px solid ${c(0.5)}`,
-                        background: 'rgba(255,255,255,0.01)',
-                        marginBottom: 20,
-                    }}>
-                        <button type='button' onClick={() => setScheduleOpen(v => !v)}
-                            className='flex items-center justify-between px-4 py-3'
-                            style={{ borderBottom: scheduleOpen ? '1px solid rgba(255,255,255,0.05)' : 'none', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
-                                    Schedule &amp; Automation
+            {/* Custom Attendance Units — HQ only */}
+            {isHQ && opID && (
+                <div style={{
+                    border: `1px solid ${c(0.12)}`,
+                    borderTop: `2px solid rgba(251,191,36,0.35)`,
+                    marginBottom: 20,
+                    background: 'rgba(0,0,0,0.22)',
+                }}>
+                    {/* Header */}
+                    <div
+                        onClick={() => setCustomUnitsOpen(o => !o)}
+                        style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '10px 16px', cursor: 'pointer',
+                            background: 'rgba(0,0,0,0.28)',
+                            borderBottom: customUnitsOpen ? `1px solid ${c(0.08)}` : 'none',
+                            userSelect: 'none',
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 6, height: 6, background: 'rgba(251,191,36,0.6)', flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: c(0.85) }}>
+                                Custom Attendance Units
+                            </span>
+                            {customUnits.length > 0 && (
+                                <span style={{
+                                    fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em',
+                                    padding: '1px 7px', background: 'rgba(251,191,36,0.14)',
+                                    border: '1px solid rgba(251,191,36,0.3)', color: 'rgba(251,191,36,0.9)',
+                                }}>
+                                    {customUnits.length}
                                 </span>
-                                {inDev && (
-                                    <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,160,0,0.7)', border: '1px solid rgba(237,160,0,0.3)', padding: '2px 8px' }}>
-                                        Automation paused — In Development
-                                    </span>
-                                )}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                {scheduleSaving && (
-                                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>Saving…</span>
-                                )}
-                                <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>{scheduleOpen ? '[−]' : '[+]'}</span>
-                            </div>
-                        </button>
+                            )}
+                        </div>
+                        <svg width='14' height='14' viewBox='0 0 14 14' fill='none' style={{ transition: 'transform 0.18s', transform: customUnitsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                            <path d='M3 5l4 4 4-4' stroke={c(0.5)} strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' />
+                        </svg>
+                    </div>
 
-                        {scheduleOpen && <div className='flex flex-wrap gap-6 p-4'>
-                            {/* ── Settings column ── */}
-                            <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                                {/* Operation Date */}
-                                <div>
-                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
-                                        {'// OPERATION DATE'}
-                                    </div>
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                        <DateTimePicker
-                                            label='Operation Date'
-                                            value={draftDate}
-                                            format='DD/MM/YYYY HH:mm'
-                                            onChange={v => setDraftDate(v)}
-                                            slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
-                                        />
-                                    </LocalizationProvider>
-                                </div>
-
-                                {/* RSVP Open */}
-                                <div>
-                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
-                                        {'// RSVP OPEN'}
-                                    </div>
-                                    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                                        <button
-                                            onClick={() => setDraftRsvpOpenAt(null)}
-                                            style={{
-                                                padding: '5px 14px', borderRadius: 999,
-                                                border: '1px solid rgba(219,0,29,0.25)',
-                                                background: !draftRsvpOpenAt ? 'rgba(219,0,29,0.3)' : 'rgba(255,255,255,0.05)',
-                                                color: !draftRsvpOpenAt ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.45)',
-                                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em',
-                                                textTransform: 'uppercase', cursor: 'pointer',
-                                            }}
-                                        >Manual</button>
-                                        <button
-                                            onClick={() => {
-                                                if (!draftRsvpOpenAt && draftDate) {
-                                                    setDraftRsvpOpenAt(new Date(draftDate.toDate().getTime() - 3 * 24 * 3600000).toISOString())
-                                                }
-                                            }}
-                                            style={{
-                                                padding: '5px 14px', borderRadius: 999,
-                                                border: '1px solid rgba(219,0,29,0.25)',
-                                                background: draftRsvpOpenAt ? 'rgba(219,0,29,0.3)' : 'rgba(255,255,255,0.05)',
-                                                color: draftRsvpOpenAt ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.45)',
-                                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em',
-                                                textTransform: 'uppercase', cursor: 'pointer',
-                                            }}
-                                        >Scheduled</button>
-                                    </div>
-
-                                    {draftRsvpOpenAt && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                                <DateTimePicker
-                                                    label='RSVP Opens At'
-                                                    value={dayjs(draftRsvpOpenAt)}
-                                                    format='DD/MM/YYYY HH:mm'
-                                                    onChange={v => { if (v) setDraftRsvpOpenAt(v.toISOString()) }}
-                                                    slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
-                                                />
-                                            </LocalizationProvider>
-                                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>
-                                                Quick set
-                                            </div>
-                                            <select
-                                                defaultValue=''
-                                                onChange={e => {
-                                                    const mins = parseInt(e.target.value)
-                                                    if (!mins || !draftDate) return
-                                                    setDraftRsvpOpenAt(new Date(draftDate.toDate().getTime() - mins * 60000).toISOString())
-                                                    e.target.value = ''
+                    {customUnitsOpen && (
+                        <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            {/* Existing units list */}
+                            {customUnits.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    {customUnits.map(unit => (
+                                        <div key={unit.id} style={{
+                                            display: 'flex', alignItems: 'center', gap: 10,
+                                            padding: '7px 12px',
+                                            background: 'rgba(255,255,255,0.04)',
+                                            border: '1px solid rgba(255,255,255,0.07)',
+                                        }}>
+                                            {unit.color && (
+                                                <div style={{
+                                                    width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
+                                                    background: unit.color,
+                                                    border: '1px solid rgba(255,255,255,0.2)',
+                                                }} />
+                                            )}
+                                            <span style={{ fontSize: '0.78rem', color: c(0.9), flex: 1 }}>{unit.name}</span>
+                                            <button
+                                                onClick={async () => {
+                                                    setCustomUnitsSaving(true)
+                                                    try {
+                                                        await fetch(`/api/operations/${opID}/attendance/custom-units?unitId=${unit.id}`, { method: 'DELETE' })
+                                                        setCustomUnits(prev => prev.filter(u => u.id !== unit.id))
+                                                    } finally {
+                                                        setCustomUnitsSaving(false)
+                                                    }
                                                 }}
-                                                style={inputSx}
+                                                disabled={customUnitsSaving}
+                                                style={{
+                                                    padding: '3px 8px', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
+                                                    border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)',
+                                                    color: 'rgba(239,68,68,0.7)', cursor: 'pointer',
+                                                    opacity: customUnitsSaving ? 0.5 : 1,
+                                                }}
                                             >
-                                                <option value='' disabled>Relative to op date…</option>
-                                                {RELATIVE_OPTS.map(o => (
-                                                    <option key={o.mins} value={o.mins}>{o.label}</option>
-                                                ))}
-                                            </select>
+                                                REMOVE
+                                            </button>
                                         </div>
-                                    )}
+                                    ))}
                                 </div>
+                            )}
 
-                                {/* RSVP Close */}
-                                <div>
-                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
-                                        {'// RSVP CLOSE'}
-                                    </div>
-                                    <select
-                                        value={draftRsvpCloseOffsetMins}
-                                        onChange={e => setDraftRsvpCloseOffsetMins(parseInt(e.target.value))}
-                                        style={inputSx}
-                                    >
-                                        {CLOSE_OPTS.map(o => (
-                                            <option key={o.mins} value={o.mins}>{o.label}</option>
-                                        ))}
-                                    </select>
+                            {customUnits.length === 0 && (
+                                <div style={{ fontSize: '0.72rem', color: c(0.35), fontStyle: 'italic', textAlign: 'center', padding: '8px 0' }}>
+                                    No custom units defined. Add one below.
                                 </div>
+                            )}
 
-                                {/* Confirm button */}
-                                <button
-                                    disabled={!scheduleDirty || scheduleSaving}
-                                    onClick={confirmSchedule}
+                            {/* Add new unit form */}
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', paddingTop: 4, borderTop: `1px solid ${c(0.07)}` }}>
+                                <input
+                                    value={newUnitName}
+                                    onChange={e => setNewUnitName(e.target.value)}
+                                    placeholder='Unit name…'
+                                    maxLength={40}
                                     style={{
-                                        padding: '9px 20px',
-                                        background: scheduleDirty ? c(0.18) : 'rgba(255,255,255,0.03)',
-                                        border: `1px solid ${scheduleDirty ? c(0.6) : 'rgba(255,255,255,0.1)'}`,
-                                        color: scheduleDirty ? c(0.9) : 'rgba(237,237,237,0.2)',
-                                        fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em',
-                                        textTransform: 'uppercase', cursor: scheduleDirty ? 'pointer' : 'not-allowed',
-                                        transition: 'all 0.15s', alignSelf: 'flex-start',
+                                        flex: 1, padding: '7px 10px', fontSize: '0.78rem',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: `1px solid ${c(0.15)}`, color: c(0.9),
+                                        outline: 'none',
+                                    }}
+                                />
+                                <input
+                                    type='color'
+                                    value={newUnitColor || '#888888'}
+                                    onChange={e => setNewUnitColor(e.target.value)}
+                                    title='Unit colour'
+                                    style={{
+                                        width: 34, height: 34, padding: 2, cursor: 'pointer',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: `1px solid ${c(0.15)}`,
+                                    }}
+                                />
+                                <button
+                                    disabled={!newUnitName.trim() || customUnitsSaving}
+                                    onClick={async () => {
+                                        if (!newUnitName.trim()) return
+                                        setCustomUnitsSaving(true)
+                                        try {
+                                            const res = await fetch(`/api/operations/${opID}/attendance/custom-units`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ name: newUnitName.trim(), color: newUnitColor || undefined }),
+                                            })
+                                            const data = await res.json()
+                                            if (data.unit) {
+                                                setCustomUnits(prev => [...prev, data.unit])
+                                                setNewUnitName('')
+                                                setNewUnitColor('')
+                                            }
+                                        } finally {
+                                            setCustomUnitsSaving(false)
+                                        }
+                                    }}
+                                    style={{
+                                        padding: '7px 14px', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em',
+                                        border: '1px solid rgba(251,191,36,0.35)', background: 'rgba(251,191,36,0.1)',
+                                        color: 'rgba(251,191,36,0.9)', cursor: 'pointer',
+                                        opacity: (!newUnitName.trim() || customUnitsSaving) ? 0.4 : 1,
+                                        transition: 'opacity 0.15s',
                                     }}
                                 >
-                                    {scheduleSaving ? 'Saving…' : scheduleDirty ? '⬆ Confirm Schedule' : '✓ Schedule Confirmed'}
+                                    + ADD
                                 </button>
                             </div>
-
-                            {/* ── Status column ── */}
-                            <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 14, fontFamily: 'monospace' }}>
-                                    {'// STATUS'}
-                                </div>
-                                {([
-                                    {
-                                        label: 'RSVP Opens',
-                                        color: rsvpOpen || ['rsvp_closed','op_running','confirmations_open','completed'].includes(displayStage) ? 'rgba(0,210,90,0.8)'
-                                            : rsvpOpenAt && !fmtCountdown(new Date(rsvpOpenAt)) ? 'rgba(219,160,0,0.9)'
-                                            : rsvpOpenAt ? 'rgba(219,160,0,0.8)'
-                                            : 'rgba(237,237,237,0.2)',
-                                        detail: rsvpOpen ? '✓ Open'
-                                            : ['rsvp_closed','op_running','confirmations_open','completed'].includes(displayStage) ? '✓ Opened'
-                                            : rsvpOpenAt ? (fmtCountdown(new Date(rsvpOpenAt)) ?? 'Pending cron…')
-                                            : 'Manual',
-                                    },
-                                    {
-                                        label: 'RSVP Closes',
-                                        color: !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? 'rgba(0,210,90,0.8)'
-                                            : rsvpOpen && rsvpCloseDate ? 'rgba(219,160,0,0.8)'
-                                            : 'rgba(237,237,237,0.2)',
-                                        detail: !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? '✓ Closed'
-                                            : rsvpCloseDate ? (fmtCountdown(rsvpCloseDate) ?? 'Firing…')
-                                            : '—',
-                                    },
-                                    {
-                                        label: 'Mission Active',
-                                        color: status === 'Active' || status === 'Completed' ? 'rgba(0,210,90,0.8)'
-                                            : opDate && fmtCountdown(opDate) ? 'rgba(219,160,0,0.8)'
-                                            : 'rgba(237,237,237,0.2)',
-                                        detail: status === 'Completed' ? '✓ Completed'
-                                            : status === 'Active' ? '✓ Active'
-                                            : opDate ? (fmtCountdown(opDate) ?? 'Firing…') : '—',
-                                    },
-                                    {
-                                        label: 'Confirmations',
-                                        color: confirmationOpen ? 'rgba(219,160,0,0.8)'
-                                            : confirmationOpenedAt && !confirmationOpen ? 'rgba(0,210,90,0.8)'
-                                            : status === 'Completed' ? 'rgba(219,160,0,0.6)'
-                                            : 'rgba(237,237,237,0.2)',
-                                        detail: confirmationOpen ? `Open · closes ${confirmCloseDate ? (fmtCountdown(confirmCloseDate) ?? 'soon') : '—'}`
-                                            : confirmationOpenedAt && !confirmationOpen ? '✓ Closed'
-                                            : status === 'Completed' ? 'Pending cron…'
-                                            : 'When mission ends',
-                                    },
-                                ].map((row, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 0', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                                        <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: row.color, flexShrink: 0, marginTop: 4 }} />
-                                        <div>
-                                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 1 }}>{row.label}</div>
-                                            <div style={{ fontSize: '0.72rem', color: row.color, fontWeight: row.color.includes('160') ? 700 : 400, fontFamily: 'monospace', letterSpacing: '0.03em' }}>{row.detail}</div>
-                                        </div>
-                                    </div>
-                                )))}
-                            </div>
-                        </div>}
-                    </div>
-                )
-            })()}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Document sections */}
             {loaded ? (

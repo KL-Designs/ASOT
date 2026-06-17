@@ -187,6 +187,21 @@ declare global {
         syncedAt: Date
     }
 
+    interface MissionDevCompletion {
+        completedAt: string       // ISO timestamp
+        completedBy: string       // Discord user ID
+        completedByName: string
+        reviewerName: string      // reviewer display name
+        comments?: string
+        outcome?: string
+    }
+
+    interface MissionDevelopment {
+        completions: Record<string, MissionDevCompletion>  // keyed by check ID: 'w16', 'w12', etc.
+        lastUpdatedAt?: string
+        lastUpdatedBy?: string
+    }
+
     interface Operation {
         _id: ObjectId
 
@@ -220,10 +235,25 @@ declare global {
         daySlot?: 'saturday' | 'sunday'
         isSingleMission?: boolean  // explicitly standalone — excluded from campaign organiser detection
 
+        // Mission Development checks
+        missionDevelopment?: MissionDevelopment
+
         // OCAP recording data — linked and synced by HQ
         ocap?: OcapData
         // Transient sync progress — written during sync, cleared on next sync start
         ocapSync?: OcapSyncStatus
+
+        // Ownership — the J2 member responsible for this mission
+        ownedBy?: string         // Discord user ID of owner/mission maker
+        ownedByName?: string     // Display name of owner
+        billetPoints?: number    // Billet points awarded to owner on completion (default 2)
+
+        // Orders acknowledgement — staff who have read and confirmed the orders
+        acknowledgements?: Array<{
+            userId: string
+            userName: string
+            acknowledgedAt: string  // ISO timestamp
+        }>
 
         // Soft delete
         deletedAt?: Date

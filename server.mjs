@@ -747,6 +747,27 @@ async function triggerOperationsCron() {
 setInterval(triggerOperationsCron, 60 * 1000)
 triggerOperationsCron()
 
+// ── Dev check escalation cron (every 1 hour) ─────────────────────────────────
+
+async function triggerDevCheckEscalationCron() {
+    try {
+        const res = await fetch(`http://localhost:${port}/api/cron/dev-check-escalation`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+        if (!res.ok) {
+            console.error(`[cron/dev-check-escalation] HTTP ${res.status} — check CRON_SECRET`)
+            return
+        }
+        const data = await res.json()
+        if (data.escalated > 0 || data.errors > 0) {
+            console.log(`[cron/dev-check-escalation] tick — escalated=${data.escalated} errors=${data.errors}`)
+        }
+    } catch (e) {
+        console.error('[cron/dev-check-escalation] Error:', e.message)
+    }
+}
+
+setInterval(triggerDevCheckEscalationCron, 60 * 60 * 1000)
+triggerDevCheckEscalationCron()
+
 // ── Snapshot scheduler (every 2 days at 3am) ──────────────────────────────────
 
 function msUntilNext3am() {

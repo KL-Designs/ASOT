@@ -26,6 +26,9 @@ export async function GET(request: NextRequest) {
         const zeusPageId = new ObjectId().toHexString()
         const ocapPageId = new ObjectId().toHexString()
 
+        const meUser = await Db.users.findOne({ _id: me.id as any }, { projection: { displayName: 1 } })
+        const ownerName: string = (meUser as any)?.displayName ?? me.username ?? 'Unknown'
+
         const newOp = await Db.operations.insertOne({
             _id: new ObjectId(),
             title: `New Mission ${formatted}`,
@@ -33,6 +36,8 @@ export async function GET(request: NextRequest) {
             date: defaultDate,
             loreDate: '',
             status: 'In Development' as const,
+            ownedBy: me.id,
+            ownedByName: ownerName,
             pages: [
                 { id: zeusPageId, title: 'Zeus Notes', isMain: false, pageType: 'zeus', pageColor: '' },
                 { id: ocapPageId, title: 'OCAP', isMain: false, pageType: 'ocap', pageColor: '#10b981' },

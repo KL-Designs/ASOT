@@ -82,7 +82,7 @@ export default function StaffDashboardShell({
 
     return (
         <LockoutContext.Provider value={contextValue}>
-            <div className='flex w-full min-h-screen'>
+            <div className='flex w-full h-full'>
 
                 {/* Desktop sidebar */}
                 <div

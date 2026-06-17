@@ -44,9 +44,19 @@ type NotificationType =
     | 'ticket_reopened'
     | 'ticket_task_assigned'
     | 'ticket_comment'
+    | 'training_event_submitted'    // J3 leads: new event needs review
+    | 'training_event_approved'     // Trainer: your event was approved
+    | 'training_event_rejected'     // Trainer: your event was rejected
+    | 'training_event_cancelled'    // Attending members: event was cancelled
+    | 'training_event_completed'    // Trainer: your event was marked complete (billet points awarded)
+    | 'training_rsvp_promoted'      // Waitlisted member auto-promoted to attending
+    | 'training_doc_submitted'          // J3 leads: trainer submitted a document for review
+    | 'training_doc_approved'           // Trainer: your submitted document was approved
+    | 'training_doc_rejected'           // Trainer: your submitted document was rejected
+    | 'training_qualification_awarded'  // Member: qualification added to milpac
     | 'system'
 
-type TaskType = 'manual' | 'attendance' | 'application_review' | 'extension_review' | 'quiz_assigned'
+type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check'
 
 interface Task {
     _id?: import('mongodb').ObjectId
@@ -62,6 +72,14 @@ interface Task {
     extendedAt?: Date
     startedAt?: Date            // Set when status changes to in_progress
     completedAt?: Date
+    // Mission development check fields (type === 'dev_check')
+    missionDevCheckId?: string  // Which check stage: 'w16' | 'w12' | 'w10' | 'w8' | 'w6' | 'w4'
+    escalatedAt?: Date          // Set when stage-arrival escalation has been dispatched
+    // Orders check scheduling fields (type === 'orders_check')
+    ordersCheckAt?: string       // ISO timestamp — mission maker's requested datetime
+    ordersCheckStatus?: 'pending' | 'confirmed' | 'proposed'
+    ordersCheckProposedAt?: string   // ISO timestamp — J2 proposed alternative time
+    ordersCheckProposedBy?: string   // Display name of J2 member who proposed alternative
     extensionRequest?: {
         requestedDate: Date          // Requested new due date/time (datetime, not date-only)
         reason: string

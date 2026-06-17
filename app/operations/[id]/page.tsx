@@ -16,6 +16,7 @@ import ZeusNotesPanel from './ZeusNotesPanel'
 import OperationStatusBar from '@/components/operations/OperationStatusBar'
 import OcapLinkPanel from './OcapLinkPanel'
 import OcapStatsPanel from './OcapStatsPanel'
+import AcknowledgeButton from './AcknowledgeButton'
 
 
 function hexToRgb(hex: string) {
@@ -47,6 +48,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     const isSectionLeader = me
         ? !!(await Db.orbatPositions.findOne({ userId: me.id, isSenior: true }))
         : false
+
+    // Orders acknowledgement status for the current user
+    const hasAcknowledged = me
+        ? (operation?.acknowledgements ?? []).some(a => a.userId === me.id)
+        : false
+    const showAcknowledgeButton = isAllStaff && operation?.status === 'Upcoming'
 
     if (!operation) return (
         <div className='flex items-center justify-center h-full' style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
@@ -460,6 +467,17 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                         themeColor={operation.themeColor || '#db001d'}
                         r={r} g={g} b={b}
                     />
+
+                    {/* Orders Acknowledgement — shown to All Staff when op is Upcoming */}
+                    {showAcknowledgeButton && (
+                        <div className='print-hide' style={{ marginTop: 12, marginBottom: 4 }}>
+                            <AcknowledgeButton
+                                operationId={id}
+                                initialAcknowledged={hasAcknowledged}
+                                themeColor={operation.themeColor || '#db001d'}
+                            />
+                        </div>
+                    )}
 
                     {/* OCAP viewer button — shown when a recording has been linked (only on main/non-ocap tab) */}
                     {operation.ocap && activePageParam !== '__ocap__' && (
