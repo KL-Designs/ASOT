@@ -5,6 +5,7 @@ import path from 'path'
 import { ObjectId } from 'mongodb'
 
 const UPLOAD_DIR = 'uploads/training-docs'
+const ALLOWED_IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp'])
 
 // CSS properties worth preserving from Google Docs .cNN class rules
 const RELEVANT_PROPS = ['font-weight', 'font-style', 'text-decoration', 'text-align', 'margin-left'] as const
@@ -164,6 +165,53 @@ function unwrapGoogleUrl(href: string): string {
     }
 }
 
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+    allowedTags: [
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'p', 'ul', 'ol', 'li',
+        'table', 'thead', 'tbody', 'tr', 'td', 'th',
+        'strong', 'em', 'b', 'i', 'u', 'strike', 's',
+        'a', 'img', 'hr', 'br', 'span', 'div',
+    ],
+    allowedAttributes: {
+        '*':   ['id', 'style'],
+        'a':   ['href', 'name'],
+        'img': ['src', 'alt'],
+        'ul':  ['class'],
+        'ol':  ['class'],
+        'li':  ['class'],
+        'td':  ['colspan', 'rowspan'],
+        'th':  ['colspan', 'rowspan'],
+    },
+    allowedStyles: {
+        '*': {
+            'text-align':      [/^(left|center|right|justify)$/],
+            'font-weight':     [/^(bold|[1-9]00)$/],
+            'font-style':      [/^(italic|oblique)$/],
+            'text-decoration': [/^(underline|line-through)$/],
+            'margin-left':     [/^-?\d+(\.\d+)?(px|pt|em|rem)$/],
+        },
+        'img': {
+            'width':  [/^\d+(\.\d+)?(px|%)$/],
+            'height': [/^\d+(\.\d+)?(px|%)$/],
+        },
+    },
+    transformTags: {
+        'a': (tagName, attribs) => ({
+            tagName,
+            attribs: { ...attribs, href: unwrapGoogleUrl(attribs.href ?? '') },
+        }),
+        'hr': () => ({ tagName: 'hr', attribs: {} }),
+        'ul': (tagName, attribs) => ({ tagName, attribs: sanitizeListClass(attribs) }),
+        'ol': (tagName, attribs) => ({ tagName, attribs: sanitizeListClass(attribs) }),
+        'li': (tagName, attribs) => ({ tagName, attribs: sanitizeListClass(attribs) }),
+    },
+}
+
+export function sanitizeDocHtml(html: string): string {
+    return sanitizeHtml(html, SANITIZE_OPTIONS)
+}
+
 export async function parseGoogleDocsZip(buffer: Buffer, docId: string): Promise<ParsedDoc> {
     ensureUploadDir()
 
@@ -176,7 +224,8 @@ export async function parseGoogleDocsZip(buffer: Buffer, docId: string): Promise
             rawHtml = (await file.buffer()).toString('utf-8')
         } else if (file.path.startsWith('images/')) {
             const originalName = path.basename(file.path)
-            const ext          = path.extname(originalName)
+            const ext          = path.extname(originalName).toLowerCase()
+            if (!ALLOWED_IMAGE_EXTS.has(ext)) continue
             const storedName   = `${docId}-${new ObjectId().toString()}${ext}`
             fs.writeFileSync(path.join(UPLOAD_DIR, storedName), await file.buffer())
             imageMap.set(originalName, storedName)
@@ -203,49 +252,7 @@ export async function parseGoogleDocsZip(buffer: Buffer, docId: string): Promise
     const withStyles = injectInlineStyles(withImages, classMap)
 
     // Sanitize: strip obfuscated class names, keep semantic structure + injected styles
-    const clean = sanitizeHtml(withStyles, {
-        allowedTags: [
-            'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-            'p', 'ul', 'ol', 'li',
-            'table', 'thead', 'tbody', 'tr', 'td', 'th',
-            'strong', 'em', 'b', 'i', 'u', 'strike', 's',
-            'a', 'img', 'hr', 'br', 'span', 'div',
-        ],
-        allowedAttributes: {
-            '*':   ['id', 'style'],
-            'a':   ['href', 'name'],
-            'img': ['src', 'alt'],
-            'ul':  ['class'],   // preserve lst-kix_* for list CSS targeting
-            'ol':  ['class'],
-            'li':  ['class'],
-            'td':  ['colspan', 'rowspan'],
-            'th':  ['colspan', 'rowspan'],
-        },
-        allowedStyles: {
-            '*': {
-                'text-align':      [/^(left|center|right|justify)$/],
-                'font-weight':     [/^(bold|[1-9]00)$/],
-                'font-style':      [/^(italic|oblique)$/],
-                'text-decoration': [/^(underline|line-through)$/],
-                'margin-left':     [/^-?\d+(\.\d+)?(px|pt|em|rem)$/],
-            },
-            'img': {
-                'width':  [/^\d+(\.\d+)?(px|%)$/],
-                'height': [/^\d+(\.\d+)?(px|%)$/],
-            },
-        },
-        transformTags: {
-            'a': (tagName, attribs) => ({
-                tagName,
-                attribs: { ...attribs, href: unwrapGoogleUrl(attribs.href ?? '') },
-            }),
-            'hr': () => ({ tagName: 'hr', attribs: {} }),
-            // Strip all but lst-kix_* classes from list elements
-            'ul': (tagName, attribs) => ({ tagName, attribs: sanitizeListClass(attribs) }),
-            'ol': (tagName, attribs) => ({ tagName, attribs: sanitizeListClass(attribs) }),
-            'li': (tagName, attribs) => ({ tagName, attribs: sanitizeListClass(attribs) }),
-        },
-    })
+    const clean = sanitizeHtml(withStyles, SANITIZE_OPTIONS)
 
     // Strip empty paragraphs (Google Docs uses them as page spacers)
     const stripped = clean
