@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Typography, CircularProgress, Dialog, DialogContent } from '@mui/material'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
-import type { SnapshotOptions } from '@/lib/snapshots'
+import type { SnapshotOptions, SnapshotConfig } from '@/lib/snapshots'
 
 // ── Duration history (localStorage) ──────────────────────────────────────────
 
@@ -332,6 +332,12 @@ export default function SnapshotsTab() {
     const [cancelling, setCancelling] = useState(false)
     const [createDialogOpen, setCreateDialogOpen] = useState(false)
 
+    const [config, setConfig] = useState<SnapshotConfig>({ maxSnapshots: 5, autoEnabled: true, intervalDays: 2 })
+    const [configDraft, setConfigDraft] = useState<SnapshotConfig>({ maxSnapshots: 5, autoEnabled: true, intervalDays: 2 })
+    const [configDirty, setConfigDirty] = useState(false)
+    const [configSaving, setConfigSaving] = useState(false)
+    const [configError, setConfigError] = useState<string | null>(null)
+
     const [confirm, setConfirm] = useState<{
         open: boolean
         title: string
@@ -358,6 +364,15 @@ export default function SnapshotsTab() {
     }, [])
 
     useEffect(() => { fetchData() }, [fetchData])
+
+    useEffect(() => {
+        fetch('/api/snapshots/config')
+            .then(r => r.ok ? r.json() : null)
+            .then((cfg: SnapshotConfig | null) => {
+                if (cfg) { setConfig(cfg); setConfigDraft(cfg) }
+            })
+            .catch(() => {})
+    }, [])
 
     // Poll every 3s while an operation is in progress
     useEffect(() => {
@@ -492,6 +507,42 @@ export default function SnapshotsTab() {
             },
             true
         )
+    }
+
+    function patchConfigDraft(patch: Partial<SnapshotConfig>) {
+        setConfigDraft(d => {
+            const next = { ...d, ...patch }
+            setConfigDirty(
+                next.autoEnabled  !== config.autoEnabled  ||
+                next.intervalDays !== config.intervalDays ||
+                next.maxSnapshots !== config.maxSnapshots
+            )
+            return next
+        })
+    }
+
+    async function handleSaveConfig() {
+        setConfigSaving(true)
+        setConfigError(null)
+        try {
+            const res = await fetch('/api/snapshots/config', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(configDraft),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                setConfigError(data.error ?? 'Failed to save')
+            } else {
+                setConfig(data)
+                setConfigDraft(data)
+                setConfigDirty(false)
+            }
+        } catch {
+            setConfigError('Network error')
+        } finally {
+            setConfigSaving(false)
+        }
     }
 
     const rowBtnSx = (accent?: 'red' | 'green'): React.CSSProperties => ({
@@ -685,7 +736,7 @@ export default function SnapshotsTab() {
             <div>
                 <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3}
                     style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 10 }}>
-                    Stored Snapshots ({snapshots.length} / {5})
+                    Stored Snapshots ({snapshots.length} / {config.maxSnapshots})
                 </Typography>
 
                 {loading && (
@@ -838,6 +889,184 @@ export default function SnapshotsTab() {
                 <Typography fontSize='0.68rem' style={{ color: 'rgba(237,237,237,0.25)', marginTop: 8 }}>
                     Upload a previously downloaded snapshot ZIP to restore the website to that state.
                 </Typography>
+            </div>
+
+            {/* Settings */}
+            <div style={{ borderTop: '1px solid rgba(219,0,29,0.12)', paddingTop: 20 }}>
+                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3}
+                    style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 16 }}>
+                    Auto-Snapshot Settings
+                </Typography>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                    {/* Auto-enabled toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                        <div>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.75)', marginBottom: 2 }}>
+                                Auto-Snapshots
+                            </div>
+                            <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)' }}>
+                                Automatically create snapshots on a schedule
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', flexShrink: 0 }}>
+                            {(['ON', 'OFF'] as const).map(opt => {
+                                const active = opt === 'ON' ? configDraft.autoEnabled : !configDraft.autoEnabled
+                                return (
+                                    <button
+                                        key={opt}
+                                        onClick={() => patchConfigDraft({ autoEnabled: opt === 'ON' })}
+                                        style={{
+                                            fontSize: '0.65rem',
+                                            fontWeight: 700,
+                                            letterSpacing: '0.1em',
+                                            padding: '5px 16px',
+                                            cursor: 'pointer',
+                                            background: active ? (opt === 'ON' ? 'rgba(0,195,100,0.15)' : 'rgba(219,0,29,0.15)') : 'rgba(255,255,255,0.02)',
+                                            border: `1px solid ${active ? (opt === 'ON' ? 'rgba(0,195,100,0.4)' : 'rgba(219,0,29,0.4)') : 'rgba(255,255,255,0.08)'}`,
+                                            color: active ? (opt === 'ON' ? 'rgba(0,195,100,0.9)' : 'rgba(219,0,29,0.9)') : 'rgba(237,237,237,0.25)',
+                                        }}
+                                    >
+                                        {opt}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Interval */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, opacity: configDraft.autoEnabled ? 1 : 0.4, pointerEvents: configDraft.autoEnabled ? undefined : 'none' }}>
+                        <div>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.75)', marginBottom: 2 }}>
+                                Interval
+                            </div>
+                            <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)' }}>
+                                How many days between automatic snapshots
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                            {[1, 2, 3, 7, 14].map(d => {
+                                const active = configDraft.intervalDays === d
+                                return (
+                                    <button
+                                        key={d}
+                                        onClick={() => patchConfigDraft({ intervalDays: d })}
+                                        style={{
+                                            fontSize: '0.65rem',
+                                            fontWeight: 700,
+                                            letterSpacing: '0.08em',
+                                            padding: '5px 12px',
+                                            cursor: 'pointer',
+                                            background: active ? 'rgba(219,0,29,0.15)' : 'rgba(255,255,255,0.02)',
+                                            border: `1px solid ${active ? 'rgba(219,0,29,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                                            color: active ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.3)',
+                                        }}
+                                    >
+                                        {d}d
+                                    </button>
+                                )
+                            })}
+                            <input
+                                type='number'
+                                min={1}
+                                max={30}
+                                value={configDraft.intervalDays}
+                                onChange={e => {
+                                    const v = Math.max(1, Math.min(30, parseInt(e.target.value) || 1))
+                                    patchConfigDraft({ intervalDays: v })
+                                }}
+                                style={{
+                                    width: 52,
+                                    background: 'rgba(255,255,255,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    color: 'rgba(237,237,237,0.7)',
+                                    padding: '4px 8px',
+                                    fontSize: '0.72rem',
+                                    fontFamily: 'monospace',
+                                    textAlign: 'center',
+                                    outline: 'none',
+                                }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Max snapshots */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                        <div>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.75)', marginBottom: 2 }}>
+                                Retention Limit
+                            </div>
+                            <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)' }}>
+                                Maximum snapshots to keep — oldest are deleted automatically
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                            <button
+                                onClick={() => patchConfigDraft({ maxSnapshots: Math.max(1, configDraft.maxSnapshots - 1) })}
+                                style={{
+                                    width: 28, height: 28, cursor: 'pointer',
+                                    background: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    color: 'rgba(237,237,237,0.6)',
+                                    fontSize: '1rem', lineHeight: 1,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}
+                            >−</button>
+                            <span style={{
+                                fontFamily: 'monospace',
+                                fontSize: '0.85rem',
+                                fontWeight: 700,
+                                color: 'rgba(237,237,237,0.85)',
+                                minWidth: 28,
+                                textAlign: 'center',
+                            }}>
+                                {configDraft.maxSnapshots}
+                            </span>
+                            <button
+                                onClick={() => patchConfigDraft({ maxSnapshots: Math.min(20, configDraft.maxSnapshots + 1) })}
+                                style={{
+                                    width: 28, height: 28, cursor: 'pointer',
+                                    background: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    color: 'rgba(237,237,237,0.6)',
+                                    fontSize: '1rem', lineHeight: 1,
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}
+                            >+</button>
+                        </div>
+                    </div>
+
+                    {/* Save row */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+                        {configError && (
+                            <Typography fontSize='0.72rem' style={{ color: 'rgba(219,0,29,0.9)' }}>
+                                {configError}
+                            </Typography>
+                        )}
+                        <button
+                            onClick={handleSaveConfig}
+                            disabled={!configDirty || configSaving}
+                            style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                letterSpacing: '0.12em',
+                                textTransform: 'uppercase',
+                                padding: '6px 20px',
+                                background: (!configDirty || configSaving) ? 'none' : 'rgba(219,0,29,0.2)',
+                                border: '1px solid rgba(219,0,29,0.4)',
+                                color: (!configDirty || configSaving) ? 'rgba(237,237,237,0.25)' : '#ededed',
+                                cursor: (!configDirty || configSaving) ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                            }}
+                        >
+                            {configSaving && <CircularProgress size={12} style={{ color: 'rgba(237,237,237,0.4)' }} />}
+                            {configSaving ? 'Saving…' : 'Save Settings'}
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* Create snapshot dialog */}

@@ -13,6 +13,6 @@ export async function GET() {
         const avatar = me.guild?.avatarURL || me.avatarURL || null
         return NextResponse.json({ token, name, color, avatar })
     } catch {
-        return NextResponse.json({ name: 'Unknown', color: '#db001d' })
+        return NextResponse.json({ token, name: 'Unknown', color: '#db001d' })
     }
 }

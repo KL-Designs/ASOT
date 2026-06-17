@@ -790,9 +790,10 @@ async function triggerScheduledSnapshot() {
 
 setTimeout(() => {
     triggerScheduledSnapshot()
-    setInterval(triggerScheduledSnapshot, 48 * 60 * 60 * 1000)
+    // Check daily at 3am — the cron route decides whether to run based on config
+    setInterval(triggerScheduledSnapshot, 24 * 60 * 60 * 1000)
 }, msUntilNext3am())
-console.log(`[snapshots] Next auto-snapshot in ${Math.round(msUntilNext3am() / 1000 / 60)} minutes`)
+console.log(`[snapshots] Next auto-snapshot check in ${Math.round(msUntilNext3am() / 1000 / 60)} minutes`)
 
 // ── TeamSpeak daily snapshot (every 24h at 3am) ───────────────────────────────
 

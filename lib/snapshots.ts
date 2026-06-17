@@ -15,6 +15,7 @@ import { MongoClient } from 'mongodb'
 
 export const SNAPSHOTS_DIR = resolve('./snapshots')
 export const STATUS_FILE   = join(SNAPSHOTS_DIR, '.status.json')
+export const CONFIG_FILE   = join(SNAPSHOTS_DIR, '.config.json')
 export const MAX_SNAPSHOTS = 5
 export const GALLERY_DIR   = resolve('./gallery')
 export const UPLOADS_DIR   = resolve('./uploads')
@@ -33,6 +34,18 @@ export const DEFAULT_SNAPSHOT_OPTIONS: SnapshotOptions = {
     galleryFeatured: true,
     gallerySotm:     true,
     uploads:         true,
+}
+
+export type SnapshotConfig = {
+    maxSnapshots: number
+    autoEnabled:  boolean
+    intervalDays: number
+}
+
+export const DEFAULT_SNAPSHOT_CONFIG: SnapshotConfig = {
+    maxSnapshots: 5,
+    autoEnabled:  true,
+    intervalDays: 2,
 }
 
 
@@ -107,6 +120,27 @@ export async function readStatus(): Promise<SnapshotStatus> {
 export async function writeStatus(s: SnapshotStatus): Promise<void> {
     ensureSnapshotsDir()
     await writeFile(STATUS_FILE, JSON.stringify(s), 'utf-8')
+}
+
+// ── Config ────────────────────────────────────────────────────────────────────
+
+export async function readConfig(): Promise<SnapshotConfig> {
+    try {
+        const raw = await readFile(CONFIG_FILE, 'utf-8')
+        const c = JSON.parse(raw) as Partial<SnapshotConfig>
+        return {
+            maxSnapshots: typeof c.maxSnapshots === 'number' ? Math.max(1, Math.min(20, c.maxSnapshots)) : DEFAULT_SNAPSHOT_CONFIG.maxSnapshots,
+            autoEnabled:  typeof c.autoEnabled  === 'boolean' ? c.autoEnabled : DEFAULT_SNAPSHOT_CONFIG.autoEnabled,
+            intervalDays: typeof c.intervalDays  === 'number' ? Math.max(1, Math.min(30, c.intervalDays))  : DEFAULT_SNAPSHOT_CONFIG.intervalDays,
+        }
+    } catch {
+        return { ...DEFAULT_SNAPSHOT_CONFIG }
+    }
+}
+
+export async function writeConfig(c: SnapshotConfig): Promise<void> {
+    ensureSnapshotsDir()
+    await writeFile(CONFIG_FILE, JSON.stringify(c), 'utf-8')
 }
 
 // ── List ──────────────────────────────────────────────────────────────────────
@@ -205,10 +239,11 @@ export async function createSnapshot(options: SnapshotOptions = DEFAULT_SNAPSHOT
         // Rename tmp → final only on full success
         await rename(tmpPath, finalPath)
 
-        // Enforce max 6 snapshots — delete oldest
+        // Enforce retention limit — delete oldest beyond maxSnapshots
+        const cfg = await readConfig()
         const all = listSnapshots()
-        if (all.length > MAX_SNAPSHOTS) {
-            const toDelete = all.slice(0, all.length - MAX_SNAPSHOTS)
+        if (all.length > cfg.maxSnapshots) {
+            const toDelete = all.slice(0, all.length - cfg.maxSnapshots)
             for (const s of toDelete) {
                 try { unlinkSync(join(SNAPSHOTS_DIR, s.filename)) } catch {}
             }

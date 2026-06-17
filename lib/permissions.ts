@@ -542,6 +542,21 @@ const PERMISSIONS = {
         reviewEscalated: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer', 'J4 - Administration'],
     },
 
+    // ── Training Docs ─────────────────────────────────────────────────────────
+
+    trainingDocs: {
+        /**
+         * Create folders, upload documents, rename, and delete training docs.
+         * All ASOT Members can view; J3 can manage.
+         *
+         * Used by:
+         *  - `app/api/training-docs/route.ts` (POST)
+         *  - `app/api/training-docs/[id]/route.ts` (PATCH + DELETE)
+         *  - `app/dashboard/unit/training-docs/page.tsx` (isJ3 flag)
+         */
+        manage: ['J3 - Training'],
+    },
+
     // ── SOPs ──────────────────────────────────────────────────────────────────
 
     sops: {
