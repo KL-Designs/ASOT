@@ -20,7 +20,13 @@ export async function GET(req: NextRequest) {
     }
 
     const department = req.nextUrl.searchParams.get('department')
-    const filter: Record<string, unknown> = {}
+    // Private events only visible to their creator
+    const filter: Record<string, unknown> = {
+        $or: [
+            { isPrivate: { $ne: true } },
+            { createdById: me.id },
+        ],
+    }
     if (department) filter.department = department
 
     const raw = await Db.calendarEvents
@@ -81,7 +87,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { title, description, start, end, allDay, department, isBCTAvailability, isQuizAvailability, applicantId, applicantName, timePeriod } = body
+    const { title, description, start, end, allDay, department, isBCTAvailability, isQuizAvailability, applicantId, applicantName, timePeriod, isPrivate, templateTrainingTypeId } = body
 
     if (!title?.trim()) {
         return NextResponse.json({ error: 'Title is required' }, { status: 400 })
@@ -120,6 +126,8 @@ export async function POST(req: NextRequest) {
         ...(applicantId ? { applicantId } : {}),
         ...(applicantName ? { applicantName } : {}),
         ...(timePeriod ? { timePeriod } : {}),
+        ...(isPrivate ? { isPrivate: true } : {}),
+        ...(templateTrainingTypeId ? { templateTrainingTypeId } : {}),
     }
 
     const result = await Db.calendarEvents.insertOne(event as CalendarEvent)

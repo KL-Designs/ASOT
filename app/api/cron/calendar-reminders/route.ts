@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
-import { sendCalendarReminderDM, sendMeetingDM } from '@/lib/discord/bot'
+import { sendCalendarReminderDM, sendMeetingDM, sendTrainingReminderDM } from '@/lib/discord/bot'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
 import { verifyCronSecret } from '@/lib/cron-auth'
@@ -149,8 +149,47 @@ export async function GET(request: NextRequest) {
         await Db.meetingNotifQueue.updateOne({ _id: item._id as ObjectId }, { $set: { firedAt: now } })
     }))
 
+    // ── 3. Training event reminders ───────────────────────────────────────────
+    const dueTraining = await Db.trainingReminders.find({
+        fireAt: { $lte: now },
+        firedAt: { $exists: false },
+    }).toArray()
+
+    await Promise.all(dueTraining.map(async reminder => {
+        // Find all current attending members for this event
+        const attendees = await Db.trainingAttendance.find({
+            eventId: reminder.eventId,
+            rsvpStatus: 'attending',
+        }).toArray()
+
+        const scheduledAt = new Date(reminder.fireAt.getTime() + reminder.minutesBefore * 60_000)
+        const scheduledStr = scheduledAt.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+        const actionUrl = '/dashboard/unit/training-docs'
+
+        await Promise.all(attendees.map(a =>
+            Promise.all([
+                createNotification({
+                    userId: a.memberId,
+                    type: 'training_reminder',
+                    title: `Training Reminder — ${reminder.minutesBefore === 15 ? '15 Minutes' : '1 Hour'}`,
+                    body: `${reminder.eventTitle} starts in ${reminder.minutesBefore === 15 ? '15 minutes' : '1 hour'}.`,
+                    actionUrl,
+                    relatedId: reminder.eventId,
+                }),
+                sendTrainingReminderDM(a.memberId, reminder.eventTitle, reminder.minutesBefore, scheduledStr, actionUrl)
+                    .catch(err => console.error(`[cron] training reminder DM failed for ${a.memberId}:`, err)),
+            ])
+        ))
+
+        await Db.trainingReminders.updateOne(
+            { _id: reminder._id as import('mongodb').ObjectId },
+            { $set: { firedAt: now } }
+        )
+    }))
+
     return NextResponse.json({
         calendarFired: dueCalendar.length,
         meetingFired: dueMeeting.length,
+        trainingFired: dueTraining.length,
     })
 }

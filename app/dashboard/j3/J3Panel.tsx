@@ -1,11 +1,12 @@
-﻿'use client'
+'use client'
 
 import { Typography, Tabs, Tab } from '@mui/material'
-import { PeopleAlt, CalendarMonth, HistoryEdu } from '@mui/icons-material'
+import { PeopleAlt, HistoryEdu } from '@mui/icons-material'
 import { Construction } from '@mui/icons-material'
-import QualificationTicketsTab from './tabs/QualificationTicketsTab'
-import PromotionTicketsTab from './tabs/PromotionTicketsTab'
 import TrainingRecordsTab from './tabs/TrainingRecordsTab'
+import TrainingTicketsTab from './tabs/TrainingTicketsTab'
+import J3MasterSheetTab from './tabs/J3MasterSheetTab'
+import TrainingImportTab from './tabs/TrainingImportTab'
 import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
@@ -14,6 +15,8 @@ import { useTabState } from '@/app/dashboard/_components/useTabState'
 import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
+import TrainingHub from '@/app/dashboard/unit/training-docs/TrainingHub'
+import EventsTab from '@/app/dashboard/unit/training-docs/EventsTab'
 
 interface J3PanelProps {
     displayName: string
@@ -94,9 +97,6 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                         <button style={{ ...btnSx(view === 'members'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>
                             <PeopleAlt sx={{ fontSize: '0.85rem' }} />Members
                         </button>
-                        <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
-                            <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
-                        </button>
                         <button style={{ ...btnSx(view === 'activity'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'activity' ? 'dept' : 'activity')}>
                             <HistoryEdu sx={{ fontSize: '0.85rem' }} />Activity Logs
                         </button>
@@ -105,9 +105,6 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
 
             {view === 'members' && (
                 <DeptMembersTab department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
-            )}
-            {view === 'calendar' && (
-                <DeptCalendarTab department='j3' userId={userId} isJ4={isJ4} />
             )}
             {view === 'activity' && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
@@ -124,43 +121,42 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Qualification Tickets' pinLabel='J3 — Qual Tickets'     href='/admin/j3' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Promotion Tickets'     pinLabel='J3 — Promo Tickets'  href='/admin/j3' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Training Schedule'     pinLabel='J3 — Schedule'       href='/admin/j3' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Training Records'      pinLabel='J3 — Training Rec.'  href='/admin/j3' tabIndex={3} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'              pinLabel='J3 — Meetings'       href='/admin/j3' tabIndex={4} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tickets' pinLabel='J3 — Tickets' href='/dashboard/j3' tabIndex={5} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Training Hub'       pinLabel='J3 — Training Hub'       href='/admin/j3' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Training Tickets'  pinLabel='J3 — Tickets'            href='/admin/j3' tabIndex={1} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Training Calendar' pinLabel='J3 — Calendar'           href='/admin/j3' tabIndex={2} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Training Requests' pinLabel='J3 — Training Requests'  href='/admin/j3' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Training Records'  pinLabel='J3 — Records'            href='/admin/j3' tabIndex={4} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Meetings'          pinLabel='J3 — Meetings'           href='/admin/j3' tabIndex={5} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Tickets'           pinLabel='J3 — Dept Tickets'       href='/dashboard/j3' tabIndex={6} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Master Sheet'      pinLabel='J3 — Master Sheet'       href='/dashboard/j3' tabIndex={7} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='CSV Import'        pinLabel='J3 — CSV Import'         href='/dashboard/j3' tabIndex={8} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     {/* Tab content */}
                     <div className='flex-1 min-h-0 mt-0'>
                         {tab === 0 && (
-                            <div
-                                className='m-6 mt-4'
-                                style={{
-                                    border: '1px solid rgba(219,0,29,0.22)',
-                                    background: 'rgba(255,255,255,0.01)',
-                                }}
-                            >
-                                <QualificationTicketsTab displayName={displayName} userId={userId} />
-                            </div>
+                            <TrainingHub
+                                isJ3Lead={canManageMembers}
+                                isTrainer={true}
+                                isJ3Trainer={true}
+                                myId={userId}
+                            />
                         )}
-                        {tab === 1 && (
-                            <div
-                                className='m-6 mt-4'
-                                style={{
-                                    border: '1px solid rgba(219,0,29,0.22)',
-                                    background: 'rgba(255,255,255,0.01)',
-                                }}
-                            >
-                                <PromotionTicketsTab displayName={displayName} userId={userId} />
-                            </div>
+                        {tab === 1 && <TrainingTicketsTab isJ3Lead={canManageMembers} />}
+                        {tab === 2 && <DeptCalendarTab department='j3' userId={userId} isJ4={isJ4} />}
+                        {tab === 3 && (
+                            <EventsTab
+                                isJ3Lead={canManageMembers}
+                                isTrainer={true}
+                                isJ3Trainer={true}
+                            />
                         )}
-                        {tab === 2 && <WipTab title='Training Schedule' description='Training schedule management and documentation tools are coming soon.' />}
-                        {tab === 3 && <TrainingRecordsTab userId={userId} canManageMembers={canManageMembers} />}
-                        {tab === 4 && <MeetingsTab department='j3' userId={userId} isLead={canManageMembers || isJ4} />}
-                        {tab === 5 && <DeptTicketsTab department='j3' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
+                        {tab === 4 && <TrainingRecordsTab userId={userId} canManageMembers={canManageMembers} />}
+                        {tab === 5 && <MeetingsTab department='j3' userId={userId} isLead={canManageMembers || isJ4} />}
+                        {tab === 6 && <DeptTicketsTab department='j3' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
+                        {tab === 7 && <J3MasterSheetTab />}
+                        {tab === 8 && <TrainingImportTab />}
                     </div>
                 </>
             )}

@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { logAction } from '@/lib/logs'
 
 
 export async function GET(request: NextRequest) {
@@ -42,6 +43,15 @@ export async function GET(request: NextRequest) {
                 { id: zeusPageId, title: 'Zeus Notes', isMain: false, pageType: 'zeus', pageColor: '' },
                 { id: ocapPageId, title: 'OCAP', isMain: false, pageType: 'ocap', pageColor: '#10b981' },
             ],
+        })
+
+        logAction({
+            action: 'operation.create',
+            category: 'operation',
+            performedBy: me.id,
+            performedByName: ownerName,
+            target: `New Mission ${formatted}`,
+            details: { operationId: newOp.insertedId.toString() },
         })
 
         return NextResponse.json({ success: true, id: newOp.insertedId }, { status: 200 })

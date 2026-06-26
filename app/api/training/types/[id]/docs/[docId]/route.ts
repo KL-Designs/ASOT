@@ -11,7 +11,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     const { id, docId } = await params
     if (!ObjectId.isValid(id) || !ObjectId.isValid(docId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
-    const doc = await Db.trainingDocs.findOne({ _id: new ObjectId(docId), trainingTypeId: id, deletedAt: { $exists: false } })
+    const doc = await Db.trainingTypeDocs.findOne({ _id: new ObjectId(docId), trainingTypeId: id, deletedAt: { $exists: false } })
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const isJ3Lead = client.hasRoles(me, PERMISSIONS.training.manage)
@@ -21,7 +21,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     const canDelete = isJ3Lead || (isUploader && doc.approvalStatus !== 'approved')
     if (!canDelete) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    await Db.trainingDocs.updateOne(
+    await Db.trainingTypeDocs.updateOne(
         { _id: new ObjectId(docId) },
         { $set: { deletedAt: new Date() } }
     )

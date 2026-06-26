@@ -16,6 +16,7 @@ import * as Y from 'yjs'
 
 import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
+import { TextStyle } from '@tiptap/extension-text-style'
 import PageSidebar from './PageSidebar'
 import {
     Undo, Redo,
@@ -50,6 +51,31 @@ function hexToRgb(hex: string) {
         b: parseInt(h.substring(4, 6), 16),
     }
 }
+
+const FontSize = Extension.create({
+    name: 'fontSize',
+    addGlobalAttributes() {
+        return [{
+            types: ['textStyle'],
+            attributes: {
+                fontSize: {
+                    default: null,
+                    parseHTML: (el: HTMLElement) => el.style.fontSize || null,
+                    renderHTML: (attrs: Record<string, any>) =>
+                        attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
+                },
+            },
+        }]
+    },
+    addCommands() {
+        return {
+            setFontSize: (size: string) => ({ chain }: any) =>
+                chain().setMark('textStyle', { fontSize: size }).run(),
+            unsetFontSize: () => ({ chain }: any) =>
+                chain().setMark('textStyle', { fontSize: null }).removeEmptyTextStyle().run(),
+        } as any
+    },
+})
 
 interface PresenceUser {
     name: string
@@ -123,6 +149,8 @@ export default function CollabEditor({
                     },
                     onStatus: ({ status }) => {
                         if (status === 'connecting') setTimeout(() => onSaveStatusChange?.('saving'), 0)
+                        if (status === 'connected') setTimeout(() => onSaveStatusChange?.('saved'), 0)
+                        if (status === 'disconnected') setTimeout(() => onSaveStatusChange?.('unsaved'), 0)
                     },
                 })
                 if (!destroyed) setReady({ provider: p, ydoc, user })
@@ -227,7 +255,7 @@ function ResizableImageView({ node, selected, updateAttributes }: {
     const themeColor = useContext(ThemeContext)
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
-    const { src, alt, title, width, align, position } = node.attrs as { src: string; alt: string; title: string; width: number | null; align: string; position: ImgPosition }
+    const { src, alt, title, width, align, position, borderStyle, borderColor: imgBorderColor, borderWidth } = node.attrs as { src: string; alt: string; title: string; width: number | null; align: string; position: ImgPosition; borderStyle: string; borderColor: string; borderWidth: number }
     const containerRef = useRef<HTMLDivElement>(null)
     const startXRef = useRef(0)
     const startWRef = useRef(0)
@@ -272,7 +300,7 @@ function ResizableImageView({ node, selected, updateAttributes }: {
                 {selected && (
                     <div
                         onMouseDown={e => e.preventDefault()}
-                        style={{ position: 'absolute', top: -38, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, padding: '3px 5px', zIndex: 20, whiteSpace: 'nowrap' }}
+                        style={{ position: 'absolute', top: -38, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, padding: '3px 5px', zIndex: 20, whiteSpace: 'nowrap', flexWrap: 'wrap', maxWidth: 400 }}
                     >
                         {/* Alignment (break mode only) */}
                         {position !== 'inline' && position !== 'wrap-left' && position !== 'wrap-right' && (['left', 'center', 'right'] as const).map(a => (
@@ -303,10 +331,33 @@ function ResizableImageView({ node, selected, updateAttributes }: {
                                 {p.label}
                             </button>
                         ))}
+                        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+                        {/* Border controls */}
+                        {(['none', 'solid', 'dashed', 'dotted'] as const).map(bs => (
+                            <button key={bs} type='button' title={`Border: ${bs}`}
+                                onMouseDown={e => { e.preventDefault(); updateAttributes({ borderStyle: bs }) }}
+                                style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', background: borderStyle === bs ? 'rgba(80,200,120,0.2)' : 'transparent', border: borderStyle === bs ? '1px solid rgba(80,200,120,0.5)' : '1px solid transparent', color: borderStyle === bs ? 'rgba(80,200,120,0.9)' : 'rgba(237,237,237,0.45)', fontSize: 9, fontWeight: 800, letterSpacing: '0.04em' }}
+                            >
+                                {bs === 'none' ? 'NO BDR' : bs.toUpperCase().slice(0, 4)}
+                            </button>
+                        ))}
+                        {borderStyle !== 'none' && (<>
+                            {([1, 2, 3, 4] as const).map(w => (
+                                <button key={w} type='button' title={`Border width ${w}px`}
+                                    onMouseDown={e => { e.preventDefault(); updateAttributes({ borderWidth: w }) }}
+                                    style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', background: borderWidth === w ? 'rgba(80,200,120,0.15)' : 'transparent', border: borderWidth === w ? '1px solid rgba(80,200,120,0.4)' : '1px solid transparent', color: 'rgba(237,237,237,0.5)', fontSize: 9, fontWeight: 800 }}
+                                >{w}px</button>
+                            ))}
+                            <input type='color' value={imgBorderColor}
+                                onMouseDown={e => e.stopPropagation()}
+                                onChange={e => updateAttributes({ borderColor: e.target.value })}
+                                style={{ width: 18, height: 18, padding: 0, border: '1px solid rgba(255,255,255,0.2)', borderRadius: 2, cursor: 'pointer', background: 'none' }}
+                            />
+                        </>)}
                     </div>
                 )}
                 <img src={src} alt={alt || ''} title={title || ''} draggable={false}
-                    style={{ display: 'block', width: width ? `${width}px` : '100%', maxWidth: '100%', height: 'auto', border: selected ? `2px solid ${c(0.6)}` : '1px solid rgba(255,255,255,0.06)' }}
+                    style={{ display: 'block', width: width ? `${width}px` : '100%', maxWidth: '100%', height: 'auto', border: borderStyle !== 'none' ? `${borderWidth}px ${borderStyle} ${imgBorderColor}` : selected ? `2px solid ${c(0.6)}` : '1px solid rgba(255,255,255,0.06)' }}
                 />
                 {selected && (
                     <div onMouseDown={onResizeStart}
@@ -339,6 +390,21 @@ const ResizableImage = Image.extend({
                 default: 'break',
                 parseHTML: el => (el.getAttribute('data-position') as ImgPosition) || 'break',
                 renderHTML: attrs => ({ 'data-position': attrs.position || 'break' }),
+            },
+            borderStyle: {
+                default: 'none',
+                parseHTML: el => el.getAttribute('data-border-style') || 'none',
+                renderHTML: attrs => ({ 'data-border-style': attrs.borderStyle || 'none' }),
+            },
+            borderColor: {
+                default: '#ffffff',
+                parseHTML: el => el.getAttribute('data-border-color') || '#ffffff',
+                renderHTML: attrs => ({ 'data-border-color': attrs.borderColor || '#ffffff' }),
+            },
+            borderWidth: {
+                default: 2,
+                parseHTML: el => parseInt(el.getAttribute('data-border-width') || '2'),
+                renderHTML: attrs => ({ 'data-border-width': String(attrs.borderWidth ?? 2) }),
             },
         }
     },
@@ -548,7 +614,14 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
     const metaKey = isNonMain ? `smeta-${pageId}-${sectionId}` : `smeta-${sectionId}`
     const contentKey = isNonMain ? `scontent-${pageId}-${sectionId}` : `scontent-${sectionId}`
 
+    const [title, setTitle] = useState('')
+    const [isPublic, setIsPublic] = useState(true)
+    const [sectionBorderColor, setSectionBorderColor] = useState<string | null>(null)
+    const [sectionMinHeight, setSectionMinHeight] = useState(80)
+
+    const effectiveBorderColor = sectionBorderColor || themeColor
     const themeCSS = `
+        .op-editor-${sectionId} { min-height: ${sectionMinHeight}px; }
         .op-editor-${sectionId} h1 { border-left-color: ${c(0.75)}; background: ${c(0.045)}; }
         .op-editor-${sectionId} h2 { color: ${c(0.88)}; }
         .op-editor-${sectionId} h2::before { color: ${c(0.65)}; }
@@ -559,35 +632,41 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
         .op-editor-${sectionId} mark { background: ${c(0.2)}; }
         .op-editor-${sectionId} a { color: ${c(0.85)}; }
     `
-
-    const [title, setTitle] = useState('')
-    const [isPublic, setIsPublic] = useState(true)
     const [confirmingRemove, setConfirmingRemove] = useState(false)
     const seededRef = useRef(false)
     const imageInputRef = useRef<HTMLInputElement>(null)
+    const borderColorInputRef = useRef<HTMLInputElement>(null)
     const [uploadingImage, setUploadingImage] = useState(false)
     const uploadingImageRef = useRef(false)
     const pasteUploadRef = useRef<(file: File) => void>(() => {})
     const [linkPopover, setLinkPopover] = useState(false)
     const [linkUrl, setLinkUrl] = useState('')
-    const linkInputRef = useRef<HTMLInputElement>(null)
+    const [linkText, setLinkText] = useState('')
+    const linkUrlInputRef = useRef<HTMLInputElement>(null)
+    const linkTextInputRef = useRef<HTMLInputElement>(null)
+    const heightDragRef = useRef({ startY: 0, startH: 0 })
 
     useEffect(() => {
         const smeta = ydoc.getMap<string>(metaKey)
         const handler = () => {
             setTitle(smeta.get('title') || '')
             setIsPublic(smeta.get('isPublic') !== 'false')
+            setSectionBorderColor(smeta.get('borderColor') || null)
+            const mh = parseInt(smeta.get('minHeight') || '80')
+            setSectionMinHeight(isNaN(mh) ? 80 : mh)
         }
         smeta.observe(handler)
         handler()
         return () => smeta.unobserve(handler)
     }, [ydoc, metaKey])
 
-    function updateMeta(updates: { title?: string; isPublic?: boolean }) {
+    function updateMeta(updates: { title?: string; isPublic?: boolean; borderColor?: string; minHeight?: string }) {
         const smeta = ydoc.getMap<string>(metaKey)
         ydoc.transact(() => {
             if (updates.title !== undefined) smeta.set('title', updates.title!)
             if (updates.isPublic !== undefined) smeta.set('isPublic', updates.isPublic ? 'true' : 'false')
+            if (updates.borderColor !== undefined) smeta.set('borderColor', updates.borderColor)
+            if (updates.minHeight !== undefined) smeta.set('minHeight', updates.minHeight)
         })
     }
 
@@ -599,6 +678,8 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
             TextAlign.configure({ types: ['heading', 'paragraph'] }),
             Highlight.configure({ multicolor: false }),
             Underline,
+            TextStyle,
+            FontSize,
             Placeholder.configure({ placeholder: 'Begin writing this section…' }),
             ResizableImage,
             Link.configure({ openOnClick: false, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
@@ -619,6 +700,18 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
                             pasteUploadRef.current(file)
                             return true
                         }
+                    }
+                }
+                return false
+            },
+            handleDrop(_view, event) {
+                const files = (event as DragEvent).dataTransfer?.files
+                if (!files?.length) return false
+                for (const file of Array.from(files)) {
+                    if (file.type.startsWith('image/')) {
+                        event.preventDefault()
+                        pasteUploadRef.current(file)
+                        return true
                     }
                 }
                 return false
@@ -648,6 +741,38 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
         return () => document.removeEventListener('mousedown', close)
     }, [linkPopover, sectionId])
 
+    function applyLink() {
+        if (!editor) return
+        const hasSelection = !editor.state.selection.empty
+        if (!hasSelection && linkText.trim() && linkUrl.trim()) {
+            editor.chain().focus().insertContent(`<a href="${linkUrl.trim()}">${linkText.trim()}</a>`).run()
+        } else if (linkUrl.trim()) {
+            editor.chain().focus().setLink({ href: linkUrl.trim() }).run()
+        } else {
+            editor.chain().focus().unsetLink().run()
+        }
+        setLinkPopover(false)
+        setLinkText('')
+        setLinkUrl('')
+    }
+
+    function onHeightDragStart(e: React.MouseEvent) {
+        e.preventDefault()
+        heightDragRef.current = { startY: e.clientY, startH: sectionMinHeight }
+        const onMove = (ev: MouseEvent) => {
+            const newH = Math.max(80, heightDragRef.current.startH + (ev.clientY - heightDragRef.current.startY))
+            setSectionMinHeight(newH)
+        }
+        const onUp = (ev: MouseEvent) => {
+            const newH = Math.max(80, heightDragRef.current.startH + (ev.clientY - heightDragRef.current.startY))
+            updateMeta({ minHeight: String(Math.round(newH)) })
+            document.removeEventListener('mousemove', onMove)
+            document.removeEventListener('mouseup', onUp)
+        }
+        document.addEventListener('mousemove', onMove)
+        document.addEventListener('mouseup', onUp)
+    }
+
     async function handleImageUpload(file: File) {
         if (!editor || uploadingImageRef.current) return
         uploadingImageRef.current = true
@@ -669,7 +794,7 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
     if (!editor) return null
 
     return (
-        <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(1)}`, background: 'rgba(255,255,255,0.01)', position: 'relative' }}>
+        <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `3px solid ${effectiveBorderColor}`, background: 'rgba(255,255,255,0.01)', position: 'relative' }}>
             <style>{themeCSS}</style>
 
             {/* Section header */}
@@ -685,6 +810,17 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
                     />
                 )}
                 {!readOnly && (<>
+                    {/* Border color picker */}
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <input ref={borderColorInputRef} type='color'
+                            value={sectionBorderColor || themeColor}
+                            onChange={e => updateMeta({ borderColor: e.target.value })}
+                            style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+                        />
+                        <button type='button' title='Section border colour' onClick={() => borderColorInputRef.current?.click()}
+                            style={{ width: 16, height: 16, borderRadius: 2, background: effectiveBorderColor, border: '1px solid rgba(255,255,255,0.25)', cursor: 'pointer', display: 'block', flexShrink: 0 }}
+                        />
+                    </div>
                     <button type='button'
                         title={isPublic ? 'Publicly visible — click to make private' : 'Members only — click to make public'}
                         onClick={() => updateMeta({ isPublic: !isPublic })}
@@ -732,6 +868,19 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
                         <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.05em' }}>H{level}</span>
                     </TBtn>
                 ))}
+                <select
+                    value={(editor.getAttributes('textStyle').fontSize as string | undefined) || ''}
+                    onChange={e => {
+                        if (e.target.value) (editor.chain().focus() as any).setFontSize(e.target.value).run()
+                        else (editor.chain().focus() as any).unsetFontSize().run()
+                    }}
+                    title='Font size'
+                    style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.6)', fontSize: '0.65rem', padding: '0 4px', cursor: 'pointer', height: 28, outline: 'none', minWidth: 52 }}>
+                    <option value=''>Size</option>
+                    {[10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48].map(s => (
+                        <option key={s} value={`${s}px`}>{s}</option>
+                    ))}
+                </select>
                 <TDivider />
                 <TBtn title='Bold' active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}><FormatBold style={{ fontSize: 17 }} /></TBtn>
                 <TBtn title='Italic' active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><FormatItalic style={{ fontSize: 17 }} /></TBtn>
@@ -754,24 +903,39 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
                 </TBtn>
                 <div style={{ position: 'relative' }}>
                     <TBtn title={editor.isActive('link') ? 'Edit Link' : 'Insert Link'} active={editor.isActive('link')}
-                        onClick={() => { const existing = editor.getAttributes('link').href || ''; setLinkUrl(existing); setLinkPopover(v => !v); setTimeout(() => linkInputRef.current?.focus(), 40) }}
+                        onClick={() => {
+                            const existing = editor.getAttributes('link').href || ''
+                            setLinkUrl(existing)
+                            setLinkText('')
+                            setLinkPopover(v => !v)
+                            const noSel = editor.state.selection.empty
+                            setTimeout(() => (noSel ? linkTextInputRef.current : linkUrlInputRef.current)?.focus(), 40)
+                        }}
                     >
                         <InsertLink style={{ fontSize: 17 }} />
                     </TBtn>
                     {linkPopover && (
                         <div {...{ [`data-link-popover-${sectionId}`]: true }} onMouseDown={e => e.stopPropagation()}
-                            style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'rgba(14,14,14,0.97)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 6, minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
+                            style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'rgba(14,14,14,0.97)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
                         >
-                            <input ref={linkInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter') { e.preventDefault(); if (linkUrl.trim()) editor.chain().focus().setLink({ href: linkUrl.trim() }).run(); else editor.chain().focus().unsetLink().run(); setLinkPopover(false) }
-                                    if (e.key === 'Escape') setLinkPopover(false)
-                                }}
-                                style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
-                            />
-                            <button type='button' onClick={() => { if (linkUrl.trim()) editor.chain().focus().setLink({ href: linkUrl.trim() }).run(); else editor.chain().focus().unsetLink().run(); setLinkPopover(false) }}
-                                style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: `rgba(${r},${g},${b},0.85)`, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
-                            >Apply</button>
+                            {editor.state.selection.empty && (
+                                <input ref={linkTextInputRef} value={linkText} onChange={e => setLinkText(e.target.value)} placeholder='Display text'
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); linkUrlInputRef.current?.focus() } if (e.key === 'Escape') setLinkPopover(false) }}
+                                    style={{ background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
+                                />
+                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <input ref={linkUrlInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter') { e.preventDefault(); applyLink() }
+                                        if (e.key === 'Escape') setLinkPopover(false)
+                                    }}
+                                    style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
+                                />
+                                <button type='button' onClick={applyLink}
+                                    style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: `rgba(${r},${g},${b},0.85)`, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
+                                >Apply</button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -785,6 +949,14 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
             </div>
 
             <EditorContent editor={editor} />
+
+            {!readOnly && (
+                <div onMouseDown={onHeightDragStart}
+                    style={{ height: 8, cursor: 'ns-resize', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.015)', borderTop: '1px solid rgba(255,255,255,0.04)' }}
+                    title='Drag to set minimum height'>
+                    <div style={{ width: 28, height: 2, background: 'rgba(255,255,255,0.1)', borderRadius: 1 }} />
+                </div>
+            )}
 
             <input ref={imageInputRef} type='file' accept='image/*' style={{ display: 'none' }}
                 onChange={e => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); e.target.value = '' }}

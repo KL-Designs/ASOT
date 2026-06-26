@@ -4,6 +4,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { createNotification } from '@/lib/notifications'
+import { cancelTrainingReminders } from '@/lib/training/scheduleReminders'
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
@@ -48,10 +49,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         }).catch(console.error)
     ))
 
-    // Also remove their reminders
-    if (attendees.length > 0) {
-        await Db.calendarReminders.deleteMany({ relatedId: id } as unknown as CalendarReminder)
-    }
+    // Cancel scheduled training reminders
+    cancelTrainingReminders(id).catch(console.error)
 
     const updated = await Db.trainingEvents.findOne({ _id: new ObjectId(id) })
     return NextResponse.json(updated)

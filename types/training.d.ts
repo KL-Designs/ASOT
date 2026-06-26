@@ -1,42 +1,78 @@
 type TrainingApprovalStatus = 'pending' | 'approved' | 'rejected'
 type TrainingEventStatus = 'Scheduled' | 'Completed' | 'Cancelled'
 type TrainingBilletField = 'j3Bct12' | 'j3OtherTrainings'
+type TrainingTypeStatus = 'active' | 'wip' | 'inactive'
+type TrainingTicketStatus = 'pending' | 'approved' | 'amendments_requested' | 'rejected'
+type TrainingSlotType = 'trainer' | 'trainee' | 'sit-in'
+
+interface TrainingMedia {
+    type: 'video' | 'file' | 'url'
+    label: string
+    url: string
+}
 
 interface TrainingType {
     _id?: import('mongodb').ObjectId
-    name: string                        // matches CERTIFICATIONS label for qualification auto-award
-    category: string                    // grouping label (e.g. 'BCT', 'Medical', 'Aviation')
-    billetField: TrainingBilletField    // which trainer billet count increments on completion
-    billetPoints: number                // 1 for BCT 1/2, 2 for all others
+    name: string
+    category: string
+    billetField: TrainingBilletField
+    billetPoints: number
     description?: string
-    isActive: boolean
+    // Status (replaces plain isActive — kept for backward compat)
+    status: TrainingTypeStatus          // 'active' | 'wip' | 'inactive'
+    isActive: boolean                   // derived: status === 'active'
+    // Event defaults
+    durationMinutes?: number
+    server?: string
+    requiredMods?: string[]
+    prerequisites?: string[]
+    minTrainers?: number
+    minTrainees?: number
+    // Documents & media
+    trainerDocUrl?: string
+    infoDocUrl?: string
+    coverImageUrl?: string
+    linkedMedia?: TrainingMedia[]
+    // Ordering
+    sortOrder?: number
     createdAt: Date
     updatedAt: Date
 }
 
 interface TrainingEvent {
     _id?: import('mongodb').ObjectId
-    trainingTypeId: string              // ref to TrainingType._id
-    trainingTypeName: string            // denormalized
+    trainingTypeId: string
+    trainingTypeName: string
     title: string
     description?: string
     scheduledAt: Date
-    durationMinutes?: number            // defaults to 60 when creating calendar event
-    maxAttendees?: number               // capacity cap; no cap if undefined
+    estimatedFinishAt?: Date
+    durationMinutes?: number
+    server?: string
+    requiredMods?: string[]
+    linkedMedia?: TrainingMedia[]
+    maxAttendees?: number
+    trainerSlots: number                // number of trainer slots (default 1)
+    maxTraineeSlots?: number            // cap on trainees (undefined = use maxAttendees)
+    maxSitInSlots?: number              // cap on sit-ins (undefined = unlimited)
     location?: string
-    trainerId: string                   // Discord user ID
+    trainerId: string                   // primary trainer Discord user ID
     trainerName: string
+    createdById?: string                // event creator (may differ from trainerId)
+    createdByName?: string
     status: TrainingEventStatus
     approvalStatus: TrainingApprovalStatus
     approvedById?: string
     approvedByName?: string
     approvedAt?: Date
     rejectionReason?: string
-    calendarEventId?: string            // linked CalendarEvent._id if added to calendar
+    calendarEventId?: string
     completionNotes?: string
-    billetField: TrainingBilletField     // denormalized from TrainingType on creation
-    billetPointsAwarded: number         // denormalized from TrainingType.billetPoints on creation
-    attendeeCount?: number              // denormalized on completion
+    billetField: TrainingBilletField
+    billetPointsAwarded: number
+    attendeeCount?: number
+    isJ3Training: boolean               // false = All Staff (non-J3) training
+    ticketId?: string                   // linked TrainingTicket._id after completion
     createdAt: Date
     updatedAt: Date
     deletedAt?: Date
@@ -44,19 +80,20 @@ interface TrainingEvent {
 
 interface TrainingAttendance {
     _id?: import('mongodb').ObjectId
-    eventId: string                     // TrainingEvent._id as string
-    memberId: string                    // Discord user ID
+    eventId: string
+    memberId: string
     memberName: string
+    slotType: TrainingSlotType          // which slot this RSVP occupies
     rsvpStatus: 'attending' | 'not_attending' | 'waitlist'
-    attended?: boolean                  // confirmed by trainer when marking complete
-    qualificationAwarded?: boolean      // true once cert added to milpac
+    attended?: boolean
+    qualificationAwarded?: boolean
     createdAt: Date
     updatedAt: Date
 }
 
 interface TrainingDocument {
     _id?: import('mongodb').ObjectId
-    trainingTypeId: string              // TrainingType._id as string
+    trainingTypeId: string
     title: string
     url: string
     description?: string
@@ -65,9 +102,73 @@ interface TrainingDocument {
     approvedById?: string
     approvedByName?: string
     approvedAt?: Date
-    uploadedById: string                // Discord user ID
+    uploadedById: string
     uploadedByName: string
     createdAt: Date
     updatedAt: Date
     deletedAt?: Date
+}
+
+interface TrainingRequest {
+    _id?: import('mongodb').ObjectId
+    trainingTypeId: string
+    trainingTypeName: string
+    requestedById: string
+    requestedByName: string
+    preferredAt?: Date
+    description?: string
+    status: 'pending' | 'approved' | 'rejected' | 'cancellation_requested' | 'cancelled'
+    interestedCount: number
+    interestedUserIds: string[]
+    approvedEventId?: string
+    cancellationRequestedAt?: Date
+    cancellationRequestedByName?: string
+    rejectedReason?: string
+    createdAt: Date
+    updatedAt: Date
+}
+
+interface TrainingTicketAttendee {
+    memberId: string
+    memberName: string
+    slotType: TrainingSlotType
+    attended: boolean
+    passed?: boolean
+    notes?: string
+    qualificationAwarded?: boolean
+    billetPointsAwarded?: boolean
+}
+
+interface TrainingReminderRecord {
+    _id?: import('mongodb').ObjectId
+    eventId: string
+    eventTitle: string
+    minutesBefore: number      // 60 or 15
+    fireAt: Date
+    firedAt?: Date
+    createdAt: Date
+}
+
+interface TrainingTicket {
+    _id?: import('mongodb').ObjectId
+    eventId: string
+    trainingTypeId: string
+    trainingTypeName: string
+    trainerId: string
+    trainerName: string
+    scheduledAt: Date
+    completedAt: Date
+    status: TrainingTicketStatus        // 'pending' | 'approved' | 'amendments_requested' | 'rejected'
+    attendees: TrainingTicketAttendee[]
+    trainerNotes?: string
+    j3Notes?: string
+    amendmentNotes?: string
+    reviewedById?: string
+    reviewedByName?: string
+    reviewedAt?: Date
+    billetPointsAwarded?: boolean
+    qualificationsAwarded?: boolean
+    isJ3Training: boolean
+    createdAt: Date
+    updatedAt: Date
 }

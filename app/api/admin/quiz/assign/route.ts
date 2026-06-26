@@ -5,6 +5,7 @@ import Db from '@/lib/mongo'
 import { createNotification, createNotificationForRole } from '@/lib/notifications'
 import { sendTaskAssignedDM } from '@/lib/discord/bot'
 import BCT_QUIZ from '@/lib/quiz-data'
+import { logAction } from '@/lib/logAction'
 
 // POST /api/admin/quiz/assign
 // Assigns the BCT quiz to a recruit. Creates a QuizAttempt + Task + notifications.
@@ -117,6 +118,18 @@ export async function POST(req: NextRequest) {
             relatedId: attemptId,
         })
     }
+
+    logAction({
+        action: 'quiz.assign',
+        category: 'training',
+        performedBy: me.id,
+        performedByName: trainerName,
+        department: 'j3',
+        entityType: 'quiz_attempt',
+        entityId: attemptId,
+        target: userName,
+        details: { quizId: BCT_QUIZ.id, timeLimitMinutes: resolvedTime, timerModified },
+    }).catch(console.error)
 
     return NextResponse.json({ ok: true, attemptId, taskId })
 }

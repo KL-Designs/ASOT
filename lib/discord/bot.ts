@@ -384,6 +384,32 @@ export async function sendTrainingRejectedDM(
 }
 
 /**
+ * Remind a member that a training session is starting soon.
+ */
+export async function sendTrainingReminderDM(
+    userId: string,
+    eventTitle: string,
+    minutesBefore: number,
+    scheduledAt: string,
+    actionUrl?: string,
+): Promise<void> {
+    const label = minutesBefore <= 15 ? `in ${minutesBefore} minutes` : 'in 1 hour'
+    const embed: DiscordEmbed = {
+        title: '⏰ Training Reminder',
+        description: `**${eventTitle}** starts ${label}.`,
+        color: 0xf59e0b,
+        fields: [{ name: 'Scheduled', value: scheduledAt, inline: true }],
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields!.push({ name: '​', value: `[View Event](${base}${actionUrl})`, inline: false })
+    }
+    await sendDM(userId, { embeds: [embed] }, 'training')
+}
+
+/**
  * Add a Discord guild role to a member.
  * Respects developer mode — blocked attempts are logged but not applied.
  */

@@ -3,7 +3,8 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import { createNotification } from '@/lib/notifications'
+import { createNotification, createNotificationForRole } from '@/lib/notifications'
+import { logAction } from '@/lib/logAction'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
@@ -26,50 +27,94 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const completionNotes = body.completionNotes?.trim() || undefined
     const now = new Date()
 
-    // Count members marked as attended
-    const attendeeCount = await Db.trainingAttendance.countDocuments({ eventId: id, attended: true })
+    // Fetch all attendance records for this event
+    const attendanceRecords = await Db.trainingAttendance.find({ eventId: id }).toArray()
 
+    // Build ticket attendee list — include all who RSVPd attending (trainer + confirmed trainees)
+    // passed is undefined until J3 reviews
+    const ticketAttendees: TrainingTicketAttendee[] = attendanceRecords
+        .filter(r => r.rsvpStatus === 'attending' || r.attended)
+        .map(r => ({
+            memberId: r.memberId,
+            memberName: r.memberName,
+            slotType: r.slotType,
+            attended: r.attended ?? (r.rsvpStatus === 'attending'),
+            passed: r.slotType === 'trainer' ? true : undefined,
+            qualificationAwarded: false,
+            billetPointsAwarded: false,
+        }))
+
+    const attendeeCount = ticketAttendees.filter(a => a.attended && a.slotType !== 'trainer').length
+
+    // Mark event complete (no billet points yet — deferred to ticket approval)
     await Db.trainingEvents.updateOne(
         { _id: new ObjectId(id) },
         { $set: { status: 'Completed', completionNotes, attendeeCount, updatedAt: now } }
     )
 
-    // Increment trainer's billet count
-    const billetPath = `milpac.billetCounts.${event.billetField}`
-    await Db.users.updateOne(
-        { id: event.trainerId },
-        { $inc: { [billetPath]: event.billetPointsAwarded } }
+    // Create the Training Ticket (pending J3 review)
+    const ticketResult = await Db.trainingTickets.insertOne({
+        eventId: id,
+        trainingTypeId: event.trainingTypeId,
+        trainingTypeName: event.trainingTypeName,
+        trainerId: event.trainerId,
+        trainerName: event.trainerName,
+        scheduledAt: event.scheduledAt,
+        completedAt: now,
+        status: 'pending',
+        attendees: ticketAttendees,
+        trainerNotes: completionNotes,
+        isJ3Training: event.isJ3Training,
+        billetPointsAwarded: false,
+        qualificationsAwarded: false,
+        createdAt: now,
+        updatedAt: now,
+    })
+
+    const ticketId = ticketResult.insertedId.toString()
+
+    // Link ticket back to the event
+    await Db.trainingEvents.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { ticketId, updatedAt: now } }
     )
 
-    // Notify trainer if someone else marked it complete
+    // Notify J3 leads that a ticket needs review
+    createNotificationForRole(PERMISSIONS.training.manage[0], {
+        type: 'training_ticket_pending',
+        title: 'Training Ticket Pending Review',
+        body: `"${event.title}" by ${event.trainerName} has been completed and needs J3 review.`,
+        actionUrl: '/dashboard/j3',
+        relatedId: ticketId,
+    }).catch(console.error)
+
+    // Notify trainer that ticket was submitted (only if someone else completed it)
     if (event.trainerId !== me.id) {
-        await createNotification({
+        createNotification({
             userId: event.trainerId,
-            type: 'training_event_completed',
-            title: 'Training Session Completed',
-            body: `Your session "${event.title}" has been marked complete. ${event.billetPointsAwarded} billet point${event.billetPointsAwarded !== 1 ? 's' : ''} have been awarded.`,
+            type: 'training_ticket_pending',
+            title: 'Training Ticket Submitted',
+            body: `Your session "${event.title}" has been marked complete. A Training Ticket has been submitted for J3 review — billet points will be awarded after approval.`,
             actionUrl: '/dashboard/unit/training-docs',
-            relatedId: id,
+            relatedId: ticketId,
         }).catch(console.error)
     }
 
-    // Create J4 admin task to confirm billet award in the Master Sheet
-    const billetLabel = event.billetField === 'j3Bct12' ? 'J3 BCT 1/2' : 'J3 Other Trainings'
     const completedByName = me.guild?.displayName ?? me.username
-    await Db.tasks.insertOne({
-        title: `Training Completion — ${event.title}`,
-        description: `${event.trainerName} ran "${event.title}" on ${event.scheduledAt.toLocaleDateString('en-GB')}. ${event.billetPointsAwarded} pt(s) auto-awarded to ${billetLabel} billet count. ${attendeeCount} member${attendeeCount !== 1 ? 's' : ''} attended. Please verify the billet count is accurate in the Master Sheet.`,
-        assignedRole: 'J4 - Administration',
-        assignedBy: me.id,
-        assignedByName: completedByName,
+    logAction({
+        action: 'training.event.complete',
+        category: 'training',
+        performedBy: me.id,
+        performedByName: completedByName,
         department: 'j3',
-        status: 'pending',
-        type: 'manual',
+        entityType: 'training_event',
+        entityId: id,
         actionUrl: '/dashboard/unit/training-docs',
-        relatedId: id,
-        createdAt: now,
-    })
+        target: event.title,
+        details: { ticketId, attendeeCount },
+    }).catch(console.error)
 
     const updated = await Db.trainingEvents.findOne({ _id: new ObjectId(id) })
-    return NextResponse.json(updated)
+    const ticket = await Db.trainingTickets.findOne({ _id: ticketResult.insertedId })
+    return NextResponse.json({ event: updated, ticket })
 }

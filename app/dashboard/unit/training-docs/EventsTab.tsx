@@ -5,7 +5,7 @@ import { Add, CheckCircle, Cancel, Edit, Delete } from '@mui/icons-material'
 
 const RED = '#db001d'
 
-type TType = { _id: string; name: string; category: string; billetField: string; billetPoints: number }
+type TType = { _id: string; name: string; category: string; billetField: string; billetPoints: number; durationMinutes?: number; server?: string }
 
 type TEvent = {
     _id: string
@@ -15,7 +15,12 @@ type TEvent = {
     description?: string
     scheduledAt: string
     durationMinutes?: number
+    server?: string
+    requiredMods?: string[]
     maxAttendees?: number
+    trainerSlots: number
+    maxTraineeSlots?: number
+    maxSitInSlots?: number
     location?: string
     trainerId: string
     trainerName: string
@@ -24,14 +29,18 @@ type TEvent = {
     approvedByName?: string
     rejectionReason?: string
     completionNotes?: string
-    attendeeCount?: number
+    isJ3Training: boolean
 }
+
+type SlotCounts = { trainer: number; trainee: number; sitIn: number; traineeWaitlist: number; sitInWaitlist: number }
+type MyRsvp = { slotType: string; rsvpStatus: string }
 
 type AttendanceRecord = {
     _id: string
     eventId: string
     memberId: string
     memberName: string
+    slotType?: string
     rsvpStatus: 'attending' | 'not_attending' | 'waitlist'
     attended?: boolean
     qualificationAwarded?: boolean
@@ -43,21 +52,39 @@ type SubmitForm = {
     description: string
     scheduledAt: string
     durationMinutes: number
+    server: string
+    requiredModsRaw: string
     location: string
+    trainerSlots: number
+    maxTraineeSlots: string
+    maxSitInSlots: string
+    isJ3Training: boolean
 }
 
 type EditForm = SubmitForm & { id: string }
 
-const STATUS_COLORS: Record<string, string> = {
+const APPROVAL_COLORS: Record<string, string> = {
     pending: 'rgba(255,200,50,0.75)',
     approved: 'rgba(80,200,120,0.8)',
     rejected: 'rgba(219,0,29,0.8)',
 }
 
-const STATUS_LABELS: Record<string, string> = {
+const APPROVAL_LABELS: Record<string, string> = {
     pending: 'Pending Approval',
     approved: 'Approved',
     rejected: 'Rejected',
+}
+
+const SLOT_COLORS: Record<string, string> = {
+    trainer: 'rgba(219,0,29,0.7)',
+    trainee: 'rgba(80,200,120,0.7)',
+    'sit-in': 'rgba(120,160,220,0.7)',
+}
+
+const SLOT_LABELS: Record<string, string> = {
+    trainer: 'Trainer',
+    trainee: 'Trainee',
+    'sit-in': 'Sit-In',
 }
 
 function fmt(iso: string) {
@@ -98,14 +125,25 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     )
 }
 
-function EventCard({ event, isJ3Lead, isTrainer, myId, myRsvp, rsvpCount, onRsvp, rsvping, isTrainerOfThis, onViewAttendance, attendanceExpanded, onApprove, onRejectOpen, onCancel, onEdit, onComplete }: {
+function SlotPill({ slotType, rsvpStatus }: { slotType: string; rsvpStatus: string }) {
+    const color = SLOT_COLORS[slotType] ?? 'rgba(237,237,237,0.4)'
+    return (
+        <span style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color, border: `1px solid ${color.replace('0.7', '0.3')}`, padding: '2px 6px', flexShrink: 0 }}>
+            {SLOT_LABELS[slotType] ?? slotType}{rsvpStatus === 'waitlist' ? ' (Waitlist)' : ''}
+        </span>
+    )
+}
+
+function EventCard({ event, isJ3Lead, isTrainer, isJ3Trainer, myId, myRsvp, slotCounts, onRsvp, onCancelRsvp, rsvping, isTrainerOfThis, onViewAttendance, attendanceExpanded, onApprove, onRejectOpen, onCancel, onEdit, onComplete }: {
     event: TEvent
     isJ3Lead: boolean
     isTrainer: boolean
+    isJ3Trainer: boolean
     myId: string
-    myRsvp?: string
-    rsvpCount?: { attending: number; waitlist: number }
-    onRsvp?: (status: 'attending' | 'not_attending') => void
+    myRsvp?: MyRsvp
+    slotCounts?: SlotCounts
+    onRsvp?: (slotType: string) => void
+    onCancelRsvp?: () => void
     rsvping?: boolean
     isTrainerOfThis?: boolean
     onViewAttendance?: () => void
@@ -119,6 +157,9 @@ function EventCard({ event, isJ3Lead, isTrainer, myId, myRsvp, rsvpCount, onRsvp
     const isOwn = event.trainerId === myId
     const isPending = event.approvalStatus === 'pending'
     const isCancelled = event.status === 'Cancelled'
+    const isScheduled = event.approvalStatus === 'approved' && event.status === 'Scheduled'
+    const hasRsvp = myRsvp && myRsvp.rsvpStatus !== 'not_attending'
+    const sc = slotCounts ?? { trainer: 0, trainee: 0, sitIn: 0, traineeWaitlist: 0, sitInWaitlist: 0 }
 
     return (
         <div style={{
@@ -137,15 +178,20 @@ function EventCard({ event, isJ3Lead, isTrainer, myId, myRsvp, rsvpCount, onRsvp
                         <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', border: '1px solid rgba(219,0,29,0.25)', padding: '2px 7px', flexShrink: 0 }}>
                             {event.trainingTypeName}
                         </span>
-                        <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: STATUS_COLORS[event.approvalStatus], flexShrink: 0 }}>
-                            {isCancelled ? 'Cancelled' : STATUS_LABELS[event.approvalStatus]}
+                        <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: APPROVAL_COLORS[event.approvalStatus], flexShrink: 0 }}>
+                            {isCancelled ? 'Cancelled' : APPROVAL_LABELS[event.approvalStatus]}
                         </span>
+                        {!event.isJ3Training && (
+                            <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(120,160,220,0.7)', border: '1px solid rgba(120,160,220,0.25)', padding: '2px 5px', flexShrink: 0 }}>
+                                All Staff
+                            </span>
+                        )}
                     </div>
                     <div style={{ fontSize: '0.9rem', fontWeight: 800, letterSpacing: '0.03em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)', lineHeight: 1.3 }}>
                         {event.title}
                     </div>
                 </div>
-                {/* J3 lead approve/reject controls on pending */}
+                {/* J3 lead approve/reject controls */}
                 {isJ3Lead && isPending && !isCancelled && (
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <button type='button' onClick={onApprove}
@@ -158,7 +204,7 @@ function EventCard({ event, isJ3Lead, isTrainer, myId, myRsvp, rsvpCount, onRsvp
                         </button>
                     </div>
                 )}
-                {/* Trainer controls on own events */}
+                {/* Trainer: edit/cancel pending own events */}
                 {isTrainer && isOwn && !isCancelled && (
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         {isPending && (
@@ -188,7 +234,7 @@ function EventCard({ event, isJ3Lead, isTrainer, myId, myRsvp, rsvpCount, onRsvp
                         </button>
                     </div>
                 )}
-                {/* Trainer can also mark their own approved+Scheduled event complete */}
+                {/* Trainer can mark their own approved+Scheduled event complete */}
                 {!isJ3Lead && isTrainer && isOwn && !isPending && !isCancelled && event.status === 'Scheduled' && (
                     <button type='button' onClick={onComplete}
                         style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: 'rgba(80,200,120,0.08)', border: '1px solid rgba(80,200,120,0.25)', color: 'rgba(80,200,120,0.7)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0 }}>
@@ -204,9 +250,17 @@ function EventCard({ event, isJ3Lead, isTrainer, myId, myRsvp, rsvpCount, onRsvp
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)' }}>
                 <span><span style={{ color: 'rgba(237,237,237,0.22)', marginRight: 4 }}>Date</span>{fmt(event.scheduledAt)}</span>
                 {event.durationMinutes && <span><span style={{ color: 'rgba(237,237,237,0.22)', marginRight: 4 }}>Duration</span>{event.durationMinutes}m</span>}
+                {event.server && <span><span style={{ color: 'rgba(237,237,237,0.22)', marginRight: 4 }}>Server</span>{event.server}</span>}
                 {event.location && <span><span style={{ color: 'rgba(237,237,237,0.22)', marginRight: 4 }}>Location</span>{event.location}</span>}
                 <span><span style={{ color: 'rgba(237,237,237,0.22)', marginRight: 4 }}>Trainer</span>{event.trainerName}</span>
             </div>
+
+            {event.requiredMods && event.requiredMods.length > 0 && (
+                <div style={{ fontSize: '0.62rem', color: 'rgba(255,180,50,0.6)', letterSpacing: '0.04em' }}>
+                    <span style={{ color: 'rgba(237,237,237,0.22)', marginRight: 4 }}>Required Mods:</span>
+                    {event.requiredMods.join(', ')}
+                </div>
+            )}
 
             {event.approvalStatus === 'rejected' && event.rejectionReason && (
                 <div style={{ fontSize: '0.68rem', color: 'rgba(219,0,29,0.7)', borderLeft: '2px solid rgba(219,0,29,0.3)', paddingLeft: 8, marginTop: 2 }}>
@@ -219,35 +273,57 @@ function EventCard({ event, isJ3Lead, isTrainer, myId, myRsvp, rsvpCount, onRsvp
                 </div>
             )}
 
-            {/* RSVP section — approved+Scheduled events only */}
-            {event.approvalStatus === 'approved' && event.status === 'Scheduled' && onRsvp && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.06em' }}>
-                        {rsvpCount ? `${rsvpCount.attending} attending${rsvpCount.waitlist ? ` · ${rsvpCount.waitlist} waitlisted` : ''}` : ''}
+            {/* Slot-based RSVP — approved+Scheduled events */}
+            {isScheduled && onRsvp && (
+                <div style={{ marginTop: 4, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {/* Slot counts */}
+                    <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.6rem', color: 'rgba(219,0,29,0.55)', letterSpacing: '0.06em' }}>
+                            Trainers: {sc.trainer}/{event.trainerSlots ?? 1}
+                        </span>
+                        <span style={{ fontSize: '0.6rem', color: 'rgba(80,200,120,0.55)', letterSpacing: '0.06em' }}>
+                            Trainees: {sc.trainee}{event.maxTraineeSlots ? `/${event.maxTraineeSlots}` : ''}{sc.traineeWaitlist > 0 ? ` (+${sc.traineeWaitlist} waitlist)` : ''}
+                        </span>
+                        <span style={{ fontSize: '0.6rem', color: 'rgba(120,160,220,0.55)', letterSpacing: '0.06em' }}>
+                            Sit-Ins: {sc.sitIn}{event.maxSitInSlots ? `/${event.maxSitInSlots}` : ''}{sc.sitInWaitlist > 0 ? ` (+${sc.sitInWaitlist} waitlist)` : ''}
+                        </span>
                     </div>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                        <button type='button'
-                            onClick={() => onRsvp('attending')}
-                            disabled={!!rsvping}
-                            style={{ padding: '4px 12px', background: myRsvp === 'attending' ? 'rgba(80,200,120,0.15)' : myRsvp === 'waitlist' ? 'rgba(255,200,50,0.1)' : 'transparent', border: `1px solid ${myRsvp === 'attending' ? 'rgba(80,200,120,0.4)' : myRsvp === 'waitlist' ? 'rgba(255,200,50,0.3)' : 'rgba(255,255,255,0.1)'}`, color: myRsvp === 'attending' ? 'rgba(80,200,120,0.9)' : myRsvp === 'waitlist' ? 'rgba(255,200,50,0.8)' : 'rgba(237,237,237,0.4)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: rsvping ? 'default' : 'pointer', opacity: rsvping ? 0.5 : 1 }}>
-                            {myRsvp === 'attending' ? '✓ Attending' : myRsvp === 'waitlist' ? '⏳ Waitlisted' : 'Attend'}
-                        </button>
-                        {myRsvp && myRsvp !== 'not_attending' && (
-                            <button type='button'
-                                onClick={() => onRsvp('not_attending')}
-                                disabled={!!rsvping}
-                                style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.25)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: rsvping ? 'default' : 'pointer', opacity: rsvping ? 0.5 : 1 }}>
-                                Cancel
+
+                    {/* My current RSVP */}
+                    {hasRsvp ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <SlotPill slotType={myRsvp!.slotType} rsvpStatus={myRsvp!.rsvpStatus} />
+                            <button type='button' onClick={onCancelRsvp} disabled={!!rsvping}
+                                style={{ padding: '3px 9px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.3)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: rsvping ? 'default' : 'pointer', opacity: rsvping ? 0.5 : 1 }}>
+                                Cancel RSVP
                             </button>
-                        )}
-                    </div>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {/* Trainer slot — J3 trainers only, and only if slots available */}
+                            {isJ3Trainer && sc.trainer < (event.trainerSlots ?? 1) && (
+                                <button type='button' onClick={() => onRsvp('trainer')} disabled={!!rsvping}
+                                    style={{ padding: '4px 12px', background: 'rgba(219,0,29,0.1)', border: '1px solid rgba(219,0,29,0.3)', color: 'rgba(219,0,29,0.7)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: rsvping ? 'default' : 'pointer', opacity: rsvping ? 0.5 : 1 }}>
+                                    Join as Trainer
+                                </button>
+                            )}
+                            <button type='button' onClick={() => onRsvp('trainee')} disabled={!!rsvping}
+                                style={{ padding: '4px 12px', background: 'rgba(80,200,120,0.1)', border: '1px solid rgba(80,200,120,0.25)', color: 'rgba(80,200,120,0.75)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: rsvping ? 'default' : 'pointer', opacity: rsvping ? 0.5 : 1 }}>
+                                Attend{event.maxTraineeSlots && sc.trainee >= event.maxTraineeSlots ? ' (Waitlist)' : ''}
+                            </button>
+                            <button type='button' onClick={() => onRsvp('sit-in')} disabled={!!rsvping}
+                                style={{ padding: '4px 12px', background: 'rgba(120,160,220,0.08)', border: '1px solid rgba(120,160,220,0.2)', color: 'rgba(120,160,220,0.7)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: rsvping ? 'default' : 'pointer', opacity: rsvping ? 0.5 : 1 }}>
+                                Sit In{event.maxSitInSlots && sc.sitIn >= event.maxSitInSlots ? ' (Waitlist)' : ''}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* Attendance button for trainer/J3 lead */}
             {isTrainerOfThis && event.approvalStatus === 'approved' && onViewAttendance && (
                 <button type='button' onClick={onViewAttendance}
-                    style={{ marginTop: 8, padding: '5px 12px', background: attendanceExpanded ? 'rgba(255,255,255,0.06)' : 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.45)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', alignSelf: 'flex-start' }}>
+                    style={{ marginTop: 4, padding: '5px 12px', background: attendanceExpanded ? 'rgba(255,255,255,0.06)' : 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.45)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', alignSelf: 'flex-start' }}>
                     {attendanceExpanded ? '▲ Hide Attendance' : '▼ Attendance List'}
                 </button>
             )}
@@ -255,15 +331,15 @@ function EventCard({ event, isJ3Lead, isTrainer, myId, myRsvp, rsvpCount, onRsvp
     )
 }
 
-export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; isTrainer: boolean }) {
+export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Lead: boolean; isTrainer: boolean; isJ3Trainer: boolean }) {
     const [events, setEvents] = useState<TEvent[]>([])
     const [types, setTypes] = useState<TType[]>([])
     const [loading, setLoading] = useState(true)
     const [myId, setMyId] = useState('')
 
-    // RSVP state
-    const [rsvpCounts, setRsvpCounts] = useState<Record<string, { attending: number; waitlist: number }>>({})
-    const [myRsvps, setMyRsvps] = useState<Record<string, string>>({})
+    // Slot / RSVP state
+    const [slotCounts, setSlotCounts] = useState<Record<string, SlotCounts>>({})
+    const [myRsvps, setMyRsvps] = useState<Record<string, MyRsvp>>({})
     const [rsvpingId, setRsvpingId] = useState<string | null>(null)
 
     // Attendance state
@@ -275,26 +351,19 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
 
     // Submit / edit form
     const [showSubmit, setShowSubmit] = useState(false)
-    const [submitForm, setSubmitForm] = useState<SubmitForm>({ trainingTypeId: '', title: '', description: '', scheduledAt: localDatetimeValue(), durationMinutes: 60, location: '' })
+    const [submitForm, setSubmitForm] = useState<SubmitForm>({ trainingTypeId: '', title: '', description: '', scheduledAt: localDatetimeValue(), durationMinutes: 60, server: '', requiredModsRaw: '', location: '', trainerSlots: 1, maxTraineeSlots: '', maxSitInSlots: '', isJ3Training: isJ3Trainer })
     const [editForm, setEditForm] = useState<EditForm | null>(null)
     const [submitting, setSubmitting] = useState(false)
 
-    // Reject modal
+    // Modals
     const [rejectTargetId, setRejectTargetId] = useState<string | null>(null)
     const [rejectReason, setRejectReason] = useState('')
     const [rejecting, setRejecting] = useState(false)
-
-    // Cancel confirm
     const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null)
     const [cancelling, setCancelling] = useState(false)
-
     const [approvingId, setApprovingId] = useState<string | null>(null)
-
-    // Complete modal
     const [completeModal, setCompleteModal] = useState<{ eventId: string; notes: string } | null>(null)
     const [completing, setCompleting] = useState(false)
-
-    // Qualification award
     const [awardingQualId, setAwardingQualId] = useState<string | null>(null)
     const [qualResults, setQualResults] = useState<Record<string, { awarded: number; certLabel: string | null }>>({})
 
@@ -305,9 +374,9 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
         ]).then(([evData, typeData]) => {
             setEvents(evData.events ?? [])
             setMyId(evData.myId ?? '')
-            setRsvpCounts(evData.rsvpCounts ?? {})
+            setSlotCounts(evData.slotCounts ?? {})
             setMyRsvps(evData.myRsvps ?? {})
-            setTypes((typeData.types ?? []).filter((t: TType & { isActive: boolean }) => t.isActive))
+            setTypes((typeData.types ?? []).filter((t: TType & { isActive: boolean; status: string }) => t.isActive || t.status === 'active'))
             setLoading(false)
         }).catch(() => setLoading(false))
     }, [])
@@ -319,8 +388,14 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
             title: defaultType?.name ?? '',
             description: '',
             scheduledAt: localDatetimeValue(),
-            durationMinutes: 60,
+            durationMinutes: defaultType?.durationMinutes ?? 60,
+            server: defaultType?.server ?? '',
+            requiredModsRaw: '',
             location: '',
+            trainerSlots: 1,
+            maxTraineeSlots: '',
+            maxSitInSlots: '',
+            isJ3Training: isJ3Trainer,
         })
         setShowSubmit(true)
     }
@@ -338,7 +413,13 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
                     description: submitForm.description.trim() || undefined,
                     scheduledAt: new Date(submitForm.scheduledAt).toISOString(),
                     durationMinutes: submitForm.durationMinutes,
+                    server: submitForm.server.trim() || undefined,
+                    requiredMods: submitForm.requiredModsRaw.split(',').map(s => s.trim()).filter(Boolean),
                     location: submitForm.location.trim() || undefined,
+                    trainerSlots: submitForm.trainerSlots,
+                    maxTraineeSlots: submitForm.maxTraineeSlots ? parseInt(submitForm.maxTraineeSlots) || undefined : undefined,
+                    maxSitInSlots: submitForm.maxSitInSlots ? parseInt(submitForm.maxSitInSlots) || undefined : undefined,
+                    isJ3Training: submitForm.isJ3Training,
                 }),
             })
             if (!res.ok) return
@@ -362,7 +443,12 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
                     description: editForm.description.trim() || undefined,
                     scheduledAt: new Date(editForm.scheduledAt).toISOString(),
                     durationMinutes: editForm.durationMinutes,
+                    server: editForm.server.trim() || undefined,
+                    requiredMods: editForm.requiredModsRaw.split(',').map(s => s.trim()).filter(Boolean),
                     location: editForm.location.trim() || undefined,
+                    trainerSlots: editForm.trainerSlots,
+                    maxTraineeSlots: editForm.maxTraineeSlots ? parseInt(editForm.maxTraineeSlots) || undefined : undefined,
+                    maxSitInSlots: editForm.maxSitInSlots ? parseInt(editForm.maxSitInSlots) || undefined : undefined,
                     trainingTypeId: editForm.trainingTypeId,
                 }),
             })
@@ -447,25 +533,48 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
             description: ev.description ?? '',
             scheduledAt: localDatetimeValue(ev.scheduledAt),
             durationMinutes: ev.durationMinutes ?? 60,
+            server: ev.server ?? '',
+            requiredModsRaw: (ev.requiredMods ?? []).join(', '),
             location: ev.location ?? '',
+            trainerSlots: ev.trainerSlots ?? 1,
+            maxTraineeSlots: ev.maxTraineeSlots?.toString() ?? '',
+            maxSitInSlots: ev.maxSitInSlots?.toString() ?? '',
+            isJ3Training: ev.isJ3Training,
         })
     }
 
-    async function handleRsvp(eventId: string, status: 'attending' | 'not_attending') {
+    async function handleRsvp(eventId: string, slotType: string) {
         if (rsvpingId) return
         setRsvpingId(eventId)
         try {
             const res = await fetch(`/api/training/events/${eventId}/attendance`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status }),
+                body: JSON.stringify({ slotType }),
             })
             if (!res.ok) return
             const record = await res.json()
-            setMyRsvps(prev => ({ ...prev, [eventId]: record.rsvpStatus }))
-            // Refresh counts
+            setMyRsvps(prev => ({ ...prev, [eventId]: { slotType: record.slotType ?? slotType, rsvpStatus: record.rsvpStatus } }))
             const refresh = await fetch('/api/training/events').then(r => r.json())
-            setRsvpCounts(refresh.rsvpCounts ?? {})
+            setSlotCounts(refresh.slotCounts ?? {})
+        } finally {
+            setRsvpingId(null)
+        }
+    }
+
+    async function handleCancelRsvp(eventId: string) {
+        if (rsvpingId) return
+        setRsvpingId(eventId)
+        try {
+            const res = await fetch(`/api/training/events/${eventId}/attendance`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cancel: true }),
+            })
+            if (!res.ok) return
+            setMyRsvps(prev => ({ ...prev, [eventId]: { slotType: prev[eventId]?.slotType ?? 'trainee', rsvpStatus: 'not_attending' } }))
+            const refresh = await fetch('/api/training/events').then(r => r.json())
+            setSlotCounts(refresh.slotCounts ?? {})
         } finally {
             setRsvpingId(null)
         }
@@ -481,7 +590,6 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
             if (!res.ok) return
             const data = await res.json()
             setAttendanceData(prev => ({ ...prev, [eventId]: data.records ?? [] }))
-            // Initialise dirty map from existing attended values
             const dirty: Record<string, boolean> = {}
             for (const r of (data.records ?? []) as AttendanceRecord[]) {
                 if (r.rsvpStatus === 'attending') dirty[r.memberId] = r.attended ?? false
@@ -502,7 +610,6 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ updates }),
             })
-            // Refresh the list
             const res = await fetch(`/api/training/events/${eventId}/attendance`)
             if (res.ok) {
                 const data = await res.json()
@@ -521,7 +628,6 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
             if (!res.ok) return
             const data = await res.json()
             setQualResults(prev => ({ ...prev, [eventId]: data }))
-            // Refresh attendance to reflect qualificationAwarded flags
             const aRes = await fetch(`/api/training/events/${eventId}/attendance`)
             if (aRes.ok) {
                 const aData = await aRes.json()
@@ -557,10 +663,12 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
                                     event={ev}
                                     isJ3Lead={isJ3Lead}
                                     isTrainer={isTrainer}
+                                    isJ3Trainer={isJ3Trainer}
                                     myId={myId}
                                     myRsvp={myRsvps[ev._id]}
-                                    rsvpCount={rsvpCounts[ev._id]}
-                                    onRsvp={ev.approvalStatus === 'approved' && ev.status === 'Scheduled' ? (status) => handleRsvp(ev._id, status) : undefined}
+                                    slotCounts={slotCounts[ev._id]}
+                                    onRsvp={ev.approvalStatus === 'approved' && ev.status === 'Scheduled' ? (slotType) => handleRsvp(ev._id, slotType) : undefined}
+                                    onCancelRsvp={() => handleCancelRsvp(ev._id)}
                                     rsvping={rsvpingId === ev._id}
                                     isTrainerOfThis={isJ3Lead || ev.trainerId === myId}
                                     onViewAttendance={() => handleLoadAttendance(ev._id)}
@@ -589,7 +697,8 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
                                                             style={{ accentColor: '#db001d', width: 14, height: 14 }}
                                                         />
                                                         <span style={{ fontSize: '0.72rem', color: r.rsvpStatus === 'waitlist' ? 'rgba(237,237,237,0.35)' : 'rgba(237,237,237,0.7)', flex: 1 }}>{r.memberName}</span>
-                                                        <span style={{ fontSize: '0.55rem', color: r.rsvpStatus === 'waitlist' ? 'rgba(255,200,50,0.6)' : 'rgba(80,200,120,0.5)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{r.rsvpStatus}</span>
+                                                        {r.slotType && <SlotPill slotType={r.slotType} rsvpStatus={r.rsvpStatus} />}
+                                                        {!r.slotType && <span style={{ fontSize: '0.55rem', color: 'rgba(80,200,120,0.5)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{r.rsvpStatus}</span>}
                                                     </div>
                                                 ))}
                                                 <button type='button' onClick={() => handleSaveAttendance(ev._id)} disabled={savingAttendance}
@@ -598,22 +707,17 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
                                                 </button>
                                             </>
                                         )}
-                                        {/* Qualification award — J3 lead, Completed events only */}
                                         {isJ3Lead && ev.status === 'Completed' && (
                                             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
                                                 <div style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)', letterSpacing: '0.06em' }}>
                                                     {qualResults[ev._id] != null
-                                                        ? qualResults[ev._id].awarded === 0
-                                                            ? 'All qualifications already awarded'
-                                                            : `Awarded ${qualResults[ev._id].certLabel ?? 'qualification'} to ${qualResults[ev._id].awarded} member${qualResults[ev._id].awarded !== 1 ? 's' : ''}`
-                                                        : (attendanceData[ev._id] ?? []).some(r => r.attended && !r.qualificationAwarded)
-                                                            ? 'Qualifications not yet awarded'
-                                                            : 'All qualifications awarded'
+                                                        ? qualResults[ev._id].awarded === 0 ? 'All qualifications already awarded' : `Awarded ${qualResults[ev._id].certLabel ?? 'qualification'} to ${qualResults[ev._id].awarded} member${qualResults[ev._id].awarded !== 1 ? 's' : ''}`
+                                                        : (attendanceData[ev._id] ?? []).some(r => r.attended && !r.qualificationAwarded) ? 'Qualifications not yet awarded' : 'All qualifications awarded'
                                                     }
                                                 </div>
                                                 {(qualResults[ev._id] == null || qualResults[ev._id].awarded > 0) && (attendanceData[ev._id] ?? []).some(r => r.attended && !r.qualificationAwarded) && (
                                                     <button type='button' onClick={() => handleAwardQualifications(ev._id)} disabled={awardingQualId === ev._id}
-                                                        style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', background: awardingQualId === ev._id ? 'rgba(80,200,120,0.1)' : 'rgba(80,200,120,0.12)', border: '1px solid rgba(80,200,120,0.3)', color: 'rgba(80,200,120,0.85)', fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: awardingQualId === ev._id ? 'default' : 'pointer' }}>
+                                                        style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', background: 'rgba(80,200,120,0.12)', border: '1px solid rgba(80,200,120,0.3)', color: 'rgba(80,200,120,0.85)', fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: awardingQualId === ev._id ? 'default' : 'pointer' }}>
                                                         <CheckCircle style={{ fontSize: 11 }} /> {awardingQualId === ev._id ? 'Awarding…' : 'Award Qualifications'}
                                                     </button>
                                                 )}
@@ -629,7 +733,7 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
         )
     }
 
-    function renderSubmitModal(
+    function renderEventForm(
         form: SubmitForm | EditForm,
         setForm: (fn: (prev: SubmitForm) => SubmitForm) => void,
         isEdit: boolean,
@@ -641,7 +745,7 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
                 style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
                 onClick={e => { if (e.target === e.currentTarget) onClose() }}
             >
-                <div style={{ background: '#0e0e0e', border: `1px solid rgba(219,0,29,0.25)`, borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 500, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <div style={{ background: '#0e0e0e', border: `1px solid rgba(219,0,29,0.25)`, borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 520, maxHeight: '88vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div>
                         <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>
                             {'//'} {isEdit ? 'EDIT' : 'SUBMIT'} TRAINING REQUEST
@@ -656,7 +760,7 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
                                 <select value={form.trainingTypeId}
                                     onChange={e => {
                                         const t = types.find(t => t._id === e.target.value)
-                                        setForm(prev => ({ ...prev, trainingTypeId: e.target.value, title: t?.name ?? prev.title }))
+                                        setForm(prev => ({ ...prev, trainingTypeId: e.target.value, title: t?.name ?? prev.title, durationMinutes: t?.durationMinutes ?? prev.durationMinutes, server: t?.server ?? prev.server }))
                                     }}
                                     style={{ ...inputStyle, cursor: 'pointer' }}>
                                     <option value=''>Select a course…</option>
@@ -680,14 +784,51 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
                                     style={{ ...inputStyle, width: 80 }} />
                             </Field>
                         </div>
-                        <Field label='Location'>
-                            <input value={form.location} onChange={e => setForm(prev => ({ ...prev, location: e.target.value }))}
-                                placeholder='e.g. TeamSpeak — J3 Training Channel' style={inputStyle} />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <Field label='Server'>
+                                <input value={form.server} onChange={e => setForm(prev => ({ ...prev, server: e.target.value }))}
+                                    placeholder='e.g. Training Server' style={inputStyle} />
+                            </Field>
+                            <Field label='Location'>
+                                <input value={form.location} onChange={e => setForm(prev => ({ ...prev, location: e.target.value }))}
+                                    placeholder='e.g. TS — J3 Channel' style={inputStyle} />
+                            </Field>
+                        </div>
+                        <Field label='Required Mods (comma-separated)'>
+                            <input value={form.requiredModsRaw} onChange={e => setForm(prev => ({ ...prev, requiredModsRaw: e.target.value }))}
+                                placeholder='e.g. ACE, TFAR' style={inputStyle} />
                         </Field>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                            <Field label='Trainer Slots'>
+                                <input type='number' min={1} step={1} value={form.trainerSlots}
+                                    onChange={e => setForm(prev => ({ ...prev, trainerSlots: Math.max(1, parseInt(e.target.value) || 1) }))}
+                                    style={inputStyle} />
+                            </Field>
+                            <Field label='Max Trainees'>
+                                <input type='number' min={1} step={1} value={form.maxTraineeSlots}
+                                    onChange={e => setForm(prev => ({ ...prev, maxTraineeSlots: e.target.value }))}
+                                    placeholder='Unlimited' style={inputStyle} />
+                            </Field>
+                            <Field label='Max Sit-Ins'>
+                                <input type='number' min={1} step={1} value={form.maxSitInSlots}
+                                    onChange={e => setForm(prev => ({ ...prev, maxSitInSlots: e.target.value }))}
+                                    placeholder='Unlimited' style={inputStyle} />
+                            </Field>
+                        </div>
                         <Field label='Description'>
                             <input value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
                                 placeholder='Any additional info for attendees (optional)' style={inputStyle} />
                         </Field>
+                        {isJ3Trainer && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <input type='checkbox' id='isJ3Training' checked={form.isJ3Training}
+                                    onChange={e => setForm(prev => ({ ...prev, isJ3Training: e.target.checked }))}
+                                    style={{ accentColor: RED, width: 14, height: 14 }} />
+                                <label htmlFor='isJ3Training' style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.5)', cursor: 'pointer' }}>
+                                    J3 Training (awards J3 billet points; uncheck for All Staff events)
+                                </label>
+                            </div>
+                        )}
                     </div>
                     <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
                         <button type='button' onClick={onClose}
@@ -707,7 +848,6 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32, padding: 'clamp(1.5rem, 3vw, 2.5rem)', paddingTop: 24 }}>
-            {/* Toolbar */}
             {canSubmit && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <button type='button' onClick={openSubmit}
@@ -728,30 +868,13 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
                 </div>
             )}
 
-            {/* Submit modal */}
-            {showSubmit && renderSubmitModal(
-                submitForm,
-                fn => setSubmitForm(prev => fn(prev)),
-                false,
-                () => setShowSubmit(false),
-                handleSubmit,
-            )}
-
-            {/* Edit modal */}
-            {editForm && renderSubmitModal(
-                editForm,
-                fn => setEditForm(prev => prev ? { ...fn(prev as SubmitForm), id: prev.id } : null),
-                true,
-                () => setEditForm(null),
-                handleEdit,
-            )}
+            {showSubmit && renderEventForm(submitForm, fn => setSubmitForm(prev => fn(prev)), false, () => setShowSubmit(false), handleSubmit)}
+            {editForm && renderEventForm(editForm, fn => setEditForm(prev => prev ? { ...fn(prev as SubmitForm), id: prev.id } : null), true, () => setEditForm(null), handleEdit)}
 
             {/* Reject modal */}
             {rejectTargetId && (
-                <div
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-                    onClick={e => { if (e.target === e.currentTarget) { setRejectTargetId(null); setRejectReason('') } }}
-                >
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                    onClick={e => { if (e.target === e.currentTarget) { setRejectTargetId(null); setRejectReason('') } }}>
                     <div style={{ background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.25)', borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div>
                             <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>{'//'} REJECT REQUEST</div>
@@ -759,8 +882,7 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
                         </div>
                         <Field label='Reason (optional)'>
                             <input value={rejectReason} onChange={e => setRejectReason(e.target.value)} autoFocus
-                                placeholder='e.g. Scheduling conflict — please resubmit for next week'
-                                style={inputStyle} />
+                                placeholder='e.g. Scheduling conflict — please resubmit for next week' style={inputStyle} />
                         </Field>
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                             <button type='button' onClick={() => { setRejectTargetId(null); setRejectReason('') }}
@@ -778,15 +900,13 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
 
             {/* Complete modal */}
             {completeModal && (
-                <div
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-                    onClick={e => { if (e.target === e.currentTarget) setCompleteModal(null) }}
-                >
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                    onClick={e => { if (e.target === e.currentTarget) setCompleteModal(null) }}>
                     <div style={{ background: '#0e0e0e', border: '1px solid rgba(80,200,120,0.2)', borderTop: '3px solid rgba(80,200,120,0.6)', padding: 28, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div>
                             <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(80,200,120,0.6)', marginBottom: 6 }}>{'//'} MARK COMPLETE</div>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Mark Session Complete</h3>
-                            <p style={{ margin: '10px 0 0', fontSize: '0.73rem', color: 'rgba(237,237,237,0.4)' }}>Billet points will be automatically awarded to the trainer and a J4 task will be created to confirm the award in the Master Sheet.</p>
+                            <p style={{ margin: '10px 0 0', fontSize: '0.73rem', color: 'rgba(237,237,237,0.4)' }}>A Training Ticket will be generated for J3 review. Billet points and qualifications are awarded after J3 approves the ticket.</p>
                         </div>
                         <div>
                             <label style={{ display: 'block', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>
@@ -795,8 +915,7 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
                             <input value={completeModal.notes}
                                 onChange={e => setCompleteModal(m => m && ({ ...m, notes: e.target.value }))}
                                 placeholder='Any notes on how the session went'
-                                autoFocus
-                                style={inputStyle} />
+                                autoFocus style={inputStyle} />
                         </div>
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                             <button type='button' onClick={() => setCompleteModal(null)}
@@ -814,10 +933,8 @@ export default function EventsTab({ isJ3Lead, isTrainer }: { isJ3Lead: boolean; 
 
             {/* Cancel confirm */}
             {cancelConfirmId && (
-                <div
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-                    onClick={e => { if (e.target === e.currentTarget) setCancelConfirmId(null) }}
-                >
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                    onClick={e => { if (e.target === e.currentTarget) setCancelConfirmId(null) }}>
                     <div style={{ background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.25)', borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div>
                             <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>{'//'} CANCEL EVENT</div>

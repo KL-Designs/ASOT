@@ -54,6 +54,14 @@ type NotificationType =
     | 'training_doc_approved'           // Trainer: your submitted document was approved
     | 'training_doc_rejected'           // Trainer: your submitted document was rejected
     | 'training_qualification_awarded'  // Member: qualification added to milpac
+    | 'training_reminder'               // Member: 60-min or 15-min reminder before training event
+    | 'training_ticket_pending'         // J3 leads: new ticket needs review
+    | 'training_ticket_approved'        // Trainer: ticket approved, billet points awarded
+    | 'training_ticket_rejected'        // Trainer: ticket rejected
+    | 'training_ticket_amendments'      // Trainer: amendments requested on ticket
+    | 'training_request_submitted'      // J3 leads: new training request from member
+    | 'training_request_approved'       // Requester: training request approved
+    | 'training_request_rejected'       // Requester: training request rejected
     | 'system'
 
 type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check'

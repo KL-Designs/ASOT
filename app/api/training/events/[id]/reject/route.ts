@@ -5,6 +5,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { createNotification } from '@/lib/notifications'
 import { sendTrainingRejectedDM } from '@/lib/discord/bot'
+import { logAction } from '@/lib/logAction'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
@@ -38,6 +39,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         sendTrainingRejectedDM(event.trainerId, event.title, reason, '/dashboard/unit/training-docs')
             .catch(err => console.error('[training/reject] DM failed:', err)),
     ])
+
+    const rejectorName = me.guild?.displayName ?? me.username
+    logAction({
+        action: 'training.event.reject',
+        category: 'training',
+        performedBy: me.id,
+        performedByName: rejectorName,
+        department: 'j3',
+        entityType: 'training_event',
+        entityId: id,
+        actionUrl: '/dashboard/unit/training-docs',
+        target: event.title,
+        details: reason ? { reason } : undefined,
+    }).catch(console.error)
 
     const updated = await Db.trainingEvents.findOne({ _id: new ObjectId(id) })
     return NextResponse.json(updated)
