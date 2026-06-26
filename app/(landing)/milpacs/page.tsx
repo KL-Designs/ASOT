@@ -16,6 +16,7 @@ import Db from '@/lib/mongo'
 
 import Card from './card'
 import MilpacsNav from './nav'
+import WipPage from '@/components/wip-page'
 
 
 
@@ -31,6 +32,8 @@ function hexToRgb(hex: string): string {
 }
 
 export default async function Page() {
+
+	if (process.env.WIP_PAGES === 'true') return <WipPage />
 
 	await connection()
 
