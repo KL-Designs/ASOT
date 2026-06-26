@@ -96,7 +96,7 @@ export default function TrainingImportTab() {
             {/* Toolbar */}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>
-                    // TRAINING IMPORT RECORDS
+                    {'// TRAINING IMPORT RECORDS'}
                 </span>
                 <div style={{ flex: 1 }} />
                 <button
