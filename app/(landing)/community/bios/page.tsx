@@ -13,9 +13,12 @@ import Container from '@/components/container'
 import BannerImg from '@/public/images/home/VicPose2.png'
 import { getOrbatEntriesForUsers } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
+import WipPage from '@/components/wip-page'
 
 
 export default async function Page() {
+
+    if (process.env.NODE_ENV !== 'production') return <WipPage />
 
     await connection()
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import styles from './memorial.module.css'
 import { AWARD_TO_CITATION, QUAL_TO_BADGE } from '@/lib/milpac-gen/maps'
+import WipPage from '@/components/wip-page'
 
 interface WallMember {
     _id: string
@@ -485,6 +486,8 @@ export default function RetiredMembersPage() {
             </>
         )
     }
+
+    if (process.env.NODE_ENV !== 'production') return <WipPage />
 
     return (
         /* ── Viewport ── */
