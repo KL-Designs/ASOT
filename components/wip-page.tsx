@@ -23,7 +23,7 @@ export default function WipPage() {
                     border: '1px solid rgba(219,0,29,0.4)',
                     padding: '0.25rem 0.75rem',
                 }}>
-                    Dev Build Only
+                    Work in Progress
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%' }}>

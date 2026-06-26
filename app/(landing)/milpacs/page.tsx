@@ -33,7 +33,7 @@ function hexToRgb(hex: string): string {
 
 export default async function Page() {
 
-	if (process.env.NODE_ENV !== 'production') return <WipPage />
+	if (process.env.WIP_PAGES === 'true') return <WipPage />
 
 	await connection()
 
