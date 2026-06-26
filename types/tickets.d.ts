@@ -1,6 +1,6 @@
 interface Ticket {
     _id?: import('mongodb').ObjectId
-    type: 'j3-qualification' | 'j4-award' | 'j3-promotion' | 'move-request' | 'j4-discharge' | 'discipline' | 'department-membership' | 'performance-report'
+    type: 'j3-qualification' | 'j4-award' | 'j3-promotion' | 'move-request' | 'j4-discharge' | 'discipline' | 'department-membership' | 'performance-report' | 'j3-training'
     department: 'j3' | 'j4' | 'allstaff' | 'j1' | 'j2' | 'j6' | 'j7'
     status: 'open' | 'actioned' | 'rejected'
     targetUserId: string

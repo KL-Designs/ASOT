@@ -27,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         }
     }
 
-    const docs = await Db.trainingHubDocs.find(base).sort({ createdAt: 1 }).toArray()
+    const docs = await Db.trainingTypeDocs.find(base).sort({ createdAt: 1 }).toArray()
     return NextResponse.json({ docs })
 }
 
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const uploaderName = me.guild?.displayName ?? me.username
     const approvalStatus = isJ3Lead ? 'approved' : 'pending'
 
-    const result = await Db.trainingHubDocs.insertOne({
+    const result = await Db.trainingTypeDocs.insertOne({
         trainingTypeId: id,
         title: title.trim(),
         url: url.trim(),
@@ -81,6 +81,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         ))
     }
 
-    const created = await Db.trainingHubDocs.findOne({ _id: result.insertedId })
+    const created = await Db.trainingTypeDocs.findOne({ _id: result.insertedId })
     return NextResponse.json(created, { status: 201 })
 }

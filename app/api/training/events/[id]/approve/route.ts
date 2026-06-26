@@ -5,6 +5,8 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { createNotification } from '@/lib/notifications'
 import { sendTrainingApprovedDM } from '@/lib/discord/bot'
+import { logAction } from '@/lib/logAction'
+import { scheduleTrainingReminders } from '@/lib/training/scheduleReminders'
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
@@ -51,6 +53,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         }
     )
 
+    // Schedule 60-min and 15-min reminders for this event
+    scheduleTrainingReminders(id, event.title, event.scheduledAt).catch(console.error)
+
     const scheduledStr = event.scheduledAt.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
     await Promise.all([
         createNotification({
@@ -64,6 +69,18 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         sendTrainingApprovedDM(event.trainerId, event.title, scheduledStr, '/dashboard/unit/training-docs')
             .catch(err => console.error('[training/approve] DM failed:', err)),
     ])
+
+    logAction({
+        action: 'training.event.approve',
+        category: 'training',
+        performedBy: me.id,
+        performedByName: approverName,
+        department: 'j3',
+        entityType: 'training_event',
+        entityId: id,
+        actionUrl: '/dashboard/unit/training-docs',
+        target: event.title,
+    }).catch(console.error)
 
     const updated = await Db.trainingEvents.findOne({ _id: new ObjectId(id) })
     return NextResponse.json(updated)

@@ -253,7 +253,7 @@ select option {
     font-size: 0.92rem;
     line-height: 1.75;
     outline: none;
-    min-height: 500px;
+    min-height: 80px;
     padding: 36px 48px;
 }
 

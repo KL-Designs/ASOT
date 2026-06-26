@@ -587,6 +587,15 @@ const PERMISSIONS = {
         create: ['J3 - Training', 'All Staff'],
 
         /**
+         * Fill a Trainer slot on a training event (J3 staff only, not All Staff).
+         * Used to gate trainer-slot RSVP in the event sign-up flow.
+         *
+         * Used by:
+         *  - `app/api/training/events/[id]/rsvp/route.ts` (slotType === 'trainer')
+         */
+        trainer: ['J3 - Training', 'J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
+
+        /**
          * Approve or reject training event requests, mark sessions complete,
          * and manage training type definitions.
          * J3 department leads only.

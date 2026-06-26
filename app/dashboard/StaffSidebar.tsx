@@ -509,12 +509,14 @@ export default function StaffSidebar({
                 {
                     label: '[J3] Training', href: '/dashboard/j3', visible: permissions.canSeeJ3, icon: <School sx={{ fontSize: 14 }} />,
                     tabs: [
-                        { label: 'Qual Tickets',      tab: 0 },
-                        { label: 'Promo Tickets',     tab: 1 },
-                        { label: 'Training Sched',    tab: 2 },
+                        { label: 'Training Hub',      tab: 0 },
+                        { label: 'Training Tickets',  tab: 1 },
+                        { label: 'Training Calendar', tab: 2 },
                         { label: 'Training Records',  tab: 3 },
                         { label: 'Meetings',          tab: 4 },
                         { label: 'Tickets',           tab: 5 },
+                        { label: 'Master Sheet',      tab: 6 },
+                        { label: 'CSV Import',        tab: 7 },
                     ],
                 },
                 {
@@ -566,8 +568,9 @@ export default function StaffSidebar({
             label: 'Unit',
             items: [
                 { label: 'ORBAT',         href: '/dashboard/orbat',              visible: permissions.canSeeOrbat, icon: <AccountTree sx={{ fontSize: 14 }} /> },
-                { label: 'Calendar',      href: '/dashboard/unit/calendar',      visible: true,                    icon: <CalendarMonth sx={{ fontSize: 14 }} /> },
-                { label: 'Training Docs', href: '/dashboard/unit/training-docs', visible: true,                    icon: <MenuBook sx={{ fontSize: 14 }} /> },
+                { label: 'Calendar',        href: '/dashboard/unit/calendar',             visible: true,                    icon: <CalendarMonth sx={{ fontSize: 14 }} /> },
+                { label: 'Staff Calendar',  href: '/dashboard/unit/allstaff-calendar',     visible: permissions.isStaff,     icon: <CalendarMonth sx={{ fontSize: 14 }} /> },
+                { label: 'Training Hub',    href: '/dashboard/unit/training-docs',         visible: true,                    icon: <MenuBook sx={{ fontSize: 14 }} /> },
                 { label: 'SOPs',          href: '/dashboard/unit/sops',          visible: true,                    icon: <Policy sx={{ fontSize: 14 }} /> },
                 { label: 'Tickets',       href: '/tickets',                     visible: true,                    icon: <ConfirmationNumber sx={{ fontSize: 14 }} /> },
                 { label: 'Tasks',         href: '/dashboard/tasks',              visible: permissions.isStaff,     icon: <TaskAlt sx={{ fontSize: 14 }} /> },

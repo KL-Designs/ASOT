@@ -13,14 +13,14 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const { id, docId } = await params
     if (!ObjectId.isValid(id) || !ObjectId.isValid(docId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
-    const doc = await Db.trainingHubDocs.findOne({ _id: new ObjectId(docId), trainingTypeId: id, deletedAt: { $exists: false } })
+    const doc = await Db.trainingTypeDocs.findOne({ _id: new ObjectId(docId), trainingTypeId: id, deletedAt: { $exists: false } })
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (doc.approvalStatus !== 'pending') return NextResponse.json({ error: 'Document is not pending' }, { status: 400 })
 
     const approverName = me.guild?.displayName ?? me.username
     const now = new Date()
 
-    await Db.trainingHubDocs.updateOne(
+    await Db.trainingTypeDocs.updateOne(
         { _id: new ObjectId(docId) },
         { $set: { approvalStatus: 'approved', approvedById: me.id, approvedByName: approverName, approvedAt: now, updatedAt: now } }
     )
@@ -36,6 +36,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         relatedId: docId,
     }).catch(console.error)
 
-    const updated = await Db.trainingHubDocs.findOne({ _id: new ObjectId(docId) })
+    const updated = await Db.trainingTypeDocs.findOne({ _id: new ObjectId(docId) })
     return NextResponse.json(updated)
 }

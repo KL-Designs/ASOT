@@ -6,6 +6,8 @@ interface CalendarEvent {
     end: Date
     allDay?: boolean
     department: 'j1' | 'j2' | 'j3' | 'j4' | 'j6' | 'j7' | 'unit'
+    isPrivate?: boolean                   // if true, only visible to createdById
+    templateTrainingTypeId?: string       // set if created from a J3 training type template
     createdById: string
     createdByName: string
     createdAt: Date

@@ -1,17 +1,30 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Add, CheckCircle, Cancel, Delete, Edit, Refresh, Visibility, VisibilityOff } from '@mui/icons-material'
+import { Add, CheckCircle, Cancel, Delete, Edit, Refresh, Visibility, VisibilityOff, DragIndicator } from '@mui/icons-material'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import EventsTab from './EventsTab'
+import RequestsTab from './RequestsTab'
 
 const RED = '#db001d'
-type Tab = 'courses' | 'events'
+type Tab = 'courses' | 'events' | 'requests'
 
 const CATEGORY_ORDER = ['BCT', 'Medical', 'CQB', 'Fires', 'Aviation', 'Communications', 'Leadership', 'Special', 'Armoured', 'Proficiency']
 
 const BILLET_LABELS: Record<string, string> = {
     j3Bct12: 'BCT',
     j3OtherTrainings: 'Other Training',
+}
+
+type TypeStatus = 'active' | 'wip' | 'inactive'
+
+const STATUS_CFG: Record<TypeStatus, { label: string; color: string; border: string; topBorder: string; cardBorder: string; opacity: number }> = {
+    active:   { label: 'Enabled',  color: 'rgba(80,200,120,0.9)',  border: 'rgba(80,200,120,0.35)', topBorder: 'rgba(80,200,120,0.55)',  cardBorder: 'rgba(80,200,120,0.18)', opacity: 1 },
+    wip:      { label: 'WIP',      color: 'rgba(255,180,50,0.9)',  border: 'rgba(255,180,50,0.35)', topBorder: 'rgba(255,180,50,0.55)',  cardBorder: 'rgba(255,180,50,0.18)', opacity: 1 },
+    inactive: { label: 'Disabled', color: 'rgba(237,237,237,0.3)', border: 'rgba(255,255,255,0.1)', topBorder: 'rgba(255,255,255,0.12)', cardBorder: 'rgba(255,255,255,0.06)', opacity: 0.45 },
 }
 
 type TType = {
@@ -21,7 +34,19 @@ type TType = {
     billetField: string
     billetPoints: number
     description?: string
+    status: TypeStatus
     isActive: boolean
+    durationMinutes?: number
+    server?: string
+    requiredMods?: string[]
+    prerequisites?: string[]
+    minTrainers?: number
+    minTrainees?: number
+    trainerDocUrl?: string
+    infoDocUrl?: string
+    coverImageUrl?: string
+    linkedMedia?: { type: 'video' | 'file' | 'url'; label: string; url: string }[]
+    sortOrder?: number
 }
 
 type TDoc = {
@@ -37,6 +62,8 @@ type TDoc = {
     approvedByName?: string
 }
 
+type MediaEntry = { type: 'video' | 'file' | 'url'; label: string; url: string }
+
 type ModalState = {
     mode: 'create' | 'edit'
     id?: string
@@ -45,6 +72,17 @@ type ModalState = {
     billetField: string
     billetPoints: number
     description: string
+    status: TypeStatus
+    durationMinutes: string
+    server: string
+    requiredModsRaw: string
+    prerequisiteNames: string[]
+    minTrainers: string
+    minTrainees: string
+    trainerDocUrl: string
+    infoDocUrl: string
+    coverImageUrl: string
+    linkedMedia: MediaEntry[]
 }
 
 const inputStyle: React.CSSProperties = {
@@ -59,6 +97,8 @@ const inputStyle: React.CSSProperties = {
     outline: 'none',
 }
 
+const smallInput: React.CSSProperties = { ...inputStyle, fontSize: '0.78rem', padding: '6px 8px' }
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
@@ -70,7 +110,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     )
 }
 
-function TypeCard({ type, isJ3Lead, toggling, onEdit, onToggle, docsExpanded, docsCount, onToggleDocs }: {
+function SectionLabel({ children }: { children: React.ReactNode }) {
+    return (
+        <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', paddingTop: 6, marginBottom: 2, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            {children}
+        </div>
+    )
+}
+
+function TypeCard({ type, isJ3Lead, toggling, onEdit, onToggle, docsExpanded, docsCount, onToggleDocs, dragHandleProps }: {
     type: TType
     isJ3Lead: boolean
     toggling: boolean
@@ -79,34 +127,69 @@ function TypeCard({ type, isJ3Lead, toggling, onEdit, onToggle, docsExpanded, do
     docsExpanded: boolean
     docsCount?: number
     onToggleDocs: () => void
+    dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
 }) {
-    const inactive = !type.isActive
+    const cfg = STATUS_CFG[type.status ?? (type.isActive ? 'active' : 'inactive')]
+    const isDisabled = (type.status ?? (type.isActive ? 'active' : 'inactive')) === 'inactive'
     return (
         <div style={{
-            border: '1px solid rgba(255,255,255,0.07)',
-            borderTop: `2px solid ${inactive ? 'rgba(255,255,255,0.08)' : 'rgba(219,0,29,0.3)'}`,
-            borderBottom: docsExpanded ? 'none' : '1px solid rgba(255,255,255,0.07)',
-            background: inactive ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.02)',
+            border: `1px solid ${cfg.cardBorder}`,
+            borderTop: `2px solid ${cfg.topBorder}`,
+            borderBottom: docsExpanded ? 'none' : `1px solid ${cfg.cardBorder}`,
+            background: isDisabled ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.02)',
             padding: '14px 16px',
             display: 'flex',
             flexDirection: 'column',
             gap: 10,
-            opacity: inactive ? 0.5 : 1,
-            transition: 'opacity 0.15s',
+            opacity: cfg.opacity,
+            transition: 'opacity 0.15s, border-color 0.2s',
         }}>
+            {/* Title row with status badge */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{ fontSize: '0.83rem', fontWeight: 800, letterSpacing: '0.03em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)', lineHeight: 1.35 }}>
-                    {type.name}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, flex: 1, minWidth: 0 }}>
+                    {isJ3Lead && dragHandleProps && (
+                        <div
+                            {...dragHandleProps}
+                            title='Drag to reorder'
+                            style={{ cursor: 'grab', color: 'rgba(237,237,237,0.18)', flexShrink: 0, marginTop: 2, touchAction: 'none', userSelect: 'none' }}
+                        >
+                            <DragIndicator style={{ fontSize: 17 }} />
+                        </div>
+                    )}
+                    <div style={{ fontSize: '0.83rem', fontWeight: 800, letterSpacing: '0.03em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)', lineHeight: 1.35 }}>
+                        {type.name}
+                    </div>
                 </div>
-                {inactive && (
-                    <span style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 6px', flexShrink: 0, marginTop: 2 }}>
-                        Inactive
-                    </span>
-                )}
+                {/* Always-visible status badge */}
+                <span style={{
+                    fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase',
+                    color: cfg.color, border: `1px solid ${cfg.border}`, padding: '2px 7px', flexShrink: 0, marginTop: 2,
+                    background: isDisabled ? 'rgba(0,0,0,0.2)' : 'transparent',
+                }}>
+                    {cfg.label}
+                </span>
             </div>
+
             {type.description && (
                 <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)', lineHeight: 1.5 }}>{type.description}</div>
             )}
+
+            {/* Metadata chips */}
+            {(type.durationMinutes || (type.prerequisites && type.prerequisites.length > 0)) && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {type.durationMinutes && (
+                        <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', border: '1px solid rgba(255,255,255,0.08)', padding: '2px 6px' }}>
+                            {type.durationMinutes >= 60 ? `${Math.floor(type.durationMinutes / 60)}h${type.durationMinutes % 60 > 0 ? ` ${type.durationMinutes % 60}m` : ''}` : `${type.durationMinutes}m`}
+                        </span>
+                    )}
+                    {type.prerequisites && type.prerequisites.length > 0 && (
+                        <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', border: '1px solid rgba(255,255,255,0.08)', padding: '2px 6px' }}>
+                            Prereq: {type.prerequisites.join(', ')}
+                        </span>
+                    )}
+                </div>
+            )}
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', border: '1px solid rgba(219,0,29,0.25)', padding: '2px 7px' }}>
@@ -123,8 +206,14 @@ function TypeCard({ type, isJ3Lead, toggling, onEdit, onToggle, docsExpanded, do
                             <Edit style={{ fontSize: 11 }} /> Edit
                         </button>
                         <button type='button' onClick={onToggle} disabled={toggling}
-                            style={{ padding: '4px 9px', background: 'transparent', border: `1px solid ${type.isActive ? 'rgba(219,0,29,0.2)' : 'rgba(100,200,100,0.2)'}`, color: type.isActive ? 'rgba(219,0,29,0.55)' : 'rgba(100,200,100,0.6)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: toggling ? 'default' : 'pointer', opacity: toggling ? 0.5 : 1 }}>
-                            {type.isActive ? 'Disable' : 'Enable'}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 4, padding: '4px 9px', background: 'transparent',
+                                border: `1px solid ${isDisabled ? 'rgba(80,200,120,0.35)' : 'rgba(219,0,29,0.25)'}`,
+                                color: isDisabled ? 'rgba(80,200,120,0.7)' : 'rgba(219,0,29,0.55)',
+                                fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                                cursor: toggling ? 'default' : 'pointer', opacity: toggling ? 0.5 : 1,
+                            }}>
+                            {isDisabled ? 'Enable' : 'Disable'}
                         </button>
                     </div>
                 )}
@@ -137,7 +226,36 @@ function TypeCard({ type, isJ3Lead, toggling, onEdit, onToggle, docsExpanded, do
     )
 }
 
-export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: boolean; isTrainer: boolean; myId: string }) {
+function SortableTypeCard(props: {
+    type: TType
+    isJ3Lead: boolean
+    toggling: boolean
+    onEdit: () => void
+    onToggle: () => void
+    docsExpanded: boolean
+    docsCount?: number
+    onToggleDocs: () => void
+}) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.type._id })
+    return (
+        <div
+            ref={setNodeRef}
+            style={{
+                transform: CSS.Transform.toString(transform),
+                transition,
+                opacity: isDragging ? 0.45 : 1,
+                zIndex: isDragging ? 999 : undefined,
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+            }}
+        >
+            <TypeCard {...props} dragHandleProps={props.isJ3Lead ? { ...attributes, ...listeners } : undefined} />
+        </div>
+    )
+}
+
+export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId }: { isJ3Lead: boolean; isTrainer: boolean; isJ3Trainer: boolean; myId: string }) {
     const [tab, setTab] = useState<Tab>('courses')
     const [types, setTypes] = useState<TType[]>([])
     const [loading, setLoading] = useState(true)
@@ -159,6 +277,9 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
     const [rejectDocModal, setRejectDocModal] = useState<{ docId: string; typeId: string; note: string } | null>(null)
     const [rejectingDoc, setRejectingDoc] = useState(false)
 
+    // dnd-kit sensors
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+
     useEffect(() => {
         fetch('/api/training/types')
             .then(r => r.json())
@@ -176,6 +297,17 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
                 billetField: modal.billetField,
                 billetPoints: modal.billetPoints,
                 description: modal.description.trim() || undefined,
+                status: modal.status,
+                durationMinutes: modal.durationMinutes ? parseInt(modal.durationMinutes) || undefined : undefined,
+                server: modal.server.trim() || undefined,
+                requiredMods: modal.requiredModsRaw.split(',').map(s => s.trim()).filter(Boolean),
+                prerequisites: modal.prerequisiteNames,
+                minTrainers: modal.minTrainers ? parseInt(modal.minTrainers) || undefined : undefined,
+                minTrainees: modal.minTrainees ? parseInt(modal.minTrainees) || undefined : undefined,
+                trainerDocUrl: modal.trainerDocUrl.trim() || undefined,
+                infoDocUrl: modal.infoDocUrl.trim() || undefined,
+                coverImageUrl: modal.coverImageUrl.trim() || undefined,
+                linkedMedia: modal.linkedMedia.filter(m => m.label.trim() && m.url.trim()),
             }
             if (modal.mode === 'create') {
                 const res = await fetch('/api/training/types', {
@@ -185,7 +317,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
                 })
                 if (!res.ok) return
                 const created = await res.json()
-                setTypes(prev => [...prev, created].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name)))
+                setTypes(prev => [...prev, created].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999) || a.category.localeCompare(b.category) || a.name.localeCompare(b.name)))
             } else {
                 const res = await fetch(`/api/training/types/${modal.id}`, {
                     method: 'PATCH',
@@ -206,10 +338,11 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
         if (togglingId) return
         setTogglingId(type._id)
         try {
+            const newStatus = type.status === 'active' ? 'inactive' : 'active'
             const res = await fetch(`/api/training/types/${type._id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isActive: !type.isActive }),
+                body: JSON.stringify({ status: newStatus }),
             })
             if (!res.ok) return
             const updated = await res.json()
@@ -319,16 +452,90 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
         }
     }
 
+    async function handleCategoryDragEnd(cat: string, event: DragEndEvent) {
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+
+        const catItems = types.filter(t => t.category === cat).sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999) || a.name.localeCompare(b.name))
+        const oldIdx = catItems.findIndex(t => t._id === active.id)
+        const newIdx = catItems.findIndex(t => t._id === over.id)
+        if (oldIdx === -1 || newIdx === -1) return
+
+        const reordered = arrayMove(catItems, oldIdx, newIdx)
+
+        // Compute base sortOrder for this category (lowest existing sortOrder in this cat)
+        const existingOrders = catItems.map(t => t.sortOrder).filter((v): v is number => v !== undefined)
+        const base = existingOrders.length > 0 ? Math.min(...existingOrders) : CATEGORY_ORDER.indexOf(cat) * 100
+
+        setTypes(prev => {
+            const updated = [...prev]
+            reordered.forEach((t, i) => {
+                const idx = updated.findIndex(u => u._id === t._id)
+                if (idx !== -1) updated[idx] = { ...updated[idx], sortOrder: base + i }
+            })
+            return updated
+        })
+
+        reordered.forEach((t, i) => {
+            fetch(`/api/training/types/${t._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sortOrder: base + i }),
+            }).catch(console.error)
+        })
+    }
+
     function openCreate() {
-        setModal({ mode: 'create', name: '', category: 'BCT', billetField: 'j3Bct12', billetPoints: 1, description: '' })
+        setModal({ mode: 'create', name: '', category: CATEGORY_ORDER[0], billetField: 'j3Bct12', billetPoints: 1, description: '', status: 'active', durationMinutes: '', server: '', requiredModsRaw: '', prerequisiteNames: [], minTrainers: '', minTrainees: '', trainerDocUrl: '', infoDocUrl: '', coverImageUrl: '', linkedMedia: [] })
     }
 
     function openEdit(t: TType) {
-        setModal({ mode: 'edit', id: t._id, name: t.name, category: t.category, billetField: t.billetField, billetPoints: t.billetPoints, description: t.description ?? '' })
+        setModal({
+            mode: 'edit', id: t._id,
+            name: t.name, category: t.category, billetField: t.billetField, billetPoints: t.billetPoints,
+            description: t.description ?? '',
+            status: t.status ?? (t.isActive ? 'active' : 'inactive'),
+            durationMinutes: t.durationMinutes?.toString() ?? '',
+            server: t.server ?? '',
+            requiredModsRaw: (t.requiredMods ?? []).join(', '),
+            prerequisiteNames: t.prerequisites ?? [],
+            minTrainers: t.minTrainers?.toString() ?? '',
+            minTrainees: t.minTrainees?.toString() ?? '',
+            trainerDocUrl: t.trainerDocUrl ?? '',
+            infoDocUrl: t.infoDocUrl ?? '',
+            coverImageUrl: t.coverImageUrl ?? '',
+            linkedMedia: t.linkedMedia ?? [],
+        })
+    }
+
+    function addMediaRow() {
+        setModal(m => m ? { ...m, linkedMedia: [...m.linkedMedia, { type: 'url', label: '', url: '' }] } : m)
+    }
+
+    function updateMedia(i: number, field: keyof MediaEntry, value: string) {
+        setModal(m => m ? { ...m, linkedMedia: m.linkedMedia.map((e, idx) => idx === i ? { ...e, [field]: value } : e) } : m)
+    }
+
+    function removeMedia(i: number) {
+        setModal(m => m ? { ...m, linkedMedia: m.linkedMedia.filter((_, idx) => idx !== i) } : m)
+    }
+
+    function togglePrerequisite(name: string) {
+        setModal(m => {
+            if (!m) return m
+            const already = m.prerequisiteNames.includes(name)
+            return { ...m, prerequisiteNames: already ? m.prerequisiteNames.filter(n => n !== name) : [...m.prerequisiteNames, name] }
+        })
     }
 
     const canSubmitDoc = isJ3Lead || isTrainer
-    const visible = types.filter(t => (isJ3Lead && showInactive) ? true : t.isActive)
+    const visible = types.filter(t => {
+        const s = t.status ?? (t.isActive ? 'active' : 'inactive')
+        if (isJ3Lead && showInactive) return true
+        if (isJ3Lead) return s !== 'inactive'
+        if (isTrainer) return s === 'active' || s === 'wip'
+        return s === 'active'
+    })
     const orderedCats = [
         ...CATEGORY_ORDER.filter(c => visible.some(t => t.category === c)),
         ...[...new Set(visible.map(t => t.category))].filter(c => !CATEGORY_ORDER.includes(c)).sort(),
@@ -338,13 +545,11 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
         const allDocs = docsCache[t._id] ?? []
         const pendingDocs = allDocs.filter(d => d.approvalStatus === 'pending')
         const approvedDocs = allDocs.filter(d => d.approvalStatus === 'approved')
-        // Trainers (non-leads) see their own non-approved submissions
         const myPendingOrRejected = !isJ3Lead ? allDocs.filter(d => d.approvalStatus !== 'approved' && d.uploadedById === myId) : []
 
         return (
-            <div style={{ border: '1px solid rgba(255,255,255,0.07)', borderTop: 'none', background: 'rgba(0,0,0,0.15)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ border: `1px solid rgba(255,255,255,0.07)`, borderTop: 'none', background: 'rgba(0,0,0,0.15)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-                {/* Pending docs section — J3 leads only */}
                 {isJ3Lead && pendingDocs.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,200,50,0.6)', marginBottom: 2 }}>
@@ -358,8 +563,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
                                     <div style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.2)', marginTop: 2 }}>Submitted by {doc.uploadedByName}</div>
                                 </div>
                                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                                    <button type='button' onClick={() => handleApproveDoc(t._id, doc._id)}
-                                        disabled={!!approvingDocId}
+                                    <button type='button' onClick={() => handleApproveDoc(t._id, doc._id)} disabled={!!approvingDocId}
                                         style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '3px 8px', background: 'rgba(80,200,120,0.1)', border: '1px solid rgba(80,200,120,0.3)', color: 'rgba(80,200,120,0.85)', fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: approvingDocId ? 'default' : 'pointer', opacity: approvingDocId ? 0.5 : 1 }}>
                                         <CheckCircle style={{ fontSize: 10 }} /> Approve
                                     </button>
@@ -373,7 +577,6 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
                     </div>
                 )}
 
-                {/* Own pending/rejected submissions — trainer view */}
                 {myPendingOrRejected.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                         <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 2 }}>My Submissions</div>
@@ -388,8 +591,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
                                         {doc.approvalStatus === 'pending' ? 'Pending Review' : 'Rejected'}
                                     </span>
                                 </div>
-                                <button type='button' onClick={() => handleDeleteDoc(t._id, doc._id)}
-                                    disabled={deletingDocId === doc._id}
+                                <button type='button' onClick={() => handleDeleteDoc(t._id, doc._id)} disabled={deletingDocId === doc._id}
                                     style={{ flexShrink: 0, padding: '3px 6px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.25)', fontSize: '0.55rem', cursor: deletingDocId === doc._id ? 'default' : 'pointer', opacity: deletingDocId === doc._id ? 0.4 : 1 }}>
                                     <Delete style={{ fontSize: 11 }} />
                                 </button>
@@ -398,19 +600,15 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
                     </div>
                 )}
 
-                {/* Add / Submit document button or form */}
                 {canSubmitDoc && (
                     addDocTypeId === t._id ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                             <input value={addDocForm.title} onChange={e => setAddDocForm(p => ({ ...p, title: e.target.value }))}
-                                placeholder='Document title *' autoFocus
-                                style={{ ...inputStyle, fontSize: '0.78rem', padding: '6px 8px' }} />
+                                placeholder='Document title *' autoFocus style={smallInput} />
                             <input value={addDocForm.url} onChange={e => setAddDocForm(p => ({ ...p, url: e.target.value }))}
-                                placeholder='URL *'
-                                style={{ ...inputStyle, fontSize: '0.78rem', padding: '6px 8px' }} />
+                                placeholder='URL *' style={smallInput} />
                             <input value={addDocForm.description} onChange={e => setAddDocForm(p => ({ ...p, description: e.target.value }))}
-                                placeholder='Short description (optional)'
-                                style={{ ...inputStyle, fontSize: '0.78rem', padding: '6px 8px' }} />
+                                placeholder='Short description (optional)' style={smallInput} />
                             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                                 <button type='button' onClick={() => { setAddDocTypeId(null); setAddDocForm({ title: '', url: '', description: '' }) }}
                                     style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.35)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
@@ -431,7 +629,6 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
                     )
                 )}
 
-                {/* Approved docs list */}
                 {docsLoading && docsCache[t._id] === undefined ? (
                     <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)' }}>Loading…</div>
                 ) : approvedDocs.length === 0 && addDocTypeId !== t._id ? (
@@ -450,8 +647,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
                                 <div style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.18)', marginTop: 2, letterSpacing: '0.04em' }}>by {doc.uploadedByName}</div>
                             </div>
                             {isJ3Lead && (
-                                <button type='button' onClick={() => handleDeleteDoc(t._id, doc._id)}
-                                    disabled={deletingDocId === doc._id}
+                                <button type='button' onClick={() => handleDeleteDoc(t._id, doc._id)} disabled={deletingDocId === doc._id}
                                     style={{ flexShrink: 0, padding: '3px 6px', background: 'transparent', border: '1px solid rgba(219,0,29,0.15)', color: 'rgba(219,0,29,0.4)', fontSize: '0.55rem', cursor: deletingDocId === doc._id ? 'default' : 'pointer', opacity: deletingDocId === doc._id ? 0.4 : 1 }}>
                                     <Delete style={{ fontSize: 11 }} />
                                 </button>
@@ -462,6 +658,9 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
             </div>
         )
     }
+
+    // Prerequisites available for the current modal (exclude the item being edited)
+    const prereqOptions = types.filter(t => t._id !== modal?.id).sort((a, b) => a.name.localeCompare(b.name))
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -493,10 +692,10 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
 
                 {/* Tab navigation */}
                 <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                    {(['courses', 'events'] as Tab[]).map(t => (
+                    {(['courses', 'events', 'requests'] as Tab[]).map(t => (
                         <button key={t} type='button' onClick={() => setTab(t)}
                             style={{ padding: '8px 20px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === t ? RED : 'transparent'}`, color: tab === t ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', marginBottom: -1, transition: 'color 0.15s, border-color 0.15s' }}>
-                            {t === 'courses' ? 'Courses' : 'Events'}
+                            {t === 'courses' ? 'Courses' : t === 'events' ? 'Events' : 'Requests'}
                         </button>
                     ))}
                 </div>
@@ -521,32 +720,38 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
                             {orderedCats.map(cat => {
-                                const items = visible.filter(t => t.category === cat)
-                                if (!items.length) return null
+                                const catItems = visible
+                                    .filter(t => t.category === cat)
+                                    .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999) || a.name.localeCompare(b.name))
+                                if (!catItems.length) return null
                                 return (
                                     <div key={cat}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                                             <span style={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', flexShrink: 0 }}>{cat}</span>
                                             <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
-                                            <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.1em', flexShrink: 0 }}>{items.length}</span>
+                                            <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.1em', flexShrink: 0 }}>{catItems.length}</span>
                                         </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
-                                            {items.map(t => (
-                                                <div key={t._id} style={{ display: 'flex', flexDirection: 'column' }}>
-                                                    <TypeCard
-                                                        type={t}
-                                                        isJ3Lead={isJ3Lead}
-                                                        toggling={togglingId === t._id}
-                                                        onEdit={() => openEdit(t)}
-                                                        onToggle={() => handleToggle(t)}
-                                                        docsExpanded={docsExpanded === t._id}
-                                                        docsCount={docsCache[t._id]?.filter(d => d.approvalStatus === 'approved').length}
-                                                        onToggleDocs={() => handleToggleDocs(t._id)}
-                                                    />
-                                                    {docsExpanded === t._id && renderDocsPanel(t)}
+                                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleCategoryDragEnd(cat, e)}>
+                                            <SortableContext items={catItems.map(t => t._id)} strategy={rectSortingStrategy}>
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
+                                                    {catItems.map(t => (
+                                                        <div key={t._id} style={{ display: 'flex', flexDirection: 'column' }}>
+                                                            <SortableTypeCard
+                                                                type={t}
+                                                                isJ3Lead={isJ3Lead}
+                                                                toggling={togglingId === t._id}
+                                                                onEdit={() => openEdit(t)}
+                                                                onToggle={() => handleToggle(t)}
+                                                                docsExpanded={docsExpanded === t._id}
+                                                                docsCount={docsCache[t._id]?.filter(d => d.approvalStatus === 'approved').length}
+                                                                onToggleDocs={() => handleToggleDocs(t._id)}
+                                                            />
+                                                            {docsExpanded === t._id && renderDocsPanel(t)}
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            ))}
-                                        </div>
+                                            </SortableContext>
+                                        </DndContext>
                                     </div>
                                 )
                             })}
@@ -556,7 +761,10 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
             )}
 
             {/* Tab: Events */}
-            {tab === 'events' && <EventsTab isJ3Lead={isJ3Lead} isTrainer={isTrainer} />}
+            {tab === 'events' && <EventsTab isJ3Lead={isJ3Lead} isTrainer={isTrainer} isJ3Trainer={isJ3Trainer} />}
+
+            {/* Tab: Requests */}
+            {tab === 'requests' && <RequestsTab isJ3Lead={isJ3Lead} myId={myId} />}
 
             {/* Course type create / edit modal */}
             {modal && (
@@ -564,7 +772,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
                     style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
                     onClick={e => { if (e.target === e.currentTarget) setModal(null) }}
                 >
-                    <div style={{ background: '#0e0e0e', border: `1px solid rgba(219,0,29,0.25)`, borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div style={{ background: '#0e0e0e', border: `1px solid rgba(219,0,29,0.25)`, borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 520, maxHeight: '88vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div>
                             <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>
                                 {'//'} {modal.mode === 'create' ? 'ADD' : 'EDIT'} TRAINING TYPE
@@ -574,17 +782,24 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
                             </h3>
                         </div>
 
+                        {/* ── Core ── */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                             <Field label='Course Name *'>
                                 <input value={modal.name} onChange={e => setModal(m => m && ({ ...m, name: e.target.value }))}
                                     placeholder='e.g. Advanced Medical Course' autoFocus style={inputStyle} />
                             </Field>
                             <Field label='Category *'>
-                                <input value={modal.category} onChange={e => setModal(m => m && ({ ...m, category: e.target.value }))}
-                                    placeholder='e.g. Medical' list='training-cat-list' style={inputStyle} />
-                                <datalist id='training-cat-list'>
-                                    {CATEGORY_ORDER.map(c => <option key={c} value={c} />)}
-                                </datalist>
+                                <select
+                                    value={modal.category}
+                                    onChange={e => setModal(m => m && ({ ...m, category: e.target.value }))}
+                                    style={{ ...inputStyle, cursor: 'pointer' }}
+                                >
+                                    {CATEGORY_ORDER.map(c => <option key={c} value={c}>{c}</option>)}
+                                    {/* Show current category if it's not in the standard list */}
+                                    {!CATEGORY_ORDER.includes(modal.category) && modal.category && (
+                                        <option value={modal.category}>{modal.category}</option>
+                                    )}
+                                </select>
                             </Field>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                 <Field label='Trainer Billet Type *'>
@@ -608,6 +823,134 @@ export default function TrainingHub({ isJ3Lead, isTrainer, myId }: { isJ3Lead: b
                                 <input value={modal.description} onChange={e => setModal(m => m && ({ ...m, description: e.target.value }))}
                                     placeholder='Short description (optional)' style={inputStyle} />
                             </Field>
+                        </div>
+
+                        {/* ── Status ── */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <SectionLabel>Status</SectionLabel>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                {(['active', 'wip', 'inactive'] as TypeStatus[]).map(s => {
+                                    const cfg = STATUS_CFG[s]
+                                    const sel = modal.status === s
+                                    return (
+                                        <button key={s} type='button' onClick={() => setModal(m => m && ({ ...m, status: s }))}
+                                            style={{ flex: 1, padding: '8px 6px', background: sel ? `rgba(${s === 'active' ? '80,200,120' : s === 'wip' ? '255,180,50' : '100,100,100'},0.1)` : 'transparent', border: `1px solid ${sel ? cfg.border : 'rgba(255,255,255,0.08)'}`, color: sel ? cfg.color : 'rgba(237,237,237,0.35)', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.15s' }}>
+                                            {cfg.label}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* ── Event Defaults ── */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <SectionLabel>Event Defaults</SectionLabel>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <Field label='Duration (minutes)'>
+                                    <input type='number' min={1} step={1} value={modal.durationMinutes}
+                                        onChange={e => setModal(m => m && ({ ...m, durationMinutes: e.target.value }))}
+                                        placeholder='e.g. 90' style={inputStyle} />
+                                </Field>
+                                <Field label='Default Server'>
+                                    <input value={modal.server} onChange={e => setModal(m => m && ({ ...m, server: e.target.value }))}
+                                        placeholder='e.g. Training' style={inputStyle} />
+                                </Field>
+                            </div>
+                            <Field label='Required Mods (comma-separated)'>
+                                <input value={modal.requiredModsRaw} onChange={e => setModal(m => m && ({ ...m, requiredModsRaw: e.target.value }))}
+                                    placeholder='e.g. ACE, TFAR' style={inputStyle} />
+                            </Field>
+                        </div>
+
+                        {/* ── Requirements ── */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <SectionLabel>Requirements</SectionLabel>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <Field label='Min Trainers'>
+                                    <input type='number' min={1} step={1} value={modal.minTrainers}
+                                        onChange={e => setModal(m => m && ({ ...m, minTrainers: e.target.value }))}
+                                        placeholder='1' style={inputStyle} />
+                                </Field>
+                                <Field label='Min Trainees'>
+                                    <input type='number' min={1} step={1} value={modal.minTrainees}
+                                        onChange={e => setModal(m => m && ({ ...m, minTrainees: e.target.value }))}
+                                        placeholder='1' style={inputStyle} />
+                                </Field>
+                            </div>
+                            <Field label='Prerequisites (select from available courses)'>
+                                {prereqOptions.length === 0 ? (
+                                    <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', padding: '8px 0' }}>No other courses available</div>
+                                ) : (
+                                    <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '6px 0' }}>
+                                        {prereqOptions.map(t => {
+                                            const checked = modal.prerequisiteNames.includes(t.name)
+                                            return (
+                                                <label key={t._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 12px', cursor: 'pointer', background: checked ? 'rgba(219,0,29,0.06)' : 'transparent', transition: 'background 0.1s' }}>
+                                                    <input
+                                                        type='checkbox'
+                                                        checked={checked}
+                                                        onChange={() => togglePrerequisite(t.name)}
+                                                        style={{ accentColor: RED, flexShrink: 0 }}
+                                                    />
+                                                    <span style={{ fontSize: '0.72rem', color: checked ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.5)' }}>
+                                                        {t.name}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.52rem', color: 'rgba(237,237,237,0.2)', marginLeft: 'auto', flexShrink: 0 }}>{t.category}</span>
+                                                </label>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+                                {modal.prerequisiteNames.length > 0 && (
+                                    <div style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.3)', marginTop: 5, letterSpacing: '0.06em' }}>
+                                        Selected: {modal.prerequisiteNames.join(', ')}
+                                    </div>
+                                )}
+                            </Field>
+                        </div>
+
+                        {/* ── Resources ── */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <SectionLabel>Resources</SectionLabel>
+                            <Field label='Trainer Guide URL'>
+                                <input value={modal.trainerDocUrl} onChange={e => setModal(m => m && ({ ...m, trainerDocUrl: e.target.value }))}
+                                    placeholder='https://…' style={inputStyle} />
+                            </Field>
+                            <Field label='Info / Student Doc URL'>
+                                <input value={modal.infoDocUrl} onChange={e => setModal(m => m && ({ ...m, infoDocUrl: e.target.value }))}
+                                    placeholder='https://…' style={inputStyle} />
+                            </Field>
+                            <Field label='Cover Image URL'>
+                                <input value={modal.coverImageUrl} onChange={e => setModal(m => m && ({ ...m, coverImageUrl: e.target.value }))}
+                                    placeholder='https://…' style={inputStyle} />
+                            </Field>
+                        </div>
+
+                        {/* ── Linked Media ── */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <SectionLabel>Linked Media</SectionLabel>
+                            {modal.linkedMedia.map((m, i) => (
+                                <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr auto', gap: 6, alignItems: 'end' }}>
+                                    <select value={m.type} onChange={e => updateMedia(i, 'type', e.target.value)}
+                                        style={{ ...inputStyle, width: 'auto', fontSize: '0.72rem', padding: '7px 8px', cursor: 'pointer' }}>
+                                        <option value='url'>URL</option>
+                                        <option value='video'>Video</option>
+                                        <option value='file'>File</option>
+                                    </select>
+                                    <input value={m.label} onChange={e => updateMedia(i, 'label', e.target.value)}
+                                        placeholder='Label' style={{ ...inputStyle, fontSize: '0.78rem', padding: '7px 8px' }} />
+                                    <input value={m.url} onChange={e => updateMedia(i, 'url', e.target.value)}
+                                        placeholder='URL' style={{ ...inputStyle, fontSize: '0.78rem', padding: '7px 8px' }} />
+                                    <button type='button' onClick={() => removeMedia(i)}
+                                        style={{ padding: '7px 8px', background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', color: 'rgba(219,0,29,0.5)', cursor: 'pointer', flexShrink: 0 }}>
+                                        <Delete style={{ fontSize: 13 }} />
+                                    </button>
+                                </div>
+                            ))}
+                            <button type='button' onClick={addMediaRow}
+                                style={{ display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', padding: '4px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.3)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                <Add style={{ fontSize: 11 }} /> Add Media
+                            </button>
                         </div>
 
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>

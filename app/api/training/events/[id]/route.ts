@@ -27,6 +27,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.description !== undefined) updates.description = body.description?.trim() || undefined
     if (body.location !== undefined) updates.location = body.location?.trim() || undefined
     if (body.durationMinutes !== undefined) updates.durationMinutes = Math.max(15, Math.floor(Number(body.durationMinutes)) || 60)
+    if (body.server !== undefined) updates.server = body.server?.trim() || undefined
+    if (body.requiredMods !== undefined) updates.requiredMods = Array.isArray(body.requiredMods) ? body.requiredMods.filter(Boolean) : undefined
+    if (body.trainerSlots !== undefined) updates.trainerSlots = Math.max(1, Math.floor(Number(body.trainerSlots)) || 1)
+    if (body.maxTraineeSlots !== undefined) updates.maxTraineeSlots = body.maxTraineeSlots ? Math.max(1, Math.floor(Number(body.maxTraineeSlots)) || 1) : undefined
+    if (body.maxSitInSlots !== undefined) updates.maxSitInSlots = body.maxSitInSlots ? Math.max(1, Math.floor(Number(body.maxSitInSlots)) || 1) : undefined
+    if (body.isJ3Training !== undefined) updates.isJ3Training = Boolean(body.isJ3Training)
     if (body.scheduledAt) {
         const d = new Date(body.scheduledAt)
         if (!isNaN(d.getTime())) updates.scheduledAt = d

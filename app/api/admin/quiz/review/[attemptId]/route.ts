@@ -5,6 +5,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { getQuizById } from '@/lib/quiz-data'
 import { createNotification, createNotificationForRole } from '@/lib/notifications'
+import { logAction } from '@/lib/logAction'
 
 // GET /api/admin/quiz/review/[attemptId]
 // Returns quiz definition + attempt for the review page.
@@ -125,6 +126,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ att
             } catch { /* task may not exist */ }
         }
 
+        logAction({
+            action: 'quiz.pass',
+            category: 'training',
+            performedBy: me.id,
+            performedByName: reviewerName,
+            department: 'j3',
+            entityType: 'quiz_attempt',
+            entityId: attemptId,
+            target: attempt.userName,
+        }).catch(console.error)
+
         return NextResponse.json({ ok: true })
     }
 
@@ -158,6 +170,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ att
                 )
             } catch { /* task may not exist */ }
         }
+
+        logAction({
+            action: 'quiz.fail',
+            category: 'training',
+            performedBy: me.id,
+            performedByName: reviewerName,
+            department: 'j3',
+            entityType: 'quiz_attempt',
+            entityId: attemptId,
+            target: attempt.userName,
+            details: { notes },
+        }).catch(console.error)
 
         return NextResponse.json({ ok: true })
     }
@@ -207,6 +231,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ att
             actionUrl: `/dashboard/quiz/review/${attemptId}`,
             relatedId: attemptId,
         })
+
+        logAction({
+            action: 'quiz.escalate',
+            category: 'training',
+            performedBy: me.id,
+            performedByName: reviewerName,
+            department: 'j3',
+            entityType: 'quiz_attempt',
+            entityId: attemptId,
+            target: attempt.userName,
+            details: { escalatedTo: nextRoleName, notes },
+        }).catch(console.error)
 
         return NextResponse.json({ ok: true })
     }

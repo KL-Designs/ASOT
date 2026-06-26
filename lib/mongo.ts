@@ -70,7 +70,11 @@ const DbInterface = {
     trainingTypes: db.collection('training_types') as MongoCollection<TrainingType>,
     trainingEvents: db.collection('training_events') as MongoCollection<TrainingEvent>,
     trainingAttendance: db.collection('training_attendance') as MongoCollection<TrainingAttendance>,
-    trainingHubDocs: db.collection('training_docs') as MongoCollection<TrainingDocument>,
+    trainingTypeDocs: db.collection('training_type_docs') as MongoCollection<TrainingDocument>,
+    trainingRequests: db.collection('training_requests') as MongoCollection<TrainingRequest>,
+    trainingTickets: db.collection('training_tickets') as MongoCollection<TrainingTicket>,
+    trainingReminders: db.collection('training_reminders') as MongoCollection<TrainingReminderRecord>,
+    trainingImportRecords: db.collection('training_import_records') as MongoCollection<Document>,
 }
 
 export default DbInterface

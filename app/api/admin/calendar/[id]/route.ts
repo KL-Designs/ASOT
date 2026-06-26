@@ -44,6 +44,17 @@ export async function PATCH(
     if (body.timePeriod !== undefined) updates.timePeriod = body.timePeriod
 
     await Db.calendarEvents.updateOne({ _id: oid }, { $set: updates })
+
+    const displayName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+    logAction({
+        action: 'calendar.edit',
+        category: 'calendar',
+        performedBy: me.id,
+        performedByName: displayName,
+        target: `Edited event "${existing.title}" in ${existing.department.toUpperCase()}`,
+        details: { eventId: id, department: existing.department, changedFields: Object.keys(updates) },
+    })
+
     return NextResponse.json({ ok: true })
 }
 

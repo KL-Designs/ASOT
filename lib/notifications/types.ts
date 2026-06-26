@@ -175,6 +175,58 @@ export const NOTIFICATION_TYPES: NotifTypeMeta[] = [
         category: 'Calendar',
     },
 
+    // ── Training ─────────────────────────────────────────────────────────────
+    {
+        type: 'training_reminder',
+        label: 'Training event reminder',
+        description: 'Reminder before a training event you are attending.',
+        category: 'Training',
+    },
+    {
+        type: 'training_ticket_pending',
+        label: 'Training ticket pending review',
+        description: 'When a completed training session needs J3 review.',
+        category: 'Training',
+        requiresAny: ['J3-Team Lead', 'J3-Head Trainer', 'J3-Assistant Head Trainer'],
+    },
+    {
+        type: 'training_ticket_approved',
+        label: 'Training ticket approved',
+        description: 'When a training ticket you submitted is approved and billet points awarded.',
+        category: 'Training',
+    },
+    {
+        type: 'training_ticket_rejected',
+        label: 'Training ticket rejected',
+        description: 'When a training ticket you submitted is rejected.',
+        category: 'Training',
+    },
+    {
+        type: 'training_ticket_amendments',
+        label: 'Training ticket amendments requested',
+        description: 'When J3 requests changes to a training ticket you submitted.',
+        category: 'Training',
+    },
+    {
+        type: 'training_request_submitted',
+        label: 'Training request submitted',
+        description: 'When a member submits a training request.',
+        category: 'Training',
+        requiresAny: ['J3-Team Lead', 'J3-Head Trainer', 'J3-Assistant Head Trainer'],
+    },
+    {
+        type: 'training_request_approved',
+        label: 'Training request approved',
+        description: 'When your training request is approved and scheduled.',
+        category: 'Training',
+    },
+    {
+        type: 'training_request_rejected',
+        label: 'Training request rejected',
+        description: 'When your training request is declined.',
+        category: 'Training',
+    },
+
     // ── General ───────────────────────────────────────────────────────────────
     {
         type: 'system',

@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { logAction } from '@/lib/logs'
 
 
 export async function GET(request: NextRequest) {
@@ -52,6 +53,20 @@ export async function GET(request: NextRequest) {
             if (!isJ2LeadOrJ4) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
             const pts = Math.max(0, Math.floor(Number(billetPoints)) || 2)
             await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { billetPoints: pts } })
+        }
+
+        const changed = [title && 'title', date && 'date', department && 'department', status && 'status',
+            ownedBy && 'owner', billetPoints && 'billetPoints'].filter(Boolean)
+        if (changed.length > 0) {
+            const editorName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+            logAction({
+                action: 'operation.edit',
+                category: 'operation',
+                performedBy: me.id,
+                performedByName: editorName,
+                target: id ?? '',
+                details: { changedFields: changed, operationId: id },
+            })
         }
 
         return NextResponse.json({ success: true }, { status: 200 })

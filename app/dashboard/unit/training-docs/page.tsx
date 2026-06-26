@@ -13,6 +13,7 @@ export default async function Page() {
 
     const isJ3Lead = client.hasRoles(me, PERMISSIONS.training.manage)
     const isTrainer = client.hasRoles(me, PERMISSIONS.training.create)
+    const isJ3Trainer = client.hasRoles(me, PERMISSIONS.training.trainer)
 
-    return <TrainingHub isJ3Lead={isJ3Lead} isTrainer={isTrainer} myId={me.id} />
+    return <TrainingHub isJ3Lead={isJ3Lead} isTrainer={isTrainer} isJ3Trainer={isJ3Trainer} myId={me.id} />
 }
