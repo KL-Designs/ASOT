@@ -55,7 +55,10 @@ The member's discharge record and previous application both remain — a new ent
 
 ## J1 Mastersheet
 
-### Reviewed By Field
+### ~~Reviewed By Field~~ ✓ Complete
+> Moved to Completed — see below.
+
+<!--
 The `reviewed by` field on recruit records should reflect:
 - **Old / imported data:** the recruiter who handled the application.
 - **New recruits going forward:** the J1 Lead who approved the application (set at approval time).
@@ -63,6 +66,8 @@ The `reviewed by` field on recruit records should reflect:
 No old records will have this field populated — only new recruits from this point forward.
 
 > **Code context:** `reviewedBy` is set in three places in `app/api/admin/j1/applications/[id]/route.ts`. Line 252 sets it to the recruiter when they submit their recommendation; line 329 sets it again on J1 Lead actions (potentially overwriting). For imports (`app/api/admin/j1/import/route.ts` line 127), it is set to the importing admin's name — not the original recruiter. **What needs to change:** ensure `reviewedBy` is only set to the J1 Lead at the point of final approval (accept/reject), not overwritten by intermediate actions or set to the wrong person on import.
+
+-->
 
 ---
 
@@ -256,3 +261,6 @@ Added DD discharge type check to `runReturningMemberCheck()` — DD type now tri
 
 ### Reinstate Member — Selective Data Restoration
 Rewrote `ReinstateModal` in `app/dashboard/j4/J4AdminPanel.tsx` with a two-step flow: select member → checklist of data to restore (qualifications, awards & citations, trainings, campaign medals & op attendance), pre-checked by default with counts from the discharge snapshot. Updated `app/api/admin/members/discharged/route.ts` — GET now accepts `?memberId=xxx` to return snapshot counts; PATCH accepts `restoreItems[]` and applies selective `$set` operations from the `dischargeSnapshots` collection before removing the discharged flag.
+
+### Reviewed By Field
+`reviewedBy` now only set at final accept/reject by J1 Lead (`app/api/admin/j1/applications/[id]/route.ts`). Removed from recruiter recommendation block and from intermediate J1 Lead actions. Import route (`app/api/admin/j1/import/route.ts`) now uses `r.recruiter` field instead of the importing admin's name.

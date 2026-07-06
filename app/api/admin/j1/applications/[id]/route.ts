@@ -253,8 +253,6 @@ export async function PATCH(
                 $set: {
                     recruiterRecommendation: rec as 'approve' | 'deny' | 'pend',
                     recruiterRecommendationAt: new Date().toISOString(),
-                    reviewedBy: displayName,
-                    reviewedAt: new Date(),
                 },
             },
         )
@@ -329,9 +327,11 @@ export async function PATCH(
         }
     }
 
-    const update: Record<string, unknown> = {
-        reviewedBy: displayName,
-        reviewedAt: new Date(),
+    const update: Record<string, unknown> = {}
+
+    if (status === 'accepted' || status === 'rejected') {
+        update.reviewedBy = displayName
+        update.reviewedAt = new Date()
     }
 
     if (status) update.status = status

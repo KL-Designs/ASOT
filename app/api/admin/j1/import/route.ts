@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
                 notes: r.notes?.trim() || '',
                 isDirectRecruit: false,
                 recruiter: r.recruiter?.trim() || '',
-                reviewedBy: displayName,
+                reviewedBy: r.recruiter?.trim() || '',
                 reviewedAt: new Date(),
             }
 
