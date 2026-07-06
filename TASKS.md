@@ -167,10 +167,8 @@ Lastly, once they select their callsign, they will be able to copy sections from
 
 ---
 
-### CHQ Allocation Reminder
-If allocations have not been completed by **1 hour before mission start**, automatically send a reminder notification to **CHQ only**.
-
-> **Code context:** `app/api/cron/operations/route.ts` currently sends a notification to section leaders when RSVP closes (defaults to 90 min before op start). **What is missing:** A separate trigger at exactly 1 hour before op start that checks whether allocations are complete and, if not, notifies CHQ specifically. No allocation-completeness check or CHQ-targeted reminder exists.
+### ~~CHQ Allocation Reminder~~ ✓ Complete
+> Moved to Completed — see below.
 
 ---
 
@@ -248,6 +246,9 @@ Rewrote `ReinstateModal` in `app/dashboard/j4/J4AdminPanel.tsx` with a two-step 
 
 ### PHQ/CHQ Attendance Confirmation Tasks
 PHQ is covered — `getSectionLeaders` returns the first occupied position per (category + sectionTitle), so the platoon commander in each "X Platoon HQ" section is always included when their platoon category is in `assignedPlatoons`. CHQ (`companyHQ`) was not covered because it was only queried if `'companyHQ'` was in `attendanceAssignedPlatoons`. Fixed in `lib/attendance/tasks.ts`: always union `attendanceAssignedPlatoons` with `['companyHQ']` before calling `getSectionLeaders`.
+
+### CHQ Allocation Reminder
+Added step 1b to `app/api/cron/operations/route.ts`. Fires in the 5-minute cron window when: RSVP is closed, op is Upcoming, op starts within 60 minutes, and the reminder hasn't fired yet (`chqAllocationReminderSentAt` absent). Checks how many attending reservists (those in ORBAT reservist positions) still lack a `reservistSection` assignment; if any, sends an in-app notification to all `companyHQ` section leaders. The `chqAllocationReminderSentAt` flag is always stamped on the attendance doc (even if no unassigned reservists) so the reminder never fires twice. Added `chqAllocationReminderSentAt?: Date` to the `OperationAttendance` type.
 
 ### Custom Attendance Units
 Added `customUnits` field to `AttendanceData` interface in `AttendancePanel.tsx`. Built a `customUnitMap` (name → color) in the render. Custom unit color is now applied to matching sections (members assigned via `reservistSection`) in the existing `byCategory` loop. Added a post-loop render for custom units that have no members yet — shows an empty Accordion with the unit name and color swatch. Suppressed the "Reservist" chip for members whose `reservistSection` matches a custom unit name (they're unit members, not reservists).
