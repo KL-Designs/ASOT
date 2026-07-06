@@ -9,7 +9,10 @@
 
 ---
 
-### Returning Member Detection & Routing
+### ~~Returning Member Detection & Routing~~ ✓ Complete
+> Moved to Completed — see below.
+
+<!--
 During the log-recruit form, auto-detect if the applicant is a previous member by checking the J4 mastersheet (leaving history).
 
 Routing logic based on mastersheet columns — **Discharge Type** (`GD`, `DD`, `HD`) and **Return status** (`Yes`, `No`, `Review`):
@@ -30,7 +33,12 @@ When J4 or J1 Lead involvement is required:
 
 ---
 
-### Reinstate Member — Selective Data Restoration
+-->
+
+### ~~Reinstate Member — Selective Data Restoration~~ ✓ Complete
+> Moved to Completed — see below.
+
+<!--
 When reinstating a returning member, give J1 Staff a checklist to select which data from their discharge snapshot gets restored:
 - Qualifications
 - Awards & citations
@@ -40,6 +48,8 @@ When reinstating a returning member, give J1 Staff a checklist to select which d
 The member's discharge record and previous application both remain — a new entry is created for their new service period.
 
 > **Code context:** Reinstate currently exists at `app/api/admin/members/discharged/route.ts` (PATCH) and `app/dashboard/j4/J4AdminPanel.tsx` (`ReinstateModal`). It only does `$unset: { discharged: '' }` — no data restoration at all. The `dischargeSnapshots` collection (defined in `lib/mongo.ts`) already stores the full milpac snapshot including qualifications, awards, and trainings from discharge time. The checklist UI and data restoration logic both need to be built on top of the existing reinstate modal.
+
+-->
 
 ---
 
@@ -240,3 +250,9 @@ Extend the existing J2 calendar (same structure as the unit calendar):
 
 ### Log Recruit → Billet Point Award
 `awardInterviewPoint()` in `app/api/admin/j1/applications/[id]/route.ts` increments `j1Interviews` by 1 and recalculates `promotionPoints` when the J1 Lead sets status to `accepted`. The J1 Lead is notified when the recruiter submits their recommendation, and the recruiter is notified with a DM when the final decision is made. Fully implemented end-to-end.
+
+### Returning Member Detection & Routing
+Added DD discharge type check to `runReturningMemberCheck()` — DD type now triggers REVIEW regardless of return column value. Added `sendChannelMessage()` to `lib/discord/bot.ts` (respects dev mode, logs to discord_logs). Wired channel ping to J1-Recruitment channel on REVIEW trigger using `DISCORD_J1_RECRUITMENT_CHANNEL_ID` and `DISCORD_J4_ROLE_ID` env vars. Both vars added to `.env.template`.
+
+### Reinstate Member — Selective Data Restoration
+Rewrote `ReinstateModal` in `app/dashboard/j4/J4AdminPanel.tsx` with a two-step flow: select member → checklist of data to restore (qualifications, awards & citations, trainings, campaign medals & op attendance), pre-checked by default with counts from the discharge snapshot. Updated `app/api/admin/members/discharged/route.ts` — GET now accepts `?memberId=xxx` to return snapshot counts; PATCH accepts `restoreItems[]` and applies selective `$set` operations from the `dischargeSnapshots` collection before removing the discharged flag.

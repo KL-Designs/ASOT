@@ -4,7 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
-import { addGuildRole, removeGuildRole, setGuildNickname, sendTaskAssignedDM, sendDM } from '@/lib/discord/bot'
+import { addGuildRole, removeGuildRole, setGuildNickname, sendTaskAssignedDM, sendDM, sendChannelMessage } from '@/lib/discord/bot'
 import { buildNickname } from '@/lib/buildNickname'
 import { calculatePromotionPoints } from '@/lib/military/points'
 
@@ -42,6 +42,10 @@ async function runReturningMemberCheck(
         ? await Db.leavingHistory.findOne({ discordId })
         : null
     if (leavingRecord) {
+        const type = leavingRecord.type?.trim().toUpperCase()
+        if (type === 'DD') {
+            return { status: 'REVIEW', details: `Master Sheet: Dishonorable Discharge (DD) on ${leavingRecord.leavingDate} — J4 must be involved regardless of return status. ${leavingRecord.reason}` }
+        }
         const ret = leavingRecord.return?.trim().toUpperCase()
         if (ret === 'NO') {
             return { status: 'REVIEW', details: `Master Sheet: marked DO NOT RETURN — ${leavingRecord.reason}` }
@@ -520,6 +524,18 @@ export async function PATCH(
                         actionUrl: `/dashboard/j1?tab=1&app=${id}`,
                         relatedId: id,
                     }).catch(() => null)
+
+                    // Ping J1-Recruitment Discord channel
+                    const j1Channel = process.env.DISCORD_J1_RECRUITMENT_CHANNEL_ID
+                    const j4RoleId = process.env.DISCORD_J4_ROLE_ID
+                    if (j1Channel) {
+                        const j4Mention = j4RoleId ? `<@&${j4RoleId}>` : '@J4'
+                        sendChannelMessage(j1Channel, {
+                            content: `*${applicantName}* is requesting to rejoin. <@${me.id}> requests ${j4Mention} confirmation that the applicant is eligible to rejoin.`,
+                        }, 'j1_returning_member').catch(err =>
+                            console.error('[j1/applications] J1-Recruitment channel ping failed:', err)
+                        )
+                    }
                 }
             }).catch(err => console.error('[j1/applications] Returning-member check failed:', err))
         }

@@ -923,3 +923,65 @@ export async function sendFeedbackStatusDM(
     }
     await sendDM(userId, { embeds: [embed] }, 'feedback')
 }
+
+/**
+ * Send a message to a Discord guild channel by channel ID.
+ * Respects developer mode — blocked messages are logged but not sent.
+ * Skips silently if channelId is falsy.
+ */
+export async function sendChannelMessage(
+    channelId: string,
+    payload: MessagePayload,
+    messageType = 'raw',
+): Promise<void> {
+    if (!channelId) return
+
+    const devMode = await isDevModeEnabled()
+    const preview = payload.content ?? payload.embeds?.[0]?.title ?? '(embed)'
+
+    if (devMode) {
+        await logDiscord({
+            action: 'channel_message',
+            status: 'blocked',
+            targetUserId: channelId,
+            targetUserName: `#channel:${channelId}`,
+            messageType,
+            preview,
+            embeds: payload.embeds as DiscordLog['embeds'],
+            content: payload.content,
+            devMode: true,
+            override: false,
+        })
+        return
+    }
+
+    try {
+        await botRequest('POST', `/channels/${channelId}/messages`, payload)
+        await logDiscord({
+            action: 'channel_message',
+            status: 'sent',
+            targetUserId: channelId,
+            targetUserName: `#channel:${channelId}`,
+            messageType,
+            preview,
+            embeds: payload.embeds as DiscordLog['embeds'],
+            content: payload.content,
+            devMode: false,
+            override: false,
+        })
+    } catch (err) {
+        await logDiscord({
+            action: 'channel_message',
+            status: 'failed',
+            targetUserId: channelId,
+            targetUserName: `#channel:${channelId}`,
+            messageType,
+            preview,
+            embeds: payload.embeds as DiscordLog['embeds'],
+            content: payload.content,
+            devMode: false,
+            override: false,
+        })
+        throw err
+    }
+}
