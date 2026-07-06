@@ -172,18 +172,8 @@ Lastly, once they select their callsign, they will be able to copy sections from
 
 ---
 
-### Request Orders Check
-Mission makers can submit a request for a J2 Lead to review their orders at any point during development.
-
-- Already an existing orders check request. Check details/features and add/remove anything necessary.
-- Available to all mission makers at any stage.
-- The request captures the submitter and which mission it is for.
-- Mission makers can cancel their request and resubmit at any time.
-- On submission, all J2 Leads are notified.
-- A J2 Lead is assigned to the check; they confirm the date/time with the mission maker.
-- Both the lead and the mission maker can set custom reminders for the scheduled check.
-
-> **Code context:** `app/api/operations/[id]/orders-check/route.ts` — POST creates an `orders_check` task notifying all J2 leads in-app and via Discord DM; PATCH supports `confirm` and `propose` (alternative time) actions with notifications back to the requester. UI state managed in the edit page. **What is missing:** There is no DELETE method and no cancel UI — mission makers cannot currently cancel their request. Custom reminders for both parties after confirmation are also not implemented.
+### ~~Request Orders Check~~ ✓ Complete
+> Moved to Completed — see below.
 
 ---
 
@@ -258,3 +248,6 @@ Added `era_options` MongoDB collection (`lib/mongo.ts`) and `EraOption` global t
 
 ### Reservist Allocations
 Built `components/operations/ReservistAllocationPanel.tsx` — a collapsible HQ-only panel in the attendance view. Lists active and inactive reservists with their current section assignment, RSVP status, and a section dropdown for each. Dirty-state tracking shows a save button only when changes exist. Saves via POST to `/api/operations/[id]/attendance/manage` with a `moves` array. Summary row shows how many reservists are assigned per section. Integrated into `AttendancePanel.tsx` above the attendance-by-section view, gated on `isHQ`. Also fixed pre-existing TS errors: `allowedTypes` prop not threading through `ActiveEditor` in `CollabEditor.tsx`, and `staff/page.tsx` projection type cast.
+
+### Request Orders Check
+Added DELETE handler to `app/api/operations/[id]/orders-check/route.ts` — mission maker (or J2 lead) can cancel an active request; marks task `completedAt` with `ordersCheckStatus: 'cancelled'` and notifies all J2 leads. Added `'set_reminder'` action to PATCH handler — any J2 member can store `ordersCheckMakerReminderAt` on the task. Added step 1b to `app/api/cron/task-reminders/route.ts` — fires a one-shot in-app reminder to the mission maker (`assignedBy`) when `ordersCheckMakerReminderAt` passes; stamps `ordersCheckMakerReminderFiredAt` to prevent re-fire. Edit page (`app/operations/[id]/edit/page.tsx`): added "Cancel Request" button on the status card (shown when status is not confirmed), and a "Remind me" DateTimePicker + Save button shown after J2 Lead confirms the check time.

@@ -146,16 +146,73 @@ export async function POST(req: NextRequest, { params }: Params) {
 }
 
 /**
- * PATCH /api/operations/[id]/orders-check
- * Body: { taskId, action: 'confirm' | 'propose', proposedAt?: string, note?: string }
+ * DELETE /api/operations/[id]/orders-check?taskId=...
  *
- * J2 lead confirms or proposes an alternative time for the orders check.
+ * Mission maker cancels their orders check request.
+ */
+export async function DELETE(req: NextRequest, { params }: Params) {
+    let me: User
+    try {
+        me = await client.fetchMe()
+        if (!client.hasRoles(me, PERMISSIONS.departments.j2)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+    } catch {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id } = await params
+    const taskId = req.nextUrl.searchParams.get('taskId')
+    if (!taskId) return NextResponse.json({ error: 'taskId required' }, { status: 400 })
+
+    let task: Task | null
+    try {
+        task = await Db.tasks.findOne({ _id: new ObjectId(taskId), type: 'orders_check', relatedId: id } as never)
+    } catch {
+        return NextResponse.json({ error: 'Invalid taskId' }, { status: 400 })
+    }
+    if (!task) return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    if ((task as any).completedAt) return NextResponse.json({ error: 'Already completed' }, { status: 400 })
+
+    // Only the requester (or J4/admin via override) can cancel
+    const isLead = client.hasRoles(me, PERMISSIONS.departmentLeads.j2)
+    if (task.assignedBy !== me.id && !isLead) {
+        return NextResponse.json({ error: 'Only the requester can cancel' }, { status: 403 })
+    }
+
+    await Db.tasks.updateOne(
+        { _id: new ObjectId(taskId) },
+        { $set: { completedAt: new Date(), status: 'completed', ordersCheckStatus: 'cancelled' } } as never
+    )
+
+    const callerName = (me as any).guild?.displayName || (me as any).guild?.nickname
+        || (me as any).globalName || (me as any).username || 'Unknown'
+    const opName = task.title.replace('[Orders Check] ', '')
+    const j2LeadRole = PERMISSIONS.departmentLeads.j2[0]
+
+    await createNotificationForRole(j2LeadRole, {
+        type: 'system',
+        title: 'Orders Check Cancelled',
+        body: `${callerName} has cancelled the orders check request for "${opName}".`,
+        actionUrl: task.actionUrl,
+        relatedId: taskId,
+    })
+
+    return NextResponse.json({ ok: true })
+}
+
+/**
+ * PATCH /api/operations/[id]/orders-check
+ * Body: { taskId, action: 'confirm' | 'propose' | 'set_reminder', proposedAt?: string, note?: string }
+ *
+ * J2 lead confirms or proposes an alternative time.
+ * Any J2 member can use 'set_reminder' to store a personal reminder time.
  */
 export async function PATCH(req: NextRequest, { params }: Params) {
     let me: User
     try {
         me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.departmentLeads.j2)) {
+        if (!client.hasRoles(me, PERMISSIONS.departments.j2)) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
     } catch {
@@ -164,7 +221,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     const { id } = await params
 
-    let body: { taskId?: string; action?: 'confirm' | 'propose'; proposedAt?: string; note?: string }
+    let body: { taskId?: string; action?: 'confirm' | 'propose' | 'set_reminder'; proposedAt?: string; note?: string }
     try { body = await req.json() } catch { return NextResponse.json({ error: 'Invalid body' }, { status: 400 }) }
 
     const { taskId, action, proposedAt, note } = body
@@ -177,6 +234,23 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         return NextResponse.json({ error: 'Invalid taskId' }, { status: 400 })
     }
     if (!task) return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+
+    // 'set_reminder' is available to any J2 member (already gated above)
+    if (action === 'set_reminder') {
+        if (!proposedAt) return NextResponse.json({ error: 'proposedAt required' }, { status: 400 })
+        const reminderDate = new Date(proposedAt)
+        if (isNaN(reminderDate.getTime())) return NextResponse.json({ error: 'Invalid proposedAt' }, { status: 400 })
+        await Db.tasks.updateOne(
+            { _id: new ObjectId(taskId) },
+            { $set: { ordersCheckMakerReminderAt: proposedAt, ordersCheckMakerReminderFiredAt: null } } as never
+        )
+        return NextResponse.json({ ok: true })
+    }
+
+    // 'confirm' and 'propose' require J2 Lead
+    if (!client.hasRoles(me, PERMISSIONS.departmentLeads.j2)) {
+        return NextResponse.json({ error: 'Forbidden: J2 Lead required' }, { status: 403 })
+    }
 
     const callerName = (me as any).guild?.displayName || (me as any).guild?.nickname
         || (me as any).globalName || (me as any).username || 'Unknown'
