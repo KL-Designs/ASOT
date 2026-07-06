@@ -41,6 +41,7 @@ interface Props {
     onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
     themeColor?: string
     readOnly?: boolean
+    allowedTypes?: string[]
 }
 
 function hexToRgb(hex: string) {
@@ -108,6 +109,7 @@ export default function CollabEditor({
     onSaveStatusChange,
     themeColor = '#db001d',
     readOnly = false,
+    allowedTypes,
 }: Props) {
     const [ydoc] = useState(() => new Y.Doc())
     const [ready, setReady] = useState<ReadyState | null>(null)
@@ -542,6 +544,7 @@ function ActiveEditor({ ydoc, provider, user, uploadUrl, defaultSectionTitle, in
                     onSelectPage={setActivePage}
                     themeColor={themeColor}
                     orientation={isMobile ? 'top' : 'sidebar'}
+                    allowedTypes={allowedTypes}
                 />
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>

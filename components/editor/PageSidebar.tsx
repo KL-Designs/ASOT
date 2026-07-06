@@ -10,9 +10,21 @@ interface PageEntry {
     isMain: boolean
     pageType?: string  // 'orders' | 'zeus' | 'ocap' | 'staff_orders' | 'aar' | 'separator'
     pageColor?: string
+    parentId?: string
 }
 
-const STAFF_SECTION_PRESETS = ['HQ Orders', '1 PLT Orders', '2 PLT Orders', '3 PLT Orders'] as const
+interface StaffSection {
+    label: string
+    color: string
+    children: readonly string[] | null
+}
+
+const STAFF_SECTIONS: StaffSection[] = [
+    { label: 'HQ Orders', color: '#ef4444', children: null },
+    { label: '1PL', color: '#f59e0b', children: ['1-1 Alpha', '1-1 Bravo', '1-1 Charlie'] },
+    { label: '2PL', color: '#10b981', children: ['1-2 Alpha', '1-2 Bravo', '1-2 Charlie'] },
+    { label: '3PL', color: '#3b82f6', children: ['1-3 Echo', '1-3 Golf', '1-3 Hotel', '1-3 Mike', '1-3 Victor'] },
+]
 
 interface Props {
     ydoc: Y.Doc
@@ -20,6 +32,7 @@ interface Props {
     onSelectPage: (id: string) => void
     themeColor: string
     orientation?: 'sidebar' | 'top'
+    allowedTypes?: string[]
 }
 
 function hexToRgb(hex: string) {
@@ -31,7 +44,12 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor, orientation = 'sidebar' }: Props) {
+function hexA(hex: string, alpha: number) {
+    const { r, g, b } = hexToRgb(hex)
+    return `rgba(${r},${g},${b},${alpha})`
+}
+
+export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor, orientation = 'sidebar', allowedTypes }: Props) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
@@ -39,11 +57,13 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
     const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
-    const [showTypeModal, setShowTypeModal]           = useState(false)
-    const [typeModalStep, setTypeModalStep]           = useState<'type' | 'staff_section'>('type')
-    const [staffSectionCustom, setStaffSectionCustom] = useState('')
-    const [colorPickerPageId, setColorPickerPageId]   = useState<string | null>(null)
-    const [dragOverIdx, setDragOverIdx]               = useState<number | null>(null)
+    const [showTypeModal, setShowTypeModal]               = useState(false)
+    const [typeModalStep, setTypeModalStep]               = useState<'type' | 'staff_section' | 'staff_subsection'>('type')
+    const [staffSectionCustom, setStaffSectionCustom]     = useState('')
+    const [selectedStaffParent, setSelectedStaffParent]   = useState<StaffSection | null>(null)
+    const [colorPickerPageId, setColorPickerPageId]       = useState<string | null>(null)
+    const [dragOverIdx, setDragOverIdx]                   = useState<number | null>(null)
+    const [dragNestTargetId, setDragNestTargetId]         = useState<string | null>(null)
 
     const PAGE_COLOR_PRESETS = ['', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899']
     const dragSrcRef = useRef<number>(-1)
@@ -90,7 +110,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             setPages(ids.map(id => {
                 const pmeta = ydoc.getMap<string>('pmeta-' + id)
                 const fallback = id === 'main' ? 'Main' : 'Untitled'
-                return { id, title: pmeta.get('title') || fallback, isMain: id === 'main', pageType: pmeta.get('pageType') || 'orders', pageColor: pmeta.get('pageColor') || '' }
+                return { id, title: pmeta.get('title') || fallback, isMain: id === 'main', pageType: pmeta.get('pageType') || 'orders', pageColor: pmeta.get('pageColor') || '', parentId: pmeta.get('parentId') || undefined }
             }))
         }
 
@@ -122,7 +142,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
         if (renamingId) renameInputRef.current?.focus()
     }, [renamingId])
 
-    function addPage(type: 'orders' | 'zeus' | 'staff_orders' | 'aar' | 'separator', title?: string) {
+    function addPage(type: 'orders' | 'zeus' | 'staff_orders' | 'aar' | 'separator', title?: string, color?: string) {
         const id = crypto.randomUUID().replace(/-/g, '').slice(0, 8)
         const defaultTitle = type === 'zeus' ? 'Zeus Notes'
             : type === 'separator' ? '──────────'
@@ -140,6 +160,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             pmeta.set('title', defaultTitle)
             pmeta.set('isMain', 'false')
             pmeta.set('pageType', type)
+            if (color) pmeta.set('pageColor', color)
         })
         closeTypeModal()
         if (type !== 'separator') {
@@ -157,6 +178,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
         setShowTypeModal(false)
         setTypeModalStep('type')
         setStaffSectionCustom('')
+        setSelectedStaffParent(null)
     }
 
     function startRename(id: string, currentTitle: string) {
@@ -195,6 +217,20 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             pageOrder.delete(fromIdx, 1)
             pageOrder.insert(toIdx, [item])
         })
+    }
+
+    function nestPage(pageId: string, targetId: string) {
+        if (pageId === targetId) return
+        const pmeta = ydoc.getMap<string>('pmeta-' + pageId)
+        // Prevent circular nesting
+        const targetPmeta = ydoc.getMap<string>('pmeta-' + targetId)
+        if (targetPmeta.get('parentId') === pageId) return
+        ydoc.transact(() => { pmeta.set('parentId', targetId) })
+    }
+
+    function unnestPage(pageId: string) {
+        const pmeta = ydoc.getMap<string>('pmeta-' + pageId)
+        ydoc.transact(() => { pmeta.delete('parentId') })
     }
 
     function duplicatePage(sourceId: string) {
@@ -451,10 +487,13 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 }
 
                 // Per-page-type accent colors (only applied when active)
+                const staffColor = page.pageType === 'staff_orders' && page.pageColor ? page.pageColor : null
                 const accent = page.pageType === 'zeus'
                     ? { bg: 'rgba(0,195,255,0.08)', border: 'rgba(0,195,255,0.25)', left: '2px solid rgba(0,195,255,0.7)', icon: isActive ? 'rgba(0,195,255,0.85)' : 'rgba(0,195,255,0.4)', text: isActive ? 'rgba(0,195,255,0.9)' : 'rgba(0,195,255,0.5)' }
                     : page.pageType === 'ocap'
                     ? { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', left: '2px solid rgba(16,185,129,0.7)', icon: isActive ? 'rgba(16,185,129,0.85)' : 'rgba(16,185,129,0.4)', text: isActive ? 'rgba(16,185,129,0.9)' : 'rgba(16,185,129,0.5)' }
+                    : staffColor
+                    ? { bg: hexA(staffColor, 0.08), border: hexA(staffColor, 0.25), left: `2px solid ${hexA(staffColor, 0.7)}`, icon: isActive ? hexA(staffColor, 0.85) : hexA(staffColor, 0.4), text: isActive ? hexA(staffColor, 0.95) : hexA(staffColor, 0.55) }
                     : page.pageType === 'staff_orders'
                     ? { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)', left: '2px solid rgba(245,158,11,0.7)', icon: isActive ? 'rgba(245,158,11,0.85)' : 'rgba(245,158,11,0.4)', text: isActive ? 'rgba(245,185,11,0.95)' : 'rgba(245,158,11,0.55)' }
                     : page.pageType === 'aar'
@@ -465,24 +504,49 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                     ? <Article style={{ fontSize: 13, color: accent.icon, flexShrink: 0 }} />
                     : <Description style={{ fontSize: 13, color: accent.icon, flexShrink: 0 }} />
 
+                const isNestTarget = dragNestTargetId === page.id
+
                 return (
                     <div
                         key={page.id}
+                        style={{ paddingLeft: page.parentId ? 16 : 0 }}
+                    >
+                    <div
                         draggable
                         onDragStart={() => { dragSrcRef.current = idx }}
-                        onDragOver={e => { e.preventDefault(); setDragOverIdx(idx) }}
-                        onDragLeave={() => setDragOverIdx(null)}
-                        onDrop={() => { movePage(dragSrcRef.current, idx); setDragOverIdx(null) }}
-                        onDragEnd={() => setDragOverIdx(null)}
+                        onDragOver={e => {
+                            e.preventDefault()
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            const yRel = (e.clientY - rect.top) / rect.height
+                            if (yRel < 0.35 || yRel > 0.65) {
+                                setDragOverIdx(idx)
+                                setDragNestTargetId(null)
+                            } else {
+                                setDragNestTargetId(page.id)
+                                setDragOverIdx(null)
+                            }
+                        }}
+                        onDragLeave={() => { setDragOverIdx(null); setDragNestTargetId(null) }}
+                        onDrop={() => {
+                            if (dragNestTargetId === page.id) {
+                                const srcPage = pages[dragSrcRef.current]
+                                if (srcPage) nestPage(srcPage.id, page.id)
+                            } else {
+                                movePage(dragSrcRef.current, idx)
+                            }
+                            setDragOverIdx(null)
+                            setDragNestTargetId(null)
+                        }}
+                        onDragEnd={() => { setDragOverIdx(null); setDragNestTargetId(null) }}
                         style={{
                             display: 'flex', alignItems: 'center', gap: 4,
                             padding: '6px 8px',
                             borderRadius: 4,
-                            background: isDragOver ? c(0.08) : isActive ? accent.bg : 'transparent',
-                            borderTop: isActive ? `1px solid ${accent.border}` : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
-                            borderRight: isActive ? `1px solid ${accent.border}` : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
-                            borderBottom: isActive ? `1px solid ${accent.border}` : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
-                            borderLeft: isActive ? accent.left : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
+                            background: isNestTarget ? 'rgba(255,255,255,0.07)' : isDragOver ? c(0.08) : isActive ? accent.bg : 'transparent',
+                            borderTop: isActive ? `1px solid ${accent.border}` : isDragOver ? `2px solid ${c(0.5)}` : isNestTarget ? '1px solid rgba(255,255,255,0.2)' : '1px solid transparent',
+                            borderRight: isActive ? `1px solid ${accent.border}` : isNestTarget ? '1px solid rgba(255,255,255,0.2)' : '1px solid transparent',
+                            borderBottom: isActive ? `1px solid ${accent.border}` : isNestTarget ? '1px solid rgba(255,255,255,0.2)' : '1px solid transparent',
+                            borderLeft: isActive ? accent.left : isNestTarget ? '2px solid rgba(255,255,255,0.4)' : '1px solid transparent',
                             cursor: 'pointer',
                             transition: 'all 0.1s',
                             position: 'relative',
@@ -492,7 +556,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)'
                         }}
                         onMouseLeave={e => {
-                            if (!isActive) (e.currentTarget as HTMLDivElement).style.background = isDragOver ? c(0.08) : 'transparent'
+                            if (!isActive) (e.currentTarget as HTMLDivElement).style.background = isNestTarget ? 'rgba(255,255,255,0.07)' : isDragOver ? c(0.08) : 'transparent'
                         }}
                     >
                         <DragIndicator style={{ fontSize: 14, flexShrink: 0, color: 'rgba(237,237,237,0.15)', cursor: 'grab' }} />
@@ -575,6 +639,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             )
                         )}
                     </div>
+                    </div>
                 )
             })}
 
@@ -601,77 +666,125 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                     <div style={{ background: '#0f0f10', border: `1px solid ${c(0.35)}`, borderTop: `2px solid ${c(0.8)}`, padding: '24px 28px', maxWidth: 400, width: '90%', display: 'flex', flexDirection: 'column', gap: 14 }}>
                         <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: c(0.5), fontFamily: 'monospace' }}>{'// ADD DOCUMENT'}</div>
 
-                        {typeModalStep === 'type' && <>
-                            <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Choose Document Type</div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                <button type='button' onClick={() => addPage('orders')}
-                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: `${c(0.06)}`, border: `1px solid ${c(0.3)}`, color: c(0.85), cursor: 'pointer' }}
-                                >
-                                    Document Page
-                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(237,237,237,0.4)', marginTop: 3 }}>Standard operation orders, briefings, and planning content.</div>
-                                </button>
-                                <button type='button' onClick={() => setTypeModalStep('staff_section')}
-                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', color: 'rgba(245,185,11,0.9)', cursor: 'pointer' }}
-                                >
-                                    Staff Orders Page
-                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(245,158,11,0.45)', marginTop: 3 }}>Section-specific mission orders for platoon leaders and section commanders.</div>
-                                </button>
-                                <button type='button' onClick={() => addPage('zeus')}
-                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(0,195,255,0.06)', border: '1px solid rgba(0,195,255,0.3)', color: 'rgba(0,195,255,0.85)', cursor: 'pointer' }}
-                                >
-                                    Zeus Notes Page
-                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(0,195,255,0.45)', marginTop: 3 }}>J6-only notes and gamemaster planning. Visible to J6 staff only.</div>
-                                </button>
-                                <button type='button' onClick={() => addPage('aar')}
-                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.3)', color: 'rgba(139,140,255,0.9)', cursor: 'pointer' }}
-                                >
-                                    After Action Review
-                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(99,102,241,0.45)', marginTop: 3 }}>Post-operation review and lessons learned. Added after the mission completes.</div>
-                                </button>
-                                <button type='button' onClick={() => addPage('separator')}
-                                    style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.78rem', fontWeight: 600, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.45)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
-                                >
-                                    <HorizontalRule style={{ fontSize: 16, color: 'rgba(237,237,237,0.3)' }} />
-                                    <div>
-                                        Separator
-                                        <div style={{ fontSize: '0.62rem', fontWeight: 400, color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>Visual divider to group documents. Double-click to add a label.</div>
-                                    </div>
-                                </button>
-                            </div>
-                        </>}
+                        {typeModalStep === 'type' && (() => {
+                            const allowed = (type: string) => !allowedTypes || allowedTypes.includes(type)
+                            return <>
+                                <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Choose Document Type</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {allowed('orders') && (
+                                        <button type='button' onClick={() => addPage('orders')}
+                                            style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: `${c(0.06)}`, border: `1px solid ${c(0.3)}`, color: c(0.85), cursor: 'pointer' }}
+                                        >
+                                            Document Page
+                                            <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(237,237,237,0.4)', marginTop: 3 }}>Standard operation orders, briefings, and planning content.</div>
+                                        </button>
+                                    )}
+                                    {allowed('staff_orders') && (
+                                        <button type='button' onClick={() => setTypeModalStep('staff_section')}
+                                            style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', color: 'rgba(245,185,11,0.9)', cursor: 'pointer' }}
+                                        >
+                                            Staff Orders Page
+                                            <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(245,158,11,0.45)', marginTop: 3 }}>Section-specific mission orders for platoon leaders and section commanders.</div>
+                                        </button>
+                                    )}
+                                    {allowed('zeus') && (
+                                        <button type='button' onClick={() => addPage('zeus')}
+                                            style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(0,195,255,0.06)', border: '1px solid rgba(0,195,255,0.3)', color: 'rgba(0,195,255,0.85)', cursor: 'pointer' }}
+                                        >
+                                            Zeus Notes Page
+                                            <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(0,195,255,0.45)', marginTop: 3 }}>J6-only notes and gamemaster planning. Visible to J6 staff only.</div>
+                                        </button>
+                                    )}
+                                    {allowed('aar') && (
+                                        <button type='button' onClick={() => addPage('aar')}
+                                            style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.3)', color: 'rgba(139,140,255,0.9)', cursor: 'pointer' }}
+                                        >
+                                            After Action Review
+                                            <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(99,102,241,0.45)', marginTop: 3 }}>Post-operation review and lessons learned. Added after the mission completes.</div>
+                                        </button>
+                                    )}
+                                    {allowed('separator') && (
+                                        <button type='button' onClick={() => addPage('separator')}
+                                            style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.78rem', fontWeight: 600, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.45)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+                                        >
+                                            <HorizontalRule style={{ fontSize: 16, color: 'rgba(237,237,237,0.3)' }} />
+                                            <div>
+                                                Separator
+                                                <div style={{ fontSize: '0.62rem', fontWeight: 400, color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>Visual divider to group documents. Double-click to add a label.</div>
+                                            </div>
+                                        </button>
+                                    )}
+                                </div>
+                            </>
+                        })()}
 
                         {typeModalStep === 'staff_section' && <>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <button type='button' onClick={() => setTypeModalStep('type')}
                                     style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}
                                 >← Back</button>
-                                <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(245,185,11,0.9)' }}>Select Section</div>
+                                <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Select Unit</div>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                {STAFF_SECTION_PRESETS.map(section => (
-                                    <button key={section} type='button' onClick={() => addPage('staff_orders', section)}
-                                        style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', color: 'rgba(245,185,11,0.85)', cursor: 'pointer' }}
-                                    >
-                                        {section}
-                                    </button>
-                                ))}
-                                <div style={{ marginTop: 4, display: 'flex', gap: 6 }}>
-                                    <input
-                                        type='text'
-                                        value={staffSectionCustom}
-                                        onChange={e => setStaffSectionCustom(e.target.value)}
-                                        onKeyDown={e => { if (e.key === 'Enter' && staffSectionCustom.trim()) addPage('staff_orders', staffSectionCustom.trim()) }}
-                                        placeholder='Custom section name…'
-                                        style={{ flex: 1, background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.8)', fontSize: '0.78rem', padding: '7px 10px', outline: 'none' }}
-                                    />
-                                    <button type='button'
-                                        onClick={() => { if (staffSectionCustom.trim()) addPage('staff_orders', staffSectionCustom.trim()) }}
-                                        disabled={!staffSectionCustom.trim()}
-                                        style={{ padding: '7px 14px', fontSize: '0.7rem', fontWeight: 700, background: staffSectionCustom.trim() ? 'rgba(245,158,11,0.18)' : 'rgba(255,255,255,0.04)', border: '1px solid rgba(245,158,11,0.3)', color: staffSectionCustom.trim() ? 'rgba(245,185,11,0.9)' : 'rgba(237,237,237,0.25)', cursor: staffSectionCustom.trim() ? 'pointer' : 'not-allowed' }}
-                                    >Add</button>
-                                </div>
+                                {STAFF_SECTIONS.map(section => {
+                                    const ra = (a: number) => hexA(section.color, a)
+                                    return (
+                                        <button key={section.label} type='button'
+                                            onClick={() => {
+                                                if (section.children) {
+                                                    setSelectedStaffParent(section)
+                                                    setTypeModalStep('staff_subsection')
+                                                } else {
+                                                    addPage('staff_orders', section.label, section.color)
+                                                }
+                                            }}
+                                            style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: ra(0.06), border: `1px solid ${ra(0.3)}`, color: ra(0.9), cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                                        >
+                                            <span>{section.label}</span>
+                                            {section.children && <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>›</span>}
+                                        </button>
+                                    )
+                                })}
                             </div>
                         </>}
+
+                        {typeModalStep === 'staff_subsection' && selectedStaffParent && (() => {
+                            const parent = selectedStaffParent
+                            const ra = (a: number) => hexA(parent.color, a)
+                            return <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <button type='button' onClick={() => { setTypeModalStep('staff_section'); setSelectedStaffParent(null) }}
+                                        style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 8px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}
+                                    >← Back</button>
+                                    <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: ra(0.9) }}>{parent.label}</div>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                    {parent.children?.map(child => (
+                                        <button key={child} type='button'
+                                            onClick={() => addPage('staff_orders', child, parent.color)}
+                                            style={{ padding: '9px 14px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: ra(0.05), border: `1px solid ${ra(0.25)}`, color: ra(0.85), cursor: 'pointer' }}
+                                        >
+                                            {child}
+                                        </button>
+                                    ))}
+                                    <div style={{ marginTop: 4, display: 'flex', gap: 6 }}>
+                                        <input
+                                            type='text'
+                                            value={staffSectionCustom}
+                                            onChange={e => setStaffSectionCustom(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter' && staffSectionCustom.trim()) addPage('staff_orders', staffSectionCustom.trim(), parent.color) }}
+                                            placeholder='Custom callsign…'
+                                            style={{ flex: 1, background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.8)', fontSize: '0.78rem', padding: '7px 10px', outline: 'none' }}
+                                        />
+                                        <button type='button'
+                                            onClick={() => { if (staffSectionCustom.trim()) addPage('staff_orders', staffSectionCustom.trim(), parent.color) }}
+                                            disabled={!staffSectionCustom.trim()}
+                                            style={{ padding: '7px 14px', fontSize: '0.7rem', fontWeight: 700, background: staffSectionCustom.trim() ? ra(0.18) : 'rgba(255,255,255,0.04)', border: `1px solid ${ra(0.3)}`, color: staffSectionCustom.trim() ? ra(0.9) : 'rgba(237,237,237,0.25)', cursor: staffSectionCustom.trim() ? 'pointer' : 'not-allowed' }}
+                                        >Add</button>
+                                    </div>
+                                </div>
+                            </>
+                        })()}
 
                         <button type='button' onClick={closeTypeModal}
                             style={{ alignSelf: 'flex-end', padding: '6px 14px', fontSize: '0.7rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.35)', cursor: 'pointer' }}
