@@ -97,51 +97,8 @@ When a member rejoins, their discharge record remains and a second entry is crea
 
 ## Orders / Operations
 
-### All Staff — Read-Only Operation View
-Create a simplified operation view for **All Staff**, based on the existing `/operations/[id]/edit` editor.
-
-All Staff **cannot** see:
-- Mission development section
-- Schedule and automation settings
-- Attendance settings
-- Billet points
-
-All Staff **can** see (read-only, no editing):
-- Operation details
-
-All staff will be able to add documents to the operations page as they will create their own orders for their callsign/unit. When they select the add document button, it will prompt them with the type of document they'd like to create but will only show the Document page and Staff Orders page options. (No Zeus Notes and After Action Review option at this time)
-
-For both J2, CHQ and All staff, add the ability to click and drag operation documents into a folder structure which will show them in a subdirectory layout. When dragging the document, provide a drag line indicator so that they can insert it between the existing documents. Otherwise, if dragged on top of an existing document, it them places that document underneath and offset to the existing document. Essentially creating a folder/file system for the documents so they can be organised neatly. They will also be required to reorder documents in the "folders" if required.
-
-Also, when selecting the Staff orders page when creating a document, it currently shows the platoons in all the same colour. HQ orders select option should be in red. 1PLT should be renamed to 1PL and stay as yellow. 2PLT should be renamed to 2PL and be changed to dark green. 3PLT should be changed to 3PL and changed to blue.
-
-Then for each PL, the following sub options will be available once selecting the PL.
-```
-1PL
-  1-1 Alpha
-  1-1 Bravo
-  1-1 Charlie
-2PL
-  1-2 Alpha
-  1-2 Bravo
-  1-2 Charlie
-3PL
-  1-3 Echo
-  1-3 Golf
-  1-3 Hotel
-  1-3 Mike
-  1-3 Victor
-```
-
-This allows staff to easily select/set the orders document name.
-
-Lastly, once they select their callsign, they will be able to copy sections from certain orders to their new document. E.g. they can select to copy the situation section from CHQ orders. Or they can choose to copy/import the execution section from their PHQ orders. This will allow them to quickly import sections/data from their HQ's orders and then edit them to what they want on their callsign version.
-
-> **Code context:** The edit page is `app/operations/[id]/edit/page.tsx`. Sections present: mission development, schedule & automation, attendance & platoon allocation, ownership/billet points, custom attendance units, and the collab document editor. Document types are defined in `components/editor/PageSidebar.tsx` — available types: Document Page, Staff Orders Page, Zeus Notes Page, After Action Review, Separator. Staff Orders presets are `'HQ Orders'`, `'1 PLT Orders'`, `'2 PLT Orders'`, `'3 PLT Orders'` (hardcoded strings). **What is missing:**
-> - The All Staff read-only view does not exist — needs a new page/route or conditional rendering.
-> - Drag-and-drop folder hierarchy for documents is not implemented — sidebar only supports add/remove/reorder as a flat list.
-> - Staff Orders presets use old PLT names, wrong colours, and have no sub-section options (1-1 Alpha etc.) — all hardcoded, needs redesigning.
-> - Section copy/import from other orders documents is not implemented.
+### ~~All Staff — Read-Only Operation View~~ ✓ Complete
+> Moved to Completed — see below.
 
 ---
 
@@ -241,6 +198,9 @@ Added list/tree view toggle to the Operations sub-tab in `app/dashboard/j2/tabs/
 
 ### Mission Check Calendar (J2)
 Added two J2-specific calendar event types on top of the existing `DeptCalendarTab`/`react-big-calendar`. J2 Leads can now block unavailability slots (red events, `isJ2Unavailability: true`). Any J2 member can submit a mission check request (blue events, `isMissionCheckRequest: true`) — this creates a `mission_check` task assigned to the J2 Lead role, fans out in-app notifications to all J2 leads, and sends a confirmation notification to the requester. New `J2EventModal` handles both creation flows with operation-selector and date/time pickers. `DeptCalendarTab` extended with `isJ2Lead` prop, two new action buttons, per-type filter toggles, and coloured event styling. Calendar API extended to handle the new flags with permission gates. `NotificationType` extended with `mission_check_requested` and `mission_check_confirmed`.
+
+### All Staff — Read-Only Operation View
+`app/operations/[id]/staff/page.tsx` — new route with read-only operation details (no mission dev, schedule, attendance, or billet points). `components/editor/PageSidebar.tsx` extended with: (1) drag insert line between items (2px accent line replaces border-on-item approach) so users can precisely insert between documents; (2) folder nesting via drag-onto-item middle zone — nested pages indent with `paddingLeft: 16`; (3) Staff Orders type-modal redesigned with colour-coded callsign presets (HQ red, 1PL yellow, 2PL dark green, 3PL blue) and sub-section options (1-1 Alpha/Bravo/Charlie, 1-2 Alpha/Bravo/Charlie, 1-3 Echo/Golf/Hotel/Mike/Victor); (4) "Import sections" button on `staff_orders` pages — modal lets user pick a source document and select individual sections (checkbox list with All/None toggles) then copies them into the current page via `ydoc.transact()`.
 
 ### Request Orders Check
 Added DELETE handler to `app/api/operations/[id]/orders-check/route.ts` — mission maker (or J2 lead) can cancel an active request; marks task `completedAt` with `ordersCheckStatus: 'cancelled'` and notifies all J2 leads. Added `'set_reminder'` action to PATCH handler — any J2 member can store `ordersCheckMakerReminderAt` on the task. Added step 1b to `app/api/cron/task-reminders/route.ts` — fires a one-shot in-app reminder to the mission maker (`assignedBy`) when `ordersCheckMakerReminderAt` passes; stamps `ordersCheckMakerReminderFiredAt` to prevent re-fire. Edit page (`app/operations/[id]/edit/page.tsx`): added "Cancel Request" button on the status card (shown when status is not confirmed), and a "Remind me" DateTimePicker + Save button shown after J2 Lead confirms the check time.

@@ -62,8 +62,14 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     const [staffSectionCustom, setStaffSectionCustom]     = useState('')
     const [selectedStaffParent, setSelectedStaffParent]   = useState<StaffSection | null>(null)
     const [colorPickerPageId, setColorPickerPageId]       = useState<string | null>(null)
-    const [dragOverIdx, setDragOverIdx]                   = useState<number | null>(null)
+    const [dragInsertIdx, setDragInsertIdx]               = useState<number | null>(null)
     const [dragNestTargetId, setDragNestTargetId]         = useState<string | null>(null)
+    // Section import
+    const [importTargetId, setImportTargetId]             = useState<string | null>(null)
+    const [importSourceId, setImportSourceId]             = useState('')
+    const [importSectionList, setImportSectionList]       = useState<{ id: string; title: string }[]>([])
+    const [importSelected, setImportSelected]             = useState<Set<string>>(new Set())
+    const [importing, setImporting]                       = useState(false)
 
     const PAGE_COLOR_PRESETS = ['', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899']
     const dragSrcRef = useRef<number>(-1)
@@ -231,6 +237,47 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     function unnestPage(pageId: string) {
         const pmeta = ydoc.getMap<string>('pmeta-' + pageId)
         ydoc.transact(() => { pmeta.delete('parentId') })
+    }
+
+    // Sync section list when import source changes
+    React.useEffect(() => {
+        if (!importSourceId) { setImportSectionList([]); return }
+        const sectionOrder = ydoc.getArray<string>('sectionOrder-' + importSourceId)
+        const ids = sectionOrder.toArray()
+        setImportSectionList(ids.map(id => {
+            const meta = ydoc.getMap<string>(`smeta-${importSourceId}-${id}`)
+            return { id, title: meta.get('title') || 'Untitled' }
+        }))
+        setImportSelected(new Set())
+    }, [importSourceId, ydoc])
+
+    function doImportSections() {
+        if (!importTargetId || !importSourceId || importSelected.size === 0) return
+        setImporting(true)
+        try {
+            const selectedIds = Array.from(importSelected)
+            ydoc.transact(() => {
+                const targetOrder = ydoc.getArray<string>('sectionOrder-' + importTargetId)
+                for (const srcSecId of selectedIds) {
+                    const newSecId = Math.random().toString(36).slice(2, 10)
+                    targetOrder.push([newSecId])
+                    const srcMeta = ydoc.getMap<string>(`smeta-${importSourceId}-${srcSecId}`)
+                    const dstMeta = ydoc.getMap<string>(`smeta-${importTargetId}-${newSecId}`)
+                    srcMeta.forEach((v, k) => dstMeta.set(k, v))
+                    try {
+                        const srcFrag = ydoc.getXmlFragment(`scontent-${importSourceId}-${srcSecId}`)
+                        const dstFrag = ydoc.getXmlFragment(`scontent-${importTargetId}-${newSecId}`)
+                        const items = srcFrag.toArray()
+                        if (items.length > 0) dstFrag.insert(0, items.map((item: any) => item.clone()))
+                    } catch { /* content copy failed */ }
+                }
+            })
+        } finally {
+            setImporting(false)
+            setImportTargetId(null)
+            setImportSourceId('')
+            setImportSelected(new Set())
+        }
     }
 
     function duplicatePage(sourceId: string) {
@@ -422,7 +469,6 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 const isActive = page.id === activePage
                 const isRenaming = renamingId === page.id
                 const isConfirmingDelete = confirmingDeleteId === page.id
-                const isDragOver = dragOverIdx === idx
 
                 // ── Separator ─────────────────────────────────────────────────
                 if (page.pageType === 'separator') {
@@ -431,10 +477,10 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             key={page.id}
                             draggable
                             onDragStart={() => { dragSrcRef.current = idx }}
-                            onDragOver={e => { e.preventDefault(); setDragOverIdx(idx) }}
-                            onDragLeave={() => setDragOverIdx(null)}
-                            onDrop={() => { movePage(dragSrcRef.current, idx); setDragOverIdx(null) }}
-                            onDragEnd={() => setDragOverIdx(null)}
+                            onDragOver={e => { e.preventDefault(); setDragInsertIdx(idx) }}
+                            onDragLeave={() => setDragInsertIdx(null)}
+                            onDrop={() => { let t = idx; if (dragSrcRef.current < t) t--; movePage(dragSrcRef.current, t); setDragInsertIdx(null) }}
+                            onDragEnd={() => setDragInsertIdx(null)}
                             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 2px', cursor: 'default', marginTop: 4 }}
                         >
                             <DragIndicator style={{ fontSize: 12, color: 'rgba(237,237,237,0.12)', cursor: 'grab', flexShrink: 0 }} />
@@ -511,6 +557,10 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                         key={page.id}
                         style={{ paddingLeft: page.parentId ? 16 : 0 }}
                     >
+                    {/* Drag insert line before this item */}
+                    {dragInsertIdx === idx && dragSrcRef.current !== idx && (
+                        <div style={{ height: 2, background: c(0.8), borderRadius: 1, margin: '2px 0', pointerEvents: 'none' }} />
+                    )}
                     <div
                         draggable
                         onDragStart={() => { dragSrcRef.current = idx }}
@@ -518,32 +568,37 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             e.preventDefault()
                             const rect = e.currentTarget.getBoundingClientRect()
                             const yRel = (e.clientY - rect.top) / rect.height
-                            if (yRel < 0.35 || yRel > 0.65) {
-                                setDragOverIdx(idx)
+                            if (yRel < 0.35) {
+                                setDragInsertIdx(idx)
+                                setDragNestTargetId(null)
+                            } else if (yRel > 0.65) {
+                                setDragInsertIdx(idx + 1)
                                 setDragNestTargetId(null)
                             } else {
                                 setDragNestTargetId(page.id)
-                                setDragOverIdx(null)
+                                setDragInsertIdx(null)
                             }
                         }}
-                        onDragLeave={() => { setDragOverIdx(null); setDragNestTargetId(null) }}
+                        onDragLeave={() => { setDragInsertIdx(null); setDragNestTargetId(null) }}
                         onDrop={() => {
                             if (dragNestTargetId === page.id) {
                                 const srcPage = pages[dragSrcRef.current]
                                 if (srcPage) nestPage(srcPage.id, page.id)
-                            } else {
-                                movePage(dragSrcRef.current, idx)
+                            } else if (dragInsertIdx !== null) {
+                                let toIdx = dragInsertIdx
+                                if (dragSrcRef.current < toIdx) toIdx--
+                                movePage(dragSrcRef.current, Math.max(0, toIdx))
                             }
-                            setDragOverIdx(null)
+                            setDragInsertIdx(null)
                             setDragNestTargetId(null)
                         }}
-                        onDragEnd={() => { setDragOverIdx(null); setDragNestTargetId(null) }}
+                        onDragEnd={() => { setDragInsertIdx(null); setDragNestTargetId(null) }}
                         style={{
                             display: 'flex', alignItems: 'center', gap: 4,
                             padding: '6px 8px',
                             borderRadius: 4,
-                            background: isNestTarget ? 'rgba(255,255,255,0.07)' : isDragOver ? c(0.08) : isActive ? accent.bg : 'transparent',
-                            borderTop: isActive ? `1px solid ${accent.border}` : isDragOver ? `2px solid ${c(0.5)}` : isNestTarget ? '1px solid rgba(255,255,255,0.2)' : '1px solid transparent',
+                            background: isNestTarget ? 'rgba(255,255,255,0.07)' : isActive ? accent.bg : 'transparent',
+                            borderTop: isActive ? `1px solid ${accent.border}` : isNestTarget ? '1px solid rgba(255,255,255,0.2)' : '1px solid transparent',
                             borderRight: isActive ? `1px solid ${accent.border}` : isNestTarget ? '1px solid rgba(255,255,255,0.2)' : '1px solid transparent',
                             borderBottom: isActive ? `1px solid ${accent.border}` : isNestTarget ? '1px solid rgba(255,255,255,0.2)' : '1px solid transparent',
                             borderLeft: isActive ? accent.left : isNestTarget ? '2px solid rgba(255,255,255,0.4)' : '1px solid transparent',
@@ -556,7 +611,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)'
                         }}
                         onMouseLeave={e => {
-                            if (!isActive) (e.currentTarget as HTMLDivElement).style.background = isNestTarget ? 'rgba(255,255,255,0.07)' : isDragOver ? c(0.08) : 'transparent'
+                            if (!isActive) (e.currentTarget as HTMLDivElement).style.background = isNestTarget ? 'rgba(255,255,255,0.07)' : 'transparent'
                         }}
                     >
                         <DragIndicator style={{ fontSize: 14, flexShrink: 0, color: 'rgba(237,237,237,0.15)', cursor: 'grab' }} />
@@ -619,14 +674,26 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                     onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.opacity = '1' }}
                                     onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.opacity = isActive ? '1' : '0' }}
                                 >
-                                    <button type='button' title='Duplicate page'
-                                        onClick={e => { e.stopPropagation(); duplicatePage(page.id) }}
-                                        style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'rgba(237,237,237,0.2)', display: 'flex', alignItems: 'center', borderRadius: 3, transition: 'color 0.12s' }}
-                                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(100,180,237,0.8)' }}
-                                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,237,237,0.2)' }}
-                                    >
-                                        <ContentCopy style={{ fontSize: 11 }} />
-                                    </button>
+                                    {page.pageType === 'staff_orders' && (
+                                        <button type='button' title='Import sections from another document'
+                                            onClick={e => { e.stopPropagation(); setImportTargetId(page.id); setImportSourceId(''); setImportSelected(new Set()) }}
+                                            style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'rgba(237,237,237,0.2)', display: 'flex', alignItems: 'center', borderRadius: 3, transition: 'color 0.12s' }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(245,158,11,0.8)' }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,237,237,0.2)' }}
+                                        >
+                                            <ContentCopy style={{ fontSize: 11 }} />
+                                        </button>
+                                    )}
+                                    {page.pageType !== 'staff_orders' && (
+                                        <button type='button' title='Duplicate page'
+                                            onClick={e => { e.stopPropagation(); duplicatePage(page.id) }}
+                                            style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'rgba(237,237,237,0.2)', display: 'flex', alignItems: 'center', borderRadius: 3, transition: 'color 0.12s' }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(100,180,237,0.8)' }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,237,237,0.2)' }}
+                                        >
+                                            <ContentCopy style={{ fontSize: 11 }} />
+                                        </button>
+                                    )}
                                     <button type='button' title='Delete page'
                                         onClick={e => { e.stopPropagation(); setConfirmingDeleteId(page.id) }}
                                         style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'rgba(237,237,237,0.2)', display: 'flex', alignItems: 'center', borderRadius: 3, transition: 'color 0.12s' }}
@@ -643,6 +710,11 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 )
             })}
 
+            {/* Drag insert line after last item */}
+            {dragInsertIdx === pages.length && dragSrcRef.current !== pages.length - 1 && (
+                <div style={{ height: 2, background: c(0.8), borderRadius: 1, margin: '2px 0', pointerEvents: 'none' }} />
+            )}
+
             <button type='button' onClick={() => { setShowTypeModal(true); setTypeModalStep('type') }}
                 style={{
                     marginTop: 8, padding: '6px 8px',
@@ -657,6 +729,75 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             >
                 + Add Document
             </button>
+
+            {/* Section import modal */}
+            {importTargetId && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={e => { if (e.target === e.currentTarget) { setImportTargetId(null); setImportSourceId('') } }}
+                >
+                    <div style={{ background: '#0f0f10', border: '1px solid rgba(245,158,11,0.35)', borderTop: '2px solid rgba(245,158,11,0.8)', padding: '24px 28px', maxWidth: 420, width: '90%', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(245,158,11,0.5)', fontFamily: 'monospace' }}>{'// IMPORT SECTIONS'}</div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Import from Document</div>
+                        <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)', lineHeight: 1.5 }}>
+                            Select a source document, then choose which sections to copy into this page.
+                        </div>
+
+                        {/* Source page selector */}
+                        <select
+                            value={importSourceId}
+                            onChange={e => setImportSourceId(e.target.value)}
+                            style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)', color: importSourceId ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.35)', fontSize: '0.8rem', outline: 'none' }}
+                        >
+                            <option value=''>— Select a source document —</option>
+                            {pages.filter(p => p.id !== importTargetId && p.pageType !== 'separator').map(p => (
+                                <option key={p.id} value={p.id}>{p.title}</option>
+                            ))}
+                        </select>
+
+                        {/* Section checklist */}
+                        {importSourceId && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto', padding: '4px 0' }}>
+                                {importSectionList.length === 0 ? (
+                                    <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic' }}>No sections found in this document.</div>
+                                ) : (
+                                    <>
+                                        <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                                            <button type='button' onClick={() => setImportSelected(new Set(importSectionList.map(s => s.id)))}
+                                                style={{ fontSize: '0.6rem', fontWeight: 700, padding: '2px 8px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: 'rgba(245,158,11,0.8)', cursor: 'pointer' }}
+                                            >All</button>
+                                            <button type='button' onClick={() => setImportSelected(new Set())}
+                                                style={{ fontSize: '0.6rem', fontWeight: 700, padding: '2px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}
+                                            >None</button>
+                                        </div>
+                                        {importSectionList.map(s => (
+                                            <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', cursor: 'pointer', background: importSelected.has(s.id) ? 'rgba(245,158,11,0.06)' : 'transparent', border: `1px solid ${importSelected.has(s.id) ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.05)'}`, transition: 'all 0.1s' }}>
+                                                <input type='checkbox' checked={importSelected.has(s.id)}
+                                                    onChange={() => setImportSelected(prev => {
+                                                        const next = new Set(prev)
+                                                        next.has(s.id) ? next.delete(s.id) : next.add(s.id)
+                                                        return next
+                                                    })}
+                                                    style={{ accentColor: 'rgba(245,158,11,0.8)', flexShrink: 0 }}
+                                                />
+                                                <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</span>
+                                            </label>
+                                        ))}
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+                            <button type='button' onClick={() => { setImportTargetId(null); setImportSourceId('') }}
+                                style={{ padding: '6px 14px', fontSize: '0.7rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.35)', cursor: 'pointer' }}
+                            >CANCEL</button>
+                            <button type='button' onClick={doImportSections} disabled={importing || !importSourceId || importSelected.size === 0}
+                                style={{ padding: '6px 16px', fontSize: '0.7rem', fontWeight: 700, background: importing || !importSourceId || importSelected.size === 0 ? 'rgba(245,158,11,0.05)' : 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', color: importing || !importSourceId || importSelected.size === 0 ? 'rgba(245,158,11,0.3)' : 'rgba(245,158,11,0.9)', cursor: importing || !importSourceId || importSelected.size === 0 ? 'not-allowed' : 'pointer' }}
+                            >{importing ? 'Importing…' : `Import ${importSelected.size > 0 ? importSelected.size + ' ' : ''}Section${importSelected.size !== 1 ? 's' : ''}`}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Document type selection modal */}
             {showTypeModal && (
