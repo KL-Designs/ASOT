@@ -985,3 +985,26 @@ export async function sendChannelMessage(
         throw err
     }
 }
+
+/**
+ * Notify a member that they have been nominated as Lead Zeus for an operation.
+ */
+export async function sendLeadZeusDM(
+    userId: string,
+    operationTitle: string,
+    nominatedBy: string,
+    operationUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '⚡ Lead Zeus Nominated',
+        description: `You have been nominated as **Lead Zeus** for **${operationTitle}** by ${nominatedBy}.`,
+        color: 0x00c3ff,
+        footer: { text: 'ASOT Operations' },
+        timestamp: new Date().toISOString(),
+    }
+    if (operationUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields = [{ name: '​', value: `[View Operation](${base}${operationUrl})`, inline: false }]
+    }
+    await sendDM(userId, { embeds: [embed] }, 'operations')
+}

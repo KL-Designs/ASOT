@@ -36,6 +36,10 @@ declare global {
 
         chqAllocationReminderSentAt?: Date  // set when the 1hr-before CHQ reminder fires (prevents re-send)
 
+        // Lead Zeus nomination — CHQ picks one Zeus for the night
+        leadZeus?: string       // Discord user ID of nominated Lead Zeus
+        leadZeusName?: string   // Display name at time of nomination
+
         // Custom attendance units — non-ORBAT groups defined manually by HQ
         customUnits?: Array<{
             id: string

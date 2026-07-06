@@ -48,6 +48,8 @@ interface AttendanceData {
     confirmationOpen: boolean
     sectionRolesMap: Record<string, { role: string; userId: string | null }[]>
     customUnits?: { id: string; name: string; color?: string }[]
+    leadZeus?: string
+    leadZeusName?: string
 }
 
 interface Props {
@@ -152,6 +154,9 @@ export default function AttendancePanel({
     const [typeAnchor, setTypeAnchor] = useState<{ el: HTMLElement; userId: string } | null>(null)
     const [joinRoleAnchor, setJoinRoleAnchor] = useState<{ el: HTMLElement; sectionTitle: string } | null>(null)
     const [liveStatus, setLiveStatus] = useState(operationStatus)
+    const [leadZeusId, setLeadZeusId] = useState<string>('')
+    const [leadZeusName, setLeadZeusName] = useState<string>('')
+    const [leadZeusSaving, setLeadZeusSaving] = useState(false)
 
     const r = parseInt(themeColor.replace('#', '').substring(0, 2), 16)
     const g = parseInt(themeColor.replace('#', '').substring(2, 4), 16)
@@ -166,6 +171,8 @@ export default function AttendancePanel({
     // Shared logic for applying fetched data — used by both initial load and silent refresh
     const applyData = useCallback((d: AttendanceData, resetConfirming = true) => {
         setData(d)
+        setLeadZeusId(d.leadZeus ?? '')
+        setLeadZeusName(d.leadZeusName ?? '')
         if (myUserId) {
             const mine = d.recordsWithUsers.find(r => r.userId === myUserId)
             setMyRsvp(mine?.rsvp ?? null)
@@ -584,6 +591,62 @@ export default function AttendancePanel({
                     themeColor={themeColor}
                     onSaved={refreshData}
                 />
+            )}
+
+            {/* ── Lead Zeus nomination (HQ only) ────────────────────────── */}
+            {isHQ && (
+                <Box sx={{ mt: 1.5, p: 1.5, background: 'rgba(0,195,255,0.04)', border: '1px solid rgba(0,195,255,0.15)', borderTop: '2px solid rgba(0,195,255,0.4)' }}>
+                    <Typography fontSize='0.58rem' fontWeight={700} letterSpacing='0.18em' textTransform='uppercase' sx={{ color: 'rgba(0,195,255,0.6)', mb: 1 }}>
+                        Lead Zeus
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <select
+                            value={leadZeusId}
+                            onChange={e => {
+                                const uid = e.target.value
+                                setLeadZeusId(uid)
+                                const rec = records.find(r => r.userId === uid)
+                                setLeadZeusName(rec?.user?.displayName ?? '')
+                            }}
+                            style={{ flex: 1, minWidth: 140, background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(0,195,255,0.2)', color: leadZeusId ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.3)', fontSize: '0.72rem', padding: '4px 8px', outline: 'none' }}
+                        >
+                            <option value=''>— None —</option>
+                            {records
+                                .filter(r => r.rsvp !== 'not_attending' && r.user)
+                                .sort((a, b) => (a.user?.displayName ?? '').localeCompare(b.user?.displayName ?? ''))
+                                .map(r => (
+                                    <option key={r.userId} value={r.userId}>
+                                        {r.user?.displayName ?? r.userId} ({r.orbatRole || r.orbatSection})
+                                    </option>
+                                ))}
+                        </select>
+                        <button
+                            type='button'
+                            disabled={leadZeusSaving}
+                            onClick={async () => {
+                                setLeadZeusSaving(true)
+                                try {
+                                    const res = await fetch(`/api/operations/${operationId}/attendance/lead-zeus`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ userId: leadZeusId || null, userName: leadZeusName }),
+                                    })
+                                    if (!res.ok) { const d = await res.json(); alert(d.error ?? 'Failed') }
+                                } finally {
+                                    setLeadZeusSaving(false)
+                                }
+                            }}
+                            style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '4px 12px', background: 'rgba(0,195,255,0.1)', border: '1px solid rgba(0,195,255,0.3)', color: 'rgba(0,195,255,0.8)', cursor: 'pointer' }}
+                        >
+                            {leadZeusSaving ? '…' : leadZeusId ? 'Nominate' : 'Clear'}
+                        </button>
+                    </Box>
+                    {leadZeusName && (
+                        <Typography fontSize='0.62rem' sx={{ mt: 0.75, color: 'rgba(0,195,255,0.55)' }}>
+                            Current: {leadZeusName}
+                        </Typography>
+                    )}
+                </Box>
             )}
 
             {/* ── Attendance by section ──────────────────────────────────── */}

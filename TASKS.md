@@ -182,12 +182,8 @@ Lastly, once they select their callsign, they will be able to copy sections from
 
 ---
 
-### Zeus Lead Nomination & Notification
-During the allocation phase, CHQ nominates a Lead Zeus for the mission.
-- The nominated Lead Zeus receives a **Discord DM** confirming they are Lead Zeus for that night.
-- This will also feed into a future Discord operations post — scope that separately when ready.
-
-> **Status: Not implemented.** No Lead Zeus nomination flow exists anywhere in the codebase. Needs to be built as part of the allocations workflow — a CHQ-only action that sets a `leadZeus` field on the operation/attendance doc and triggers a Discord DM to the nominated user.
+### ~~Zeus Lead Nomination & Notification~~ ✓ Complete
+> Moved to Completed — see below.
 
 ---
 
@@ -242,6 +238,9 @@ Added `era_options` MongoDB collection (`lib/mongo.ts`) and `EraOption` global t
 
 ### Reservist Allocations
 Built `components/operations/ReservistAllocationPanel.tsx` — a collapsible HQ-only panel in the attendance view. Lists active and inactive reservists with their current section assignment, RSVP status, and a section dropdown for each. Dirty-state tracking shows a save button only when changes exist. Saves via POST to `/api/operations/[id]/attendance/manage` with a `moves` array. Summary row shows how many reservists are assigned per section. Integrated into `AttendancePanel.tsx` above the attendance-by-section view, gated on `isHQ`. Also fixed pre-existing TS errors: `allowedTypes` prop not threading through `ActiveEditor` in `CollabEditor.tsx`, and `staff/page.tsx` projection type cast.
+
+### Zeus Lead Nomination & Notification
+Added `leadZeus` + `leadZeusName` fields to `OperationAttendance`. New `PATCH /api/operations/[id]/attendance/lead-zeus` route — CHQ-only, sets or clears the nomination and sends a Discord DM (`sendLeadZeusDM` added to `lib/discord/bot.ts`) to the nominated member. In `AttendancePanel.tsx` (HQ only): a cyan-accented panel below the Reservist Allocations section with a member dropdown (all non-not_attending members) and a Nominate/Clear button. `applyData` initialises leadZeus state from the attendance doc on load.
 
 ### Acknowledge Orders (Read Receipt)
 Moved acknowledgement from per-operation to per-document. New `operation_doc_acknowledgements` MongoDB collection and `DocAcknowledgement` global type. Rewrote `app/api/operations/[id]/acknowledge/route.ts` — GET now accepts `?pageId=` and returns `{ acknowledged, acks, eligible, notAcknowledged }` (eligible = all All Staff + HQ Staff users); POST body includes `{ pageId }`. Built `app/operations/[id]/DocAcknowledgeCard.tsx` — a self-contained client component that fetches its own ack state, shows a yellow "scroll to bottom" banner at the top and an acknowledge button + "View Acknowledgements" collapsible list at the bottom (green tick = read, red cross = not read, with timestamp). Added static yellow banner + DocAcknowledgeCard to single-page view in `page.tsx`. Wired both into `paged-view.tsx` per active page. Edit page acknowledge fetch updated to use `?pageId=main` and derive count from `acks.length`.
