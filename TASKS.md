@@ -147,10 +147,8 @@ Lastly, once they select their callsign, they will be able to copy sections from
 
 ---
 
-### PHQ/CHQ Attendance Confirmation Tasks
-PHQ and CHQ need to confirm that members actually attended and that staff have completed the attendance confirmation process.
-
-> **Code context:** `lib/attendance/tasks.ts` and `app/api/cron/operations/route.ts` handle automated task creation. When an op moves to Completed, `createAttendanceTasksForOperation()` creates tasks for every section leader (`isSenior` ORBAT position) in the assigned platoons — with a 24hr deadline and 12hr chase-up reminder. **What needs confirming:** Are PHQ and CHQ already captured by the `isSenior` ORBAT positions in the assigned platoons? If so, they already receive tasks. If PHQ/CHQ is a separate role not covered by `isSenior`, a separate task creation path is needed.
+### ~~PHQ/CHQ Attendance Confirmation Tasks~~ ✓ Complete
+> Moved to Completed — see below.
 
 ---
 
@@ -264,3 +262,6 @@ Rewrote `ReinstateModal` in `app/dashboard/j4/J4AdminPanel.tsx` with a two-step 
 
 ### Reviewed By Field
 `reviewedBy` now only set at final accept/reject by J1 Lead (`app/api/admin/j1/applications/[id]/route.ts`). Removed from recruiter recommendation block and from intermediate J1 Lead actions. Import route (`app/api/admin/j1/import/route.ts`) now uses `r.recruiter` field instead of the importing admin's name.
+
+### PHQ/CHQ Attendance Confirmation Tasks
+PHQ is covered — `getSectionLeaders` returns the first occupied position per (category + sectionTitle), so the platoon commander in each "X Platoon HQ" section is always included when their platoon category is in `assignedPlatoons`. CHQ (`companyHQ`) was not covered because it was only queried if `'companyHQ'` was in `attendanceAssignedPlatoons`. Fixed in `lib/attendance/tasks.ts`: always union `attendanceAssignedPlatoons` with `['companyHQ']` before calling `getSectionLeaders`.

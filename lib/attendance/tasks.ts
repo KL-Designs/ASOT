@@ -21,7 +21,9 @@ export async function createAttendanceTasksForOperation(
         const operation = await Db.operations.findOne({ _id: operationId })
         if (!operation) return
 
-        const leaders = await getSectionLeaders(attendanceAssignedPlatoons)
+        // Always include companyHQ so CHQ receives tasks regardless of assignedPlatoons
+        const categories = Array.from(new Set([...attendanceAssignedPlatoons, 'companyHQ']))
+        const leaders = await getSectionLeaders(categories)
 
         if (!leaders.length) return
 
