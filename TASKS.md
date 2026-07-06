@@ -157,11 +157,8 @@ Lastly, once they select their callsign, they will be able to copy sections from
 
 ---
 
-### Custom ERA List
-The ERA field on the operation editor (currently labelled "Theme", next to theme colour) should support custom user-defined entries.
-- J2 Team Leads can add, edit, and remove ERA options from the list.
-
-> **Code context:** The Theme field in `app/operations/[id]/edit/page.tsx` (lines 1251–1298) is a hardcoded `<select>` with options: Modern, WWII, Vietnam, Cold War, Fantasy, Sci-Fi, Other (which triggers a free-text `customTheme` input). There is no database collection for ERA options. **What needs building:** A new database collection for ERA/theme options, a management UI for J2 Team Leads to add/edit/remove entries, and replacing the hardcoded dropdown with a dynamic list.
+### ~~Custom ERA List~~ ✓ Complete
+> Moved to Completed — see below.
 
 ---
 
@@ -259,6 +256,9 @@ Rewrote `ReinstateModal` in `app/dashboard/j4/J4AdminPanel.tsx` with a two-step 
 
 ### PHQ/CHQ Attendance Confirmation Tasks
 PHQ is covered — `getSectionLeaders` returns the first occupied position per (category + sectionTitle), so the platoon commander in each "X Platoon HQ" section is always included when their platoon category is in `assignedPlatoons`. CHQ (`companyHQ`) was not covered because it was only queried if `'companyHQ'` was in `attendanceAssignedPlatoons`. Fixed in `lib/attendance/tasks.ts`: always union `attendanceAssignedPlatoons` with `['companyHQ']` before calling `getSectionLeaders`.
+
+### Custom ERA List
+Added `era_options` MongoDB collection (`lib/mongo.ts`) and `EraOption` global type (`types/operation.d.ts`). Created `app/api/admin/era-options/route.ts` (GET public, POST/PATCH/DELETE J2 Lead gated) with auto-seeding of the original 6 options on first access. Built `app/dashboard/j2/tabs/EraOptionsTab.tsx` with inline rename/delete; added "ERA Options" tab to J2Panel (J2 Lead only, tab index 5). Replaced hardcoded `<select>` in the operation edit page with a dynamic list fetched from the API; falls back to hardcoded options if fetch hasn't completed. `pageTheme` type broadened from a union to `string` to accept arbitrary ERA values.
 
 ### Reservist Allocations
 Built `components/operations/ReservistAllocationPanel.tsx` — a collapsible HQ-only panel in the attendance view. Lists active and inactive reservists with their current section assignment, RSVP status, and a section dropdown for each. Dirty-state tracking shows a save button only when changes exist. Saves via POST to `/api/operations/[id]/attendance/manage` with a `moves` array. Summary row shows how many reservists are assigned per section. Integrated into `AttendancePanel.tsx` above the attendance-by-section view, gated on `isHQ`. Also fixed pre-existing TS errors: `allowedTypes` prop not threading through `ActiveEditor` in `CollabEditor.tsx`, and `staff/page.tsx` projection type cast.

@@ -48,7 +48,8 @@ export default function Page() {
     const [loreDateDayjs, setLoreDateDayjs] = useState<Dayjs | null>(null)
     const [department, setDepartment] = useState('')
     const [themeColor, setThemeColor] = useState('#db001d')
-    const [pageTheme, setPageTheme] = useState<Operation['pageTheme']>('modern')
+    const [pageTheme, setPageTheme] = useState<string>('modern')
+    const [eraOptions, setEraOptions] = useState<{ _id: string; name: string; value: string }[]>([])
     const [customTheme, setCustomTheme] = useState<string>('')
     const [status, setStatus] = useState<string>('Upcoming')
     const [coverImage, setCoverImage] = useState<string | null>(null)
@@ -228,6 +229,10 @@ export default function Page() {
             .then(r => r.json())
             .then(worlds => { if (Array.isArray(worlds)) setAvailableWorlds(worlds) })
 
+        fetch('/api/admin/era-options')
+            .then(r => r.json())
+            .then(data => { if (Array.isArray(data)) setEraOptions(data) })
+
         fetch(`/api/operations?id=${id}`)
             .then(r => r.json())
             .then(json => {
@@ -243,7 +248,7 @@ export default function Page() {
                 setLoreDateDayjs(parsed?.isValid() ? parsed : null)
                 setDepartment(op.department || '')
                 setThemeColor(op.themeColor || '#db001d')
-                setPageTheme((op.pageTheme as Operation['pageTheme']) || 'modern')
+                setPageTheme(op.pageTheme || 'modern')
                 setCustomTheme((op as any).customTheme || '')
                 setStatus(op.status || 'Upcoming')
                 setCoverImage(op.coverImage || null)
@@ -1247,12 +1252,11 @@ export default function Page() {
                             />
                             <span style={{ fontSize: '0.75rem', letterSpacing: '0.06em', color: 'rgba(237,237,237,0.55)', whiteSpace: 'nowrap' }}>Theme Color</span>
                         </label>
-                        {/* Page Theme */}
+                        {/* ERA / Page Theme */}
                         <select
                             value={pageTheme ?? 'modern'}
                             onChange={e => {
-                                const v = e.target.value as Operation['pageTheme']
-                                setPageTheme(v)
+                                setPageTheme(e.target.value)
                                 scheduleSave({ pageTheme: e.target.value })
                             }}
                             style={{
@@ -1268,35 +1272,24 @@ export default function Page() {
                                 fontWeight: 700,
                             }}
                         >
-                            <option value='modern'  style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Modern</option>
-                            <option value='wwii'    style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>WWII</option>
-                            <option value='vietnam' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Vietnam</option>
-                            <option value='coldwar' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Cold War</option>
-                            <option value='fantasy' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Fantasy</option>
-                            <option value='scifi'   style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Sci-Fi</option>
-                            <option value='other'   style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Other…</option>
+                            {eraOptions.length > 0
+                                ? eraOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value} style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>
+                                        {opt.name}
+                                    </option>
+                                ))
+                                : (
+                                    <>
+                                        <option value='modern'  style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Modern</option>
+                                        <option value='wwii'    style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>WWII</option>
+                                        <option value='vietnam' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Vietnam</option>
+                                        <option value='coldwar' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Cold War</option>
+                                        <option value='fantasy' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Fantasy</option>
+                                        <option value='scifi'   style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Sci-Fi</option>
+                                    </>
+                                )
+                            }
                         </select>
-                        {/* Custom theme name — shown only when "Other" is selected */}
-                        {pageTheme === 'other' && (
-                            <input
-                                value={customTheme}
-                                placeholder='Custom theme name…'
-                                onChange={e => {
-                                    setCustomTheme(e.target.value)
-                                    scheduleSave({ customTheme: e.target.value })
-                                }}
-                                style={{
-                                    background: 'rgba(0,0,0,0.4)',
-                                    border: `1px solid ${c(0.35)}`,
-                                    color: c(0.8),
-                                    fontSize: '0.8rem',
-                                    letterSpacing: '0.06em',
-                                    outline: 'none',
-                                    padding: '8px 12px',
-                                    minWidth: 140,
-                                }}
-                            />
-                        )}
                         {/* Map World */}
                         <MapWorldPicker
                             value={mapWorld}

@@ -217,7 +217,7 @@ declare global {
         extraPageSections?: Record<string, OperationSection[]>
 
         themeColor?: string
-        pageTheme?: 'modern' | 'wwii' | 'vietnam' | 'coldwar' | 'fantasy' | 'scifi' | 'other'
+        pageTheme?: string
         customTheme?: string
         coverImage?: string
         mapWorld?: string
@@ -259,6 +259,14 @@ declare global {
         deletedAt?: Date
         deletedBy?: string       // Discord user ID
         deletedByName?: string   // Display name for audit
+    }
+
+    interface EraOption {
+        _id: ObjectId
+        name: string    // Display label shown in the dropdown
+        value: string   // Value stored in operation.pageTheme
+        order: number   // Sort order (lower = first)
+        isDefault?: boolean // Pre-seeded default options
     }
 
     interface OperationCampaign {

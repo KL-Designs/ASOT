@@ -75,6 +75,7 @@ const DbInterface = {
     trainingTickets: db.collection('training_tickets') as MongoCollection<TrainingTicket>,
     trainingReminders: db.collection('training_reminders') as MongoCollection<TrainingReminderRecord>,
     trainingImportRecords: db.collection('training_import_records') as MongoCollection<Document>,
+    eraOptions: db.collection('era_options') as MongoCollection<EraOption>,
 }
 
 export default DbInterface
