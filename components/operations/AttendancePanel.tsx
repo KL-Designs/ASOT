@@ -47,6 +47,7 @@ interface AttendanceData {
     rsvpOpen: boolean
     confirmationOpen: boolean
     sectionRolesMap: Record<string, { role: string; userId: string | null }[]>
+    customUnits?: { id: string; name: string; color?: string }[]
 }
 
 interface Props {
@@ -450,6 +451,11 @@ export default function AttendancePanel({
     const byCategory     = groupByCategoryAndSection(records)
     const myOrbatSection = myUserId ? records.find(r => r.userId === myUserId)?.orbatSection : undefined
 
+    // Build a map of custom unit name → color for quick lookup in the render
+    const customUnitMap = new Map<string, string | undefined>(
+        (data?.customUnits ?? []).map(u => [u.name, u.color])
+    )
+
     function getSectionMeta(category: string, sectionTitle: string | null) {
         return sectionMeta.find(m => m.category === category && m.sectionTitle === sectionTitle) ?? null
     }
@@ -600,9 +606,10 @@ export default function AttendancePanel({
                         const isMySection  = sectionRecords.some(r => r.userId === myUserId)
                         const category     = sectionRecords[0]?.category ?? ''
                         const patchUrl     = isSubSection ? getSectionPatchUrl(category, section) : null
-                        const secColor     = isSubSection
+                        const customUnitColor = customUnitMap.has(section) ? (customUnitMap.get(section) ?? null) : null
+                        const secColor     = customUnitColor ?? (isSubSection
                             ? (getSectionMeta(category, section)?.color ?? null)
-                            : (getSectionMeta(category, null)?.color ?? null)
+                            : (getSectionMeta(category, null)?.color ?? null))
 
                         return (
                             <Box key={section} sx={isSubSection ? { ml: 2, borderLeft: '2px solid rgba(255,255,255,0.06)' } : {}}>
@@ -739,7 +746,7 @@ export default function AttendancePanel({
                                                             <Typography component='div' fontSize='0.75rem' noWrap sx={{ lineHeight: 1.2 }}>
                                                                 {record.orbatRole && <span style={{ color: 'rgba(237,237,237,0.35)', marginRight: 4 }}>{record.orbatRole}</span>}
                                                                 {record.user?.displayName ?? record.userId}
-                                                                {record.reservistSection && (
+                                                                {record.reservistSection && !customUnitMap.has(record.reservistSection) && (
                                                                     <Chip label='Reservist' size='small' sx={{ ml: 0.5, fontSize: '0.55rem', height: 14, background: 'rgba(100,150,237,0.15)', color: 'rgba(100,150,237,0.9)' }} />
                                                                 )}
                                                                 {record.user?.isSkeletonAccount && (
@@ -858,6 +865,44 @@ export default function AttendancePanel({
                     })
                 )
             )}
+
+            {/* ── Custom attendance units (no records yet) ───────────────── */}
+            {(data?.customUnits ?? []).map(unit => {
+                const hasRecords = records.some(r => (r.reservistSection || r.orbatSection || r.unit) === unit.name)
+                if (hasRecords) return null // already rendered above in byCategory loop
+                return (
+                    <Box key={unit.id}>
+                        <Accordion
+                            expanded={expandedSections[unit.name] ?? true}
+                            onChange={(_, expanded) => setExpandedSections(prev => ({ ...prev, [unit.name]: expanded }))}
+                            sx={{
+                                background: 'rgba(255,255,255,0.02)',
+                                border: '1px solid rgba(255,255,255,0.06)',
+                                borderTop: unit.color ? `2px solid ${unit.color}88` : `2px solid ${c(0.15)}`,
+                                boxShadow: 'none',
+                                '&:before': { display: 'none' },
+                            }}
+                        >
+                            <AccordionSummary expandIcon={<ExpandMore sx={{ color: 'rgba(237,237,237,0.4)' }} />} sx={{ px: 2, py: 0.5, minHeight: 40 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, mr: 1 }}>
+                                    {unit.color && (
+                                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: unit.color, flexShrink: 0 }} />
+                                    )}
+                                    <Typography fontSize='0.72rem' fontWeight={700} letterSpacing={2} sx={{ textTransform: 'uppercase', flex: 1, color: 'rgba(237,237,237,0.9)' }}>
+                                        {unit.name}
+                                    </Typography>
+                                    <Chip label='Custom Unit' size='small' sx={{ fontSize: '0.55rem', height: 14, background: 'rgba(255,255,255,0.06)', color: 'rgba(237,237,237,0.3)', letterSpacing: 0.5 }} />
+                                </Box>
+                            </AccordionSummary>
+                            <AccordionDetails sx={{ px: 2, py: 1 }}>
+                                <Typography fontSize='0.7rem' sx={{ color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>
+                                    No members assigned yet
+                                </Typography>
+                            </AccordionDetails>
+                        </Accordion>
+                    </Box>
+                )
+            })}
 
             {/* ── Attendance type popout ──────────────────────────────────── */}
             <Popover
