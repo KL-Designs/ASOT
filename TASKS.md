@@ -152,14 +152,8 @@ Lastly, once they select their callsign, they will be able to copy sections from
 
 ---
 
-### Reservist Allocations
-CHQ manually assigns reservists to missions during the allocation phase. Add UI support for this within the existing allocations workflow. The provided `res allocation.csv` is the current system — referencing attendance posts, marking section numbers, tracking which reservists are attending and their callsign preferences.
-
-We want to recreate this. The current manage attendance option when looking at an operation is large and messy. It needs to be easy to read and to assign/organise reservists to callsigns.
-
-Ignore the text from row 47 onwards in `res allocation.csv` for now (that is for generating a Discord post).
-
-> **Code context:** `reservistSection` field exists on attendance records and `reservistAssignments` exists on the attendance doc (`types/attendance.d.ts`). The API at `app/api/operations/[id]/attendance/manage/route.ts` already handles moving/setting `reservistSection` values. **What is missing:** A dedicated reservist allocation panel/UI within the operation view — the API supports it but there is no purpose-built interface for CHQ to easily see and assign reservists to sections for a specific operation.
+### ~~Reservist Allocations~~ ✓ Complete
+> Moved to Completed — see below.
 
 ---
 
@@ -265,3 +259,6 @@ Rewrote `ReinstateModal` in `app/dashboard/j4/J4AdminPanel.tsx` with a two-step 
 
 ### PHQ/CHQ Attendance Confirmation Tasks
 PHQ is covered — `getSectionLeaders` returns the first occupied position per (category + sectionTitle), so the platoon commander in each "X Platoon HQ" section is always included when their platoon category is in `assignedPlatoons`. CHQ (`companyHQ`) was not covered because it was only queried if `'companyHQ'` was in `attendanceAssignedPlatoons`. Fixed in `lib/attendance/tasks.ts`: always union `attendanceAssignedPlatoons` with `['companyHQ']` before calling `getSectionLeaders`.
+
+### Reservist Allocations
+Built `components/operations/ReservistAllocationPanel.tsx` — a collapsible HQ-only panel in the attendance view. Lists active and inactive reservists with their current section assignment, RSVP status, and a section dropdown for each. Dirty-state tracking shows a save button only when changes exist. Saves via POST to `/api/operations/[id]/attendance/manage` with a `moves` array. Summary row shows how many reservists are assigned per section. Integrated into `AttendancePanel.tsx` above the attendance-by-section view, gated on `isHQ`. Also fixed pre-existing TS errors: `allowedTypes` prop not threading through `ActiveEditor` in `CollabEditor.tsx`, and `staff/page.tsx` projection type cast.

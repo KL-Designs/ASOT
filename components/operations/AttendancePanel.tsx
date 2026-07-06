@@ -12,6 +12,7 @@ import {
     Lock, LockOpen, PersonAdd, Tune, Add,
 } from '@mui/icons-material'
 import AttendanceManageDialog from '@/components/operations/AttendanceManageDialog'
+import ReservistAllocationPanel from '@/components/operations/ReservistAllocationPanel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -567,6 +568,16 @@ export default function AttendancePanel({
                     </Box>
 
                 </Box>
+            )}
+
+            {/* ── Reservist allocations (HQ only) ───────────────────────── */}
+            {isHQ && (
+                <ReservistAllocationPanel
+                    operationId={operationId}
+                    records={records}
+                    themeColor={themeColor}
+                    onSaved={refreshData}
+                />
             )}
 
             {/* ── Attendance by section ──────────────────────────────────── */}

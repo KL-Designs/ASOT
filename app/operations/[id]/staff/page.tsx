@@ -17,12 +17,13 @@ export default async function StaffPage({ params }: { params: Promise<{ id: stri
 
     if (!client.hasRoles(me, PERMISSIONS.pages.member)) redirect('/login')
 
-    let operation: { title: string; date?: Date; department?: string; status?: string; themeColor?: string; coverImage?: string } | null = null
+    type OpProjection = { title: string; date?: Date; department?: string; status?: string; themeColor?: string; coverImage?: string }
+    let operation: OpProjection | null = null
     try {
         operation = await Db.operations.findOne(
             { _id: new ObjectId(id), deletedAt: { $exists: false } },
             { projection: { title: 1, date: 1, department: 1, status: 1, themeColor: 1, coverImage: 1 } }
-        ) as typeof operation
+        ) as OpProjection | null
     } catch {
         // invalid ID format or not found
     }

@@ -212,6 +212,7 @@ export default function CollabEditor({
             onSaveStatusChange={onSaveStatusChange}
             themeColor={themeColor}
             readOnly={readOnly}
+            allowedTypes={allowedTypes}
         />
     )
 }
@@ -427,9 +428,10 @@ interface ActiveEditorProps {
     onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
     themeColor?: string
     readOnly?: boolean
+    allowedTypes?: string[]
 }
 
-function ActiveEditor({ ydoc, provider, user, uploadUrl, defaultSectionTitle, initialContent, onSaveStatusChange, themeColor = '#db001d', readOnly = false }: ActiveEditorProps) {
+function ActiveEditor({ ydoc, provider, user, uploadUrl, defaultSectionTitle, initialContent, onSaveStatusChange, themeColor = '#db001d', readOnly = false, allowedTypes }: ActiveEditorProps) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
