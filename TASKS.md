@@ -177,14 +177,8 @@ Lastly, once they select their callsign, they will be able to copy sections from
 
 ---
 
-### Acknowledge Orders (Read Receipt)
-On the operation view page, add an acknowledgement card directly below the orders content for each document panel.
-- One acknowledge action per document.
-- A **yellow banner** displays at the top of the orders instructing the member to scroll down and acknowledge at the bottom.
-- Acknowledgement acts as a read receipt, visible to all viewers of the operation.
-- Add a button at the bottom of the document next to the acknowledge orders button, that is 'View Acknowledgements' or similar. This will display a list of people who have/haven't acknowledged the orders. Copy the attendance display order and have it with a green tick for read/acknowledged, red cross for not read/acknowledged. This option will be available for each page/document and reflect who has read each document.
-
-> **Code context:** The current acknowledgement system (`app/api/operations/[id]/acknowledge/route.ts`) is **per-operation**, not per-document. It stores `{ userId, userName, acknowledgedAt }` in `operations.acknowledgements`. The edit page shows a count + expandable list + "Remind Unacknowledged" button. The view page (`app/operations/[id]/PageNavClient.tsx`) has a basic acknowledge button for eligible users. **What needs rebuilding:** The entire acknowledgement system needs to move from per-operation to per-document. The schema, API, and UI all need to change. The view/list UI (green tick / red cross per person, attendance-style) does not exist yet.
+### ~~Acknowledge Orders (Read Receipt)~~ ✓ Complete
+> Moved to Completed — see below.
 
 ---
 
@@ -248,6 +242,9 @@ Added `era_options` MongoDB collection (`lib/mongo.ts`) and `EraOption` global t
 
 ### Reservist Allocations
 Built `components/operations/ReservistAllocationPanel.tsx` — a collapsible HQ-only panel in the attendance view. Lists active and inactive reservists with their current section assignment, RSVP status, and a section dropdown for each. Dirty-state tracking shows a save button only when changes exist. Saves via POST to `/api/operations/[id]/attendance/manage` with a `moves` array. Summary row shows how many reservists are assigned per section. Integrated into `AttendancePanel.tsx` above the attendance-by-section view, gated on `isHQ`. Also fixed pre-existing TS errors: `allowedTypes` prop not threading through `ActiveEditor` in `CollabEditor.tsx`, and `staff/page.tsx` projection type cast.
+
+### Acknowledge Orders (Read Receipt)
+Moved acknowledgement from per-operation to per-document. New `operation_doc_acknowledgements` MongoDB collection and `DocAcknowledgement` global type. Rewrote `app/api/operations/[id]/acknowledge/route.ts` — GET now accepts `?pageId=` and returns `{ acknowledged, acks, eligible, notAcknowledged }` (eligible = all All Staff + HQ Staff users); POST body includes `{ pageId }`. Built `app/operations/[id]/DocAcknowledgeCard.tsx` — a self-contained client component that fetches its own ack state, shows a yellow "scroll to bottom" banner at the top and an acknowledge button + "View Acknowledgements" collapsible list at the bottom (green tick = read, red cross = not read, with timestamp). Added static yellow banner + DocAcknowledgeCard to single-page view in `page.tsx`. Wired both into `paged-view.tsx` per active page. Edit page acknowledge fetch updated to use `?pageId=main` and derive count from `acks.length`.
 
 ### Request Orders Check
 Added DELETE handler to `app/api/operations/[id]/orders-check/route.ts` — mission maker (or J2 lead) can cancel an active request; marks task `completedAt` with `ordersCheckStatus: 'cancelled'` and notifies all J2 leads. Added `'set_reminder'` action to PATCH handler — any J2 member can store `ordersCheckMakerReminderAt` on the task. Added step 1b to `app/api/cron/task-reminders/route.ts` — fires a one-shot in-app reminder to the mission maker (`assignedBy`) when `ordersCheckMakerReminderAt` passes; stamps `ordersCheckMakerReminderFiredAt` to prevent re-fire. Edit page (`app/operations/[id]/edit/page.tsx`): added "Cancel Request" button on the status card (shown when status is not confirmed), and a "Remind me" DateTimePicker + Save button shown after J2 Lead confirms the check time.

@@ -286,10 +286,10 @@ export default function Page() {
                 if ((op as any).ownedByName) setOwnedByName((op as any).ownedByName)
                 if ((op as any).billetPoints != null) setBilletPoints((op as any).billetPoints)
 
-                // Acknowledgements
-                fetch(`/api/operations/${id}/acknowledge`)
+                // Acknowledgements (pageId='main' for the primary doc)
+                fetch(`/api/operations/${id}/acknowledge?pageId=main`)
                     .then(r => r.ok ? r.json() : null)
-                    .then(d => { if (d) { setAckCount(d.count ?? 0); setAckList(d.acks ?? []) } })
+                    .then(d => { if (d) { setAckCount((d.acks ?? []).length); setAckList(d.acks ?? []) } })
                     .catch(() => {})
             })
 

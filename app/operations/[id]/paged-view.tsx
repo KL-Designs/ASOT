@@ -6,6 +6,7 @@ import SectionNav from './section-nav'
 import ZeusNotesPanel from './ZeusNotesPanel'
 import OcapStatsPanel from './OcapStatsPanel'
 import OcapLinkPanel from './OcapLinkPanel'
+import DocAcknowledgeCard from './DocAcknowledgeCard'
 
 const ZEUS_TAB = '__zeus__'
 const OCAP_TAB = '__ocap__'
@@ -19,6 +20,8 @@ interface Props {
     isLoggedIn: boolean
     isJ6?: boolean
     isHQ?: boolean
+    isAllStaff?: boolean
+    showAcknowledgeCard?: boolean
     operationId?: string
     zeusNotes?: string
     ocap?: OcapData | null
@@ -39,7 +42,7 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, isHQ, operationId, zeusNotes, ocap, initialOcap, r: rProp, g: gProp, b: bProp, initialPageId }: Props) {
+export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, isHQ, isAllStaff, showAcknowledgeCard, operationId, zeusNotes, ocap, initialOcap, r: rProp, g: gProp, b: bProp, initialPageId }: Props) {
     const [activePageId, setActivePageId] = useState<string>(() => {
         if (initialPageId) {
             const validPageIds = pages.map(p => p.id)
@@ -219,6 +222,15 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                         )}
                         <div className='w-full max-w-[900px] mx-auto px-4 pb-16' style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
                             {isOcapPage && activeSections.length === 0 && <OcapDefaultMessage />}
+                            {/* Acknowledge banner — mobile */}
+                            {showAcknowledgeCard && operationId && activePageId !== ZEUS_TAB && activePageId !== OCAP_TAB && (
+                                <div className='print-hide' style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', background: 'rgba(219,160,0,0.07)', borderTop: '2px solid rgba(219,160,0,0.45)', borderBottom: '1px solid rgba(219,160,0,0.14)' }}>
+                                    <div style={{ width: 5, height: 5, background: 'rgba(219,160,0,0.85)', flexShrink: 0 }} />
+                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.8)' }}>
+                                        Scroll to Bottom to Acknowledge
+                                    </span>
+                                </div>
+                            )}
                             {activeSections.map(s => (
                                 <SectionCard
                                     key={s.id}
@@ -233,6 +245,10 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                                     operationTitle={operationTitle}
                                 />
                             ))}
+                            {/* Acknowledge card — bottom of mobile page */}
+                            {showAcknowledgeCard && operationId && activePageId !== ZEUS_TAB && activePageId !== OCAP_TAB && (
+                                <DocAcknowledgeCard operationId={operationId} pageId={activePageId} />
+                            )}
                         </div>
                     </>
                 )}
@@ -275,6 +291,15 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                             {isOcapPage && activeSections.length === 0 && (
                                 <OcapDefaultMessage />
                             )}
+                            {/* Acknowledge banner — desktop */}
+                            {showAcknowledgeCard && operationId && (
+                                <div className='print-hide' style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 20px', background: 'rgba(219,160,0,0.07)', borderTop: '2px solid rgba(219,160,0,0.45)', borderBottom: '1px solid rgba(219,160,0,0.14)' }}>
+                                    <div style={{ width: 6, height: 6, background: 'rgba(219,160,0,0.85)', flexShrink: 0 }} />
+                                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.8)' }}>
+                                        Orders Acknowledgement Required — Scroll to Bottom to Acknowledge
+                                    </span>
+                                </div>
+                            )}
                             {activeSections.map(s => (
                                 <SectionCard
                                     key={s.id}
@@ -289,6 +314,10 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                                     operationTitle={operationTitle}
                                 />
                             ))}
+                            {/* Acknowledge card — bottom of desktop page */}
+                            {showAcknowledgeCard && operationId && (
+                                <DocAcknowledgeCard operationId={operationId} pageId={activePageId} />
+                            )}
                         </div>
                     </>
                 )}

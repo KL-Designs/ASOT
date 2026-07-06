@@ -261,6 +261,15 @@ declare global {
         deletedByName?: string   // Display name for audit
     }
 
+    /** Per-document read receipt for a single page in an operation */
+    interface DocAcknowledgement {
+        operationId: string
+        pageId: string       // 'main' for single-page operations; page.id for multi-page
+        userId: string
+        userName: string
+        acknowledgedAt: string  // ISO timestamp
+    }
+
     interface EraOption {
         _id: ObjectId
         name: string    // Display label shown in the dropdown

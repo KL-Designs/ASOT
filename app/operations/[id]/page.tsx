@@ -16,7 +16,7 @@ import ZeusNotesPanel from './ZeusNotesPanel'
 import OperationStatusBar from '@/components/operations/OperationStatusBar'
 import OcapLinkPanel from './OcapLinkPanel'
 import OcapStatsPanel from './OcapStatsPanel'
-import AcknowledgeButton from './AcknowledgeButton'
+import DocAcknowledgeCard from './DocAcknowledgeCard'
 
 
 function hexToRgb(hex: string) {
@@ -49,11 +49,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         ? !!(await Db.orbatPositions.findOne({ userId: me.id, isSenior: true }))
         : false
 
-    // Orders acknowledgement status for the current user
-    const hasAcknowledged = me
-        ? (operation?.acknowledgements ?? []).some(a => a.userId === me.id)
-        : false
-    const showAcknowledgeButton = isAllStaff && operation?.status === 'Upcoming'
+    const showAcknowledgeCard = isAllStaff && operation?.status === 'Upcoming'
 
     if (!operation) return (
         <div className='flex items-center justify-center h-full' style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
@@ -468,17 +464,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                         r={r} g={g} b={b}
                     />
 
-                    {/* Orders Acknowledgement — shown to All Staff when op is Upcoming */}
-                    {showAcknowledgeButton && (
-                        <div className='print-hide' style={{ marginTop: 12, marginBottom: 4 }}>
-                            <AcknowledgeButton
-                                operationId={id}
-                                initialAcknowledged={hasAcknowledged}
-                                themeColor={operation.themeColor || '#db001d'}
-                            />
-                        </div>
-                    )}
-
                     {/* OCAP viewer button — shown when a recording has been linked (only on main/non-ocap tab) */}
                     {operation.ocap && activePageParam !== '__ocap__' && (
                         <a
@@ -514,6 +499,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                             isLoggedIn={isLoggedIn}
                             isJ6={isJ6}
                             isHQ={isHQ}
+                            isAllStaff={isAllStaff}
+                            showAcknowledgeCard={showAcknowledgeCard}
                             operationId={id}
                             zeusNotes={operation.zeusNotes ?? ''}
                             ocap={isLoggedIn && operation.ocap?.playerStats?.length ? operation.ocap : null}
@@ -553,6 +540,16 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                             {/* Main content — shown when not on a special tab */}
                             {activePageParam !== '__zeus__' && activePageParam !== '__ocap__' && (
                                 <>
+
+                            {/* Acknowledge banner — top of content area, static */}
+                            {showAcknowledgeCard && (
+                                <div className='print-hide' style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 20px', background: 'rgba(219,160,0,0.07)', borderTop: '2px solid rgba(219,160,0,0.45)', borderBottom: '1px solid rgba(219,160,0,0.14)', marginBottom: 4 }}>
+                                    <div style={{ width: 6, height: 6, background: 'rgba(219,160,0,0.85)', flexShrink: 0 }} />
+                                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.8)' }}>
+                                        Orders Acknowledgement Required — Scroll to Bottom to Acknowledge
+                                    </span>
+                                </div>
+                            )}
 
                             {operation.sections && operation.sections.length > 0 ? (
                                 operation.sections
@@ -772,6 +769,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                                 </div>
                             )}
 
+
+                            {/* Acknowledge card — bottom of content, after all sections */}
+                            {showAcknowledgeCard && (
+                                <DocAcknowledgeCard operationId={id} pageId='main' />
+                            )}
 
                             {/* Classified banner — shown to logged-out users when sections are hidden */}
                             {hasHiddenSections && (
