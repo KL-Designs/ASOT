@@ -6,6 +6,7 @@ import {
     ArrowBack, UploadFile, Description, FolderOpen,
     Download, Delete, Add, WorkOutline, History,
     Search, Close, Edit, ChevronLeft, ChevronRight,
+    ViewList, AccountTree, ExpandMore, ExpandLess,
 } from '@mui/icons-material'
 import dynamic from 'next/dynamic'
 
@@ -163,6 +164,10 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
     const [opsSearch, setOpsSearch] = useState('')
     const [opsStatusFilter, setOpsStatusFilter] = useState<OpStatusFilter>('All')
     const [opsPage, setOpsPage] = useState(0)
+    const [opsViewMode, setOpsViewMode] = useState<'list' | 'tree'>('list')
+    const [campaigns, setCampaigns] = useState<{ _id: string; name: string }[]>([])
+    const [loadingCampaigns, setLoadingCampaigns] = useState(false)
+    const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set(['standalone']))
 
     // Activity feed
     const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([])
@@ -240,6 +245,27 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
     }, [ops, opsSearch, opsStatusFilter])
 
     const opsTotalPages = Math.ceil(opsFiltered.length / OP_PAGE_SIZE)
+
+    useEffect(() => {
+        if (opsViewMode !== 'tree') return
+        setLoadingCampaigns(true)
+        fetch('/api/operations/campaigns')
+            .then(r => r.json())
+            .then(d => setCampaigns(d.campaigns ?? []))
+            .catch(() => setCampaigns([]))
+            .finally(() => setLoadingCampaigns(false))
+    }, [opsViewMode])
+
+    const opsByCampaign = useMemo(() => {
+        if (opsViewMode !== 'tree') return null
+        const byCampaign: Record<string, Operation[]> = { standalone: [] }
+        for (const c of campaigns) byCampaign[c._id] = []
+        for (const op of opsFiltered) {
+            const key = op.campaignId && byCampaign[op.campaignId] !== undefined ? op.campaignId : 'standalone'
+            byCampaign[key].push(op)
+        }
+        return byCampaign
+    }, [opsViewMode, opsFiltered, campaigns])
 
     const WORKSPACE_ACTION_LABELS: Record<string, string> = {
         'workspace.file.upload':     'File Uploaded',
@@ -750,7 +776,26 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                     /* ── Operations ─────────────────────────────────────── */
                     workspaceTab === 'operations' ? (
                         <div>
-                            <SectionHead title={`Operations (${ops.length})`} />
+                            <SectionHead title={`Operations (${ops.length})`} action={
+                                <div style={{ display: 'flex', gap: 2 }}>
+                                    {(['list', 'tree'] as const).map(mode => (
+                                        <button
+                                            key={mode}
+                                            onClick={() => setOpsViewMode(mode)}
+                                            title={mode === 'list' ? 'List view' : 'Campaign tree view'}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', padding: '4px 8px',
+                                                background: opsViewMode === mode ? 'rgba(219,0,29,0.15)' : 'rgba(255,255,255,0.03)',
+                                                border: opsViewMode === mode ? '1px solid rgba(219,0,29,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                                                color: opsViewMode === mode ? 'var(--red)' : 'rgba(237,237,237,0.3)',
+                                                cursor: 'pointer', transition: 'all 0.12s',
+                                            }}
+                                        >
+                                            {mode === 'list' ? <ViewList style={{ fontSize: 15 }} /> : <AccountTree style={{ fontSize: 15 }} />}
+                                        </button>
+                                    ))}
+                                </div>
+                            } />
 
                             {/* Search + status filter */}
                             <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -779,10 +824,123 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                                 </div>
                             </div>
 
-                            {/* Status-grouped op cards */}
-                            {opsFiltered.length === 0 ? (
+                            {/* Tree view */}
+                            {opsViewMode === 'tree' && (
+                                loadingCampaigns ? (
+                                    <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
+                                        <CircularProgress size={18} sx={{ color: 'var(--red)' }} />
+                                    </div>
+                                ) : opsByCampaign && (
+                                    <div>
+                                        {opsFiltered.length === 0 && (
+                                            <EmptyRow text={ops.length === 0 ? 'No operations found for this member.' : 'No operations match your filters.'} />
+                                        )}
+                                        {/* Campaign groups */}
+                                        {campaigns.map(c => {
+                                            const cid = c._id
+                                            const missions = opsByCampaign[cid] ?? []
+                                            if (missions.length === 0) return null
+                                            const expanded = expandedCampaigns.has(cid)
+                                            return (
+                                                <div key={cid} style={{ border: '1px solid rgba(100,150,237,0.18)', borderTop: '2px solid rgba(100,150,237,0.5)', background: 'rgba(100,150,237,0.04)', marginBottom: 10 }}>
+                                                    <button
+                                                        onClick={() => setExpandedCampaigns(prev => {
+                                                            const next = new Set(prev)
+                                                            expanded ? next.delete(cid) : next.add(cid)
+                                                            return next
+                                                        })}
+                                                        style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', borderBottom: expanded ? '1px solid rgba(100,150,237,0.1)' : 'none' }}
+                                                    >
+                                                        {expanded ? <ExpandLess style={{ fontSize: 16, color: 'rgba(237,237,237,0.35)' }} /> : <ExpandMore style={{ fontSize: 16, color: 'rgba(237,237,237,0.35)' }} />}
+                                                        <span style={{ flex: 1, fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(100,150,237,0.9)' }}>{c.name}</span>
+                                                        <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.06em' }}>{missions.length} mission{missions.length !== 1 ? 's' : ''}</span>
+                                                    </button>
+                                                    {expanded && (
+                                                        <div style={{ padding: '6px 8px 2px' }}>
+                                                            {missions.map(op => (
+                                                                <div key={op._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.04)', background: 'rgba(255,255,255,0.015)', marginBottom: 3 }}>
+                                                                    {op.coverImage ? (
+                                                                        <div style={{ width: 52, height: 34, flexShrink: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                                                            <img src={op.coverImage} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div style={{ width: 52, height: 34, flexShrink: 0, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }} />
+                                                                    )}
+                                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'rgba(237,237,237,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.title}</div>
+                                                                        {op.date && <div style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>{new Date(op.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
+                                                                    </div>
+                                                                    {op.status && (
+                                                                        <span style={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: STATUS_COLORS[op.status] ?? 'rgba(237,237,237,0.35)', border: `1px solid ${STATUS_BORDER[op.status] ?? 'rgba(237,237,237,0.2)'}`, padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0, background: 'rgba(0,0,0,0.45)' }}>
+                                                                            {op.status}
+                                                                        </span>
+                                                                    )}
+                                                                    <a href={`/operations/${op._id}/edit?from=j2`} style={{ display: 'flex', alignItems: 'center', padding: '4px', color: 'rgba(237,237,237,0.25)', textDecoration: 'none', flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.7)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.25)')}>
+                                                                        <Edit style={{ fontSize: 15 }} />
+                                                                    </a>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })}
+                                        {/* Standalone missions */}
+                                        {(opsByCampaign['standalone'] ?? []).length > 0 && (() => {
+                                            const standaloneOps = opsByCampaign['standalone']
+                                            const expanded = expandedCampaigns.has('standalone')
+                                            return (
+                                                <div style={{ border: '1px solid rgba(255,255,255,0.06)', borderTop: '2px solid rgba(237,237,237,0.15)', background: 'rgba(255,255,255,0.01)', marginBottom: 10 }}>
+                                                    <button
+                                                        onClick={() => setExpandedCampaigns(prev => {
+                                                            const next = new Set(prev)
+                                                            expanded ? next.delete('standalone') : next.add('standalone')
+                                                            return next
+                                                        })}
+                                                        style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', borderBottom: expanded ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
+                                                    >
+                                                        {expanded ? <ExpandLess style={{ fontSize: 16, color: 'rgba(237,237,237,0.35)' }} /> : <ExpandMore style={{ fontSize: 16, color: 'rgba(237,237,237,0.35)' }} />}
+                                                        <span style={{ flex: 1, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)' }}>Standalone Missions</span>
+                                                        <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.06em' }}>{standaloneOps.length} mission{standaloneOps.length !== 1 ? 's' : ''}</span>
+                                                    </button>
+                                                    {expanded && (
+                                                        <div style={{ padding: '6px 8px 2px' }}>
+                                                            {standaloneOps.map(op => (
+                                                                <div key={op._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.04)', background: 'rgba(255,255,255,0.015)', marginBottom: 3 }}>
+                                                                    {op.coverImage ? (
+                                                                        <div style={{ width: 52, height: 34, flexShrink: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                                                            <img src={op.coverImage} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div style={{ width: 52, height: 34, flexShrink: 0, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }} />
+                                                                    )}
+                                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'rgba(237,237,237,0.9)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op.title}</div>
+                                                                        {op.date && <div style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>{new Date(op.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
+                                                                    </div>
+                                                                    {op.status && (
+                                                                        <span style={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: STATUS_COLORS[op.status] ?? 'rgba(237,237,237,0.35)', border: `1px solid ${STATUS_BORDER[op.status] ?? 'rgba(237,237,237,0.2)'}`, padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0, background: 'rgba(0,0,0,0.45)' }}>
+                                                                            {op.status}
+                                                                        </span>
+                                                                    )}
+                                                                    <a href={`/operations/${op._id}/edit?from=j2`} style={{ display: 'flex', alignItems: 'center', padding: '4px', color: 'rgba(237,237,237,0.25)', textDecoration: 'none', flexShrink: 0 }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.7)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.25)')}>
+                                                                        <Edit style={{ fontSize: 15 }} />
+                                                                    </a>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })()}
+                                    </div>
+                                )
+                            )}
+
+                            {/* Status-grouped op cards (list view) */}
+                            {opsViewMode === 'list' && opsFiltered.length === 0 ? (
                                 <EmptyRow text={ops.length === 0 ? 'No operations found for this member.' : 'No operations match your filters.'} />
-                            ) : (
+                            ) : opsViewMode === 'list' && (
                                 <>
                                     {STATUS_ORDER.map(status => {
                                         const group = opsFiltered.filter(op => op.status === status)

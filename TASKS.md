@@ -90,10 +90,8 @@ When a member rejoins, their discharge record remains and a second entry is crea
 
 ## J2 — Mission Making
 
-### J2 Member Operations Folder — Layout Alignment
-Auto-population already works — `app/dashboard/j2/tabs/MembersWorkspaceTab.tsx` fetches `/api/operations?authorId=${memberId}`. However, the workspace member tab renders a **simple flat list**, while `app/dashboard/j2/tabs/J2OperationsTab.tsx` (the main J2 Operations tab) has a full-featured layout: status filters, pagination, campaign tree view, list/tree view toggle, template picker, and recycle bin.
-
-Align the member workspace Operations tab layout to match `J2OperationsTab.tsx`.
+### ~~J2 Member Operations Folder — Layout Alignment~~ ✓ Complete
+> Moved to Completed — see below.
 
 ---
 
@@ -237,6 +235,9 @@ Added `leadZeus` + `leadZeusName` fields to `OperationAttendance`. New `PATCH /a
 
 ### Acknowledge Orders (Read Receipt)
 Moved acknowledgement from per-operation to per-document. New `operation_doc_acknowledgements` MongoDB collection and `DocAcknowledgement` global type. Rewrote `app/api/operations/[id]/acknowledge/route.ts` — GET now accepts `?pageId=` and returns `{ acknowledged, acks, eligible, notAcknowledged }` (eligible = all All Staff + HQ Staff users); POST body includes `{ pageId }`. Built `app/operations/[id]/DocAcknowledgeCard.tsx` — a self-contained client component that fetches its own ack state, shows a yellow "scroll to bottom" banner at the top and an acknowledge button + "View Acknowledgements" collapsible list at the bottom (green tick = read, red cross = not read, with timestamp). Added static yellow banner + DocAcknowledgeCard to single-page view in `page.tsx`. Wired both into `paged-view.tsx` per active page. Edit page acknowledge fetch updated to use `?pageId=main` and derive count from `acks.length`.
+
+### J2 Member Operations Folder — Layout Alignment
+Added list/tree view toggle to the Operations sub-tab in `app/dashboard/j2/tabs/MembersWorkspaceTab.tsx`. Tree mode fetches campaigns and renders collapsible campaign groups (blue header, missions inside) and a "Standalone Missions" group for ops without a campaign — matching the campaign tree layout of `J2OperationsTab.tsx`. List mode retains the existing status-grouped layout with search, filter chips, and pagination. Added `ViewList` and `AccountTree` toggle buttons to the section header. New state: `opsViewMode`, `campaigns`, `loadingCampaigns`, `expandedCampaigns`.
 
 ### Mission Check Calendar (J2)
 Added two J2-specific calendar event types on top of the existing `DeptCalendarTab`/`react-big-calendar`. J2 Leads can now block unavailability slots (red events, `isJ2Unavailability: true`). Any J2 member can submit a mission check request (blue events, `isMissionCheckRequest: true`) — this creates a `mission_check` task assigned to the J2 Lead role, fans out in-app notifications to all J2 leads, and sends a confirmation notification to the requester. New `J2EventModal` handles both creation flows with operation-selector and date/time pickers. `DeptCalendarTab` extended with `isJ2Lead` prop, two new action buttons, per-type filter toggles, and coloured event styling. Calendar API extended to handle the new flags with permission gates. `NotificationType` extended with `mission_check_requested` and `mission_check_confirmed`.
