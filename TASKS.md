@@ -187,15 +187,8 @@ Lastly, once they select their callsign, they will be able to copy sections from
 
 ---
 
-### Mission Check Calendar (J2)
-Extend the existing J2 calendar (same structure as the unit calendar):
-- **J2 Leads** can block out unavailability.
-- **Mission Makers** can add a "Request Mission Check" event, which:
-  - Notifies all J2 Leads.
-  - Creates a task in the task system that can be assigned to a J2 Lead.
-  - Sends a confirmation back to the mission maker that a staff member will be assigned (following the existing confirmation system pattern).
-
-> **Code context:** The J2 panel (`app/dashboard/j2/J2Panel.tsx`) has a Calendar tab that renders `DeptCalendarTab` fetching events from `/api/admin/calendar?department=j2` — a generic department event board built on `react-big-calendar`. A separate `MissionChecksTab.tsx` handles dev-check task assignment per operation. **What is missing:** J2 Lead unavailability blocking and mission maker booking into available slots are not implemented. The "Request Mission Check" calendar event type, its notification flow, and task creation all need to be built on top of the existing J2 calendar.
+### ~~Mission Check Calendar (J2)~~ ✓ Complete
+> Moved to Completed — see below.
 
 ---
 
@@ -244,6 +237,9 @@ Added `leadZeus` + `leadZeusName` fields to `OperationAttendance`. New `PATCH /a
 
 ### Acknowledge Orders (Read Receipt)
 Moved acknowledgement from per-operation to per-document. New `operation_doc_acknowledgements` MongoDB collection and `DocAcknowledgement` global type. Rewrote `app/api/operations/[id]/acknowledge/route.ts` — GET now accepts `?pageId=` and returns `{ acknowledged, acks, eligible, notAcknowledged }` (eligible = all All Staff + HQ Staff users); POST body includes `{ pageId }`. Built `app/operations/[id]/DocAcknowledgeCard.tsx` — a self-contained client component that fetches its own ack state, shows a yellow "scroll to bottom" banner at the top and an acknowledge button + "View Acknowledgements" collapsible list at the bottom (green tick = read, red cross = not read, with timestamp). Added static yellow banner + DocAcknowledgeCard to single-page view in `page.tsx`. Wired both into `paged-view.tsx` per active page. Edit page acknowledge fetch updated to use `?pageId=main` and derive count from `acks.length`.
+
+### Mission Check Calendar (J2)
+Added two J2-specific calendar event types on top of the existing `DeptCalendarTab`/`react-big-calendar`. J2 Leads can now block unavailability slots (red events, `isJ2Unavailability: true`). Any J2 member can submit a mission check request (blue events, `isMissionCheckRequest: true`) — this creates a `mission_check` task assigned to the J2 Lead role, fans out in-app notifications to all J2 leads, and sends a confirmation notification to the requester. New `J2EventModal` handles both creation flows with operation-selector and date/time pickers. `DeptCalendarTab` extended with `isJ2Lead` prop, two new action buttons, per-type filter toggles, and coloured event styling. Calendar API extended to handle the new flags with permission gates. `NotificationType` extended with `mission_check_requested` and `mission_check_confirmed`.
 
 ### Request Orders Check
 Added DELETE handler to `app/api/operations/[id]/orders-check/route.ts` — mission maker (or J2 lead) can cancel an active request; marks task `completedAt` with `ordersCheckStatus: 'cancelled'` and notifies all J2 leads. Added `'set_reminder'` action to PATCH handler — any J2 member can store `ordersCheckMakerReminderAt` on the task. Added step 1b to `app/api/cron/task-reminders/route.ts` — fires a one-shot in-app reminder to the mission maker (`assignedBy`) when `ordersCheckMakerReminderAt` passes; stamps `ordersCheckMakerReminderFiredAt` to prevent re-fire. Edit page (`app/operations/[id]/edit/page.tsx`): added "Cancel Request" button on the status card (shown when status is not confirmed), and a "Remind me" DateTimePicker + Save button shown after J2 Lead confirms the check time.

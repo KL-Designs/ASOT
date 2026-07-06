@@ -62,9 +62,11 @@ type NotificationType =
     | 'training_request_submitted'      // J3 leads: new training request from member
     | 'training_request_approved'       // Requester: training request approved
     | 'training_request_rejected'       // Requester: training request rejected
+    | 'mission_check_requested'         // J2 leads: mission maker has submitted a check request
+    | 'mission_check_confirmed'         // Mission maker: J2 confirmed the check will be handled
     | 'system'
 
-type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check'
+type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check' | 'mission_check'
 
 interface Task {
     _id?: import('mongodb').ObjectId

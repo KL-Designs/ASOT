@@ -88,7 +88,7 @@ export default function J2Panel({
                 <DeptMembersTab department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
             )}
             {view === 'calendar' && (
-                <DeptCalendarTab department='j2' userId={userId} isJ4={isJ4} />
+                <DeptCalendarTab department='j2' userId={userId} isJ4={isJ4} isJ2Lead={canManageMembers} />
             )}
             {view === 'activity' && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
