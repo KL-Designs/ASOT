@@ -29,6 +29,7 @@ Full inventory of every page, API route, and `lib`/`types`/`components` file in 
 |---|---|
 | Auth, login, Discord OAuth, `token` cookie | G (`/login`, `/login/callback`), H (`lib/discord/index.ts`, `lib/discord/oauth.ts`) |
 | Permissions, role gates, `PERMISSIONS.*` | H (`lib/permissions.ts` — single source of truth) |
+| Granular permission keys, ORBAT-Role-granted permissions | H (`lib/permissions-catalog.ts`, `lib/orbat/hasPermission.ts` — additive mechanism, not yet wired into any route), A (`/api/admin/orbat/permission-keys`) |
 | Discord bot DMs, role add/remove, nickname sync, dev-mode gate | H (`lib/discord/bot.ts`, `lib/discord/dept-roles.ts`) |
 | Members / milpac CRUD, name/role/department edit, "Danger Zone" (delete account) | A (`/api/admin/members`), D (`/api/members/[username]`), F (`personnel/all/MemberDetailPanel.tsx`), G (`/members/[username]/MilpacEditor.tsx`) |
 | Discharge, reinstate, discharge snapshot, returning-member check | A (`/api/admin/members/discharged`, `/api/admin/tickets` j4-discharge, `/api/admin/j1/discharge-info`, `/api/admin/j1/applications` returning-member logic), E (J4AdminPanel `DischargeModal`/`ReinstateModal`), H (`types/discharge-snapshot.d.ts`, `lib/milpac-gen/generate-for-user.ts` archive fns) |
@@ -36,6 +37,7 @@ Full inventory of every page, API route, and `lib`/`types`/`components` file in 
 | Internal staff tickets (move-request, discipline, promotion, discharge, performance-report, department-membership) | A (`/api/admin/tickets`), E/F (`personnel/all-staff/tabs/*`, `unit/tickets/TicketsPanel.tsx`), H (`types/tickets.d.ts`) — **distinct from** community feedback tickets below |
 | Community feedback tickets (bug/feature/mission/complaint/award) | C (`/api/tickets/**`, backed by `Db.communityTickets`), F (`_components/tickets/DeptTicketsTab.tsx`), E (J4 `CommunityTicketsTab.tsx`), H (`types/community-tickets.d.ts`) |
 | ORBAT (structure, positions, reservists, section meta, move requests) | A (`/api/admin/orbat/**`), F (`dashboard/orbat/OrbatManager.tsx`), G (`community/orbat/page.tsx` public board), H (`lib/orbat/**`, `types/orbat.d.ts`) |
+| ORBAT Roles (predefined position job-titles, Discord role + permission grants) | A (`/api/admin/orbat/roles/**`, `/api/admin/orbat/permission-keys`), F (`dashboard/orbat/RolesManagerPanel.tsx`, `RoleSelect.tsx`), H (`types/orbat-role.d.ts`, `lib/permissions-catalog.ts`, `lib/orbat/hasPermission.ts`) — design spec: `docs/superpowers/specs/2026-07-13-orbat-roles-design.md` |
 | Operations (briefings, lifecycle, publish, campaigns, templates, recycle bin) | B, E (`j2/tabs/J2OperationsTab.tsx`), G (`/operations`, `/operations/[id]`, `/operations/[id]/edit`), H (`types/operation.d.ts`) |
 | Attendance / RSVP / confirmation / Lead Zeus / reservist allocation | B (`/api/operations/[id]/attendance/**`), F (`components/operations/AttendancePanel.tsx` etc. — see H), H (`lib/attendance/**`, `types/attendance.d.ts`) |
 | OCAP after-action recordings | B (`/api/operations/ocap/**`), G (`OcapLinkPanel.tsx`, `OcapStatsPanel.tsx`), H (`lib/ocap.ts`) |
