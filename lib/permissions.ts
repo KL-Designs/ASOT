@@ -327,6 +327,18 @@ const PERMISSIONS = {
         manageOrbatMembers: ['J4 - Administration'],
 
         /**
+         * ORBAT Roles catalog — create, edit, and delete the predefined
+         * position-role definitions (name, category scope, Discord roles,
+         * granted site permissions) used by the ORBAT Roles Manager panel.
+         *
+         * Used by:
+         *  - `app/dashboard/orbat/RolesManagerPanel.tsx` (panel visibility)
+         *  - `app/api/admin/orbat/roles/route.ts` (POST)
+         *  - `app/api/admin/orbat/roles/[roleId]/route.ts` (PATCH/DELETE)
+         */
+        manageOrbatRoles: ['J4 - Administration'],
+
+        /**
          * Mass import — wipe and replace all milpac and ORBAT data from CSV files.
          * Also used to import historical attendance records.
          * Destructive operation; restricted to J4.
