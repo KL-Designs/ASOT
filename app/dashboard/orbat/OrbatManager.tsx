@@ -14,6 +14,7 @@ import {
 import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat/constants'
 import MilpacEditor from '@/app/members/[username]/MilpacEditor'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
+import RolesManagerPanel from './RolesManagerPanel'
 import {
     DndContext,
     DragOverlay,
@@ -113,6 +114,9 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
     const [positions, setPositions] = useState<OrbatPositionWithUser[]>([])
     const [loading, setLoading] = useState(true)
     const allUsers = initialUsers
+
+    // Roles Manager panel
+    const [rolesManagerOpen, setRolesManagerOpen] = useState(false)
 
     // Inline edit state
     const [editRoleId, setEditRoleId] = useState<string | null>(null)
@@ -1270,13 +1274,23 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                     background: 'rgba(255,255,255,0.04)',
                 }}
             >
-                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
-                    Unit
-                </Typography>
-                <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
-                    ORBAT Management
-                </Typography>
+                <div className='flex items-center justify-between'>
+                    <div>
+                        <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
+                            Unit
+                        </Typography>
+                        <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
+                            ORBAT Management
+                        </Typography>
+                    </div>
+                    {canManageStructure && (
+                        <Button size='small' onClick={() => setRolesManagerOpen(true)} sx={ghostBtn}>
+                            Manage Roles
+                        </Button>
+                    )}
+                </div>
             </div>
+            <RolesManagerPanel open={rolesManagerOpen} onClose={() => setRolesManagerOpen(false)} />
 
             {/* Empty state */}
             {positions.length === 0 && (
