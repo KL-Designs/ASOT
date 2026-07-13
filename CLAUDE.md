@@ -10,9 +10,14 @@ Community management platform for the **Australian Special Operations Taskforce 
 
 ## Site Map — Read Before Building Features
 
-`map.md` (repo root) is a full inventory of every page, API route, and `lib`/`types`/`components` file — what it does, its permission gate, and which `Db.*` collections it touches. **Before implementing or editing a feature, read the relevant section(s) of `map.md`** to check whether a route/helper/model already exists rather than duplicating it. It's organized into 8 parts (Admin API, Operations+J2 API, Training/Tickets/SOPs/Snapshots API, Misc API, Dashboard J1–J4, Dashboard J5–J7+other, public-facing pages, `lib`/`types`/`components`) — use the table of contents to jump to the relevant part instead of reading it end to end.
+`docs/map/README.md` is the index into a full inventory of every page, API route, and `lib`/`types`/`components` file — what it does, its permission gate, and which `Db.*` collections it touches, split across 8 part files (`docs/map/a-*.md` through `h-*.md`) so no single file is too large to work with. **Before implementing or editing a feature:**
+1. Open `docs/map/README.md`.
+2. Scan the "Find it fast" keyword table for your topic (or the Part-files table if you already know the area).
+3. Open only the linked part file(s) and search within it for the specific route/component — don't read a part file end to end.
 
-**Keep it current:** whenever you add, remove, rename, or meaningfully change a route, page, or lib/type/component file, update or add its entry in `map.md` in the same change — same discipline as updating this file. A stale map is worse than no map, so don't skip this.
+This tells you whether a route/helper/model already exists so you don't duplicate it.
+
+**Keep it current:** whenever you add, remove, rename, or meaningfully change a route, page, or lib/type/component file, update or add its entry in the relevant `docs/map/*.md` file (and the index's keyword table if it introduces a new topic) as part of the same change — same discipline as updating this file. A stale map is worse than no map, so don't skip this.
 
 ---
 
