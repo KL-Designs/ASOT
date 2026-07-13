@@ -27,6 +27,7 @@ const DbInterface = {
     minigameLive: db.collection('minigame_live'),
     orbatPositions: db.collection('orbat_positions') as MongoCollection<OrbatPosition>,
     orbatSectionMeta: db.collection('orbat_section_meta') as MongoCollection<OrbatSectionMeta>,
+    orbatRoles: db.collection('orbat_roles') as MongoCollection<OrbatRole>,
     operationAttendance: db.collection('operation_attendance') as MongoCollection<OperationAttendance>,
     operationDocAcks: db.collection('operation_doc_acknowledgements') as MongoCollection<DocAcknowledgement>,
     j1Applications: db.collection('j1_applications') as MongoCollection<J1Application>,

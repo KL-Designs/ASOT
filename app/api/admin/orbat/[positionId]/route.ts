@@ -77,6 +77,7 @@ export async function PATCH(
                 category: 'activeReservist',
                 sectionTitle: '',
                 role: 'Active Reservist',
+                roleId: null,
                 userId: position.userId,
                 sectionOrder: 0,
                 positionOrder,

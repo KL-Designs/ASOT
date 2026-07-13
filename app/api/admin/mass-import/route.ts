@@ -259,6 +259,7 @@ export async function POST(request: NextRequest) {
             category: 'companyHQ',
             sectionTitle: 'India Company HQ',
             role: sec.senior.role,
+            roleId: null,
             userId: lookupAndTrack(sec.senior.name)?._id ?? null,
             sectionOrder,
             positionOrder: 0,
@@ -270,6 +271,7 @@ export async function POST(request: NextRequest) {
                 category: 'companyHQ',
                 sectionTitle: 'India Company HQ',
                 role: m.role,
+                roleId: null,
                 userId: lookupAndTrack(m.name)?._id ?? null,
                 sectionOrder,
                 positionOrder: i + 1,
@@ -280,37 +282,37 @@ export async function POST(request: NextRequest) {
 
     for (const section of orbat.platoon11) {
         section.members.forEach((m, i) => {
-            positions.push({ category: 'platoon11', sectionTitle: section.title, role: m.role, userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+            positions.push({ category: 'platoon11', sectionTitle: section.title, role: m.role, roleId: null, userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
         })
         sectionOrder++
     }
 
     for (const section of orbat.platoon12) {
         section.members.forEach((m, i) => {
-            positions.push({ category: 'platoon12', sectionTitle: section.title, role: m.role, userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+            positions.push({ category: 'platoon12', sectionTitle: section.title, role: m.role, roleId: null, userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
         })
         sectionOrder++
     }
 
     for (const section of orbat.support) {
         section.members.forEach((m, i) => {
-            positions.push({ category: 'support', sectionTitle: section.title, role: m.role, userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+            positions.push({ category: 'support', sectionTitle: section.title, role: m.role, roleId: null, userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
         })
         sectionOrder++
     }
 
     orbat.activeReservists.forEach((name, i) => {
-        positions.push({ category: 'activeReservist', sectionTitle: '', role: 'Active Reservist', userId: lookupAndTrack(name)?._id ?? null, sectionOrder, positionOrder: i })
+        positions.push({ category: 'activeReservist', sectionTitle: '', role: 'Active Reservist', roleId: null, userId: lookupAndTrack(name)?._id ?? null, sectionOrder, positionOrder: i })
     })
     sectionOrder++
 
     orbat.inactiveReservists.forEach((name, i) => {
-        positions.push({ category: 'inactiveReservist', sectionTitle: '', role: 'Inactive Reservist', userId: lookupAndTrack(name)?._id ?? null, sectionOrder, positionOrder: i })
+        positions.push({ category: 'inactiveReservist', sectionTitle: '', role: 'Inactive Reservist', roleId: null, userId: lookupAndTrack(name)?._id ?? null, sectionOrder, positionOrder: i })
     })
     sectionOrder++
 
     orbat.gamemasters.forEach((m, i) => {
-        positions.push({ category: 'gamemaster', sectionTitle: 'Gamemasters', role: m.role, userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+        positions.push({ category: 'gamemaster', sectionTitle: 'Gamemasters', role: m.role, roleId: null, userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
     })
 
     const seenUserIds = new Set<string>()
