@@ -1,6 +1,20 @@
 import Db from '../mongo'
 import { RESERVIST_CATEGORY_IDS } from './constants'
 import { syncOrbatDiscordRoles } from './discord'
+import { addGuildRole, removeGuildRole } from '../discord/bot'
+
+async function swapRoleDiscordRoles(userId: string, fromRoleId: OrbatPosition['roleId'], toRoleId: OrbatPosition['roleId'] | undefined) {
+    const [fromRole, toRole] = await Promise.all([
+        fromRoleId ? Db.orbatRoles.findOne({ _id: fromRoleId }) : Promise.resolve(null),
+        toRoleId ? Db.orbatRoles.findOne({ _id: toRoleId }) : Promise.resolve(null),
+    ])
+    const revokeIds = fromRole?.discordRoleIds ?? []
+    const grantIds = toRole?.discordRoleIds ?? []
+    await Promise.allSettled([
+        ...revokeIds.map(id => removeGuildRole(userId, id)),
+        ...grantIds.map(id => addGuildRole(userId, id)),
+    ])
+}
 
 /**
  * Applies an ORBAT position swap when a move request is approved.
@@ -24,6 +38,7 @@ export async function applyOrbatMove({
         Promise.allSettled([
             syncOrbatDiscordRoles(targetUserId, 'remove', fromPos.category, fromPos.sectionTitle),
             syncOrbatDiscordRoles(targetUserId, 'add', toPos!.category, toPos!.sectionTitle),
+            swapRoleDiscordRoles(targetUserId, fromPos.roleId, toPos!.roleId),
         ]).catch(err => console.error('[orbat-move] Role sync failed:', err))
     } else if (toIsReservist) {
         // FROM section → TO reservist: clear source, find/create activeReservist slot
@@ -37,6 +52,7 @@ export async function applyOrbatMove({
                 category: 'activeReservist',
                 sectionTitle: '',
                 role: 'Active Reservist',
+                roleId: null,
                 userId: targetUserId,
                 sectionOrder: 0,
                 positionOrder: count,
@@ -45,6 +61,7 @@ export async function applyOrbatMove({
         Promise.allSettled([
             syncOrbatDiscordRoles(targetUserId, 'remove', fromPos.category, fromPos.sectionTitle),
             syncOrbatDiscordRoles(targetUserId, 'add', 'activeReservist', ''),
+            swapRoleDiscordRoles(targetUserId, fromPos.roleId, null),
         ]).catch(err => console.error('[orbat-move] Role sync failed:', err))
     } else {
         // Section → section: remove old roles, add new roles
@@ -53,6 +70,7 @@ export async function applyOrbatMove({
         Promise.allSettled([
             syncOrbatDiscordRoles(targetUserId, 'remove', fromPos.category, fromPos.sectionTitle),
             syncOrbatDiscordRoles(targetUserId, 'add', toPos!.category, toPos!.sectionTitle),
+            swapRoleDiscordRoles(targetUserId, fromPos.roleId, toPos!.roleId),
         ]).catch(err => console.error('[orbat-move] Role sync failed:', err))
     }
 }
