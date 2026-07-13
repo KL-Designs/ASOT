@@ -250,6 +250,20 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Build ORBAT positions ─────────────────────────────────────────────────
+    // Resolve each CSV role string to an existing OrbatRole by exact name
+    // match. Unmatched roles still import (roleId stays null, the raw name
+    // is preserved in `role`) — CSV noise should never silently mint new
+    // catalog entries. Reservist rows are always unmatched by design (see
+    // the ORBAT Roles design spec: reservists stay outside the catalog).
+    const allRoles = await Db.orbatRoles.find({}).toArray()
+    const roleByName = new Map(allRoles.map(r => [r.name, r._id]))
+    let unmatchedRoleCount = 0
+    const resolveRoleId = (name: string) => {
+        const id = roleByName.get(name) ?? null
+        if (!id) unmatchedRoleCount++
+        return id
+    }
+
     const positions: Omit<OrbatPosition, '_id'>[] = []
     let sectionOrder = 0
 
@@ -259,7 +273,7 @@ export async function POST(request: NextRequest) {
             category: 'companyHQ',
             sectionTitle: 'India Company HQ',
             role: sec.senior.role,
-            roleId: null,
+            roleId: resolveRoleId(sec.senior.role),
             userId: lookupAndTrack(sec.senior.name)?._id ?? null,
             sectionOrder,
             positionOrder: 0,
@@ -271,7 +285,7 @@ export async function POST(request: NextRequest) {
                 category: 'companyHQ',
                 sectionTitle: 'India Company HQ',
                 role: m.role,
-                roleId: null,
+                roleId: resolveRoleId(m.role),
                 userId: lookupAndTrack(m.name)?._id ?? null,
                 sectionOrder,
                 positionOrder: i + 1,
@@ -282,21 +296,21 @@ export async function POST(request: NextRequest) {
 
     for (const section of orbat.platoon11) {
         section.members.forEach((m, i) => {
-            positions.push({ category: 'platoon11', sectionTitle: section.title, role: m.role, roleId: null, userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+            positions.push({ category: 'platoon11', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
         })
         sectionOrder++
     }
 
     for (const section of orbat.platoon12) {
         section.members.forEach((m, i) => {
-            positions.push({ category: 'platoon12', sectionTitle: section.title, role: m.role, roleId: null, userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+            positions.push({ category: 'platoon12', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
         })
         sectionOrder++
     }
 
     for (const section of orbat.support) {
         section.members.forEach((m, i) => {
-            positions.push({ category: 'support', sectionTitle: section.title, role: m.role, roleId: null, userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+            positions.push({ category: 'support', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
         })
         sectionOrder++
     }
@@ -312,7 +326,7 @@ export async function POST(request: NextRequest) {
     sectionOrder++
 
     orbat.gamemasters.forEach((m, i) => {
-        positions.push({ category: 'gamemaster', sectionTitle: 'Gamemasters', role: m.role, roleId: null, userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+        positions.push({ category: 'gamemaster', sectionTitle: 'Gamemasters', role: m.role, roleId: resolveRoleId(m.role), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
     })
 
     const seenUserIds = new Set<string>()
@@ -449,6 +463,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
         orbatInserted:       dedupedPositions.length,
         orbatMatched,
+        unmatchedRoleCount,
         mastersheetRows:     mastersheet.length,
         mastersheetMatched,
         usersUpdated:        milpacUpdates.size,
