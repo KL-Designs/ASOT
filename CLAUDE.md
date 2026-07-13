@@ -8,6 +8,14 @@ Community management platform for the **Australian Special Operations Taskforce 
 
 ---
 
+## Site Map — Read Before Building Features
+
+`map.md` (repo root) is a full inventory of every page, API route, and `lib`/`types`/`components` file — what it does, its permission gate, and which `Db.*` collections it touches. **Before implementing or editing a feature, read the relevant section(s) of `map.md`** to check whether a route/helper/model already exists rather than duplicating it. It's organized into 8 parts (Admin API, Operations+J2 API, Training/Tickets/SOPs/Snapshots API, Misc API, Dashboard J1–J4, Dashboard J5–J7+other, public-facing pages, `lib`/`types`/`components`) — use the table of contents to jump to the relevant part instead of reading it end to end.
+
+**Keep it current:** whenever you add, remove, rename, or meaningfully change a route, page, or lib/type/component file, update or add its entry in `map.md` in the same change — same discipline as updating this file. A stale map is worse than no map, so don't skip this.
+
+---
+
 ## Commands
 
 ```bash
