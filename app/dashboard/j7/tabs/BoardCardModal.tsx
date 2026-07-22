@@ -41,8 +41,12 @@ export default function BoardCardModal({ open, onClose, department, columnId, ca
         setError(null)
 
         if (card?.linkedTaskId) {
-            fetch('/api/admin/tasks?view=mine').then(r => r.json()).then(d => {
-                const found = (d.tasks ?? []).find((t: TaskOption) => t._id === String(card.linkedTaskId))
+            Promise.all([
+                fetch('/api/admin/tasks?view=mine').then(r => r.json()),
+                fetch('/api/admin/tasks?view=created').then(r => r.json()),
+            ]).then(([mine, created]) => {
+                const all: TaskOption[] = [...(mine.tasks ?? []), ...(created.tasks ?? [])]
+                const found = all.find(t => t._id === String(card.linkedTaskId))
                 if (found) setLinkedTask(found)
             }).catch(() => {})
         }
