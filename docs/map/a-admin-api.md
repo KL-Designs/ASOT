@@ -37,6 +37,15 @@ Catalogs every `route.ts` under `app/api/admin/**` (78 files). Background facts 
 
 ---
 
+#### /api/admin/board (J7 Trello-style board — department-parameterized, only wired into J7 as of this writing)
+
+- `GET/POST /api/admin/board/columns` — GET lists columns for `?department=`, sorted by `order`. POST creates a new column (appended to end). Gate: `PERMISSIONS.departments[dept]` (GET, any dept member) / `PERMISSIONS.departmentLeads[dept]` (POST, lead or J4 only) — department key resolved dynamically, not hardcoded. Collections: `Db.boardColumns`. Side effects: `logAction('board.column.create')`.
+- `PATCH/DELETE /api/admin/board/columns/{id}` — PATCH renames and/or reorders (`{title?, order?}`); DELETE cascades to remove every card in the column (`Db.boardCards.deleteMany`). Both re-derive `department` from the fetched column doc (not client input) before gating. Gate: `PERMISSIONS.departmentLeads[dept]`. Collections: `Db.boardColumns`, `Db.boardCards`. Side effects: `logAction('board.column.rename'|'reorder'|'delete')`.
+- `GET/POST /api/admin/board/cards` — GET lists all cards for `?department=` (client groups by `columnId`). POST creates a card (`{department, columnId, title, description?, assigneeId?, assigneeName?, linkedTaskId?}`) — `linkedTaskId` optionally references an existing `Db.tasks` doc, resolved live on read rather than duplicated. Gate: `PERMISSIONS.departments[dept]` (any dept member — cards are not lead-gated, unlike columns). Collections: `Db.boardCards`, `Db.boardColumns` (read, to validate `columnId`). Side effects: `logAction('board.card.create')`; if `assigneeId` set and ≠ creator, `createNotification()` + `sendBoardCardAssignedDM()`.
+- `PATCH/DELETE /api/admin/board/cards/{id}` — PATCH edits fields and/or moves (`columnId`+`order` together = a move). Clearing `assigneeId` requires clearing `assigneeName` in lockstep (both `null` together) — setting a non-null `assigneeId` without `assigneeName` returns 400, preventing a card ending up assigned to someone with no displayable name. Update payload is split into Mongo `$set`/`$unset` docs since `$set` rejects explicit `undefined` values. DELETE removes the card. Both re-derive `department` from the fetched card doc. Gate: `PERMISSIONS.departments[dept]`. Collections: `Db.boardCards`, `Db.boardColumns` (read, on move). Side effects: `logAction('board.card.edit'|'move'|'delete')`; reassignment (not initial assignment, not self-assignment) fires `createNotification()` + `sendBoardCardAssignedDM()`.
+
+---
+
 #### /api/admin/calendar (subroutes)
 
 - `GET/POST/DELETE /api/admin/calendar/reminders` — per-user calendar-event reminders keyed by `eventId`+`minutesBefore`. GET fetches the current user's reminders; POST upserts one (computes `fireAt` from event start); DELETE removes one or all for an event. Gate: any authenticated user (`fetchMe()` only — no role check; scoped by `userId: me.id`). Collections: `Db.calendarReminders`, `Db.calendarEvents`.

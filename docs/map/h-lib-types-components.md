@@ -9,7 +9,7 @@ This map documents every file under `lib/**` (55 files), `types/**` (30 files), 
 ## 1. `lib/**` — reusable server logic (55 files)
 
 ### lib/mongo.ts
-- Default export `Db` — singleton `MongoClient` cached on `global._mongoClient` (survives Next.js HMR). One typed `MongoCollection<T>` property per collection. Full list of ~56 collections including `users`, `roles`, `milpacs`, `optionals`, `operations`, `operationActivity`, `minigameScores`, `minigameLive`, `orbatPositions`, `orbatSectionMeta`, `orbatRoles`, `operationAttendance`, `operationDocAcks`, `j1Applications`, `tickets`, `calendarEvents`, `siteSettings`, `operationTemplates`, `operationCampaigns`, `campaignMissions`, `notifications`, `tasks`, `calendarReminders`, `meetings`, `actionLogs`, `errorLogs`, `discordLogs`, `driversLicense`, `mapPresets`, `retiredMembers`, `quizAttempts`, `communityTickets` (→ `feedback` collection), `communityTicketComments` (→ `feedback_comments`), `meetingNotifQueue`, `userPreferences`, `notifPolicyConfig`, `sops`, `trainingDocs`, `teamspeakSnapshots`, `recruitSessions`, `tfarPlugins`, `inProgressRecruitments`, `workspaceFiles`, `workspaceDocs`, `workspaceVersions`, `leavingHistory`, `deniedApplicationsHQ`, `disciplineRecords`, `billetExtras`, `memberEmails`, `mastersheetRecycleBin`, `dischargeSnapshots`, `trainingTypes`, `trainingEvents`, `trainingAttendance`, `trainingTypeDocs`, `trainingRequests`, `trainingTickets`, `trainingReminders`, `trainingImportRecords`, `eraOptions`.
+- Default export `Db` — singleton `MongoClient` cached on `global._mongoClient` (survives Next.js HMR). One typed `MongoCollection<T>` property per collection. Full list of ~56 collections including `users`, `roles`, `milpacs`, `optionals`, `operations`, `operationActivity`, `minigameScores`, `minigameLive`, `orbatPositions`, `orbatSectionMeta`, `orbatRoles`, `boardColumns`, `boardCards`, `operationAttendance`, `operationDocAcks`, `j1Applications`, `tickets`, `calendarEvents`, `siteSettings`, `operationTemplates`, `operationCampaigns`, `campaignMissions`, `notifications`, `tasks`, `calendarReminders`, `meetings`, `actionLogs`, `errorLogs`, `discordLogs`, `driversLicense`, `mapPresets`, `retiredMembers`, `quizAttempts`, `communityTickets` (→ `feedback` collection), `communityTicketComments` (→ `feedback_comments`), `meetingNotifQueue`, `userPreferences`, `notifPolicyConfig`, `sops`, `trainingDocs`, `teamspeakSnapshots`, `recruitSessions`, `tfarPlugins`, `inProgressRecruitments`, `workspaceFiles`, `workspaceDocs`, `workspaceVersions`, `leavingHistory`, `deniedApplicationsHQ`, `disciplineRecords`, `billetExtras`, `memberEmails`, `mastersheetRecycleBin`, `dischargeSnapshots`, `trainingTypes`, `trainingEvents`, `trainingAttendance`, `trainingTypeDocs`, `trainingRequests`, `trainingTickets`, `trainingReminders`, `trainingImportRecords`, `eraOptions`.
 - `Db.stats()` — prints DB stats via `console.table`.
 
 ### lib/permissions.ts
@@ -54,7 +54,7 @@ This map documents every file under `lib/**` (55 files), `types/**` (30 files), 
 - `invalidateDevModeCache()` — bust the 30s in-process dev-mode cache (call after toggling).
 - `sendDM(userId, payload: {content?,embeds?}, messageType='raw')` — opens/caches DM channel (`dmChannelCache`), sends, logs sent/blocked/failed.
 - `sendChannelMessage(channelId, payload, messageType='raw')` — same pattern for guild channels; skips silently if `channelId` falsy.
-- Typed DM helpers (all wrap `sendDM` with pre-built branded embeds): `sendCalendarReminderDM`, `sendTaskAssignedDM`, `sendTaskExtensionRequestDM`, `sendTaskExtensionApprovedDM`, `sendTaskExtensionDeniedDM`, `sendTaskExtensionAlternativeDM`, `sendTaskReassignmentRequestDM`, `sendTaskReassignmentOutcomeDM`, `sendTaskReminderDM`, `sendTaskOverdueDM`, `sendTaskEscalationDM`, `sendTaskDeleteRequestDM`, `sendTaskDeleteOutcomeDM`, `sendTrainingApprovedDM`, `sendTrainingRejectedDM`, `sendTrainingReminderDM`, `sendMeetingDM`, `sendFeedbackCommentDM`, `sendFeedbackStatusDM`, `sendLeadZeusDM`.
+- Typed DM helpers (all wrap `sendDM` with pre-built branded embeds): `sendCalendarReminderDM`, `sendTaskAssignedDM`, `sendTaskExtensionRequestDM`, `sendTaskExtensionApprovedDM`, `sendTaskExtensionDeniedDM`, `sendTaskExtensionAlternativeDM`, `sendTaskReassignmentRequestDM`, `sendTaskReassignmentOutcomeDM`, `sendTaskReminderDM`, `sendTaskOverdueDM`, `sendTaskEscalationDM`, `sendTaskDeleteRequestDM`, `sendTaskDeleteOutcomeDM`, `sendTrainingApprovedDM`, `sendTrainingRejectedDM`, `sendTrainingReminderDM`, `sendMeetingDM`, `sendFeedbackCommentDM`, `sendFeedbackStatusDM`, `sendLeadZeusDM`, `sendBoardCardAssignedDM(userId, cardTitle, columnTitle, actionUrl?)` — J7 board card assignment DM, inserted immediately after `sendTaskAssignedDM`, same embed shape.
 - `addGuildRole(userId, roleId)` / `removeGuildRole(userId, roleId)` — role mutations, gated + logged.
 - `setGuildNickname(userId, nick)` — nickname mutation, gated + logged.
 - `fetchAllGuildMembers()` — paginated `GET /guilds/:id/members`; **not** gated (read-only). Returns `{userId, roleIds}[]`.
@@ -331,7 +331,7 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 - Legacy/unused ORBAT-adjacent shapes: `Platoon`, `Section`, `Role` (id/order/name/abbr/description — **not** the Discord `Role` from `user.d.ts`), `Rank`, `Certification`, `Award`. Appears superseded by `lib/military/*` + `orbat.d.ts` — check usage before relying on this file.
 
 ### types/logs.d.ts
-- `ActionCategory` union (`orbat|calendar|member|operation|system|discord|meeting|ticket|task|training|award|teamspeak`).
+- `ActionCategory` union (`orbat|calendar|member|operation|system|discord|meeting|ticket|task|training|award|teamspeak|board`).
 - `ActionLog` — audit log doc (see `lib/logAction.ts`/`lib/logs.ts`).
 - `ErrorLog` — `{path, method, message, stack?, userId?, userDisplayName?, createdAt}`.
 - `DiscordLogStatus` (`sent|blocked|failed`), `DiscordLog` — every outbound Discord action attempt (see `lib/discord/bot.ts`).
@@ -344,6 +344,10 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 
 ### types/orbat-role.d.ts
 - `OrbatRole` — predefined ORBAT position job-title catalog entry (`_id, name, categories, discordRoleIds, permissions, createdAt, createdBy, createdByName`). `categories` scopes which ORBAT categories the Role can be assigned in (`[]` = all). `discordRoleIds` stack on top of (don't replace) the existing section-level Discord role grant. `permissions` are keys from `lib/permissions-catalog.ts`'s `PERMISSION_KEYS`, consumed by `lib/orbat/hasPermission.ts`. CRUD via `/api/admin/orbat/roles`, managed through `app/dashboard/orbat/RolesManagerPanel.tsx`.
+
+### types/board.d.ts
+- `BoardColumn` — `{_id, department, title, order, createdAt, createdBy, createdByName}`. `department`-scoped like every other dept-tab data model (only `'j7'` in use as of this writing, see `docs/superpowers/specs/2026-07-14-j7-board-design.md`).
+- `BoardCard` — `{_id, department, columnId, title, description?, assigneeId?, assigneeName?, linkedTaskId?, order, createdAt, createdBy, createdByName}`. `linkedTaskId` optionally references a `Db.tasks` doc — resolved live on read (via `?view=mine`+`?view=created`, never the J4-only `?view=all`), never duplicated onto the card. `assigneeId`/`assigneeName` must be set or cleared together (enforced server-side in the cards `PATCH` route) to avoid a card assigned to a member with no displayable name.
 
 ### types/sops.d.ts
 - `SopCategory` union.
@@ -404,7 +408,7 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 
 ### types/notification.d.ts
 - `Notification` — `{userId, type, title, body, actionUrl?, relatedId?, createdAt, readAt?, dismissedAt?}`.
-- `NotificationType` — the master union of every notification type string (tasks, meetings, tickets, calendar, training, quiz, mission-check, system) — cross-reference with `lib/notifications/types.ts`'s `NOTIFICATION_TYPES` metadata table.
+- `NotificationType` — the master union of every notification type string (tasks, meetings, tickets, calendar, training, quiz, mission-check, `board_card_assigned`, system) — cross-reference with `lib/notifications/types.ts`'s `NOTIFICATION_TYPES` metadata table.
 - `TaskType` (`manual|attendance|application_review|j4_returning_review|extension_review|quiz_assigned|dev_check|orders_check|mission_check`).
 - `Task` — the central task document: assignment fields, due/reminder/escalation timestamps, `missionDevCheckId`, `ordersCheckAt`/`ordersCheckStatus`/`ordersCheckProposedAt`, `extensionRequest` (nested workflow object), `reassignmentRequest` (nested workflow object), `deleteRequest` (nested workflow object).
 - `TaskStatus` (`pending|in_progress|completed|overdue`).
