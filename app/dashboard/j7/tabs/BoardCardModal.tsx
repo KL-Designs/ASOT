@@ -73,9 +73,9 @@ export default function BoardCardModal({ open, onClose, department, columnId, ca
             department,
             columnId,
             title: title.trim(),
-            description: description.trim() || undefined,
-            assigneeId: assignee?.id,
-            assigneeName: assignee?.name,
+            description: description.trim() || null,
+            assigneeId: assignee?.id ?? null,
+            assigneeName: assignee?.name ?? null,
             linkedTaskId: linkedTask?._id ?? null,
         }
 

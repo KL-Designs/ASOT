@@ -7,7 +7,7 @@ import {
     DndContext, PointerSensor, useSensor, useSensors, useDroppable,
     type DragEndEvent,
 } from '@dnd-kit/core'
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { SortableContext, useSortable, verticalListSortingStrategy, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import ConfirmDialog from '@/components/confirm-dialog'
 import BoardCardModal from './BoardCardModal'
@@ -67,15 +67,35 @@ function Column({
     onRename: (columnId: string, title: string) => void
     onDelete: (columnId: string) => void
 }) {
-    const { setNodeRef, isOver } = useDroppable({ id: String(column._id) })
+    const { setNodeRef: setDropRef, isOver } = useDroppable({ id: String(column._id) })
+    const {
+        attributes, listeners, setNodeRef: setSortRef, transform, transition, isDragging,
+    } = useSortable({ id: `col:${column._id}`, disabled: !canManageColumns })
     const [editing, setEditing] = useState(false)
     const [titleVal, setTitleVal] = useState(column.title)
 
     const cardIds = useMemo(() => cards.map(c => String(c._id)), [cards])
 
     return (
-        <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+        <div
+            ref={setSortRef}
+            style={{
+                width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column',
+                transform: CSS.Transform.toString(transform),
+                transition,
+                opacity: isDragging ? 0.5 : 1,
+            }}
+        >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 4px', marginBottom: 4 }}>
+                {canManageColumns && (
+                    <span
+                        {...attributes}
+                        {...listeners}
+                        style={{ display: 'flex', cursor: 'grab', color: 'rgba(237,237,237,0.2)', touchAction: 'none', flexShrink: 0 }}
+                    >
+                        <DragIndicator sx={{ fontSize: 14 }} />
+                    </span>
+                )}
                 {editing ? (
                     <TextField
                         size='small' value={titleVal} autoFocus
@@ -102,7 +122,7 @@ function Column({
             </div>
 
             <div
-                ref={setNodeRef}
+                ref={setDropRef}
                 style={{
                     flex: 1, minHeight: 80, padding: 6,
                     background: isOver ? 'rgba(219,0,29,0.05)' : 'rgba(255,255,255,0.015)',
@@ -180,6 +200,34 @@ export default function BoardTab({ department, canManageColumns }: Props) {
         const overId = String(over.id)
         if (activeId === overId) return
 
+        // Column reorder — column drag ids are prefixed 'col:' so they can never
+        // collide with that same column's card-drop-zone id used below.
+        if (activeId.startsWith('col:')) {
+            if (!overId.startsWith('col:')) return
+            const activeColId = activeId.slice(4)
+            const overColId = overId.slice(4)
+            if (activeColId === overColId) return
+
+            const sorted = [...columns].sort((a, b) => a.order - b.order)
+            const overIndex = sorted.findIndex(c => String(c._id) === overColId)
+            if (overIndex < 0) return
+            const target = sorted[overIndex]
+            const prevSibling = sorted[overIndex - 1]
+            const newOrder = prevSibling ? (prevSibling.order + target.order) / 2 : target.order - 1
+
+            setColumns(prev => prev.map(c => String(c._id) === activeColId ? { ...c, order: newOrder } : c))
+
+            await fetch(`/api/admin/board/columns/${activeColId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ order: newOrder }),
+            })
+            load()
+            return
+        }
+
+        // Card drag — everything below this point is the existing, already-reviewed
+        // logic and must be preserved exactly as-is.
         const fromColId = findColumnOf(activeId)
         if (!fromColId) return
 
@@ -250,45 +298,47 @@ export default function BoardTab({ department, canManageColumns }: Props) {
     return (
         <div style={{ padding: '16px 24px', overflowX: 'auto' }}>
             <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                    {columns.map(col => (
-                        <Column
-                            key={String(col._id)}
-                            column={col}
-                            cards={cardsByColumn.get(String(col._id)) ?? []}
-                            canManageColumns={canManageColumns}
-                            onAddCard={columnId => setModalState({ columnId, card: null })}
-                            onEditCard={card => setModalState({ columnId: String(card.columnId), card })}
-                            onRename={handleRenameColumn}
-                            onDelete={columnId => setConfirmDeleteColumn(columnId)}
-                        />
-                    ))}
+                <SortableContext items={columns.map(c => `col:${c._id}`)} strategy={horizontalListSortingStrategy}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                        {columns.map(col => (
+                            <Column
+                                key={String(col._id)}
+                                column={col}
+                                cards={cardsByColumn.get(String(col._id)) ?? []}
+                                canManageColumns={canManageColumns}
+                                onAddCard={columnId => setModalState({ columnId, card: null })}
+                                onEditCard={card => setModalState({ columnId: String(card.columnId), card })}
+                                onRename={handleRenameColumn}
+                                onDelete={columnId => setConfirmDeleteColumn(columnId)}
+                            />
+                        ))}
 
-                    {canManageColumns && (
-                        <div style={{ width: 220, flexShrink: 0 }}>
-                            {addingColumn ? (
-                                <div style={{ display: 'flex', gap: 4 }}>
-                                    <TextField
-                                        size='small' autoFocus value={newColumnTitle}
-                                        onChange={e => setNewColumnTitle(e.target.value)}
-                                        onKeyDown={e => { if (e.key === 'Enter') handleAddColumn(); if (e.key === 'Escape') setAddingColumn(false) }}
-                                        placeholder='Column name…'
-                                        inputProps={{ style: { fontSize: '0.72rem' } }}
-                                        sx={{ flex: 1 }}
-                                    />
-                                    <IconButton size='small' onClick={() => setAddingColumn(false)}><Close sx={{ fontSize: 14 }} /></IconButton>
-                                </div>
-                            ) : (
-                                <button
-                                    onClick={() => setAddingColumn(true)}
-                                    style={{ all: 'unset', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', padding: '6px 4px' }}
-                                >
-                                    <Add sx={{ fontSize: 14 }} /> Add column
-                                </button>
-                            )}
-                        </div>
-                    )}
-                </div>
+                        {canManageColumns && (
+                            <div style={{ width: 220, flexShrink: 0 }}>
+                                {addingColumn ? (
+                                    <div style={{ display: 'flex', gap: 4 }}>
+                                        <TextField
+                                            size='small' autoFocus value={newColumnTitle}
+                                            onChange={e => setNewColumnTitle(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') handleAddColumn(); if (e.key === 'Escape') setAddingColumn(false) }}
+                                            placeholder='Column name…'
+                                            inputProps={{ style: { fontSize: '0.72rem' } }}
+                                            sx={{ flex: 1 }}
+                                        />
+                                        <IconButton size='small' onClick={() => setAddingColumn(false)}><Close sx={{ fontSize: 14 }} /></IconButton>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => setAddingColumn(true)}
+                                        style={{ all: 'unset', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', padding: '6px 4px' }}
+                                    >
+                                        <Add sx={{ fontSize: 14 }} /> Add column
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </SortableContext>
             </DndContext>
 
             {modalState && (
