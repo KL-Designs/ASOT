@@ -189,7 +189,18 @@ export default function BoardTab({ department, canManageColumns }: Props) {
 
         const toList = cardsByColumn.get(toColId) ?? []
         const overIndex = toList.findIndex(c => String(c._id) === overId)
-        const newOrder = overIndex >= 0 ? toList[overIndex].order : (toList[toList.length - 1]?.order ?? -1) + 1
+        let newOrder: number
+        if (overIndex < 0) {
+            // Dropped on the column's empty area (not on a specific card) — append to end
+            newOrder = (toList[toList.length - 1]?.order ?? -1) + 1
+        } else {
+            // Dropped onto a specific card — insert immediately before it, using the
+            // midpoint between it and its previous sibling so the new order value
+            // never collides with an existing one.
+            const target = toList[overIndex]
+            const prevSibling = toList[overIndex - 1]
+            newOrder = prevSibling ? (prevSibling.order + target.order) / 2 : target.order - 1
+        }
 
         // Optimistic local update — columnId is overwritten by the very next load() regardless
         setCards(prev => prev.map(c => String(c._id) === activeId ? { ...c, columnId: toColId as unknown as BoardCard['columnId'], order: newOrder } : c))

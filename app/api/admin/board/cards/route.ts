@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     if (!department) return NextResponse.json({ error: 'department is required' }, { status: 400 })
     if (!authMember(department, me)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const cards = await Db.boardCards.find({ department }).sort({ order: 1 }).toArray()
+    const cards = await Db.boardCards.find({ department }).sort({ order: 1, _id: 1 }).toArray()
     return NextResponse.json({ cards: JSON.parse(JSON.stringify(cards)) })
 }
 
