@@ -278,6 +278,32 @@ export async function sendTaskAssignedDM(
 }
 
 /**
+ * Send a board-card-assigned DM.
+ * Produces a consistently styled embed matching the site's branding.
+ */
+export async function sendBoardCardAssignedDM(
+    userId: string,
+    cardTitle: string,
+    columnTitle: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '🗂️ Board Card Assigned',
+        description: `**${cardTitle}**\nColumn: ${columnTitle}`,
+        color: 0xdb001d,
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields = [{ name: '\u200b', value: `[View Board](${base}${actionUrl})`, inline: false }]
+    }
+
+    await sendDM(userId, { embeds: [embed] }, 'board')
+}
+
+/**
  * Notify a task creator that the assignee has requested a due-date extension.
  */
 export async function sendTaskExtensionRequestDM(
