@@ -28,6 +28,8 @@ const DbInterface = {
     orbatPositions: db.collection('orbat_positions') as MongoCollection<OrbatPosition>,
     orbatSectionMeta: db.collection('orbat_section_meta') as MongoCollection<OrbatSectionMeta>,
     orbatRoles: db.collection('orbat_roles') as MongoCollection<OrbatRole>,
+    boardColumns: db.collection('board_columns') as MongoCollection<BoardColumn>,
+    boardCards: db.collection('board_cards') as MongoCollection<BoardCard>,
     operationAttendance: db.collection('operation_attendance') as MongoCollection<OperationAttendance>,
     operationDocAcks: db.collection('operation_doc_acknowledgements') as MongoCollection<DocAcknowledgement>,
     j1Applications: db.collection('j1_applications') as MongoCollection<J1Application>,

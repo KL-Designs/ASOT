@@ -39,10 +39,11 @@ const CATEGORY_COLORS: Record<string, string> = {
     training:  'rgba(0,220,140,0.7)',
     award:     'rgba(255,200,0,0.7)',
     system:    'rgba(237,237,237,0.25)',
+    board:     'rgba(0,229,255,0.7)',
 }
 
-const ENTITY_TYPES = ['meeting','task','ticket','calendar','member','training','award','role']
-const CATEGORIES   = ['meeting','ticket','task','calendar','member','orbat','operation','discord','training','award','system']
+const ENTITY_TYPES = ['meeting','task','ticket','calendar','member','training','award','role','card','column']
+const CATEGORIES   = ['meeting','ticket','task','calendar','member','orbat','operation','discord','training','award','system','board']
 
 const DEPT_NAMES: Record<string, string> = {
     j1:'J1', j2:'J2', j3:'J3', j4:'J4', j5:'J5', j6:'J6', j7:'J7',

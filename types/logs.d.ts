@@ -17,6 +17,7 @@ declare global {
         | 'training'
         | 'award'
         | 'teamspeak'
+        | 'board'
 
     interface ActionLog {
         _id: ObjectId
