@@ -63,8 +63,18 @@ export async function PATCH(
 
     const wasReassigned = 'assigneeId' in body && body.assigneeId !== card.assigneeId
     if ('assigneeId' in body) {
-        updates.assigneeId = typeof body.assigneeId === 'string' ? body.assigneeId : undefined
-        updates.assigneeName = typeof body.assigneeName === 'string' ? body.assigneeName : undefined
+        if (body.assigneeId === null || body.assigneeId === undefined) {
+            updates.assigneeId = undefined
+            updates.assigneeName = undefined
+        } else if (typeof body.assigneeId === 'string') {
+            if (typeof body.assigneeName !== 'string' || !body.assigneeName.trim()) {
+                return NextResponse.json({ error: 'assigneeName is required when setting assigneeId' }, { status: 400 })
+            }
+            updates.assigneeId = body.assigneeId
+            updates.assigneeName = body.assigneeName.trim()
+        } else {
+            return NextResponse.json({ error: 'Invalid assigneeId' }, { status: 400 })
+        }
     }
 
     if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
