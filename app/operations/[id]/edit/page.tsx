@@ -26,6 +26,24 @@ const STAGE_DEFS: { id: AttendanceStage; label: string; sub: string }[] = [
     { id: 'completed',          label: 'Completed',    sub: '' },
 ]
 
+const CHECK_CONTENT: Record<'campaign' | 'single', Record<string, string[]>> = {
+    campaign: {
+        w16: ['Mission concept/idea submitted to J2', 'Initial discussion completed with team leads'],
+        w12: ['Confirmed mission development has started', 'Initial planning document created', 'First mission scenario and orders started', 'J2 lead briefed on mission concept'],
+        w10: ['Core framework and fundamentals established', 'First mission scenario and orders complete', 'Second and third missions started'],
+        w8: ['Second and third missions complete', 'All subsequent missions started', 'All mission orders finalised'],
+        w6: ['Final checks and revisions completed', 'Bug fixing pass completed', 'Server loadout and mission tested', 'Weekly Monday reminder sent (if any items incomplete)'],
+        w4: ['Final development check completed', 'Arsenal and loadout updates confirmed'],
+    },
+    single: {
+        w12: ['Mission concept/idea submitted to J2'],
+        w10: ['Confirmed mission development has started', 'Mission scenario and orders started', 'J2 lead briefed on mission concept'],
+        w8: ['Mission scenario and orders complete', 'Replacement mission arranged if not complete'],
+        w6: ['Final checks and bug fixing completed', 'Server mission tested', 'Weekly Monday reminder sent (if any items incomplete)'],
+        w4: ['Final development check completed', 'Arsenal and loadout updates confirmed'],
+    },
+}
+
 function hexToRgb(hex: string) {
     const h = hex.replace('#', '')
     return {
@@ -652,17 +670,19 @@ export default function Page() {
                     {opID && (
                         <button
                             className='hidden md:block'
-                            onClick={() => setPreviewOpen(o => !o)}
+                            onClick={() => window.open(`/operations/${opID}`, '_blank')}
                             style={{
                                 padding: '6px 14px',
-                                background: previewOpen ? 'rgba(237,237,237,0.07)' : 'rgba(237,237,237,0.03)',
-                                border: `1px solid ${previewOpen ? 'rgba(237,237,237,0.25)' : 'rgba(255,255,255,0.1)'}`,
-                                color: previewOpen ? 'rgba(237,237,237,0.8)' : 'rgba(237,237,237,0.35)',
+                                background: 'rgba(237,237,237,0.03)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'rgba(237,237,237,0.35)',
                                 fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
                                 cursor: 'pointer', transition: 'all 0.15s',
                             }}
+                            onMouseEnter={e => { e.currentTarget.style.color = 'rgba(237,237,237,0.75)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+                            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(237,237,237,0.35)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
                         >
-                            {previewOpen ? '⊠ Preview' : '⊡ Preview'}
+                            ⊡ Preview
                         </button>
                     )}
                 </div>
@@ -901,7 +921,7 @@ export default function Page() {
                                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                     onClick={e => { if (e.target === e.currentTarget) setCompletingCheckId(null) }}
                                 >
-                                    <div style={{ background: '#0f0f10', border: `1px solid ${c(0.35)}`, borderTop: `2px solid rgba(0,200,80,0.7)`, padding: '24px 28px', maxWidth: 420, width: '90%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    <div style={{ background: '#0f0f10', border: `1px solid ${c(0.35)}`, borderTop: `2px solid rgba(0,200,80,0.7)`, padding: '24px 28px', maxWidth: 500, width: '90%', display: 'flex', flexDirection: 'column', gap: 16 }}>
                                         <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,200,80,0.5)', fontFamily: 'monospace' }}>
                                             {'// COMPLETE CHECK'}
                                         </div>
@@ -912,6 +932,24 @@ export default function Page() {
                                             Due: {ch.dueDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })}
                                             {ch.isOverdue && <span style={{ color: 'rgba(219,80,0,0.85)', marginLeft: 8 }}>● Overdue</span>}
                                         </div>
+
+                                        {(() => {
+                                            const items = CHECK_CONTENT[isCampaignOp ? 'campaign' : 'single'][ch.id] ?? []
+                                            if (!items.length) return null
+                                            return (
+                                                <div style={{ background: 'rgba(0,200,80,0.04)', border: '1px solid rgba(0,200,80,0.12)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(0,200,80,0.45)', marginBottom: 4, fontFamily: 'monospace' }}>
+                                                        Stage Checklist
+                                                    </div>
+                                                    {items.map((item, i) => (
+                                                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                                            <span style={{ fontSize: '0.6rem', color: 'rgba(0,200,80,0.5)', marginTop: 1, flexShrink: 0 }}>◻</span>
+                                                            <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.45 }}>{item}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )
+                                        })()}
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                             <div>

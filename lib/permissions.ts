@@ -557,6 +557,40 @@ const PERMISSIONS = {
         manage: ['J3 - Training'],
     },
 
+    // ── Training Guides ───────────────────────────────────────────────────────
+
+    trainingGuides: {
+        /**
+         * Create and edit structured training session guides.
+         * All J3 department members (trainers and leads) can create and edit.
+         *
+         * Used by:
+         *  - `app/api/training-guides/route.ts` (POST)
+         *  - `app/api/training-guides/[id]/route.ts` (PUT)
+         *  - `app/dashboard/j3/tabs/TrainingGuidesTab.tsx` (canEdit flag)
+         */
+        write: ['J3 - Training'],
+
+        /**
+         * Approve a training guide (promote from draft → approved).
+         * J3 leads only.
+         *
+         * Used by:
+         *  - `app/api/training-guides/[id]/approve/route.ts`
+         *  - `app/dashboard/j3/tabs/TrainingGuidesTab.tsx` (canApprove flag)
+         */
+        approve: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
+
+        /**
+         * Soft-delete a training guide (sets deletedAt).
+         * J3 leads only.
+         *
+         * Used by:
+         *  - `app/api/training-guides/[id]/route.ts` (DELETE)
+         */
+        delete: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
+    },
+
     // ── SOPs ──────────────────────────────────────────────────────────────────
 
     sops: {
@@ -726,6 +760,59 @@ const PERMISSIONS = {
          *  - `app/api/admin/tickets/[id]/route.ts` (PATCH auth check — allstaff dept)
          */
         actionDiscipline: ['J4 - Administration'],
+    },
+
+    // ── AI service ────────────────────────────────────────────────────────────
+
+    // ── Intel Image Creator ───────────────────────────────────────────────────
+
+    intel: {
+        /**
+         * Generate intel images via the AI image creator.
+         * Primarily J2 mission makers; J4 bypasses globally.
+         *
+         * Used by:
+         *  - `app/api/ai/intel/generate/route.ts`
+         *  - `app/dashboard/j2/tabs/IntelImagesTab.tsx`
+         */
+        generateImages: ['J2 - Mission Making', 'HQ Staff'],
+
+        /**
+         * View all members' generated intel images (the "All Images" library).
+         * Own images are always visible to the generating member.
+         *
+         * Used by:
+         *  - `app/api/ai/images/route.ts` (GET with ?scope=all)
+         */
+        viewAllImages: ['J2 - Mission Making', 'HQ Staff'],
+    },
+
+    ai: {
+        /**
+         * Manage AI configuration — budgets, caps, provider settings,
+         * and view full usage/cost analytics.
+         *
+         * J4-Administration bypasses all checks globally, so this is
+         * effectively J4-only. Listed explicitly for use in the AI admin
+         * API routes that need a named permission check.
+         *
+         * Used by:
+         *  - `app/api/ai/config/route.ts`
+         *  - `app/api/ai/budgets/route.ts`
+         *  - `app/api/ai/usage/route.ts` (full access)
+         *  - `app/dashboard/j4/tabs/AIAdminTab.tsx`
+         */
+        manage: ['J4 - Administration'],
+
+        /**
+         * Use AI features — controls which members can make AI requests.
+         * Members outside this list cannot consume AI credits.
+         *
+         * Used by:
+         *  - `app/api/ai/estimate/route.ts`
+         *  - Feature-specific AI routes (image creator, answer review, etc.)
+         */
+        use: ['ASOT Member'],
     },
 
 } satisfies Record<string, Record<string, string[]>>

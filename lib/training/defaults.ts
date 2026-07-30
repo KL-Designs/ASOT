@@ -1,4 +1,6 @@
 export const TRAINING_TYPE_DEFAULTS: Array<Omit<TrainingType, '_id' | 'createdAt' | 'updatedAt'>> = [
+    { name: 'Selection',             category: 'Selection',           billetField: 'j3OtherTrainings', billetPoints: 3, status: 'inactive', isActive: false, courseType: 'selection' },
+    { name: 'Reinforcement Cycle',   category: 'Reinforcement Cycle', billetField: 'j3OtherTrainings', billetPoints: 3, status: 'inactive', isActive: false, courseType: 'reinforcement_cycle' },
     { name: 'BCT 1',                                    category: 'BCT',             billetField: 'j3Bct12',          billetPoints: 1, status: 'active', isActive: true },
     { name: 'BCT 2',                                    category: 'BCT',             billetField: 'j3Bct12',          billetPoints: 1, status: 'active', isActive: true },
     { name: 'Basic Medical Course',                     category: 'Medical',         billetField: 'j3OtherTrainings', billetPoints: 2, status: 'active', isActive: true },

@@ -1,18 +1,22 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Add, CheckCircle, Cancel, Delete, Edit, Refresh, Visibility, VisibilityOff, DragIndicator } from '@mui/icons-material'
+import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { Add, CheckCircle, Cancel, Delete, Edit, Refresh, Visibility, VisibilityOff, DragIndicator, Article, VideoLibrary } from '@mui/icons-material'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import EventsTab from './EventsTab'
 import RequestsTab from './RequestsTab'
+import TrainingVideosTab from './TrainingVideosTab'
+import { calculateSessionDates, SESSION_DEFS } from '@/lib/training/session-dates'
 
 const RED = '#db001d'
-type Tab = 'courses' | 'events' | 'requests'
+type Tab = 'courses' | 'events' | 'requests' | 'guides' | 'videos'
 
-const CATEGORY_ORDER = ['BCT', 'Medical', 'CQB', 'Fires', 'Aviation', 'Communications', 'Leadership', 'Special', 'Armoured', 'Proficiency']
+const CATEGORY_ORDER = ['Selection', 'Reinforcement Cycle', 'BCT', 'Medical', 'CQB', 'Fires', 'Aviation', 'Communications', 'Leadership', 'Special', 'Armoured', 'Proficiency']
 
 const BILLET_LABELS: Record<string, string> = {
     j3Bct12: 'BCT',
@@ -47,6 +51,29 @@ type TType = {
     coverImageUrl?: string
     linkedMedia?: { type: 'video' | 'file' | 'url'; label: string; url: string }[]
     sortOrder?: number
+    courseType?: string
+}
+
+type TCourseInstance = {
+    _id: string
+    trainingTypeId: string
+    trainingTypeName: string
+    courseType: 'selection' | 'reinforcement_cycle'
+    instanceNumber: number
+    instanceRef: string
+    status: 'planning' | 'active' | 'in_progress' | 'completed' | 'cancelled' | 'archived'
+    session1Date?: string
+    startDate?: string
+    endDate?: string
+    leadInstructorName?: string
+    candidateCount?: number
+    createdById: string
+    createdByName: string
+    createdAt: string
+    updatedAt: string
+    deletedAt?: string
+    deletedById?: string
+    deletedByName?: string
 }
 
 type TDoc = {
@@ -118,7 +145,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     )
 }
 
-function TypeCard({ type, isJ3Lead, toggling, onEdit, onToggle, docsExpanded, docsCount, onToggleDocs, dragHandleProps }: {
+function TypeCard({ type, isJ3Lead, toggling, onEdit, onToggle, docsExpanded, docsCount, onToggleDocs, videosExpanded, videosCount, onToggleVideos, dragHandleProps }: {
     type: TType
     isJ3Lead: boolean
     toggling: boolean
@@ -127,6 +154,9 @@ function TypeCard({ type, isJ3Lead, toggling, onEdit, onToggle, docsExpanded, do
     docsExpanded: boolean
     docsCount?: number
     onToggleDocs: () => void
+    videosExpanded: boolean
+    videosCount?: number
+    onToggleVideos: () => void
     dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
 }) {
     const cfg = STATUS_CFG[type.status ?? (type.isActive ? 'active' : 'inactive')]
@@ -218,10 +248,17 @@ function TypeCard({ type, isJ3Lead, toggling, onEdit, onToggle, docsExpanded, do
                     </div>
                 )}
             </div>
-            <button type='button' onClick={onToggleDocs}
-                style={{ alignSelf: 'flex-start', padding: '3px 8px', background: docsExpanded ? 'rgba(255,255,255,0.05)' : 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.3)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', marginTop: 2 }}>
-                {docsExpanded ? '▲ Docs' : `▼ Docs${docsCount !== undefined ? ` (${docsCount})` : ''}`}
-            </button>
+            <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                <button type='button' onClick={onToggleDocs}
+                    style={{ padding: '3px 8px', background: docsExpanded ? 'rgba(255,255,255,0.05)' : 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.3)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                    {docsExpanded ? '▲ Docs' : `▼ Docs${docsCount !== undefined ? ` (${docsCount})` : ''}`}
+                </button>
+                <button type='button' onClick={onToggleVideos}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', background: videosExpanded ? 'rgba(255,255,255,0.05)' : 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.3)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                    <VideoLibrary style={{ fontSize: 11 }} />
+                    {videosExpanded ? '▲ Videos' : `▼ Videos${videosCount !== undefined ? ` (${videosCount})` : ''}`}
+                </button>
+            </div>
         </div>
     )
 }
@@ -235,6 +272,9 @@ function SortableTypeCard(props: {
     docsExpanded: boolean
     docsCount?: number
     onToggleDocs: () => void
+    videosExpanded: boolean
+    videosCount?: number
+    onToggleVideos: () => void
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.type._id })
     return (
@@ -255,7 +295,8 @@ function SortableTypeCard(props: {
     )
 }
 
-export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId }: { isJ3Lead: boolean; isTrainer: boolean; isJ3Trainer: boolean; myId: string }) {
+export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, isJ3Context = false, canApproveGuides = false }: { isJ3Lead: boolean; isTrainer: boolean; isJ3Trainer: boolean; myId: string; isJ3Context?: boolean; canApproveGuides?: boolean }) {
+    const router = useRouter()
     const [tab, setTab] = useState<Tab>('courses')
     const [types, setTypes] = useState<TType[]>([])
     const [loading, setLoading] = useState(true)
@@ -276,6 +317,45 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId }: 
     const [approvingDocId, setApprovingDocId] = useState<string | null>(null)
     const [rejectDocModal, setRejectDocModal] = useState<{ docId: string; typeId: string; note: string } | null>(null)
     const [rejectingDoc, setRejectingDoc] = useState(false)
+
+    // Add-doc mode: when addDocTypeId is set, 'pick' shows two options, 'url' shows form, 'guide' was used to create
+    const [addDocMode, setAddDocMode] = useState<'pick' | 'url'>('pick')
+
+    // Trainer's Guide / Training Document state
+    const [guidesCache, setGuidesCache] = useState<Record<string, TrainingGuide[]>>({})
+    const [guidesLoading, setGuidesLoading] = useState<string | null>(null)
+    const [creatingGuide, setCreatingGuide] = useState(false)
+
+    // Videos state (per-course panel within Courses tab)
+    const [videosExpanded, setVideosExpanded] = useState<string | null>(null)
+    const [videosCache, setVideosCache]       = useState<Record<string, TrainingTypeVideo[]>>({})
+    const [videosLoading, setVideosLoading]   = useState<string | null>(null)
+    const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null)
+
+    // Course instance state (Selection / Reinforcement Cycle)
+    const [courseInstancesCache, setCourseInstancesCache] = useState<Record<string, TCourseInstance[]>>({})
+    const [creatingInstance, setCreatingInstance] = useState(false)
+    const [deletingInstanceId, setDeletingInstanceId] = useState<string | null>(null)
+    const [restoringInstanceId, setRestoringInstanceId] = useState<string | null>(null)
+    const [showDeletedInstances, setShowDeletedInstances] = useState<Record<string, boolean>>({})
+    const [showHistoryInstances, setShowHistoryInstances] = useState<Record<string, boolean>>({})
+    const [createInstanceModal, setCreateInstanceModal] = useState<{ typeId: string; typeName: string; courseType: string; session1Date: string } | null>(null)
+    const [deleteInstanceModal, setDeleteInstanceModal] = useState<{ instanceId: string; typeId: string; instanceRef: string } | null>(null)
+
+    // Per-course upload form state
+    const [courseUploadTypeId, setCourseUploadTypeId] = useState<string | null>(null)
+    const [courseUploadTitle, setCourseUploadTitle]   = useState('')
+    const [courseUploadDesc,  setCourseUploadDesc]    = useState('')
+    const [courseUploadFile,  setCourseUploadFile]    = useState<File | null>(null)
+    const [courseUploading,   setCourseUploading]     = useState(false)
+    const [courseUploadPct,   setCourseUploadPct]     = useState(0)
+    const courseFileRef = useRef<HTMLInputElement>(null)
+
+    // Training Documents tab state
+    const [allGuides, setAllGuides]           = useState<TrainingGuide[]>([])
+    const [allGuidesLoading, setAllGuidesLoading] = useState(false)
+    const [linkingGuideId, setLinkingGuideId] = useState<string | null>(null)
+    const [linkTarget, setLinkTarget]         = useState<string>('')
 
     // dnd-kit sensors
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
@@ -371,15 +451,200 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId }: 
     async function handleToggleDocs(typeId: string) {
         if (docsExpanded === typeId) { setDocsExpanded(null); return }
         setDocsExpanded(typeId)
-        if (docsCache[typeId] !== undefined) return
-        setDocsLoading(true)
-        try {
-            const res = await fetch(`/api/training/types/${typeId}/docs`)
-            if (!res.ok) return
-            const data = await res.json()
-            setDocsCache(prev => ({ ...prev, [typeId]: data.docs ?? [] }))
-        } finally {
+        const promises: Promise<void>[] = []
+        if (docsCache[typeId] === undefined) {
+            promises.push(
+                fetch(`/api/training/types/${typeId}/docs`)
+                    .then(r => r.json())
+                    .then(data => setDocsCache(prev => ({ ...prev, [typeId]: data.docs ?? [] })))
+                    .catch(() => {})
+            )
+        }
+        if (guidesCache[typeId] === undefined) {
+            setGuidesLoading(typeId)
+            promises.push(
+                fetch(`/api/training-guides?trainingTypeId=${typeId}`)
+                    .then(r => r.json())
+                    .then(data => setGuidesCache(prev => ({ ...prev, [typeId]: Array.isArray(data) ? data : [] })))
+                    .catch(() => {})
+                    .finally(() => setGuidesLoading(null))
+            )
+        }
+        const typeObj = types.find(t => t._id === typeId)
+        if (isJ3Lead && typeObj?.courseType && courseInstancesCache[typeId] === undefined) {
+            promises.push(
+                fetch(`/api/j3/course-instances?trainingTypeId=${typeId}&includeDeleted=true`)
+                    .then(r => r.json())
+                    .then(data => setCourseInstancesCache(prev => ({ ...prev, [typeId]: data.instances ?? [] })))
+                    .catch(() => {})
+            )
+        }
+        if (promises.length > 0) {
+            setDocsLoading(true)
+            await Promise.all(promises)
             setDocsLoading(false)
+        }
+    }
+
+    async function refreshInstances(typeId: string) {
+        const data = await fetch(`/api/j3/course-instances?trainingTypeId=${typeId}&includeDeleted=true`).then(r => r.json()).catch(() => null)
+        if (data) setCourseInstancesCache(prev => ({ ...prev, [typeId]: data.instances ?? [] }))
+    }
+
+    async function handleCreateInstance(typeId: string, session1Date?: string) {
+        if (creatingInstance) return
+        setCreatingInstance(true)
+        try {
+            const body: Record<string, string> = { trainingTypeId: typeId }
+            if (session1Date) body.session1Date = session1Date
+            const res = await fetch('/api/j3/course-instances', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+            if (!res.ok) return
+            await refreshInstances(typeId)
+            setCreateInstanceModal(null)
+        } finally {
+            setCreatingInstance(false)
+        }
+    }
+
+    async function handleDeleteInstance(instanceId: string, typeId: string) {
+        if (deletingInstanceId) return
+        setDeletingInstanceId(instanceId)
+        try {
+            const res = await fetch(`/api/j3/course-instances/${instanceId}`, { method: 'DELETE' })
+            if (!res.ok) return
+            await refreshInstances(typeId)
+            setDeleteInstanceModal(null)
+        } finally {
+            setDeletingInstanceId(null)
+        }
+    }
+
+    async function handleRestoreInstance(instanceId: string, typeId: string) {
+        if (restoringInstanceId) return
+        setRestoringInstanceId(instanceId)
+        try {
+            const res = await fetch(`/api/j3/course-instances/${instanceId}/restore`, { method: 'POST' })
+            if (!res.ok) return
+            await refreshInstances(typeId)
+        } finally {
+            setRestoringInstanceId(null)
+        }
+    }
+
+    async function handleCreateGuide(typeId: string, guideType: TrainingGuide['guideType'] = 'trainers_guide') {
+        if (creatingGuide) return
+        setCreatingGuide(true)
+        try {
+            const res = await fetch('/api/training-guides', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trainingTypeId: typeId, guideType }),
+            })
+            if (!res.ok) return
+            const guide: TrainingGuide = await res.json()
+            const id = String(guide._id)
+            setGuidesCache(prev => ({ ...prev, [typeId]: [...(prev[typeId] ?? []), guide] }))
+            setAddDocTypeId(null)
+            setAddDocMode('pick')
+            router.push(`/dashboard/unit/training-hub/guide/${id}?from=${isJ3Context ? 'j3' : 'hub'}`)
+        } finally {
+            setCreatingGuide(false)
+        }
+    }
+
+    function handleOpenGuide(guideId: string) {
+        router.push(`/dashboard/unit/training-hub/guide/${guideId}?from=${isJ3Context ? 'j3' : 'hub'}`)
+    }
+
+    async function handleCourseVideoUpload(typeId: string) {
+        if (courseUploading || !courseUploadFile || !courseUploadTitle.trim()) return
+        setCourseUploading(true)
+        setCourseUploadPct(0)
+        try {
+            const fd = new FormData()
+            fd.append('file', courseUploadFile)
+            const xhr = new XMLHttpRequest()
+            const uploadResult = await new Promise<{ url: string; filename: string }>((resolve, reject) => {
+                xhr.upload.onprogress = e => { if (e.lengthComputable) setCourseUploadPct(Math.round((e.loaded / e.total) * 90)) }
+                xhr.onload = () => { if (xhr.status === 200) resolve(JSON.parse(xhr.responseText)); else reject(new Error(xhr.responseText)) }
+                xhr.onerror = () => reject(new Error('Upload failed'))
+                xhr.open('POST', '/api/training-videos/upload')
+                xhr.send(fd)
+            })
+            setCourseUploadPct(95)
+            const res = await fetch(`/api/training/types/${typeId}/videos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: courseUploadTitle.trim(), url: uploadResult.url, filename: uploadResult.filename, description: courseUploadDesc.trim() || undefined }),
+            })
+            if (!res.ok) return
+            const created = await res.json()
+            setVideosCache(prev => ({ ...prev, [typeId]: [created] }))
+            setCourseUploadTypeId(null)
+            setCourseUploadTitle('')
+            setCourseUploadDesc('')
+            setCourseUploadFile(null)
+            setCourseUploadPct(0)
+        } finally {
+            setCourseUploading(false)
+        }
+    }
+
+    async function handleDeleteVideo(typeId: string, videoId: string) {
+        if (deletingVideoId) return
+        setDeletingVideoId(videoId)
+        try {
+            const res = await fetch(`/api/training/types/${typeId}/videos`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ videoId }),
+            })
+            if (!res.ok) return
+            setVideosCache(prev => ({ ...prev, [typeId]: (prev[typeId] ?? []).filter(v => String(v._id) !== videoId) }))
+        } finally {
+            setDeletingVideoId(null)
+        }
+    }
+
+    async function loadAllGuides() {
+        if (allGuidesLoading || allGuides.length > 0) return
+        setAllGuidesLoading(true)
+        try {
+            const res = await fetch('/api/training-guides')
+            const data = await res.json()
+            setAllGuides(Array.isArray(data) ? data : [])
+        } catch { /* ignore */ } finally {
+            setAllGuidesLoading(false)
+        }
+    }
+
+    async function handleLinkGuide(guideId: string, trainingTypeId: string | null) {
+        await fetch(`/api/training-guides/${guideId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trainingTypeId }),
+        })
+        setAllGuides(prev => prev.map(g => String(g._id) === guideId ? { ...g, trainingTypeId: trainingTypeId ?? undefined } : g))
+        setLinkingGuideId(null)
+        setLinkTarget('')
+    }
+
+    async function handleToggleVideos(typeId: string) {
+        if (videosExpanded === typeId) { setVideosExpanded(null); return }
+        setVideosExpanded(typeId)
+        if (videosCache[typeId] === undefined) {
+            setVideosLoading(typeId)
+            try {
+                const res = await fetch(`/api/training/types/${typeId}/videos`)
+                const data = await res.json()
+                setVideosCache(prev => ({ ...prev, [typeId]: data.videos ?? [] }))
+            } catch { /* ignore */ } finally {
+                setVideosLoading(null)
+            }
         }
     }
 
@@ -531,10 +796,10 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId }: 
     const canSubmitDoc = isJ3Lead || isTrainer
     const visible = types.filter(t => {
         const s = t.status ?? (t.isActive ? 'active' : 'inactive')
+        if (!isJ3Context) return s === 'active'
         if (isJ3Lead && showInactive) return true
         if (isJ3Lead) return s !== 'inactive'
-        if (isTrainer) return s === 'active' || s === 'wip'
-        return s === 'active'
+        return s !== 'inactive'
     })
     const orderedCats = [
         ...CATEGORY_ORDER.filter(c => visible.some(t => t.category === c)),
@@ -549,6 +814,135 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId }: 
 
         return (
             <div style={{ border: `1px solid rgba(255,255,255,0.07)`, borderTop: 'none', background: 'rgba(0,0,0,0.15)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                {/* Course instance management — Selection / Reinforcement Cycle only */}
+                {isJ3Lead && t.courseType && (() => {
+                    const instances = courseInstancesCache[t._id] ?? []
+                    const isLoaded = courseInstancesCache[t._id] !== undefined
+                    const activeInst = instances.find(i => !i.deletedAt && ['planning', 'active', 'in_progress'].includes(i.status))
+                    const historyInsts = instances.filter(i => !i.deletedAt && ['completed', 'cancelled', 'archived'].includes(i.status))
+                    const deletedInsts = instances.filter(i => !!i.deletedAt)
+                    const showDeleted = showDeletedInstances[t._id] ?? false
+                    const tLabel = t.courseType === 'selection' ? 'Selection' : 'Reinforcement Cycle'
+                    const sColor = (s: string) => s === 'planning' ? 'rgba(255,180,50,0.8)' : (s === 'active' || s === 'in_progress') ? 'rgba(80,200,120,0.8)' : s === 'completed' ? 'rgba(100,160,240,0.8)' : 'rgba(237,237,237,0.3)'
+                    const sBorder = (s: string) => s === 'planning' ? 'rgba(255,180,50,0.25)' : (s === 'active' || s === 'in_progress') ? 'rgba(80,200,120,0.25)' : s === 'completed' ? 'rgba(100,160,240,0.25)' : 'rgba(255,255,255,0.1)'
+                    return (
+                        <div style={{ paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)' }}>
+                                Course Instances
+                            </div>
+                            {!isLoaded ? (
+                                <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)' }}>Loading…</div>
+                            ) : activeInst ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                                                <span style={{ fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.04em', color: 'rgba(237,237,237,0.85)' }}>{activeInst.instanceRef}</span>
+                                                <span style={{ fontSize: '0.45rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: sColor(activeInst.status), border: `1px solid ${sBorder(activeInst.status)}`, padding: '1px 5px' }}>
+                                                    {activeInst.status}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.04em' }}>
+                                                Created by {activeInst.createdByName} · {new Date(activeInst.createdAt).toLocaleDateString('en-AU')}
+                                            </div>
+                                            {activeInst.startDate && (
+                                                <div style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.18)', marginTop: 1 }}>
+                                                    {new Date(activeInst.startDate).toLocaleDateString('en-AU')} – {activeInst.endDate ? new Date(activeInst.endDate).toLocaleDateString('en-AU') : '…'}
+                                                </div>
+                                            )}
+                                            {activeInst.candidateCount !== undefined && activeInst.candidateCount > 0 && (
+                                                <div style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.15)', marginTop: 1 }}>
+                                                    {activeInst.candidateCount} candidate{activeInst.candidateCount !== 1 ? 's' : ''}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button type='button' onClick={() => setDeleteInstanceModal({ instanceId: activeInst._id, typeId: t._id, instanceRef: activeInst.instanceRef })}
+                                            style={{ padding: '3px 6px', background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', color: 'rgba(219,0,29,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                                            <Delete style={{ fontSize: 12 }} />
+                                        </button>
+                                    </div>
+                                    <Link href={`/dashboard/unit/training-hub/course/${activeInst._id}`}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '5px 0', background: 'rgba(219,0,29,0.07)', border: '1px solid rgba(219,0,29,0.22)', color: 'rgba(219,0,29,0.7)', fontSize: '0.56rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', textDecoration: 'none' }}>
+                                        Open Course Workspace →
+                                    </Link>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)' }}>No active {tLabel} instance</div>
+                                    <button type='button' onClick={() => setCreateInstanceModal({ typeId: t._id, typeName: t.name, courseType: t.courseType!, session1Date: '' })}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.25)', color: 'rgba(219,0,29,0.65)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                        <Add style={{ fontSize: 11 }} /> Launch {tLabel}
+                                    </button>
+                                </div>
+                            )}
+                            {historyInsts.length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    {!(showHistoryInstances[t._id]) ? (
+                                        <button type='button' onClick={() => setShowHistoryInstances(prev => ({ ...prev, [t._id]: true }))}
+                                            style={{ fontSize: '0.5rem', color: 'rgba(237,237,237,0.2)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, letterSpacing: '0.08em', textAlign: 'left' }}>
+                                            ▾ Show history ({historyInsts.length})
+                                        </button>
+                                    ) : (
+                                        <>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <div style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)' }}>History ({historyInsts.length})</div>
+                                                <button type='button' onClick={() => setShowHistoryInstances(prev => ({ ...prev, [t._id]: false }))}
+                                                    style={{ fontSize: '0.5rem', color: 'rgba(237,237,237,0.2)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                                                    ▴ Hide
+                                                </button>
+                                            </div>
+                                            {historyInsts.map(inst => (
+                                                <div key={inst._id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(237,237,237,0.45)', flex: 1 }}>{inst.instanceRef}</span>
+                                                    <span style={{ fontSize: '0.45rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: sColor(inst.status), border: `1px solid ${sBorder(inst.status)}`, padding: '1px 5px' }}>{inst.status}</span>
+                                                    <Link href={`/dashboard/unit/training-hub/course/${inst._id}`}
+                                                        style={{ padding: '2px 8px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.35)', fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', textDecoration: 'none' }}>
+                                                        Open
+                                                    </Link>
+                                                    <button type='button' onClick={() => setDeleteInstanceModal({ instanceId: inst._id, typeId: t._id, instanceRef: inst.instanceRef })}
+                                                        style={{ padding: '2px 5px', background: 'transparent', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(237,237,237,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                                        <Delete style={{ fontSize: 10 }} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                            <div>
+                                {!showDeleted ? (
+                                    <button type='button' onClick={() => setShowDeletedInstances(prev => ({ ...prev, [t._id]: true }))}
+                                        style={{ fontSize: '0.5rem', color: 'rgba(237,237,237,0.2)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, letterSpacing: '0.08em' }}>
+                                        ▾ Show deleted
+                                    </button>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)' }}>Deleted ({deletedInsts.length})</div>
+                                            <button type='button' onClick={() => setShowDeletedInstances(prev => ({ ...prev, [t._id]: false }))}
+                                                style={{ fontSize: '0.5rem', color: 'rgba(237,237,237,0.2)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                                                ▴ Hide
+                                            </button>
+                                        </div>
+                                        {deletedInsts.length === 0 ? (
+                                            <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.15)' }}>No deleted instances</div>
+                                        ) : deletedInsts.map(inst => (
+                                            <div key={inst._id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', background: 'rgba(219,0,29,0.02)', border: '1px solid rgba(219,0,29,0.08)' }}>
+                                                <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'rgba(237,237,237,0.25)', flex: 1, textDecoration: 'line-through' }}>{inst.instanceRef}</span>
+                                                <span style={{ fontSize: '0.46rem', color: 'rgba(237,237,237,0.18)', letterSpacing: '0.06em' }}>by {inst.deletedByName}</span>
+                                                <button type='button' onClick={() => handleRestoreInstance(inst._id, t._id)} disabled={restoringInstanceId === inst._id}
+                                                    style={{ padding: '2px 8px', background: 'transparent', border: '1px solid rgba(80,200,120,0.25)', color: 'rgba(80,200,120,0.6)', fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', opacity: restoringInstanceId === inst._id ? 0.4 : 1 }}>
+                                                    Restore
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )
+                })()}
 
                 {isJ3Lead && pendingDocs.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -600,34 +994,32 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId }: 
                     </div>
                 )}
 
-                {canSubmitDoc && (
-                    addDocTypeId === t._id ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                            <input value={addDocForm.title} onChange={e => setAddDocForm(p => ({ ...p, title: e.target.value }))}
-                                placeholder='Document title *' autoFocus style={smallInput} />
-                            <input value={addDocForm.url} onChange={e => setAddDocForm(p => ({ ...p, url: e.target.value }))}
-                                placeholder='URL *' style={smallInput} />
-                            <input value={addDocForm.description} onChange={e => setAddDocForm(p => ({ ...p, description: e.target.value }))}
-                                placeholder='Short description (optional)' style={smallInput} />
-                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                                <button type='button' onClick={() => { setAddDocTypeId(null); setAddDocForm({ title: '', url: '', description: '' }) }}
-                                    style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.35)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
-                                    Cancel
-                                </button>
-                                <button type='button' onClick={() => handleAddDoc(t._id)}
-                                    disabled={!addDocForm.title.trim() || !addDocForm.url.trim() || addingDoc}
-                                    style={{ padding: '4px 10px', background: addDocForm.title.trim() && addDocForm.url.trim() && !addingDoc ? RED : 'rgba(219,0,29,0.3)', border: 'none', color: '#fff', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: addDocForm.title.trim() && addDocForm.url.trim() && !addingDoc ? 'pointer' : 'default' }}>
-                                    {addingDoc ? 'Submitting…' : isJ3Lead ? 'Add' : 'Submit for Review'}
-                                </button>
-                            </div>
+                {/* Persistent guide buttons for J3 context */}
+                {isJ3Context && (() => {
+                    const cached = guidesCache[t._id] ?? []
+                    const tDoc    = cached.find(g => g.guideType === 'training_document')
+                    const tGuide  = cached.find(g => g.guideType === 'trainers_guide' || !g.guideType)
+                    return (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            {/* Training Document button */}
+                            <button type='button'
+                                onClick={() => tDoc ? handleOpenGuide(String(tDoc._id)) : handleCreateGuide(t._id, 'training_document')}
+                                disabled={creatingGuide || guidesLoading === t._id}
+                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '8px 10px', background: tDoc ? 'rgba(100,160,240,0.06)' : 'rgba(255,255,255,0.03)', border: `1px solid ${tDoc ? 'rgba(100,160,240,0.25)' : 'rgba(255,255,255,0.1)'}`, color: tDoc ? 'rgba(100,160,240,0.85)' : 'rgba(237,237,237,0.45)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: creatingGuide ? 'default' : 'pointer', opacity: (creatingGuide || guidesLoading === t._id) ? 0.5 : 1 }}>
+                                <Article style={{ fontSize: 12 }} />
+                                {tDoc ? 'Training Document' : (creatingGuide ? 'Creating…' : '+ Training Document')}
+                            </button>
+                            {/* Trainer's Guide button */}
+                            <button type='button'
+                                onClick={() => tGuide ? handleOpenGuide(String(tGuide._id)) : handleCreateGuide(t._id, 'trainers_guide')}
+                                disabled={creatingGuide || guidesLoading === t._id}
+                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '8px 10px', background: tGuide ? 'rgba(219,0,29,0.08)' : 'rgba(219,0,29,0.03)', border: `1px solid ${tGuide ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.15)'}`, color: tGuide ? 'rgba(219,0,29,0.85)' : 'rgba(219,0,29,0.45)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: creatingGuide ? 'default' : 'pointer', opacity: (creatingGuide || guidesLoading === t._id) ? 0.5 : 1 }}>
+                                <Article style={{ fontSize: 12 }} />
+                                {tGuide ? "Trainer's Guide" : (creatingGuide ? 'Creating…' : "+ Trainer's Guide")}
+                            </button>
                         </div>
-                    ) : (
-                        <button type='button' onClick={() => { setAddDocTypeId(t._id); setAddDocForm({ title: '', url: '', description: '' }) }}
-                            style={{ display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', padding: '4px 9px', background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', color: 'rgba(219,0,29,0.6)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
-                            <Add style={{ fontSize: 11 }} /> {isJ3Lead ? 'Add Document' : 'Submit Document'}
-                        </button>
                     )
-                )}
+                })()}
 
                 {docsLoading && docsCache[t._id] === undefined ? (
                     <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)' }}>Loading…</div>
@@ -654,6 +1046,103 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId }: 
                             )}
                         </div>
                     ))
+                )}
+
+
+            </div>
+        )
+    }
+
+    function renderVideosPanel(t: TType) {
+        const videos    = videosCache[t._id] ?? []
+        const cfg       = STATUS_CFG[t.status ?? (t.isActive ? 'active' : 'inactive')]
+        const existing  = videos[0] ?? null
+        const isUploading = courseUploadTypeId === t._id
+
+        return (
+            <div style={{ border: `1px solid ${cfg.cardBorder}`, borderTop: 'none', background: 'rgba(0,0,0,0.18)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <VideoLibrary style={{ fontSize: 12 }} /> Course Video
+                </div>
+
+                {videosLoading === t._id && <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)' }}>Loading…</div>}
+
+                {/* Existing video */}
+                {!videosLoading && existing && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(237,237,237,0.8)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{existing.title}</div>
+                                <div style={{ fontSize: '0.52rem', color: 'rgba(237,237,237,0.2)', marginTop: 2 }}>
+                                    {existing.checkpoints.length} checkpoint{existing.checkpoints.length !== 1 ? 's' : ''} · by {existing.addedByName}
+                                </div>
+                            </div>
+                            <Link href={`/dashboard/unit/training-hub/video/${String(existing._id)}/watch?from=courses`}
+                                style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.5)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', textDecoration: 'none' }}>
+                                ▶ Watch
+                            </Link>
+                            {isJ3Lead && (
+                                <Link href={`/dashboard/unit/training-hub/video/${String(existing._id)}/edit?from=courses`}
+                                    style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.45)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', textDecoration: 'none' }}>
+                                    <Edit style={{ fontSize: 11 }} /> Edit
+                                </Link>
+                            )}
+                            {isJ3Lead && (
+                                <button type='button' onClick={() => handleDeleteVideo(t._id, String(existing._id))} disabled={!!deletingVideoId}
+                                    style={{ flexShrink: 0, padding: '4px 6px', background: 'transparent', border: '1px solid rgba(219,0,29,0.15)', color: 'rgba(219,0,29,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: deletingVideoId ? 0.4 : 1 }}>
+                                    <Delete style={{ fontSize: 12 }} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* No video yet */}
+                {!videosLoading && !existing && !isUploading && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)' }}>No video added yet</div>
+                        {(isJ3Lead || isTrainer) && (
+                            <button type='button' onClick={() => { setCourseUploadTypeId(t._id); setCourseUploadTitle(''); setCourseUploadDesc(''); setCourseUploadFile(null) }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', padding: '4px 9px', background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', color: 'rgba(219,0,29,0.6)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                <Add style={{ fontSize: 11 }} /> Add Video
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* Upload form */}
+                {isUploading && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <input value={courseUploadTitle} onChange={e => setCourseUploadTitle(e.target.value)} placeholder='Video title *' autoFocus style={smallInput} />
+                        <input value={courseUploadDesc}  onChange={e => setCourseUploadDesc(e.target.value)}  placeholder='Description (optional)' style={smallInput} />
+                        <div
+                            onClick={() => courseFileRef.current?.click()}
+                            onDragOver={e => e.preventDefault()}
+                            onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) setCourseUploadFile(f) }}
+                            style={{ border: '1.5px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '12px 10px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                            <VideoLibrary style={{ fontSize: 14, color: 'rgba(237,237,237,0.25)' }} />
+                            <span style={{ fontSize: '0.62rem', color: courseUploadFile ? 'rgba(237,237,237,0.7)' : 'rgba(237,237,237,0.25)' }}>
+                                {courseUploadFile ? courseUploadFile.name : 'Click or drag video file…'}
+                            </span>
+                        </div>
+                        <input ref={courseFileRef} type='file' accept='video/*,.mkv' onChange={e => { const f = e.target.files?.[0]; if (f) setCourseUploadFile(f) }} style={{ display: 'none' }} />
+                        {courseUploading && (
+                            <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
+                                <div style={{ height: '100%', width: `${courseUploadPct}%`, background: RED, borderRadius: 2, transition: 'width 0.3s' }} />
+                            </div>
+                        )}
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            <button type='button' onClick={() => setCourseUploadTypeId(null)}
+                                style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.35)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                Cancel
+                            </button>
+                            <button type='button' onClick={() => handleCourseVideoUpload(t._id)}
+                                disabled={!courseUploadFile || !courseUploadTitle.trim() || courseUploading}
+                                style={{ padding: '4px 10px', background: RED, border: 'none', color: '#fff', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', opacity: (!courseUploadFile || !courseUploadTitle.trim() || courseUploading) ? 0.4 : 1 }}>
+                                {courseUploading ? `Uploading ${courseUploadPct}%…` : 'Upload'}
+                            </button>
+                        </div>
+                    </div>
                 )}
             </div>
         )
@@ -698,6 +1187,18 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId }: 
                             {t === 'courses' ? 'Courses' : t === 'events' ? 'Events' : 'Requests'}
                         </button>
                     ))}
+                    {isJ3Context && (
+                        <button type='button' onClick={() => { setTab('guides'); loadAllGuides() }}
+                            style={{ padding: '8px 20px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === 'guides' ? RED : 'transparent'}`, color: tab === 'guides' ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', marginBottom: -1, transition: 'color 0.15s, border-color 0.15s' }}>
+                            Training Documents
+                        </button>
+                    )}
+                    {isJ3Context && (
+                        <button type='button' onClick={() => setTab('videos')}
+                            style={{ padding: '8px 20px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === 'videos' ? RED : 'transparent'}`, color: tab === 'videos' ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', marginBottom: -1, transition: 'color 0.15s, border-color 0.15s' }}>
+                            Training Videos
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -745,8 +1246,12 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId }: 
                                                                 docsExpanded={docsExpanded === t._id}
                                                                 docsCount={docsCache[t._id]?.filter(d => d.approvalStatus === 'approved').length}
                                                                 onToggleDocs={() => handleToggleDocs(t._id)}
+                                                                videosExpanded={videosExpanded === t._id}
+                                                                videosCount={videosCache[t._id]?.length}
+                                                                onToggleVideos={() => handleToggleVideos(t._id)}
                                                             />
                                                             {docsExpanded === t._id && renderDocsPanel(t)}
+                                                            {videosExpanded === t._id && renderVideosPanel(t)}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -760,11 +1265,86 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId }: 
                 </div>
             )}
 
+            {/* Tab: Training Documents */}
+            {tab === 'guides' && (
+                <div style={{ padding: 'clamp(1.5rem, 3vw, 2.5rem)', paddingTop: 24 }}>
+                    {allGuidesLoading ? (
+                        <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.1em' }}>Loading…</div>
+                    ) : allGuides.length === 0 ? (
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.25)', letterSpacing: '0.06em' }}>No training guides or documents found.</div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 0, border: '1px solid rgba(255,255,255,0.07)' }}>
+                            {/* Header row */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 100px 80px 1fr 120px', gap: 12, padding: '7px 14px', background: 'rgba(219,0,29,0.07)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                {['Ref', 'Title', 'Type', 'Status', 'Linked Course', ''].map(h => (
+                                    <div key={h} style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>{h}</div>
+                                ))}
+                            </div>
+                            {allGuides.map(g => {
+                                const gId = String(g._id)
+                                const linkedType = g.trainingTypeId ? types.find(t => t._id === g.trainingTypeId) : null
+                                const isLinking  = linkingGuideId === gId
+                                return (
+                                    <div key={gId} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 100px 80px 1fr 120px', gap: 12, padding: '9px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', background: 'rgba(255,255,255,0.01)' }}>
+                                        <div style={{ fontSize: '0.62rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.docRef}</div>
+                                        <div style={{ fontSize: '0.73rem', fontWeight: 700, color: 'rgba(237,237,237,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title || '(Untitled)'}</div>
+                                        <div>
+                                            <span style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '2px 6px', border: g.guideType === 'training_document' ? '1px solid rgba(100,160,240,0.25)' : '1px solid rgba(219,0,29,0.25)', color: g.guideType === 'training_document' ? 'rgba(100,160,240,0.8)' : 'rgba(219,0,29,0.7)' }}>
+                                                {g.guideType === 'training_document' ? 'Document' : 'Guide'}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '2px 6px', border: g.status === 'approved' ? '1px solid rgba(80,200,120,0.25)' : '1px solid rgba(255,180,50,0.25)', color: g.status === 'approved' ? 'rgba(80,200,120,0.8)' : 'rgba(255,180,50,0.8)' }}>
+                                                {g.status}
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {linkedType ? linkedType.name : <span style={{ color: 'rgba(237,237,237,0.2)' }}>—</span>}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                                            <button type='button' onClick={() => handleOpenGuide(gId)}
+                                                style={{ padding: '3px 9px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.45)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                                Open
+                                            </button>
+                                            {isLinking ? (
+                                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                                    <select value={linkTarget} onChange={e => setLinkTarget(e.target.value)}
+                                                        style={{ fontSize: '0.62rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.7)', padding: '3px 5px', outline: 'none', maxWidth: 120 }}>
+                                                        <option value=''>— unlink —</option>
+                                                        {types.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                                    </select>
+                                                    <button type='button' onClick={() => handleLinkGuide(gId, linkTarget || null)}
+                                                        style={{ padding: '3px 7px', background: RED, border: 'none', color: '#fff', fontSize: '0.55rem', fontWeight: 800, cursor: 'pointer' }}>
+                                                        Save
+                                                    </button>
+                                                    <button type='button' onClick={() => setLinkingGuideId(null)}
+                                                        style={{ padding: '3px 6px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.3)', fontSize: '0.55rem', cursor: 'pointer' }}>
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button type='button' onClick={() => { setLinkingGuideId(gId); setLinkTarget(g.trainingTypeId ?? '') }}
+                                                    style={{ padding: '3px 7px', background: 'transparent', border: '1px solid rgba(219,0,29,0.18)', color: 'rgba(219,0,29,0.5)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                                    {g.trainingTypeId ? 'Relink' : 'Link'}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Tab: Events */}
             {tab === 'events' && <EventsTab isJ3Lead={isJ3Lead} isTrainer={isTrainer} isJ3Trainer={isJ3Trainer} />}
 
             {/* Tab: Requests */}
             {tab === 'requests' && <RequestsTab isJ3Lead={isJ3Lead} myId={myId} />}
+
+            {/* Tab: Training Videos */}
+            {tab === 'videos' && <TrainingVideosTab isJ3Lead={isJ3Lead} isTrainer={isTrainer} myId={myId} />}
 
             {/* Course type create / edit modal */}
             {modal && (
@@ -961,6 +1541,86 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId }: 
                             <button type='button' onClick={handleSave} disabled={!modal.name.trim() || !modal.category.trim() || saving}
                                 style={{ padding: '8px 20px', background: modal.name.trim() && modal.category.trim() && !saving ? RED : 'rgba(219,0,29,0.3)', border: 'none', color: '#fff', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: modal.name.trim() && modal.category.trim() && !saving ? 'pointer' : 'default' }}>
                                 {saving ? 'Saving…' : modal.mode === 'create' ? 'Add Course' : 'Save Changes'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete course instance confirmation modal */}
+            {deleteInstanceModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                    onClick={e => { if (e.target === e.currentTarget) setDeleteInstanceModal(null) }}>
+                    <div style={{ background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.35)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>{'//'} DELETE INSTANCE</div>
+                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
+                                Delete {deleteInstanceModal.instanceRef}?
+                            </h3>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.45)', lineHeight: 1.6 }}>
+                            This instance will be moved to the recycle bin. It can be restored by a J3 lead at any time.
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <button type='button' onClick={() => setDeleteInstanceModal(null)}
+                                style={{ padding: '8px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.45)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                Cancel
+                            </button>
+                            <button type='button' onClick={() => handleDeleteInstance(deleteInstanceModal.instanceId, deleteInstanceModal.typeId)} disabled={!!deletingInstanceId}
+                                style={{ padding: '8px 20px', background: deletingInstanceId ? 'rgba(219,0,29,0.3)' : RED, border: 'none', color: '#fff', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: deletingInstanceId ? 'default' : 'pointer' }}>
+                                {deletingInstanceId ? 'Deleting…' : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Create course instance confirmation modal */}
+            {createInstanceModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                    onClick={e => { if (e.target === e.currentTarget) setCreateInstanceModal(null) }}>
+                    <div style={{ background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.25)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                        <div>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>{'//'} LAUNCH COURSE</div>
+                            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
+                                Launch {createInstanceModal.courseType === 'selection' ? 'Selection' : 'Reinforcement Cycle'}?
+                            </h3>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.6 }}>
+                            Creating a new course instance for <strong style={{ color: 'rgba(237,237,237,0.8)' }}>{createInstanceModal.typeName}</strong>. Only one active instance is permitted at a time.
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>Session 1 Date (optional)</label>
+                            <input
+                                type='date'
+                                value={createInstanceModal.session1Date}
+                                min={new Date().toLocaleDateString('en-CA')}
+                                onChange={e => setCreateInstanceModal(m => m ? { ...m, session1Date: e.target.value } : m)}
+                                style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '2px solid rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
+                            />
+                        </div>
+                        {createInstanceModal.session1Date && (() => {
+                            const dates = calculateSessionDates(createInstanceModal.session1Date)
+                            return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <div style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 2 }}>Calculated Session Dates</div>
+                                    {SESSION_DEFS.map((def, i) => (
+                                        <div key={def.sessionNumber} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.65rem', color: def.catchUp ? 'rgba(255,180,50,0.65)' : 'rgba(237,237,237,0.45)' }}>
+                                            <span>Session {def.sessionNumber}</span>
+                                            <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: '0.62rem' }}>{dates[i].toLocaleDateString('en-AU', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )
+                        })()}
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <button type='button' onClick={() => setCreateInstanceModal(null)}
+                                style={{ padding: '8px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.45)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                Cancel
+                            </button>
+                            <button type='button' onClick={() => handleCreateInstance(createInstanceModal.typeId, createInstanceModal.session1Date || undefined)} disabled={creatingInstance}
+                                style={{ padding: '8px 20px', background: creatingInstance ? 'rgba(219,0,29,0.3)' : RED, border: 'none', color: '#fff', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: creatingInstance ? 'default' : 'pointer' }}>
+                                {creatingInstance ? 'Launching…' : 'Launch'}
                             </button>
                         </div>
                     </div>

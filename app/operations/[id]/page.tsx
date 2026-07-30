@@ -410,7 +410,16 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
                     {/* Left page nav — shown for multi-page OR single-page with Zeus/OCAP tabs */}
                     {(() => {
-                        const isSinglePage = !operation.pages || operation.pages.length <= 1
+                        // Zeus/OCAP are always added as hardcoded items below — exclude them from the pages array.
+                        // Also deduplicate by id in case of stale Yjs race-condition data in MongoDB.
+                        const _seenIds = new Set<string>()
+                        const contentPages = (operation.pages ?? []).filter(pg => {
+                            if (pg.pageType === 'zeus' || pg.pageType === 'ocap') return false
+                            if (_seenIds.has(pg.id)) return false
+                            _seenIds.add(pg.id)
+                            return true
+                        })
+                        const isSinglePage = contentPages.length <= 1
                         const hasZeus = isJ6
                         const hasOcap = !!(isHQ || (isLoggedIn && operation.ocap))
                         const showPageNav = !isSinglePage || hasZeus || hasOcap
@@ -420,13 +429,23 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                         type NavItem = { id: string; title: string; color?: string; isSeparator?: boolean }
                         const navItems: NavItem[] = []
 
-                        if (!isSinglePage && operation.pages) {
-                            for (const pg of operation.pages) {
-                                navItems.push({ id: pg.id, title: pg.title, color: pg.pageColor || undefined })
+                        if (!isSinglePage) {
+                            for (const pg of contentPages) {
+                                let color: string | undefined
+                                if (pg.pageType === 'intel') {
+                                    color = 'rgba(245,158,11,0.8)'
+                                } else if (pg.pageType === 'orders') {
+                                    color = `rgba(${r},${g},${b},0.8)`
+                                } else if (pg.pageColor) {
+                                    const hx = pg.pageColor.replace('#', '')
+                                    const cr = parseInt(hx.slice(0,2),16), cg = parseInt(hx.slice(2,4),16), cb = parseInt(hx.slice(4,6),16)
+                                    color = `rgba(${cr},${cg},${cb},0.8)`
+                                }
+                                navItems.push({ id: pg.id, title: pg.title, color })
                             }
                         } else {
                             // Single page — add the main page as the first item
-                            navItems.push({ id: 'main', title: 'Operation Orders' })
+                            navItems.push({ id: 'main', title: 'Operation Orders', color: `rgba(${r},${g},${b},0.8)` })
                         }
 
                         if (hasZeus) {
@@ -443,7 +462,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                         const validIds = navItems.filter(i => !i.isSeparator).map(i => i.id)
                         const activePage = activePageParam && validIds.includes(activePageParam)
                             ? activePageParam
-                            : (isSinglePage ? 'main' : (operation.pages?.[0]?.id ?? 'main'))
+                            : (isSinglePage ? 'main' : (contentPages[0]?.id ?? 'main'))
 
                         return (
                             <PageNavClient

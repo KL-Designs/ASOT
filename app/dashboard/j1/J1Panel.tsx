@@ -8,6 +8,7 @@ import RecruitMemberTab from './tabs/RecruitMemberTab'
 import MastersheetTab from './tabs/MastersheetTab'
 import StatisticsTab from './tabs/StatisticsTab'
 import TFARPluginTab from './tabs/TFARPluginTab'
+import RecruitVideoTab from './tabs/RecruitVideoTab'
 import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
@@ -135,6 +136,9 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                             {(canManageMembers || isJ4) && (
                                 <Tab label={<PinTabLabel label='TFAR Plugin' pinLabel='J1 — TFAR Plugin' href='/dashboard/j1' tabIndex={6} />} sx={tabSx} />
                             )}
+                            {(canManageMembers || isJ4) && (
+                                <Tab label={<PinTabLabel label='Recruit Video' pinLabel='J1 — Recruit Video' href='/dashboard/j1' tabIndex={7} />} sx={tabSx} />
+                            )}
                         </Tabs>
                     </div>
 
@@ -164,6 +168,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                         {tab === 4 && <MeetingsTab department='j1' userId={userId} isLead={canManageMembers || isJ4} />}
                         {tab === 5 && <DeptTicketsTab department='j1' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                         {tab === 6 && (canManageMembers || isJ4) && <TFARPluginTab />}
+                        {tab === 7 && (canManageMembers || isJ4) && <RecruitVideoTab />}
                     </div>
                 </>
             )}

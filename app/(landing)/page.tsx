@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Image, { StaticImageData } from 'next/image'
 import { useRef, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 import { Button, Typography } from '@mui/material'
 import { ChevronRight } from '@mui/icons-material'
@@ -31,13 +32,15 @@ import MilitaryGrid from '@/components/military-grid'
 export default function Page() {
 
 	const ref       = useRef<HTMLDivElement>(null)
-	const enlistRef = useRef<HTMLDivElement>(null)
+	const router    = useRouter()
+
 	const [keys, setKeys] = useState<string>('')
 	const [gameActive, setGameActive] = useState(false)
+	const [enlistFading, setEnlistFading] = useState(false)
 	const [currentUser, setCurrentUser] = useState<User | null>(null)
 	const [scoreboardKey, setScoreboardKey] = useState(0)
 	const [gameDead, setGameDead] = useState(false)
-	const [showEnlistHint, setShowEnlistHint] = useState(false)
+
 	const [lastScore, setLastScore] = useState<{ score: number; collectScore: number } | undefined>(undefined)
 	const [globalBest, setGlobalBest]       = useState<number | undefined>(undefined)
 	const [globalBestName, setGlobalBestName] = useState<string | undefined>(undefined)
@@ -83,29 +86,6 @@ export default function Page() {
 			}).catch(() => {})
 	}, [currentUser, scoreboardKey])
 
-	useEffect(() => {
-		const onMove = (e: MouseEvent) => {
-			if (!enlistRef.current) return
-			const rect = enlistRef.current.getBoundingClientRect()
-			const cx = rect.left + rect.width / 2
-			const cy = rect.top + rect.height / 2
-			const dx = e.clientX - cx
-			const dy = e.clientY - cy
-			const dist = Math.hypot(dx, dy)
-			const threshold = 180
-			if (dist < threshold) {
-				const force = (1 - dist / threshold) ** 0.7
-				const tx = -(dx / dist) * force * 500
-				const ty = -(dy / dist) * force * 500
-				enlistRef.current.style.transform = `translate(${tx}px, ${ty}px)`
-				setShowEnlistHint(true)
-			} else {
-				enlistRef.current.style.transform = 'translate(0,0)'
-			}
-		}
-		window.addEventListener('mousemove', onMove, { passive: true })
-		return () => window.removeEventListener('mousemove', onMove)
-	}, [])
 
 	function handleGameOver(score: number, collectScore: number) {
 		setLastScore({ score, collectScore })
@@ -124,8 +104,20 @@ export default function Page() {
 		setKeys(keys + e.key)
 	}
 
+	function handleEnlist() {
+		setEnlistFading(true)
+		setTimeout(() => router.push('/join/video'), 840)
+	}
+
 	return (
 		<>
+			{/* Full-screen fade-to-black overlay triggered by Enlist Now */}
+			<div style={{
+				position: 'fixed', inset: 0, background: '#000', zIndex: 9999,
+				opacity: enlistFading ? 1 : 0,
+				transition: 'opacity 0.8s ease',
+				pointerEvents: enlistFading ? 'auto' : 'none',
+			}} />
 			{/* ── Hero ─────────────────────────────────────────────── */}
 			<div
 				ref={ref}
@@ -191,42 +183,31 @@ export default function Page() {
 								JOIN DISCORD
 							</Button>
 						</Link>
-						{/* <Link href='/join'> */}
-							<div style={{ position: 'relative', display: 'inline-block' }}>
-								{showEnlistHint && (
-									<span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.6)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>
-										← Just Join through Discord
-									</span>
-								)}
-								<div ref={enlistRef} style={{ display: 'inline-block', transition: 'transform 0.08s ease-out' }}>
-									<Button
-										variant='contained'
-										size='large'
-										endIcon={<ChevronRight />}
-										sx={{
-											'@keyframes enlistPulse': {
-												'0%': { boxShadow: '0 0 0 0 rgba(219,0,29,0.7), 0 0 12px rgba(219,0,29,0.4)' },
-												'70%': { boxShadow: '0 0 0 12px rgba(219,0,29,0), 0 0 18px rgba(219,0,29,0.15)' },
-												'100%': { boxShadow: '0 0 0 0 rgba(219,0,29,0), 0 0 12px rgba(219,0,29,0.4)' },
-											},
-											background: 'var(--red)',
-											fontWeight: 800,
-											letterSpacing: '0.15em',
-											animation: 'enlistPulse 2s ease-in-out infinite',
-											'&:hover': {
-												background: 'rgba(219,0,29,0.85)',
-												transform: 'translateY(-1px)',
-												boxShadow: '0 0 24px rgba(219,0,29,0.6)',
-											},
-											transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-										}}
-										onClick={() => {}}
-									>
-										ENLIST NOW
-									</Button>
-								</div>
-							</div>
-						{/* </Link> */}
+						<Button
+									variant='contained'
+									size='large'
+									endIcon={<ChevronRight />}
+									onClick={handleEnlist}
+									sx={{
+										'@keyframes enlistPulse': {
+											'0%': { boxShadow: '0 0 0 0 rgba(219,0,29,0.7), 0 0 12px rgba(219,0,29,0.4)' },
+											'70%': { boxShadow: '0 0 0 12px rgba(219,0,29,0), 0 0 18px rgba(219,0,29,0.15)' },
+											'100%': { boxShadow: '0 0 0 0 rgba(219,0,29,0), 0 0 12px rgba(219,0,29,0.4)' },
+										},
+										background: 'var(--red)',
+										fontWeight: 800,
+										letterSpacing: '0.15em',
+										animation: 'enlistPulse 2s ease-in-out infinite',
+										'&:hover': {
+											background: 'rgba(219,0,29,0.85)',
+											transform: 'translateY(-1px)',
+											boxShadow: '0 0 24px rgba(219,0,29,0.6)',
+										},
+										transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+									}}
+								>
+									ENLIST NOW
+							</Button>
 					</div>
 				</div>
 			</div>

@@ -75,6 +75,42 @@ const DbInterface = {
     trainingTickets: db.collection('training_tickets') as MongoCollection<TrainingTicket>,
     trainingReminders: db.collection('training_reminders') as MongoCollection<TrainingReminderRecord>,
     trainingImportRecords: db.collection('training_import_records') as MongoCollection<Document>,
+
+    // ── AI service ────────────────────────────────────────────────────────────
+    aiUsage:           db.collection('ai_usage')            as MongoCollection<AiUsageRecord>,
+    aiBudgets:         db.collection('ai_budgets')          as MongoCollection<AiBudgetConfig>,
+    aiConfig:          db.collection('ai_config')           as MongoCollection<AiSiteConfig & { _id: string }>,
+    aiGeneratedImages: db.collection('ai_generated_images') as MongoCollection<AiGeneratedImage>,
+
+    // ── Intel Package ─────────────────────────────────────────────────────────
+    intelPackages: db.collection('intel_packages') as MongoCollection<IntelPackage>,
+
+    // ── Recruitment Video ─────────────────────────────────────────────────────
+    recruitVideoConfig:   db.collection('recruit_video_config')   as MongoCollection<RecruitVideoConfig & { _id: string }>,
+    recruitVideoProgress: db.collection('recruit_video_progress') as MongoCollection<RecruitVideoProgress>,
+
+    // ── Training Guides ───────────────────────────────────────────────────────
+    trainingGuides: db.collection('training_guides') as MongoCollection<TrainingGuide>,
+
+    // ── Course Instances (Selection / Reinforcement Cycle) ────────────────────
+    courseInstances:            db.collection('course_instances')              as MongoCollection<CourseInstance>,
+    courseInstanceCounters:     db.collection('course_instance_counters')      as MongoCollection<CourseInstanceCounter>,
+    courseSessions:             db.collection('course_sessions')               as MongoCollection<CourseSession>,
+    courseCandidates:           db.collection('course_candidates')             as MongoCollection<CourseCandidate>,
+    permanentCandidateCounters: db.collection('permanent_candidate_counters')  as MongoCollection<PermanentCandidateCounter>,
+    courseStaff:                db.collection('course_staff')                  as MongoCollection<CourseStaffMember>,
+    courseSessionStaff:         db.collection('course_session_staff')          as MongoCollection<CourseSessionStaff>,
+    candidateAttendance:        db.collection('candidate_attendance')          as MongoCollection<CandidateSessionAttendance>,
+    candidateEventFeedback:     db.collection('candidate_event_feedback')      as MongoCollection<CandidateEventFeedback>,
+    courseActivityLogs:         db.collection('course_activity_logs')          as MongoCollection<CourseActivityLog>,
+    catchUpPlans:               db.collection('catchup_plans')                 as MongoCollection<CatchUpPlan>,
+    peerReviewRounds:           db.collection('peer_review_rounds')            as MongoCollection<PeerReviewRound>,
+    peerReviewSubmissions:      db.collection('peer_review_submissions')       as MongoCollection<PeerReviewSubmission>,
+    changeProposals:            db.collection('change_proposals')              as MongoCollection<ChangeProposal>,
+
+    // ── Training Videos ───────────────────────────────────────────────────────
+    trainingTypeVideos:    db.collection('training_type_videos')    as MongoCollection<TrainingTypeVideo>,
+    trainingVideoProgress: db.collection('training_video_progress') as MongoCollection<TrainingVideoProgress>,
 }
 
 export default DbInterface

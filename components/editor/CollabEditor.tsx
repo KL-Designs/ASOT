@@ -18,6 +18,8 @@ import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import { TextStyle } from '@tiptap/extension-text-style'
 import PageSidebar from './PageSidebar'
+import IntelPackageEditor from './intel-package/IntelPackageEditor'
+import ImageLibraryModal from './ImageLibraryModal'
 import {
     Undo, Redo,
     FormatBold, FormatItalic, FormatUnderlined, StrikethroughS,
@@ -111,6 +113,7 @@ export default function CollabEditor({
 }: Props) {
     const [ydoc] = useState(() => new Y.Doc())
     const [ready, setReady] = useState<ReadyState | null>(null)
+    const [isSynced, setIsSynced] = useState(false)
     const onMetaChangeRef = useRef(onMetaChange)
     useEffect(() => { onMetaChangeRef.current = onMetaChange }, [onMetaChange])
 
@@ -146,6 +149,7 @@ export default function CollabEditor({
                                 })
                             })
                         }
+                        setIsSynced(true)
                     },
                     onStatus: ({ status }) => {
                         if (status === 'connecting') setTimeout(() => onSaveStatusChange?.('saving'), 0)
@@ -160,6 +164,7 @@ export default function CollabEditor({
             destroyed = true
             p?.destroy()
             setReady(null)
+            setIsSynced(false)
             meta.unobserve(onObserve)
             if (metaHandleRef) metaHandleRef.current = null
         }
@@ -204,12 +209,14 @@ export default function CollabEditor({
             ydoc={ready.ydoc}
             provider={ready.provider}
             user={ready.user}
+            operationId={documentId}
             uploadUrl={uploadUrl}
             defaultSectionTitle={defaultSectionTitle}
             initialContent={initialContent}
             onSaveStatusChange={onSaveStatusChange}
             themeColor={themeColor}
             readOnly={readOnly}
+            synced={isSynced}
         />
     )
 }
@@ -419,19 +426,22 @@ interface ActiveEditorProps {
     ydoc: Y.Doc
     provider: HocuspocusProvider
     user: PresenceUser
+    operationId: string
     uploadUrl: string
     defaultSectionTitle: string
     initialContent?: any
     onSaveStatusChange?: (status: 'saved' | 'saving' | 'unsaved') => void
     themeColor?: string
     readOnly?: boolean
+    synced?: boolean
 }
 
-function ActiveEditor({ ydoc, provider, user, uploadUrl, defaultSectionTitle, initialContent, onSaveStatusChange, themeColor = '#db001d', readOnly = false }: ActiveEditorProps) {
+function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSectionTitle, initialContent, onSaveStatusChange, themeColor = '#db001d', readOnly = false, synced = false }: ActiveEditorProps) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
     const [activePage, setActivePage] = useState<string>('main')
+    const [activePageType, setActivePageType] = useState<string>('orders')
     const [sectionIds, setSectionIds] = useState<string[]>([])
     const [seedSectionId, setSeedSectionId] = useState<string | null>(null)
     const [peers, setPeers] = useState<Peer[]>([])
@@ -454,6 +464,14 @@ function ActiveEditor({ ydoc, provider, user, uploadUrl, defaultSectionTitle, in
             metaPrefix: (id: string) => `smeta-${pageId}-${id}`,
         }
     }
+
+    useEffect(() => {
+        const pmeta = ydoc.getMap<string>('pmeta-' + activePage)
+        const read = () => setActivePageType(pmeta.get('pageType') || (activePage === 'main' ? 'orders' : 'orders'))
+        pmeta.observe(read)
+        read()
+        return () => pmeta.unobserve(read)
+    }, [ydoc, activePage])
 
     useEffect(() => {
         const { orderKey } = getPageKeys(activePage)
@@ -542,44 +560,59 @@ function ActiveEditor({ ydoc, provider, user, uploadUrl, defaultSectionTitle, in
                     onSelectPage={setActivePage}
                     themeColor={themeColor}
                     orientation={isMobile ? 'top' : 'sidebar'}
+                    synced={synced}
                 />
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                        <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)', marginRight: 2 }}>
-                            {readOnly ? 'Viewing' : 'Editing'}
-                        </span>
-                        <PresenceAvatar key='self' peer={{ clientId: -1, ...user }} self />
-                        {peers.map(peer => (
-                            <PresenceAvatar key={peer.clientId} peer={peer} />
-                        ))}
-                    </div>
-                    {sectionIds.map((id, idx) => (
-                        <SectionEditor
-                            key={`${activePage}-${id}`}
-                            ydoc={ydoc}
-                            sectionId={id}
-                            pageId={activePage}
-                            provider={provider}
-                            user={user}
-                            uploadUrl={uploadUrl}
-                            onRemove={() => removeSection(id)}
-                            onMoveUp={() => moveSection(id, 'up')}
-                            onMoveDown={() => moveSection(id, 'down')}
-                            canMoveUp={idx > 0}
-                            canMoveDown={idx < sectionIds.length - 1}
-                            themeColor={themeColor}
+                    {activePageType !== 'intel' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                            <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)', marginRight: 2 }}>
+                                {readOnly ? 'Viewing' : 'Editing'}
+                            </span>
+                            <PresenceAvatar key='self' peer={{ clientId: -1, ...user }} self />
+                            {peers.map(peer => (
+                                <PresenceAvatar key={peer.clientId} peer={peer} />
+                            ))}
+                        </div>
+                    )}
+
+                    {activePageType === 'intel' ? (
+                        <IntelPackageEditor
+                            key={activePage}
+                            operationId={operationId}
                             readOnly={readOnly}
-                            seedContent={activePage === 'main' && id === seedSectionId ? initialContent : undefined}
+                            themeColor={themeColor}
                         />
-                    ))}
-                    {!readOnly && (
-                        <button type='button' onClick={addSection}
-                            style={{ alignSelf: 'flex-start', padding: '7px 16px', background: 'transparent', border: `1px dashed ${c(0.3)}`, color: c(0.55), fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.15s' }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = c(0.7); e.currentTarget.style.color = c(0.9) }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = c(0.3); e.currentTarget.style.color = c(0.55) }}
-                        >
-                            + Add Section
-                        </button>
+                    ) : (
+                        <>
+                            {sectionIds.map((id, idx) => (
+                                <SectionEditor
+                                    key={`${activePage}-${id}`}
+                                    ydoc={ydoc}
+                                    sectionId={id}
+                                    pageId={activePage}
+                                    provider={provider}
+                                    user={user}
+                                    uploadUrl={uploadUrl}
+                                    onRemove={() => removeSection(id)}
+                                    onMoveUp={() => moveSection(id, 'up')}
+                                    onMoveDown={() => moveSection(id, 'down')}
+                                    canMoveUp={idx > 0}
+                                    canMoveDown={idx < sectionIds.length - 1}
+                                    themeColor={themeColor}
+                                    readOnly={readOnly}
+                                    seedContent={activePage === 'main' && id === seedSectionId ? initialContent : undefined}
+                                />
+                            ))}
+                            {!readOnly && (
+                                <button type='button' onClick={addSection}
+                                    style={{ alignSelf: 'flex-start', padding: '7px 16px', background: 'transparent', border: `1px dashed ${c(0.3)}`, color: c(0.55), fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.15s' }}
+                                    onMouseEnter={e => { e.currentTarget.style.borderColor = c(0.7); e.currentTarget.style.color = c(0.9) }}
+                                    onMouseLeave={e => { e.currentTarget.style.borderColor = c(0.3); e.currentTarget.style.color = c(0.55) }}
+                                >
+                                    + Add Section
+                                </button>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
@@ -633,6 +666,8 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
         .op-editor-${sectionId} a { color: ${c(0.85)}; }
     `
     const [confirmingRemove, setConfirmingRemove] = useState(false)
+    const [imagePopoverOpen, setImagePopoverOpen] = useState(false)
+    const [showImageLibrary, setShowImageLibrary] = useState(false)
     const seededRef = useRef(false)
     const imageInputRef = useRef<HTMLInputElement>(null)
     const borderColorInputRef = useRef<HTMLInputElement>(null)
@@ -898,9 +933,32 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
                 <TBtn title='Quote' active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}><FormatQuote style={{ fontSize: 17 }} /></TBtn>
                 <TBtn title='Section Divider' onClick={() => editor.chain().focus().setHorizontalRule().run()}><HorizontalRule style={{ fontSize: 17 }} /></TBtn>
                 <TDivider />
-                <TBtn title={uploadingImage ? 'Uploading...' : 'Insert Image'} onClick={() => imageInputRef.current?.click()} active={uploadingImage}>
-                    <AddPhotoAlternate style={{ fontSize: 17, opacity: uploadingImage ? 0.4 : 1 }} />
-                </TBtn>
+                <div style={{ position: 'relative' }}>
+                    <TBtn title={uploadingImage ? 'Uploading...' : 'Insert Image'} active={uploadingImage || imagePopoverOpen}
+                        onClick={() => { if (!uploadingImage) setImagePopoverOpen(v => !v) }}
+                    >
+                        <AddPhotoAlternate style={{ fontSize: 17, opacity: uploadingImage ? 0.4 : 1 }} />
+                    </TBtn>
+                    {imagePopoverOpen && !uploadingImage && (
+                        <div
+                            onMouseDown={e => e.stopPropagation()}
+                            style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'rgba(14,14,14,0.97)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, padding: '4px 0', display: 'flex', flexDirection: 'column', minWidth: 190, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
+                        >
+                            <button type='button'
+                                onClick={() => { setImagePopoverOpen(false); imageInputRef.current?.click() }}
+                                style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'rgba(237,237,237,0.7)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >Upload from Computer</button>
+                            <button type='button'
+                                onClick={() => { setImagePopoverOpen(false); setShowImageLibrary(true) }}
+                                style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'rgba(237,237,237,0.7)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >Select from Library</button>
+                        </div>
+                    )}
+                </div>
                 <div style={{ position: 'relative' }}>
                     <TBtn title={editor.isActive('link') ? 'Edit Link' : 'Insert Link'} active={editor.isActive('link')}
                         onClick={() => {
@@ -961,6 +1019,12 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
             <input ref={imageInputRef} type='file' accept='image/*' style={{ display: 'none' }}
                 onChange={e => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); e.target.value = '' }}
             />
+            {showImageLibrary && (
+                <ImageLibraryModal
+                    onSelect={url => { editor.chain().focus().setImage({ src: url }).run(); setShowImageLibrary(false) }}
+                    onClose={() => setShowImageLibrary(false)}
+                />
+            )}
         </div>
     )
 }

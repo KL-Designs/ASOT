@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, Tabs, Tab } from '@mui/material'
 import { PeopleAlt, CalendarMonth, HistoryEdu, Settings } from '@mui/icons-material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
-import ImportPanel from '../ImportPanel'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
@@ -16,6 +15,7 @@ import J4MeetingsTab from './tabs/J4MeetingsTab'
 import LogsTab from './tabs/LogsTab'
 import TeamspeakTab from './tabs/TeamspeakTab'
 import MasterSheetTab from './tabs/MasterSheetTab'
+import AIAdminTab from './tabs/AIAdminTab'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -682,7 +682,6 @@ function TestNotificationModal({ open, onClose, selfId }: { open: boolean; onClo
 
 export default function J4AdminPanel({ userId, displayName }: { userId: string; displayName: string }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
-    const [importOpen, setImportOpen] = useState(false)
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
     const [testNotifOpen, setTestNotifOpen] = useState(false)
@@ -795,6 +794,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                             <Tab label={<PinTabLabel label='Snapshots'    pinLabel='J4 — Snapshots'    href='/dashboard/j4' tabIndex={3} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Teamspeak'    pinLabel='J4 — Teamspeak'    href='/dashboard/j4' tabIndex={4} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Tools'        pinLabel='J4 — Tools'        href='/dashboard/j4' tabIndex={5} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='AI Admin'     pinLabel='J4 — AI Admin'     href='/dashboard/j4' tabIndex={6} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -816,6 +816,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                 <TeamspeakTab />
                             </div>
                         )}
+                        {tab === 6 && <AIAdminTab />}
                         {tab === 5 && (
                             <div className='p-6 md:p-10 flex flex-col gap-6'>
                         {/* Tools */}
@@ -825,20 +826,20 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                             </Typography>
                             <div className='flex flex-wrap gap-4'>
 
-                                <button
-                                    onClick={() => setImportOpen(true)}
+                                <a
+                                    href='/dashboard/j4/import'
                                     className='flex-1 min-w-[160px]'
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                                    style={{ textDecoration: 'none' }}
                                 >
                                     <div
                                         className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
+                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', cursor: 'pointer' }}
                                     >
                                         <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
                                             Import<br />Panel
                                         </Typography>
                                     </div>
-                                </button>
+                                </a>
 
                                 <button
                                     onClick={() => setDischargeOpen(true)}
@@ -1025,7 +1026,6 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                 </>
             )}
 
-            <ImportPanel open={importOpen} onClose={() => setImportOpen(false)} />
             <DischargeModal open={dischargeOpen} onClose={() => setDischargeOpen(false)} />
             <ReinstateModal open={reinstateOpen} onClose={() => setReinstateOpen(false)} />
             <TestNotificationModal open={testNotifOpen} onClose={() => setTestNotifOpen(false)} selfId={userId} />

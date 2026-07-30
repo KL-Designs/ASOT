@@ -46,14 +46,15 @@ interface J1Application {
     recruiterRecommendationAt?: string
     // Returning-member check run when a recruiter is assigned
     returningMemberCheck?: {
-        status: 'YES' | 'REVIEW' | 'NO'
+        status: 'CLEAR' | 'HD' | 'GD' | 'DD' | 'YES' | 'REVIEW' | 'NO' // YES/REVIEW/NO kept for backward compat
         checkedAt: string
         details?: string
     }
-    // J4 review (triggered when returningMemberCheck.status is REVIEW or NO)
+    // J4 review (mandatory for DD; optional for GD via notifyJ4GD)
     j4ReviewStatus?: 'pending' | 'approved' | 'rejected'
     j4ReviewTaskId?: string
     j4ReviewedById?: string
     j4ReviewedByName?: string
     j4ReviewNote?: string
+    j4GDNotified?: boolean // true when recruiter optionally notified J4 for a GD returning member
 }

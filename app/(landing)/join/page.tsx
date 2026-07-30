@@ -15,6 +15,9 @@ export default async function JoinPage() {
     const sotm = sotmDoc ? (sotmDoc as unknown as ScreenshotOfMonth) : null
 
     return (
+        <>
+        <style>{`@keyframes joinFadeIn { from { opacity:0 } to { opacity:1 } }`}</style>
+        <div style={{ animation: 'joinFadeIn 0.9s ease forwards' }}>
         <Container
             title='JOIN ASOT'
             subtitle='Fill out the form below to apply for membership. Our J1 Recruitment team will review your application and contact you via Discord.'
@@ -38,6 +41,7 @@ export default async function JoinPage() {
             )}
 
             <div
+                id='join-form'
                 className='flex flex-col gap-6 p-6'
                 style={{
                     border: '1px solid rgba(219,0,29,0.15)',
@@ -62,5 +66,7 @@ export default async function JoinPage() {
                 {process.env.NODE_ENV === 'development' && <DevTestApplicationButton />}
             </div>
         </Container>
+        </div>
+        </>
     )
 }

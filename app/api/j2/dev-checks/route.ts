@@ -17,6 +17,9 @@ export interface DevCheckInfo {
     completion?: {
         completedAt: string
         completedByName: string
+        reviewerName?: string
+        comments?: string
+        outcome?: string
     }
     task?: {
         _id: string
@@ -140,7 +143,13 @@ export async function GET(req: NextRequest) {
                 isOverdue: !completion && daysUntil < 0,
                 daysUntil,
                 completion: completion
-                    ? { completedAt: completion.completedAt, completedByName: completion.completedByName }
+                    ? {
+                        completedAt: completion.completedAt,
+                        completedByName: completion.completedByName,
+                        reviewerName: completion.reviewerName,
+                        comments: completion.comments,
+                        outcome: completion.outcome,
+                    }
                     : undefined,
                 task: task
                     ? {

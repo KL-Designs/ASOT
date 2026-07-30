@@ -62,6 +62,11 @@ type NotificationType =
     | 'training_request_submitted'      // J3 leads: new training request from member
     | 'training_request_approved'       // Requester: training request approved
     | 'training_request_rejected'       // Requester: training request rejected
+    | 'training_video_checkpoint_fail'  // J3 lead: member failed a checkpoint 3 times
+    | 'peer_review_assigned'            // Candidate: peer review tasks ready
+    | 'peer_review_extension_approved'  // Candidate: time extension approved
+    | 'peer_review_extension_rejected'  // Candidate: time extension rejected
+    | 'peer_review_extension_requested' // J3 lead: candidate requesting more time
     | 'system'
 
 type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check'

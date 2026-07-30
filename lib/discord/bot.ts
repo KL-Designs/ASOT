@@ -410,6 +410,51 @@ export async function sendTrainingReminderDM(
 }
 
 /**
+ * Notify a candidate that peer review forms are ready for them to complete.
+ */
+export async function sendPeerReviewInviteDM(
+    userId: string,
+    courseRef: string,
+    actionUrl: string,
+): Promise<void> {
+    const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+    const embed: DiscordEmbed = {
+        title: '📋 Peer Review — Action Required',
+        description: `Your peer review forms for **${courseRef}** are ready. Complete them before the deadline.`,
+        color: 0xdb001d,
+        fields: [{ name: '​', value: `[Open Peer Review](${base}${actionUrl})`, inline: false }],
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+    await sendDM(userId, { embeds: [embed] }, 'training')
+}
+
+/**
+ * Notify a candidate that their time extension request was approved or rejected.
+ */
+export async function sendPeerReviewExtensionResultDM(
+    userId: string,
+    approved: boolean,
+    additionalMinutes?: number,
+    actionUrl?: string,
+): Promise<void> {
+    const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+    const embed: DiscordEmbed = {
+        title: approved ? '✅ Time Extension Approved' : '❌ Time Extension Denied',
+        description: approved
+            ? `Your request for additional time has been approved. You have been given **${additionalMinutes} additional minute${additionalMinutes !== 1 ? 's' : ''}**.`
+            : 'Your request for additional time has been denied. Please submit what you have.',
+        color: approved ? 0x22c55e : 0xdb001d,
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+    if (actionUrl) {
+        embed.fields = [{ name: '​', value: `[Return to Peer Review](${base}${actionUrl})`, inline: false }]
+    }
+    await sendDM(userId, { embeds: [embed] }, 'training')
+}
+
+/**
  * Add a Discord guild role to a member.
  * Respects developer mode — blocked attempts are logged but not applied.
  */

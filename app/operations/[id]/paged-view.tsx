@@ -6,6 +6,7 @@ import SectionNav from './section-nav'
 import ZeusNotesPanel from './ZeusNotesPanel'
 import OcapStatsPanel from './OcapStatsPanel'
 import OcapLinkPanel from './OcapLinkPanel'
+import IntelPackageViewer from '@/components/editor/intel-package/IntelPackageViewer'
 
 const ZEUS_TAB = '__zeus__'
 const OCAP_TAB = '__ocap__'
@@ -40,23 +41,36 @@ function hexToRgb(hex: string) {
 }
 
 export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, isHQ, operationId, zeusNotes, ocap, initialOcap, r: rProp, g: gProp, b: bProp, initialPageId }: Props) {
+    // Zeus/OCAP pages are always rendered as hardcoded tabs — exclude them from the content page list.
+    // Also deduplicate by id to guard against stale Yjs race-condition data.
+    const contentPages = (() => {
+        const seen = new Set<string>()
+        return pages.filter(p => {
+            if (p.pageType === 'zeus' || p.pageType === 'ocap') return false
+            if (seen.has(p.id)) return false
+            seen.add(p.id)
+            return true
+        })
+    })()
+
     const [activePageId, setActivePageId] = useState<string>(() => {
         if (initialPageId) {
-            const validPageIds = pages.map(p => p.id)
+            const validPageIds = contentPages.map(p => p.id)
             if (validPageIds.includes(initialPageId) || initialPageId === '__zeus__' || initialPageId === '__ocap__') {
                 return initialPageId
             }
         }
-        return pages[0]?.id ?? 'main'
+        return contentPages[0]?.id ?? 'main'
     })
 
     useEffect(() => {
         if (!initialPageId) return
-        const validPageIds = pages.map(p => p.id)
+        const validPageIds = contentPages.map(p => p.id)
         if (validPageIds.includes(initialPageId) || initialPageId === '__zeus__' || initialPageId === '__ocap__') {
             setActivePageId(initialPageId)
         }
-    }, [initialPageId, pages])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialPageId])
     const [isMobile, setIsMobile] = useState(false)
 
     useEffect(() => {
@@ -76,7 +90,7 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
     const isSF = pageTheme === 'scifi'
 
     const activeSections = (sectionsByPage[activePageId] ?? []).filter(s => isLoggedIn || s.isPublic)
-    const activePageMeta = pages.find(p => p.id === activePageId)
+    const activePageMeta = contentPages.find(p => p.id === activePageId)
     const isOcapPage = activePageMeta?.pageType === 'ocap'
 
     // ── Mobile: horizontal tab strip ─────────────────────────────────────────
@@ -96,7 +110,7 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                     scrollbarWidth: 'none',
                 }}>
                     <style>{`.paged-tabs::-webkit-scrollbar { display: none; }`}</style>
-                    {pages.map(page => {
+                    {contentPages.map(page => {
                         const isActive = page.id === activePageId
                         return (
                             <button
@@ -198,7 +212,20 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                     )}
                 </div>
 
-                {activePageId === OCAP_TAB && (isHQ || ocap) ? (
+                {activePageId === ZEUS_TAB ? (() => {
+                    const zeusPage = pages.find(p => p.pageType === 'zeus')
+                    const zeusSections = (zeusPage ? (sectionsByPage[zeusPage.id] ?? []) : []).filter(s => isLoggedIn || s.isPublic)
+                    return (
+                        <div className='w-full px-4 pb-16' style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            {zeusSections.length > 0
+                                ? zeusSections.map(s => (
+                                    <SectionCard key={s.id} s={s} isOF={isOF} isSF={isSF} c={c} r={r} g={g} b={b} isLoggedIn={isLoggedIn} themeColor={themeColor} pageTheme={pageTheme} operationTitle={operationTitle} />
+                                ))
+                                : <ZeusNotesPanel operationId={operationId ?? ''} initialNotes={zeusNotes ?? ''} />
+                            }
+                        </div>
+                    )
+                })() : activePageId === OCAP_TAB && (isHQ || ocap) ? (
                     <div className='w-full px-4 pb-16' style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
                         {isHQ && operationId && (
                             <OcapLinkPanel operationId={operationId} initialOcap={initialOcap ?? undefined} />
@@ -206,6 +233,10 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                         {ocap && (
                             <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
                         )}
+                    </div>
+                ) : activePageMeta?.pageType === 'intel' && operationId ? (
+                    <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
+                        <IntelPackageViewer operationId={operationId} themeColor={themeColor} />
                     </div>
                 ) : (
                     <>
@@ -247,11 +278,20 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
             {/* Content area — full width, nav is in the outer PageNavClient */}
             <div style={{ flex: 1, minWidth: 0 }}>
 
-                {activePageId === ZEUS_TAB ? (
-                    <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
-                        <ZeusNotesPanel operationId={operationId ?? ''} initialNotes={zeusNotes ?? ''} />
-                    </div>
-                ) : activePageId === OCAP_TAB && (isHQ || ocap) ? (
+                {activePageId === ZEUS_TAB ? (() => {
+                    const zeusPage = pages.find(p => p.pageType === 'zeus')
+                    const zeusSections = (zeusPage ? (sectionsByPage[zeusPage.id] ?? []) : []).filter(s => isLoggedIn || s.isPublic)
+                    return (
+                        <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            {zeusSections.length > 0
+                                ? zeusSections.map(s => (
+                                    <SectionCard key={s.id} s={s} isOF={isOF} isSF={isSF} c={c} r={r} g={g} b={b} isLoggedIn={isLoggedIn} themeColor={themeColor} pageTheme={pageTheme} operationTitle={operationTitle} />
+                                ))
+                                : <ZeusNotesPanel operationId={operationId ?? ''} initialNotes={zeusNotes ?? ''} />
+                            }
+                        </div>
+                    )
+                })() : activePageId === OCAP_TAB && (isHQ || ocap) ? (
                     <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 16 }}>
                         {isHQ && operationId && (
                             <OcapLinkPanel operationId={operationId} initialOcap={initialOcap ?? undefined} />
@@ -259,6 +299,10 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                         {ocap && (
                             <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
                         )}
+                    </div>
+                ) : activePageMeta?.pageType === 'intel' && operationId ? (
+                    <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
+                        <IntelPackageViewer operationId={operationId} themeColor={themeColor} />
                     </div>
                 ) : (
                     <>

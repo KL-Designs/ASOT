@@ -10,59 +10,82 @@ import { calculatePromotionPoints } from '@/lib/military/points'
 
 // ── Returning-member check ────────────────────────────────────────────────────
 
+type ReturningStatus = 'CLEAR' | 'HD' | 'GD' | 'DD'
+
 async function runReturningMemberCheck(
     discordId: string,
-): Promise<{ status: 'YES' | 'REVIEW'; details: string }> {
+): Promise<{ status: ReturningStatus; details: string }> {
+    const PRIORITY: Record<ReturningStatus, number> = { CLEAR: 0, HD: 1, GD: 2, DD: 3 }
+    let worst: ReturningStatus = 'CLEAR'
     const reasons: string[] = []
 
-    // Previous rejected application
-    const prevRejection = await Db.j1Applications.findOne({
-        discordId,
-        status: 'rejected',
-    })
+    function elevate(s: ReturningStatus) {
+        if (PRIORITY[s] > PRIORITY[worst]) worst = s
+    }
+
+    // Previous rejected application → treat as GD-equivalent
+    const prevRejection = await Db.j1Applications.findOne({ discordId, status: 'rejected' })
     if (prevRejection) {
         const when = prevRejection.submittedAt
             ? new Date(prevRejection.submittedAt).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
             : 'unknown date'
         reasons.push(`Previously rejected application (${when})`)
+        elevate('GD')
     }
 
-    // Previously discharged member
-    const dischargedUser = await Db.users.findOne({
-        id: discordId,
-        discharged: { $exists: true },
-    })
+    // Previously discharged member — read discharge type
+    const dischargedUser = await Db.users.findOne({ id: discordId, discharged: { $exists: true } })
     if (dischargedUser) {
-        const reason = (dischargedUser.discharged as any)?.reason ?? 'no reason on record'
-        reasons.push(`Previously discharged member — ${reason}`)
+        const discharge = dischargedUser.discharged as any
+        const reason = discharge?.reason ?? 'no reason on record'
+        const type = (discharge?.type as string ?? '').trim().toUpperCase()
+        if (type === 'DD') {
+            reasons.push(`Dishonourably discharged — ${reason}`)
+            elevate('DD')
+        } else if (type === 'HD') {
+            reasons.push(`Honourably discharged — ${reason}`)
+            elevate('HD')
+        } else {
+            reasons.push(`Previously discharged (GD) — ${reason}`)
+            elevate('GD')
+        }
     }
 
-    // J4 Master Sheet — Leaving History (matched by discordId when available)
-    const leavingRecord = discordId
-        ? await Db.leavingHistory.findOne({ discordId })
-        : null
+    // J4 Master Sheet — Leaving History
+    const leavingRecord = discordId ? await Db.leavingHistory.findOne({ discordId }) : null
     if (leavingRecord) {
-        const ret = leavingRecord.return?.trim().toUpperCase()
+        const ret  = leavingRecord.return?.trim().toUpperCase()
+        const type = (leavingRecord.type ?? '').trim().toUpperCase()
+        const reason  = leavingRecord.reason ?? ''
+        const dateStr = leavingRecord.leavingDate ?? 'unknown date'
         if (ret === 'NO') {
-            return { status: 'REVIEW', details: `Master Sheet: marked DO NOT RETURN — ${leavingRecord.reason}` }
-        }
-        if (ret === 'REVIEW' || ret === 'INDEFINITE') {
-            reasons.push(`Master Sheet: ${leavingRecord.type} discharge on ${leavingRecord.leavingDate} — ${leavingRecord.reason}`)
+            reasons.push(`Master Sheet: DO NOT RETURN — ${reason}`)
+            elevate('DD')
+        } else if (type === 'DD') {
+            reasons.push(`Master Sheet: DD discharge (${dateStr}) — ${reason}`)
+            elevate('DD')
+        } else if (type === 'HD') {
+            reasons.push(`Master Sheet: HD discharge (${dateStr}) — ${reason}`)
+            elevate('HD')
+        } else if (type === 'GD' || ret === 'REVIEW' || ret === 'INDEFINITE') {
+            reasons.push(`Master Sheet: GD discharge (${dateStr}) — ${reason}`)
+            elevate('GD')
         }
     }
 
-    // J4 Master Sheet — Denied Applications HQ
+    // J4 Master Sheet — Denied Applications HQ → GD-equivalent
     if (discordId) {
         const deniedRecord = await Db.deniedApplicationsHQ.findOne({ discordId })
         if (deniedRecord) {
             reasons.push(`Master Sheet: previously denied application (${deniedRecord.date}) — ${deniedRecord.reason}`)
+            elevate('GD')
         }
     }
 
-    if (reasons.length > 0) {
-        return { status: 'REVIEW', details: reasons.join('; ') }
+    return {
+        status: worst,
+        details: worst === 'CLEAR' ? 'No prior record found' : reasons.join('; '),
     }
-    return { status: 'YES', details: 'No prior record found' }
 }
 
 // ── Award billet points to recruiter ─────────────────────────────────────────
@@ -238,9 +261,12 @@ export async function PATCH(
             return NextResponse.json({ error: 'Invalid recruiterRecommendation' }, { status: 400 })
         }
 
-        // Recruiter is locked while J4 review is pending
+        // Recruiter is locked while J4 review is pending (DD only; HD/GD do not lock)
         if (!isJ1Lead && app.j4ReviewStatus === 'pending') {
-            return NextResponse.json({ error: 'Awaiting J4 review — cannot submit recommendation yet.' }, { status: 403 })
+            const returningStatus = (app.returningMemberCheck as any)?.status
+            if (returningStatus === 'DD' || returningStatus === 'REVIEW' || !returningStatus) {
+                return NextResponse.json({ error: 'Awaiting J4 review — cannot submit recommendation yet.' }, { status: 403 })
+            }
         }
 
         await Db.j1Applications.updateOne(
@@ -277,6 +303,56 @@ export async function PATCH(
             }, 'raw').catch(() => null)
         }
 
+        return NextResponse.json({ ok: true })
+    }
+
+    // ── Optional J4 notification for GD returning members ────────────────────
+    if (body.notifyJ4GD === true) {
+        if (!isAssignedRecruiter && !isJ1Lead) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+        const returningStatus = (app.returningMemberCheck as any)?.status
+        if (returningStatus !== 'GD') {
+            return NextResponse.json({ error: 'Only applicable for GD returning members.' }, { status: 400 })
+        }
+        if (app.j4GDNotified) {
+            return NextResponse.json({ error: 'J4 has already been notified.' }, { status: 400 })
+        }
+        const checkDetails = (app.returningMemberCheck as any)?.details ?? 'No details on record'
+
+        const j4Members = await Db.users
+            .find({ 'guild.roles': { $in: PERMISSIONS.departments.j4 }, discharged: { $exists: false }, isSkeletonAccount: { $ne: true } })
+            .project<{ _id: string; id: string; guild?: { nickname?: string } }>({ _id: 1, id: 1, guild: 1 })
+            .toArray()
+
+        for (const j4User of j4Members) {
+            const j4Name = (j4User as any).guild?.nickname ?? (j4User as any).globalName ?? j4User.id
+            try {
+                await Db.tasks.insertOne({
+                    title: `GD returning-member advisory — ${applicantName}`,
+                    description: `A recruiter has flagged ${applicantName} as a General Discharge returning member for your awareness. No action is required unless you wish to intervene.\n\n**Details:** ${checkDetails}`,
+                    assignedTo: j4User.id as string,
+                    assignedToName: j4Name,
+                    assignedBy: me.id,
+                    assignedByName: displayName,
+                    type: 'j4_returning_review',
+                    actionUrl: `/dashboard/j1?tab=1&app=${id}`,
+                    relatedId: id,
+                    status: 'pending',
+                    createdAt: new Date(),
+                } as unknown as Task)
+            } catch { /* ignore */ }
+            await createNotification({
+                userId: j4User.id as string,
+                type: 'task_assigned',
+                title: `GD returning-member advisory — ${applicantName}`,
+                body: `${applicantName} is a returning member with a General Discharge. The recruiter has flagged this for your awareness. Details: ${checkDetails}`,
+                actionUrl: `/dashboard/j1?tab=1&app=${id}`,
+                relatedId: id,
+            }).catch(() => null)
+        }
+
+        await Db.j1Applications.updateOne({ _id: objectId }, { $set: { j4GDNotified: true } })
         return NextResponse.json({ ok: true })
     }
 
@@ -469,20 +545,40 @@ export async function PATCH(
                 }
                 await Db.j1Applications.updateOne({ _id: objectId }, { $set: { returningMemberCheck: checkData } })
 
-                if (check.status === 'REVIEW') {
-                    // Create J4 review task
-                    const j4Leads = await Db.users
+                if (check.status === 'HD') {
+                    // HD: inform recruiter, no lock, no J4 task
+                    createNotification({
+                        userId: assignedReviewerId,
+                        type: 'task_assigned',
+                        title: `Returning member (HD) — ${applicantName}`,
+                        body: `${applicantName} is a returning member with an Honourable Discharge. You may continue with the application normally. Details: ${check.details}`,
+                        actionUrl: `/dashboard/j1?tab=1&app=${id}`,
+                        relatedId: id,
+                    }).catch(() => null)
+                } else if (check.status === 'GD') {
+                    // GD: warn recruiter with reason, no lock, no J4 task — optional J4 notify available in UI
+                    createNotification({
+                        userId: assignedReviewerId,
+                        type: 'task_assigned',
+                        title: `Returning member (GD) — ${applicantName}`,
+                        body: `${applicantName} is a returning member with a General Discharge. Review their prior history before proceeding. Details: ${check.details}`,
+                        actionUrl: `/dashboard/j1?tab=1&app=${id}`,
+                        relatedId: id,
+                    }).catch(() => null)
+                } else if (check.status === 'DD') {
+                    // DD: create J4 task + lock recruiter until J4 clears
+                    const j4Members = await Db.users
                         .find({ 'guild.roles': { $in: PERMISSIONS.departments.j4 }, discharged: { $exists: false }, isSkeletonAccount: { $ne: true } })
                         .project<{ _id: string; id: string; guild?: { nickname?: string } }>({ _id: 1, id: 1, guild: 1 })
                         .toArray()
 
                     let j4TaskId: string | undefined
-                    for (const j4User of j4Leads) {
+                    for (const j4User of j4Members) {
                         const j4Name = (j4User as any).guild?.nickname ?? (j4User as any).globalName ?? j4User.id
                         try {
                             const t = await Db.tasks.insertOne({
-                                title: `Returning-member review — ${applicantName}`,
-                                description: `A recruiter has been assigned to ${applicantName}'s application, but a prior record was found.\n\n**Details:** ${check.details}\n\nPlease review and approve or reject this applicant's history before the recruiter can proceed.`,
+                                title: `DD returning-member review — ${applicantName}`,
+                                description: `A recruiter has been assigned to ${applicantName}'s application. This applicant has a Dishonourable Discharge on record and requires J4 clearance before the recruiter can proceed.\n\n**Details:** ${check.details}`,
                                 assignedTo: j4User.id as string,
                                 assignedToName: j4Name,
                                 assignedBy: me.id,
@@ -499,24 +595,24 @@ export async function PATCH(
                         await createNotification({
                             userId: j4User.id as string,
                             type: 'task_assigned',
-                            title: `Returning-member review required — ${applicantName}`,
-                            body: `${applicantName} has submitted a recruitment application but has a prior record. J4 review is required before the recruiter can proceed.\n\nDetails: ${check.details}`,
+                            title: `DD returning-member review required — ${applicantName}`,
+                            body: `${applicantName} has submitted a recruitment application and has a Dishonourable Discharge on record. J4 clearance is required before the recruiter can proceed.\n\nDetails: ${check.details}`,
                             actionUrl: `/dashboard/j1?tab=1&app=${id}`,
                             relatedId: id,
                         }).catch(() => null)
                     }
 
-                    // Mark application as pending J4 review and lock recruiter
+                    // Lock recruiter and mark pending J4 review
                     const j4Update: Record<string, unknown> = { j4ReviewStatus: 'pending' }
                     if (j4TaskId) j4Update.j4ReviewTaskId = j4TaskId
                     await Db.j1Applications.updateOne({ _id: objectId }, { $set: j4Update })
 
-                    // Notify recruiter that J4 review is in progress
+                    // Notify recruiter of lock
                     createNotification({
                         userId: assignedReviewerId,
                         type: 'task_assigned',
-                        title: `J4 review in progress — ${applicantName}`,
-                        body: `A prior record was found for ${applicantName}. J4 must review before you can submit your recommendation. Details: ${check.details}`,
+                        title: `J4 review required — ${applicantName}`,
+                        body: `${applicantName} has a Dishonourable Discharge on record. J4 must review and approve before you can submit your recommendation. Details: ${check.details}`,
                         actionUrl: `/dashboard/j1?tab=1&app=${id}`,
                         relatedId: id,
                     }).catch(() => null)
