@@ -34,6 +34,12 @@ declare global {
         confirmationOpenedAt?: Date // when confirmation was last opened (for 24h auto-close)
         stage?: 'preparing' | 'rsvp_open' | 'rsvp_closed' | 'op_running' | 'confirmations_open' | 'completed'
 
+        chqAllocationReminderSentAt?: Date  // set when the 1hr-before CHQ reminder fires (prevents re-send)
+
+        // Lead Zeus nomination — CHQ picks one Zeus for the night
+        leadZeus?: string       // Discord user ID of nominated Lead Zeus
+        leadZeusName?: string   // Display name at time of nomination
+
         // Custom attendance units — non-ORBAT groups defined manually by HQ
         customUnits?: Array<{
             id: string

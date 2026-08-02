@@ -14,6 +14,7 @@ import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 import MembersWorkspaceTab from '@/app/dashboard/j2/tabs/MembersWorkspaceTab'
 import MissionChecksTab from '@/app/dashboard/j2/tabs/MissionChecksTab'
 import IntelImagesTab from '@/app/dashboard/j2/tabs/IntelImagesTab'
+import EraOptionsTab from '@/app/dashboard/j2/tabs/EraOptionsTab'
 
 export default function J2Panel({
     displayName,
@@ -88,7 +89,7 @@ export default function J2Panel({
                 <DeptMembersTab department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
             )}
             {view === 'calendar' && (
-                <DeptCalendarTab department='j2' userId={userId} isJ4={isJ4} />
+                <DeptCalendarTab department='j2' userId={userId} isJ4={isJ4} isJ2Lead={canManageMembers} />
             )}
             {view === 'activity' && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
@@ -110,6 +111,9 @@ export default function J2Panel({
                             <Tab label={<PinTabLabel label='Members Workspace' pinLabel='J2 — Workspace'   href='/dashboard/j2' tabIndex={3} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Mission Checks'    pinLabel='J2 — Checks'    href='/dashboard/j2' tabIndex={4} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Intel Images'      pinLabel='J2 — Intel Images' href='/dashboard/j2' tabIndex={5} />} sx={tabSx} />
+                            {canManageMembers && (
+                                <Tab label={<PinTabLabel label='ERA Options' pinLabel='J2 — ERA Options' href='/dashboard/j2' tabIndex={6} />} sx={tabSx} />
+                            )}
                         </Tabs>
                     </div>
 
@@ -120,6 +124,7 @@ export default function J2Panel({
                         {tab === 3 && <MembersWorkspaceTab userId={userId} isJ4={isJ4} canManage={canManageMembers} />}
                         {tab === 4 && <MissionChecksTab userId={userId} isJ2Lead={canManageMembers || isJ4} />}
                         {tab === 5 && <IntelImagesTab />}
+                        {tab === 6 && canManageMembers && <EraOptionsTab />}
                     </div>
                 </>
             )}

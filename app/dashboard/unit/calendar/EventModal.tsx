@@ -26,6 +26,11 @@ export type CalendarEventRow = {
     applicantId?: string
     applicantName?: string
     timePeriod?: string
+    isJ2Unavailability?: boolean
+    isMissionCheckRequest?: boolean
+    relatedOperationId?: string
+    relatedOperationTitle?: string
+    relatedTaskId?: string
 }
 
 const COURSE_STATUS_STYLE: Record<string, { color: string; border: string }> = {

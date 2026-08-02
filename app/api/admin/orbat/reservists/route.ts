@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
             category,
             sectionTitle: '',
             role: category === 'activeReservist' ? 'Active Reservist' : 'Inactive Reservist',
+            roleId: null,
             userId,
             sectionOrder: 0,
             positionOrder,

@@ -18,6 +18,7 @@ declare global {
         | 'award'
         | 'teamspeak'
         | 'J3'
+        | 'board'
 
     interface ActionLog {
         _id: ObjectId

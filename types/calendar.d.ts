@@ -12,6 +12,13 @@ interface CalendarEvent {
     createdById: string
     createdByName: string
     createdAt: Date
+
+    // J2-specific event types
+    isJ2Unavailability?: boolean          // J2 Lead blocking unavailability on the calendar
+    isMissionCheckRequest?: boolean       // Mission maker requesting a J2 check
+    relatedOperationId?: string           // Operation ID linked to a mission check request
+    relatedOperationTitle?: string        // Operation title at time of request
+    relatedTaskId?: string                // Task created alongside a mission check request
 }
 
 interface CalendarReminder {

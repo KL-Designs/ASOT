@@ -9,7 +9,8 @@
     "start": "node --env-file=.env server.mjs",
     "lint": "next lint",
     "generate-terrain": "node scripts/generate-terrain.mjs",
-    "init-db": "node scripts/init-db.mjs"
+    "init-db": "node scripts/init-db.mjs",
+    "migrate-orbat-roles": "node --env-file=.env scripts/migrate-orbat-roles.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.1",

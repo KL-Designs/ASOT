@@ -6,6 +6,7 @@ import Db from '@/lib/mongo'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
 import { logAction } from '@/lib/logs'
 import { syncOrbatDiscordRoles } from '@/lib/orbat/discord'
+import { addGuildRole, removeGuildRole } from '@/lib/discord/bot'
 
 
 async function authStructure() {
@@ -77,6 +78,7 @@ export async function PATCH(
                 category: 'activeReservist',
                 sectionTitle: '',
                 role: 'Active Reservist',
+                roleId: null,
                 userId: position.userId,
                 sectionOrder: 0,
                 positionOrder,
@@ -132,26 +134,53 @@ export async function PATCH(
         })
     }
 
-    // Field updates (role rename, reorder) — structure permission required
+    // Field updates (role select, reorder) — structure permission required
     const me = await authStructure()
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const performedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
     const updates: Partial<OrbatPosition> = {}
-    if (typeof body.role === 'string') updates.role = body.role
+    let newRoleDoc: OrbatRole | null = null
+
+    if ('roleId' in body) {
+        if (body.roleId === null) {
+            updates.roleId = null
+            updates.role = ''
+        } else {
+            let roleObjectId: ObjectId
+            try { roleObjectId = new ObjectId(body.roleId) } catch { return NextResponse.json({ error: 'Invalid roleId' }, { status: 400 }) }
+            newRoleDoc = await Db.orbatRoles.findOne({ _id: roleObjectId })
+            if (!newRoleDoc) return NextResponse.json({ error: 'Role not found' }, { status: 404 })
+            updates.roleId = roleObjectId
+            updates.role = newRoleDoc.name
+        }
+    }
     if (typeof body.positionOrder === 'number') updates.positionOrder = body.positionOrder
     if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
 
     await Db.orbatPositions.updateOne({ _id: objectId }, { $set: updates })
 
-    if (typeof body.role === 'string') {
+    // If the position is currently occupied and its Role changed, swap the
+    // occupant's Role-level Discord roles (stacks on top of the unaffected
+    // section/category-level sync — see lib/orbat/discord.ts).
+    if ('roleId' in body && position.userId) {
+        const oldRoleDoc = position.roleId ? await Db.orbatRoles.findOne({ _id: position.roleId }) : null
+        const revokeIds = oldRoleDoc?.discordRoleIds ?? []
+        const grantIds = newRoleDoc?.discordRoleIds ?? []
+        Promise.allSettled([
+            ...revokeIds.map(id => removeGuildRole(position.userId!, id)),
+            ...grantIds.map(id => addGuildRole(position.userId!, id)),
+        ]).catch(err => console.error('[orbat] Role-level Discord sync failed:', err))
+    }
+
+    if ('roleId' in body) {
         logAction({
-            action: 'orbat.rename_role',
+            action: 'orbat.change_role',
             category: 'orbat',
             performedBy: me.id,
             performedByName,
-            target: `${position.sectionTitle}: "${position.role}" → "${body.role}"`,
-            details: { positionId, category: position.category, sectionTitle: position.sectionTitle, oldRole: position.role, newRole: body.role },
+            target: `${position.sectionTitle}: "${position.role}" → "${updates.role}"`,
+            details: { positionId, category: position.category, sectionTitle: position.sectionTitle, oldRole: position.role, newRole: updates.role },
         })
     }
 

@@ -67,9 +67,12 @@ type NotificationType =
     | 'peer_review_extension_approved'  // Candidate: time extension approved
     | 'peer_review_extension_rejected'  // Candidate: time extension rejected
     | 'peer_review_extension_requested' // J3 lead: candidate requesting more time
+    | 'mission_check_requested'         // J2 leads: mission maker has submitted a check request
+    | 'mission_check_confirmed'         // Mission maker: J2 confirmed the check will be handled
+    | 'board_card_assigned'             // Member: a board card was assigned to you
     | 'system'
 
-type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check'
+type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check' | 'mission_check'
 
 interface Task {
     _id?: import('mongodb').ObjectId

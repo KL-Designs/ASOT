@@ -87,6 +87,66 @@ export async function GET(request: NextRequest) {
         }
     }
 
+    // ── 1b. CHQ allocation reminder — 1 hour before op start ─────────────────
+    // Fires once per op when: RSVP is closed, op hasn't started, and any attending
+    // reservist hasn't been assigned a section. Only notifies CHQ.
+    try {
+        const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000)
+        const chqReminderCandidates = await Db.operationAttendance.find({
+            rsvpOpen: false,
+            chqAllocationReminderSentAt: { $exists: false },
+        } as Parameters<typeof Db.operationAttendance.find>[0]).toArray()
+
+        for (const att of chqReminderCandidates) {
+            const op = await Db.operations.findOne({ _id: att.operationId })
+            if (!op?.date || op.status !== 'Upcoming' || op.deletedAt) continue
+
+            const opDate = new Date(op.date)
+            // Trigger window: between now and 1 hour from now
+            if (opDate > oneHourFromNow || opDate <= now) continue
+
+            // Check if any attending reservists lack a section assignment
+            const attendingReservists = (att.records ?? []).filter(r =>
+                r.rsvp === 'attending' && !r.reservistSection
+            )
+            // Also check ORBAT positions for reservist categories
+            const reservistUserIds = attendingReservists.map(r => r.userId)
+            let unassignedReservists = 0
+            if (reservistUserIds.length > 0) {
+                const reservistPositions = await Db.orbatPositions.find({
+                    category: { $in: ['activeReservist', 'inactiveReservist'] },
+                    userId: { $in: reservistUserIds },
+                }).toArray()
+                unassignedReservists = reservistPositions.length
+            }
+
+            // Mark as sent regardless — don't spam CHQ if there's nothing to do
+            await Db.operationAttendance.updateOne(
+                { _id: att._id },
+                { $set: { chqAllocationReminderSentAt: now } }
+            )
+
+            if (unassignedReservists === 0) continue
+
+            // Notify CHQ (companyHQ section leaders)
+            const chqLeaders = await getSectionLeaders(['companyHQ'])
+            for (const leader of chqLeaders) {
+                if (!leader.userId) continue
+                await createNotification({
+                    userId: leader.userId,
+                    type: 'system',
+                    title: 'Allocation Reminder — 1 Hour to Go',
+                    body: `"${op.title}" starts in under 1 hour. ${unassignedReservists} reservist(s) have not been allocated to sections yet.`,
+                    actionUrl: `/operations/${op._id}`,
+                    relatedId: op._id.toString(),
+                })
+            }
+            console.log(`[cron/operations] CHQ allocation reminder sent for op="${op.title}" (${unassignedReservists} unassigned reservists)`)
+        }
+    } catch (e) {
+        console.error('[cron/operations] CHQ allocation reminder failed:', e)
+    }
+
     // ── 2. Auto-activate (Upcoming → Active at start time) ────────────────────
 
     const activateResult = await Db.operations.updateMany(

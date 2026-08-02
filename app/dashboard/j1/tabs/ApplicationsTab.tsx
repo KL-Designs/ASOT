@@ -1295,6 +1295,12 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
                                 {app.recruiterRecommendation && !app.j4ReviewStatus && (
                                     <span title={`Recruiter: ${app.recruiterRecommendation}`} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: app.recruiterRecommendation === 'approve' ? '#00c364' : app.recruiterRecommendation === 'deny' ? 'var(--red)' : '#f59e0b', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 5px' }}>REC</span>
                                 )}
+                                {app.returningMemberCheck?.status === 'YES' && (
+                                    <span title='Returning member' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: '#00c364', background: 'rgba(0,195,100,0.12)', border: '1px solid rgba(0,195,100,0.35)', padding: '1px 5px' }}>RTN</span>
+                                )}
+                                {app.returningMemberCheck?.status === 'REVIEW' && (
+                                    <span title='Returning member — J4 review required' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', padding: '1px 5px' }}>RTN</span>
+                                )}
                             </div>
                             <span style={{ fontSize: '0.7rem', color: app.assignedReviewerName ? 'rgba(245,158,11,0.8)' : 'rgba(237,237,237,0.2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {app.assignedReviewerName ?? '—'}
