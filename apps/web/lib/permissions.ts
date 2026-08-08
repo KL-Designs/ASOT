@@ -339,6 +339,19 @@ const PERMISSIONS = {
         manageOrbatRoles: ['J4 - Administration'],
 
         /**
+         * Permissions Explorer — read-only visualization of the entire
+         * PERMISSIONS catalog (which Discord roles / ORBAT Roles grant each
+         * key, and live member counts), plus per-member lookup. J4 only,
+         * since it exposes the full access-control map of the site.
+         *
+         * Used by:
+         *  - `app/dashboard/j4/PermissionsExplorerPanel.tsx` (panel visibility)
+         *  - `app/api/admin/permissions/tree/route.ts`
+         *  - `app/api/admin/permissions/member/[id]/route.ts`
+         */
+        viewPermissionsTree: ['J4 - Administration'],
+
+        /**
          * Mass import — wipe and replace all milpac and ORBAT data from CSV files.
          * Also used to import historical attendance records.
          * Destructive operation; restricted to J4.
