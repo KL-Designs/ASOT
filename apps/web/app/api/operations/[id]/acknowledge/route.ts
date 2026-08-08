@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     let me: Awaited<ReturnType<typeof client.fetchMe>>
     try {
         me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.attendance.confirm)) {
+        if (!(await hasPermission(me, 'attendance.confirm'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
     } catch {

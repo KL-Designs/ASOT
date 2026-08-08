@@ -16,6 +16,7 @@ import LogsTab from './tabs/LogsTab'
 import TeamspeakTab from './tabs/TeamspeakTab'
 import MasterSheetTab from './tabs/MasterSheetTab'
 import AIAdminTab from './tabs/AIAdminTab'
+import RolesManagerPanel from '@/app/dashboard/orbat/RolesManagerPanel'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -814,6 +815,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
     const [testNotifOpen, setTestNotifOpen] = useState(false)
+    const [rolesManagerOpen, setRolesManagerOpen] = useState(false)
 
     const [devMode, setDevMode]           = useState<boolean | null>(null)
     const [devModeLoading, setDevModeLoading] = useState(false)
@@ -1000,6 +1002,21 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                     </div>
                                 </button>
 
+                                <button
+                                    onClick={() => setRolesManagerOpen(true)}
+                                    className='flex-1 min-w-[160px]'
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                                >
+                                    <div
+                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
+                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
+                                    >
+                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
+                                            ORBAT<br />Manage Roles
+                                        </Typography>
+                                    </div>
+                                </button>
+
                                 {/* Discord Developer Mode toggle */}
                                 <button
                                     onClick={toggleDevMode}
@@ -1158,6 +1175,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
             <DischargeModal open={dischargeOpen} onClose={() => setDischargeOpen(false)} />
             <ReinstateModal open={reinstateOpen} onClose={() => setReinstateOpen(false)} />
             <TestNotificationModal open={testNotifOpen} onClose={() => setTestNotifOpen(false)} selfId={userId} />
+            <RolesManagerPanel open={rolesManagerOpen} onClose={() => setRolesManagerOpen(false)} />
         </div>
     )
 }
