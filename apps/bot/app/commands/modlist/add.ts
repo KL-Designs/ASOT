@@ -3,7 +3,6 @@ import Discord, { ApplicationCommandOptionType } from 'discord.js'
 import Modlist from './class.ts'
 import fs, { existsSync } from 'node:fs'
 import { Buffer } from "node:buffer"
-import { XMLParser } from 'fast-xml-parser'
 
 
 export default {

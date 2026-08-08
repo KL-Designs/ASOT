@@ -4,6 +4,10 @@
 
 FROM node:22-alpine
 
+# See apps/web/dockerfile for why — matches the host's npm major version so `npm ci`'s
+# lockfile-sync check doesn't false-positive against the base image's older bundled npm.
+RUN npm install -g npm@11
+
 # ffmpeg/yt-dlp/python3 for the song-submission command.
 RUN apk add --no-cache ffmpeg curl python3 \
     && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \

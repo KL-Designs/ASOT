@@ -3,7 +3,7 @@ import Discord from 'discord.js'
 import fs from 'node:fs'
 import Db from 'lib/mongo.ts'
 import { Buffer } from "node:buffer"
-import { XMLBuilder, XMLParser } from 'fast-xml-parser'
+import { XMLParser } from 'fast-xml-parser'
 
 
 class ModlistController {

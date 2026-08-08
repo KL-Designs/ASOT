@@ -10,7 +10,7 @@
   "dependencies": {
     "discord.js": "^14.16.3",
     "express": "^4.21.2",
-    "fast-xml-parser": "^4.5.1",
+    "fast-xml-parser": "^5.10.1",
     "gamedig": "^5.1.4",
     "google-auth-library": "^10.4.0",
     "googleapis": "^161.0.0",

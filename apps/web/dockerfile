@@ -4,6 +4,13 @@
 
 FROM node:22-alpine
 
+# node:22-alpine bundles an older npm than modern dev machines commonly have (10.x vs 11.x).
+# npm 11 records some lockfile entries (e.g. optional peer deps) differently than npm 10
+# expects, so `npm ci` on a lockfile written by npm 11 can fail on npm 10 with a false
+# "not in sync" error even though the file is completely valid. Pin a matching modern
+# version here instead of trusting whatever the base image happens to ship.
+RUN npm install -g npm@11
+
 WORKDIR /app
 
 # `playwright` is a real (non-dev) dependency here but is only ever used by the standalone
