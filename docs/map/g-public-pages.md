@@ -258,9 +258,18 @@ entry point.
 
 #### app/login/callback/route.ts
 `GET` route: OAuth callback — exchanges the `code` for a Discord token (`ExchangeToken`), fetches
-the Discord user (`GetUser`), resolves the internal member via `client.fetchMember(user.id)`, sets
-the httpOnly `token` cookie (30-day maxAge), then redirects to the stored `returnTo` (default
-`/me`). Public entry point; this is the core of the site's auth flow described in CLAUDE.md.
+the Discord user (`GetUser`), then **refreshes the stored profile** (`Db.users.updateOne` —
+`username`/`globalName`/`tag`/`avatar`/`avatarURL`/`banner`/`bannerURL`/`hexAccentColor`/
+`accentColor`, built the same way as the initial-seed logic in `scripts/init-db.mjs`) before
+resolving the internal member via `client.fetchMember(user.id)` — `fetchMember` only reads the
+existing DB record and never syncs from Discord itself, so without this refresh the profile stays
+frozen at whatever it was when the account record was first created. Best-effort (`.catch()`
+logs and continues — a refresh failure must not block login). Sets the httpOnly `token` cookie
+(30-day maxAge), then redirects to the stored `returnTo` (default `/me`). Public entry point;
+this is the core of the site's auth flow described in CLAUDE.md. Note: this only refreshes the
+Discord *global* profile (from the OAuth `/users/@me` response) — a per-server ("guild") avatar
+or nickname override, stored separately under `guild.*`, is not touched here and has no existing
+sync path.
 
 ---
 
@@ -500,10 +509,10 @@ No-op `h-full` wrapper.
 
 #### app/me/page.tsx
 Server page: `redirect('/login')` if not authenticated. Shows the current user's own profile card
-(avatar, rank, callsign, role via `getOrbatEntryByUserId`), embeds `<BioSections/>` and
-`<TSLinkButton/>`. Also surfaces `isHQ`/`isJ5` flags (not fully shown but present) likely for
-quick-link buttons (dashboard/preferences/calendar/member-management icons imported: `Api`,
-`Tune`, `CalendarToday`, `ManageAccounts`).
+(avatar, rank, callsign, role via `getOrbatEntryByUserId`), embeds `<BioSections/>`,
+`<TSLinkButton/>`, and `<ResetTokenButton/>`. Also surfaces `isHQ`/`isJ5` flags (not fully shown but
+present) likely for quick-link buttons (dashboard/preferences/calendar/member-management icons
+imported: `Api`, `Tune`, `CalendarToday`, `ManageAccounts`).
 
 #### app/me/bio.tsx
 Client `BioSections`: fetches/saves the current user's biography text via `GET/POST /api/me`.
@@ -513,6 +522,14 @@ Client TeamSpeak account-linking widget: multi-step flow (`searching → confirm
 awaiting-code → success/error`) driving `POST /api/me/teamspeak` with `action: 'init'` etc. Reused
 verbatim inside the recruit-session applicant view (`app/recruit-session/[id]/ApplicantSessionPage.tsx`
 imports this same component).
+
+#### app/me/ResetTokenButton.tsx
+Client "Log Out of All Devices" widget (inline confirm step, no modal). Calls
+`POST /api/me/reset-token`, which regenerates the user's `token` field in `Db.users` — since auth
+is a single random token per user (no per-device session table, see CLAUDE.md Auth section),
+regenerating it invalidates every other browser/device's cookie in one shot. The response sets the
+new token as this browser's `token` cookie too, so the current session stays logged in without a
+reload (the fetch's `Set-Cookie` header is applied by the browser automatically).
 
 ---
 

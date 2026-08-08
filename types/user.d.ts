@@ -27,10 +27,10 @@ declare global {
 
         hexAccentColor: string
         accentColor: number
-        avatar: string
+        avatar: string | null
         avatarURL: string
-        banner: string
-        bannerURL: string
+        banner: string | null
+        bannerURL: string | null
 
         globalName: string
         tag: string

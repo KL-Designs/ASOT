@@ -10,6 +10,7 @@ import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { rankNameFromAbbr } from '@/lib/military/ranks'
 import { BioSections } from './bio'
 import TSLinkButton from './TSLinkButton'
+import ResetTokenButton from './ResetTokenButton'
 import Avatar from '@/components/member/avatar'
 
 
@@ -111,6 +112,7 @@ export default async function Page() {
                         linked={me.teamspeak ? { cldbid: me.teamspeak.cldbid, linkedAt: me.teamspeak.linkedAt } : null}
                         expectedNickname={bioRankAbbr ? `[${bioRankAbbr}] ${bioDisplayName}` : bioDisplayName}
                     />
+                    <ResetTokenButton />
 
                     {/* Navigation cards */}
                     <div className='flex flex-wrap gap-4'>

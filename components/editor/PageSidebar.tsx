@@ -74,51 +74,70 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     // existing operations never get default pages injected on top of their content.
     // Legacy operations (pre-pageOrder) are migrated: 'main' is added to pageOrder without
     // adding the new Intel Package / Zeus / OCAP defaults.
+    //
+    // Guarded by a persisted `docFlags.pagesInitialized` flag rather than trusting a single
+    // `pageOrder.length === 0` snapshot: `synced` can fire slightly ahead of trailing Yjs sync
+    // messages actually landing, and mis-reading an existing document as empty here injects a
+    // duplicate default page set that then gets persisted alongside the real one. The flag makes
+    // "already initialized" durable so a later, raced load can't re-trigger this. A short delay
+    // before evaluating also gives those trailing messages a moment to arrive in the first place.
     useEffect(() => {
         if (!synced) return
         if (defaultInitRef.current) return
         defaultInitRef.current = true
 
-        const pageOrder = ydoc.getArray<string>('pageOrder')
-        if (pageOrder.length > 0) return  // document already has an explicit page list
+        const timer = setTimeout(() => {
+            const flags = ydoc.getMap<string>('docFlags')
+            if (flags.get('pagesInitialized') === 'true') return
 
-        // Legacy document detection: if 'main' already has sections it was created before
-        // pageOrder existed — just register 'main' without adding new default pages.
-        const mainSections = ydoc.getArray<string>('sectionOrder-main')
-        if (mainSections.length > 0) {
-            ydoc.transact(() => {
-                if (!pageOrder.toArray().includes('main')) pageOrder.push(['main'])
-            })
-            return
-        }
-
-        // Brand-new document — insert the standard default page set.
-        const intelId = Math.random().toString(36).slice(2, 10)
-        const zeusId  = Math.random().toString(36).slice(2, 10)
-        const ocapId  = Math.random().toString(36).slice(2, 10)
-        ydoc.transact(() => {
-            pageOrder.push([intelId])
-            const intelM = ydoc.getMap<string>('pmeta-' + intelId)
-            intelM.set('title', 'Intel Package')
-            intelM.set('isMain', 'false')
-            intelM.set('pageType', 'intel')
-            intelM.set('pageColor', '#f59e0b')
-            if (!pageOrder.toArray().includes('main')) {
-                pageOrder.push(['main'])
+            const pageOrder = ydoc.getArray<string>('pageOrder')
+            if (pageOrder.length > 0) {
+                ydoc.transact(() => flags.set('pagesInitialized', 'true'))
+                return
             }
-            ydoc.getMap<string>('pmeta-main').set('title', 'CHQ Orders')
-            pageOrder.push([zeusId])
-            const zeusM = ydoc.getMap<string>('pmeta-' + zeusId)
-            zeusM.set('title', 'Zeus Notes')
-            zeusM.set('isMain', 'false')
-            zeusM.set('pageType', 'zeus')
-            pageOrder.push([ocapId])
-            const ocapM = ydoc.getMap<string>('pmeta-' + ocapId)
-            ocapM.set('title', 'OCAP')
-            ocapM.set('isMain', 'false')
-            ocapM.set('pageType', 'ocap')
-            ocapM.set('pageColor', '#10b981')
-        })
+
+            // Legacy document detection: if 'main' already has sections it was created before
+            // pageOrder existed — just register 'main' without adding new default pages.
+            const mainSections = ydoc.getArray<string>('sectionOrder')
+            if (mainSections.length > 0) {
+                ydoc.transact(() => {
+                    if (!pageOrder.toArray().includes('main')) pageOrder.push(['main'])
+                    flags.set('pagesInitialized', 'true')
+                })
+                return
+            }
+
+            // Brand-new document — insert the standard default page set.
+            const intelId = Math.random().toString(36).slice(2, 10)
+            const zeusId  = Math.random().toString(36).slice(2, 10)
+            const ocapId  = Math.random().toString(36).slice(2, 10)
+            ydoc.transact(() => {
+                flags.set('pagesInitialized', 'true')
+                pageOrder.push([intelId])
+                const intelM = ydoc.getMap<string>('pmeta-' + intelId)
+                intelM.set('title', 'Intel Package')
+                intelM.set('isMain', 'false')
+                intelM.set('pageType', 'intel')
+                intelM.set('pageColor', '#f59e0b')
+                if (!pageOrder.toArray().includes('main')) {
+                    pageOrder.push(['main'])
+                }
+                ydoc.getMap<string>('pmeta-main').set('title', 'CHQ Orders')
+                pageOrder.push([zeusId])
+                const zeusM = ydoc.getMap<string>('pmeta-' + zeusId)
+                zeusM.set('title', 'Zeus Notes')
+                zeusM.set('isMain', 'false')
+                zeusM.set('pageType', 'zeus')
+                pageOrder.push([ocapId])
+                const ocapM = ydoc.getMap<string>('pmeta-' + ocapId)
+                ocapM.set('title', 'OCAP')
+                ocapM.set('isMain', 'false')
+                ocapM.set('pageType', 'ocap')
+                ocapM.set('pageColor', '#10b981')
+            })
+        }, 500)
+
+        return () => clearTimeout(timer)
     }, [synced, ydoc])
 
     useEffect(() => {

@@ -127,6 +127,9 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 #### /api/me/token
 - **GET** — reads `token` cookie directly (no client.fetchMe() gate beyond cookie presence), resolves display name/color/avatar via `client.fetchMe(token)`; returns raw token to caller (used by TipTap collab client-side for `x-collab-token` header). Auth: `token` cookie presence only.
 
+#### /api/me/reset-token
+- **POST** — "log out of all devices": regenerates the caller's `token` field (`GenerateToken()` from `lib/encryption.ts`), invalidating every other browser/device's cookie in one shot (single-token-per-user auth, see CLAUDE.md). Sets the new token as this request's own `token` cookie so the current session isn't logged out. Auth: any authenticated user. Collections: `Db.users`. Logs `member.reset-login-token` via `logAction()`. Used by `app/me/ResetTokenButton.tsx`.
+
 ---
 
 ### gallery (5 files, excludes admin/*)

@@ -35,6 +35,9 @@ export default function MemberDetailPanel({
     const [loadingMember, setLoadingMember] = useState(true)
     const [loadError, setLoadError] = useState<string | null>(null)
 
+    // J4 — panel collapse
+    const [j4Open, setJ4Open] = useState(false)
+
     // J4 — delete
     const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
     const [deleteStage, setDeleteStage] = useState<'idle' | 'confirm'>('idle')
@@ -64,6 +67,7 @@ export default function MemberDetailPanel({
         setConfirmedOps([])
         setLoadError(null)
         setLoadingMember(true)
+        setJ4Open(false)
         setDeleteStage('idle')
         setDeleteConfirmInput('')
         setNameEditMode(false)
@@ -245,13 +249,28 @@ export default function MemberDetailPanel({
                 />
             </div>
 
-            {/* J4 administration panel */}
+            {/* J4 administration panel — collapsed behind a toggle bar so it doesn't eat screen space by default */}
             {isJ4 && (
-                <div style={{ flexShrink: 0, borderTop: '2px solid rgba(219,0,29,0.2)', maxHeight: 420, overflowY: 'auto' }}>
+                <div style={{ flexShrink: 0, borderTop: '2px solid rgba(219,0,29,0.2)' }}>
 
-                    <div style={{ padding: '8px 24px 4px', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                        J4 Administration
-                    </div>
+                    <button
+                        onClick={() => setJ4Open(o => !o)}
+                        style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%',
+                            padding: '7px 24px', background: j4Open ? 'rgba(219,0,29,0.1)' : 'rgba(219,0,29,0.04)',
+                            border: 'none', cursor: 'pointer',
+                        }}
+                    >
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)' }}>
+                            J4 Administration
+                        </span>
+                        <span style={{ fontSize: '0.65rem', color: 'rgba(219,0,29,0.8)', lineHeight: 1, transform: j4Open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                            ▲
+                        </span>
+                    </button>
+
+                    {j4Open && (
+                    <div style={{ maxHeight: 420, overflowY: 'auto' }}>
 
                     {/* Display Name */}
                     <div style={{ padding: '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -473,6 +492,8 @@ export default function MemberDetailPanel({
                         )}
                     </div>
 
+                    </div>
+                    )}
                 </div>
             )}
         </>

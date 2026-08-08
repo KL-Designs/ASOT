@@ -12,7 +12,7 @@ import {
     Add, Delete, MoreVert, DragIndicator,
 } from '@mui/icons-material'
 import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat/constants'
-import MilpacEditor from '@/app/members/[username]/MilpacEditor'
+import MemberDetailPanel from '@/app/dashboard/personnel/all/MemberDetailPanel'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import RolesManagerPanel from './RolesManagerPanel'
 import RoleSelect from './RoleSelect'
@@ -104,12 +104,14 @@ function buildSections(positions: OrbatPositionWithUser[], cat: string): Section
 }
 
 
-export default function OrbatManager({ initialUsers, canManageStructure, canManageMembers, canMilpacEditRestricted, canMilpacEditStandard }: {
+export default function OrbatManager({ initialUsers, canManageStructure, canManageMembers, canMilpacEditRestricted, canMilpacEditStandard, isJ4, canImpersonate }: {
     initialUsers: PickerUser[]
     canManageStructure: boolean
     canManageMembers: boolean
     canMilpacEditRestricted: boolean
     canMilpacEditStandard: boolean
+    isJ4: boolean
+    canImpersonate: boolean
 }) {
 
     const [positions, setPositions] = useState<OrbatPositionWithUser[]>([])
@@ -153,10 +155,8 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
     const [addReservistCat, setAddReservistCat] = useState<'activeReservist' | 'inactiveReservist' | null>(null)
     const [addReservistSearch, setAddReservistSearch] = useState('')
 
-    // Milpac popout
-    const [milpacUser, setMilpacUser] = useState<User | null>(null)
-    const [milpacConfirmedOps, setMilpacConfirmedOps] = useState<{ operationId: string; name: string; confirmedAt: string | null }[]>([])
-    const [milpacLoading, setMilpacLoading] = useState(false)
+    // Member detail popout — shares MemberDetailPanel with the dashboard Members page
+    const [milpacUsername, setMilpacUsername] = useState<string | null>(null)
     const [milpacDirty, setMilpacDirty] = useState(false)
     const [milpacConfirmClose, setMilpacConfirmClose] = useState(false)
 
@@ -164,27 +164,25 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         if (milpacDirty) {
             setMilpacConfirmClose(true)
         } else {
-            setMilpacUser(null)
+            setMilpacUsername(null)
         }
     }
 
     function confirmCloseMilpac() {
         setMilpacConfirmClose(false)
         setMilpacDirty(false)
-        setMilpacUser(null)
+        setMilpacUsername(null)
     }
 
-    async function openMilpac(username: string) {
+    function openMilpac(username: string) {
         setMilpacDirty(false)
-        setMilpacLoading(true)
-        const [memberRes, opsRes] = await Promise.all([
-            fetch(`/api/members/${username}`),
-            fetch(`/api/members/${username}/confirmed-ops`),
-        ])
-        if (memberRes.ok) setMilpacUser(await memberRes.json())
-        if (opsRes.ok) setMilpacConfirmedOps(await opsRes.json())
-        else setMilpacConfirmedOps([])
-        setMilpacLoading(false)
+        setMilpacUsername(username)
+    }
+
+    function handleMemberDeletedFromOrbat() {
+        setMilpacDirty(false)
+        setMilpacUsername(null)
+        load()
     }
 
     // Section metadata (patch images + theme colors + discord roles)
@@ -1595,9 +1593,9 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             </Dialog>
 
 
-            {/* ── Milpac Popout ───────────────────────────────────────────────── */}
+            {/* ── Member Detail Popout — same MemberDetailPanel used on the dashboard Members page ── */}
             <Dialog
-                open={!!milpacUser || milpacLoading}
+                open={!!milpacUsername}
                 onClose={requestCloseMilpac}
                 maxWidth='md'
                 fullWidth
@@ -1605,31 +1603,32 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                     style: {
                         background: '#0e0e0e',
                         border: '1px solid rgba(219,0,29,0.32)',
-                        maxHeight: '90vh',
+                        height: '85vh',
+                        maxHeight: '85vh',
                     },
                 }}
             >
-                <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
                     <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
-                        {milpacUser ? `Milpac — ${milpacUser.name || milpacUser.username}` : 'Loading…'}
+                        {milpacUsername ? `Milpac — ${allUsers.find(u => u.username === milpacUsername)?.displayName || milpacUsername}` : 'Loading…'}
                         {milpacDirty && <span style={{ marginLeft: 8, color: 'rgba(219,0,29,0.7)', fontSize: '0.65rem' }}>● Unsaved changes</span>}
                     </span>
                     <IconButton size='small' onClick={requestCloseMilpac} sx={ghostBtn}>
                         <Close fontSize='small' />
                     </IconButton>
                 </DialogTitle>
-                <DialogContent style={{ padding: 0, overflowY: 'auto' }}>
-                    {milpacLoading && <TacticalSkeleton rows={6} className='p-6' />}
-                    {milpacUser && !milpacLoading && (
-                        <div style={{ padding: '20px 24px' }}>
-                            <MilpacEditor
-                            member={milpacUser}
-                            confirmedOps={milpacConfirmedOps}
-                            onDirtyChange={setMilpacDirty}
+                <DialogContent style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                    {milpacUsername && (
+                        <MemberDetailPanel
+                            key={milpacUsername}
+                            username={milpacUsername}
+                            isJ4={isJ4}
                             canEditRestricted={canMilpacEditRestricted}
                             canEditStandard={canMilpacEditStandard}
+                            canImpersonate={canImpersonate}
+                            onDirtyChange={setMilpacDirty}
+                            onMemberDeleted={handleMemberDeletedFromOrbat}
                         />
-                        </div>
                     )}
                 </DialogContent>
             </Dialog>
