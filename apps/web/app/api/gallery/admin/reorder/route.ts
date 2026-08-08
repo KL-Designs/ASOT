@@ -4,7 +4,7 @@ import path from 'path'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 
-const CONTENT_BASE = path.resolve('./gallery/content')
+const CONTENT_BASE = path.resolve('../../storage/gallery/content')
 
 function resolveSafe(year: string, operation: string, stage: string): string {
     for (const part of [year, operation, stage]) {

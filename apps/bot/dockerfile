@@ -21,6 +21,7 @@ RUN --mount=type=cache,target=/root/.npm \
     npm ci --no-audit --no-fund
 
 COPY apps/bot/ ./apps/bot/
+COPY types/ ./types/
 COPY .env ./.env
 
 WORKDIR /app/apps/bot

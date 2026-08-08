@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process'
 import { Buffer } from 'node:buffer'
 import Colors from 'lib/colors.ts'
 
-const TEMP_DIR = './data/songs/temp'
+const TEMP_DIR = '../../storage/bot/songs/temp'
 const DISCORD_FILE_LIMIT_BYTES = 25 * 1024 * 1024
 
 const YOUTUBE_URL_REGEX = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w\-]{11}/

@@ -6,7 +6,7 @@ import { writeFile, unlink, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path'
 
-const UPLOAD_DIR = path.join(process.cwd(), 'storage', 'j1')
+const UPLOAD_DIR = path.join(process.cwd(), '..', '..', 'storage', 'j1')
 const ALLOWED_EXTS = new Set(['.ts3_plugin', '.zip'])
 
 async function ensureUploadDir() {

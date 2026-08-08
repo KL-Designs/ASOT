@@ -113,8 +113,8 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const badge       = uniformData.badge
 
 	// Auto-generate portrait and medal box if stale or missing
-	const uniformPath = join(process.cwd(), 'milpacs', `${member.id}.png`)
-	const medalsPath  = join(process.cwd(), 'milpacs', `${member.id}-medals.png`)
+	const uniformPath = join(process.cwd(), '..', '..', 'storage', 'milpacs', `${member.id}.png`)
+	const medalsPath  = join(process.cwd(), '..', '..', 'storage', 'milpacs', `${member.id}-medals.png`)
 	try {
 		const currentHash = computeUniformHash(uniformData, boxData)
 		const needsRegen  = currentHash !== member.milpac?.uniformHash
@@ -136,7 +136,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const canEdit         = me ? client.hasRoles(me, ['J5-Media']) : false
 	const isOwn           = me?.id === member.id
 	const canRequestAward = me !== null && me.id !== member.id && !member.isSkeletonAccount
-	const hasCover        = existsSync(join(process.cwd(), 'uploads', 'cover', `${member.id}.png`))
+	const hasCover        = existsSync(join(process.cwd(), '..', '..', 'storage', 'uploads', 'cover', `${member.id}.png`))
 
 	// Fetch confirmed attendance for operation history + stat bar count
 	const attendanceDocs = await Db.operationAttendance.find({

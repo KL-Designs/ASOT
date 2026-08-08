@@ -311,7 +311,7 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 ### types/milpac.d.ts
 - `Milpac` — minimal `{_id, title, section}` (legacy/unused shape; the real milpac data lives on `User.milpac`).
 
-### types/optional.d.ts
+### ../../types/optional.d.ts (monorepo-root, **not** apps/web/types — shared with apps/bot)
 - `Optional` — `{_id: 'qol'|'gfx'|'zeus'|'j2'|'j5', mods: {id,name,deps?}[]}` — the optional-mods master lists.
 
 ### types/preferences.d.ts
@@ -359,11 +359,13 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 ### types/teamspeak.d.ts
 - `TsSnapshot` — `{name, auto, createdAt, createdBy, data: raw TS3 snapshot string, sizeBytes}`.
 
-### types/user.d.ts
+### ../../types/user.d.ts (monorepo-root, **not** apps/web/types — shared with apps/bot)
 - `OAuth` — Discord OAuth token response shape.
-- `User` — **the** central user document. Key sub-shapes: `guild` (nickname/avatar/roles/joinedTimestamp), `optionals` (per-category mod selections), `discharged` (date/type/reason/approvedBy), `departments`/`teamLeadDepts`, `teamspeak` (linked account), `tsVerifyCode`/`tsPending`, `bio`, and the large `milpac` object (currentRank, callsign, enlistedDate, `promotions[]`, `awards[]`, `operations[]`, `qualifications[]`, `promotionPoints`, `j4Points`, `disciplineDeductions`, `disciplineHistory[]`, `billetCounts` — the full raw-count shape consumed by `lib/military/points.ts`'s `MilpacImportCounts`, `uniformHash`).
-- `Role` — Discord role `{id, name, color, rawPosition}`.
+- `User` — **the** central user document, shared with `apps/bot` (which used to have its own narrower duplicate called `GuildMember`, now merged into this). Key sub-shapes: `guild` (nickname/avatar/roles/joinedTimestamp), `optionals` (per-category mod selections), `discharged` (date/type/reason/approvedBy), `departments`/`teamLeadDepts`, `teamspeak` (linked account), `tsVerifyCode`/`tsPending`, `bio`, and the large `milpac` object (currentRank, callsign, enlistedDate, `promotions[]`, `awards[]`, `operations[]`, `qualifications[]`, `promotionPoints`, `j4Points`, `disciplineDeductions`, `disciplineHistory[]`, `billetCounts` — the full raw-count shape consumed by `lib/military/points.ts`'s `MilpacImportCounts`, `uniformHash`).
+- `Role` — Discord role `{id, name, color, rawPosition}` — also shared with `apps/bot`.
 - `OAuthUserResponse` — raw Discord `/users/@me` response shape.
+
+See `types/README.md` at the monorepo root for the sharing convention (web is authoritative; both apps' `tsconfig.json` `include` and both Dockerfiles' `COPY types/` step need to know about this directory).
 
 ### types/recruit-session.d.ts
 - `RecruitSession` — live recruiter↔applicant WebSocket session state persisted to DB (`sessionId, recruiterToken, step, raisedHand, applicantName, formSnapshot, expiresAt`). Backs the `/recruit-session` WS handler in `server.mjs`.

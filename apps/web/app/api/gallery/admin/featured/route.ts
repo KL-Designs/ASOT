@@ -5,7 +5,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 
 
-const FEATURED_BASE = path.resolve('./gallery/featured')
+const FEATURED_BASE = path.resolve('../../storage/gallery/featured')
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
 
 async function checkAuth() {

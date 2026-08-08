@@ -5,7 +5,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 
 
-const GALLERY_BASE = path.resolve('./gallery/content')
+const GALLERY_BASE = path.resolve('../../storage/gallery/content')
 
 /** Resolve a path made up of untrusted parts, rejecting any traversal attempts. */
 function resolveSafe(...parts: string[]): string {

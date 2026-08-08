@@ -6,7 +6,7 @@ import { readFile, access } from 'fs/promises'
 import path from 'path'
 import { ObjectId } from 'mongodb'
 
-const STORAGE_DIR = path.join(process.cwd(), 'storage', 'j2')
+const STORAGE_DIR = path.join(process.cwd(), '..', '..', 'storage', 'j2')
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     let me: User

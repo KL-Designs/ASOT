@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import db from '@/lib/mongo'
 
-const SOTM_DIR = path.resolve('./gallery/sotm')
+const SOTM_DIR = path.resolve('../../storage/gallery/sotm')
 const SETTING_ID = 'screenshotOfMonth'
 
 const MIME_MAP: Record<string, string> = {

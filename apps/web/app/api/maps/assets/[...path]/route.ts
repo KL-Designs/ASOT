@@ -3,7 +3,7 @@ import { readFile } from 'fs/promises'
 import { existsSync } from 'fs'
 import { join, resolve } from 'path'
 
-const MAPS_DIR = join(process.cwd(), 'maps')
+const MAPS_DIR = join(process.cwd(), '..', '..', 'storage', 'maps')
 
 const CONTENT_TYPES: Record<string, string> = {
     png:  'image/png',

@@ -10,7 +10,7 @@ function loadFile(filePath: string) {
 }
 
 const ASSETS = path.join(process.cwd(), 'public', 'milpac-assets')
-const OUTPUT = path.join(process.cwd(), 'milpacs')
+const OUTPUT = path.join(process.cwd(), '..', '..', 'storage', 'milpacs')
 
 // Register Times New Roman — use the bundled asset copy so it works on Linux (production) too
 const fontPath = path.join(ASSETS, 'times.ttf')

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const MAPS_DIR = join(__dirname, '..', 'maps')
+const MAPS_DIR = join(__dirname, '..', '..', '..', 'storage', 'maps')
 const FORCE = process.argv.includes('--force')
 const TARGET = process.argv.find(a => !a.startsWith('-') && a !== process.argv[0] && a !== process.argv[1])
 

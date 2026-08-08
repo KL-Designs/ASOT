@@ -29,7 +29,7 @@ npm run dev-collab    # Dev server + Hocuspocus WebSocket (required for collabor
 npm run build         # Production build
 npm start             # Production server (Next.js + Hocuspocus on same port via server.mjs)
 npm run lint          # ESLint
-npm run generate-terrain   # Pre-generate terrain images from maps/ DEM data (run once after install)
+npm run generate-terrain   # Pre-generate terrain images from ../../storage/maps DEM data (run once after install)
 npm run init-db            # Interactive setup wizard — generates .env and seeds first admin user
 ```
 
@@ -171,7 +171,9 @@ The cron job drives transitions automatically; manual overrides exist in the UI.
 
 ### TypeScript Types
 
-All global types live in `types/*.d.ts` and are declared in `global` scope — no imports needed. Key files: `user.d.ts` (`User`, `Role`), `operation.d.ts` (operations, ProseMirror nodes), `notification.d.ts` (`Notification`, `Task`, `NotificationType`, `TaskStatus`), `attendance.d.ts`, `tickets.d.ts`, `training.d.ts`, `logs.d.ts` (`ActionLog`, `ActionCategory`).
+All global types live in `types/*.d.ts` and are declared in `global` scope — no imports needed. Key files: `operation.d.ts` (operations, ProseMirror nodes), `notification.d.ts` (`Notification`, `Task`, `NotificationType`, `TaskStatus`), `attendance.d.ts`, `tickets.d.ts`, `training.d.ts`, `logs.d.ts` (`ActionLog`, `ActionCategory`).
+
+**`User`, `Role`, `Optional` live in `../../types/` instead** (the monorepo-root `types/` dir, included via this app's `tsconfig.json`) — they're shared with `apps/bot`, which reads/writes the same `users`/`roles`/`optionals` MongoDB collections. Web's shape is authoritative there; see `types/README.md` for the sharing convention. `apps/web/tsconfig.json`'s `include` and both Dockerfiles' `COPY types/` step both need to know about that directory — don't forget either if you touch it.
 
 ---
 

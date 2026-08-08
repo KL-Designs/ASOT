@@ -8,7 +8,7 @@ import path from 'path'
 import { logAction } from '@/lib/logAction'
 import { randomUUID } from 'crypto'
 
-const STORAGE_DIR = path.join(process.cwd(), 'storage', 'j2')
+const STORAGE_DIR = path.join(process.cwd(), '..', '..', 'storage', 'j2')
 
 async function ensureDir() {
     if (!existsSync(STORAGE_DIR)) await mkdir(STORAGE_DIR, { recursive: true })

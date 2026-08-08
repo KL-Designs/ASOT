@@ -10,7 +10,7 @@ function loadFile(filePath: string) {
 }
 
 const ASSETS = path.join(process.cwd(), 'public', 'milpac-assets')
-const OUTPUT = path.join(process.cwd(), 'milpacs')
+const OUTPUT = path.join(process.cwd(), '..', '..', 'storage', 'milpacs')
 
 type MedalJson = { [line: string]: Citation[] }
 const medalJSON: MedalJson = JSON.parse(

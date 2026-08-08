@@ -9,7 +9,7 @@ function countSatTiles(worldDir: string): number {
 }
 
 export function getAvailableWorlds(): MapWorld[] {
-    const mapsDir = join(process.cwd(), 'maps')
+    const mapsDir = join(process.cwd(), '..', '..', 'storage', 'maps')
     if (!existsSync(mapsDir)) return []
 
     const worlds: MapWorld[] = []

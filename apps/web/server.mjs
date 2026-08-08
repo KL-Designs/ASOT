@@ -605,12 +605,12 @@ httpServer.on('upgrade', (request, socket, head) => {
 // Creates the structured storage/ tree on startup if any folder is missing.
 
 ;['j1','j2','j3','j4','j5','j6','j7','hq','all','members'].forEach(d =>
-    mkdirSync(resolve(`./storage/${d}`), { recursive: true })
+    mkdirSync(resolve(`../../storage/${d}`), { recursive: true })
 )
 
 // ── Operation image cleanup ───────────────────────────────────────────────────
 
-const UPLOADS_DIR = resolve('./uploads/operations')
+const UPLOADS_DIR = resolve('../../storage/uploads/operations')
 const IMAGE_URL_PREFIX = '/api/operations/image'
 
 function urlToFilename(src) {

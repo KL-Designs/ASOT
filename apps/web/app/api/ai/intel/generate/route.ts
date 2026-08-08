@@ -10,7 +10,7 @@ import { callImageGenerate, callImageEdit } from '@/lib/ai/service'
 import { buildIntelImagePrompt, getSizeForAspectRatio } from '@/lib/ai/prompts/intel-image'
 import Db from '@/lib/mongo'
 
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'ai-images')
+const UPLOADS_DIR = path.join(process.cwd(), '..', '..', 'storage', 'uploads', 'ai-images')
 
 async function ensureDir(dir: string) {
     await fs.mkdir(dir, { recursive: true })

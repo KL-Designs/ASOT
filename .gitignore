@@ -5,4 +5,10 @@
 /.env
 /.env*.local
 
+# runtime/uploaded data shared by both apps (gallery, uploads, snapshots, maps,
+# j1-j7/hq/all/members storage, milpacs, and the bot's data) — not source, never tracked.
+# README.md documents the layout and is the one file worth keeping in git.
+/storage/*
+!/storage/README.md
+
 # per-app ignores live in apps/*/.gitignore

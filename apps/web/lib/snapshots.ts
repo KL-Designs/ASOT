@@ -14,12 +14,12 @@ import { MongoClient, FindCursor } from 'mongodb'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-export const SNAPSHOTS_DIR = resolve('./snapshots')
+export const SNAPSHOTS_DIR = resolve('../../storage/snapshots')
 export const STATUS_FILE   = join(SNAPSHOTS_DIR, '.status.json')
 export const CONFIG_FILE   = join(SNAPSHOTS_DIR, '.config.json')
 export const MAX_SNAPSHOTS = 5
-export const GALLERY_DIR   = resolve('./gallery')
-export const UPLOADS_DIR   = resolve('./uploads')
+export const GALLERY_DIR   = resolve('../../storage/gallery')
+export const UPLOADS_DIR   = resolve('../../storage/uploads')
 
 export type SnapshotOptions = {
     database:        boolean

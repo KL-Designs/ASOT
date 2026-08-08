@@ -8,16 +8,16 @@ import { XMLParser } from 'fast-xml-parser'
 
 class ModlistController {
 
-    listPath = './data/lists.json'
-    optionalsPath = './data/optionals.json'
-    usersPath = './data/users.json'
+    listPath = '../../storage/bot/lists.json'
+    optionalsPath = '../../storage/bot/optionals.json'
+    usersPath = '../../storage/bot/users.json'
     htmlPath = './app/commands/modlist/preset.html'
 
     constructor() {
-        if (!fs.existsSync('./data/images')) fs.mkdirSync('./data/images', { recursive: true })
-        if (!fs.existsSync('./data/lists.json')) fs.writeFileSync(`./data/lists.json`, JSON.stringify([], null, '\t'))
-        if (!fs.existsSync('./data/users.json')) fs.writeFileSync(`./data/users.json`, JSON.stringify([], null, '\t'))
-        if (!fs.existsSync('./data/optionals.json')) fs.writeFileSync(`./data/optionals.json`, JSON.stringify([], null, '\t'))
+        if (!fs.existsSync('../../storage/bot/images')) fs.mkdirSync('../../storage/bot/images', { recursive: true })
+        if (!fs.existsSync('../../storage/bot/lists.json')) fs.writeFileSync(`../../storage/bot/lists.json`, JSON.stringify([], null, '\t'))
+        if (!fs.existsSync('../../storage/bot/users.json')) fs.writeFileSync(`../../storage/bot/users.json`, JSON.stringify([], null, '\t'))
+        if (!fs.existsSync('../../storage/bot/optionals.json')) fs.writeFileSync(`../../storage/bot/optionals.json`, JSON.stringify([], null, '\t'))
     }
 
 
@@ -49,11 +49,11 @@ class ModlistController {
         if (!response.ok) throw new Error('The server failed to download the banner')
 
         const buffer = await response.arrayBuffer()
-        fs.writeFileSync(`./data/images/${file.id}.${file.name.split('.').pop() || 'jpg'}`, Buffer.from(buffer))
+        fs.writeFileSync(`../../storage/bot/images/${file.id}.${file.name.split('.').pop() || 'jpg'}`, Buffer.from(buffer))
     }
 
     buildBanner(banner: string) {
-        const file = fs.readFileSync(`./data/images/${banner}`)
+        const file = fs.readFileSync(`../../storage/bot/images/${banner}`)
         const buffer = Buffer.from(file)
         return new Discord.AttachmentBuilder(buffer, { name: banner })
     }
@@ -95,7 +95,7 @@ class ModlistController {
         const index = lists.findIndex(list => list.name === name)
         if (index === -1) throw new Error('This modlist does not exist!')
 
-        if (lists[index].banner) fs.rmSync(`./data/images/${lists[index].banner}`)
+        if (lists[index].banner) fs.rmSync(`../../storage/bot/images/${lists[index].banner}`)
 
         lists.splice(index, 1)
         this.updateLists(lists)

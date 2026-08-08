@@ -5,7 +5,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 
 
-const CONTENT_BASE = path.resolve('./gallery/content')
+const CONTENT_BASE = path.resolve('../../storage/gallery/content')
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
 
 function resolveSafe(year: string, operation: string, stage: string): string {

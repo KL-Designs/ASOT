@@ -5,7 +5,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import db from '@/lib/mongo'
 
-const SOTM_DIR = path.resolve('./gallery/sotm')
+const SOTM_DIR = path.resolve('../../storage/gallery/sotm')
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
 const SETTING_ID = 'screenshotOfMonth'
 

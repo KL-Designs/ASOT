@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import fs from 'fs'
 import path from 'path'
 
-const CONTENT_BASE = path.resolve('./gallery/content')
+const CONTENT_BASE = path.resolve('../../storage/gallery/content')
 const SAFE_SEGMENT = /^[a-zA-Z0-9 _\-().]+$/
 
 export async function GET(request: NextRequest) {

@@ -3,7 +3,7 @@ import Db from '@/lib/mongo'
 import { readFile, access } from 'fs/promises'
 import path from 'path'
 
-const UPLOAD_DIR = path.join(process.cwd(), 'storage', 'j1')
+const UPLOAD_DIR = path.join(process.cwd(), '..', '..', 'storage', 'j1')
 
 export async function GET() {
     const current = await Db.tfarPlugins.findOne({ isCurrent: true })

@@ -6,7 +6,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads', 'ai-images')
+const UPLOADS_DIR = path.join(process.cwd(), '..', '..', 'storage', 'uploads', 'ai-images')
 
 export async function GET(req: Request) {
     try {
