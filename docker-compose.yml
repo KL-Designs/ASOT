@@ -1,14 +1,46 @@
+name: asot
 services:
   web:
-    build: .
-    container_name: asot-website
+    build:
+      context: .
+      dockerfile: apps/web/dockerfile
+    container_name: web
     ports:
       - "3000:3000"
     volumes:
-      - ./gallery:/app/gallery
-      - ./milpacs:/app/milpacs
-      - ./uploads:/app/uploads
-      - ./snapshots:/app/snapshots
+      - ./storage/gallery:/app/storage/gallery
+      - ./storage/milpacs:/app/storage/milpacs
+      - ./storage/uploads:/app/storage/uploads
+      - ./storage/snapshots:/app/storage/snapshots
+      - ./storage/j1:/app/storage/j1
+      - ./storage/j2:/app/storage/j2
+      - ./storage/j3:/app/storage/j3
+      - ./storage/j4:/app/storage/j4
+      - ./storage/j5:/app/storage/j5
+      - ./storage/j6:/app/storage/j6
+      - ./storage/j7:/app/storage/j7
+      - ./storage/hq:/app/storage/hq
+      - ./storage/all:/app/storage/all
+      - ./storage/members:/app/storage/members
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # .env's MONGO_URI is 127.0.0.1, for host-run `npm run dev`/`npm start` — a
+      # container can't reach that. `environment:` overrides env_file for the same
+      # key, so this alone flips it to Docker Desktop's host-DNS name without
+      # touching .env.
+      - MONGO_URI=mongodb://host.docker.internal:27017
+
+  bot:
+    build:
+      context: .
+      dockerfile: apps/bot/dockerfile
+    container_name: bot
+    volumes:
+      - ./storage/bot:/app/storage/bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - MONGO_URI=mongodb://host.docker.internal:27017

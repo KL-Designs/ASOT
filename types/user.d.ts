@@ -45,6 +45,11 @@ declare global {
             roles: string[]
         }
 
+        // Set by apps/bot's processMembers() — when this member's Discord data was last
+        // synced, so a mid-run restart can skip members already synced within the interval
+        // instead of re-fetching/re-upserting all of them from scratch.
+        syncedAt?: number
+
         optionals?: {
             qol: { id: string, name: string }[]
             gfx: { id: string, name: string }[]

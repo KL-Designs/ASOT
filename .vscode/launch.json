@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Web: Dev + Collab",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "npm run dev-collab",
+            "cwd": "${workspaceFolder}/apps/web"
+        },
+        {
+            "name": "Bot: Dev",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "npm run dev",
+            "cwd": "${workspaceFolder}/apps/bot"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Web + Bot: Dev",
+            "configurations": ["Web: Dev + Collab", "Bot: Dev"],
+            "stopAll": true
+        }
+    ]
+}

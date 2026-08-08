@@ -1,0 +1,77 @@
+import App from 'app'
+import Db from 'lib/mongo.ts'
+import Discord from 'discord.js'
+
+
+// Also used by ready.ts for the setInterval that calls processMembers() on a schedule —
+// shared so the "was this run recently" throttle below can never drift out of sync with it.
+export const MEMBERS_SYNC_INTERVAL_MS = 1000 * 60 * 60
+
+// Returns whether it actually did work (hit the Discord API + wrote to Mongo), as
+// opposed to skipping — callers use this to decide whether a rate-limit delay is needed.
+export async function processMember(member: Discord.GuildMember): Promise<boolean> {
+    // Cheap check before touching the Discord API — lets a mid-run restart pick up
+    // roughly where it left off instead of re-fetching/re-upserting everyone again.
+    const existing = await Db.users.findOne<Pick<User, 'syncedAt'>>(
+        { _id: member.id },
+        { projection: { syncedAt: 1 } }
+    )
+    const elapsed = existing?.syncedAt ? Date.now() - existing.syncedAt : Infinity
+    if (elapsed < MEMBERS_SYNC_INTERVAL_MS) {
+        console.log(`Skipped member: ${member.user.tag} (synced ${Math.round(elapsed / 1000)}s ago)`)
+        return false
+    }
+
+    const user = await member.user.fetch()
+    const userJson = user.toJSON()
+    userJson['guild'] = member.toJSON()
+    userJson['syncedAt'] = Date.now()
+
+    await Db.users.updateOne(
+        { _id: user.id },
+        { $set: userJson },
+        { upsert: true }
+    )
+
+    console.log(`Processed member: ${user.tag}`)
+    return true
+}
+
+export default async function processMembers() {
+    // Skip if the last full sync is still within the interval — otherwise every bot
+    // restart (crash, deploy, reconnect) re-processes the entire member list immediately,
+    // even if one just ran moments ago.
+    const last = await Db.data.findOne<SyncStateData>({ _id: 'membersLastSynced' })
+    const elapsed = last ? Date.now() - last.timestamp : Infinity
+    if (elapsed < MEMBERS_SYNC_INTERVAL_MS) {
+        console.log(`Skipping member sync — last ran ${Math.round(elapsed / 1000)}s ago, next due in ~${Math.round((MEMBERS_SYNC_INTERVAL_MS - elapsed) / 1000)}s`)
+        return
+    }
+
+    const guild = await App.guild()
+    await guild.members.fetch()
+    const members = guild.members.cache
+
+    const batchSize = 10
+    const delay = ms => new Promise(res => setTimeout(res, ms))
+
+    const allMembers = Array.from(members.values())
+
+    for (let i = 0; i < allMembers.length; i += batchSize) {
+        const batch = allMembers.slice(i, i + batchSize)
+        const results = await Promise.allSettled(batch.map(m => processMember(m)))
+        console.log(`Processed ${i + batch.length}/${allMembers.length} members`)
+
+        // Only pause for Discord's rate limit if this batch actually hit the API —
+        // an all-skipped batch (already synced recently) did no API calls at all,
+        // so there's nothing to rate-limit and no reason to wait.
+        const didWork = results.some(r => r.status === 'fulfilled' && r.value)
+        if (didWork) await delay(2000)
+    }
+
+    await Db.data.updateOne(
+        { _id: 'membersLastSynced' },
+        { $set: { timestamp: Date.now() } },
+        { upsert: true }
+    )
+}
