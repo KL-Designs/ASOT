@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Build context is the repo root (see docker-compose.yml) — apps/web needs the shared
 # root .env at build time too, since NEXT_PUBLIC_* vars get inlined into the client bundle.
 
@@ -5,10 +6,21 @@ FROM node:22-alpine
 
 WORKDIR /app
 
+# `playwright` is a real (non-dev) dependency here but is only ever used by the standalone
+# scripts/scrape-milpacs.mjs maintenance script, never by the running site — its default
+# postinstall downloads Chromium/Firefox/WebKit (300-500MB) which was most of this image's
+# multi-minute install time. Skip that; npm ci also skips dependency resolution (we already
+# have an exact lockfile), which is faster and more reproducible than npm install for a build.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+
 # apps/web is not an npm workspace member (it has its own hoisting-sensitive build —
 # see next.config.ts's outputFileTracingRoot comment) — install it independently.
+# The cache mount persists npm's package cache across separate `docker build` runs
+# (not just within one build) — layer caching alone only helps when this COPY's
+# inputs are byte-identical to a previous build, this helps even when they aren't.
 COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
-RUN cd apps/web && npm install
+RUN --mount=type=cache,target=/root/.npm \
+    cd apps/web && npm ci --no-audit --no-fund
 
 # Terrain generation — separate layer so it only re-runs when maps/ or scripts/ change,
 # not on every app code change.
@@ -21,7 +33,10 @@ COPY apps/web/ ./apps/web/
 COPY .env ./.env
 
 WORKDIR /app/apps/web
-RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
+# Next's own incremental build cache (SWC/webpack) — also persisted across builds via
+# a cache mount, so unrelated code changes don't force a full from-scratch recompile.
+RUN --mount=type=cache,target=/app/apps/web/.next/cache \
+    NODE_OPTIONS="--max-old-space-size=2048" npm run build
 
 EXPOSE 3000
 CMD ["npm", "start"]
