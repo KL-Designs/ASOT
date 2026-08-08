@@ -3,45 +3,31 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { logAction } from '@/lib/logAction'
+import {
+    parseCsvToSessions,
+    normalizeTrainingType,
+    getTypeAcronym,
+    TYPE_ACRONYMS,
+} from '@/lib/training/import-parser'
 
-// CSV columns: F | Date | Trainees | J3 Staff | Training Run | Notes | Ticket #
-// "F" column appears to be a row flag/number; "Training Run" = training type name
-
-function parseDate(raw: string): Date | null {
-    if (!raw?.trim()) return null
-    // Try DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, and natural formats
-    const cleaned = raw.trim()
-    const dmyMatch = cleaned.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/)
-    if (dmyMatch) {
-        const [, d, m, y] = dmyMatch
-        const year = y.length === 2 ? 2000 + parseInt(y) : parseInt(y)
-        const dt = new Date(year, parseInt(m) - 1, parseInt(d))
-        return isNaN(dt.getTime()) ? null : dt
-    }
-    const dt = new Date(cleaned)
-    return isNaN(dt.getTime()) ? null : dt
+// ─── Per-type counters (keyed h_{ACRONYM}) ────────────────────────────────────
+async function getNextTypeSeq(acronym: string, count: number): Promise<number> {
+    const key = `h_${acronym}`
+    const result = await Db.courseInstanceCounters.findOneAndUpdate(
+        { _id: key } as Parameters<typeof Db.courseInstanceCounters.findOneAndUpdate>[0],
+        { $inc: { seq: count } },
+        { upsert: true, returnDocument: 'before' },
+    )
+    return (result?.seq ?? 0) + 1
 }
 
-function parseCsvLine(line: string): string[] {
-    const cols: string[] = []
-    let cur = ''
-    let inQuote = false
-    for (let i = 0; i < line.length; i++) {
-        const ch = line[i]
-        if (ch === '"') {
-            if (inQuote && line[i + 1] === '"') { cur += '"'; i++ }
-            else inQuote = !inQuote
-        } else if (ch === ',' && !inQuote) {
-            cols.push(cur.trim())
-            cur = ''
-        } else {
-            cur += ch
-        }
-    }
-    cols.push(cur.trim())
-    return cols
+function buildTypeRef(acronym: string, seq: number): string {
+    return `${acronym}-${String(seq).padStart(3, '0')}`
 }
 
+// ─── POST: import CSV ─────────────────────────────────────────────────────────
+// Accepts an optional typeMap (from the analyze → review UI) to override
+// canonical names and acronyms. If not provided, auto-detection is used.
 export async function POST(req: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -52,117 +38,310 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'csv field required' }, { status: 400 })
     }
 
-    const lines = body.csv.split(/\r?\n/).filter(Boolean)
-    if (lines.length < 2) return NextResponse.json({ error: 'CSV has no data rows' }, { status: 400 })
+    const { sessions, skippedRows } = parseCsvToSessions(body.csv)
 
-    // Detect header row (first line)
-    const header = parseCsvLine(lines[0]).map(h => h.toLowerCase().trim())
-
-    // Map column indices
-    const colIdx = {
-        f:           header.findIndex(h => h === 'f' || h === '#' || h === 'flag'),
-        date:        header.findIndex(h => h === 'date'),
-        trainees:    header.findIndex(h => h.includes('trainee')),
-        staff:       header.findIndex(h => h.includes('staff') || h.includes('trainer') || h.includes('j3 staff')),
-        trainingRun: header.findIndex(h => h.includes('training run') || h.includes('training type') || h.includes('course')),
-        notes:       header.findIndex(h => h === 'notes' || h === 'note'),
-        ticketNum:   header.findIndex(h => h.includes('ticket')),
+    // Build typeMap lookup: detectedName → { canonicalName, acronym, skip }
+    interface TypeMapEntry { canonicalName: string; acronym: string; skip: boolean }
+    const typeMapLookup = new Map<string, TypeMapEntry>()
+    if (Array.isArray(body.typeMap)) {
+        for (const entry of body.typeMap) {
+            if (entry.detectedName && entry.canonicalName && entry.acronym) {
+                typeMapLookup.set(entry.detectedName, {
+                    canonicalName: entry.canonicalName,
+                    acronym:       entry.acronym,
+                    skip:          entry.skip ?? false,
+                })
+            }
+        }
     }
 
-    const importedById = me.id
-    const importedByName = me.guild?.displayName ?? me.username
-    const now = new Date()
+    // Build per-session override lookup: rowStart → { canonicalName, acronym }
+    const sessionOverrideLookup = new Map<number, { canonicalName: string; acronym: string }>()
+    if (Array.isArray(body.sessionOverrides)) {
+        for (const o of body.sessionOverrides) {
+            if (typeof o.rowStart === 'number' && o.canonicalName) {
+                sessionOverrideLookup.set(o.rowStart, {
+                    canonicalName: o.canonicalName,
+                    acronym:       o.acronym ?? getTypeAcronym(o.canonicalName),
+                })
+            }
+        }
+    }
 
-    const importedRows: object[] = []
-    const skipped: { row: number; reason: string }[] = []
+    // Apply overrides: per-session first, then group typeMap
+    interface ResolvedSession {
+        date: Date
+        trainees: string[]
+        staff: string[]
+        finalName: string
+        acronym: string
+        notes: string
+        ticketRef: string
+        rowStart: number
+    }
 
-    for (let i = 1; i < lines.length; i++) {
-        const cols = parseCsvLine(lines[i])
-        if (cols.every(c => !c)) continue // blank row
+    const resolved: ResolvedSession[] = []
+    const userSkippedTypes = new Map<string, number>()
 
-        const dateRaw = colIdx.date >= 0 ? cols[colIdx.date] : undefined
-        const traineesRaw = colIdx.trainees >= 0 ? cols[colIdx.trainees] : undefined
-        const staffRaw = colIdx.staff >= 0 ? cols[colIdx.staff] : undefined
-        const trainingRunRaw = colIdx.trainingRun >= 0 ? cols[colIdx.trainingRun] : undefined
-        const notesRaw = colIdx.notes >= 0 ? cols[colIdx.notes] : undefined
-        const ticketNum = colIdx.ticketNum >= 0 ? cols[colIdx.ticketNum] : undefined
-
-        const date = parseDate(dateRaw ?? '')
-        if (!date) {
-            skipped.push({ row: i + 1, reason: `Invalid or missing date: "${dateRaw}"` })
+    for (const s of sessions) {
+        const sessionOverride = sessionOverrideLookup.get(s.rowStart)
+        if (sessionOverride) {
+            resolved.push({
+                date:      s.date,
+                trainees:  s.trainees,
+                staff:     s.staff,
+                finalName: sessionOverride.canonicalName,
+                acronym:   sessionOverride.acronym,
+                notes:     s.notes,
+                ticketRef: s.ticketRef,
+                rowStart:  s.rowStart,
+            })
             continue
         }
-
-        const trainingTypeName = trainingRunRaw?.trim() || 'Unknown Training'
-
-        // Parse trainee list (comma or semicolon separated names in cell)
-        const traineeNames = (traineesRaw ?? '')
-            .split(/[;,\n]+/)
-            .map(s => s.trim())
-            .filter(Boolean)
-
-        // Parse trainer/staff list
-        const staffNames = (staffRaw ?? '')
-            .split(/[;,\n]+/)
-            .map(s => s.trim())
-            .filter(Boolean)
-
-        const record = {
-            source: 'csv-import',
-            importedById,
-            importedByName,
-            importedAt: now,
-            date,
-            trainingTypeName,
-            traineeNames,
-            staffNames,
-            notes: notesRaw?.trim() || undefined,
-            ticketRef: ticketNum?.trim() || undefined,
-            // We don't link to a live TrainingEvent or TrainingTicket unless we can match
+        const mapEntry = typeMapLookup.get(s.trainingTypeName)
+        if (mapEntry?.skip) {
+            userSkippedTypes.set(s.trainingTypeName, (userSkippedTypes.get(s.trainingTypeName) ?? 0) + 1)
+            continue
         }
-
-        importedRows.push(record)
+        resolved.push({
+            date:      s.date,
+            trainees:  s.trainees,
+            staff:     s.staff,
+            finalName: mapEntry?.canonicalName ?? s.trainingTypeName,
+            acronym:   mapEntry?.acronym       ?? getTypeAcronym(s.trainingTypeName),
+            notes:     s.notes,
+            ticketRef: s.ticketRef,
+            rowStart:  s.rowStart,
+        })
     }
 
-    // Persist to training_import_records collection
-    if (importedRows.length > 0) {
-        await Db.trainingImportRecords.insertMany(importedRows)
+    const totalUserSkipped = Array.from(userSkippedTypes.values()).reduce((a, b) => a + b, 0)
+
+    if (resolved.length === 0) {
+        return NextResponse.json({
+            imported:         0,
+            skipped:          skippedRows.length + totalUserSkipped,
+            parseSkippedRows: skippedRows,
+            userSkippedTypes: Object.fromEntries(userSkippedTypes),
+        })
     }
+
+    const importedById   = me.id
+    const importedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || ''
+    const now            = new Date()
+    const batchId        = `csv_${Date.now()}`
+
+    // Group by acronym, sort chronologically, allocate sequential refs per type
+    const groupedByAcronym = new Map<string, ResolvedSession[]>()
+    for (const s of resolved) {
+        if (!groupedByAcronym.has(s.acronym)) groupedByAcronym.set(s.acronym, [])
+        groupedByAcronym.get(s.acronym)!.push(s)
+    }
+
+    const toInsert: CourseInstance[] = []
+    for (const [acronym, group] of groupedByAcronym) {
+        group.sort((a, b) => a.date.getTime() - b.date.getTime())
+        const startSeq = await getNextTypeSeq(acronym, group.length)
+        for (let idx = 0; idx < group.length; idx++) {
+            const s = group[idx]
+            toInsert.push({
+                trainingTypeId:     'historical',
+                trainingTypeName:   s.finalName,
+                courseType:         'historical',
+                instanceNumber:     0,
+                instanceRef:        buildTypeRef(acronym, startSeq + idx),
+                status:             'completed',
+                startDate:          s.date,
+                leadInstructorName: s.staff[0] ?? undefined,
+                candidateCount:     s.trainees.length,
+                staffCount:         s.staff.length,
+                passedCount:        0,
+                failedCount:        0,
+                withdrawnCount:     0,
+                instructors:        s.staff.map(name => ({ userId: '', displayName: name, role: 'instructor' })),
+                isLocked:           true,
+                lockedAt:           now,
+                lockedById:         importedById,
+                lockedByName:       importedByName,
+                notes:              s.notes || undefined,
+                isHistoricalImport: true,
+                importBatchId:      batchId,
+                sourceSheetId:      'csv-import',
+                sourceRowRange:     `csv-row-${s.rowStart}`,
+                legacyTicketRef:    s.ticketRef || undefined,
+                historicalTrainees: s.trainees,
+                historicalStaff:    s.staff,
+                createdById:        importedById,
+                createdByName:      importedByName,
+                createdAt:          now,
+                updatedAt:          now,
+            } as CourseInstance)
+        }
+    }
+
+    await Db.courseInstances.insertMany(toInsert)
+
+    const totalSkipped = skippedRows.length + totalUserSkipped
+    await Db.trainingImportRecords.insertOne({
+        batchId,
+        source:        'csv-import',
+        importedById,
+        importedByName,
+        imported:      toInsert.length,
+        skipped:       totalSkipped,
+        importedAt:    now,
+    }).catch(() => {})
 
     logAction({
-        action: 'training.import.csv',
-        category: 'training',
-        performedBy: importedById,
-        performedByName: importedByName ?? importedById,
-        department: 'j3',
-        target: `CSV import: ${importedRows.length} records imported, ${skipped.length} skipped`,
-        details: { imported: importedRows.length, skipped: skipped.length },
+        action:          'training.import.csv',
+        category:        'J3',
+        performedBy:     importedById,
+        performedByName: importedByName,
+        department:      'J3',
+        entityType:      'import_batch',
+        entityId:        batchId,
+        after:           { imported: toInsert.length, skipped: totalSkipped },
     }).catch(console.error)
 
     return NextResponse.json({
-        imported: importedRows.length,
-        skipped: skipped.length,
-        skippedDetails: skipped,
+        imported:         toInsert.length,
+        skipped:          totalSkipped,
+        parseSkippedRows: skippedRows,
+        userSkippedTypes: Object.fromEntries(userSkippedTypes),
     })
 }
 
-// GET: list previously imported records
+// ─── GET: list imported historical records ────────────────────────────────────
 export async function GET(req: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (!client.hasRoles(me, PERMISSIONS.training.manage)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { searchParams } = new URL(req.url)
-    const limit = Math.min(parseInt(searchParams.get('limit') ?? '100', 10), 500)
+    const limit  = Math.min(parseInt(searchParams.get('limit')  ?? '100', 10), 500)
     const offset = parseInt(searchParams.get('offset') ?? '0', 10)
 
-    const records = await Db.trainingImportRecords
-        .find({})
-        .sort({ date: -1 })
-        .skip(offset)
-        .limit(limit)
+    const filter = { isHistoricalImport: true, deletedAt: { $exists: false } } as Parameters<typeof Db.courseInstances.find>[0]
+
+    const [records, total] = await Promise.all([
+        Db.courseInstances.find(filter).sort({ startDate: -1 }).skip(offset).limit(limit).toArray(),
+        Db.courseInstances.countDocuments(filter),
+    ])
+
+    return NextResponse.json({ records, total })
+}
+
+// ─── PATCH: migrate legacy training_import_records into courseInstances ───────
+export async function PATCH(req: NextRequest) {
+    const me = await client.fetchMe().catch(() => null)
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!client.hasRoles(me, PERMISSIONS.training.manage)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    const legacy = await Db.trainingImportRecords
+        .find({ source: { $ne: 'migrated' }, instanceRef: { $exists: false } } as Parameters<typeof Db.trainingImportRecords.find>[0])
         .toArray()
 
-    const total = await Db.trainingImportRecords.countDocuments()
-    return NextResponse.json({ records, total })
+    if (legacy.length === 0) {
+        return NextResponse.json({ migrated: 0, message: 'No legacy records to migrate' })
+    }
+
+    const importedById   = me.id
+    const importedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || ''
+    const now            = new Date()
+    const batchId        = `csv_migration_${Date.now()}`
+
+    const grouped = new Map<string, typeof legacy>()
+    for (const r of legacy) {
+        const typeName = normalizeTrainingType((r as Record<string, unknown>).trainingTypeName as string ?? 'Unknown Training')
+        const acronym  = getTypeAcronym(typeName)
+        if (!grouped.has(acronym)) grouped.set(acronym, [])
+        grouped.get(acronym)!.push(r)
+    }
+
+    const toInsert: CourseInstance[] = []
+    for (const [acronym, group] of grouped) {
+        const startSeq = await getNextTypeSeq(acronym, group.length)
+        group.forEach((r: Record<string, unknown>, idx) => {
+            const historicalTrainees = (r.traineeNames as string[] | undefined) ?? []
+            const historicalStaff    = (r.staffNames   as string[] | undefined) ?? []
+            const typeName           = normalizeTrainingType((r.trainingTypeName as string | undefined) ?? 'Unknown Training')
+            toInsert.push({
+                trainingTypeId:     'historical',
+                trainingTypeName:   typeName,
+                courseType:         'historical',
+                instanceNumber:     0,
+                instanceRef:        buildTypeRef(acronym, startSeq + idx),
+                status:             'completed',
+                startDate:          r.date instanceof Date ? r.date : new Date(r.date as string),
+                leadInstructorName: historicalStaff[0] ?? undefined,
+                candidateCount:     historicalTrainees.length,
+                staffCount:         historicalStaff.length,
+                passedCount:        0,
+                failedCount:        0,
+                withdrawnCount:     0,
+                instructors:        historicalStaff.map((name: string) => ({ userId: '', displayName: name, role: 'instructor' })),
+                isLocked:           true,
+                lockedAt:           now,
+                lockedById:         importedById,
+                lockedByName:       importedByName,
+                notes:              (r.notes as string | undefined) || undefined,
+                isHistoricalImport: true,
+                importBatchId:      batchId,
+                sourceSheetId:      'csv-import',
+                sourceRowRange:     `legacy-${(r._id as { toString(): string }).toString()}`,
+                legacyTicketRef:    (r.ticketRef as string | undefined) || undefined,
+                historicalTrainees,
+                historicalStaff,
+                createdById:        (r.importedById   as string | undefined) ?? importedById,
+                createdByName:      (r.importedByName as string | undefined) ?? importedByName,
+                createdAt:          r.importedAt instanceof Date ? r.importedAt : now,
+                updatedAt:          now,
+            } as CourseInstance)
+        })
+    }
+
+    await Db.courseInstances.insertMany(toInsert)
+
+    await Db.trainingImportRecords.updateMany(
+        { source: { $ne: 'migrated' }, instanceRef: { $exists: false } } as Parameters<typeof Db.trainingImportRecords.updateMany>[0],
+        { $set: { source: 'migrated', migratedAt: now } },
+    )
+
+    return NextResponse.json({ migrated: legacy.length })
+}
+
+// ─── DELETE: clear all historical records + reset per-type counters ───────────
+export async function DELETE(req: NextRequest) {
+    const me = await client.fetchMe().catch(() => null)
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!client.hasRoles(me, PERMISSIONS.training.manage)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    const result = await Db.courseInstances.deleteMany({
+        isHistoricalImport: true,
+    } as Parameters<typeof Db.courseInstances.deleteMany>[0])
+
+    const counterKeys = ['hist', ...Object.values(TYPE_ACRONYMS).map(a => `h_${a}`)]
+    await Promise.all(
+        counterKeys.map(key =>
+            Db.courseInstanceCounters.findOneAndUpdate(
+                { _id: key } as Parameters<typeof Db.courseInstanceCounters.findOneAndUpdate>[0],
+                { $set: { seq: 0 } },
+                { upsert: false },
+            )
+        )
+    )
+
+    const displayName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || ''
+    logAction({
+        action:          'training.import.clear',
+        category:        'J3',
+        performedBy:     me.id,
+        performedByName: displayName,
+        department:      'J3',
+        entityType:      'import_batch',
+        entityId:        'clear_all',
+        after:           { deleted: result.deletedCount },
+    }).catch(console.error)
+
+    return NextResponse.json({ deleted: result.deletedCount })
 }

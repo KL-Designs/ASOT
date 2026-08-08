@@ -11,6 +11,7 @@ declare global {
         category: string
         sectionTitle: string
         role: string
+        roleId: ObjectId | null
         userId: string | null
         sectionOrder: number
         positionOrder: number

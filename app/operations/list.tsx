@@ -4,11 +4,10 @@ import React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { Edit, ArrowForward, Add, ChevronLeft, ChevronRight, Search, Dashboard, Map, AccountTree, EventNote, Close, Check } from '@mui/icons-material'
+import { Edit, ArrowForward, ChevronLeft, ChevronRight, Search, Dashboard, Map } from '@mui/icons-material'
 import { useRef } from 'react'
 
 const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X'] as const
-function toRoman(n: number): string { return ROMAN[n - 1] ?? String(n) }
 
 function detectDaySlotFromTitle(title: string): { stripped: string; day: 'saturday' | 'sunday' | null } {
     const sat = title.match(/\s*[-–—]?\s*(sat|saturday)\s*$/i)
@@ -208,147 +207,20 @@ function SearchResult({ mission }: { mission: Operation }) {
     )
 }
 
-export function CreateButton() {
-    const [modalOpen, setModalOpen] = useState(false)
-    const [step, setStep] = useState<'type' | 'campaign'>('type')
-    const [campaignMode, setCampaignMode] = useState<'existing' | 'new'>('existing')
-    const [campaigns, setCampaigns] = useState<OperationCampaign[] | null>(null)
-    const [selectedCampaignId, setSelectedCampaignId] = useState('')
-    const [newCampaignName, setNewCampaignName] = useState('')
-    const [plannedCount, setPlannedCount] = useState(3)
-    const [creating, setCreating] = useState(false)
-    const [error, setError] = useState('')
-    const router = useRouter()
-
-    function openModal() {
-        setStep('type'); setCampaignMode('existing'); setSelectedCampaignId(''); setNewCampaignName(''); setPlannedCount(3); setError('')
-        setModalOpen(true)
-        fetch('/api/operations/campaigns').then(r => r.json()).then(d => setCampaigns(d.campaigns ?? []))
-    }
-
-    async function createSingle() {
-        setCreating(true)
-        try {
-            const res = await fetch('/api/operations/new')
-            const data = await res.json()
-            if (data.id) { router.push(`/operations/${data.id}/edit`); setModalOpen(false) }
-        } finally { setCreating(false) }
-    }
-
-    async function createCampaign() {
-        setCreating(true); setError('')
-        try {
-            let campaignId = selectedCampaignId
-            let campaignName = ''
-            if (campaignMode === 'new') {
-                if (!newCampaignName.trim()) { setError('Campaign name required'); setCreating(false); return }
-                if (plannedCount < 3) { setError('Campaigns must contain a minimum of three missions.'); setCreating(false); return }
-                const res = await fetch('/api/operations/campaigns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newCampaignName.trim() }) })
-                const data = await res.json()
-                if (!res.ok) { setError(data.error ?? 'Failed'); setCreating(false); return }
-                campaignId = data.id.toString(); campaignName = newCampaignName.trim()
-            } else {
-                const found = (campaigns ?? []).find(c => c._id.toString() === campaignId)
-                if (!found) { setError('Select a campaign'); setCreating(false); return }
-                campaignName = found.name
-            }
-            const mRes = await fetch(`/api/operations/campaign-missions?campaignId=${campaignId}`)
-            const mData = await mRes.json()
-            const existing: CampaignMission[] = mData.missions ?? []
-            const startSeq = existing.length + 1
-            const count = campaignMode === 'new' ? plannedCount : 1
-            for (let i = 0; i < count; i++) {
-                const seq = startSeq + i
-                await fetch('/api/operations/campaign-missions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ campaignId, name: `${campaignName} ${toRoman(seq)}`, sequence: seq }) })
-            }
-            setModalOpen(false)
-        } catch { setError('Network error') }
-        finally { setCreating(false) }
-    }
-
+export function MissionMakingButton() {
     return (
-        <>
-            <button
-                onClick={openModal}
+        <Link href='/dashboard/j2?tab=0' style={{ textDecoration: 'none', flexShrink: 0 }}>
+            <div
                 style={{
                     display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px',
-                    background: 'rgba(219,0,29,0.06)', border: '1px solid rgba(219,0,29,0.3)',
-                    color: 'rgba(219,0,29,0.75)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-                    cursor: 'pointer', transition: 'background 0.2s, color 0.2s', flexShrink: 0,
+                    background: 'rgba(100,150,237,0.07)', border: '1px solid rgba(100,150,237,0.3)',
+                    color: 'rgba(100,150,237,0.75)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+                    cursor: 'pointer', transition: 'background 0.2s, color 0.2s',
                 }}
             >
-                <Add style={{ fontSize: 15 }} />New Mission
-            </button>
-
-            {modalOpen && (
-                <div onClick={() => setModalOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgb(13,13,13)', border: '1px solid rgba(219,0,29,0.25)', borderTop: '2px solid var(--red)', boxShadow: '0 24px 64px rgba(0,0,0,0.8)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.8)' }}>New Mission</span>
-                            <button onClick={() => setModalOpen(false)} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.35)', display: 'flex' }}><Close style={{ fontSize: 18 }} /></button>
-                        </div>
-
-                        {step === 'type' && (
-                            <div style={{ padding: '20px 18px', display: 'flex', gap: 12 }}>
-                                <button onClick={createSingle} disabled={creating} style={{ flex: 1, padding: '16px 12px', cursor: creating ? 'not-allowed' : 'pointer', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')} onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}>
-                                    <EventNote style={{ fontSize: 28, color: 'rgba(237,237,237,0.5)' }} />
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(237,237,237,0.8)' }}>Single Mission</span>
-                                    <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', textAlign: 'center' }}>Standalone operation, not part of a campaign</span>
-                                </button>
-                                <button onClick={() => setStep('campaign')} style={{ flex: 1, padding: '16px 12px', cursor: 'pointer', background: 'rgba(100,150,237,0.04)', border: '1px solid rgba(100,150,237,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(100,150,237,0.08)')} onMouseLeave={e => (e.currentTarget.style.background = 'rgba(100,150,237,0.04)')}>
-                                    <AccountTree style={{ fontSize: 28, color: 'rgba(100,150,237,0.6)' }} />
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'rgba(100,150,237,0.9)' }}>Campaign Mission</span>
-                                    <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', textAlign: 'center' }}>Part of a multi-mission campaign</span>
-                                </button>
-                            </div>
-                        )}
-
-                        {step === 'campaign' && (
-                            <div style={{ padding: '20px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                                <button onClick={() => setStep('type')} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', display: 'flex', alignItems: 'center', gap: 4 }}>← Back</button>
-                                <div style={{ display: 'flex', gap: 0, border: '1px solid rgba(255,255,255,0.1)' }}>
-                                    {(['existing', 'new'] as const).map(m => (
-                                        <button key={m} onClick={() => setCampaignMode(m)} style={{ flex: 1, padding: '7px', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', background: campaignMode === m ? 'rgba(100,150,237,0.12)' : 'transparent', border: 'none', cursor: 'pointer', color: campaignMode === m ? 'rgba(100,150,237,0.9)' : 'rgba(237,237,237,0.3)' }}>{m === 'existing' ? 'Existing Campaign' : 'New Campaign'}</button>
-                                    ))}
-                                </div>
-                                {campaignMode === 'existing' && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                        {!campaigns ? <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)' }}>Loading…</span>
-                                            : campaigns.length === 0 ? <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic' }}>No campaigns yet. Use "New Campaign" tab.</span>
-                                            : campaigns.map(c => {
-                                                const cid = c._id.toString(); const isSel = selectedCampaignId === cid
-                                                return (
-                                                    <button key={cid} onClick={() => setSelectedCampaignId(cid)} style={{ all: 'unset', cursor: 'pointer', padding: '8px 12px', background: isSel ? 'rgba(100,150,237,0.1)' : 'rgba(255,255,255,0.03)', border: `1px solid ${isSel ? 'rgba(100,150,237,0.4)' : 'rgba(255,255,255,0.08)'}`, color: isSel ? 'rgba(100,150,237,0.9)' : 'rgba(237,237,237,0.7)', fontSize: '0.8rem', fontWeight: isSel ? 700 : 400, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                        {isSel && <Check style={{ fontSize: 13 }} />}{c.name}
-                                                    </button>
-                                                )
-                                            })}
-                                    </div>
-                                )}
-                                {campaignMode === 'new' && (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        <input autoFocus value={newCampaignName} onChange={e => { setNewCampaignName(e.target.value); setError('') }} placeholder='Campaign name…' style={{ background: 'rgba(0,0,0,0.25)', border: `1px solid ${error ? 'rgba(219,0,29,0.5)' : 'rgba(100,150,237,0.2)'}`, color: '#ededed', fontSize: '0.82rem', padding: '8px 10px', outline: 'none', fontFamily: 'inherit' }} />
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)' }}>Planned missions:</span>
-                                                <input type='number' min={3} max={10} value={plannedCount} onChange={e => setPlannedCount(Math.max(3, Math.min(10, parseInt(e.target.value) || 3)))} style={{ width: 60, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(100,150,237,0.2)', color: '#ededed', fontSize: '0.82rem', padding: '4px 8px', outline: 'none', fontFamily: 'inherit', textAlign: 'center' }} />
-                                            </div>
-                                            <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>Campaigns must contain a minimum of three missions.</span>
-                                        </div>
-                                    </div>
-                                )}
-                                {error && <span style={{ fontSize: '0.7rem', color: 'rgba(219,0,29,0.8)' }}>{error}</span>}
-                                <button onClick={createCampaign} disabled={creating || (campaignMode === 'existing' && !selectedCampaignId)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '9px 14px', cursor: creating || (campaignMode === 'existing' && !selectedCampaignId) ? 'not-allowed' : 'pointer', background: 'rgba(100,150,237,0.12)', border: '1px solid rgba(100,150,237,0.35)', color: 'rgba(100,150,237,0.9)', opacity: campaignMode === 'existing' && !selectedCampaignId ? 0.4 : 1 }}>
-                                    <Add style={{ fontSize: 14 }} />{creating ? 'Creating…' : (campaignMode === 'new' ? 'Create Campaign' : 'Add Mission')}
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-        </>
+                <Dashboard style={{ fontSize: 15 }} />Mission Making
+            </div>
+        </Link>
     )
 }
 
@@ -605,15 +477,6 @@ function CampaignEntry({ entry, hasAccess, year, month }: { entry: CampaignDispl
                     </div>
                 </div>
                 {entry.campaign.status && <StatusBadge status={entry.campaign.status} />}
-                {hasAccess && (
-                    <div onClick={e => e.stopPropagation()} style={{ flexShrink: 0 }}>
-                        <Link href='/dashboard/j2?tab=0' style={{ textDecoration: 'none' }}>
-                            <div style={actionBtn('rgba(100,150,237,0.07)', 'rgba(100,150,237,0.3)', 'rgba(100,150,237,0.75)')}>
-                                <Dashboard style={{ fontSize: 10 }} /> J2
-                            </div>
-                        </Link>
-                    </div>
-                )}
             </div>
 
             {/* Expanded missions */}
@@ -628,15 +491,6 @@ function CampaignEntry({ entry, hasAccess, year, month }: { entry: CampaignDispl
                                     <span style={{ fontSize: '0.65rem', color: 'rgba(100,150,237,0.5)', flexShrink: 0 }}>{mOpen ? '▼' : '▶'}</span>
                                     <span style={{ flex: 1, fontSize: '0.75rem', fontWeight: 600, color: 'rgba(237,237,237,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.missionName}</span>
                                     <span style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.25)', flexShrink: 0 }}>{m.slots.length} op{m.slots.length !== 1 ? 's' : ''}</span>
-                                    {hasAccess && (
-                                        <div onClick={e => e.stopPropagation()} style={{ flexShrink: 0 }}>
-                                            <Link href='/dashboard/j2?tab=0' style={{ textDecoration: 'none' }}>
-                                                <div style={actionBtn('rgba(100,150,237,0.07)', 'rgba(100,150,237,0.3)', 'rgba(100,150,237,0.75)')}>
-                                                    <Dashboard style={{ fontSize: 10 }} /> J2
-                                                </div>
-                                            </Link>
-                                        </div>
-                                    )}
                                 </div>
                                 {mOpen && (
                                     <div style={{ background: 'rgba(0,0,0,0.15)' }}>
@@ -669,14 +523,9 @@ function CampaignEntry({ entry, hasAccess, year, month }: { entry: CampaignDispl
                                                     <StatusBadge status={s.op.status} />
                                                     <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
                                                         {hasAccess && (
-                                                            <>
-                                                                <Link href='/dashboard/j2?tab=0' style={{ textDecoration: 'none' }}>
-                                                                    <div style={actionBtn('rgba(100,150,237,0.07)', 'rgba(100,150,237,0.3)', 'rgba(100,150,237,0.75)')}><Dashboard style={{ fontSize: 9 }} /> J2</div>
-                                                                </Link>
-                                                                <Link href={`/operations/${s.op._id.toString()}/edit`} style={{ textDecoration: 'none' }}>
-                                                                    <div style={actionBtn('rgba(219,160,0,0.07)', 'rgba(219,160,0,0.25)', 'rgba(219,160,0,0.65)')}><Edit style={{ fontSize: 9 }} /> Edit</div>
-                                                                </Link>
-                                                            </>
+                                                            <Link href={`/operations/${s.op._id.toString()}/edit`} style={{ textDecoration: 'none' }}>
+                                                                <div style={actionBtn('rgba(219,160,0,0.07)', 'rgba(219,160,0,0.25)', 'rgba(219,160,0,0.65)')}><Edit style={{ fontSize: 9 }} /> Edit</div>
+                                                            </Link>
                                                         )}
                                                         <Link href={`/operations/${s.op._id.toString()}/map`} style={{ textDecoration: 'none' }}>
                                                             <div style={actionBtn('rgba(34,197,94,0.07)', 'rgba(34,197,94,0.3)', 'rgba(34,197,94,0.75)')}><Map style={{ fontSize: 9 }} /> Map</div>
@@ -722,14 +571,9 @@ function CampaignEntry({ entry, hasAccess, year, month }: { entry: CampaignDispl
                             <StatusBadge status={op.status} />
                             <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
                                 {hasAccess && (
-                                    <>
-                                        <Link href='/dashboard/j2?tab=0' style={{ textDecoration: 'none' }}>
-                                            <div style={actionBtn('rgba(100,150,237,0.07)', 'rgba(100,150,237,0.3)', 'rgba(100,150,237,0.75)')}><Dashboard style={{ fontSize: 9 }} /> J2</div>
-                                        </Link>
-                                        <Link href={`/operations/${op._id.toString()}/edit`} style={{ textDecoration: 'none' }}>
-                                            <div style={actionBtn('rgba(219,160,0,0.07)', 'rgba(219,160,0,0.25)', 'rgba(219,160,0,0.65)')}><Edit style={{ fontSize: 9 }} /> Edit</div>
-                                        </Link>
-                                    </>
+                                    <Link href={`/operations/${op._id.toString()}/edit`} style={{ textDecoration: 'none' }}>
+                                        <div style={actionBtn('rgba(219,160,0,0.07)', 'rgba(219,160,0,0.25)', 'rgba(219,160,0,0.65)')}><Edit style={{ fontSize: 9 }} /> Edit</div>
+                                    </Link>
                                 )}
                                 <Link href={`/operations/${op._id.toString()}/map`} style={{ textDecoration: 'none' }}>
                                     <div style={actionBtn('rgba(34,197,94,0.07)', 'rgba(34,197,94,0.3)', 'rgba(34,197,94,0.75)')}><Map style={{ fontSize: 9 }} /> Map</div>
@@ -754,6 +598,7 @@ function MonthlyMissionsPanel({
     const [standalone, setStandalone] = useState<Operation[]>([])
     const [campaignEntries, setCampaignEntries] = useState<CampaignDisplay[]>([])
     const [totalCount, setTotalCount] = useState(0)
+    const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
     const label = month === null
         ? String(year)
         : `${new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' })} ${year}`
@@ -910,6 +755,30 @@ function MonthlyMissionsPanel({
             <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>Operations</span>
                 <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>{label}</span>
+                <div style={{ display: 'flex', marginLeft: 'auto', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <button
+                        onClick={() => setSortDir('desc')}
+                        style={{
+                            padding: '4px 10px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                            background: sortDir === 'desc' ? 'rgba(219,0,29,0.12)' : 'transparent',
+                            border: 'none', cursor: 'pointer',
+                            color: sortDir === 'desc' ? 'rgba(219,0,29,0.9)' : 'rgba(237,237,237,0.3)',
+                        }}
+                    >
+                        Newest First
+                    </button>
+                    <button
+                        onClick={() => setSortDir('asc')}
+                        style={{
+                            padding: '4px 10px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                            background: sortDir === 'asc' ? 'rgba(219,0,29,0.12)' : 'transparent',
+                            border: 'none', cursor: 'pointer',
+                            color: sortDir === 'asc' ? 'rgba(219,0,29,0.9)' : 'rgba(237,237,237,0.3)',
+                        }}
+                    >
+                        Oldest First
+                    </button>
+                </div>
             </div>
 
             {empty ? (
@@ -917,7 +786,7 @@ function MonthlyMissionsPanel({
                     {month === null ? 'No operations this year' : 'No operations this month'}
                 </div>
             ) : (() => {
-                // Build flat list sorted by date (oldest first)
+                // Build flat list, sorted by date per the sortDir toggle (defaults to newest first)
                 type SortedItem =
                     | { kind: 'campaign'; entry: CampaignDisplay; sortDate: number }
                     | { kind: 'standalone'; op: Operation; sortDate: number }
@@ -929,15 +798,33 @@ function MonthlyMissionsPanel({
                     }),
                     ...standalone.map(op => ({ kind: 'standalone' as const, op, sortDate: new Date(op.date).getTime() })),
                 ]
-                items.sort((a, b) => a.sortDate - b.sortDate)
+                items.sort((a, b) => sortDir === 'asc' ? a.sortDate - b.sortDate : b.sortDate - a.sortDate)
 
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {items.map(item =>
-                            item.kind === 'campaign'
-                                ? <CampaignEntry key={item.entry.campaignId} entry={item.entry} hasAccess={hasAccess} year={year} month={month} />
-                                : <MissionRow key={item.op._id.toString()} mission={item.op} hasAccess={hasAccess} />
-                        )}
+                        {items.map((item, i) => {
+                            // Month dividers only make sense when browsing a whole year (month === null)
+                            const prevItem = items[i - 1]
+                            const showDivider = month === null && (i === 0 || new Date(item.sortDate).getMonth() !== new Date(prevItem.sortDate).getMonth())
+                            const key = item.kind === 'campaign' ? item.entry.campaignId : item.op._id.toString()
+
+                            return (
+                                <React.Fragment key={key}>
+                                    {showDivider && (
+                                        <div style={{
+                                            padding: '6px 16px', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase',
+                                            color: 'rgba(219,0,29,0.55)', background: 'rgba(219,0,29,0.04)',
+                                            borderTop: '1px solid rgba(219,0,29,0.15)', borderBottom: '1px solid rgba(219,0,29,0.15)',
+                                        }}>
+                                            {new Date(item.sortDate).toLocaleString('default', { month: 'long' })}
+                                        </div>
+                                    )}
+                                    {item.kind === 'campaign'
+                                        ? <CampaignEntry entry={item.entry} hasAccess={hasAccess} year={year} month={month} />
+                                        : <MissionRow mission={item.op} hasAccess={hasAccess} />}
+                                </React.Fragment>
+                            )
+                        })}
                     </div>
                 )
             })()}
@@ -998,23 +885,6 @@ function MissionRow({ mission, hasAccess, campaignName }: { mission: Operation; 
                 <div onClick={e => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                     {hasAccess && (
                         <>
-                            <Link href='/dashboard/j2' title='Manage in J2 Dashboard' style={{ textDecoration: 'none' }}>
-                                <div
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: 4,
-                                        padding: '5px 10px',
-                                        background: 'rgba(100,150,237,0.07)',
-                                        border: '1px solid rgba(100,150,237,0.3)',
-                                        color: 'rgba(100,150,237,0.75)',
-                                        fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                                        cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
-                                    }}
-                                    onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(100,150,237,0.16)'; el.style.color = 'rgba(100,150,237,1)'; el.style.borderColor = 'rgba(100,150,237,0.6)' }}
-                                    onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(100,150,237,0.07)'; el.style.color = 'rgba(100,150,237,0.75)'; el.style.borderColor = 'rgba(100,150,237,0.3)' }}
-                                >
-                                    <Dashboard style={{ fontSize: 11 }} /> J2
-                                </div>
-                            </Link>
                             <Link href={`/operations/${id}/edit`} title='Edit' style={{ textDecoration: 'none' }}>
                                 <div
                                     style={{

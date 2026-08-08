@@ -3,6 +3,8 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logs'
+import { createNotification } from '@/lib/notifications'
+import { ObjectId } from 'mongodb'
 
 const VALID_DEPARTMENTS = ['j1', 'j2', 'j3', 'j4', 'j6', 'j7', 'unit']
 
@@ -87,7 +89,12 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { title, description, start, end, allDay, department, isBCTAvailability, isQuizAvailability, applicantId, applicantName, timePeriod, isPrivate, templateTrainingTypeId } = body
+    const {
+        title, description, start, end, allDay, department,
+        isBCTAvailability, isQuizAvailability, applicantId, applicantName,
+        timePeriod, isPrivate, templateTrainingTypeId,
+        isJ2Unavailability, isMissionCheckRequest, relatedOperationId, relatedOperationTitle,
+    } = body
 
     if (!title?.trim()) {
         return NextResponse.json({ error: 'Title is required' }, { status: 400 })
@@ -109,6 +116,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'End time must be after start time' }, { status: 400 })
     }
 
+    // J2-specific permission gates
+    if (isJ2Unavailability && !client.hasRoles(me, PERMISSIONS.departmentLeads.j2)) {
+        return NextResponse.json({ error: 'Forbidden — J2 Lead role required' }, { status: 403 })
+    }
+    if (isMissionCheckRequest && !client.hasRoles(me, PERMISSIONS.departments.j2)) {
+        return NextResponse.json({ error: 'Forbidden — J2 membership required' }, { status: 403 })
+    }
+
     const displayName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
 
     const event: Omit<CalendarEvent, '_id'> = {
@@ -128,9 +143,71 @@ export async function POST(req: NextRequest) {
         ...(timePeriod ? { timePeriod } : {}),
         ...(isPrivate ? { isPrivate: true } : {}),
         ...(templateTrainingTypeId ? { templateTrainingTypeId } : {}),
+        ...(isJ2Unavailability ? { isJ2Unavailability: true } : {}),
+        ...(isMissionCheckRequest ? { isMissionCheckRequest: true } : {}),
+        ...(relatedOperationId ? { relatedOperationId } : {}),
+        ...(relatedOperationTitle ? { relatedOperationTitle } : {}),
     }
 
     const result = await Db.calendarEvents.insertOne(event as CalendarEvent)
+    const eventId = result.insertedId.toString()
+
+    // Mission check request: create task + notify J2 leads + confirm to mission maker
+    if (isMissionCheckRequest && relatedOperationId && relatedOperationTitle) {
+        const task: Omit<Task, '_id'> = {
+            title: `Mission Check: ${relatedOperationTitle}`,
+            description: `**${displayName}** has requested a mission check for **${relatedOperationTitle}**.\n\nScheduled for: ${startDate.toLocaleString('en-AU', { timeZone: 'UTC' })} UTC`,
+            assignedRole: PERMISSIONS.departmentLeads.j2[0],
+            assignedBy: me.id,
+            assignedByName: displayName,
+            dueDate: startDate,
+            department: 'j2',
+            type: 'mission_check',
+            relatedId: relatedOperationId,
+            actionUrl: `/operations/${relatedOperationId}`,
+            createdAt: new Date(),
+            status: 'pending',
+        }
+        const taskResult = await Db.tasks.insertOne(task as Task)
+        const taskId = taskResult.insertedId.toString()
+
+        // Stamp the task ID back onto the calendar event
+        await Db.calendarEvents.updateOne(
+            { _id: new ObjectId(eventId) },
+            { $set: { relatedTaskId: taskId } }
+        )
+
+        // Notify all J2 leads
+        const J2_LEAD_ROLES = PERMISSIONS.departmentLeads.j2
+        const leads = await Db.users
+            .find({ 'guild.roles': { $in: J2_LEAD_ROLES }, discharged: { $exists: false }, isSkeletonAccount: { $ne: true } })
+            .project<{ id: string }>({ id: 1 })
+            .toArray()
+
+        const notifiedIds = new Set<string>()
+        for (const lead of leads) {
+            if (!lead.id || notifiedIds.has(lead.id)) continue
+            notifiedIds.add(lead.id)
+            createNotification({
+                userId: lead.id,
+                type: 'mission_check_requested',
+                title: `Mission Check Requested: ${relatedOperationTitle}`,
+                body: `**${displayName}** has requested a mission check for **${relatedOperationTitle}** scheduled for ${startDate.toLocaleDateString('en-AU')}.`,
+                actionUrl: '/dashboard/j2',
+                relatedId: eventId,
+            })
+        }
+
+        // Confirm back to the mission maker
+        createNotification({
+            userId: me.id,
+            type: 'mission_check_confirmed',
+            title: 'Mission Check Requested',
+            body: `Your mission check request for **${relatedOperationTitle}** has been submitted. J2 leads have been notified and a task has been created for assignment.`,
+            actionUrl: '/dashboard/j2',
+            relatedId: eventId,
+        })
+    }
 
     logAction({
         action: 'calendar.create',
@@ -138,8 +215,8 @@ export async function POST(req: NextRequest) {
         performedBy: me.id,
         performedByName: displayName,
         target: `Created event "${title.trim()}" in ${department.toUpperCase()}`,
-        details: { eventId: result.insertedId.toString(), department, start, end },
+        details: { eventId, department, start, end },
     })
 
-    return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+    return NextResponse.json({ ok: true, id: eventId })
 }

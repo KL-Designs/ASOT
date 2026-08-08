@@ -8,8 +8,9 @@ import { pipeline } from 'stream/promises'
 import { Readable } from 'stream'
 import archiver from 'archiver'
 import unzipper from 'unzipper'
+import { createInterface } from 'readline'
 import { EJSON } from 'bson'
-import { MongoClient } from 'mongodb'
+import { MongoClient, FindCursor } from 'mongodb'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,15 @@ function humanSize(bytes: number): string {
 function snapshotTimestamp(now: Date): string {
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}-${pad(now.getUTCHours())}-${pad(now.getUTCMinutes())}-${pad(now.getUTCSeconds())}`
+}
+
+// Yields one EJSON-encoded document per line, pulled lazily from the cursor —
+// keeps each synchronous stringify call tiny instead of stringifying an entire
+// collection at once, and yields to the event loop on every cursor fetch.
+async function* ndjsonLines(cursor: FindCursor): AsyncGenerator<string> {
+    for await (const doc of cursor) {
+        yield EJSON.stringify(doc, { relaxed: false }) + '\n'
+    }
 }
 
 async function copyDirRecursive(src: string, dest: string): Promise<void> {
@@ -222,12 +232,12 @@ export async function createSnapshot(options: SnapshotOptions = DEFAULT_SNAPSHOT
                     { name: 'manifest.json' }
                 )
 
+                // Stream each collection as newline-delimited EJSON instead of loading the
+                // whole collection into memory and stringifying it in one synchronous call —
+                // that blocked the Node event loop (and the whole site) for the duration.
                 for (const collName of collections) {
-                    const docs = await db.collection(collName).find({}).toArray()
-                    archive.append(
-                        EJSON.stringify(docs, { relaxed: false }),
-                        { name: `db/${collName}.ejson` }
-                    )
+                    const cursor = db.collection(collName).find({})
+                    archive.append(Readable.from(ndjsonLines(cursor)), { name: `db/${collName}.ejson` })
                 }
             })()
 
@@ -264,6 +274,27 @@ export async function createSnapshot(options: SnapshotOptions = DEFAULT_SNAPSHOT
 
 // ── Revert ────────────────────────────────────────────────────────────────────
 
+// Reads a `db/<collection>.ejson` entry. New snapshots write newline-delimited EJSON
+// (one document per line); snapshots created before streaming was added wrote the
+// whole collection as a single EJSON array — detect and support both on read.
+async function readEjsonDocs(path: string): Promise<unknown[]> {
+    const rl = createInterface({ input: createReadStream(path), crlfDelay: Infinity })
+    const docs: unknown[] = []
+    const arrayLines: string[] = []
+    let isArrayFormat: boolean | undefined
+
+    for await (const line of rl) {
+        if (isArrayFormat === undefined) isArrayFormat = line.trimStart().startsWith('[')
+        if (isArrayFormat) {
+            arrayLines.push(line)
+        } else if (line.trim()) {
+            docs.push(EJSON.parse(line))
+        }
+    }
+
+    return isArrayFormat ? (EJSON.parse(arrayLines.join('\n')) as unknown[]) : docs
+}
+
 export async function revertSnapshot(zipPath: string): Promise<void> {
     const tmpDir = join(SNAPSHOTS_DIR, `.revert-tmp-${Date.now()}`)
     mkdirSync(tmpDir, { recursive: true })
@@ -298,8 +329,7 @@ export async function revertSnapshot(zipPath: string): Promise<void> {
             const ejsonPath = join(dbDir, `${collName}.ejson`)
             if (!existsSync(ejsonPath)) continue
 
-            const raw  = await readFile(ejsonPath, 'utf-8')
-            const docs = EJSON.parse(raw) as unknown[]
+            const docs = await readEjsonDocs(ejsonPath)
 
             const coll = db.collection(collName)
             await coll.drop().catch(() => {})  // ignore error if collection didn't exist

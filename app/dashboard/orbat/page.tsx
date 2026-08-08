@@ -18,6 +18,8 @@ export default async function Page() {
     const canManageMembers        = client.hasRoles(me, PERMISSIONS.admin.manageOrbatMembers)
     const canMilpacEditRestricted = client.hasRoles(me, PERMISSIONS.members.editRestricted)
     const canMilpacEditStandard   = client.hasRoles(me, PERMISSIONS.members.editStandard)
+    const canImpersonate          = client.hasRoles(me, PERMISSIONS.admin.impersonate)
+    const isJ4                    = client.hasRoles(me, PERMISSIONS.departments.j4)
 
     const allUsers = (await Db.users.find({}).toArray()).map(u => ({
         id: u._id,
@@ -33,6 +35,8 @@ export default async function Page() {
             canManageMembers={canManageMembers}
             canMilpacEditRestricted={canMilpacEditRestricted}
             canMilpacEditStandard={canMilpacEditStandard}
+            isJ4={isJ4}
+            canImpersonate={canImpersonate}
         />
     )
 }

@@ -26,6 +26,24 @@ const STAGE_DEFS: { id: AttendanceStage; label: string; sub: string }[] = [
     { id: 'completed',          label: 'Completed',    sub: '' },
 ]
 
+const CHECK_CONTENT: Record<'campaign' | 'single', Record<string, string[]>> = {
+    campaign: {
+        w16: ['Mission concept/idea submitted to J2', 'Initial discussion completed with team leads'],
+        w12: ['Confirmed mission development has started', 'Initial planning document created', 'First mission scenario and orders started', 'J2 lead briefed on mission concept'],
+        w10: ['Core framework and fundamentals established', 'First mission scenario and orders complete', 'Second and third missions started'],
+        w8: ['Second and third missions complete', 'All subsequent missions started', 'All mission orders finalised'],
+        w6: ['Final checks and revisions completed', 'Bug fixing pass completed', 'Server loadout and mission tested', 'Weekly Monday reminder sent (if any items incomplete)'],
+        w4: ['Final development check completed', 'Arsenal and loadout updates confirmed'],
+    },
+    single: {
+        w12: ['Mission concept/idea submitted to J2'],
+        w10: ['Confirmed mission development has started', 'Mission scenario and orders started', 'J2 lead briefed on mission concept'],
+        w8: ['Mission scenario and orders complete', 'Replacement mission arranged if not complete'],
+        w6: ['Final checks and bug fixing completed', 'Server mission tested', 'Weekly Monday reminder sent (if any items incomplete)'],
+        w4: ['Final development check completed', 'Arsenal and loadout updates confirmed'],
+    },
+}
+
 function hexToRgb(hex: string) {
     const h = hex.replace('#', '')
     return {
@@ -48,7 +66,8 @@ export default function Page() {
     const [loreDateDayjs, setLoreDateDayjs] = useState<Dayjs | null>(null)
     const [department, setDepartment] = useState('')
     const [themeColor, setThemeColor] = useState('#db001d')
-    const [pageTheme, setPageTheme] = useState<Operation['pageTheme']>('modern')
+    const [pageTheme, setPageTheme] = useState<string>('modern')
+    const [eraOptions, setEraOptions] = useState<{ _id: string; name: string; value: string }[]>([])
     const [customTheme, setCustomTheme] = useState<string>('')
     const [status, setStatus] = useState<string>('Upcoming')
     const [coverImage, setCoverImage] = useState<string | null>(null)
@@ -96,7 +115,11 @@ export default function Page() {
     const [ordersCheckPreferredAt, setOrdersCheckPreferredAt] = useState<Dayjs | null>(null)
     const [ordersCheckComments, setOrdersCheckComments]     = useState('')
     const [ordersCheckSaving, setOrdersCheckSaving]         = useState(false)
-    const [ordersCheckTask, setOrdersCheckTask]             = useState<null | { status: string; ordersCheckAt?: string; ordersCheckStatus?: string; ordersCheckProposedAt?: string; ordersCheckProposedBy?: string }>(null)
+    const [ordersCheckTask, setOrdersCheckTask]             = useState<null | { _id?: string; status: string; ordersCheckAt?: string; ordersCheckStatus?: string; ordersCheckProposedAt?: string; ordersCheckProposedBy?: string }>(null)
+    const [ordersCheckCancelling, setOrdersCheckCancelling] = useState(false)
+    const [ordersCheckReminderAt, setOrdersCheckReminderAt] = useState<Dayjs | null>(null)
+    const [ordersCheckReminderSaving, setOrdersCheckReminderSaving] = useState(false)
+    const [ordersCheckReminderSet, setOrdersCheckReminderSet] = useState(false)
 
     const [assignedPlatoons, setAssignedPlatoons] = useState<string[]>([])
     const [discordPingEnabled, setDiscordPingEnabled] = useState(false)
@@ -228,6 +251,10 @@ export default function Page() {
             .then(r => r.json())
             .then(worlds => { if (Array.isArray(worlds)) setAvailableWorlds(worlds) })
 
+        fetch('/api/admin/era-options')
+            .then(r => r.json())
+            .then(data => { if (Array.isArray(data)) setEraOptions(data) })
+
         fetch(`/api/operations?id=${id}`)
             .then(r => r.json())
             .then(json => {
@@ -243,7 +270,7 @@ export default function Page() {
                 setLoreDateDayjs(parsed?.isValid() ? parsed : null)
                 setDepartment(op.department || '')
                 setThemeColor(op.themeColor || '#db001d')
-                setPageTheme((op.pageTheme as Operation['pageTheme']) || 'modern')
+                setPageTheme(op.pageTheme || 'modern')
                 setCustomTheme((op as any).customTheme || '')
                 setStatus(op.status || 'Upcoming')
                 setCoverImage(op.coverImage || null)
@@ -277,10 +304,10 @@ export default function Page() {
                 if ((op as any).ownedByName) setOwnedByName((op as any).ownedByName)
                 if ((op as any).billetPoints != null) setBilletPoints((op as any).billetPoints)
 
-                // Acknowledgements
-                fetch(`/api/operations/${id}/acknowledge`)
+                // Acknowledgements (pageId='main' for the primary doc)
+                fetch(`/api/operations/${id}/acknowledge?pageId=main`)
                     .then(r => r.ok ? r.json() : null)
-                    .then(d => { if (d) { setAckCount(d.count ?? 0); setAckList(d.acks ?? []) } })
+                    .then(d => { if (d) { setAckCount((d.acks ?? []).length); setAckList(d.acks ?? []) } })
                     .catch(() => {})
             })
 
@@ -652,17 +679,19 @@ export default function Page() {
                     {opID && (
                         <button
                             className='hidden md:block'
-                            onClick={() => setPreviewOpen(o => !o)}
+                            onClick={() => window.open(`/operations/${opID}`, '_blank')}
                             style={{
                                 padding: '6px 14px',
-                                background: previewOpen ? 'rgba(237,237,237,0.07)' : 'rgba(237,237,237,0.03)',
-                                border: `1px solid ${previewOpen ? 'rgba(237,237,237,0.25)' : 'rgba(255,255,255,0.1)'}`,
-                                color: previewOpen ? 'rgba(237,237,237,0.8)' : 'rgba(237,237,237,0.35)',
+                                background: 'rgba(237,237,237,0.03)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'rgba(237,237,237,0.35)',
                                 fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
                                 cursor: 'pointer', transition: 'all 0.15s',
                             }}
+                            onMouseEnter={e => { e.currentTarget.style.color = 'rgba(237,237,237,0.75)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+                            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(237,237,237,0.35)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
                         >
-                            {previewOpen ? '⊠ Preview' : '⊡ Preview'}
+                            ⊡ Preview
                         </button>
                     )}
                 </div>
@@ -860,22 +889,89 @@ export default function Page() {
                                     {/* Orders Check Request */}
                                     <div style={{ marginTop: 16, borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 14 }}>
                                         {ordersCheckTask ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'rgba(100,150,237,0.06)', border: '1px solid rgba(100,150,237,0.18)' }}>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.7)', marginBottom: 3 }}>
-                                                        Orders Check {ordersCheckTask.ordersCheckStatus === 'confirmed' ? '✓ Confirmed' : ordersCheckTask.ordersCheckStatus === 'proposed' ? '— Alternative Proposed' : '— Requested'}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'rgba(100,150,237,0.06)', border: '1px solid rgba(100,150,237,0.18)' }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.7)', marginBottom: 3 }}>
+                                                            Orders Check {ordersCheckTask.ordersCheckStatus === 'confirmed' ? '✓ Confirmed' : ordersCheckTask.ordersCheckStatus === 'proposed' ? '— Alternative Proposed' : '— Requested'}
+                                                        </div>
+                                                        {ordersCheckTask.ordersCheckAt && (
+                                                            <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.5)' }}>
+                                                                Requested: {new Date(ordersCheckTask.ordersCheckAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                            </div>
+                                                        )}
+                                                        {ordersCheckTask.ordersCheckStatus === 'proposed' && ordersCheckTask.ordersCheckProposedAt && (
+                                                            <div style={{ fontSize: '0.65rem', color: 'rgba(219,160,0,0.75)', marginTop: 2 }}>
+                                                                Alternative by {ordersCheckTask.ordersCheckProposedBy}: {new Date(ordersCheckTask.ordersCheckProposedAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    {ordersCheckTask.ordersCheckAt && (
-                                                        <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.5)' }}>
-                                                            Requested: {new Date(ordersCheckTask.ordersCheckAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}
-                                                        </div>
-                                                    )}
-                                                    {ordersCheckTask.ordersCheckStatus === 'proposed' && ordersCheckTask.ordersCheckProposedAt && (
-                                                        <div style={{ fontSize: '0.65rem', color: 'rgba(219,160,0,0.75)', marginTop: 2 }}>
-                                                            Alternative by {ordersCheckTask.ordersCheckProposedBy}: {new Date(ordersCheckTask.ordersCheckProposedAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}
-                                                        </div>
+                                                    {/* Cancel button */}
+                                                    {ordersCheckTask.ordersCheckStatus !== 'confirmed' && ordersCheckTask._id && (
+                                                        <button
+                                                            type='button'
+                                                            disabled={ordersCheckCancelling}
+                                                            onClick={async () => {
+                                                                if (!confirm('Cancel this orders check request?')) return
+                                                                setOrdersCheckCancelling(true)
+                                                                try {
+                                                                    const res = await fetch(`/api/operations/${opID}/orders-check?taskId=${ordersCheckTask._id}`, { method: 'DELETE' })
+                                                                    if (res.ok) {
+                                                                        setOrdersCheckTask(null)
+                                                                        setOrdersCheckReminderSet(false)
+                                                                    } else {
+                                                                        const d = await res.json()
+                                                                        alert(d.error ?? 'Failed to cancel.')
+                                                                    }
+                                                                } finally {
+                                                                    setOrdersCheckCancelling(false)
+                                                                }
+                                                            }}
+                                                            style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 10px', background: 'none', border: '1px solid rgba(219,0,29,0.3)', color: 'rgba(219,0,29,0.6)', cursor: 'pointer', flexShrink: 0 }}
+                                                        >
+                                                            {ordersCheckCancelling ? '…' : 'Cancel Request'}
+                                                        </button>
                                                     )}
                                                 </div>
+
+                                                {/* Reminder — shown after confirmation */}
+                                                {ordersCheckTask.ordersCheckStatus === 'confirmed' && ordersCheckTask._id && (
+                                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                                            <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', flexShrink: 0 }}>Remind me:</span>
+                                                            <DateTimePicker
+                                                                value={ordersCheckReminderAt}
+                                                                onChange={v => setOrdersCheckReminderAt(v)}
+                                                                slotProps={{
+                                                                    textField: { size: 'small', sx: { '& .MuiInputBase-root': { background: 'rgba(0,0,0,0.3)', borderRadius: 0, fontSize: '0.75rem' }, '& .MuiOutlinedInput-notchedOutline': { border: '1px solid rgba(255,255,255,0.08)' }, '& .MuiInputBase-input': { color: 'rgba(237,237,237,0.75)', padding: '4px 8px' }, '& .MuiSvgIcon-root': { color: 'rgba(237,237,237,0.3)', fontSize: 16 } } },
+                                                                    popper: { sx: { zIndex: 19999 } },
+                                                                }}
+                                                            />
+                                                            <button
+                                                                type='button'
+                                                                disabled={!ordersCheckReminderAt || ordersCheckReminderSaving}
+                                                                onClick={async () => {
+                                                                    if (!ordersCheckReminderAt) return
+                                                                    setOrdersCheckReminderSaving(true)
+                                                                    try {
+                                                                        const res = await fetch(`/api/operations/${opID}/orders-check`, {
+                                                                            method: 'PATCH',
+                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({ taskId: ordersCheckTask._id, action: 'set_reminder', proposedAt: ordersCheckReminderAt.toISOString() }),
+                                                                        })
+                                                                        if (res.ok) { setOrdersCheckReminderSet(true) }
+                                                                        else { const d = await res.json(); alert(d.error ?? 'Failed.') }
+                                                                    } finally {
+                                                                        setOrdersCheckReminderSaving(false)
+                                                                    }
+                                                                }}
+                                                                style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 10px', background: ordersCheckReminderSet ? 'rgba(76,175,80,0.15)' : 'rgba(100,150,237,0.15)', border: `1px solid ${ordersCheckReminderSet ? 'rgba(76,175,80,0.3)' : 'rgba(100,150,237,0.3)'}`, color: ordersCheckReminderSet ? 'rgba(76,175,80,0.8)' : 'rgba(100,150,237,0.8)', cursor: 'pointer', flexShrink: 0 }}
+                                                            >
+                                                                {ordersCheckReminderSet ? '✓ Set' : 'Set Reminder'}
+                                                            </button>
+                                                        </div>
+                                                    </LocalizationProvider>
+                                                )}
                                             </div>
                                         ) : (
                                             <button type='button' onClick={() => setOrdersCheckModal(true)}
@@ -901,7 +997,7 @@ export default function Page() {
                                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                     onClick={e => { if (e.target === e.currentTarget) setCompletingCheckId(null) }}
                                 >
-                                    <div style={{ background: '#0f0f10', border: `1px solid ${c(0.35)}`, borderTop: `2px solid rgba(0,200,80,0.7)`, padding: '24px 28px', maxWidth: 420, width: '90%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    <div style={{ background: '#0f0f10', border: `1px solid ${c(0.35)}`, borderTop: `2px solid rgba(0,200,80,0.7)`, padding: '24px 28px', maxWidth: 500, width: '90%', display: 'flex', flexDirection: 'column', gap: 16 }}>
                                         <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,200,80,0.5)', fontFamily: 'monospace' }}>
                                             {'// COMPLETE CHECK'}
                                         </div>
@@ -912,6 +1008,24 @@ export default function Page() {
                                             Due: {ch.dueDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })}
                                             {ch.isOverdue && <span style={{ color: 'rgba(219,80,0,0.85)', marginLeft: 8 }}>● Overdue</span>}
                                         </div>
+
+                                        {(() => {
+                                            const items = CHECK_CONTENT[isCampaignOp ? 'campaign' : 'single'][ch.id] ?? []
+                                            if (!items.length) return null
+                                            return (
+                                                <div style={{ background: 'rgba(0,200,80,0.04)', border: '1px solid rgba(0,200,80,0.12)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(0,200,80,0.45)', marginBottom: 4, fontFamily: 'monospace' }}>
+                                                        Stage Checklist
+                                                    </div>
+                                                    {items.map((item, i) => (
+                                                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                                            <span style={{ fontSize: '0.6rem', color: 'rgba(0,200,80,0.5)', marginTop: 1, flexShrink: 0 }}>◻</span>
+                                                            <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.45 }}>{item}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )
+                                        })()}
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                             <div>
@@ -1247,12 +1361,11 @@ export default function Page() {
                             />
                             <span style={{ fontSize: '0.75rem', letterSpacing: '0.06em', color: 'rgba(237,237,237,0.55)', whiteSpace: 'nowrap' }}>Theme Color</span>
                         </label>
-                        {/* Page Theme */}
+                        {/* ERA / Page Theme */}
                         <select
                             value={pageTheme ?? 'modern'}
                             onChange={e => {
-                                const v = e.target.value as Operation['pageTheme']
-                                setPageTheme(v)
+                                setPageTheme(e.target.value)
                                 scheduleSave({ pageTheme: e.target.value })
                             }}
                             style={{
@@ -1268,35 +1381,24 @@ export default function Page() {
                                 fontWeight: 700,
                             }}
                         >
-                            <option value='modern'  style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Modern</option>
-                            <option value='wwii'    style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>WWII</option>
-                            <option value='vietnam' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Vietnam</option>
-                            <option value='coldwar' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Cold War</option>
-                            <option value='fantasy' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Fantasy</option>
-                            <option value='scifi'   style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Sci-Fi</option>
-                            <option value='other'   style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Other…</option>
+                            {eraOptions.length > 0
+                                ? eraOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value} style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>
+                                        {opt.name}
+                                    </option>
+                                ))
+                                : (
+                                    <>
+                                        <option value='modern'  style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Modern</option>
+                                        <option value='wwii'    style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>WWII</option>
+                                        <option value='vietnam' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Vietnam</option>
+                                        <option value='coldwar' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Cold War</option>
+                                        <option value='fantasy' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Fantasy</option>
+                                        <option value='scifi'   style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Sci-Fi</option>
+                                    </>
+                                )
+                            }
                         </select>
-                        {/* Custom theme name — shown only when "Other" is selected */}
-                        {pageTheme === 'other' && (
-                            <input
-                                value={customTheme}
-                                placeholder='Custom theme name…'
-                                onChange={e => {
-                                    setCustomTheme(e.target.value)
-                                    scheduleSave({ customTheme: e.target.value })
-                                }}
-                                style={{
-                                    background: 'rgba(0,0,0,0.4)',
-                                    border: `1px solid ${c(0.35)}`,
-                                    color: c(0.8),
-                                    fontSize: '0.8rem',
-                                    letterSpacing: '0.06em',
-                                    outline: 'none',
-                                    padding: '8px 12px',
-                                    minWidth: 140,
-                                }}
-                            />
-                        )}
                         {/* Map World */}
                         <MapWorldPicker
                             value={mapWorld}

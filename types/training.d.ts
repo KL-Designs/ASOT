@@ -35,6 +35,8 @@ interface TrainingType {
     linkedMedia?: TrainingMedia[]
     // Ordering
     sortOrder?: number
+    // Course type — only set for Selection / Reinforcement Cycle categories
+    courseType?: 'selection' | 'reinforcement_cycle'
     createdAt: Date
     updatedAt: Date
 }

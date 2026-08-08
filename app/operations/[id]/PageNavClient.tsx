@@ -87,8 +87,8 @@ export default function PageNavClient({ items, activePage, themeColor, pageTheme
                 const isActive = item.id === activePage
                 const accentColor = item.color
 
-                // Special colored nav items (Zeus, OCAP)
-                if (accentColor) {
+                // Special colored nav items (Zeus, OCAP) — only for rgba() colors, not hex page colors
+                if (accentColor && accentColor.startsWith('rgba')) {
                     const baseColor = accentColor
                     const dimColor = accentColor.replace('0.8', '0.4')
                     return (
@@ -176,7 +176,7 @@ export default function PageNavClient({ items, activePage, themeColor, pageTheme
                             textTransform: 'uppercase',
                             color: isActive
                                 ? isOF ? '#c8a850' : isSF ? c(0.95) : 'rgba(237,237,237,0.9)'
-                                : isOF ? 'rgba(160,120,50,0.45)' : isSF ? c(0.4) : 'rgba(237,237,237,0.4)',
+                                : isOF ? 'rgba(160,120,50,0.45)' : isSF ? c(0.4) : c(0.5),
                             fontFamily: isOF || isSF ? '"Courier New", monospace' : undefined,
                             ...(isSF && isActive ? { textShadow: `0 0 6px ${c(0.6)}` } : {}),
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

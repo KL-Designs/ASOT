@@ -1,55 +1,84 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Add, Assignment, CheckCircle, Cancel, HourglassEmpty, RateReview } from '@mui/icons-material'
+import { Assignment, Lock, KeyboardArrowDown, KeyboardArrowUp, Close } from '@mui/icons-material'
 import { CircularProgress } from '@mui/material'
-import AssignQuizModal from './AssignQuizModal'
 
 const RED = '#db001d'
 
-type FilterStatus = 'all' | 'pending_review' | 'passed' | 'failed'
+const CURRENT_YEAR = new Date().getFullYear()
+const YEAR_OPTIONS: string[] = ['all']
+for (let y = CURRENT_YEAR + 1; y >= 2020; y--) YEAR_OPTIONS.push(String(y))
 
-const STATUS_LABELS: Record<QuizAttemptStatus, string> = {
-    assigned: 'Assigned',
+const INSTANCE_STATUS_LABELS: Record<string, string> = {
+    planning:    'Planning',
+    active:      'Active',
     in_progress: 'In Progress',
-    submitted: 'Awaiting Review',
-    reviewing: 'Under Review',
-    passed: 'Passed',
-    failed: 'Failed',
+    completed:   'Completed',
+    cancelled:   'Cancelled',
+    archived:    'Archived',
 }
 
-const STATUS_COLOR: Record<QuizAttemptStatus, string> = {
-    assigned: 'rgba(147,197,253,0.7)',
+const INSTANCE_STATUS_COLORS: Record<string, string> = {
+    planning:    'rgba(147,197,253,0.7)',
+    active:      'rgba(100,200,160,0.75)',
     in_progress: 'rgba(245,158,11,0.7)',
-    submitted: 'rgba(245,158,11,0.9)',
-    reviewing: 'rgba(167,139,250,0.8)',
-    passed: 'rgba(34,197,94,0.85)',
-    failed: 'rgba(239,68,68,0.85)',
+    completed:   'rgba(34,197,94,0.85)',
+    cancelled:   'rgba(239,68,68,0.85)',
+    archived:    'rgba(150,150,150,0.7)',
 }
 
-function StatusBadge({ status }: { status: QuizAttemptStatus }) {
+const ALL_STATUSES = Object.keys(INSTANCE_STATUS_LABELS)
+
+function formatDate(val: string | Date | null | undefined): string {
+    if (!val) return '—'
+    return new Date(val).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+function StatusBadge({ status }: { status: string }) {
+    const color = INSTANCE_STATUS_COLORS[status] ?? 'rgba(150,150,150,0.5)'
     return (
         <span style={{
-            fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em',
-            textTransform: 'uppercase', color: STATUS_COLOR[status],
-            border: `1px solid ${STATUS_COLOR[status].replace('0.', '0.25')}`,
-            padding: '1px 7px',
+            fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.12em',
+            textTransform: 'uppercase', color,
+            border: `1px solid ${color.replace(/[\d.]+\)$/, '0.35)')}`,
+            padding: '1px 6px',
             whiteSpace: 'nowrap',
         }}>
-            {STATUS_LABELS[status]}
+            {INSTANCE_STATUS_LABELS[status] ?? status}
         </span>
     )
 }
 
-function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
-}
+interface Col { key: string; label: string; width: string }
 
-function formatTime(seconds: number): string {
-    const m = Math.floor(seconds / 60)
-    const s = seconds % 60
-    return `${m}m ${String(s).padStart(2, '0')}s`
+const COLUMNS: Col[] = [
+    { key: 'instanceRef',        label: 'Course',        width: '140px' },
+    { key: 'leadInstructorName', label: 'Lead Trainer',  width: '1fr'   },
+    { key: 'startDate',          label: 'Start Date',    width: '110px' },
+    { key: 'endDate',            label: 'End Date',      width: '110px' },
+    { key: 'status',             label: 'Status',        width: '120px' },
+    { key: 'candidateCount',     label: 'Trainees',      width: '80px'  },
+    { key: 'staffCount',         label: 'Staff',         width: '72px'  },
+    { key: 'passedCount',        label: 'Passed',        width: '72px'  },
+    { key: 'failedCount',        label: 'Failed',        width: '72px'  },
+    { key: 'updatedAt',          label: 'Last Updated',  width: '110px' },
+]
+
+const GRID = COLUMNS.map(c => c.width).join(' ')
+
+const selectSx: React.CSSProperties = {
+    cursor: 'pointer',
+    padding: '4px 8px',
+    fontSize: '0.58rem',
+    fontWeight: 700,
+    letterSpacing: '0.08em',
+    color: 'rgba(237,237,237,0.7)',
+    background: 'rgba(0,0,0,0.45)',
+    border: '1px solid rgba(219,0,29,0.3)',
+    outline: 'none',
+    textTransform: 'uppercase' as const,
 }
 
 interface Props {
@@ -57,89 +86,257 @@ interface Props {
     canManageMembers: boolean
 }
 
-export default function TrainingRecordsTab({ userId, canManageMembers }: Props) {
+export default function TrainingRecordsTab({ userId: _userId, canManageMembers: _canManageMembers }: Props) {
     const router = useRouter()
-    const [attempts, setAttempts] = useState<QuizAttemptSerialized[]>([])
-    const [loading, setLoading] = useState(true)
-    const [filter, setFilter] = useState<FilterStatus>('all')
-    const [showAssign, setShowAssign] = useState(false)
+
+    const [year, setYear]               = useState<string>(String(CURRENT_YEAR))
+    const [typeName, setTypeName]       = useState<string>('')
+    const [statusFilter, setStatusFilter] = useState<string[]>([])
+    const [q, setQ]                     = useState('')
+    const [sort, setSort]               = useState('startDate')
+    const [order, setOrder]             = useState<'asc' | 'desc'>('desc')
+
+    const [records, setRecords]         = useState<CourseInstance[]>([])
+    const [loading, setLoading]         = useState(true)
+    const [statusOpen, setStatusOpen]   = useState(false)
+    const statusRef                     = useRef<HTMLDivElement>(null)
+
+    // Accumulate all seen type names so the dropdown never shrinks when a filter is active
+    const knownTypesRef = useRef<Set<string>>(new Set())
+    const [typeOptions, setTypeOptions] = useState<string[]>([])
+
+    const [debouncedQ, setDebouncedQ] = useState('')
+    useEffect(() => {
+        const t = setTimeout(() => setDebouncedQ(q), 300)
+        return () => clearTimeout(t)
+    }, [q])
 
     const load = useCallback(async () => {
         setLoading(true)
         try {
-            const res = await fetch(`/api/admin/quiz/attempts?status=${filter}`)
+            const params = new URLSearchParams()
+            params.set('year', year)
+            if (typeName) params.set('type', typeName)
+            if (statusFilter.length) params.set('status', statusFilter.join(','))
+            if (debouncedQ) params.set('q', debouncedQ)
+            params.set('sort', sort)
+            params.set('order', order)
+            const res = await fetch(`/api/j3/training-records?${params.toString()}`)
             const data = await res.json()
-            setAttempts(data.attempts ?? [])
+            const fetched: CourseInstance[] = data.records ?? []
+            setRecords(fetched)
+            // Accumulate type names for the dropdown
+            fetched.forEach(r => { if (r.trainingTypeName) knownTypesRef.current.add(r.trainingTypeName) })
+            setTypeOptions(Array.from(knownTypesRef.current).sort())
         } finally {
             setLoading(false)
         }
-    }, [filter])
+    }, [year, typeName, statusFilter, debouncedQ, sort, order])
 
     useEffect(() => { load() }, [load])
 
-    const filterBtnSx = (active: boolean): React.CSSProperties => ({
-        all: 'unset',
-        cursor: 'pointer',
-        padding: '4px 12px',
-        fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-        color: active ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.4)',
-        background: active ? 'rgba(219,0,29,0.22)' : 'transparent',
-        border: '1px solid rgba(219,0,29,0.25)',
-        borderRadius: 2,
-    })
+    // Close status popover on outside click
+    useEffect(() => {
+        if (!statusOpen) return
+        const handler = (e: MouseEvent) => {
+            if (statusRef.current && !statusRef.current.contains(e.target as Node)) setStatusOpen(false)
+        }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [statusOpen])
+
+    function handleSort(key: string) {
+        if (sort === key) setOrder(o => o === 'asc' ? 'desc' : 'asc')
+        else { setSort(key); setOrder('desc') }
+    }
+
+    function clearAll() {
+        setYear(String(CURRENT_YEAR))
+        setTypeName('')
+        setStatusFilter([])
+        setQ('')
+    }
+
+    const hasFilters = year !== String(CURRENT_YEAR) || typeName !== '' || statusFilter.length > 0 || q !== ''
+
+    function SortArrow({ col }: { col: string }) {
+        if (sort !== col) return null
+        return order === 'asc'
+            ? <KeyboardArrowUp sx={{ fontSize: 11, ml: '2px', verticalAlign: 'middle' }} />
+            : <KeyboardArrowDown sx={{ fontSize: 11, ml: '2px', verticalAlign: 'middle' }} />
+    }
+
+    const btnBase: React.CSSProperties = {
+        all: 'unset', cursor: 'pointer', padding: '3px 10px',
+        fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const,
+        border: '1px solid rgba(219,0,29,0.2)',
+    }
 
     return (
         <div className='m-6 mt-4'>
             {/* Toolbar */}
             <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10,
+                display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8,
                 padding: '8px 12px',
                 border: '1px solid rgba(219,0,29,0.22)',
                 borderBottom: 'none',
                 background: 'rgba(255,255,255,0.02)',
             }}>
-                {/* Filter pills */}
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {(['all', 'pending_review', 'passed', 'failed'] as FilterStatus[]).map(f => (
-                        <button key={f} style={filterBtnSx(filter === f)} onClick={() => setFilter(f)}>
-                            {f === 'pending_review' ? 'Pending Review' : f.charAt(0).toUpperCase() + f.slice(1)}
-                        </button>
+                {/* Year dropdown */}
+                <select
+                    value={year}
+                    onChange={e => setYear(e.target.value)}
+                    style={selectSx}
+                >
+                    {YEAR_OPTIONS.map(y => (
+                        <option key={y} value={y} style={{ background: '#0d0d0d' }}>
+                            {y === 'all' ? 'All Years' : y}
+                        </option>
                     ))}
+                </select>
+
+                <div style={{ width: 1, height: 20, background: 'rgba(219,0,29,0.2)' }} />
+
+                {/* Type dropdown */}
+                <select
+                    value={typeName}
+                    onChange={e => setTypeName(e.target.value)}
+                    style={selectSx}
+                >
+                    <option value='' style={{ background: '#0d0d0d' }}>All Types</option>
+                    {typeOptions.map(t => (
+                        <option key={t} value={t} style={{ background: '#0d0d0d' }}>{t}</option>
+                    ))}
+                </select>
+
+                <div style={{ width: 1, height: 20, background: 'rgba(219,0,29,0.2)' }} />
+
+                {/* Status multi-select */}
+                <div style={{ position: 'relative' }} ref={statusRef}>
+                    <button
+                        style={{
+                            ...btnBase,
+                            color: statusFilter.length ? '#fff' : 'rgba(237,237,237,0.4)',
+                            background: statusFilter.length ? 'rgba(219,0,29,0.2)' : 'transparent',
+                            display: 'flex', alignItems: 'center', gap: 4,
+                        }}
+                        onClick={() => setStatusOpen(o => !o)}
+                    >
+                        {statusFilter.length === 0 ? 'All Statuses' : `${statusFilter.length} Selected`}
+                        <KeyboardArrowDown sx={{ fontSize: 12 }} />
+                    </button>
+                    {statusOpen && (
+                        <div style={{
+                            position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
+                            background: '#1a0a0a', border: '1px solid rgba(219,0,29,0.3)',
+                            padding: '6px 0', minWidth: 140,
+                        }}>
+                            <div style={{ display: 'flex', gap: 6, padding: '4px 12px 6px', borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                                <button
+                                    onClick={() => setStatusFilter([...ALL_STATUSES])}
+                                    style={{ all: 'unset', cursor: 'pointer', fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)' }}
+                                >
+                                    All
+                                </button>
+                                <span style={{ color: 'rgba(219,0,29,0.25)', fontSize: '0.5rem' }}>·</span>
+                                <button
+                                    onClick={() => setStatusFilter([])}
+                                    style={{ all: 'unset', cursor: 'pointer', fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)' }}
+                                >
+                                    None
+                                </button>
+                            </div>
+                            {ALL_STATUSES.map(s => (
+                                <label key={s} style={{
+                                    display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px',
+                                    cursor: 'pointer', color: 'rgba(237,237,237,0.75)', fontSize: '0.62rem',
+                                    fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
+                                }}>
+                                    <input
+                                        type='checkbox'
+                                        checked={statusFilter.includes(s)}
+                                        onChange={e => setStatusFilter(prev =>
+                                            e.target.checked ? [...prev, s] : prev.filter(x => x !== s)
+                                        )}
+                                        style={{ accentColor: RED }}
+                                    />
+                                    {INSTANCE_STATUS_LABELS[s]}
+                                </label>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', fontFamily: 'monospace' }}>
-                        {'// TRAINING RECORDS'}
-                    </span>
-                    <button
-                        onClick={() => setShowAssign(true)}
+                {/* Search */}
+                <div style={{ marginLeft: 'auto' }}>
+                    <input
+                        value={q}
+                        onChange={e => setQ(e.target.value)}
+                        placeholder='Search...'
                         style={{
-                            all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
-                            fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
-                            color: 'rgba(219,0,29,0.8)', padding: '4px 10px',
-                            border: '1px solid rgba(219,0,29,0.32)',
-                            background: 'rgba(219,0,29,0.06)',
+                            all: 'unset', padding: '3px 10px',
+                            fontSize: '0.62rem', color: 'rgba(237,237,237,0.75)',
+                            background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(219,0,29,0.2)',
+                            width: 160,
                         }}
-                    >
-                        <Add sx={{ fontSize: 13 }} /> Assign Quiz
-                    </button>
+                    />
                 </div>
             </div>
+
+            {/* Active filter badges */}
+            {hasFilters && (
+                <div style={{
+                    display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
+                    padding: '5px 12px',
+                    border: '1px solid rgba(219,0,29,0.22)',
+                    borderBottom: 'none',
+                    background: 'rgba(0,0,0,0.15)',
+                }}>
+                    {year !== String(CURRENT_YEAR) && (
+                        <FilterBadge label={`Year: ${year === 'all' ? 'All' : year}`} onRemove={() => setYear(String(CURRENT_YEAR))} />
+                    )}
+                    {typeName !== '' && (
+                        <FilterBadge label={`Type: ${typeName}`} onRemove={() => setTypeName('')} />
+                    )}
+                    {statusFilter.map(s => (
+                        <FilterBadge key={s} label={`Status: ${INSTANCE_STATUS_LABELS[s]}`} onRemove={() => setStatusFilter(prev => prev.filter(x => x !== s))} />
+                    ))}
+                    {q !== '' && (
+                        <FilterBadge label={`Search: "${q}"`} onRemove={() => setQ('')} />
+                    )}
+                    <button onClick={clearAll} style={{ ...btnBase, color: 'rgba(219,0,29,0.6)', fontSize: '0.55rem', padding: '2px 8px' }}>
+                        Clear All
+                    </button>
+                    <span style={{ marginLeft: 'auto', fontSize: '0.55rem', color: 'rgba(219,0,29,0.4)', fontFamily: 'monospace', letterSpacing: '0.12em' }}>
+                        {records.length} record{records.length !== 1 ? 's' : ''}
+                    </span>
+                </div>
+            )}
 
             {/* Table */}
             <div style={{ border: '1px solid rgba(219,0,29,0.22)', background: 'rgba(255,255,255,0.01)', minHeight: 200 }}>
                 {/* Column headers */}
                 <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr 1fr 100px 80px 120px',
+                    display: 'grid', gridTemplateColumns: GRID, gap: 8,
                     padding: '6px 12px',
                     borderBottom: '1px solid rgba(219,0,29,0.15)',
-                    background: 'rgba(0,0,0,0.3)',
+                    background: 'rgba(0,0,0,0.35)',
                 }}>
-                    {['Recruit', 'Quiz', 'Trainer', 'Date', 'Time Taken', 'Status'].map(h => (
-                        <span key={h} style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>
-                            {h}
-                        </span>
+                    {COLUMNS.map(col => (
+                        <button
+                            key={col.key}
+                            onClick={() => handleSort(col.key)}
+                            style={{
+                                all: 'unset', cursor: 'pointer',
+                                fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.18em',
+                                textTransform: 'uppercase',
+                                color: sort === col.key ? RED : 'rgba(219,0,29,0.5)',
+                                fontFamily: 'monospace',
+                                display: 'flex', alignItems: 'center',
+                            }}
+                        >
+                            {col.label}<SortArrow col={col.key} />
+                        </button>
                     ))}
                 </div>
 
@@ -147,66 +344,84 @@ export default function TrainingRecordsTab({ userId, canManageMembers }: Props) 
                     <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
                         <CircularProgress size={20} style={{ color: 'rgba(219,0,29,0.5)' }} />
                     </div>
-                ) : attempts.length === 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: 32, opacity: 0.35 }}>
+                ) : records.length === 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: 40, opacity: 0.35 }}>
                         <Assignment sx={{ fontSize: 28, color: 'rgba(237,237,237,0.3)' }} />
-                        <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>
-                            No records found
-                        </span>
+                        <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>No training records found</span>
+                        {hasFilters && <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)' }}>Try clearing filters</span>}
                     </div>
                 ) : (
-                    attempts.map((a, i) => {
-                        const canReview = ['submitted', 'reviewing'].includes(a.status)
-                        return (
-                            <div
-                                key={a._id}
-                                onClick={() => canReview && router.push(`/dashboard/quiz/review/${a._id}`)}
-                                style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: '1fr 1fr 1fr 100px 80px 120px',
-                                    padding: '7px 12px',
-                                    borderBottom: '1px solid rgba(219,0,29,0.07)',
-                                    background: i % 2 === 0 ? 'rgba(255,255,255,0.018)' : 'rgba(0,0,0,0.15)',
-                                    cursor: canReview ? 'pointer' : 'default',
-                                    alignItems: 'center',
-                                    transition: 'background 0.1s',
-                                }}
-                                onMouseEnter={e => { if (canReview) (e.currentTarget as HTMLDivElement).style.background = 'rgba(219,0,29,0.06)' }}
-                                onMouseLeave={e => { if (canReview) (e.currentTarget as HTMLDivElement).style.background = i % 2 === 0 ? 'rgba(255,255,255,0.018)' : 'rgba(0,0,0,0.15)' }}
-                            >
-                                <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.82)', fontWeight: 600 }}>
-                                    {a.userName}
-                                </span>
-                                <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.5)' }}>
-                                    BCT Confirmation
-                                </span>
-                                <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.45)' }}>
-                                    {a.assignedByName}
-                                </span>
-                                <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.4)', fontFamily: 'monospace' }}>
-                                    {formatDate(a.createdAt)}
-                                </span>
-                                <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.4)', fontFamily: 'monospace' }}>
-                                    {a.timeTakenSeconds !== undefined ? formatTime(a.timeTakenSeconds) : '—'}
-                                </span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <StatusBadge status={a.status} />
-                                    {canReview && (
-                                        <RateReview sx={{ fontSize: 13, color: 'rgba(219,0,29,0.5)' }} />
-                                    )}
+                    records.map((rec, i) => (
+                        <div
+                            key={String(rec._id)}
+                            onClick={() => router.push(`/dashboard/j3/training-records/${String(rec._id)}`)}
+                            style={{
+                                display: 'grid', gridTemplateColumns: GRID, gap: 8,
+                                padding: '7px 12px',
+                                borderBottom: '1px solid rgba(219,0,29,0.07)',
+                                background: i % 2 === 0 ? 'rgba(255,255,255,0.018)' : 'rgba(0,0,0,0.15)',
+                                cursor: 'pointer', alignItems: 'center', transition: 'background 0.1s',
+                            }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(219,0,29,0.06)' }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = i % 2 === 0 ? 'rgba(255,255,255,0.018)' : 'rgba(0,0,0,0.15)' }}
+                        >
+                            {/* Course — instanceRef + type name stacked */}
+                            <div>
+                                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(237,237,237,0.9)', fontFamily: 'monospace' }}>
+                                    {rec.instanceRef}
+                                </div>
+                                <div style={{ fontSize: '0.52rem', color: 'rgba(219,0,29,0.5)', fontWeight: 600, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {rec.trainingTypeName}
                                 </div>
                             </div>
-                        )
-                    })
+                            <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {rec.leadInstructorName ?? '—'}
+                            </span>
+                            <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.4)', fontFamily: 'monospace' }}>
+                                {formatDate(rec.startDate as unknown as string)}
+                            </span>
+                            <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.4)', fontFamily: 'monospace' }}>
+                                {formatDate(rec.endDate as unknown as string)}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <StatusBadge status={rec.status} />
+                                {rec.isLocked && <Lock sx={{ fontSize: 10, color: 'rgba(219,0,29,0.5)' }} />}
+                            </div>
+                            <Num val={rec.candidateCount} />
+                            <Num val={rec.staffCount} />
+                            <Num val={rec.passedCount} />
+                            <Num val={rec.failedCount} />
+                            <span style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.35)', fontFamily: 'monospace' }}>
+                                {formatDate(rec.updatedAt as unknown as string)}
+                            </span>
+                        </div>
+                    ))
                 )}
             </div>
-
-            {showAssign && (
-                <AssignQuizModal
-                    onClose={() => setShowAssign(false)}
-                    onAssigned={load}
-                />
-            )}
         </div>
+    )
+}
+
+function Num({ val }: { val: number | undefined }) {
+    return (
+        <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.55)', fontFamily: 'monospace' }}>
+            {val !== undefined ? val : '—'}
+        </span>
+    )
+}
+
+function FilterBadge({ label, onRemove }: { label: string; onRemove: () => void }) {
+    return (
+        <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+            color: 'rgba(219,0,29,0.7)', background: 'rgba(219,0,29,0.1)',
+            border: '1px solid rgba(219,0,29,0.25)', padding: '2px 7px',
+        }}>
+            {label}
+            <button onClick={onRemove} style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: 0.7 }}>
+                <Close sx={{ fontSize: 10 }} />
+            </button>
+        </span>
     )
 }

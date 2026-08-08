@@ -293,6 +293,8 @@ const collab = new Hocuspocus({
                                 id: pageId,
                                 isMain,
                                 title: pmeta.get('title') || (isMain ? '1-0 HQ Orders' : 'Untitled'),
+                                pageType: pmeta.get('pageType') || (isMain ? 'orders' : 'orders'),
+                                pageColor: pmeta.get('pageColor') || '',
                                 sections: readPageSections(pageId),
                             }
                         })
@@ -303,7 +305,7 @@ const collab = new Hocuspocus({
                         updateFields = {
                             yjsState: state,
                             sections: mainSections,
-                            pages: pages.map(({ id, title, isMain }) => ({ id, title, isMain })),
+                            pages: pages.map(({ id, title, isMain, pageType, pageColor }) => ({ id, title, isMain, ...(pageType ? { pageType } : {}), ...(pageColor ? { pageColor } : {}) })),
                             extraPageSections,
                         }
                         const text = mainSections.map(s => `[${s.title}] ${extractText(s.content)}`).join(' | ')

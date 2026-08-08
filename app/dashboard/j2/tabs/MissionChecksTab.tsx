@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { CircularProgress } from '@mui/material'
 import {
     CheckCircle, Warning, Schedule, PersonAdd, PersonOff, ExpandMore, ExpandLess,
-    Refresh, FilterList,
+    Refresh, FilterList, CheckBox, CheckBoxOutlineBlank,
 } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
 
@@ -16,7 +16,7 @@ interface DevCheckInfo {
     dueDate: string
     isOverdue: boolean
     daysUntil: number
-    completion?: { completedAt: string; completedByName: string }
+    completion?: { completedAt: string; completedByName: string; reviewerName?: string; comments?: string; outcome?: string }
     task?: { _id: string; assignedTo: string; assignedToName: string; status: string; createdAt: string; escalatedAt?: string }
 }
 
@@ -35,6 +35,66 @@ interface DevCheckOpRow {
 interface J2Member { id: string; displayName: string; currentRank: string | null }
 
 type FilterMode = 'active' | 'overdue' | 'completed' | 'all'
+
+// ── Checklist content per stage ───────────────────────────────────────────────
+
+const CHECK_CONTENT: Record<'campaign' | 'single', Record<string, string[]>> = {
+    campaign: {
+        w16: [
+            'Mission concept/idea submitted to J2',
+            'Initial discussion completed with team leads',
+        ],
+        w12: [
+            'Confirmed mission development has started',
+            'Initial planning document created',
+            'First mission scenario and orders started',
+            'J2 lead briefed on mission concept',
+        ],
+        w10: [
+            'Core framework and fundamentals established',
+            'First mission scenario and orders complete',
+            'Second and third missions started',
+        ],
+        w8: [
+            'Second and third missions complete',
+            'All subsequent missions started',
+            'All mission orders finalised',
+        ],
+        w6: [
+            'Final checks and revisions completed',
+            'Bug fixing pass completed',
+            'Server loadout and mission tested',
+            'Weekly Monday reminder sent (if any items incomplete)',
+        ],
+        w4: [
+            'Final development check completed',
+            'Arsenal and loadout updates confirmed',
+        ],
+    },
+    single: {
+        w12: [
+            'Mission concept/idea submitted to J2',
+        ],
+        w10: [
+            'Confirmed mission development has started',
+            'Mission scenario and orders started',
+            'J2 lead briefed on mission concept',
+        ],
+        w8: [
+            'Mission scenario and orders complete',
+            'Replacement mission arranged if not complete',
+        ],
+        w6: [
+            'Final checks and bug fixing completed',
+            'Server mission tested',
+            'Weekly Monday reminder sent (if any items incomplete)',
+        ],
+        w4: [
+            'Final development check completed',
+            'Arsenal and loadout updates confirmed',
+        ],
+    },
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -252,19 +312,224 @@ function AssignModal({
     )
 }
 
+// ── Mark Complete Modal ───────────────────────────────────────────────────────
+
+function CompleteModal({
+    opId, opTitle, checkId, weeksOut, dueDate, isOverdue,
+    onClose, onSaved,
+}: {
+    opId: string; opTitle: string; checkId: string; weeksOut: number
+    dueDate: string; isOverdue: boolean
+    onClose: () => void; onSaved: () => void
+}) {
+    const [reviewerName, setReviewerName] = useState('')
+    const [comments, setComments]         = useState('')
+    const [outcome, setOutcome]           = useState('')
+    const [saving, setSaving]             = useState(false)
+
+    async function save() {
+        setSaving(true)
+        try {
+            const res = await fetch(`/api/operations/${opId}/mission-development`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ checkId, reviewerName: reviewerName.trim() || undefined, comments: comments.trim() || undefined, outcome: outcome.trim() || undefined }),
+            })
+            if (!res.ok) throw new Error(await res.text())
+            onSaved()
+            onClose()
+        } catch (err) {
+            console.error('[complete modal] error:', err)
+            alert('Failed to save completion. Please try again.')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    return (
+        <div
+            style={{ position: 'fixed', inset: 0, zIndex: 9100, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={e => { if (e.target === e.currentTarget) onClose() }}
+        >
+            <div style={{
+                background: '#0f0f10', border: '1px solid rgba(0,200,80,0.25)',
+                borderTop: '2px solid rgba(0,200,80,0.7)',
+                padding: '24px 28px', maxWidth: 440, width: '90%',
+                display: 'flex', flexDirection: 'column', gap: 16,
+            }}>
+                <div>
+                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,200,80,0.5)', fontFamily: 'monospace', marginBottom: 6 }}>
+                        {'// MARK COMPLETE'}
+                    </div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
+                        {checkLabel(weeksOut)} — {opTitle}
+                    </div>
+                    <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)', marginTop: 4 }}>
+                        Due: {fmtDate(dueDate)}
+                        {isOverdue && <span style={{ color: 'rgba(219,80,0,0.85)', marginLeft: 8 }}>● Overdue</span>}
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div>
+                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>Reviewer Name</div>
+                        <input
+                            value={reviewerName}
+                            onChange={e => setReviewerName(e.target.value)}
+                            placeholder='Your name or assigned reviewer…'
+                            style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.8rem', padding: '8px 10px', outline: 'none', boxSizing: 'border-box' }}
+                        />
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>Comments</div>
+                        <textarea
+                            value={comments}
+                            onChange={e => setComments(e.target.value)}
+                            placeholder='Review notes, observations…'
+                            rows={3}
+                            style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', padding: '8px 10px', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                        />
+                    </div>
+                    <div>
+                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>Outcome / Notes</div>
+                        <textarea
+                            value={outcome}
+                            onChange={e => setOutcome(e.target.value)}
+                            placeholder='Outcome, decisions made, action items…'
+                            rows={2}
+                            style={{ width: '100%', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', padding: '8px 10px', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+                        />
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                    <button
+                        onClick={onClose}
+                        style={{ padding: '7px 18px', fontSize: '0.7rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={save}
+                        disabled={saving}
+                        style={{ padding: '7px 18px', fontSize: '0.7rem', fontWeight: 700, background: 'rgba(0,200,80,0.18)', border: '1px solid rgba(0,200,80,0.45)', color: 'rgba(0,200,80,0.9)', cursor: saving ? 'not-allowed' : 'pointer' }}
+                    >
+                        {saving ? 'Saving…' : '✓ Mark Complete'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ── Checklist panel ───────────────────────────────────────────────────────────
+
+function ChecklistPanel({
+    check, isCampaign, isJ2Lead,
+    onComplete,
+}: {
+    check: DevCheckInfo
+    isCampaign: boolean
+    isJ2Lead: boolean
+    onComplete: () => void
+}) {
+    const type = isCampaign ? 'campaign' : 'single'
+    const items = CHECK_CONTENT[type][check.checkId] ?? []
+    const done = !!check.completion
+
+    return (
+        <div style={{
+            margin: '0 14px 10px',
+            background: done ? 'rgba(0,200,80,0.03)' : 'rgba(255,255,255,0.02)',
+            border: `1px solid ${done ? 'rgba(0,200,80,0.12)' : 'rgba(255,255,255,0.06)'}`,
+            padding: '12px 14px',
+        }}>
+            <div style={{
+                fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
+                color: done ? 'rgba(0,200,80,0.5)' : 'rgba(237,237,237,0.25)',
+                marginBottom: 10,
+            }}>
+                {checkLabel(check.weeksOut)} — Criteria
+            </div>
+
+            {items.length === 0 ? (
+                <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic' }}>No checklist items defined.</div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {items.map((item, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            {done
+                                ? <CheckBox sx={{ fontSize: '0.9rem', color: 'rgba(0,200,80,0.6)', flexShrink: 0, mt: '1px' }} />
+                                : <CheckBoxOutlineBlank sx={{ fontSize: '0.9rem', color: 'rgba(237,237,237,0.2)', flexShrink: 0, mt: '1px' }} />
+                            }
+                            <span style={{ fontSize: '0.75rem', color: done ? 'rgba(237,237,237,0.45)' : 'rgba(237,237,237,0.7)', lineHeight: 1.5 }}>
+                                {item}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {done && check.completion && (
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(0,200,80,0.1)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontSize: '0.62rem', color: 'rgba(0,200,80,0.6)', fontWeight: 700, letterSpacing: '0.1em' }}>
+                        ✓ Signed off by {check.completion.reviewerName || check.completion.completedByName} · {fmtDate(check.completion.completedAt)}
+                    </div>
+                    {check.completion.comments && (
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', fontStyle: 'italic' }}>
+                            &ldquo;{check.completion.comments}&rdquo;
+                        </div>
+                    )}
+                    {check.completion.outcome && (
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.35)' }}>
+                            Outcome: {check.completion.outcome}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {!done && isJ2Lead && (
+                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                        onClick={onComplete}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 5,
+                            fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                            padding: '5px 14px',
+                            background: 'rgba(0,200,80,0.12)', border: '1px solid rgba(0,200,80,0.35)',
+                            color: 'rgba(0,200,80,0.85)', cursor: 'pointer',
+                        }}
+                    >
+                        <CheckCircle sx={{ fontSize: '0.82rem' }} /> Mark Complete
+                    </button>
+                </div>
+            )}
+        </div>
+    )
+}
+
 // ── Operation row ─────────────────────────────────────────────────────────────
 
 function OpRow({
-    row, isJ2Lead, onAssign, onRefresh,
+    row, isJ2Lead, onAssign, onComplete, onRefresh,
 }: {
-    row: DevCheckOpRow; isJ2Lead: boolean; onAssign: (opId: string, opTitle: string, check: DevCheckInfo) => void; onRefresh: () => void
+    row: DevCheckOpRow
+    isJ2Lead: boolean
+    onAssign: (opId: string, opTitle: string, check: DevCheckInfo) => void
+    onComplete: (opId: string, opTitle: string, check: DevCheckInfo) => void
+    onRefresh: () => void
 }) {
     const router = useRouter()
-    const [expanded, setExpanded] = useState(true)
+    const [expanded, setExpanded]           = useState(true)
+    const [expandedCheckId, setExpandedCheckId] = useState<string | null>(null)
 
     const totalChecks  = row.checks.length
     const doneChecks   = row.checks.filter(c => !!c.completion).length
     const overdueCount = row.checks.filter(c => c.isOverdue && !c.completion).length
+
+    function toggleCheck(checkId: string) {
+        setExpandedCheckId(prev => prev === checkId ? null : checkId)
+    }
 
     return (
         <div style={{ border: '1px solid rgba(219,0,29,0.2)', marginBottom: 8, background: 'rgba(0,0,0,0.3)' }}>
@@ -334,65 +599,87 @@ function OpRow({
                     {row.checks.map(check => {
                         const done = !!check.completion
                         const overdue = check.isOverdue && !done
+                        const isCheckExpanded = expandedCheckId === check.checkId
                         return (
-                            <div key={check.checkId} style={{
-                                display: 'grid', gridTemplateColumns: '90px 110px 100px 1fr 140px 100px',
-                                padding: '8px 14px', gap: 8, alignItems: 'center',
-                                borderBottom: '1px solid rgba(255,255,255,0.04)',
-                                background: overdue ? 'rgba(219,0,29,0.04)' : done ? 'rgba(0,200,80,0.02)' : 'transparent',
-                            }}>
-                                <span style={{
-                                    fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.1em',
-                                    color: overdue ? 'rgba(219,0,29,0.9)' : done ? 'rgba(0,200,80,0.8)' : 'rgba(237,237,237,0.65)',
-                                }}>
-                                    {checkLabel(check.weeksOut)}
-                                </span>
-                                <span style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.55)' }}>
-                                    {fmtDate(check.dueDate)}
-                                </span>
-                                <span style={{
-                                    fontSize: '0.72rem', fontWeight: 700,
-                                    color: done ? 'rgba(0,200,80,0.7)' : overdue ? 'rgba(219,0,29,0.9)' : check.daysUntil <= 7 ? 'rgba(219,160,0,0.9)' : 'rgba(237,237,237,0.45)',
-                                }}>
-                                    {fmtDaysUntil(check.daysUntil, check.isOverdue, done)}
-                                </span>
-                                <div>
-                                    <CheckBadge check={check} />
-                                    {done && (
-                                        <div style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)', marginTop: 2 }}>
-                                            by {check.completion!.completedByName}
-                                        </div>
-                                    )}
+                            <div key={check.checkId}>
+                                <div
+                                    style={{
+                                        display: 'grid', gridTemplateColumns: '90px 110px 100px 1fr 140px 100px',
+                                        padding: '8px 14px', gap: 8, alignItems: 'center',
+                                        borderBottom: isCheckExpanded ? 'none' : '1px solid rgba(255,255,255,0.04)',
+                                        background: overdue ? 'rgba(219,0,29,0.04)' : done ? 'rgba(0,200,80,0.02)' : 'transparent',
+                                        cursor: 'pointer',
+                                    }}
+                                    onClick={() => toggleCheck(check.checkId)}
+                                >
+                                    <span style={{
+                                        fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.1em',
+                                        color: overdue ? 'rgba(219,0,29,0.9)' : done ? 'rgba(0,200,80,0.8)' : 'rgba(237,237,237,0.65)',
+                                        display: 'flex', alignItems: 'center', gap: 4,
+                                    }}>
+                                        {isCheckExpanded
+                                            ? <ExpandLess sx={{ fontSize: '0.75rem', opacity: 0.4 }} />
+                                            : <ExpandMore sx={{ fontSize: '0.75rem', opacity: 0.4 }} />
+                                        }
+                                        {checkLabel(check.weeksOut)}
+                                    </span>
+                                    <span style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.55)' }}>
+                                        {fmtDate(check.dueDate)}
+                                    </span>
+                                    <span style={{
+                                        fontSize: '0.72rem', fontWeight: 700,
+                                        color: done ? 'rgba(0,200,80,0.7)' : overdue ? 'rgba(219,0,29,0.9)' : check.daysUntil <= 7 ? 'rgba(219,160,0,0.9)' : 'rgba(237,237,237,0.45)',
+                                    }}>
+                                        {fmtDaysUntil(check.daysUntil, check.isOverdue, done)}
+                                    </span>
+                                    <div>
+                                        <CheckBadge check={check} />
+                                        {done && (
+                                            <div style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)', marginTop: 2 }}>
+                                                by {check.completion!.completedByName}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem' }}>
+                                        {check.task ? (
+                                            <span style={{ color: 'rgba(237,237,237,0.7)', fontWeight: 600 }}>
+                                                {check.task.assignedToName}
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: 'rgba(237,237,237,0.3)', fontStyle: 'italic', fontSize: '0.68rem' }}>
+                                                Unassigned
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                                        {isJ2Lead && !done && (
+                                            <button
+                                                onClick={() => onAssign(row.opId, row.opTitle, check)}
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', gap: 4,
+                                                    fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
+                                                    textTransform: 'uppercase', padding: '4px 9px',
+                                                    background: check.task ? 'rgba(255,255,255,0.05)' : 'rgba(219,0,29,0.18)',
+                                                    border: `1px solid ${check.task ? 'rgba(255,255,255,0.1)' : 'rgba(219,0,29,0.3)'}`,
+                                                    color: 'rgba(237,237,237,0.65)', cursor: 'pointer',
+                                                }}
+                                            >
+                                                {check.task ? <PersonOff sx={{ fontSize: '0.8rem' }} /> : <PersonAdd sx={{ fontSize: '0.8rem' }} />}
+                                                {check.task ? 'Reassign' : 'Assign'}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
-                                <div style={{ fontSize: '0.75rem' }}>
-                                    {check.task ? (
-                                        <span style={{ color: 'rgba(237,237,237,0.7)', fontWeight: 600 }}>
-                                            {check.task.assignedToName}
-                                        </span>
-                                    ) : (
-                                        <span style={{ color: 'rgba(237,237,237,0.3)', fontStyle: 'italic', fontSize: '0.68rem' }}>
-                                            Unassigned
-                                        </span>
-                                    )}
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                    {isJ2Lead && !done && (
-                                        <button
-                                            onClick={() => onAssign(row.opId, row.opTitle, check)}
-                                            style={{
-                                                display: 'flex', alignItems: 'center', gap: 4,
-                                                fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
-                                                textTransform: 'uppercase', padding: '4px 9px',
-                                                background: check.task ? 'rgba(255,255,255,0.05)' : 'rgba(219,0,29,0.18)',
-                                                border: `1px solid ${check.task ? 'rgba(255,255,255,0.1)' : 'rgba(219,0,29,0.3)'}`,
-                                                color: 'rgba(237,237,237,0.65)', cursor: 'pointer',
-                                            }}
-                                        >
-                                            {check.task ? <PersonOff sx={{ fontSize: '0.8rem' }} /> : <PersonAdd sx={{ fontSize: '0.8rem' }} />}
-                                            {check.task ? 'Reassign' : 'Assign'}
-                                        </button>
-                                    )}
-                                </div>
+
+                                {/* Expandable checklist */}
+                                {isCheckExpanded && (
+                                    <ChecklistPanel
+                                        check={check}
+                                        isCampaign={row.isCampaign}
+                                        isJ2Lead={isJ2Lead}
+                                        onComplete={() => onComplete(row.opId, row.opTitle, check)}
+                                    />
+                                )}
                             </div>
                         )
                     })}
@@ -415,6 +702,9 @@ export default function MissionChecksTab({
     const [rows, setRows]       = useState<DevCheckOpRow[]>([])
     const [loading, setLoading] = useState(true)
     const [assignTarget, setAssignTarget] = useState<{
+        opId: string; opTitle: string; check: DevCheckInfo
+    } | null>(null)
+    const [completeTarget, setCompleteTarget] = useState<{
         opId: string; opTitle: string; check: DevCheckInfo
     } | null>(null)
 
@@ -504,6 +794,7 @@ export default function MissionChecksTab({
                             row={row}
                             isJ2Lead={isJ2Lead}
                             onAssign={(opId, opTitle, check) => setAssignTarget({ opId, opTitle, check })}
+                            onComplete={(opId, opTitle, check) => setCompleteTarget({ opId, opTitle, check })}
                             onRefresh={() => load(filter)}
                         />
                     ))
@@ -521,6 +812,20 @@ export default function MissionChecksTab({
                         ? { id: assignTarget.check.task.assignedTo, name: assignTarget.check.task.assignedToName }
                         : undefined}
                     onClose={() => setAssignTarget(null)}
+                    onSaved={() => load(filter)}
+                />
+            )}
+
+            {/* Complete modal */}
+            {completeTarget && (
+                <CompleteModal
+                    opId={completeTarget.opId}
+                    opTitle={completeTarget.opTitle}
+                    checkId={completeTarget.check.checkId}
+                    weeksOut={completeTarget.check.weeksOut}
+                    dueDate={completeTarget.check.dueDate}
+                    isOverdue={completeTarget.check.isOverdue}
+                    onClose={() => setCompleteTarget(null)}
                     onSaved={() => load(filter)}
                 />
             )}

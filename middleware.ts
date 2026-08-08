@@ -21,6 +21,7 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-    // Run on all routes except static assets and Next.js internals
-    matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+    // Skip API routes (body clone limit would truncate large uploads),
+    // Next.js internals, and static assets. API routes don't use x-pathname.
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|api/).*)'],
 }

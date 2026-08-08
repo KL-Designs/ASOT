@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, Tabs, Tab } from '@mui/material'
 import { PeopleAlt, CalendarMonth, HistoryEdu, Settings } from '@mui/icons-material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
-import ImportPanel from '../ImportPanel'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
@@ -16,6 +15,7 @@ import J4MeetingsTab from './tabs/J4MeetingsTab'
 import LogsTab from './tabs/LogsTab'
 import TeamspeakTab from './tabs/TeamspeakTab'
 import MasterSheetTab from './tabs/MasterSheetTab'
+import AIAdminTab from './tabs/AIAdminTab'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -256,51 +256,104 @@ interface DischargedMember {
     }
 }
 
+interface SnapshotSummary {
+    qualifications: number
+    awards: number
+    trainings: number
+    operations: number
+    campaignMedals: number
+}
+
+const RESTORE_OPTIONS: { key: keyof SnapshotSummary; label: string; detail: (s: SnapshotSummary) => string }[] = [
+    { key: 'qualifications', label: 'Qualifications',                    detail: s => `${s.qualifications} qualification${s.qualifications !== 1 ? 's' : ''}` },
+    { key: 'awards',         label: 'Awards & Citations',                detail: s => `${s.awards} award${s.awards !== 1 ? 's' : ''}` },
+    { key: 'trainings',      label: 'Trainings',                         detail: s => `${s.trainings} training record${s.trainings !== 1 ? 's' : ''}` },
+    { key: 'operations',     label: 'Campaign Medals & Op Attendance',   detail: s => `${s.operations} op${s.operations !== 1 ? 's' : ''}, ${s.campaignMedals} medal${s.campaignMedals !== 1 ? 's' : ''}` },
+]
+
 function ReinstateModal({ open, onClose }: { open: boolean; onClose: () => void }) {
     const [members, setMembers] = useState<DischargedMember[]>([])
     const [loading, setLoading] = useState(false)
     const [loaded, setLoaded] = useState(false)
-    const [reinstating, setReinstating] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
+
+    // Step 2 state
+    const [selected, setSelected] = useState<DischargedMember | null>(null)
+    const [snapshot, setSnapshot] = useState<SnapshotSummary | null>(null)
+    const [snapshotLoading, setSnapshotLoading] = useState(false)
+    const [restoreItems, setRestoreItems] = useState<Set<string>>(new Set())
+    const [reinstating, setReinstating] = useState(false)
 
     function load() {
         if (loaded) return
         setLoading(true)
         fetch('/api/admin/members/discharged')
             .then(r => r.json())
-            .then(data => {
-                setMembers(data.members ?? [])
-                setLoaded(true)
-            })
+            .then(data => { setMembers(data.members ?? []); setLoaded(true) })
             .catch(() => setError('Failed to load discharged members'))
             .finally(() => setLoading(false))
     }
 
     function handleClose() {
         setError(null)
+        setSelected(null)
+        setSnapshot(null)
         onClose()
     }
 
-    async function reinstate(member: DischargedMember) {
-        setReinstating(member.id)
+    async function selectMember(member: DischargedMember) {
+        setSelected(member)
+        setError(null)
+        setSnapshot(null)
+        setSnapshotLoading(true)
+        setRestoreItems(new Set(['qualifications', 'awards', 'trainings', 'operations']))
+        try {
+            const res = await fetch(`/api/admin/members/discharged?memberId=${member.id}`)
+            const data = await res.json()
+            setSnapshot(data.snapshot ?? null)
+        } finally {
+            setSnapshotLoading(false)
+        }
+    }
+
+    function toggleItem(key: string) {
+        setRestoreItems(prev => {
+            const next = new Set(prev)
+            next.has(key) ? next.delete(key) : next.add(key)
+            return next
+        })
+    }
+
+    async function confirmReinstate() {
+        if (!selected) return
+        setReinstating(true)
         setError(null)
         try {
             const res = await fetch('/api/admin/members/discharged', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetUserId: member.id }),
+                body: JSON.stringify({ targetUserId: selected.id, restoreItems: [...restoreItems] }),
             })
             const data = await res.json()
             if (!res.ok) {
                 setError(data.error ?? 'Reinstatement failed.')
             } else {
-                setMembers(prev => prev.filter(m => m.id !== member.id))
+                setMembers(prev => prev.filter(m => m.id !== selected.id))
+                setSelected(null)
+                setSnapshot(null)
             }
         } catch {
             setError('Network error. Please try again.')
         } finally {
-            setReinstating(null)
+            setReinstating(false)
         }
+    }
+
+    const rowSx: React.CSSProperties = {
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '10px 12px',
+        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid rgba(255,255,255,0.05)',
     }
 
     return (
@@ -325,70 +378,123 @@ function ReinstateModal({ open, onClose }: { open: boolean; onClose: () => void 
                     J4 — Administration
                 </Typography>
                 <Typography fontWeight={700} fontSize='0.9rem' letterSpacing={3} style={{ textTransform: 'uppercase', marginBottom: 20 }}>
-                    Reinstate Member
+                    {selected ? `Reinstate — ${selected.displayName}` : 'Reinstate Member'}
                 </Typography>
 
-                {loading && <TacticalSkeleton rows={5} className='px-4' />}
-
-                {loaded && members.length === 0 && (
-                    <Typography fontSize='0.8rem' style={{ color: 'rgba(237,237,237,0.35)', padding: '12px 0' }}>
-                        No discharged members.
-                    </Typography>
+                {/* ── Step 1: member list ── */}
+                {!selected && (
+                    <>
+                        {loading && <TacticalSkeleton rows={5} className='px-4' />}
+                        {loaded && members.length === 0 && (
+                            <Typography fontSize='0.8rem' style={{ color: 'rgba(237,237,237,0.35)', padding: '12px 0' }}>
+                                No discharged members.
+                            </Typography>
+                        )}
+                        {members.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                {members.map(m => (
+                                    <div key={m.id} style={rowSx}>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontSize: '0.82rem', fontWeight: 600, marginBottom: 2 }}>{m.displayName}</div>
+                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                                <span style={{
+                                                    fontSize: '0.6rem', fontWeight: 700, letterSpacing: 1, padding: '1px 6px',
+                                                    background: m.discharged.type === 'honorable' ? 'rgba(0,195,100,0.12)' : 'rgba(219,0,29,0.12)',
+                                                    color: m.discharged.type === 'honorable' ? 'rgb(0,195,100)' : 'var(--red)',
+                                                }}>
+                                                    {m.discharged.type === 'honorable' ? 'HONORABLE' : 'DISHONORABLE'}
+                                                </span>
+                                                <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>{m.discharged.date}</span>
+                                                <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
+                                                    {m.discharged.reason}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => selectMember(m)}
+                                            style={{
+                                                background: 'rgba(0,195,100,0.1)', border: '1px solid rgba(0,195,100,0.3)',
+                                                color: 'rgb(0,195,100)', padding: '5px 14px', cursor: 'pointer',
+                                                fontSize: '0.7rem', fontWeight: 700, letterSpacing: 1, whiteSpace: 'nowrap', flexShrink: 0,
+                                            }}
+                                        >
+                                            REINSTATE
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
                 )}
 
-                {members.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        {members.map(m => (
-                            <div
-                                key={m.id}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 12,
-                                    padding: '10px 12px',
-                                    background: 'rgba(255,255,255,0.04)',
-                                    border: '1px solid rgba(255,255,255,0.05)',
-                                }}
-                            >
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: '0.82rem', fontWeight: 600, marginBottom: 2 }}>{m.displayName}</div>
-                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                                        <span style={{
-                                            fontSize: '0.6rem',
-                                            fontWeight: 700,
-                                            letterSpacing: 1,
-                                            padding: '1px 6px',
-                                            background: m.discharged.type === 'honorable' ? 'rgba(0,195,100,0.12)' : 'rgba(219,0,29,0.12)',
-                                            color: m.discharged.type === 'honorable' ? 'rgb(0,195,100)' : 'var(--red)',
-                                        }}>
-                                            {m.discharged.type === 'honorable' ? 'HONORABLE' : 'DISHONORABLE'}
-                                        </span>
-                                        <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>{m.discharged.date}</span>
-                                        <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
-                                            {m.discharged.reason}
-                                        </span>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => reinstate(m)}
-                                    disabled={reinstating === m.id}
+                {/* ── Step 2: data restoration checklist ── */}
+                {selected && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', marginBottom: 4 }}>
+                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>
+                                Discharge Record
+                            </div>
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <span style={{
+                                    fontSize: '0.6rem', fontWeight: 700, letterSpacing: 1, padding: '1px 6px',
+                                    background: selected.discharged.type === 'honorable' ? 'rgba(0,195,100,0.12)' : 'rgba(219,0,29,0.12)',
+                                    color: selected.discharged.type === 'honorable' ? 'rgb(0,195,100)' : 'var(--red)',
+                                }}>
+                                    {selected.discharged.type === 'honorable' ? 'HONORABLE' : 'DISHONORABLE'}
+                                </span>
+                                <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.4)' }}>{selected.discharged.date}</span>
+                                <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.4)' }}>{selected.discharged.reason}</span>
+                            </div>
+                        </div>
+
+                        <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.55)', marginBottom: 2 }}>
+                            Select which data to restore from their discharge record. Unchecked items will not be carried over.
+                        </div>
+
+                        {snapshotLoading && <TacticalSkeleton rows={4} />}
+
+                        {!snapshotLoading && !snapshot && (
+                            <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic', padding: '8px 0' }}>
+                                No discharge snapshot found — member will be reinstated without data restoration.
+                            </div>
+                        )}
+
+                        {!snapshotLoading && snapshot && RESTORE_OPTIONS.map(opt => {
+                            const count = opt.key === 'operations'
+                                ? snapshot.operations + snapshot.campaignMedals
+                                : snapshot[opt.key]
+                            const checked = restoreItems.has(opt.key)
+                            const hasData = count > 0
+
+                            return (
+                                <label
+                                    key={opt.key}
                                     style={{
-                                        background: 'rgba(0,195,100,0.1)',
-                                        border: '1px solid rgba(0,195,100,0.3)',
-                                        color: reinstating === m.id ? 'rgba(237,237,237,0.3)' : 'rgb(0,195,100)',
-                                        padding: '5px 14px',
-                                        cursor: reinstating === m.id ? 'not-allowed' : 'pointer',
-                                        fontSize: '0.7rem',
-                                        fontWeight: 700,
-                                        letterSpacing: 1,
-                                        whiteSpace: 'nowrap',
-                                        flexShrink: 0,
+                                        display: 'flex', alignItems: 'center', gap: 12,
+                                        padding: '10px 12px',
+                                        background: checked ? 'rgba(0,195,100,0.05)' : 'rgba(255,255,255,0.03)',
+                                        border: `1px solid ${checked ? 'rgba(0,195,100,0.2)' : 'rgba(255,255,255,0.06)'}`,
+                                        cursor: hasData ? 'pointer' : 'not-allowed',
+                                        opacity: hasData ? 1 : 0.4,
+                                        transition: 'background 0.15s, border-color 0.15s',
                                     }}
                                 >
-                                    {reinstating === m.id ? 'REINSTATING…' : 'REINSTATE'}
-                                </button>
-                            </div>
-                        ))}
+                                    <input
+                                        type='checkbox'
+                                        checked={checked && hasData}
+                                        disabled={!hasData}
+                                        onChange={() => hasData && toggleItem(opt.key)}
+                                        style={{ accentColor: 'rgb(0,195,100)', width: 14, height: 14, flexShrink: 0 }}
+                                    />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'rgba(237,237,237,0.9)' }}>{opt.label}</div>
+                                        <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', marginTop: 1 }}>
+                                            {hasData ? opt.detail(snapshot) : 'None on record'}
+                                        </div>
+                                    </div>
+                                </label>
+                            )
+                        })}
                     </div>
                 )}
 
@@ -396,13 +502,36 @@ function ReinstateModal({ open, onClose }: { open: boolean; onClose: () => void 
                     <Typography fontSize='0.75rem' style={{ color: '#ff4444', marginTop: 12 }}>{error}</Typography>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-                    <button
-                        onClick={handleClose}
-                        style={{ background: 'none', border: '1px solid rgba(237,237,237,0.15)', color: 'rgba(237,237,237,0.6)', padding: '7px 18px', cursor: 'pointer', fontSize: '0.78rem', letterSpacing: 1 }}
-                    >
-                        CLOSE
-                    </button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
+                    {selected ? (
+                        <>
+                            <button
+                                onClick={() => { setSelected(null); setSnapshot(null); setError(null) }}
+                                disabled={reinstating}
+                                style={{ background: 'none', border: '1px solid rgba(237,237,237,0.15)', color: 'rgba(237,237,237,0.6)', padding: '7px 18px', cursor: 'pointer', fontSize: '0.78rem', letterSpacing: 1 }}
+                            >
+                                BACK
+                            </button>
+                            <button
+                                onClick={confirmReinstate}
+                                disabled={reinstating}
+                                style={{
+                                    background: reinstating ? 'rgba(0,195,100,0.05)' : 'rgba(0,195,100,0.12)',
+                                    border: '1px solid rgba(0,195,100,0.35)', color: reinstating ? 'rgba(237,237,237,0.3)' : 'rgb(0,195,100)',
+                                    padding: '7px 18px', cursor: reinstating ? 'not-allowed' : 'pointer', fontSize: '0.78rem', fontWeight: 700, letterSpacing: 1,
+                                }}
+                            >
+                                {reinstating ? 'REINSTATING…' : 'CONFIRM & REINSTATE'}
+                            </button>
+                        </>
+                    ) : (
+                        <button
+                            onClick={handleClose}
+                            style={{ background: 'none', border: '1px solid rgba(237,237,237,0.15)', color: 'rgba(237,237,237,0.6)', padding: '7px 18px', cursor: 'pointer', fontSize: '0.78rem', letterSpacing: 1 }}
+                        >
+                            CLOSE
+                        </button>
+                    )}
                 </div>
             </DialogContent>
         </Dialog>
@@ -682,7 +811,6 @@ function TestNotificationModal({ open, onClose, selfId }: { open: boolean; onClo
 
 export default function J4AdminPanel({ userId, displayName }: { userId: string; displayName: string }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
-    const [importOpen, setImportOpen] = useState(false)
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
     const [testNotifOpen, setTestNotifOpen] = useState(false)
@@ -795,6 +923,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                             <Tab label={<PinTabLabel label='Snapshots'    pinLabel='J4 — Snapshots'    href='/dashboard/j4' tabIndex={3} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Teamspeak'    pinLabel='J4 — Teamspeak'    href='/dashboard/j4' tabIndex={4} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Tools'        pinLabel='J4 — Tools'        href='/dashboard/j4' tabIndex={5} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='AI Admin'     pinLabel='J4 — AI Admin'     href='/dashboard/j4' tabIndex={6} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -816,6 +945,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                 <TeamspeakTab />
                             </div>
                         )}
+                        {tab === 6 && <AIAdminTab />}
                         {tab === 5 && (
                             <div className='p-6 md:p-10 flex flex-col gap-6'>
                         {/* Tools */}
@@ -825,20 +955,20 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                             </Typography>
                             <div className='flex flex-wrap gap-4'>
 
-                                <button
-                                    onClick={() => setImportOpen(true)}
+                                <a
+                                    href='/dashboard/j4/import'
                                     className='flex-1 min-w-[160px]'
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                                    style={{ textDecoration: 'none' }}
                                 >
                                     <div
                                         className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
+                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', cursor: 'pointer' }}
                                     >
                                         <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
                                             Import<br />Panel
                                         </Typography>
                                     </div>
-                                </button>
+                                </a>
 
                                 <button
                                     onClick={() => setDischargeOpen(true)}
@@ -1025,7 +1155,6 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                 </>
             )}
 
-            <ImportPanel open={importOpen} onClose={() => setImportOpen(false)} />
             <DischargeModal open={dischargeOpen} onClose={() => setDischargeOpen(false)} />
             <ReinstateModal open={reinstateOpen} onClose={() => setReinstateOpen(false)} />
             <TestNotificationModal open={testNotifOpen} onClose={() => setTestNotifOpen(false)} selfId={userId} />

@@ -26,6 +26,18 @@ export type CalendarEventRow = {
     applicantId?: string
     applicantName?: string
     timePeriod?: string
+    isJ2Unavailability?: boolean
+    isMissionCheckRequest?: boolean
+    relatedOperationId?: string
+    relatedOperationTitle?: string
+    relatedTaskId?: string
+}
+
+const COURSE_STATUS_STYLE: Record<string, { color: string; border: string }> = {
+    'Planning':    { color: 'rgba(255,180,50,0.9)',  border: 'rgba(255,180,50,0.3)'  },
+    'In Progress': { color: 'rgba(80,200,120,0.9)',  border: 'rgba(80,200,120,0.3)'  },
+    'Completed':   { color: 'rgba(100,160,240,0.9)', border: 'rgba(100,160,240,0.3)' },
+    'Cancelled':   { color: 'rgba(237,237,237,0.5)', border: 'rgba(255,255,255,0.1)' },
 }
 
 export const DEPT_COLORS: Record<string, string> = {
@@ -355,11 +367,25 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                             {event.title}
                         </Typography>
 
-                        {event.description && (
-                            <Typography style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.6)', whiteSpace: 'pre-wrap' }}>
-                                {event.description}
-                            </Typography>
-                        )}
+                        {event.description && (() => {
+                            if (event.description!.startsWith('Status: ')) {
+                                const label = event.description!.slice(8)
+                                const cfg = COURSE_STATUS_STYLE[label]
+                                if (cfg) return (
+                                    <div>
+                                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 6 }}>Course Status</div>
+                                        <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: cfg.color, border: `1px solid ${cfg.border}`, padding: '2px 8px' }}>
+                                            {label}
+                                        </span>
+                                    </div>
+                                )
+                            }
+                            return (
+                                <Typography style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.6)', whiteSpace: 'pre-wrap' }}>
+                                    {event.description}
+                                </Typography>
+                            )
+                        })()}
 
                         <Divider sx={{ borderColor: 'rgba(219,0,29,0.12)', my: 0.5 }} />
 

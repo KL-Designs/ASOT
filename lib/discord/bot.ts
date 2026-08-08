@@ -278,6 +278,32 @@ export async function sendTaskAssignedDM(
 }
 
 /**
+ * Send a board-card-assigned DM.
+ * Produces a consistently styled embed matching the site's branding.
+ */
+export async function sendBoardCardAssignedDM(
+    userId: string,
+    cardTitle: string,
+    columnTitle: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '🗂️ Board Card Assigned',
+        description: `**${cardTitle}**\nColumn: ${columnTitle}`,
+        color: 0xdb001d,
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields = [{ name: '\u200b', value: `[View Board](${base}${actionUrl})`, inline: false }]
+    }
+
+    await sendDM(userId, { embeds: [embed] }, 'board')
+}
+
+/**
  * Notify a task creator that the assignee has requested a due-date extension.
  */
 export async function sendTaskExtensionRequestDM(
@@ -405,6 +431,51 @@ export async function sendTrainingReminderDM(
     if (actionUrl) {
         const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
         embed.fields!.push({ name: '​', value: `[View Event](${base}${actionUrl})`, inline: false })
+    }
+    await sendDM(userId, { embeds: [embed] }, 'training')
+}
+
+/**
+ * Notify a candidate that peer review forms are ready for them to complete.
+ */
+export async function sendPeerReviewInviteDM(
+    userId: string,
+    courseRef: string,
+    actionUrl: string,
+): Promise<void> {
+    const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+    const embed: DiscordEmbed = {
+        title: '📋 Peer Review — Action Required',
+        description: `Your peer review forms for **${courseRef}** are ready. Complete them before the deadline.`,
+        color: 0xdb001d,
+        fields: [{ name: '​', value: `[Open Peer Review](${base}${actionUrl})`, inline: false }],
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+    await sendDM(userId, { embeds: [embed] }, 'training')
+}
+
+/**
+ * Notify a candidate that their time extension request was approved or rejected.
+ */
+export async function sendPeerReviewExtensionResultDM(
+    userId: string,
+    approved: boolean,
+    additionalMinutes?: number,
+    actionUrl?: string,
+): Promise<void> {
+    const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+    const embed: DiscordEmbed = {
+        title: approved ? '✅ Time Extension Approved' : '❌ Time Extension Denied',
+        description: approved
+            ? `Your request for additional time has been approved. You have been given **${additionalMinutes} additional minute${additionalMinutes !== 1 ? 's' : ''}**.`
+            : 'Your request for additional time has been denied. Please submit what you have.',
+        color: approved ? 0x22c55e : 0xdb001d,
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+    }
+    if (actionUrl) {
+        embed.fields = [{ name: '​', value: `[Return to Peer Review](${base}${actionUrl})`, inline: false }]
     }
     await sendDM(userId, { embeds: [embed] }, 'training')
 }
@@ -922,4 +993,89 @@ export async function sendFeedbackStatusDM(
         embed.fields = [{ name: '\u200b', value: `[View Feedback](${base}${actionUrl})`, inline: false }]
     }
     await sendDM(userId, { embeds: [embed] }, 'feedback')
+}
+
+/**
+ * Send a message to a Discord guild channel by channel ID.
+ * Respects developer mode — blocked messages are logged but not sent.
+ * Skips silently if channelId is falsy.
+ */
+export async function sendChannelMessage(
+    channelId: string,
+    payload: MessagePayload,
+    messageType = 'raw',
+): Promise<void> {
+    if (!channelId) return
+
+    const devMode = await isDevModeEnabled()
+    const preview = payload.content ?? payload.embeds?.[0]?.title ?? '(embed)'
+
+    if (devMode) {
+        await logDiscord({
+            action: 'channel_message',
+            status: 'blocked',
+            targetUserId: channelId,
+            targetUserName: `#channel:${channelId}`,
+            messageType,
+            preview,
+            embeds: payload.embeds as DiscordLog['embeds'],
+            content: payload.content,
+            devMode: true,
+            override: false,
+        })
+        return
+    }
+
+    try {
+        await botRequest('POST', `/channels/${channelId}/messages`, payload)
+        await logDiscord({
+            action: 'channel_message',
+            status: 'sent',
+            targetUserId: channelId,
+            targetUserName: `#channel:${channelId}`,
+            messageType,
+            preview,
+            embeds: payload.embeds as DiscordLog['embeds'],
+            content: payload.content,
+            devMode: false,
+            override: false,
+        })
+    } catch (err) {
+        await logDiscord({
+            action: 'channel_message',
+            status: 'failed',
+            targetUserId: channelId,
+            targetUserName: `#channel:${channelId}`,
+            messageType,
+            preview,
+            embeds: payload.embeds as DiscordLog['embeds'],
+            content: payload.content,
+            devMode: false,
+            override: false,
+        })
+        throw err
+    }
+}
+
+/**
+ * Notify a member that they have been nominated as Lead Zeus for an operation.
+ */
+export async function sendLeadZeusDM(
+    userId: string,
+    operationTitle: string,
+    nominatedBy: string,
+    operationUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '⚡ Lead Zeus Nominated',
+        description: `You have been nominated as **Lead Zeus** for **${operationTitle}** by ${nominatedBy}.`,
+        color: 0x00c3ff,
+        footer: { text: 'ASOT Operations' },
+        timestamp: new Date().toISOString(),
+    }
+    if (operationUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields = [{ name: '​', value: `[View Operation](${base}${operationUrl})`, inline: false }]
+    }
+    await sendDM(userId, { embeds: [embed] }, 'operations')
 }

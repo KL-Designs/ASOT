@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import * as Y from 'yjs'
 import { Delete, Description, DragIndicator, Article, HorizontalRule, ContentCopy } from '@mui/icons-material'
 
@@ -8,8 +9,9 @@ interface PageEntry {
     id: string
     title: string
     isMain: boolean
-    pageType?: string  // 'orders' | 'zeus' | 'ocap' | 'staff_orders' | 'aar' | 'separator'
+    pageType?: string  // 'intel' | 'orders' | 'zeus' | 'ocap' | 'staff_orders' | 'aar' | 'separator'
     pageColor?: string
+    parentId?: string
 }
 
 const STAFF_SECTION_PRESETS = ['HQ Orders', '1 PLT Orders', '2 PLT Orders', '3 PLT Orders'] as const
@@ -20,6 +22,8 @@ interface Props {
     onSelectPage: (id: string) => void
     themeColor: string
     orientation?: 'sidebar' | 'top'
+    synced?: boolean
+    allowedTypes?: string[]
 }
 
 function hexToRgb(hex: string) {
@@ -31,11 +35,11 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor, orientation = 'sidebar' }: Props) {
+export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor, orientation = 'sidebar', synced = false, allowedTypes }: Props) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
-    const [pages, setPages] = useState<PageEntry[]>([{ id: 'main', title: 'Main', isMain: true }])
+    const [pages, setPages] = useState<PageEntry[]>([{ id: 'main', title: 'CHQ Orders', isMain: true }])
     const [renamingId, setRenamingId] = useState<string | null>(null)
     const [renameValue, setRenameValue] = useState('')
     const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null)
@@ -43,43 +47,98 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     const [typeModalStep, setTypeModalStep]           = useState<'type' | 'staff_section'>('type')
     const [staffSectionCustom, setStaffSectionCustom] = useState('')
     const [colorPickerPageId, setColorPickerPageId]   = useState<string | null>(null)
-    const [dragOverIdx, setDragOverIdx]               = useState<number | null>(null)
+    const [dragInsertIdx, setDragInsertIdx]           = useState<number | null>(null)
+    const [dragNestTargetId, setDragNestTargetId]     = useState<string | null>(null)
+    const [confirmingDuplicateId, setConfirmingDuplicateId] = useState<string | null>(null)
+    // Section import
+    const [importTargetId, setImportTargetId]         = useState<string | null>(null)
+    const [importSourceId, setImportSourceId]         = useState('')
+    const [importSectionList, setImportSectionList]   = useState<{ id: string; title: string }[]>([])
+    const [importSelected, setImportSelected]         = useState<Set<string>>(new Set())
+    const [importing, setImporting]                   = useState(false)
 
     const PAGE_COLOR_PRESETS = ['', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899']
     const dragSrcRef = useRef<number>(-1)
     const renameInputRef = useRef<HTMLInputElement>(null)
     const defaultInitRef = useRef(false)
 
-    // Auto-create default Zeus Notes page for brand-new empty documents
+    // Restore system cursor over modals (globals.css sets cursor:none !important for custom cursor)
     useEffect(() => {
+        const anyModalOpen = showTypeModal || !!colorPickerPageId
+        document.body.classList.toggle('cursor-disabled', anyModalOpen)
+        return () => document.body.classList.remove('cursor-disabled')
+    }, [showTypeModal, colorPickerPageId])
+
+    // Auto-create default pages for brand-new empty documents once Hocuspocus confirms sync.
+    // Waits for the real onSynced event (via `synced` prop) instead of a fixed timer, so
+    // existing operations never get default pages injected on top of their content.
+    // Legacy operations (pre-pageOrder) are migrated: 'main' is added to pageOrder without
+    // adding the new Intel Package / Zeus / OCAP defaults.
+    //
+    // Guarded by a persisted `docFlags.pagesInitialized` flag rather than trusting a single
+    // `pageOrder.length === 0` snapshot: `synced` can fire slightly ahead of trailing Yjs sync
+    // messages actually landing, and mis-reading an existing document as empty here injects a
+    // duplicate default page set that then gets persisted alongside the real one. The flag makes
+    // "already initialized" durable so a later, raced load can't re-trigger this. A short delay
+    // before evaluating also gives those trailing messages a moment to arrive in the first place.
+    useEffect(() => {
+        if (!synced) return
+        if (defaultInitRef.current) return
+        defaultInitRef.current = true
+
         const timer = setTimeout(() => {
-            if (defaultInitRef.current) return
+            const flags = ydoc.getMap<string>('docFlags')
+            if (flags.get('pagesInitialized') === 'true') return
+
             const pageOrder = ydoc.getArray<string>('pageOrder')
-            if (pageOrder.length === 0) {
-                defaultInitRef.current = true
-                const zeusId = Math.random().toString(36).slice(2, 10)
-                const ocapId = Math.random().toString(36).slice(2, 10)
-                ydoc.transact(() => {
-                    pageOrder.push(['main'])
-                    ydoc.getMap<string>('pmeta-main').set('title', 'Main')
-                    pageOrder.push([zeusId])
-                    const zeusM = ydoc.getMap<string>('pmeta-' + zeusId)
-                    zeusM.set('title', 'Zeus Notes')
-                    zeusM.set('isMain', 'false')
-                    zeusM.set('pageType', 'zeus')
-                    pageOrder.push([ocapId])
-                    const ocapM = ydoc.getMap<string>('pmeta-' + ocapId)
-                    ocapM.set('title', 'OCAP')
-                    ocapM.set('isMain', 'false')
-                    ocapM.set('pageType', 'ocap')
-                    ocapM.set('pageColor', '#10b981')
-                })
-            } else {
-                defaultInitRef.current = true
+            if (pageOrder.length > 0) {
+                ydoc.transact(() => flags.set('pagesInitialized', 'true'))
+                return
             }
-        }, 900)
+
+            // Legacy document detection: if 'main' already has sections it was created before
+            // pageOrder existed — just register 'main' without adding new default pages.
+            const mainSections = ydoc.getArray<string>('sectionOrder')
+            if (mainSections.length > 0) {
+                ydoc.transact(() => {
+                    if (!pageOrder.toArray().includes('main')) pageOrder.push(['main'])
+                    flags.set('pagesInitialized', 'true')
+                })
+                return
+            }
+
+            // Brand-new document — insert the standard default page set.
+            const intelId = Math.random().toString(36).slice(2, 10)
+            const zeusId  = Math.random().toString(36).slice(2, 10)
+            const ocapId  = Math.random().toString(36).slice(2, 10)
+            ydoc.transact(() => {
+                flags.set('pagesInitialized', 'true')
+                pageOrder.push([intelId])
+                const intelM = ydoc.getMap<string>('pmeta-' + intelId)
+                intelM.set('title', 'Intel Package')
+                intelM.set('isMain', 'false')
+                intelM.set('pageType', 'intel')
+                intelM.set('pageColor', '#f59e0b')
+                if (!pageOrder.toArray().includes('main')) {
+                    pageOrder.push(['main'])
+                }
+                ydoc.getMap<string>('pmeta-main').set('title', 'CHQ Orders')
+                pageOrder.push([zeusId])
+                const zeusM = ydoc.getMap<string>('pmeta-' + zeusId)
+                zeusM.set('title', 'Zeus Notes')
+                zeusM.set('isMain', 'false')
+                zeusM.set('pageType', 'zeus')
+                pageOrder.push([ocapId])
+                const ocapM = ydoc.getMap<string>('pmeta-' + ocapId)
+                ocapM.set('title', 'OCAP')
+                ocapM.set('isMain', 'false')
+                ocapM.set('pageType', 'ocap')
+                ocapM.set('pageColor', '#10b981')
+            })
+        }, 500)
+
         return () => clearTimeout(timer)
-    }, [ydoc])
+    }, [synced, ydoc])
 
     useEffect(() => {
         const pageOrder = ydoc.getArray<string>('pageOrder')
@@ -90,7 +149,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             setPages(ids.map(id => {
                 const pmeta = ydoc.getMap<string>('pmeta-' + id)
                 const fallback = id === 'main' ? 'Main' : 'Untitled'
-                return { id, title: pmeta.get('title') || fallback, isMain: id === 'main', pageType: pmeta.get('pageType') || 'orders', pageColor: pmeta.get('pageColor') || '' }
+                return { id, title: pmeta.get('title') || fallback, isMain: id === 'main', pageType: pmeta.get('pageType') || 'orders', pageColor: pmeta.get('pageColor') || '', parentId: pmeta.get('parentId') || undefined }
             }))
         }
 
@@ -103,6 +162,8 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
         }
 
         const orderHandler = () => {
+            // If real data just arrived from server sync, cancel any pending default init
+            if (pageOrder.length > 0) defaultInitRef.current = true
             pageOrder.toArray().forEach(observePageMeta)
             observePageMeta('main')
             rebuild()
@@ -133,7 +194,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             const pageOrder = ydoc.getArray<string>('pageOrder')
             if (pageOrder.length === 0) {
                 pageOrder.push(['main'])
-                ydoc.getMap<string>('pmeta-main').set('title', 'Main')
+                ydoc.getMap<string>('pmeta-main').set('title', 'CHQ Orders')
             }
             pageOrder.push([id])
             const pmeta = ydoc.getMap<string>('pmeta-' + id)
@@ -166,7 +227,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
 
     function commitRename() {
         if (!renamingId) return
-        const fallback = renamingId === 'main' ? 'Main' : 'Untitled'
+        const fallback = renamingId === 'main' ? 'CHQ Orders' : 'Untitled'
         const trimmed = renameValue.trim() || fallback
         const pmeta = ydoc.getMap<string>('pmeta-' + renamingId)
         pmeta.set('title', trimmed)
@@ -180,7 +241,10 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
         if (idx !== -1) {
             ydoc.transact(() => { pageOrder.delete(idx, 1) })
         }
-        if (activePage === id) onSelectPage('main')
+        if (activePage === id) {
+            const remaining = arr.filter(p => p !== id)
+            onSelectPage(remaining[0] ?? 'main')
+        }
         setConfirmingDeleteId(null)
     }
 
@@ -195,6 +259,61 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             pageOrder.delete(fromIdx, 1)
             pageOrder.insert(toIdx, [item])
         })
+    }
+
+    function nestPage(pageId: string, targetId: string) {
+        if (pageId === targetId) return
+        const pmeta = ydoc.getMap<string>('pmeta-' + pageId)
+        // Prevent circular nesting
+        const targetPmeta = ydoc.getMap<string>('pmeta-' + targetId)
+        if (targetPmeta.get('parentId') === pageId) return
+        ydoc.transact(() => { pmeta.set('parentId', targetId) })
+    }
+
+    function unnestPage(pageId: string) {
+        const pmeta = ydoc.getMap<string>('pmeta-' + pageId)
+        ydoc.transact(() => { pmeta.delete('parentId') })
+    }
+
+    // Sync section list when import source changes
+    React.useEffect(() => {
+        if (!importSourceId) { setImportSectionList([]); return }
+        const sectionOrder = ydoc.getArray<string>('sectionOrder-' + importSourceId)
+        const ids = sectionOrder.toArray()
+        setImportSectionList(ids.map(id => {
+            const meta = ydoc.getMap<string>(`smeta-${importSourceId}-${id}`)
+            return { id, title: meta.get('title') || 'Untitled' }
+        }))
+        setImportSelected(new Set())
+    }, [importSourceId, ydoc])
+
+    function doImportSections() {
+        if (!importTargetId || !importSourceId || importSelected.size === 0) return
+        setImporting(true)
+        try {
+            const selectedIds = Array.from(importSelected)
+            ydoc.transact(() => {
+                const targetOrder = ydoc.getArray<string>('sectionOrder-' + importTargetId)
+                for (const srcSecId of selectedIds) {
+                    const newSecId = Math.random().toString(36).slice(2, 10)
+                    targetOrder.push([newSecId])
+                    const srcMeta = ydoc.getMap<string>(`smeta-${importSourceId}-${srcSecId}`)
+                    const dstMeta = ydoc.getMap<string>(`smeta-${importTargetId}-${newSecId}`)
+                    srcMeta.forEach((v, k) => dstMeta.set(k, v))
+                    try {
+                        const srcFrag = ydoc.getXmlFragment(`scontent-${importSourceId}-${srcSecId}`)
+                        const dstFrag = ydoc.getXmlFragment(`scontent-${importTargetId}-${newSecId}`)
+                        const items = srcFrag.toArray()
+                        if (items.length > 0) dstFrag.insert(0, items.map((item: any) => item.clone()))
+                    } catch { /* content copy failed */ }
+                }
+            })
+        } finally {
+            setImporting(false)
+            setImportTargetId(null)
+            setImportSourceId('')
+            setImportSelected(new Set())
+        }
     }
 
     function duplicatePage(sourceId: string) {
@@ -317,7 +436,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                     {page.title}
                                 </span>
                             )}
-                            {!page.isMain && isActive && !isRenaming && (
+                            {isActive && !isRenaming && (
                                 isConfirmingDelete ? (
                                     <div style={{ display: 'flex', gap: 3 }} onClick={e => e.stopPropagation()}>
                                         <button type='button' onClick={() => deletePage(page.id)}
@@ -386,7 +505,6 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 const isActive = page.id === activePage
                 const isRenaming = renamingId === page.id
                 const isConfirmingDelete = confirmingDeleteId === page.id
-                const isDragOver = dragOverIdx === idx
 
                 // ── Separator ─────────────────────────────────────────────────
                 if (page.pageType === 'separator') {
@@ -395,10 +513,10 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             key={page.id}
                             draggable
                             onDragStart={() => { dragSrcRef.current = idx }}
-                            onDragOver={e => { e.preventDefault(); setDragOverIdx(idx) }}
-                            onDragLeave={() => setDragOverIdx(null)}
-                            onDrop={() => { movePage(dragSrcRef.current, idx); setDragOverIdx(null) }}
-                            onDragEnd={() => setDragOverIdx(null)}
+                            onDragOver={e => { e.preventDefault(); setDragInsertIdx(idx) }}
+                            onDragLeave={() => setDragInsertIdx(null)}
+                            onDrop={() => { let t = idx; if (dragSrcRef.current < t) t--; movePage(dragSrcRef.current, t); setDragInsertIdx(null) }}
+                            onDragEnd={() => setDragInsertIdx(null)}
                             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 2px', cursor: 'default', marginTop: 4 }}
                         >
                             <DragIndicator style={{ fontSize: 12, color: 'rgba(237,237,237,0.12)', cursor: 'grab', flexShrink: 0 }} />
@@ -456,33 +574,72 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                     : page.pageType === 'ocap'
                     ? { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', left: '2px solid rgba(16,185,129,0.7)', icon: isActive ? 'rgba(16,185,129,0.85)' : 'rgba(16,185,129,0.4)', text: isActive ? 'rgba(16,185,129,0.9)' : 'rgba(16,185,129,0.5)' }
                     : page.pageType === 'staff_orders'
-                    ? { bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)', left: '2px solid rgba(245,158,11,0.7)', icon: isActive ? 'rgba(245,158,11,0.85)' : 'rgba(245,158,11,0.4)', text: isActive ? 'rgba(245,185,11,0.95)' : 'rgba(245,158,11,0.55)' }
+                    ? ((): { bg: string; border: string; left: string; icon: string; text: string } => {
+                        const hex = page.pageColor || '#22c55e'
+                        const { r: sr, g: sg, b: sb } = hexToRgb(hex)
+                        const rc = (a: number) => `rgba(${sr},${sg},${sb},${a})`
+                        return { bg: rc(0.04), border: rc(0.25), left: `2px solid ${rc(0.7)}`, icon: isActive ? rc(0.85) : rc(0.4), text: isActive ? rc(0.92) : rc(0.55) }
+                    })()
                     : page.pageType === 'aar'
-                    ? { bg: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.25)', left: '2px solid rgba(99,102,241,0.7)', icon: isActive ? 'rgba(99,102,241,0.85)' : 'rgba(99,102,241,0.4)', text: isActive ? 'rgba(139,140,255,0.95)' : 'rgba(99,102,241,0.55)' }
-                    : { bg: c(0.12), border: c(0.3), left: `2px solid ${c(0.85)}`, icon: isActive ? c(0.85) : 'rgba(237,237,237,0.3)', text: isActive ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.5)' }
+                    ? { bg: 'rgba(99,102,241,0.03)', border: 'rgba(99,102,241,0.25)', left: '2px solid rgba(99,102,241,0.7)', icon: isActive ? 'rgba(99,102,241,0.85)' : 'rgba(99,102,241,0.4)', text: isActive ? 'rgba(139,140,255,0.95)' : 'rgba(99,102,241,0.55)' }
+                    : { bg: c(0.12), border: c(0.3), left: `2px solid ${c(0.85)}`, icon: isActive ? c(0.85) : c(0.4), text: isActive ? 'rgba(237,237,237,0.9)' : c(0.6) }
 
                 const pageIcon = page.pageType === 'staff_orders'
                     ? <Article style={{ fontSize: 13, color: accent.icon, flexShrink: 0 }} />
                     : <Description style={{ fontSize: 13, color: accent.icon, flexShrink: 0 }} />
 
+                const isNestTarget = dragNestTargetId === page.id
+
                 return (
                     <div
                         key={page.id}
+                        style={{ paddingLeft: page.parentId ? 16 : 0 }}
+                    >
+                    {/* Drag insert line before this item */}
+                    {dragInsertIdx === idx && dragSrcRef.current !== idx && (
+                        <div style={{ height: 2, background: c(0.8), borderRadius: 1, margin: '2px 0', pointerEvents: 'none' }} />
+                    )}
+                    <div
                         draggable
                         onDragStart={() => { dragSrcRef.current = idx }}
-                        onDragOver={e => { e.preventDefault(); setDragOverIdx(idx) }}
-                        onDragLeave={() => setDragOverIdx(null)}
-                        onDrop={() => { movePage(dragSrcRef.current, idx); setDragOverIdx(null) }}
-                        onDragEnd={() => setDragOverIdx(null)}
+                        onDragOver={e => {
+                            e.preventDefault()
+                            const rect = e.currentTarget.getBoundingClientRect()
+                            const yRel = (e.clientY - rect.top) / rect.height
+                            if (yRel < 0.35) {
+                                setDragInsertIdx(idx)
+                                setDragNestTargetId(null)
+                            } else if (yRel > 0.65) {
+                                setDragInsertIdx(idx + 1)
+                                setDragNestTargetId(null)
+                            } else {
+                                setDragNestTargetId(page.id)
+                                setDragInsertIdx(null)
+                            }
+                        }}
+                        onDragLeave={() => { setDragInsertIdx(null); setDragNestTargetId(null) }}
+                        onDrop={() => {
+                            if (dragNestTargetId === page.id) {
+                                const srcPage = pages[dragSrcRef.current]
+                                if (srcPage) nestPage(srcPage.id, page.id)
+                            } else if (dragInsertIdx !== null) {
+                                let toIdx = dragInsertIdx
+                                if (dragSrcRef.current < toIdx) toIdx--
+                                movePage(dragSrcRef.current, Math.max(0, toIdx))
+                            }
+                            setDragInsertIdx(null)
+                            setDragNestTargetId(null)
+                        }}
+                        onDragEnd={() => { setDragInsertIdx(null); setDragNestTargetId(null) }}
                         style={{
                             display: 'flex', alignItems: 'center', gap: 4,
                             padding: '6px 8px',
                             borderRadius: 4,
-                            background: isDragOver ? c(0.08) : isActive ? accent.bg : 'transparent',
-                            borderTop: isActive ? `1px solid ${accent.border}` : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
-                            borderRight: isActive ? `1px solid ${accent.border}` : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
-                            borderBottom: isActive ? `1px solid ${accent.border}` : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
-                            borderLeft: isActive ? accent.left : isDragOver ? `1px solid ${c(0.2)}` : '1px solid transparent',
+                            background: isNestTarget ? c(0.08) : isActive ? accent.bg : 'transparent',
+                            borderTop: isActive ? `1px solid ${accent.border}` : isNestTarget ? `1px solid ${c(0.2)}` : '1px solid transparent',
+                            borderRight: isActive ? `1px solid ${accent.border}` : isNestTarget ? `1px solid ${c(0.2)}` : '1px solid transparent',
+                            borderBottom: isActive ? `1px solid ${accent.border}` : isNestTarget ? `1px solid ${c(0.2)}` : '1px solid transparent',
+                            borderLeft: isActive ? accent.left : isNestTarget ? `1px solid ${c(0.2)}` : '1px solid transparent',
                             cursor: 'pointer',
                             transition: 'all 0.1s',
                             position: 'relative',
@@ -492,7 +649,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)'
                         }}
                         onMouseLeave={e => {
-                            if (!isActive) (e.currentTarget as HTMLDivElement).style.background = isDragOver ? c(0.08) : 'transparent'
+                            if (!isActive) (e.currentTarget as HTMLDivElement).style.background = isNestTarget ? 'rgba(255,255,255,0.07)' : 'transparent'
                         }}
                     >
                         <DragIndicator style={{ fontSize: 14, flexShrink: 0, color: 'rgba(237,237,237,0.15)', cursor: 'grab' }} />
@@ -532,13 +689,13 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                     letterSpacing: '0.02em',
                                 }}
                                 onDoubleClick={e => { e.stopPropagation(); startRename(page.id, page.title) }}
-                                title={`${page.title}${page.pageType === 'zeus' ? ' (Zeus Notes — J6 only)' : page.pageType === 'ocap' ? ' (OCAP)' : page.pageType === 'staff_orders' ? ' (Staff Orders)' : page.pageType === 'aar' ? ' (After Action Review)' : ''} (double-click to rename)`}
+                                title={`${page.title}${page.pageType === 'intel' ? ' (Intel Package)' : page.pageType === 'zeus' ? ' (Zeus Notes — J6 only)' : page.pageType === 'ocap' ? ' (OCAP)' : page.pageType === 'staff_orders' ? ' (Staff Orders)' : page.pageType === 'aar' ? ' (After Action Review)' : ''} (double-click to rename)`}
                             >
                                 {page.title}
                             </span>
                         )}
 
-                        {!page.isMain && !isRenaming && (
+                        {!isRenaming && (
                             isConfirmingDelete ? (
                                 <div style={{ display: 'flex', gap: 3 }} onClick={e => e.stopPropagation()}>
                                     <button type='button' onClick={() => deletePage(page.id)}
@@ -550,11 +707,28 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                         ✕
                                     </button>
                                 </div>
+                            ) : confirmingDuplicateId === page.id ? (
+                                <div style={{ display: 'flex', gap: 2 }} onClick={e => e.stopPropagation()}>
+                                    <button type='button' onClick={() => { duplicatePage(page.id); setConfirmingDuplicateId(null) }}
+                                        style={{ padding: '1px 5px', fontSize: '0.55rem', fontWeight: 700, background: 'rgba(60,130,200,0.6)', border: '1px solid rgba(100,180,237,0.7)', color: '#fff', cursor: 'pointer', borderRadius: 3 }}>Dup</button>
+                                    <button type='button' onClick={() => setConfirmingDuplicateId(null)}
+                                        style={{ padding: '1px 5px', fontSize: '0.55rem', fontWeight: 700, background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.5)', cursor: 'pointer', borderRadius: 3 }}>✕</button>
+                                </div>
                             ) : (
                                 <div style={{ display: 'flex', gap: 1, opacity: isActive ? 1 : 0, transition: 'opacity 0.12s' }}
                                     onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.opacity = '1' }}
                                     onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.opacity = isActive ? '1' : '0' }}
                                 >
+                                    {page.pageType === 'staff_orders' ? (
+                                        <button type='button' title='Import sections from another document'
+                                            onClick={e => { e.stopPropagation(); setImportTargetId(page.id); setImportSourceId(''); setImportSelected(new Set()) }}
+                                            style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'rgba(237,237,237,0.2)', display: 'flex', alignItems: 'center', borderRadius: 3, transition: 'color 0.12s' }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(245,158,11,0.8)' }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,237,237,0.2)' }}
+                                        >
+                                            <ContentCopy style={{ fontSize: 11 }} />
+                                        </button>
+                                    ) : (
                                     <button type='button' title='Duplicate page'
                                         onClick={e => { e.stopPropagation(); duplicatePage(page.id) }}
                                         style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'rgba(237,237,237,0.2)', display: 'flex', alignItems: 'center', borderRadius: 3, transition: 'color 0.12s' }}
@@ -563,6 +737,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                     >
                                         <ContentCopy style={{ fontSize: 11 }} />
                                     </button>
+                                    )}
                                     <button type='button' title='Delete page'
                                         onClick={e => { e.stopPropagation(); setConfirmingDeleteId(page.id) }}
                                         style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'rgba(237,237,237,0.2)', display: 'flex', alignItems: 'center', borderRadius: 3, transition: 'color 0.12s' }}
@@ -575,8 +750,14 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             )
                         )}
                     </div>
+                    </div>
                 )
             })}
+
+            {/* Drag insert line after last item */}
+            {dragInsertIdx === pages.length && dragSrcRef.current !== pages.length - 1 && (
+                <div style={{ height: 2, background: c(0.8), borderRadius: 1, margin: '2px 0', pointerEvents: 'none' }} />
+            )}
 
             <button type='button' onClick={() => { setShowTypeModal(true); setTypeModalStep('type') }}
                 style={{
@@ -593,41 +774,121 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 + Add Document
             </button>
 
-            {/* Document type selection modal */}
-            {showTypeModal && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            {/* Section import modal */}
+            {importTargetId && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={e => { if (e.target === e.currentTarget) { setImportTargetId(null); setImportSourceId('') } }}
+                >
+                    <div style={{ background: '#0f0f10', border: '1px solid rgba(245,158,11,0.35)', borderTop: '2px solid rgba(245,158,11,0.8)', padding: '24px 28px', maxWidth: 420, width: '90%', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(245,158,11,0.5)', fontFamily: 'monospace' }}>{'// IMPORT SECTIONS'}</div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Import from Document</div>
+                        <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)', lineHeight: 1.5 }}>
+                            Select a source document, then choose which sections to copy into this page.
+                        </div>
+
+                        {/* Source page selector */}
+                        <select
+                            value={importSourceId}
+                            onChange={e => setImportSourceId(e.target.value)}
+                            style={{ padding: '8px 10px', background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)', color: importSourceId ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.35)', fontSize: '0.8rem', outline: 'none' }}
+                        >
+                            <option value=''>— Select a source document —</option>
+                            {pages.filter(p => p.id !== importTargetId && p.pageType !== 'separator').map(p => (
+                                <option key={p.id} value={p.id}>{p.title}</option>
+                            ))}
+                        </select>
+
+                        {/* Section checklist */}
+                        {importSourceId && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto', padding: '4px 0' }}>
+                                {importSectionList.length === 0 ? (
+                                    <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic' }}>No sections found in this document.</div>
+                                ) : (
+                                    <>
+                                        <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                                            <button type='button' onClick={() => setImportSelected(new Set(importSectionList.map(s => s.id)))}
+                                                style={{ fontSize: '0.6rem', fontWeight: 700, padding: '2px 8px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: 'rgba(245,158,11,0.8)', cursor: 'pointer' }}
+                                            >All</button>
+                                            <button type='button' onClick={() => setImportSelected(new Set())}
+                                                style={{ fontSize: '0.6rem', fontWeight: 700, padding: '2px 8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}
+                                            >None</button>
+                                        </div>
+                                        {importSectionList.map(s => (
+                                            <label key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', cursor: 'pointer', background: importSelected.has(s.id) ? 'rgba(245,158,11,0.06)' : 'transparent', border: `1px solid ${importSelected.has(s.id) ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.05)'}`, transition: 'all 0.1s' }}>
+                                                <input type='checkbox' checked={importSelected.has(s.id)}
+                                                    onChange={() => setImportSelected(prev => {
+                                                        const next = new Set(prev)
+                                                        next.has(s.id) ? next.delete(s.id) : next.add(s.id)
+                                                        return next
+                                                    })}
+                                                    style={{ accentColor: 'rgba(245,158,11,0.8)', flexShrink: 0 }}
+                                                />
+                                                <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</span>
+                                            </label>
+                                        ))}
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+                            <button type='button' onClick={() => { setImportTargetId(null); setImportSourceId('') }}
+                                style={{ padding: '6px 14px', fontSize: '0.7rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.35)', cursor: 'pointer' }}
+                            >CANCEL</button>
+                            <button type='button' onClick={doImportSections} disabled={importing || !importSourceId || importSelected.size === 0}
+                                style={{ padding: '6px 16px', fontSize: '0.7rem', fontWeight: 700, background: importing || !importSourceId || importSelected.size === 0 ? 'rgba(245,158,11,0.05)' : 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', color: importing || !importSourceId || importSelected.size === 0 ? 'rgba(245,158,11,0.3)' : 'rgba(245,158,11,0.9)', cursor: importing || !importSourceId || importSelected.size === 0 ? 'not-allowed' : 'pointer' }}
+                            >{importing ? 'Importing…' : `Import ${importSelected.size > 0 ? importSelected.size + ' ' : ''}Section${importSelected.size !== 1 ? 's' : ''}`}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Document type selection modal — rendered via portal so it sits above all stacking contexts */}
+            {showTypeModal && createPortal(
+                <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'default' }}
                     onClick={e => { if (e.target === e.currentTarget) closeTypeModal() }}
                 >
-                    <div style={{ background: '#0f0f10', border: `1px solid ${c(0.35)}`, borderTop: `2px solid ${c(0.8)}`, padding: '24px 28px', maxWidth: 400, width: '90%', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ background: '#0f0f10', border: `1px solid ${c(0.35)}`, borderTop: `2px solid ${c(0.8)}`, padding: '24px 28px', maxWidth: 400, width: '90%', display: 'flex', flexDirection: 'column', gap: 14, cursor: 'default' }}>
                         <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: c(0.5), fontFamily: 'monospace' }}>{'// ADD DOCUMENT'}</div>
 
-                        {typeModalStep === 'type' && <>
+                        {typeModalStep === 'type' && (() => {
+                            const allowed = (type: string) => !allowedTypes || allowedTypes.includes(type)
+                            return <>
                             <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Choose Document Type</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {allowed('orders') && (
                                 <button type='button' onClick={() => addPage('orders')}
                                     style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: `${c(0.06)}`, border: `1px solid ${c(0.3)}`, color: c(0.85), cursor: 'pointer' }}
                                 >
                                     Document Page
                                     <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(237,237,237,0.4)', marginTop: 3 }}>Standard operation orders, briefings, and planning content.</div>
                                 </button>
+                                )}
+                                {allowed('staff_orders') && (
                                 <button type='button' onClick={() => setTypeModalStep('staff_section')}
                                     style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', color: 'rgba(245,185,11,0.9)', cursor: 'pointer' }}
                                 >
                                     Staff Orders Page
                                     <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(245,158,11,0.45)', marginTop: 3 }}>Section-specific mission orders for platoon leaders and section commanders.</div>
                                 </button>
+                                )}
+                                {allowed('zeus') && (
                                 <button type='button' onClick={() => addPage('zeus')}
                                     style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(0,195,255,0.06)', border: '1px solid rgba(0,195,255,0.3)', color: 'rgba(0,195,255,0.85)', cursor: 'pointer' }}
                                 >
                                     Zeus Notes Page
                                     <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(0,195,255,0.45)', marginTop: 3 }}>J6-only notes and gamemaster planning. Visible to J6 staff only.</div>
                                 </button>
+                                )}
+                                {allowed('aar') && (
                                 <button type='button' onClick={() => addPage('aar')}
                                     style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.3)', color: 'rgba(139,140,255,0.9)', cursor: 'pointer' }}
                                 >
                                     After Action Review
                                     <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(99,102,241,0.45)', marginTop: 3 }}>Post-operation review and lessons learned. Added after the mission completes.</div>
                                 </button>
+                                )}
+                                {allowed('separator') && (
                                 <button type='button' onClick={() => addPage('separator')}
                                     style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.78rem', fontWeight: 600, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.45)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
                                 >
@@ -637,8 +898,10 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                         <div style={{ fontSize: '0.62rem', fontWeight: 400, color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>Visual divider to group documents. Double-click to add a label.</div>
                                     </div>
                                 </button>
+                                )}
                             </div>
-                        </>}
+                            </>
+                        })()}
 
                         {typeModalStep === 'staff_section' && <>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -680,7 +943,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                         </button>
                     </div>
                 </div>
-            )}
+            , document.body)}
         </div>
     )
 }

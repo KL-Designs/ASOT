@@ -6,7 +6,6 @@ import { Construction } from '@mui/icons-material'
 import TrainingRecordsTab from './tabs/TrainingRecordsTab'
 import TrainingTicketsTab from './tabs/TrainingTicketsTab'
 import J3MasterSheetTab from './tabs/J3MasterSheetTab'
-import TrainingImportTab from './tabs/TrainingImportTab'
 import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
@@ -129,7 +128,6 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                             <Tab label={<PinTabLabel label='Meetings'          pinLabel='J3 — Meetings'           href='/admin/j3' tabIndex={5} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Tickets'           pinLabel='J3 — Dept Tickets'       href='/dashboard/j3' tabIndex={6} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Master Sheet'      pinLabel='J3 — Master Sheet'       href='/dashboard/j3' tabIndex={7} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='CSV Import'        pinLabel='J3 — CSV Import'         href='/dashboard/j3' tabIndex={8} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -141,6 +139,8 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                                 isTrainer={true}
                                 isJ3Trainer={true}
                                 myId={userId}
+                                isJ3Context={true}
+                                canApproveGuides={canManageMembers || isJ4}
                             />
                         )}
                         {tab === 1 && <TrainingTicketsTab isJ3Lead={canManageMembers} />}
@@ -156,7 +156,6 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                         {tab === 5 && <MeetingsTab department='j3' userId={userId} isLead={canManageMembers || isJ4} />}
                         {tab === 6 && <DeptTicketsTab department='j3' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                         {tab === 7 && <J3MasterSheetTab />}
-                        {tab === 8 && <TrainingImportTab />}
                     </div>
                 </>
             )}

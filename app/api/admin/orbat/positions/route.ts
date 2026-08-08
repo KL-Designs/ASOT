@@ -6,7 +6,7 @@ import Db from '@/lib/mongo'
 
 
 // ── POST /api/admin/orbat/positions ───────────────────────────────────────────
-// Body: { category, sectionTitle, role }
+// Body: { category, sectionTitle, roleId }
 // Creates a new vacant position at the end of the section.
 
 export async function POST(request: NextRequest) {
@@ -16,10 +16,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const { category, sectionTitle, role } = await request.json()
-    if (!category || typeof role !== 'string' || !role.trim()) {
+    const { category, sectionTitle, roleId } = await request.json()
+    if (!category || typeof roleId !== 'string' || !roleId) {
         return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
+
+    let roleObjectId: ObjectId
+    try { roleObjectId = new ObjectId(roleId) } catch { return NextResponse.json({ error: 'Invalid roleId' }, { status: 400 }) }
+
+    const roleDoc = await Db.orbatRoles.findOne({ _id: roleObjectId })
+    if (!roleDoc) return NextResponse.json({ error: 'Role not found' }, { status: 404 })
 
     // Get sectionOrder and next positionOrder from existing docs in this section
     const existing = await Db.orbatPositions
@@ -35,7 +41,8 @@ export async function POST(request: NextRequest) {
         _id: new ObjectId(),
         category,
         sectionTitle: sectionTitle ?? '',
-        role: role.trim(),
+        role: roleDoc.name,
+        roleId: roleObjectId,
         userId: null,
         sectionOrder,
         positionOrder,

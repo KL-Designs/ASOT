@@ -227,6 +227,14 @@ export const NOTIFICATION_TYPES: NotifTypeMeta[] = [
         category: 'Training',
     },
 
+    // ── Board ─────────────────────────────────────────────────────────────────
+    {
+        type: 'board_card_assigned',
+        label: 'Board card assigned to you',
+        description: 'When a department board card is assigned to you.',
+        category: 'Board',
+    },
+
     // ── General ───────────────────────────────────────────────────────────────
     {
         type: 'system',

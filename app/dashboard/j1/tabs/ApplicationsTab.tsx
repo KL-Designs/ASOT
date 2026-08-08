@@ -79,11 +79,14 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
     const [deleting, setDeleting] = useState(false)
     const [j4DecisionNote, setJ4DecisionNote] = useState('')
     const [j4Deciding, setJ4Deciding] = useState(false)
+    const [notifyingJ4, setNotifyingJ4] = useState(false)
 
     const isAssignedRecruiter = userId === app.assignedReviewerId
     const canChangeStatus = isLead || isAssignedRecruiter
     const isJ4ReviewPending = app.j4ReviewStatus === 'pending'
-    const recruiterLocked = isAssignedRecruiter && !isLead && isJ4ReviewPending
+    const returningStatus = (app.returningMemberCheck as any)?.status as string | undefined
+    // Only DD (and backward-compat old 'REVIEW' or no status) locks the recruiter
+    const recruiterLocked = isAssignedRecruiter && !isLead && isJ4ReviewPending && (returningStatus === 'DD' || returningStatus === 'REVIEW' || !returningStatus)
 
     useEffect(() => {
         if (members.length === 0) return
@@ -231,6 +234,20 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
             }
         } finally {
             setJ4Deciding(false)
+        }
+    }
+
+    async function handleNotifyJ4Optional() {
+        setNotifyingJ4(true)
+        try {
+            const res = await fetch(`/api/admin/j1/applications/${app._id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notifyJ4GD: true }),
+            })
+            if (res.ok) onUpdate(app._id, { j4GDNotified: true } as any)
+        } finally {
+            setNotifyingJ4(false)
         }
     }
 
@@ -412,28 +429,57 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                     )}
 
                     {/* Returning-member check result */}
-                    {app.returningMemberCheck && (
-                        <div style={{
-                            padding: '10px 14px',
-                            background: app.returningMemberCheck.status === 'YES' ? 'rgba(0,195,100,0.04)' : 'rgba(245,158,11,0.06)',
-                            border: `1px solid ${app.returningMemberCheck.status === 'YES' ? 'rgba(0,195,100,0.2)' : 'rgba(245,158,11,0.35)'}`,
-                            borderLeft: `3px solid ${app.returningMemberCheck.status === 'YES' ? '#00c364' : '#f59e0b'}`,
-                        }}>
-                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: app.returningMemberCheck.status === 'YES' ? '#00c364' : '#f59e0b', marginBottom: 4 }}>
-                                Returning Member Check — {app.returningMemberCheck.status}
+                    {app.returningMemberCheck && (() => {
+                        const check = app.returningMemberCheck as any
+                        const raw: string = check.status ?? ''
+                        const st = raw === 'YES' ? 'CLEAR' : raw === 'REVIEW' ? 'GD' : raw
+                        const j4StatusLine = app.j4ReviewStatus && (
+                            <div style={{ marginTop: 6, fontSize: '0.72rem', fontWeight: 700, color: app.j4ReviewStatus === 'approved' ? '#00c364' : app.j4ReviewStatus === 'rejected' ? 'var(--red)' : '#f59e0b' }}>
+                                J4 decision: {app.j4ReviewStatus.toUpperCase()}
+                                {app.j4ReviewedByName && <span style={{ fontWeight: 400, color: 'rgba(237,237,237,0.4)' }}> by {app.j4ReviewedByName}</span>}
+                                {app.j4ReviewNote && <span style={{ fontWeight: 400, color: 'rgba(237,237,237,0.5)' }}> — {app.j4ReviewNote}</span>}
                             </div>
-                            <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>
-                                {app.returningMemberCheck.details}
+                        )
+                        if (st === 'CLEAR') return (
+                            <div style={{ padding: '10px 14px', background: 'rgba(0,195,100,0.04)', border: '1px solid rgba(0,195,100,0.2)', borderLeft: '3px solid #00c364' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#00c364', marginBottom: 4 }}>Returning Member Check — Clear</div>
+                                <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.5)' }}>{check.details}</div>
+                                {j4StatusLine}
                             </div>
-                            {app.j4ReviewStatus && (
-                                <div style={{ marginTop: 6, fontSize: '0.72rem', color: app.j4ReviewStatus === 'approved' ? '#00c364' : app.j4ReviewStatus === 'rejected' ? 'var(--red)' : '#f59e0b', fontWeight: 700 }}>
-                                    J4 decision: {app.j4ReviewStatus.toUpperCase()}
-                                    {app.j4ReviewedByName && <span style={{ fontWeight: 400, color: 'rgba(237,237,237,0.4)' }}> by {app.j4ReviewedByName}</span>}
-                                    {app.j4ReviewNote && <span style={{ fontWeight: 400, color: 'rgba(237,237,237,0.5)' }}> — {app.j4ReviewNote}</span>}
-                                </div>
-                            )}
-                        </div>
-                    )}
+                        )
+                        if (st === 'HD') return (
+                            <div style={{ padding: '10px 14px', background: 'rgba(0,120,255,0.06)', border: '1px solid rgba(0,120,255,0.3)', borderLeft: '3px solid #60a5fa' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#60a5fa', marginBottom: 4 }}>Returning Member — Honourable Discharge (HD)</div>
+                                <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>{check.details}</div>
+                                <div style={{ marginTop: 5, fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)' }}>No restrictions — applicant may proceed normally.</div>
+                                {j4StatusLine}
+                            </div>
+                        )
+                        if (st === 'GD') return (
+                            <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 4 }}>Returning Member — General Discharge (GD)</div>
+                                <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>{check.details}</div>
+                                <div style={{ marginTop: 5, fontSize: '0.72rem', color: 'rgba(245,158,11,0.7)' }}>Recruiter may continue at their discretion. J4 notification is optional.</div>
+                                {(app as any).j4GDNotified && <div style={{ marginTop: 5, fontSize: '0.72rem', color: '#00c364' }}>✓ J4 has been notified</div>}
+                                {j4StatusLine}
+                            </div>
+                        )
+                        if (st === 'DD') return (
+                            <div style={{ padding: '10px 14px', background: 'rgba(219,0,29,0.07)', border: '1px solid rgba(219,0,29,0.4)', borderLeft: '3px solid var(--red)' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--red)', marginBottom: 4 }}>Returning Member — Dishonourable Discharge (DD)</div>
+                                <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>{check.details}</div>
+                                <div style={{ marginTop: 5, fontSize: '0.72rem', color: 'rgba(219,0,29,0.8)' }}>J4 review is mandatory. Recruiter cannot proceed until J4 approves.</div>
+                                {j4StatusLine}
+                            </div>
+                        )
+                        return (
+                            <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 4 }}>Returning Member Check — {raw}</div>
+                                <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>{check.details}</div>
+                                {j4StatusLine}
+                            </div>
+                        )
+                    })()}
 
                     {/* Divider */}
                     <div style={{ borderTop: '1px solid rgba(219,0,29,0.22)', paddingTop: 16 }}>
@@ -692,12 +738,12 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                             )
                                         }
 
-                                        // Recruiter locked — J4 review in progress
+                                        // Recruiter locked — DD J4 review in progress
                                         if (recruiterLocked) {
                                             return (
                                                 <div style={dividerStyle}>
-                                                    <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b', fontSize: '0.78rem', color: '#f59e0b' }}>
-                                                        ⏳ J4 review in progress — you cannot submit a recommendation until J4 approves or rejects the returning-member check.
+                                                    <div style={{ padding: '10px 14px', background: 'rgba(219,0,29,0.07)', border: '1px solid rgba(219,0,29,0.35)', borderLeft: '3px solid var(--red)', fontSize: '0.78rem', color: 'var(--red)' }}>
+                                                        ⛔ J4 review required — this applicant has a Dishonourable Discharge on record. You cannot submit a recommendation until J4 approves or rejects their history.
                                                     </div>
                                                 </div>
                                             )
@@ -705,11 +751,26 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
 
                                         // Recruiter recommendation panel (assigned non-lead)
                                         if (isAssignedRecruiter && !isLead) {
+                                            const gdNotifyBanner = returningStatus === 'GD' && !(app as any).j4GDNotified && (
+                                                <div style={{ padding: '8px 12px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', borderLeft: '3px solid #f59e0b', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                                                    <div style={{ fontSize: '0.74rem', color: '#f59e0b', lineHeight: 1.5 }}>
+                                                        This applicant has a General Discharge. You may continue, but can optionally notify J4.
+                                                    </div>
+                                                    <button
+                                                        onClick={handleNotifyJ4Optional}
+                                                        disabled={notifyingJ4}
+                                                        style={{ ...btnBase, fontSize: '0.65rem', padding: '5px 12px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b', flexShrink: 0, opacity: notifyingJ4 ? 0.5 : 1, cursor: notifyingJ4 ? 'not-allowed' : 'pointer' }}
+                                                    >
+                                                        {notifyingJ4 ? '…' : 'Notify J4 (Optional)'}
+                                                    </button>
+                                                </div>
+                                            )
                                             if (app.recruiterRecommendation) {
                                                 const recLabel = app.recruiterRecommendation === 'approve' ? 'APPROVE' : app.recruiterRecommendation === 'deny' ? 'DENY' : 'PEND'
                                                 const recColor = app.recruiterRecommendation === 'approve' ? '#00c364' : app.recruiterRecommendation === 'deny' ? 'var(--red)' : '#f59e0b'
                                                 return (
                                                     <div style={dividerStyle}>
+                                                        {gdNotifyBanner}
                                                         <div style={{ padding: '10px 14px', background: 'rgba(0,195,100,0.04)', border: '1px solid rgba(0,195,100,0.2)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                                                             <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>
                                                                 Your recommendation: <span style={{ fontWeight: 700, color: recColor }}>{recLabel}</span>
@@ -733,6 +794,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                             }
                                             return (
                                                 <div style={dividerStyle}>
+                                                    {gdNotifyBanner}
                                                     <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 8 }}>
                                                         Submit Recommendation
                                                     </div>
@@ -1219,8 +1281,25 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
                                 {app.j4ReviewStatus === 'pending' && (
                                     <span title='J4 review pending' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', padding: '1px 5px' }}>J4</span>
                                 )}
+                                {(() => {
+                                    const rs = (app.returningMemberCheck as any)?.status as string | undefined
+                                    const st = rs === 'YES' ? 'CLEAR' : rs === 'REVIEW' ? 'GD' : rs
+                                    if (!st || st === 'CLEAR') return null
+                                    const c = st === 'HD'
+                                        ? { bg: 'rgba(0,120,255,0.1)', border: 'rgba(0,120,255,0.35)', text: '#60a5fa' }
+                                        : st === 'DD'
+                                        ? { bg: 'rgba(219,0,29,0.1)', border: 'rgba(219,0,29,0.4)', text: 'var(--red)' }
+                                        : { bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.35)', text: '#f59e0b' }
+                                    return <span title={`Returning member: ${st}`} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: c.text, background: c.bg, border: `1px solid ${c.border}`, padding: '1px 5px' }}>{st}</span>
+                                })()}
                                 {app.recruiterRecommendation && !app.j4ReviewStatus && (
                                     <span title={`Recruiter: ${app.recruiterRecommendation}`} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: app.recruiterRecommendation === 'approve' ? '#00c364' : app.recruiterRecommendation === 'deny' ? 'var(--red)' : '#f59e0b', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 5px' }}>REC</span>
+                                )}
+                                {app.returningMemberCheck?.status === 'YES' && (
+                                    <span title='Returning member' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: '#00c364', background: 'rgba(0,195,100,0.12)', border: '1px solid rgba(0,195,100,0.35)', padding: '1px 5px' }}>RTN</span>
+                                )}
+                                {app.returningMemberCheck?.status === 'REVIEW' && (
+                                    <span title='Returning member — J4 review required' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', padding: '1px 5px' }}>RTN</span>
                                 )}
                             </div>
                             <span style={{ fontSize: '0.7rem', color: app.assignedReviewerName ? 'rgba(245,158,11,0.8)' : 'rgba(237,237,237,0.2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

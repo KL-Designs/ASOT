@@ -16,7 +16,7 @@ import ZeusNotesPanel from './ZeusNotesPanel'
 import OperationStatusBar from '@/components/operations/OperationStatusBar'
 import OcapLinkPanel from './OcapLinkPanel'
 import OcapStatsPanel from './OcapStatsPanel'
-import AcknowledgeButton from './AcknowledgeButton'
+import DocAcknowledgeCard from './DocAcknowledgeCard'
 
 
 function hexToRgb(hex: string) {
@@ -49,11 +49,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         ? !!(await Db.orbatPositions.findOne({ userId: me.id, isSenior: true }))
         : false
 
-    // Orders acknowledgement status for the current user
-    const hasAcknowledged = me
-        ? (operation?.acknowledgements ?? []).some(a => a.userId === me.id)
-        : false
-    const showAcknowledgeButton = isAllStaff && operation?.status === 'Upcoming'
+    const showAcknowledgeCard = isAllStaff && operation?.status === 'Upcoming'
 
     if (!operation) return (
         <div className='flex items-center justify-center h-full' style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
@@ -410,7 +406,16 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
                     {/* Left page nav — shown for multi-page OR single-page with Zeus/OCAP tabs */}
                     {(() => {
-                        const isSinglePage = !operation.pages || operation.pages.length <= 1
+                        // Zeus/OCAP are always added as hardcoded items below — exclude them from the pages array.
+                        // Also deduplicate by id in case of stale Yjs race-condition data in MongoDB.
+                        const _seenIds = new Set<string>()
+                        const contentPages = (operation.pages ?? []).filter(pg => {
+                            if (pg.pageType === 'zeus' || pg.pageType === 'ocap') return false
+                            if (_seenIds.has(pg.id)) return false
+                            _seenIds.add(pg.id)
+                            return true
+                        })
+                        const isSinglePage = contentPages.length <= 1
                         const hasZeus = isJ6
                         const hasOcap = !!(isHQ || (isLoggedIn && operation.ocap))
                         const showPageNav = !isSinglePage || hasZeus || hasOcap
@@ -420,13 +425,23 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                         type NavItem = { id: string; title: string; color?: string; isSeparator?: boolean }
                         const navItems: NavItem[] = []
 
-                        if (!isSinglePage && operation.pages) {
-                            for (const pg of operation.pages) {
-                                navItems.push({ id: pg.id, title: pg.title, color: pg.pageColor || undefined })
+                        if (!isSinglePage) {
+                            for (const pg of contentPages) {
+                                let color: string | undefined
+                                if (pg.pageType === 'intel') {
+                                    color = 'rgba(245,158,11,0.8)'
+                                } else if (pg.pageType === 'orders') {
+                                    color = `rgba(${r},${g},${b},0.8)`
+                                } else if (pg.pageColor) {
+                                    const hx = pg.pageColor.replace('#', '')
+                                    const cr = parseInt(hx.slice(0,2),16), cg = parseInt(hx.slice(2,4),16), cb = parseInt(hx.slice(4,6),16)
+                                    color = `rgba(${cr},${cg},${cb},0.8)`
+                                }
+                                navItems.push({ id: pg.id, title: pg.title, color })
                             }
                         } else {
                             // Single page — add the main page as the first item
-                            navItems.push({ id: 'main', title: 'Operation Orders' })
+                            navItems.push({ id: 'main', title: 'Operation Orders', color: `rgba(${r},${g},${b},0.8)` })
                         }
 
                         if (hasZeus) {
@@ -443,7 +458,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                         const validIds = navItems.filter(i => !i.isSeparator).map(i => i.id)
                         const activePage = activePageParam && validIds.includes(activePageParam)
                             ? activePageParam
-                            : (isSinglePage ? 'main' : (operation.pages?.[0]?.id ?? 'main'))
+                            : (isSinglePage ? 'main' : (contentPages[0]?.id ?? 'main'))
 
                         return (
                             <PageNavClient
@@ -467,17 +482,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                         themeColor={operation.themeColor || '#db001d'}
                         r={r} g={g} b={b}
                     />
-
-                    {/* Orders Acknowledgement — shown to All Staff when op is Upcoming */}
-                    {showAcknowledgeButton && (
-                        <div className='print-hide' style={{ marginTop: 12, marginBottom: 4 }}>
-                            <AcknowledgeButton
-                                operationId={id}
-                                initialAcknowledged={hasAcknowledged}
-                                themeColor={operation.themeColor || '#db001d'}
-                            />
-                        </div>
-                    )}
 
                     {/* OCAP viewer button — shown when a recording has been linked (only on main/non-ocap tab) */}
                     {operation.ocap && activePageParam !== '__ocap__' && (
@@ -514,6 +518,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                             isLoggedIn={isLoggedIn}
                             isJ6={isJ6}
                             isHQ={isHQ}
+                            isAllStaff={isAllStaff}
+                            showAcknowledgeCard={showAcknowledgeCard}
                             operationId={id}
                             zeusNotes={operation.zeusNotes ?? ''}
                             ocap={isLoggedIn && operation.ocap?.playerStats?.length ? operation.ocap : null}
@@ -553,6 +559,16 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                             {/* Main content — shown when not on a special tab */}
                             {activePageParam !== '__zeus__' && activePageParam !== '__ocap__' && (
                                 <>
+
+                            {/* Acknowledge banner — top of content area, static */}
+                            {showAcknowledgeCard && (
+                                <div className='print-hide' style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 20px', background: 'rgba(219,160,0,0.07)', borderTop: '2px solid rgba(219,160,0,0.45)', borderBottom: '1px solid rgba(219,160,0,0.14)', marginBottom: 4 }}>
+                                    <div style={{ width: 6, height: 6, background: 'rgba(219,160,0,0.85)', flexShrink: 0 }} />
+                                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.8)' }}>
+                                        Orders Acknowledgement Required — Scroll to Bottom to Acknowledge
+                                    </span>
+                                </div>
+                            )}
 
                             {operation.sections && operation.sections.length > 0 ? (
                                 operation.sections
@@ -772,6 +788,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                                 </div>
                             )}
 
+
+                            {/* Acknowledge card — bottom of content, after all sections */}
+                            {showAcknowledgeCard && (
+                                <DocAcknowledgeCard operationId={id} pageId='main' />
+                            )}
 
                             {/* Classified banner — shown to logged-out users when sections are hidden */}
                             {hasHiddenSections && (

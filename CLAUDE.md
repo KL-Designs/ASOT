@@ -8,6 +8,19 @@ Community management platform for the **Australian Special Operations Taskforce 
 
 ---
 
+## Site Map — Read Before Building Features
+
+`docs/map/README.md` is the index into a full inventory of every page, API route, and `lib`/`types`/`components` file — what it does, its permission gate, and which `Db.*` collections it touches, split across 8 part files (`docs/map/a-*.md` through `h-*.md`) so no single file is too large to work with. **Before implementing or editing a feature:**
+1. Open `docs/map/README.md`.
+2. Scan the "Find it fast" keyword table for your topic (or the Part-files table if you already know the area).
+3. Open only the linked part file(s) and search within it for the specific route/component — don't read a part file end to end.
+
+This tells you whether a route/helper/model already exists so you don't duplicate it.
+
+**Keep it current:** whenever you add, remove, rename, or meaningfully change a route, page, or lib/type/component file, update or add its entry in the relevant `docs/map/*.md` file (and the index's keyword table if it introduces a new topic) as part of the same change — same discipline as updating this file. A stale map is worse than no map, so don't skip this.
+
+---
+
 ## Commands
 
 ```bash
