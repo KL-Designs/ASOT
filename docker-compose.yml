@@ -30,7 +30,7 @@ services:
       # container can't reach that. `environment:` overrides env_file for the same
       # key, so this alone flips it to Docker Desktop's host-DNS name without
       # touching .env.
-      - MONGO_URI=mongodb://host.docker.internal:27017
+      - MONGO_URI=mongodb://172.24.0.11:27017
 
   bot:
     build:
@@ -43,4 +43,4 @@ services:
     env_file:
       - .env
     environment:
-      - MONGO_URI=mongodb://host.docker.internal:27017
+      - MONGO_URI=mongodb://172.24.0.11:27017
