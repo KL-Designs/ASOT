@@ -11,4 +11,10 @@ declare global {
         channel: string
     }
 
+    interface SyncStateData {
+        _id: 'membersLastSynced'
+
+        timestamp: number
+    }
+
 }

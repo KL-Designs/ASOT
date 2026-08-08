@@ -11,7 +11,7 @@ export default {
 
     async execute(interaction) {
 
-        const status = await Db.data.findOne({ _id: 'status' })
+        const status = await Db.data.findOne<StatusData>({ _id: 'status' })
         const guild = await App.guild()
 
         try {

@@ -12,8 +12,8 @@ const DbInterface = {
     test: () => client.db(config.mongo.db).stats(),
     stats: () => client.db(config.mongo.db).stats().then(console.table).catch(console.error),
 
-    data: client.db(config.mongo.db).collection('data') as MongoCollection<StatusData>,
-    users: client.db(config.mongo.db).collection('users') as MongoCollection<GuildMember>,
+    data: client.db(config.mongo.db).collection('data') as MongoCollection<StatusData | SyncStateData>,
+    users: client.db(config.mongo.db).collection('users') as MongoCollection<User>,
     roles: client.db(config.mongo.db).collection('roles') as MongoCollection<Role>,
     optionals: client.db(config.mongo.db).collection('optionals') as MongoCollection<Optional>,
     reminders: client.db(config.mongo.db).collection('reminders') as MongoCollection<Reminder>,

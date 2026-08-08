@@ -3,6 +3,13 @@
     "target": "ES2022",
     "module": "CommonJS",
     "moduleResolution": "Node10",
+    // Node10 (and the baseUrl-based path resolution it implies) is deprecated — removal
+    // planned for TS 7.0 — but still fully functional today. Kept deliberately: it's what
+    // makes `import Discord from 'discord.js'`-style default imports work via
+    // esModuleInterop's CJS synthetic-default (discord.js has no true default export) —
+    // switching to node16/nodenext now risks reintroducing that break for no current
+    // benefit. Revisit if/when actually migrating off Node10.
+    "ignoreDeprecations": "5.0",
     "lib": ["ES2022"],
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -31,6 +38,6 @@
       "discord/mentionableSelectMenus": ["./app/interactions/mentionableSelectMenus/index.ts"]
     }
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "../../types/**/*.ts"],
   "exclude": ["node_modules"]
 }

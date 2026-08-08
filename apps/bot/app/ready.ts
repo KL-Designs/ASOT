@@ -6,7 +6,7 @@ import Discord from 'discord.js'
 import Commands from 'discord/commands'
 
 import processRoles from "./processRoles.ts"
-import processMembers from "./processMembers.ts"
+import processMembers, { MEMBERS_SYNC_INTERVAL_MS } from "./processMembers.ts"
 import processReminders from "./processReminders.ts"
 
 import Dig from './commands/stats/dig.ts'
@@ -34,7 +34,7 @@ export default async function (client: Discord.Client) {
 
     async function updateStatus() {
         try {
-            const status = await Db.data.findOne({ _id: 'status' })
+            const status = await Db.data.findOne<StatusData>({ _id: 'status' })
             const guild = await App.guild()
             const channel = await guild.channels.fetch(status.channel) as Discord.TextBasedChannel
             const message = await channel.messages.fetch(status.message)
@@ -48,6 +48,6 @@ export default async function (client: Discord.Client) {
     
     setInterval(updateStatus, 1000 * 60 * 5), updateStatus()
     setInterval(processRoles, 1000 * 60 * 60), processRoles()
-    setInterval(processMembers, 1000 * 60 * 60), processMembers()
+    setInterval(processMembers, MEMBERS_SYNC_INTERVAL_MS), processMembers()
     setInterval(processReminders, 1000 * 30), processReminders()
 }
