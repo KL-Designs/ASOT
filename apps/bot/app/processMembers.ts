@@ -8,9 +8,22 @@ import Discord from 'discord.js'
 export const MEMBERS_SYNC_INTERVAL_MS = 1000 * 60 * 60
 
 export async function processMember(member: Discord.GuildMember) {
+    // Cheap check before touching the Discord API — lets a mid-run restart pick up
+    // roughly where it left off instead of re-fetching/re-upserting everyone again.
+    const existing = await Db.users.findOne<Pick<User, 'syncedAt'>>(
+        { _id: member.id },
+        { projection: { syncedAt: 1 } }
+    )
+    const elapsed = existing?.syncedAt ? Date.now() - existing.syncedAt : Infinity
+    if (elapsed < MEMBERS_SYNC_INTERVAL_MS) {
+        console.log(`Skipped member: ${member.user.tag} (synced ${Math.round(elapsed / 1000)}s ago)`)
+        return
+    }
+
     const user = await member.user.fetch()
     const userJson = user.toJSON()
     userJson['guild'] = member.toJSON()
+    userJson['syncedAt'] = Date.now()
 
     await Db.users.updateOne(
         { _id: user.id },

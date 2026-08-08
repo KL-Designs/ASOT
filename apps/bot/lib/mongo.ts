@@ -3,9 +3,13 @@ import { MongoClient, Collection as MongoCollection } from 'mongodb'
 
 
 const client = new MongoClient(config.mongo.uri)
-client.connect().catch(console.error)
-
-client.on('connectionReady', () => console.info(`MongoDB Connected with "${config.mongo.uri}" using "${config.mongo.db}"`))
+// Log once, when the initial connection resolves — not via the 'connectionReady' event,
+// which fires per pooled connection and spams the console once the app starts making
+// concurrent queries (e.g. processMembers()'s per-member lookups opening several
+// connections in quick succession).
+client.connect()
+    .then(() => console.info(`MongoDB Connected with "${config.mongo.uri}" using "${config.mongo.db}"`))
+    .catch(console.error)
 
 
 const DbInterface = {
