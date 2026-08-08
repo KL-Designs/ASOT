@@ -1,0 +1,27 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/dockerfile
+    container_name: asot-website
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web/gallery:/app/apps/web/gallery
+      - ./apps/web/milpacs:/app/apps/web/milpacs
+      - ./apps/web/uploads:/app/apps/web/uploads
+      - ./apps/web/snapshots:/app/apps/web/snapshots
+    restart: unless-stopped
+    env_file:
+      - .env
+
+  bot:
+    build:
+      context: .
+      dockerfile: apps/bot/dockerfile
+    container_name: asot-bot
+    volumes:
+      - ./apps/bot/data:/app/apps/bot/data
+    restart: unless-stopped
+    env_file:
+      - .env

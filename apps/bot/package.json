@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "tsx watch --env-file=.env index.ts",
-    "start": "tsx --env-file=.env index.ts",
+    "dev": "dotenv -e ../../.env -- tsx watch index.ts",
+    "start": "dotenv -e ../../.env -- tsx index.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,6 +19,7 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20",
+    "dotenv-cli": "^7.4.4",
     "tsx": "^4.19.2",
     "typescript": "^5"
   }

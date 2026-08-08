@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
 	typedRoutes: true,
 	poweredByHeader: false,
 
+	// apps/web isn't an npm workspace member (apps/bot is), but the monorepo root still has
+	// its own package-lock.json for that workspace — pin the root explicitly so Next doesn't
+	// have to guess between the two lockfiles it finds walking up from here.
+	outputFileTracingRoot: __dirname,
+
 	// @napi-rs/canvas ships a native .node binary that webpack cannot bundle.
 	// Marking it external keeps it as a require() at runtime on the server.
 	serverExternalPackages: ['@napi-rs/canvas', 'unzipper', 'archiver', 'ts3-nodejs-library'],

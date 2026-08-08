@@ -1,0 +1,10 @@
+**/node_modules
+**/.next
+**/.git
+
+# Runtime/local data — volume-mounted at runtime instead, see docker-compose.yml
+apps/web/gallery
+apps/web/milpacs
+apps/web/uploads
+apps/web/snapshots
+apps/bot/data

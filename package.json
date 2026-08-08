@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/bot"
   ],
   "scripts": {
-    "dev:web": "npm run dev --workspace=apps/web",
-    "dev:web:collab": "npm run dev-collab --workspace=apps/web",
-    "build:web": "npm run build --workspace=apps/web",
-    "start:web": "npm run start --workspace=apps/web",
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev:web:collab": "npm --prefix apps/web run dev-collab",
+    "build:web": "npm --prefix apps/web run build",
+    "start:web": "npm --prefix apps/web run start",
     "dev:bot": "npm run dev --workspace=apps/bot",
     "start:bot": "npm run start --workspace=apps/bot"
   }

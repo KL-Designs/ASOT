@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev-collab": "node --max-old-space-size=4096 --env-file=.env server.mjs",
-    "build": "next build",
-    "start": "node --env-file=.env server.mjs",
+    "dev": "dotenv -e ../../.env -- next dev",
+    "dev-collab": "dotenv -v NODE_ENV=development -e ../../.env -- node --max-old-space-size=4096 server.mjs",
+    "build": "dotenv -e ../../.env -- next build",
+    "start": "dotenv -v NODE_ENV=production -e ../../.env -- node server.mjs",
     "lint": "next lint",
     "generate-terrain": "node scripts/generate-terrain.mjs",
     "init-db": "node scripts/init-db.mjs",
-    "migrate-orbat-roles": "node --env-file=.env scripts/migrate-orbat-roles.mjs"
+    "migrate-orbat-roles": "dotenv -e ../../.env -- node scripts/migrate-orbat-roles.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.1",
@@ -97,6 +97,7 @@
     "@types/react-dom": "^18",
     "@types/unzipper": "^0.10.11",
     "@types/ws": "^8.18.1",
+    "dotenv-cli": "^7.4.4",
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
     "postcss": "^8",
