@@ -1,5 +1,5 @@
 import App from 'app'
-import { GameDig } from 'npm:gamedig'
+import { GameDig } from 'gamedig'
 import { EmbedBuilder } from 'discord.js'
 
 const armaServers = [

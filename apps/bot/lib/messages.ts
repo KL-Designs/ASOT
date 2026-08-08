@@ -9,7 +9,7 @@ interface MessageOptions {
     title?: string
     description?: string
     color?: keyof typeof Colors
-    components?: Discord.APIActionRowComponent<Discord.APIMessageActionRowComponent>[]
+    components?: any[]
 }
 
 
@@ -32,7 +32,7 @@ export async function reply(interaction: Discord.Interaction, options: MessageOp
 
 
 export async function send(options: MessageOptions, channel?: Discord.TextBasedChannel) {
-    const notifyChannel = App.channel(channel?.id || App.config.channels.logs) as Discord.TextChannel
+    const notifyChannel = App.channel(channel?.id || App.config.notificationChannel) as Discord.TextChannel
 
     return await notifyChannel.send({
         embeds: [

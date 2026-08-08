@@ -10,7 +10,9 @@ const nextConfig: NextConfig = {
 	serverExternalPackages: ['@napi-rs/canvas', 'unzipper', 'archiver', 'ts3-nodejs-library'],
 
 	webpack(config) {
-		config.resolve.alias['yjs'] = path.resolve('./node_modules/yjs')
+		// require.resolve (not a hardcoded path) so this still finds the single yjs instance
+		// after npm workspaces hoists it to the monorepo root node_modules/.
+		config.resolve.alias['yjs'] = path.dirname(require.resolve('yjs/package.json'))
 		return config
 	},
 	images: {

@@ -6,3 +6,7 @@ config.json
 config.*.json
 commands.json
 asot-474311-b5339a7b1286.json
+
+# Node port — .env replaces config.json
+.env
+.env*.local

@@ -1,13 +1,36 @@
 {
-	"compilerOptions": {
-		"target": "ES2022",
-		"module": "ESNext",
-		"strict": true,
-		"esModuleInterop": true,
-		"allowSyntheticDefaultImports": true,
-		"skipLibCheck": true
-	},
-	"exclude": [
-		"node_modules"
-	]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node10",
+    "lib": ["ES2022"],
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "app": ["./app/index.ts"],
+      "config": ["./lib/config.ts"],
+      "mongo": ["./lib/mongo.ts"],
+      "encryption": ["./lib/encryption.ts"],
+      "configurations": ["./config/index.ts"],
+      "lib/*": ["./lib/*"],
+      "modals/*": ["./app/modals/*"],
+      "discord/modules": ["./app/modules/index.ts"],
+      "discord/events": ["./app/events/index.ts"],
+      "discord/commands": ["./app/commands/index.ts"],
+      "discord/buttons": ["./app/interactions/buttons/index.ts"],
+      "discord/modals": ["./app/interactions/modals/index.ts"],
+      "discord/stringSelectMenus": ["./app/interactions/stringSelectMenus/index.ts"],
+      "discord/mentionableSelectMenus": ["./app/interactions/mentionableSelectMenus/index.ts"]
+    }
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules"]
 }

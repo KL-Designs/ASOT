@@ -155,7 +155,7 @@ export default {
             .setPlaceholder('Select who to remind...')
             .setMinValues(0)
             .setMaxValues(20)
-            .setDefaultValues(defaultValues)
+            .setDefaultValues(defaultValues as any)
 
         const pingMeButton = new Discord.ButtonBuilder()
             .setCustomId(`reminder_setup.${sessionId}.pingme`)

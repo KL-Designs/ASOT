@@ -8,7 +8,7 @@ export default async function Menu(interaction: Discord.StringSelectMenuInteract
     if (args[0] === 'select') {
         Modlist.setUserOptionals(interaction.user.id, interaction.values)
 
-        const foundOptionals = Modlist.matchOptionals(interaction.user.id).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
+        const foundOptionals = (await Modlist.matchOptionals(interaction.user.id)).map((m, i) => `${i + 1} | ${m.id} | ${m.name}`)
 
         interaction.update({ content: `**Your Enabled Optionals**\n\`\`\`${foundOptionals.join('\n')}\`\`\`` })
     }

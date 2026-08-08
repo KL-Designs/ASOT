@@ -1,0 +1,16 @@
+{
+  "name": "asot-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:web:collab": "npm run dev-collab --workspace=apps/web",
+    "build:web": "npm run build --workspace=apps/web",
+    "start:web": "npm run start --workspace=apps/web",
+    "dev:bot": "npm run dev --workspace=apps/bot",
+    "start:bot": "npm run start --workspace=apps/bot"
+  }
+}

@@ -1,0 +1,4 @@
+# npm workspaces hoist most dependencies here
+/node_modules
+
+# per-app ignores live in apps/*/.gitignore

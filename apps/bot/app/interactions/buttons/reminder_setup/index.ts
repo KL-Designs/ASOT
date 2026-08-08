@@ -156,6 +156,7 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
                 message: session.message,
                 channel: session.channel,
                 messageId: null,
+                sendFailed: false,
             })
         }
 
