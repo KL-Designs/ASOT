@@ -35,7 +35,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: `Maximum ${MAX_TOTAL_FILES} attachments allowed` }, { status: 400 })
     }
 
-    const dir = path.resolve(`./uploads/community-tickets/${id}`)
+    const dir = path.resolve(`../../storage/uploads/community-tickets/${id}`)
     fs.mkdirSync(dir, { recursive: true })
 
     const saved: string[] = []
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (ticket.isDeleted && !isJ4) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (ticket.visibility === 'private' && !isJ4) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const dir = path.resolve(`./uploads/community-tickets/${id}`)
+    const dir = path.resolve(`../../storage/uploads/community-tickets/${id}`)
     const filePath = path.join(dir, file)
     if (!filePath.startsWith(dir) || !fs.existsSync(filePath)) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 })

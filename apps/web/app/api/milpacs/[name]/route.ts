@@ -10,7 +10,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 	if (!SAFE_NAME_RE.test(name)) return NextResponse.json('Bad request', { status: 400 })
 	const type = request.nextUrl.searchParams.get('type')
 	const filename = type === 'medals' ? `${name}-medals.png` : `${name}.png`
-	const path = `./milpacs/${filename}`
+	const path = `../../storage/milpacs/${filename}`
 	if (!fs.existsSync(path)) return NextResponse.json('Not found', { status: 404 })
 	const output = fs.readFileSync(path)
 	return new NextResponse(output as BodyInit, {
@@ -34,10 +34,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ nam
 	const type = formData.get('type') as string | null
 	if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
-	if (!fs.existsSync('./milpacs')) fs.mkdirSync('./milpacs')
+	if (!fs.existsSync('../../storage/milpacs')) fs.mkdirSync('../../storage/milpacs')
 	const filename = type === 'medals' ? `${name}-medals.png` : `${name}.png`
 	const buffer = Buffer.from(await file.arrayBuffer())
-	fs.writeFileSync(`./milpacs/${filename}`, buffer)
+	fs.writeFileSync(`../../storage/milpacs/${filename}`, buffer)
 
 	return NextResponse.json({ success: true })
 }

@@ -37,8 +37,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         const attachId = crypto.randomUUID()
         const ext = file.name.split('.').pop()?.toLowerCase() || 'bin'
 
-        if (!fs.existsSync('./uploads/meetings')) fs.mkdirSync('./uploads/meetings', { recursive: true })
-        fs.writeFileSync(`./uploads/meetings/${attachId}.${ext}`, buffer)
+        if (!fs.existsSync('../../storage/uploads/meetings')) fs.mkdirSync('../../storage/uploads/meetings', { recursive: true })
+        fs.writeFileSync(`../../storage/uploads/meetings/${attachId}.${ext}`, buffer)
 
         attachment = {
             id: attachId,

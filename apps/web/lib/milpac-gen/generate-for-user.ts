@@ -30,11 +30,11 @@ export async function generateMilpacForUser(user: User): Promise<void> {
  * Failures are swallowed — a missing image does not block the discharge.
  */
 export async function archiveMilpacImages(userId: string): Promise<{ uniformPath: string; medalPath: string }> {
-    const cwd        = process.cwd()
-    const srcUniform = join(cwd, 'milpacs', `${userId}.png`)
-    const srcMedals  = join(cwd, 'milpacs', `${userId}-medals.png`)
-    const dstUniform = join(cwd, 'milpacs', `${userId}-discharge.png`)
-    const dstMedals  = join(cwd, 'milpacs', `${userId}-discharge-medals.png`)
+    const milpacsDir = join(process.cwd(), '..', '..', 'storage', 'milpacs')
+    const srcUniform = join(milpacsDir, `${userId}.png`)
+    const srcMedals  = join(milpacsDir, `${userId}-medals.png`)
+    const dstUniform = join(milpacsDir, `${userId}-discharge.png`)
+    const dstMedals  = join(milpacsDir, `${userId}-discharge-medals.png`)
 
     try { await copyFile(srcUniform, dstUniform) } catch { /* image may not exist yet */ }
     try { await copyFile(srcMedals,  dstMedals)  } catch { /* image may not exist yet */ }

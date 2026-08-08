@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const ext = request.nextUrl.searchParams.get('ext') || 'bin'
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-    const path = `./uploads/meetings/${id}.${ext}`
+    const path = `../../storage/uploads/meetings/${id}.${ext}`
     if (!fs.existsSync(path)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const buffer = fs.readFileSync(path)

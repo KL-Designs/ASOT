@@ -36,8 +36,8 @@ export async function POST(req: Request) {
 
     const id = crypto.randomUUID()
 
-    if (!fs.existsSync('./uploads/operations')) fs.mkdirSync('./uploads/operations', { recursive: true })
-    fs.writeFileSync(`./uploads/operations/${id}.${ext}`, buffer)
+    if (!fs.existsSync('../../storage/uploads/operations')) fs.mkdirSync('../../storage/uploads/operations', { recursive: true })
+    fs.writeFileSync(`../../storage/uploads/operations/${id}.${ext}`, buffer)
 
     return NextResponse.json({ url: `/api/operations/image?id=${id}&ext=${ext}` })
 }

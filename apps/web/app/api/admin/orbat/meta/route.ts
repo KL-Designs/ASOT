@@ -72,7 +72,7 @@ export async function DELETE(request: NextRequest) {
     if (field === 'patch') {
         const doc = await Db.orbatSectionMeta.findOne({ category, sectionTitle: title })
         if (doc?.patch) {
-            const path = `./uploads/orbat/${doc.patch}`
+            const path = `../../storage/uploads/orbat/${doc.patch}`
             if (fs.existsSync(path)) fs.unlinkSync(path)
         }
     }

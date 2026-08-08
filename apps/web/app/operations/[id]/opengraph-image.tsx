@@ -57,7 +57,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             const imgId = url.searchParams.get('id')
             const ext = url.searchParams.get('ext') || 'jpg'
             if (imgId) {
-                const buf = fs.readFileSync(`./uploads/operations/${imgId}.${ext}`)
+                const buf = fs.readFileSync(`../../storage/uploads/operations/${imgId}.${ext}`)
                 const mimeMap: Record<string, string> = { png: 'image/png', gif: 'image/gif', webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg' }
                 coverDataUrl = `data:${mimeMap[ext] ?? 'image/jpeg'};base64,${buf.toString('base64')}`
             }

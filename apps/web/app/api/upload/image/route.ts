@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     if (!id || !UUID_RE.test(id)) return NextResponse.json('Bad request', { status: 400 })
     if (!ALLOWED_EXT.has(ext)) return NextResponse.json('Bad request', { status: 400 })
 
-    const path = `./uploads/documents/${id}.${ext}`
+    const path = `../../storage/uploads/documents/${id}.${ext}`
     if (!fs.existsSync(path)) return NextResponse.json('Not found', { status: 404 })
 
     const output = fs.readFileSync(path)

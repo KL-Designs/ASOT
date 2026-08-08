@@ -73,7 +73,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     // Clean up uploaded files
     for (const att of meeting.attachments) {
         if (att.type === 'file' && att.ext) {
-            try { fs.unlinkSync(`./uploads/meetings/${att.id}.${att.ext}`) } catch { /* already gone */ }
+            try { fs.unlinkSync(`../../storage/uploads/meetings/${att.id}.${att.ext}`) } catch { /* already gone */ }
         }
     }
 

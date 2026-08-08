@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     if (!doc?.patch) doc = await Db.orbatSectionMeta.findOne({ category, patch: { $exists: true } })
     if (!doc?.patch) return NextResponse.json('Not found', { status: 404 })
 
-    const filePath = path.join('./uploads/orbat', doc.patch)
+    const filePath = path.join('../../storage/uploads/orbat', doc.patch)
     if (!fs.existsSync(filePath)) return NextResponse.json('Not found', { status: 404 })
 
     const ext = path.extname(doc.patch).slice(1).toLowerCase()

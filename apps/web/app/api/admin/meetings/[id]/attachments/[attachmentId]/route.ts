@@ -22,7 +22,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
     const attachment = meeting.attachments.find(a => a.id === attachmentId)
     if (attachment?.type === 'file' && attachment.ext) {
-        try { fs.unlinkSync(`./uploads/meetings/${attachment.id}.${attachment.ext}`) } catch { /* already gone */ }
+        try { fs.unlinkSync(`../../storage/uploads/meetings/${attachment.id}.${attachment.ext}`) } catch { /* already gone */ }
     }
 
     await Db.meetings.updateOne(

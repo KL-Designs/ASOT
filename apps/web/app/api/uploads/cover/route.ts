@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
-    const path = `./uploads/cover/${id}.png`
+    const path = `../../storage/uploads/cover/${id}.png`
     if (!fs.existsSync(path)) return NextResponse.json('Not found', { status: 404 })
 
     const output = fs.readFileSync(path)
@@ -32,8 +32,8 @@ export async function POST(req: Request) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    fs.mkdirSync('./uploads/cover', { recursive: true })
-    fs.writeFileSync(`./uploads/cover/${me.id}.png`, buffer)
+    fs.mkdirSync('../../storage/uploads/cover', { recursive: true })
+    fs.writeFileSync(`../../storage/uploads/cover/${me.id}.png`, buffer)
 
     return NextResponse.json({ success: true })
 }
@@ -43,7 +43,7 @@ export async function DELETE() {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const path = `./uploads/cover/${me.id}.png`
+    const path = `../../storage/uploads/cover/${me.id}.png`
     if (fs.existsSync(path)) fs.unlinkSync(path)
 
     return NextResponse.json({ success: true })

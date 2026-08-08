@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
 
     const id = searchParams.get('id')
 
-    if (!fs.existsSync(`./uploads/bio/${id}.jpg`)) return NextResponse.json('Media does not exist', { status: 404 })
-    const path = `./uploads/bio/${id}.jpg`
+    if (!fs.existsSync(`../../storage/uploads/bio/${id}.jpg`)) return NextResponse.json('Media does not exist', { status: 404 })
+    const path = `../../storage/uploads/bio/${id}.jpg`
     const ext = path.split('.').pop()?.toString().toLowerCase()
     const output = fs.readFileSync(path)
 
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    fs.writeFileSync(`./uploads/bio/${me.id}.jpg`, buffer)
+    fs.writeFileSync(`../../storage/uploads/bio/${me.id}.jpg`, buffer)
 
     return NextResponse.json({ success: true })
 }

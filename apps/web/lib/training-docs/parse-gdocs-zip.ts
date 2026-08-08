@@ -4,7 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import { ObjectId } from 'mongodb'
 
-const UPLOAD_DIR = 'uploads/training-docs'
+const UPLOAD_DIR = '../../storage/uploads/training-docs'
 const ALLOWED_IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp'])
 
 // CSS properties worth preserving from Google Docs .cNN class rules

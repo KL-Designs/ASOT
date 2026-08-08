@@ -13,7 +13,7 @@ async function authStructure() {
     return client.hasRoles(me, PERMISSIONS.admin.manageOrbatStructure)
 }
 
-const UPLOAD_DIR = './uploads/orbat'
+const UPLOAD_DIR = '../../storage/uploads/orbat'
 
 const MIME_TO_EXT: Record<string, string> = {
     'image/png': 'png',
