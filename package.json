@@ -6,6 +6,7 @@
     "apps/bot"
   ],
   "scripts": {
+    "install:all": "npm install && npm --prefix apps/web install",
     "dev:web:collab": "npm --prefix apps/web run dev-collab",
     "build:web": "npm --prefix apps/web run build",
     "start:web": "npm --prefix apps/web run start",
