@@ -256,12 +256,18 @@ export async function POST(request: NextRequest) {
     // catalog entries. Reservist rows are always unmatched by design (see
     // the ORBAT Roles design spec: reservists stay outside the catalog).
     const allRoles = await Db.orbatRoles.find({}).toArray()
-    const roleByName = new Map(allRoles.map(r => [r.name, r._id]))
+    const rolesByName = new Map<string, typeof allRoles>()
+    for (const r of allRoles) {
+        const list = rolesByName.get(r.name) ?? []
+        list.push(r)
+        rolesByName.set(r.name, list)
+    }
     let unmatchedRoleCount = 0
-    const resolveRoleId = (name: string) => {
-        const id = roleByName.get(name) ?? null
-        if (!id) unmatchedRoleCount++
-        return id
+    const resolveRoleId = (name: string, category: string) => {
+        const candidates = rolesByName.get(name) ?? []
+        const match = candidates.find(r => r.categories.includes(category)) ?? candidates.find(r => r.categories.length === 0)
+        if (!match) unmatchedRoleCount++
+        return match?._id ?? null
     }
 
     const positions: Omit<OrbatPosition, '_id'>[] = []
@@ -273,7 +279,7 @@ export async function POST(request: NextRequest) {
             category: 'companyHQ',
             sectionTitle: 'India Company HQ',
             role: sec.senior.role,
-            roleId: resolveRoleId(sec.senior.role),
+            roleId: resolveRoleId(sec.senior.role, 'companyHQ'),
             userId: lookupAndTrack(sec.senior.name)?._id ?? null,
             sectionOrder,
             positionOrder: 0,
@@ -285,7 +291,7 @@ export async function POST(request: NextRequest) {
                 category: 'companyHQ',
                 sectionTitle: 'India Company HQ',
                 role: m.role,
-                roleId: resolveRoleId(m.role),
+                roleId: resolveRoleId(m.role, 'companyHQ'),
                 userId: lookupAndTrack(m.name)?._id ?? null,
                 sectionOrder,
                 positionOrder: i + 1,
@@ -296,21 +302,21 @@ export async function POST(request: NextRequest) {
 
     for (const section of orbat.platoon11) {
         section.members.forEach((m, i) => {
-            positions.push({ category: 'platoon11', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+            positions.push({ category: 'platoon11', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role, 'platoon11'), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
         })
         sectionOrder++
     }
 
     for (const section of orbat.platoon12) {
         section.members.forEach((m, i) => {
-            positions.push({ category: 'platoon12', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+            positions.push({ category: 'platoon12', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role, 'platoon12'), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
         })
         sectionOrder++
     }
 
     for (const section of orbat.support) {
         section.members.forEach((m, i) => {
-            positions.push({ category: 'support', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+            positions.push({ category: 'support', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role, 'support'), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
         })
         sectionOrder++
     }
@@ -326,7 +332,7 @@ export async function POST(request: NextRequest) {
     sectionOrder++
 
     orbat.gamemasters.forEach((m, i) => {
-        positions.push({ category: 'gamemaster', sectionTitle: 'Gamemasters', role: m.role, roleId: resolveRoleId(m.role), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+        positions.push({ category: 'gamemaster', sectionTitle: 'Gamemasters', role: m.role, roleId: resolveRoleId(m.role, 'gamemaster'), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
     })
 
     const seenUserIds = new Set<string>()
