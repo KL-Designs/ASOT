@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { PERMISSION_KEYS } from '@/lib/permissions-catalog'
+import { categoriesOverlap } from '@/lib/orbat/categoriesOverlap'
 
 
 // ── GET /api/admin/orbat/roles ─────────────────────────────────────────────
@@ -41,8 +42,9 @@ export async function POST(request: NextRequest) {
         ? body.permissions.filter((p: unknown) => typeof p === 'string' && PERMISSION_KEYS.includes(p))
         : []
 
-    const existing = await Db.orbatRoles.findOne({ name })
-    if (existing) return NextResponse.json({ error: 'A Role with that name already exists' }, { status: 409 })
+    const sameName = await Db.orbatRoles.find({ name }).toArray()
+    const conflict = sameName.find(r => categoriesOverlap(r.categories, categories))
+    if (conflict) return NextResponse.json({ error: 'A Role with that name already exists in an overlapping category' }, { status: 409 })
 
     const performedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
 

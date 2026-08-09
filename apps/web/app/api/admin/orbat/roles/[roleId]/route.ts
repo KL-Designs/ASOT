@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { PERMISSION_KEYS } from '@/lib/permissions-catalog'
+import { categoriesOverlap } from '@/lib/orbat/categoriesOverlap'
 
 
 function parseId(roleId: string): ObjectId | null {
@@ -39,12 +40,18 @@ export async function PATCH(
     const body = await request.json()
     const updates: Partial<OrbatRole> = {}
 
-    if (typeof body.name === 'string' && body.name.trim() && body.name.trim() !== role.name) {
-        const conflict = await Db.orbatRoles.findOne({ name: body.name.trim(), _id: { $ne: objectId } })
-        if (conflict) return NextResponse.json({ error: 'A Role with that name already exists' }, { status: 409 })
-        updates.name = body.name.trim()
+    const proposedName: string = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : role.name
+    const proposedCategories: string[] = Array.isArray(body.categories) ? body.categories : role.categories
+    const nameChanging = proposedName !== role.name
+    const categoriesChanging = Array.isArray(body.categories)
+
+    if (nameChanging || categoriesChanging) {
+        const sameName = await Db.orbatRoles.find({ name: proposedName, _id: { $ne: objectId } }).toArray()
+        const conflict = sameName.find(r => categoriesOverlap(r.categories, proposedCategories))
+        if (conflict) return NextResponse.json({ error: 'A Role with that name already exists in an overlapping category' }, { status: 409 })
     }
-    if (Array.isArray(body.categories)) updates.categories = body.categories
+    if (nameChanging) updates.name = proposedName
+    if (categoriesChanging) updates.categories = body.categories
     if (Array.isArray(body.discordRoleIds)) updates.discordRoleIds = body.discordRoleIds
     if (Array.isArray(body.permissions)) {
         updates.permissions = body.permissions.filter((p: unknown) => typeof p === 'string' && PERMISSION_KEYS.includes(p))
