@@ -41,20 +41,11 @@ function parseDateStr(s: string): number {
     return new Date(s).getTime() || 0
 }
 
-function sortRecords(records: DisciplineRecord[], sortBy: string, sortDir: string) {
-    const DATE_FIELDS = ['issued', 'expires']
-    const mul = sortDir === 'asc' ? 1 : -1
-    return [...records].sort((a, b) => {
-        const av = (a as any)[sortBy] ?? ''
-        const bv = (b as any)[sortBy] ?? ''
-        if (DATE_FIELDS.includes(sortBy)) {
-            return mul * (parseDateStr(String(av)) - parseDateStr(String(bv)))
-        }
-        if (sortBy === 'pointsRemoved') return mul * ((Number(av) || 0) - (Number(bv) || 0))
-        if (sortBy === 'expired') return mul * (Number(av) - Number(bv))
-        return mul * String(av).localeCompare(String(bv), 'en', { sensitivity: 'base' })
-    })
-}
+// issued/expires are free-text (CSV mixes DD/MM/YYYY and YYYY/MM/DD) — the
+// *Sort fields are the parsed epoch-ms companions computed at import time, so
+// MongoDB can sort natively instead of the app loading every record into
+// memory to sort in JS. pointsRemoved/expired are already native number/bool.
+const DATE_SORT_FIELDS: Record<string, string> = { issued: 'issuedSort', expires: 'expiresSort' }
 
 export async function GET(req: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
@@ -80,10 +71,19 @@ export async function GET(req: NextRequest) {
     if (levelFilter) query.disciplineLevel = levelFilter
     if (activeOnly) query.expired = false
 
-    const all = await Db.disciplineRecords.find(query).toArray()
-    const sorted = sortRecords(all, sortBy, sortDir)
-    const total = sorted.length
-    const records = sorted.slice((page - 1) * limit, page * limit)
+    const sortField = DATE_SORT_FIELDS[sortBy] ?? sortBy
+    const sortDirection = sortDir === 'asc' ? 1 : -1
+
+    const [total, records] = await Promise.all([
+        Db.disciplineRecords.countDocuments(query),
+        Db.disciplineRecords
+            .find(query)
+            .collation({ locale: 'en', strength: 2 })
+            .sort({ [sortField]: sortDirection })
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .toArray(),
+    ])
 
     return NextResponse.json({ records, total, page, limit })
 }
@@ -117,7 +117,9 @@ export async function POST(req: NextRequest) {
         disciplineLevel: r[0] ?? '',
         name: r[1] ?? '',
         issued: r[2] ?? '',
+        issuedSort: parseDateStr(r[2] ?? ''),
         expires: r[3] ?? '',
+        expiresSort: parseDateStr(r[3] ?? ''),
         expired: r[4]?.trim().toUpperCase() === 'TRUE',
         givenBy: r[5] ?? '',
         authorisedBy: r[6] ?? '',

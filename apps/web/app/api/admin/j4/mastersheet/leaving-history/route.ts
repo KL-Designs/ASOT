@@ -43,18 +43,10 @@ function parseDateStr(s: string): number {
     return new Date(s).getTime() || 0
 }
 
-function sortRecords(records: LeavingHistoryRecord[], sortBy: string, sortDir: string) {
-    const DATE_FIELDS = ['leavingDate']
-    const mul = sortDir === 'asc' ? 1 : -1
-    return [...records].sort((a, b) => {
-        const av = (a as any)[sortBy] ?? ''
-        const bv = (b as any)[sortBy] ?? ''
-        if (DATE_FIELDS.includes(sortBy)) {
-            return mul * (parseDateStr(String(av)) - parseDateStr(String(bv)))
-        }
-        return mul * String(av).localeCompare(String(bv), 'en', { sensitivity: 'base' })
-    })
-}
+// leavingDate is free-text (CSV mixes DD/MM/YYYY and YYYY/MM/DD) — leavingDateSort
+// is the parsed epoch-ms companion computed at import time, so MongoDB can sort
+// natively instead of the app loading every record into memory to sort in JS.
+const DATE_SORT_FIELDS: Record<string, string> = { leavingDate: 'leavingDateSort' }
 
 export async function GET(req: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
@@ -80,10 +72,19 @@ export async function GET(req: NextRequest) {
     if (returnFilter) query.return = returnFilter
     if (typeFilter) query.type = typeFilter
 
-    const all = await Db.leavingHistory.find(query).toArray()
-    const sorted = sortRecords(all, sortBy, sortDir)
-    const total = sorted.length
-    const records = sorted.slice((page - 1) * limit, page * limit)
+    const sortField = DATE_SORT_FIELDS[sortBy] ?? sortBy
+    const sortDirection = sortDir === 'asc' ? 1 : -1
+
+    const [total, records] = await Promise.all([
+        Db.leavingHistory.countDocuments(query),
+        Db.leavingHistory
+            .find(query)
+            .collation({ locale: 'en', strength: 2 })
+            .sort({ [sortField]: sortDirection })
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .toArray(),
+    ])
 
     return NextResponse.json({ records, total, page, limit })
 }
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest) {
         steamId: r[2] || undefined,
         discordId: r[3] || undefined,
         leavingDate: r[4] ?? '',
+        leavingDateSort: parseDateStr(r[4] ?? ''),
         grace: r[5] ?? '',
         type: (r[6]?.trim() ?? '') as LeavingHistoryRecord['type'],
         return: r[7]?.trim() ?? '',

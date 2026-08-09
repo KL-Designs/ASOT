@@ -41,18 +41,10 @@ function parseDateStr(s: string): number {
     return new Date(s).getTime() || 0
 }
 
-function sortRecords(records: DeniedApplicationRecord[], sortBy: string, sortDir: string) {
-    const DATE_FIELDS = ['date']
-    const mul = sortDir === 'asc' ? 1 : -1
-    return [...records].sort((a, b) => {
-        const av = (a as any)[sortBy] ?? ''
-        const bv = (b as any)[sortBy] ?? ''
-        if (DATE_FIELDS.includes(sortBy)) {
-            return mul * (parseDateStr(String(av)) - parseDateStr(String(bv)))
-        }
-        return mul * String(av).localeCompare(String(bv), 'en', { sensitivity: 'base' })
-    })
-}
+// date is free-text (CSV mixes DD/MM/YYYY and YYYY/MM/DD) — dateSort is the
+// parsed epoch-ms companion computed at import time, so MongoDB can sort
+// natively instead of the app loading every record into memory to sort in JS.
+const DATE_SORT_FIELDS: Record<string, string> = { date: 'dateSort' }
 
 export async function GET(req: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
@@ -74,10 +66,19 @@ export async function GET(req: NextRequest) {
         { deniedBy: { $regex: search, $options: 'i' } },
     ]
 
-    const all = await Db.deniedApplicationsHQ.find(query).toArray()
-    const sorted = sortRecords(all, sortBy, sortDir)
-    const total = sorted.length
-    const records = sorted.slice((page - 1) * limit, page * limit)
+    const sortField = DATE_SORT_FIELDS[sortBy] ?? sortBy
+    const sortDirection = sortDir === 'asc' ? 1 : -1
+
+    const [total, records] = await Promise.all([
+        Db.deniedApplicationsHQ.countDocuments(query),
+        Db.deniedApplicationsHQ
+            .find(query)
+            .collation({ locale: 'en', strength: 2 })
+            .sort({ [sortField]: sortDirection })
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .toArray(),
+    ])
 
     return NextResponse.json({ records, total, page, limit })
 }
@@ -106,6 +107,7 @@ export async function POST(req: NextRequest) {
     const docs: DeniedApplicationRecord[] = dataRows.map(r => ({
         _id: new ObjectId() as DeniedApplicationRecord['_id'],
         date: r[0] ?? '',
+        dateSort: parseDateStr(r[0] ?? ''),
         name: r[1] ?? '',
         steamId: r[2] || undefined,
         discordId: r[3] || undefined,
