@@ -150,7 +150,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
         <Dialog
             open={open}
             onClose={onClose}
-            maxWidth='lg'
+            maxWidth={false}
             fullWidth
             PaperProps={{
                 style: {
@@ -158,6 +158,8 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                     border: '1px solid rgba(219,0,29,0.32)',
                     borderTop: '2px solid var(--red)',
                     height: '85vh',
+                    width: '90vw',
+                    maxWidth: 1800,
                 },
             }}
         >
