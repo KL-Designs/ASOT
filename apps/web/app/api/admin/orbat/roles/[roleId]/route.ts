@@ -136,6 +136,7 @@ export async function DELETE(
     // metadata, not structural/permission-critical, so a hard block here
     // would just be friction.
     await Db.orbatRoles.updateMany({ parentRoleId: objectId }, { $set: { parentRoleId: null } })
+    await Db.orbatRoleGroups.updateMany({ parentRoleId: objectId }, { $set: { parentRoleId: null } })
     await Db.orbatRoles.deleteOne({ _id: objectId })
     return NextResponse.json({ success: true })
 }
