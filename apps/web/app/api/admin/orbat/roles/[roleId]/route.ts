@@ -5,6 +5,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { PERMISSION_KEYS } from '@/lib/permissions-catalog'
 import { categoriesOverlap } from '@/lib/orbat/categoriesOverlap'
+import { wouldCreateCycle } from '@/lib/orbat/chainOfCommand'
 
 
 function parseId(roleId: string): ObjectId | null {
@@ -56,6 +57,9 @@ export async function PATCH(
     if (Array.isArray(body.permissions)) {
         updates.permissions = body.permissions.filter((p: unknown) => typeof p === 'string' && PERMISSION_KEYS.includes(p))
     }
+    if (body.parentRoleId != null && body.parentGroupId != null) {
+        return NextResponse.json({ error: 'A role cannot have both a parent role and a parent group' }, { status: 400 })
+    }
     if ('parentRoleId' in body) {
         const raw = body.parentRoleId
         if (raw === null) {
@@ -68,25 +72,31 @@ export async function PATCH(
             }
             const parentRole = await Db.orbatRoles.findOne({ _id: parentObjectId })
             if (!parentRole) return NextResponse.json({ error: 'Parent role not found' }, { status: 400 })
-
-            // Cycle check: walk the proposed parent's ancestor chain. If this
-            // role appears anywhere in it, setting this parent would create a
-            // cycle. The depth bound is just a corruption guard — no real
-            // hierarchy should ever be anywhere close to 50 levels deep.
-            let cursor: ObjectId | null = parentRole.parentRoleId
-            let depth = 0
-            while (cursor && depth < 50) {
-                if (cursor.equals(objectId)) {
-                    return NextResponse.json({ error: 'This would create a cycle in the chain of command' }, { status: 409 })
-                }
-                const ancestor: OrbatRole | null = await Db.orbatRoles.findOne({ _id: cursor })
-                cursor = ancestor?.parentRoleId ?? null
-                depth++
+            if (await wouldCreateCycle({ id: objectId, kind: 'role' }, { id: parentObjectId, kind: 'role' })) {
+                return NextResponse.json({ error: 'This would create a cycle in the chain of command' }, { status: 409 })
             }
-
             updates.parentRoleId = parentObjectId
+            updates.parentGroupId = null
         } else {
             return NextResponse.json({ error: 'Invalid parentRoleId' }, { status: 400 })
+        }
+    }
+    if ('parentGroupId' in body) {
+        const raw = body.parentGroupId
+        if (raw === null) {
+            updates.parentGroupId = null
+        } else if (typeof raw === 'string') {
+            const parentObjectId = parseId(raw)
+            if (!parentObjectId) return NextResponse.json({ error: 'Invalid parentGroupId' }, { status: 400 })
+            const parentGroup = await Db.orbatRoleGroups.findOne({ _id: parentObjectId })
+            if (!parentGroup) return NextResponse.json({ error: 'Parent group not found' }, { status: 400 })
+            if (await wouldCreateCycle({ id: objectId, kind: 'role' }, { id: parentObjectId, kind: 'group' })) {
+                return NextResponse.json({ error: 'This would create a cycle in the chain of command' }, { status: 409 })
+            }
+            updates.parentGroupId = parentObjectId
+            updates.parentRoleId = null
+        } else {
+            return NextResponse.json({ error: 'Invalid parentGroupId' }, { status: 400 })
         }
     }
 

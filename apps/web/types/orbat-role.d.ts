@@ -18,6 +18,8 @@ declare global {
         parentRoleId: ObjectId | null   // chain-of-command parent Role; null = top of chain / unset.
                                          // Routing/escalation metadata only — never consulted for
                                          // permission checks, and never implies permission inheritance.
+        parentGroupId: ObjectId | null  // chain-of-command parent Group instead of a Role. Mutually
+                                         // exclusive with parentRoleId — at most one of the two is set.
         createdAt: Date
         createdBy: string           // Discord ID
         createdByName: string
