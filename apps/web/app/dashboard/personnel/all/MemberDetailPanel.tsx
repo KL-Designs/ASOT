@@ -35,6 +35,15 @@ export default function MemberDetailPanel({
     const [loadingMember, setLoadingMember] = useState(true)
     const [loadError, setLoadError] = useState<string | null>(null)
 
+    // Discharge
+    const [dischargeStage, setDischargeStage] = useState<'idle' | 'form'>('idle')
+    const [dischargeType, setDischargeType] = useState<'honorable' | 'general' | 'dishonorable' | ''>('')
+    const [dischargeReason, setDischargeReason] = useState('')
+    const [dischargeNotes, setDischargeNotes] = useState('')
+    const [dischargeSubmitting, setDischargeSubmitting] = useState(false)
+    const [dischargeError, setDischargeError] = useState<string | null>(null)
+    const [dischargeSuccess, setDischargeSuccess] = useState<string | null>(null)
+
     // J4 — panel collapse
     const [j4Open, setJ4Open] = useState(false)
 
@@ -70,6 +79,12 @@ export default function MemberDetailPanel({
         setJ4Open(false)
         setDeleteStage('idle')
         setDeleteConfirmInput('')
+        setDischargeStage('idle')
+        setDischargeType('')
+        setDischargeReason('')
+        setDischargeNotes('')
+        setDischargeError(null)
+        setDischargeSuccess(null)
         setNameEditMode(false)
         setNameEditValue('')
         setNameEditError(null)
@@ -111,6 +126,44 @@ export default function MemberDetailPanel({
         if (!isJ4 || !memberData?.id) return
         loadDiscordRoles(memberData.id)
     }, [memberData?.id, isJ4, loadDiscordRoles])
+
+    async function handleDischargeMember() {
+        if (!memberData || !dischargeType || !dischargeReason.trim()) {
+            setDischargeError('Please select a discharge type and provide a reason.')
+            return
+        }
+        setDischargeSubmitting(true)
+        setDischargeError(null)
+        const targetDisplayName = memberData.name || memberData.guild?.nickname || memberData.globalName || memberData.username || memberData.id
+        try {
+            const res = await fetch('/api/admin/tickets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'j4-discharge',
+                    targetUserId: memberData.id,
+                    targetUserName: targetDisplayName,
+                    dischargeType,
+                    dischargeReason: dischargeReason.trim(),
+                    notes: dischargeNotes.trim() || undefined,
+                }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                setDischargeError(data.error ?? 'Submission failed.')
+            } else {
+                setDischargeSuccess('Discharge request submitted — awaiting J4 approval.')
+                setDischargeStage('idle')
+                setDischargeType('')
+                setDischargeReason('')
+                setDischargeNotes('')
+            }
+        } catch {
+            setDischargeError('Network error. Please try again.')
+        } finally {
+            setDischargeSubmitting(false)
+        }
+    }
 
     async function handleDeleteMember() {
         if (!memberData) return
@@ -445,11 +498,73 @@ export default function MemberDetailPanel({
                         )}
                     </div>
 
-                    {/* Delete Account */}
+                    {/* Danger Zone */}
                     <div style={{ padding: '12px 24px' }}>
-                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(239,68,68,0.4)', marginBottom: 8 }}>
+                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(239,68,68,0.4)', marginBottom: 12 }}>
                             Danger Zone
                         </div>
+
+                        {/* Discharge Member */}
+                        {dischargeSuccess ? (
+                            <div style={{ fontSize: '0.75rem', color: 'rgba(100,220,100,0.85)', marginBottom: 14 }}>{dischargeSuccess}</div>
+                        ) : dischargeStage === 'idle' ? (
+                            <button
+                                onClick={() => setDischargeStage('form')}
+                                style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(239,68,68,0.5)', background: 'none', border: '1px solid rgba(239,68,68,0.2)', padding: '5px 14px', cursor: 'pointer', marginBottom: 10, display: 'block' }}
+                            >
+                                Discharge Member
+                            </button>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 420, marginBottom: 16 }}>
+                                <div style={{ fontSize: '0.72rem', color: 'rgba(239,68,68,0.8)', fontWeight: 700 }}>
+                                    Initiate Discharge — Requires J4 Approval
+                                </div>
+                                <select
+                                    value={dischargeType}
+                                    onChange={e => setDischargeType(e.target.value as typeof dischargeType)}
+                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(239,68,68,0.25)', color: dischargeType ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)', padding: '6px 10px', fontSize: '0.8rem', outline: 'none', width: '100%' }}
+                                >
+                                    <option value=''>Select discharge type…</option>
+                                    <option value='honorable'>Honorable Discharge</option>
+                                    <option value='general'>General Discharge</option>
+                                    <option value='dishonorable'>Dishonorable Discharge</option>
+                                </select>
+                                <textarea
+                                    value={dischargeReason}
+                                    onChange={e => setDischargeReason(e.target.value)}
+                                    placeholder='Reason for discharge (required)'
+                                    rows={3}
+                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(239,68,68,0.25)', color: 'rgba(237,237,237,0.9)', padding: '6px 10px', fontSize: '0.8rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit', width: '100%' }}
+                                />
+                                <textarea
+                                    value={dischargeNotes}
+                                    onChange={e => setDischargeNotes(e.target.value)}
+                                    placeholder='Additional notes (optional)'
+                                    rows={2}
+                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(237,237,237,0.1)', color: 'rgba(237,237,237,0.9)', padding: '6px 10px', fontSize: '0.8rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit', width: '100%' }}
+                                />
+                                {dischargeError && (
+                                    <div style={{ fontSize: '0.72rem', color: '#ff4444' }}>{dischargeError}</div>
+                                )}
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button
+                                        onClick={handleDischargeMember}
+                                        disabled={dischargeSubmitting || !dischargeType || !dischargeReason.trim()}
+                                        style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '6px 16px', cursor: (dischargeSubmitting || !dischargeType || !dischargeReason.trim()) ? 'default' : 'pointer', background: (dischargeType && dischargeReason.trim()) ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.35)', color: (dischargeType && dischargeReason.trim()) ? '#ef4444' : 'rgba(239,68,68,0.3)', transition: 'all 0.15s' }}
+                                    >
+                                        {dischargeSubmitting ? 'Submitting…' : 'Submit Discharge Request'}
+                                    </button>
+                                    <button
+                                        onClick={() => { setDischargeStage('idle'); setDischargeType(''); setDischargeReason(''); setDischargeNotes(''); setDischargeError(null) }}
+                                        style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.4)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 10px' }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Delete Account */}
                         {deleteStage === 'idle' ? (
                             <button
                                 onClick={() => setDeleteStage('confirm')}

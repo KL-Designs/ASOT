@@ -27,11 +27,25 @@ interface TrainingGuideImage {
 interface TrainingGuideDotPoint {
     id: string
     text: string
+    indent?: number  // 0 = top-level, 1 = one indent in (from nested list)
+}
+
+interface RevisionQuestion {
+    id: string
+    text: string
+    indent?: number
+}
+
+interface RevisionTopic {
+    id: string
+    title: string
+    questions: RevisionQuestion[]
 }
 
 interface TrainingGuideVitalPoint {
     id: string
     text: string
+    indent?: number
 }
 
 interface TrainingGuideCommonFault {
@@ -61,6 +75,10 @@ interface TrainingGuideEditEntry {
     /** Set only on 'approved' entries */
     version?: string
     changeType?: 'minor' | 'major'
+    /** Human-readable list of what changed in this edit */
+    changes?: string[]
+    /** JSON snapshot of the document content AFTER this edit — used to compute visual diffs */
+    snapshot?: string
 }
 
 interface TrainingGuide {
@@ -71,6 +89,8 @@ interface TrainingGuide {
     accentColor: string
     /** Hex colour for section borders and structural labels (defaults to accentColor) */
     outlineColor?: string
+    /** Hex accent colour for the Revision section (default #d97706) */
+    revisionColor?: string
     status: TrainingGuideStatus
     /** Semantic version — only bumped on approval, not on autosave */
     version: string
@@ -80,6 +100,7 @@ interface TrainingGuide {
     equipment: TrainingGuideEquipmentItem[]
     trainingAreaDescription: string
     teachingPoints: TrainingGuideTeachingPoint[]
+    revisionTopics?: RevisionTopic[]
     notes: string
 
     /** Optional link to the training type this guide belongs to */

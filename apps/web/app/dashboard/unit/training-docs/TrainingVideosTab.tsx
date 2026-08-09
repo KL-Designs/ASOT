@@ -1,11 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link               from 'next/link'
-import CloudUploadIcon    from '@mui/icons-material/CloudUpload'
+import SmartDisplayIcon   from '@mui/icons-material/SmartDisplay'
 import DeleteOutlineIcon  from '@mui/icons-material/DeleteOutline'
-import ExpandMoreIcon     from '@mui/icons-material/ExpandMore'
-import ExpandLessIcon     from '@mui/icons-material/ExpandLess'
 import AddIcon            from '@mui/icons-material/Add'
 import EditIcon           from '@mui/icons-material/Edit'
 import PlayArrowIcon      from '@mui/icons-material/PlayArrow'
@@ -34,31 +32,34 @@ function blankCheckpointForm(): CheckpointForm {
 }
 
 function cpFormToCheckpoint(f: CheckpointForm): TrainingVideoCheckpoint {
+    const q: CheckpointQuestion = f.type === 'mcq'
+        ? { id: f.id + '-q1', question: f.question.trim(), type: 'mcq', options: f.options.map(o => o.trim()).filter(Boolean), correctOptionIndex: f.correctOptionIndex }
+        : { id: f.id + '-q1', question: f.question.trim(), type: 'written', rubric: f.rubric.trim() }
     return {
         id: f.id,
         timestampSeconds: Number(f.timestampSeconds) || 0,
         rewindToSeconds: Number(f.rewindToSeconds) || 0,
-        question: f.question.trim(),
-        type: f.type,
-        ...(f.type === 'mcq' ? {
-            options: f.options.map(o => o.trim()).filter(Boolean),
-            correctOptionIndex: f.correctOptionIndex,
-        } : {
-            rubric: f.rubric.trim(),
-        }),
+        questions: [q],
     }
 }
 
 function cpToForm(cp: TrainingVideoCheckpoint): CheckpointForm {
+    // Support both new (questions array) and legacy (top-level fields) data
+    const firstQ = cp.questions?.[0]
+    const qType   = firstQ?.type ?? cp.type ?? 'mcq'
+    const qText   = firstQ?.question ?? cp.question ?? ''
+    const qOpts   = firstQ?.options ?? cp.options ?? ['', '', '', '']
+    const qCorr   = firstQ?.correctOptionIndex ?? cp.correctOptionIndex ?? 0
+    const qRubric = firstQ?.rubric ?? cp.rubric ?? ''
     return {
         id: cp.id,
         timestampSeconds: String(cp.timestampSeconds),
         rewindToSeconds:  String(cp.rewindToSeconds),
-        question:         cp.question,
-        type:             cp.type,
-        options:          cp.type === 'mcq' ? [...(cp.options ?? []), '', '', '', ''].slice(0, 4) : ['', '', '', ''],
-        correctOptionIndex: cp.correctOptionIndex ?? 0,
-        rubric:           cp.rubric ?? '',
+        question:         qText,
+        type:             qType,
+        options:          qType === 'mcq' ? [...qOpts, '', '', '', ''].slice(0, 4) : ['', '', '', ''],
+        correctOptionIndex: qCorr,
+        rubric:           qRubric,
     }
 }
 
@@ -73,15 +74,12 @@ export default function TrainingVideosTab({ isJ3Lead, isTrainer, myId }: Props) 
     const [loading, setLoading]         = useState(true)
     const [expandedId, setExpandedId]   = useState<string | null>(null)
 
-    // Upload state
-    const [uploading, setUploading]     = useState(false)
-    const [uploadPct, setUploadPct]     = useState(0)
+    // Add video form state
     const [showUpload, setShowUpload]   = useState(false)
     const [uploadTitle, setUploadTitle] = useState('')
     const [uploadDesc,  setUploadDesc]  = useState('')
-    const [uploadFile,  setUploadFile]  = useState<File | null>(null)
-    const [dragOver,    setDragOver]    = useState(false)
-    const fileRef = useRef<HTMLInputElement>(null)
+    const [youtubeUrl,  setYoutubeUrl]  = useState('')
+    const [adding,      setAdding]      = useState(false)
 
     // Checkpoint editor
     const [editingCpVideoId, setEditingCpVideoId] = useState<string | null>(null)
@@ -98,34 +96,22 @@ export default function TrainingVideosTab({ isJ3Lead, isTrainer, myId }: Props) 
             .catch(() => setLoading(false))
     }, [])
 
-    async function handleUpload() {
-        if (!uploadFile || !uploadTitle.trim() || uploading) return
-        setUploading(true)
-        setUploadPct(0)
+    function extractYouTubeId(url: string): string | null {
+        for (const re of [/[?&]v=([^&]+)/, /youtu\.be\/([^?&/]+)/, /youtube\.com\/embed\/([^?&/]+)/]) {
+            const m = re.exec(url)
+            if (m) return m[1]
+        }
+        return null
+    }
+
+    async function handleAdd() {
+        if (!youtubeUrl.trim() || !uploadTitle.trim() || adding) return
+        setAdding(true)
         try {
-            const fd = new FormData()
-            fd.append('file', uploadFile)
-
-            const xhr = new XMLHttpRequest()
-            const uploadResult = await new Promise<{ url: string; filename: string }>((resolve, reject) => {
-                xhr.upload.onprogress = e => { if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 90)) }
-                xhr.onload = () => {
-                    if (xhr.status === 200) resolve(JSON.parse(xhr.responseText))
-                    else reject(new Error(xhr.responseText))
-                }
-                xhr.onerror = () => reject(new Error('Upload failed'))
-                xhr.open('POST', '/api/training-videos/upload')
-                xhr.send(fd)
-            })
-
-            setUploadPct(95)
-
-            // For the global tab, we create a "standalone" video not linked to a type yet
-            // The trainer links it to a course from here or from the Courses tab
             const res = await fetch('/api/training-videos', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: uploadTitle.trim(), url: uploadResult.url, filename: uploadResult.filename, description: uploadDesc.trim() || undefined }),
+                body: JSON.stringify({ title: uploadTitle.trim(), url: youtubeUrl.trim(), description: uploadDesc.trim() || undefined }),
             })
             if (res.ok) {
                 const created = await res.json()
@@ -133,11 +119,10 @@ export default function TrainingVideosTab({ isJ3Lead, isTrainer, myId }: Props) 
                 setShowUpload(false)
                 setUploadTitle('')
                 setUploadDesc('')
-                setUploadFile(null)
-                setUploadPct(0)
+                setYoutubeUrl('')
             }
         } catch { /* ignore */ } finally {
-            setUploading(false)
+            setAdding(false)
         }
     }
 
@@ -149,7 +134,7 @@ export default function TrainingVideosTab({ isJ3Lead, isTrainer, myId }: Props) 
     async function saveCheckpoints(videoId: string) {
         setSavingCps(true)
         try {
-            const checkpoints = cpForms.map(cpFormToCheckpoint).filter(cp => cp.question)
+            const checkpoints = cpForms.map(cpFormToCheckpoint).filter(cp => cp.questions[0]?.question)
             await fetch(`/api/training-videos/${videoId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -190,15 +175,15 @@ export default function TrainingVideosTab({ isJ3Lead, isTrainer, myId }: Props) 
                 {canManage && !showUpload && (
                     <button onClick={() => setShowUpload(true)}
                         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: RED, border: 'none', color: '#fff', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer' }}>
-                        <AddIcon sx={{ fontSize: 15 }} /> Upload Video
+                        <AddIcon sx={{ fontSize: 15 }} /> Add Video
                     </button>
                 )}
             </div>
 
-            {/* Upload form */}
+            {/* Add video form */}
             {canManage && showUpload && (
                 <div style={{ border: `1px solid ${RED}40`, borderTop: `2px solid ${RED}`, background: 'rgba(219,0,29,0.04)', padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div style={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: RED }}>Upload Training Video</div>
+                    <div style={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: RED }}>Add Training Video</div>
 
                     <input value={uploadTitle} onChange={e => setUploadTitle(e.target.value)} placeholder='Video title…'
                         style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: TEXT, padding: '8px 10px', fontSize: '0.82rem', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
@@ -206,36 +191,28 @@ export default function TrainingVideosTab({ isJ3Lead, isTrainer, myId }: Props) 
                     <textarea value={uploadDesc} onChange={e => setUploadDesc(e.target.value)} placeholder='Description (optional)…' rows={2}
                         style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: TEXT, padding: '8px 10px', fontSize: '0.82rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }} />
 
-                    {/* Drop zone */}
-                    <div
-                        onClick={() => fileRef.current?.click()}
-                        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-                        onDragLeave={() => setDragOver(false)}
-                        onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) setUploadFile(f) }}
-                        style={{ border: `1.5px dashed ${dragOver ? RED : BORDER}`, background: dragOver ? 'rgba(219,0,29,0.05)' : DARK, padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s' }}>
-                        <CloudUploadIcon sx={{ fontSize: 28, color: dragOver ? RED : MUTED }} />
-                        <span style={{ fontSize: '0.68rem', color: uploadFile ? TEXT : MUTED }}>
-                            {uploadFile ? uploadFile.name : 'Click or drag video file here (MP4, MOV, WebM — max 4 GB)'}
-                        </span>
-                        {uploadFile && <span style={{ fontSize: '0.58rem', color: MUTED }}>{(uploadFile.size / 1024 / 1024).toFixed(1)} MB</span>}
-                    </div>
-                    <input ref={fileRef} type='file' accept='video/*,.mkv' onChange={e => { const f = e.target.files?.[0]; if (f) setUploadFile(f) }} style={{ display: 'none' }} />
-
-                    {uploading && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <div style={{ height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
-                                <div style={{ height: '100%', width: `${uploadPct}%`, background: RED, borderRadius: 2, transition: 'width 0.3s' }} />
-                            </div>
-                            <span style={{ fontSize: '0.58rem', color: MUTED }}>Uploading… {uploadPct}%</span>
+                    {/* YouTube URL */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <SmartDisplayIcon sx={{ fontSize: 18, color: `${RED}99`, flexShrink: 0 }} />
+                            <input type='url' value={youtubeUrl} onChange={e => setYoutubeUrl(e.target.value)}
+                                placeholder='https://www.youtube.com/watch?v=…'
+                                style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: TEXT, padding: '8px 10px', fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' as const }} />
                         </div>
-                    )}
+                        {youtubeUrl && !extractYouTubeId(youtubeUrl) && (
+                            <div style={{ fontSize: '0.62rem', color: `${RED}b3`, paddingLeft: 26 }}>Not a recognised YouTube URL — paste a youtube.com/watch or youtu.be link.</div>
+                        )}
+                        {youtubeUrl && extractYouTubeId(youtubeUrl) && (
+                            <div style={{ fontSize: '0.62rem', color: 'rgba(80,200,120,0.7)', paddingLeft: 26 }}>Video ID: {extractYouTubeId(youtubeUrl)}</div>
+                        )}
+                    </div>
 
                     <div style={{ display: 'flex', gap: 10 }}>
-                        <button onClick={handleUpload} disabled={!uploadFile || !uploadTitle.trim() || uploading}
-                            style={{ padding: '8px 20px', background: RED, border: 'none', color: '#fff', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: uploading ? 'default' : 'pointer', opacity: (!uploadFile || !uploadTitle.trim() || uploading) ? 0.45 : 1 }}>
-                            {uploading ? 'Uploading…' : 'Upload'}
+                        <button onClick={handleAdd} disabled={!youtubeUrl.trim() || !uploadTitle.trim() || adding || !extractYouTubeId(youtubeUrl)}
+                            style={{ padding: '8px 20px', background: RED, border: 'none', color: '#fff', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: adding ? 'default' : 'pointer', opacity: (!youtubeUrl.trim() || !uploadTitle.trim() || adding || !extractYouTubeId(youtubeUrl)) ? 0.45 : 1 }}>
+                            {adding ? 'Adding…' : 'Add Video'}
                         </button>
-                        <button onClick={() => { setShowUpload(false); setUploadFile(null); setUploadTitle(''); setUploadDesc('') }}
+                        <button onClick={() => { setShowUpload(false); setUploadTitle(''); setUploadDesc(''); setYoutubeUrl('') }}
                             style={{ padding: '8px 14px', background: 'transparent', border: `1px solid ${BORDER}`, color: MUTED, fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
                             Cancel
                         </button>
@@ -246,7 +223,7 @@ export default function TrainingVideosTab({ isJ3Lead, isTrainer, myId }: Props) 
             {/* Video list */}
             {videos.length === 0 ? (
                 <div style={{ padding: '56px 0', textAlign: 'center', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)' }}>
-                    No training videos uploaded yet
+                    No training videos added yet
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', border: `1px solid ${BORDER}` }}>

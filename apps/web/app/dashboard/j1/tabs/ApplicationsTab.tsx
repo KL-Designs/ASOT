@@ -343,10 +343,23 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                         <Field label='Available Nights' value={app.availableNights} />
                         <Field label='Ops Per Month' value={app.opsPerMonth} />
                         <Field label='Primary Role' value={app.primaryRole} />
+                        <Field label='Secondary Role' value={app.secondaryRole} />
                         <Field label='Owns ARMA 3' value={app.ownsArma ? 'Yes' : (app.ownsArma === false ? 'No' : null)} />
                         <Field label='Prior Milsim' value={app.priorMilsim ? 'Yes' : (app.priorMilsim === false ? 'No' : null)} />
                         <Field label='Dual Clan' value={app.dualClan ? 'Yes' : (app.dualClan === false ? 'No' : null)} />
                     </div>
+
+                    {(app.heardAbout) && (
+                        <div>
+                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 6 }}>
+                                How They Heard About Us
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.7)' }}>
+                                {app.heardAbout}
+                                {app.heardAboutOther && <span style={{ color: 'rgba(237,237,237,0.45)' }}> — {app.heardAboutOther}</span>}
+                            </div>
+                        </div>
+                    )}
 
                     {app.ownsArma === false && (
                         <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', borderLeft: '3px solid #f59e0b', fontSize: '0.78rem', color: '#f59e0b', lineHeight: 1.6 }}>

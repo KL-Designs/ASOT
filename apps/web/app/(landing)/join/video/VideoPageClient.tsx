@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import RecruitVideoPlayer from '@/components/recruit/RecruitVideoPlayer'
 
-export default function VideoPageClient({ videoUrl, startDelay }: { videoUrl: string; startDelay: number }) {
+export default function VideoPageClient({ videoUrl, startDelay, showInfoPage }: { videoUrl: string; startDelay: number; showInfoPage: boolean }) {
     const router    = useRouter()
     const [visible, setVisible] = useState(false)
     const [fading,  setFading]  = useState(false)
@@ -17,7 +17,7 @@ export default function VideoPageClient({ videoUrl, startDelay }: { videoUrl: st
 
     const handleContinue = () => {
         setFading(true)
-        setTimeout(() => router.push('/join'), 840)
+        setTimeout(() => router.push(showInfoPage ? '/join/info' : '/join'), 840)
     }
 
     return (
@@ -32,7 +32,7 @@ export default function VideoPageClient({ videoUrl, startDelay }: { videoUrl: st
             opacity: (visible && !fading) ? 1 : 0,
             transition: 'opacity 0.8s ease',
         }}>
-            <div style={{ width: '100%', maxWidth: 1280 }}>
+            <div style={{ width: '100%', maxWidth: 'min(1600px, calc((100dvh - 160px) * 1.7778))' }}>
                 <RecruitVideoPlayer
                     videoUrl={videoUrl}
                     startDelay={startDelay}

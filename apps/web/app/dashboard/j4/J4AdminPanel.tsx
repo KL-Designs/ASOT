@@ -55,7 +55,7 @@ function DischargeModal({ open, onClose }: { open: boolean; onClose: () => void 
     const [loadingMembers, setLoadingMembers] = useState(false)
 
     const [selectedMember, setSelectedMember] = useState<MemberOption | null>(null)
-    const [dischargeType, setDischargeType] = useState<'honorable' | 'dishonorable' | ''>('')
+    const [dischargeType, setDischargeType] = useState<'honorable' | 'general' | 'dishonorable' | ''>('')
     const [dischargeReason, setDischargeReason] = useState('')
     const [notes, setNotes] = useState('')
 
@@ -66,7 +66,7 @@ function DischargeModal({ open, onClose }: { open: boolean; onClose: () => void 
     function handleOpen() {
         if (membersLoaded) return
         setLoadingMembers(true)
-        fetch('/api/admin/members')
+        fetch('/api/admin/members?limit=1000')
             .then(r => r.json())
             .then(data => {
                 setMembers(data.members ?? [])
@@ -180,11 +180,12 @@ function DischargeModal({ open, onClose }: { open: boolean; onClose: () => void 
                         <Select
                             value={dischargeType}
                             label='Discharge Type *'
-                            onChange={e => setDischargeType(e.target.value as 'honorable' | 'dishonorable')}
+                            onChange={e => setDischargeType(e.target.value as 'honorable' | 'general' | 'dishonorable')}
                             MenuProps={{ PaperProps: { style: { background: '#1a1a1a', color: '#ededed' } } }}
                         >
-                            <MenuItem value='honorable'>Honorable</MenuItem>
-                            <MenuItem value='dishonorable'>Dishonorable</MenuItem>
+                            <MenuItem value='honorable'>Honorable Discharge</MenuItem>
+                            <MenuItem value='general'>General Discharge</MenuItem>
+                            <MenuItem value='dishonorable'>Dishonorable Discharge</MenuItem>
                         </Select>
                     </FormControl>
 
@@ -1136,7 +1137,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                 Settings and Management
                             </Typography>
                             <div className='flex flex-wrap gap-4'>
-                                <a href='/dashboard/j4/preferences' style={{ textDecoration: 'none', flex: 1, minWidth: 160, maxWidth: 220 }}>
+                                <a href='/dashboard/j4/website-settings' style={{ textDecoration: 'none', flex: 1, minWidth: 160, maxWidth: 220 }}>
                                     <div
                                         className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
                                         style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', cursor: 'pointer' }}

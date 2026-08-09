@@ -6,6 +6,8 @@ declare global {
         videoUrl: string
         enabled: boolean
         startDelay: number   // seconds before autoplay fires, default 2
+        /** When true, video → info page → application. When false, video → application directly. */
+        showInfoPage: boolean
         updatedAt: Date
         updatedByName: string
     }

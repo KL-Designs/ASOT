@@ -9,9 +9,9 @@ const VALID_REGIONS = null // kept for reference, no longer a fixed enum
 const VALID_NIGHTS  = ['Saturday', 'Sunday', 'Both', 'Flexible']
 const VALID_OPS     = ['1+', '2+', '3+', '4+']
 const VALID_ROLES   = [
-    'Infantry', 'Combat First Aider (CFA)', 'Advanced Medic', 'Rotary Aviation',
-    'Armoured Crew', 'Machine Gunner', 'Medium Anti-Tank',
-    'Engineer', 'Logistics', 'Indirect Fire', 'Heavy Weapons',
+    'Infantry', 'Combat First Aider (Section Medic)', 'Combat Engineers',
+    'Indirect Fire & Heavy Weapons', 'Aviation',
+    'Medical Emergency Response Team', 'Cavalry',
 ]
 
 // POST /api/applications — public, unauthenticated form submission
@@ -26,8 +26,9 @@ export async function POST(request: NextRequest) {
     const {
         inGameName, age, experience, website,
         steamUrl, steamId64, region, armaHours, priorMilsim, dualClan,
-        previousUnits, currentUnit, availableNights, opsPerMonth, primaryRole,
-        additionalRoles, departmentInterest, ownsArma,
+        previousUnits, currentUnit, availableNights, opsPerMonth,
+        primaryRole, secondaryRole, additionalRoles, departmentInterest,
+        heardAbout, heardAboutOther, ownsArma,
     } = body as Record<string, unknown>
 
     // Honeypot — silently accept but discard
@@ -99,10 +100,13 @@ export async function POST(request: NextRequest) {
         currentUnit:   currentUnit   ? String(currentUnit).trim()   : undefined,
         availableNights: String(availableNights),
         opsPerMonth: opsPerMonth && VALID_OPS.includes(String(opsPerMonth)) ? String(opsPerMonth) : undefined,
-        primaryRole: String(primaryRole),
-        additionalRoles: Array.isArray(additionalRoles) ? additionalRoles.filter((r): r is string => typeof r === 'string') : undefined,
+        primaryRole:       String(primaryRole),
+        secondaryRole:     secondaryRole && VALID_ROLES.includes(String(secondaryRole)) ? String(secondaryRole) : undefined,
+        additionalRoles:   Array.isArray(additionalRoles) ? additionalRoles.filter((r): r is string => typeof r === 'string') : undefined,
         departmentInterest: Array.isArray(departmentInterest) ? departmentInterest.filter((d): d is string => typeof d === 'string') : undefined,
-        ownsArma: ownsArma === true || ownsArma === 'true',
+        heardAbout:        heardAbout ? String(heardAbout).trim() : undefined,
+        heardAboutOther:   heardAboutOther ? String(heardAboutOther).trim().slice(0, 200) : undefined,
+        ownsArma:          ownsArma === true || ownsArma === 'true',
     })
 
     // Notify all J1 members of the new application and assign Applicant role

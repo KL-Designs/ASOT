@@ -1,9 +1,21 @@
+interface CheckpointQuestion {
+    id: string
+    question: string
+    type: 'mcq' | 'written'
+    options?: string[]
+    correctOptionIndex?: number
+    rubric?: string
+}
+
 interface TrainingVideoCheckpoint {
     id: string
     timestampSeconds: number
     rewindToSeconds: number
-    question: string
-    type: 'mcq' | 'written'
+    /** Ordered list of questions — user answers each before video resumes */
+    questions: CheckpointQuestion[]
+    /** @deprecated Legacy single-question fields — kept for migration only */
+    question?: string
+    type?: 'mcq' | 'written'
     /** MCQ only */
     options?: string[]
     correctOptionIndex?: number

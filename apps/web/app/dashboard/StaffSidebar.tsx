@@ -473,7 +473,11 @@ export default function StaffSidebar({
     permissions: DashboardPermissions
     onNavigate?: () => void
 }) {
-    const pathname = usePathname()
+    const pathname    = usePathname()
+    const searchParams = useSearchParams()
+
+    // When a guide is opened from J3, treat /dashboard/j3 as the active section
+    const isGuideFromJ3 = pathname.startsWith('/dashboard/unit/training-hub/guide/') && searchParams.get('from') === 'j3'
 
     const [expanded, setExpanded] = useState({
         departments: true,
@@ -645,9 +649,11 @@ export default function StaffSidebar({
                 const visibleItems = section.items.filter(item => item.visible)
                 if (visibleItems.length === 0) return null
 
-                const isAnyActive = visibleItems.some(item =>
-                    pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))
-                )
+                const isAnyActive = visibleItems.some(item => {
+                    if (isGuideFromJ3 && item.href === '/dashboard/j3') return true
+                    if (isGuideFromJ3 && item.href === '/dashboard/unit/training-hub') return false
+                    return pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))
+                })
 
                 return (
                     <div key={section.label} style={{ marginTop: 6 }}>
@@ -681,8 +687,9 @@ export default function StaffSidebar({
                         <Collapse in={expanded[key]}>
                             <div className='flex flex-col'>
                                 {visibleItems.map(item => {
-                                    const isActive = pathname === item.href ||
-                                        (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))
+                                    const isActive = (isGuideFromJ3 && item.href === '/dashboard/j3') ||
+                                        (!isGuideFromJ3 && (pathname === item.href ||
+                                        (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))))
                                     return (
                                         <NavRow
                                             key={item.href}

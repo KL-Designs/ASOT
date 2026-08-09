@@ -12,6 +12,261 @@ import ImageLibraryModal from '@/components/editor/ImageLibraryModal'
 const RED = '#db001d'
 const DEFAULT_RED = '#db001d'
 
+// ─── History diff types ───────────────────────────────────────────────────────
+type HistorySnap = {
+    title: string; duration: string; overview: string
+    trainingAreaDescription: string; notes: string
+    equipment: { id: string; text: string }[]
+    teachingPoints: {
+        id: string; title: string
+        dotPoints: { id: string; text: string; indent?: number }[]
+        vitalPoints: { id: string; text: string }[]
+        commonFaults: { id: string; fault: string; correction: string }[]
+    }[]
+}
+type DP = { t: 'eq' | 'add' | 'del'; s: string }
+
+function wdiff(a: string, b: string): DP[] {
+    const tok = (s: string) => s.match(/[^\s]+|\s+/g) ?? (s.length ? [s] : [])
+    const ta = tok(a), tb = tok(b)
+    const m = ta.length, n = tb.length
+    const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+    for (let i = m - 1; i >= 0; i--)
+        for (let j = n - 1; j >= 0; j--)
+            dp[i][j] = ta[i] === tb[j] ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1])
+    const out: DP[] = []; let i = 0, j = 0
+    while (i < m || j < n) {
+        if (i < m && j < n && ta[i] === tb[j]) { out.push({ t: 'eq',  s: ta[i] }); i++; j++ }
+        else if (j < n && (i >= m || dp[i][j+1] >= dp[i+1][j])) { out.push({ t: 'add', s: tb[j] }); j++ }
+        else { out.push({ t: 'del', s: ta[i] }); i++ }
+    }
+    return out
+}
+
+function DiffText({ a, b }: { a: string; b: string }) {
+    if (a === b) return <span style={{ color: 'rgba(237,237,237,0.55)', fontFamily: 'Arial, sans-serif', fontSize: '0.85rem' }}>{a}</span>
+    const parts = wdiff(a, b)
+    const hasDiff = parts.some(p => p.t !== 'eq')
+    if (!hasDiff) return <span style={{ color: 'rgba(237,237,237,0.55)', fontFamily: 'Arial, sans-serif', fontSize: '0.85rem' }}>{a}</span>
+    return (
+        <span style={{ lineHeight: 1.75, fontFamily: 'Arial, sans-serif', fontSize: '0.85rem' }}>
+            {parts.map((p, i) => {
+                if (p.t === 'eq')  return <span key={i} style={{ color: 'rgba(237,237,237,0.55)' }}>{p.s}</span>
+                if (p.t === 'add') return <span key={i} style={{ background: 'rgba(76,175,80,0.2)', color: '#81c784' }}>{p.s}</span>
+                return <span key={i} style={{ background: 'rgba(239,83,80,0.12)', color: '#e57373', textDecoration: 'line-through' }}>{p.s}</span>
+            })}
+        </span>
+    )
+}
+
+const DIFF_SECTION: React.CSSProperties = {
+    marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)',
+}
+const DIFF_LABEL: React.CSSProperties = {
+    fontFamily: "'Oswald', Arial, sans-serif", fontSize: '0.6rem', fontWeight: 700,
+    letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)',
+    marginBottom: 6,
+}
+
+function HistoryDiffModal({ entry, prev, onClose }: {
+    entry: TrainingGuideEditEntry
+    prev: TrainingGuideEditEntry | null
+    onClose: () => void
+}) {
+    const after:  HistorySnap | null = entry.snapshot  ? JSON.parse(entry.snapshot)  : null
+    const before: HistorySnap | null = prev?.snapshot  ? JSON.parse(prev.snapshot)   : null
+
+    const sections: React.ReactNode[] = []
+
+    if (after && before) {
+        // Simple text fields
+        const textFields: [string, keyof HistorySnap][] = [
+            ['Title', 'title'], ['Duration', 'duration'],
+            ['Overview', 'overview'], ['Training Area', 'trainingAreaDescription'], ['Notes', 'notes'],
+        ]
+        for (const [label, key] of textFields) {
+            const a = (before[key] as string) ?? '', b = (after[key] as string) ?? ''
+            if (a === b) continue
+            sections.push(
+                <div key={label} style={DIFF_SECTION}>
+                    <div style={DIFF_LABEL}>{label}</div>
+                    <DiffText a={a} b={b} />
+                </div>
+            )
+        }
+
+        // Equipment
+        const eqBefore = before.equipment ?? [], eqAfter = after.equipment ?? []
+        const eqChanged = eqBefore.some((e, i) => JSON.stringify(e) !== JSON.stringify(eqAfter[i])) || eqBefore.length !== eqAfter.length
+        if (eqChanged) {
+            const allIds = Array.from(new Set([...eqBefore.map(e => e.id), ...eqAfter.map(e => e.id)]))
+            sections.push(
+                <div key='equipment' style={DIFF_SECTION}>
+                    <div style={DIFF_LABEL}>Equipment</div>
+                    {allIds.map(id => {
+                        const b = eqBefore.find(e => e.id === id)
+                        const a = eqAfter.find(e => e.id === id)
+                        if (!b) return <div key={id} style={{ display: 'flex', gap: 6, marginBottom: 4, fontSize: '0.83rem', color: '#81c784' }}>
+                            <span>+</span><span>{a?.text}</span></div>
+                        if (!a) return <div key={id} style={{ display: 'flex', gap: 6, marginBottom: 4, fontSize: '0.83rem', color: '#e57373', textDecoration: 'line-through' }}>
+                            <span>−</span><span>{b.text}</span></div>
+                        if (b.text === a.text) return null
+                        return <div key={id} style={{ marginBottom: 6 }}><DiffText a={b.text} b={a.text} /></div>
+                    })}
+                </div>
+            )
+        }
+
+        // Teaching points
+        const allTpIds = Array.from(new Set([...before.teachingPoints.map(t => t.id), ...after.teachingPoints.map(t => t.id)]))
+        for (const tpId of allTpIds) {
+            const tb = before.teachingPoints.find(t => t.id === tpId)
+            const ta = after.teachingPoints.find(t => t.id === tpId)
+
+            if (!tb) {
+                sections.push(
+                    <div key={tpId} style={DIFF_SECTION}>
+                        <div style={DIFF_LABEL}>Teaching Point Added</div>
+                        <div style={{ color: '#81c784', fontSize: '0.85rem', fontFamily: 'Arial, sans-serif' }}>+ {ta?.title}</div>
+                    </div>
+                )
+                continue
+            }
+            if (!ta) {
+                sections.push(
+                    <div key={tpId} style={DIFF_SECTION}>
+                        <div style={DIFF_LABEL}>Teaching Point Removed</div>
+                        <div style={{ color: '#e57373', fontSize: '0.85rem', textDecoration: 'line-through', fontFamily: 'Arial, sans-serif' }}>− {tb.title}</div>
+                    </div>
+                )
+                continue
+            }
+
+            // Check if anything in this TP changed
+            const tpChanged = JSON.stringify(tb) !== JSON.stringify(ta)
+            if (!tpChanged) continue
+
+            const tpSections: React.ReactNode[] = []
+
+            if (tb.title !== ta.title) {
+                tpSections.push(<div key='title' style={{ marginBottom: 8 }}>
+                    <div style={{ ...DIFF_LABEL, color: 'rgba(237,237,237,0.3)', fontSize: '0.5rem' }}>Title</div>
+                    <DiffText a={tb.title} b={ta.title} />
+                </div>)
+            }
+
+            // Dot points
+            const allDpIds = Array.from(new Set([...tb.dotPoints.map(d => d.id), ...ta.dotPoints.map(d => d.id)]))
+            const dpRows = allDpIds.map(id => {
+                const db = tb.dotPoints.find(d => d.id === id)
+                const da = ta.dotPoints.find(d => d.id === id)
+                if (!db) return <div key={id} style={{ display: 'flex', gap: 6, marginBottom: 3 }}>
+                    <span style={{ color: '#81c784', fontSize: '0.75rem', paddingLeft: (da?.indent ?? 0) * 14 }}>+</span>
+                    <span style={{ color: '#81c784', fontSize: '0.83rem', fontFamily: 'Arial, sans-serif' }}>{da?.text}</span>
+                </div>
+                if (!da) return <div key={id} style={{ display: 'flex', gap: 6, marginBottom: 3 }}>
+                    <span style={{ color: '#e57373', fontSize: '0.75rem', paddingLeft: (db?.indent ?? 0) * 14 }}>−</span>
+                    <span style={{ color: '#e57373', textDecoration: 'line-through', fontSize: '0.83rem', fontFamily: 'Arial, sans-serif' }}>{db.text}</span>
+                </div>
+                if (JSON.stringify(db) === JSON.stringify(da)) return null
+                return <div key={id} style={{ marginBottom: 3, paddingLeft: (da.indent ?? 0) * 14 }}><DiffText a={db.text} b={da.text} /></div>
+            }).filter(Boolean)
+            if (dpRows.length > 0) {
+                tpSections.push(<div key='dp' style={{ marginBottom: 8 }}>
+                    <div style={{ ...DIFF_LABEL, color: 'rgba(237,237,237,0.3)', fontSize: '0.5rem' }}>Dot Points</div>
+                    {dpRows}
+                </div>)
+            }
+
+            // Vital points
+            const allVpIds = Array.from(new Set([...tb.vitalPoints.map(v => v.id), ...ta.vitalPoints.map(v => v.id)]))
+            const vpRows = allVpIds.map(id => {
+                const vb = tb.vitalPoints.find(v => v.id === id)
+                const va = ta.vitalPoints.find(v => v.id === id)
+                if (!vb) return <div key={id} style={{ color: '#81c784', fontSize: '0.83rem', fontFamily: 'Arial, sans-serif', marginBottom: 3 }}>+ {va?.text}</div>
+                if (!va) return <div key={id} style={{ color: '#e57373', textDecoration: 'line-through', fontSize: '0.83rem', fontFamily: 'Arial, sans-serif', marginBottom: 3 }}>− {vb.text}</div>
+                if (vb.text === va.text) return null
+                return <div key={id} style={{ marginBottom: 3 }}><DiffText a={vb.text} b={va.text} /></div>
+            }).filter(Boolean)
+            if (vpRows.length > 0) {
+                tpSections.push(<div key='vp' style={{ marginBottom: 8 }}>
+                    <div style={{ ...DIFF_LABEL, color: 'rgba(237,237,237,0.3)', fontSize: '0.5rem' }}>Vital Points</div>
+                    {vpRows}
+                </div>)
+            }
+
+            // Common faults
+            const allCfIds = Array.from(new Set([...tb.commonFaults.map(c => c.id), ...ta.commonFaults.map(c => c.id)]))
+            const cfRows = allCfIds.map(id => {
+                const cb = tb.commonFaults.find(c => c.id === id)
+                const ca = ta.commonFaults.find(c => c.id === id)
+                if (!cb) return <div key={id} style={{ display: 'flex', gap: 16, color: '#81c784', fontSize: '0.83rem', fontFamily: 'Arial, sans-serif', marginBottom: 3 }}>
+                    <span>+ {ca?.fault}</span><span style={{ opacity: 0.6 }}>→ {ca?.correction}</span></div>
+                if (!ca) return <div key={id} style={{ display: 'flex', gap: 16, color: '#e57373', textDecoration: 'line-through', fontSize: '0.83rem', fontFamily: 'Arial, sans-serif', marginBottom: 3 }}>
+                    <span>− {cb.fault}</span><span style={{ opacity: 0.6 }}>{cb.correction}</span></div>
+                if (JSON.stringify(cb) === JSON.stringify(ca)) return null
+                return <div key={id} style={{ display: 'flex', gap: 16, marginBottom: 4 }}>
+                    <div style={{ flex: 1 }}><DiffText a={cb.fault} b={ca.fault} /></div>
+                    <div style={{ flex: 1 }}><DiffText a={cb.correction} b={ca.correction} /></div>
+                </div>
+            }).filter(Boolean)
+            if (cfRows.length > 0) {
+                tpSections.push(<div key='cf' style={{ marginBottom: 8 }}>
+                    <div style={{ ...DIFF_LABEL, color: 'rgba(237,237,237,0.3)', fontSize: '0.5rem' }}>Common Faults</div>
+                    {cfRows}
+                </div>)
+            }
+
+            if (tpSections.length > 0) {
+                sections.push(
+                    <div key={tpId} style={DIFF_SECTION}>
+                        <div style={DIFF_LABEL}>Teaching Point — {ta.title || tb.title}</div>
+                        {tpSections}
+                    </div>
+                )
+            }
+        }
+    }
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+            onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+            <div style={{ background: '#0d0d0d', border: '1px solid rgba(219,0,29,0.2)', borderTop: `3px solid ${RED}`, width: '100%', maxWidth: 720, maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+                    <History sx={{ fontSize: 14, color: 'rgba(219,0,29,0.6)' }} />
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: "'Oswald', Arial, sans-serif", fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.85)' }}>
+                            {entry.type === 'created' ? 'Document Created' : `Edit by ${entry.byName}`}
+                        </div>
+                        <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>
+                            {new Date(entry.at).toLocaleString('en-AU', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                    </div>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', padding: 4 }}>
+                        <Close sx={{ fontSize: 18 }} />
+                    </button>
+                </div>
+                <div style={{ overflowY: 'auto', padding: '20px 24px', flex: 1 }}>
+                    {!after || !before ? (
+                        <div style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.8rem', fontFamily: 'Arial, sans-serif' }}>
+                            {entry.type === 'created'
+                                ? 'This is the initial version of the document.'
+                                : 'Snapshot not available — this entry was recorded before diff tracking was added.'}
+                            {entry.changes && entry.changes.length > 0 && (
+                                <ul style={{ marginTop: 12, paddingLeft: 16 }}>
+                                    {entry.changes.map((c, i) => <li key={i} style={{ marginBottom: 4 }}>{c}</li>)}
+                                </ul>
+                            )}
+                        </div>
+                    ) : sections.length === 0 ? (
+                        <div style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.8rem', fontFamily: 'Arial, sans-serif' }}>No content changes detected.</div>
+                    ) : sections}
+                </div>
+            </div>
+        </div>
+    )
+}
+
 interface Props {
     guide: TrainingGuide
     guideId: string
@@ -63,6 +318,7 @@ export default function GuideEditorPage({ guide: initialGuide, guideId, isEditab
     const [accentColor,    setAccentColor]    = useState(initialGuide.accentColor || DEFAULT_RED)
     const [colorInput,     setColorInput]     = useState(initialGuide.accentColor || DEFAULT_RED)
     const [historyOpen,    setHistoryOpen]    = useState(false)
+    const [diffEntry,      setDiffEntry]      = useState<{ entry: TrainingGuideEditEntry; prev: TrainingGuideEditEntry | null } | null>(null)
     const [editMode,       setEditMode]       = useState(false)
     const [outlineColor,   setOutlineColor]   = useState(initialGuide.outlineColor || initialGuide.accentColor || DEFAULT_RED)
     const [outlineInput,   setOutlineInput]   = useState(initialGuide.outlineColor || initialGuide.accentColor || DEFAULT_RED)
@@ -228,7 +484,13 @@ export default function GuideEditorPage({ guide: initialGuide, guideId, isEditab
                             isEditable={editMode}
                             accentColor={accentColor}
                             outlineColor={outlineColor}
-                            onSaved={version => setGuide(prev => ({ ...prev, version }))}
+                            onSaved={(version, editEntry, sessionMerged) => setGuide(prev => {
+                                const history = prev.editHistory ?? []
+                                const newHistory = sessionMerged
+                                    ? [...history.slice(0, -1), editEntry]
+                                    : [...history, editEntry]
+                                return { ...prev, version, editHistory: newHistory }
+                            })}
                         />
                     </div>
                 </div>
@@ -430,30 +692,56 @@ export default function GuideEditorPage({ guide: initialGuide, guideId, isEditab
                                     {(guide.editHistory ?? []).length === 0 && (
                                         <div style={{ padding: '12px 16px', fontSize: '0.62rem', color: 'rgba(237,237,237,0.18)' }}>No history yet.</div>
                                     )}
-                                    {(guide.editHistory ?? []).slice().reverse().map((entry, i) => (
-                                        <div key={i} style={{ padding: '8px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <span style={{
-                                                    fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
-                                                    padding: '1px 5px',
-                                                    border: `1px solid ${entry.type === 'approved' ? 'rgba(80,200,120,0.22)' : entry.type === 'created' ? 'rgba(100,160,240,0.22)' : 'rgba(255,255,255,0.07)'}`,
-                                                    color: entry.type === 'approved' ? 'rgba(80,200,120,0.8)' : entry.type === 'created' ? 'rgba(100,160,240,0.8)' : 'rgba(237,237,237,0.28)',
-                                                }}>
-                                                    {entry.type === 'approved' ? `v${entry.version}` : entry.type === 'created' ? 'Created' : 'Edit'}
-                                                </span>
-                                                <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.58)', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.byName}</span>
+                                    {(guide.editHistory ?? []).slice().reverse().map((entry, i) => {
+                                        const history = guide.editHistory ?? []
+                                        const chronIdx = history.length - 1 - i
+                                        const prevEntry = chronIdx > 0 ? history[chronIdx - 1] : null
+                                        const clickable = entry.snapshot != null || (entry.changes?.length ?? 0) > 0
+                                        return (
+                                            <div key={i}
+                                                onClick={() => clickable && setDiffEntry({ entry, prev: prevEntry })}
+                                                style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', padding: '8px 16px', cursor: clickable ? 'pointer' : 'default', transition: 'background 0.12s' }}
+                                                onMouseEnter={e => { if (clickable) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)' }}
+                                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                                                    <span style={{
+                                                        fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
+                                                        padding: '1px 5px', flexShrink: 0,
+                                                        border: `1px solid ${entry.type === 'approved' ? 'rgba(80,200,120,0.22)' : entry.type === 'created' ? 'rgba(100,160,240,0.22)' : 'rgba(255,255,255,0.07)'}`,
+                                                        color: entry.type === 'approved' ? 'rgba(80,200,120,0.8)' : entry.type === 'created' ? 'rgba(100,160,240,0.8)' : 'rgba(237,237,237,0.28)',
+                                                    }}>
+                                                        {entry.type === 'approved' ? `v${entry.version}` : entry.type === 'created' ? 'Created' : 'Edit'}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.58)', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.byName}</span>
+                                                    {clickable && <span style={{ fontSize: '0.5rem', color: 'rgba(219,0,29,0.4)', flexShrink: 0 }}>↗</span>}
+                                                </div>
+                                                <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.22)', marginBottom: entry.changes?.length ? 4 : 0 }}>
+                                                    {new Date(entry.at).toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                                {entry.changes?.map((c, ci) => (
+                                                    <div key={ci} style={{ fontSize: '0.56rem', color: 'rgba(237,237,237,0.28)', display: 'flex', gap: 4 }}>
+                                                        <span style={{ color: 'rgba(219,0,29,0.4)', flexShrink: 0 }}>·</span>{c}
+                                                    </div>
+                                                ))}
                                             </div>
-                                            <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.22)' }}>
-                                                {new Date(entry.at).toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                            </div>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             )}
                         </div>
                     </div>
                 )}
             </div>
+
+            {/* ── History diff modal ───────────────────────────────────────────────── */}
+            {diffEntry && (
+                <HistoryDiffModal
+                    entry={diffEntry.entry}
+                    prev={diffEntry.prev}
+                    onClose={() => setDiffEntry(null)}
+                />
+            )}
 
             {/* ── Image Library modal ───────────────────────────────────────────────── */}
             {showImgLibrary && (

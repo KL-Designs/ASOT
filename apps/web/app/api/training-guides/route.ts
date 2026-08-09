@@ -11,10 +11,16 @@ export async function GET(req: NextRequest) {
     if (!client.hasRoles(me, PERMISSIONS.pages.member)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const isJ3 = client.hasRoles(me, PERMISSIONS.departments.j3)
+    const isJ3Lead = client.hasRoles(me, PERMISSIONS.trainingGuides.delete)
     const trainingTypeId = req.nextUrl.searchParams.get('trainingTypeId')
+    const deletedOnly = req.nextUrl.searchParams.get('deleted') === 'true'
 
-    const filter: Record<string, unknown> = { deletedAt: { $exists: false } }
-    if (!isJ3) filter.status = 'approved'
+    if (deletedOnly && !isJ3Lead) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    const filter: Record<string, unknown> = deletedOnly
+        ? { deletedAt: { $exists: true } }
+        : { deletedAt: { $exists: false } }
+    if (!deletedOnly && !isJ3) filter.status = 'approved'
     if (trainingTypeId) filter.trainingTypeId = trainingTypeId
 
     const guides = await Db.trainingGuides

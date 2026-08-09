@@ -6,7 +6,7 @@ interface DischargeSnapshot {
     displayName: string
     rankAtDischarge: string
     dischargeDate: string                        // YYYY-MM-DD
-    dischargeType: 'honorable' | 'dishonorable'
+    dischargeType: 'honorable' | 'general' | 'dishonorable'
     enlistedDate: string
     pointsAtDischarge: number
     milpac: NonNullable<User['milpac']>          // full copy at discharge time

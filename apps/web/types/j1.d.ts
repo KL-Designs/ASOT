@@ -30,6 +30,7 @@ interface J1Application {
     availableNights?: string
     opsPerMonth?: string
     primaryRole?: string
+    secondaryRole?: string
     additionalRoles?: string[]
     departmentInterest?: string[]
     ownsArma?: boolean

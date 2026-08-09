@@ -18,8 +18,8 @@ The importer reads the structure of this document using heading levels. Apply he
 | Heading Level | Purpose |
 |---|---|
 | Heading 1 | Guide title (one only) |
-| Heading 2 | Section headers — METADATA, OVERVIEW, EQUIPMENT, TEACHING POINTS, NOTES |
-| Heading 3 | Teaching point name (one per teaching point) |
+| Heading 2 | Section headers — METADATA, OVERVIEW, EQUIPMENT, REVISION (PRE-LEARNING CHECK), TEACHING POINTS, NOTES |
+| Heading 3 | Teaching point name OR revision topic name (one per point/topic) |
 | Heading 4 | Sub-section within a teaching point — DOT POINTS, VITAL POINTS, COMMON FAULTS |
 
 ---
@@ -49,6 +49,21 @@ Training Area: [e.g., Flat open ground, approximately 100m x 100m, no obstructio
 - [Equipment item 2]
 - [Equipment item 3]
 - [Add or remove bullet points as needed]
+
+## REVISION (PRE-LEARNING CHECK)
+*Remove this entire section (including the heading above) if there is no pre-learning check for this guide.*
+
+### [Revision Topic 1 — e.g., Key terminology]
+- [Revision question or point 1]
+- [Revision question or point 2]
+- [Revision question or point 3]
+
+### [Revision Topic 2 — e.g., Prerequisite procedure]
+- [Revision question or point 1]
+- [Revision question or point 2]
+
+### [Revision Topic 3 — Add or remove revision topics as needed]
+- [Revision question or point 1]
 
 ## TEACHING POINTS
 

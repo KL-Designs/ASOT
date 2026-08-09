@@ -198,7 +198,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             displayName,
             rankAtDischarge:  member.milpac?.currentRank ?? '',
             dischargeDate,
-            dischargeType:    ticket.dischargeType! as 'honorable' | 'dishonorable',
+            dischargeType:    ticket.dischargeType! as 'honorable' | 'general' | 'dishonorable',
             enlistedDate:     member.milpac?.enlistedDate ?? '',
             pointsAtDischarge: member.milpac?.promotionPoints ?? 0,
             milpac:           (member.milpac ?? {}) as NonNullable<User['milpac']>,

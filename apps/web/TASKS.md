@@ -10,9 +10,27 @@ Completed items are marked `[x]`. Do not delete entries.
 
 ## Outstanding Tasks
 
+- [x] **Training Documents tab — delete & recycle bin** — confirmed working
+- [x] **DOCX import — text formatting** — confirmed bold/italic carries through correctly
+- [x] **Rich text formatting toolbar** — confirmed working across all editable fields
+- [x] **Revision section** — confirmed working; DOCX import of revision section confirmed
+- [x] **Test Training Guide DOCX import** — confirmed all sections parse correctly
+
 - [ ] **Activity Log Revamp** — expand the J4 activity log to capture in-depth information across the entire website; log every edit, change, addition, and deletion site-wide with date, time, user, department, and action detail (full prompt planned separately)
 - [ ] **J2 Operations Orders Importer** — import historical operation orders (PDF format) into existing completed campaigns and single missions; to be built in the J4 Import Panel following import consolidation rules
 - [ ] **AI Implementation Log update** — `AI_IMPLEMENTATION_LOG.md` still shows Phases 3–6 as "Pending"; update to reflect confirmed-complete status
+
+- [ ] **Multiple checkpoint questions** — allow chaining multiple questions at a single video checkpoint; user answers each in sequence before the video resumes
+
+---
+
+## YouTube Embed Migration (complete)
+
+- [x] **Join / Recruitment video** — YouTube embed with custom controls confirmed working
+- [x] **J1 Admin — Recruit Video tab** — YouTube URL input confirmed working
+- [x] **J3 Training videos** — YouTube embed per training video confirmed working
+- [x] **J3 Admin — training video management** — YouTube URL input confirmed working
+- [x] Checkpoint questions system confirmed working over embedded YouTube player
 
 ---
 
@@ -46,8 +64,8 @@ All AI system phases and pre-S&R tasks are now complete. Next work block is fini
 
 - [ ] **Dead code cleanup** — delete the two unused files listed in the Dead Code Cleanup section above
 - [ ] **AI Implementation Log** — update `AI_IMPLEMENTATION_LOG.md` to mark Phases 3–6 complete
-- [ ] **Operation document duplication** — confirm fix is working on existing operations (open several, verify no extra pages appear)
-- [ ] **Staff Orders page colours** — confirm each section (HQ/1 PLT/2 PLT/3 PLT) shows its own colour in the document sidebar after being added
+- [x] **Operation document duplication** — confirmed fixed; no extra pages appearing
+- [x] **Staff Orders page colours** — confirmed each section shows its own colour in the sidebar
 
 ---
 
@@ -71,6 +89,8 @@ Run these tests when going live, involving other department members and staff. A
 - [ ] J3 trainer creates a guide/document and submits it for approval
 - [ ] J3 lead tests the Send Back for Review workflow
 - [ ] J3 lead tests the Approve and Deny system for submitted guides
+- [ ] Confirm only J3 trainers and leads can view or edit training documents (regular members cannot access)
+- [ ] Confirm J3 leads receive a notification when a trainer submits a document for review
 
 ### J1 Recruitment
 - [ ] Confirm the recruit video plays when arriving via the Enlist Now button on the home page
