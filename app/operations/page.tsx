@@ -2,7 +2,7 @@ import client from '@/lib/discord'
 import { connection } from 'next/server'
 import PERMISSIONS from '@/lib/permissions'
 
-import { CreateButton, OperationsBoard, SearchBar } from './list'
+import { MissionMakingButton, OperationsBoard, SearchBar } from './list'
 
 
 export default async function Page() {
@@ -29,7 +29,7 @@ export default async function Page() {
                     </h1>
                 </div>
                 <SearchBar />
-                {editAccess && <CreateButton />}
+                {editAccess && <MissionMakingButton />}
             </div>
 
             {/* 3-column board */}

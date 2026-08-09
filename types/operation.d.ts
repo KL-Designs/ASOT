@@ -217,7 +217,7 @@ declare global {
         extraPageSections?: Record<string, OperationSection[]>
 
         themeColor?: string
-        pageTheme?: 'modern' | 'wwii' | 'vietnam' | 'coldwar' | 'fantasy' | 'scifi' | 'other'
+        pageTheme?: string
         customTheme?: string
         coverImage?: string
         mapWorld?: string
@@ -259,6 +259,23 @@ declare global {
         deletedAt?: Date
         deletedBy?: string       // Discord user ID
         deletedByName?: string   // Display name for audit
+    }
+
+    /** Per-document read receipt for a single page in an operation */
+    interface DocAcknowledgement {
+        operationId: string
+        pageId: string       // 'main' for single-page operations; page.id for multi-page
+        userId: string
+        userName: string
+        acknowledgedAt: string  // ISO timestamp
+    }
+
+    interface EraOption {
+        _id: ObjectId
+        name: string    // Display label shown in the dropdown
+        value: string   // Value stored in operation.pageTheme
+        order: number   // Sort order (lower = first)
+        isDefault?: boolean // Pre-seeded default options
     }
 
     interface OperationCampaign {

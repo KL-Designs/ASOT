@@ -10,6 +10,7 @@ import { useTabState } from '@/app/dashboard/_components/useTabState'
 import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
+import BoardTab from './tabs/BoardTab'
 
 export default function J7Panel({
     displayName,
@@ -90,14 +91,16 @@ export default function J7Panel({
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Meetings' pinLabel='J7 — Meetings' href='/dashboard/j7' tabIndex={0} />} sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', minHeight: 40, padding: '8px 16px', color: 'rgba(237,237,237,0.5)', '&.Mui-selected': { color: 'var(--foreground)' } }} />
-                            <Tab label={<PinTabLabel label='Tickets'  pinLabel='J7 — Tickets'  href='/dashboard/j7' tabIndex={1} />} sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', minHeight: 40, padding: '8px 16px', color: 'rgba(237,237,237,0.5)', '&.Mui-selected': { color: 'var(--foreground)' } }} />
+                            <Tab label={<PinTabLabel label='Board'    pinLabel='J7 — Board'    href='/dashboard/j7' tabIndex={0} />} sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', minHeight: 40, padding: '8px 16px', color: 'rgba(237,237,237,0.5)', '&.Mui-selected': { color: 'var(--foreground)' } }} />
+                            <Tab label={<PinTabLabel label='Meetings' pinLabel='J7 — Meetings' href='/dashboard/j7' tabIndex={1} />} sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', minHeight: 40, padding: '8px 16px', color: 'rgba(237,237,237,0.5)', '&.Mui-selected': { color: 'var(--foreground)' } }} />
+                            <Tab label={<PinTabLabel label='Tickets'  pinLabel='J7 — Tickets'  href='/dashboard/j7' tabIndex={2} />} sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', minHeight: 40, padding: '8px 16px', color: 'rgba(237,237,237,0.5)', '&.Mui-selected': { color: 'var(--foreground)' } }} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
-                        {tab === 0 && <MeetingsTab department='j7' userId={userId} isLead={canManageMembers || isJ4} />}
-                        {tab === 1 && <DeptTicketsTab department='j7' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
+                        {tab === 0 && <BoardTab department='j7' canManageColumns={canManageMembers || isJ4} />}
+                        {tab === 1 && <MeetingsTab department='j7' userId={userId} isLead={canManageMembers || isJ4} />}
+                        {tab === 2 && <DeptTicketsTab department='j7' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                     </div>
                 </>
             )}

@@ -15,6 +15,30 @@ type Application = J1Application & { _id: string }
 type SortKey = 'discordUsername' | 'inGameName' | 'submittedAt' | 'region' | 'recruiter'
 type SortDir = 'asc' | 'desc'
 
+interface DischargeInfo {
+    dischargeDate: string
+    dischargeType: string
+    rankAtDischarge: string
+    displayName: string
+}
+
+interface SnapshotDetails {
+    discordId: string
+    displayName: string
+    rankAtDischarge: string
+    dischargeDate: string
+    dischargeType: 'honorable' | 'dishonorable' | string
+    enlistedDate?: string
+    pointsAtDischarge?: number
+    createdByName?: string
+    milpac?: {
+        qualifications?: unknown[]
+        awards?: unknown[]
+        operations?: unknown[]
+        billetCounts?: { campaignMedals?: number }
+    }
+}
+
 function formatDate(date: string | Date) {
     return new Date(date).toLocaleDateString('en-AU', {
         day: '2-digit', month: 'short', year: 'numeric',
@@ -173,6 +197,104 @@ function DetailModal({ app, onClose }: { app: Application; onClose: () => void }
     )
 }
 
+function SnapField({ label, value }: { label: string; value?: string | null }) {
+    if (!value) return null
+    return (
+        <div>
+            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 3 }}>{label}</div>
+            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)' }}>{value}</div>
+        </div>
+    )
+}
+
+function SnapCount({ label, count }: { label: string; count: number }) {
+    return (
+        <div style={{ textAlign: 'center', padding: '8px 4px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: count > 0 ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.2)' }}>{count}</div>
+            <div style={{ fontSize: '0.58rem', letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>{label}</div>
+        </div>
+    )
+}
+
+function DischargeSnapshotModal({ discordId, displayName, onClose }: { discordId: string; displayName: string; onClose: () => void }) {
+    const [snapshot, setSnapshot] = useState<SnapshotDetails | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        fetch(`/api/community/retired/snapshot?discordId=${encodeURIComponent(discordId)}`)
+            .then(r => r.json())
+            .then(data => setSnapshot(data.snapshot ?? null))
+            .catch(() => setSnapshot(null))
+            .finally(() => setLoading(false))
+    }, [discordId])
+
+    const label = snapshot?.dischargeType === 'dishonorable' ? 'Dishonorable Discharge' : 'Honorable Discharge'
+
+    return (
+        <Dialog
+            open
+            onClose={onClose}
+            maxWidth='sm'
+            fullWidth
+            PaperProps={{
+                style: {
+                    background: '#0f0f0f',
+                    border: '1px solid rgba(219,0,29,0.2)',
+                    borderTop: '2px solid var(--red)',
+                    borderRadius: 0,
+                    color: 'var(--foreground)',
+                },
+            }}
+        >
+            <DialogTitle style={{ padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
+                <div className='flex items-center justify-between'>
+                    <div>
+                        <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
+                            Discharge Record
+                        </div>
+                        <div style={{ fontWeight: 700, fontSize: '1rem' }}>{displayName}</div>
+                        {snapshot && (
+                            <div style={{ fontSize: '0.72rem', color: snapshot.dischargeType === 'dishonorable' ? 'var(--red)' : 'rgba(0,195,100,0.7)', marginTop: 2 }}>
+                                {label}
+                            </div>
+                        )}
+                    </div>
+                    <IconButton onClick={onClose} size='small' style={{ color: 'rgba(237,237,237,0.4)' }}>
+                        <Close fontSize='small' />
+                    </IconButton>
+                </div>
+            </DialogTitle>
+            <DialogContent style={{ padding: 20 }}>
+                {loading && <TacticalSkeleton rows={4} />}
+                {!loading && !snapshot && (
+                    <Typography style={{ color: 'rgba(237,237,237,0.4)', fontSize: '0.85rem' }}>No snapshot available.</Typography>
+                )}
+                {!loading && snapshot && (
+                    <div className='flex flex-col gap-4'>
+                        <div className='grid grid-cols-2 gap-3'>
+                            <SnapField label='Rank at Discharge' value={snapshot.rankAtDischarge} />
+                            <SnapField label='Discharge Date' value={formatDate(snapshot.dischargeDate)} />
+                            <SnapField label='Enlisted Date' value={snapshot.enlistedDate ? formatDate(snapshot.enlistedDate) : null} />
+                            <SnapField label='Points at Discharge' value={snapshot.pointsAtDischarge != null ? String(snapshot.pointsAtDischarge) : null} />
+                            <SnapField label='Processed By' value={snapshot.createdByName} />
+                        </div>
+                        <div style={{ borderTop: '1px solid rgba(219,0,29,0.1)', paddingTop: 16 }}>
+                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 10 }}>
+                                Milpac at Discharge
+                            </div>
+                            <div className='grid grid-cols-3 gap-2'>
+                                <SnapCount label='Qualifications' count={snapshot.milpac?.qualifications?.length ?? 0} />
+                                <SnapCount label='Awards' count={snapshot.milpac?.awards?.length ?? 0} />
+                                <SnapCount label='Operations' count={snapshot.milpac?.operations?.length ?? 0} />
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 const COLUMNS: { label: string; key: SortKey | null }[] = [
     { label: 'Discord', key: 'discordUsername' },
     { label: 'Joining Name', key: 'inGameName' },
@@ -181,9 +303,10 @@ const COLUMNS: { label: string; key: SortKey | null }[] = [
     { label: 'Region', key: 'region' },
     { label: 'Recruited By', key: 'recruiter' },
     { label: 'Join Date', key: 'submittedAt' },
+    { label: 'Discharged', key: null },
 ]
 
-const GRID = '1.4fr 1fr 110px 130px 90px 1fr 90px'
+const GRID = '1.4fr 1fr 110px 130px 90px 1fr 90px 90px'
 
 const PAGE_SIZE = 50
 
@@ -196,15 +319,26 @@ export default function MastersheetTab() {
     const [sortDir, setSortDir] = useState<SortDir>('desc')
     const [page, setPage] = useState(0)
     const [selected, setSelected] = useState<Application | null>(null)
+    const [dischargeMap, setDischargeMap] = useState<Map<string, DischargeInfo>>(new Map())
+    const [snapshotModal, setSnapshotModal] = useState<{ discordId: string; displayName: string } | null>(null)
 
     const fetchApps = useCallback(async () => {
         setLoading(true)
         setError(null)
         try {
-            const res = await fetch('/api/admin/j1/applications')
+            const [res, drRes] = await Promise.all([
+                fetch('/api/admin/j1/applications'),
+                fetch('/api/admin/j1/discharge-info'),
+            ])
             if (!res.ok) throw new Error('Failed to fetch')
             const data = await res.json()
             setApplications(data.applications)
+            if (drRes.ok) {
+                const drData = await drRes.json()
+                if (drData.discharges) {
+                    setDischargeMap(new Map(Object.entries(drData.discharges) as [string, DischargeInfo][]))
+                }
+            }
         } catch {
             setError('Failed to load data.')
         } finally {
@@ -378,6 +512,24 @@ export default function MastersheetTab() {
                             <span style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.35)' }}>
                                 {formatDate(app.submittedAt)}
                             </span>
+                            {/* Discharged */}
+                            {(() => {
+                                const disc = app.discordId ? dischargeMap.get(app.discordId) : undefined
+                                if (!disc) return <span style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.15)' }}>—</span>
+                                return (
+                                    <button
+                                        onClick={e => { e.stopPropagation(); setSnapshotModal({ discordId: app.discordId!, displayName: app.discordUsername }) }}
+                                        style={{
+                                            background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
+                                            fontSize: '0.75rem',
+                                            color: disc.dischargeType === 'dishonorable' ? 'var(--red)' : 'rgba(237,237,237,0.45)',
+                                            textDecoration: 'underline', textUnderlineOffset: 2,
+                                        }}
+                                    >
+                                        {formatDate(disc.dischargeDate)}
+                                    </button>
+                                )
+                            })()}
                         </div>
                     ))}
 
@@ -401,6 +553,13 @@ export default function MastersheetTab() {
 
             {selected && (
                 <DetailModal app={selected} onClose={() => setSelected(null)} />
+            )}
+            {snapshotModal && (
+                <DischargeSnapshotModal
+                    discordId={snapshotModal.discordId}
+                    displayName={snapshotModal.displayName}
+                    onClose={() => setSnapshotModal(null)}
+                />
             )}
         </div>
     )

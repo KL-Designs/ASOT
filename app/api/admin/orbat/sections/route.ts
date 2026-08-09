@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
         category,
         sectionTitle: sectionTitle.trim(),
         role: 'New Role',
+        roleId: null,
         userId: null,
         sectionOrder,
         positionOrder: 0,

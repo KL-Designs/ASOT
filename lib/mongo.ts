@@ -27,7 +27,11 @@ const DbInterface = {
     minigameLive: db.collection('minigame_live'),
     orbatPositions: db.collection('orbat_positions') as MongoCollection<OrbatPosition>,
     orbatSectionMeta: db.collection('orbat_section_meta') as MongoCollection<OrbatSectionMeta>,
+    orbatRoles: db.collection('orbat_roles') as MongoCollection<OrbatRole>,
+    boardColumns: db.collection('board_columns') as MongoCollection<BoardColumn>,
+    boardCards: db.collection('board_cards') as MongoCollection<BoardCard>,
     operationAttendance: db.collection('operation_attendance') as MongoCollection<OperationAttendance>,
+    operationDocAcks: db.collection('operation_doc_acknowledgements') as MongoCollection<DocAcknowledgement>,
     j1Applications: db.collection('j1_applications') as MongoCollection<J1Application>,
     tickets: db.collection('tickets') as MongoCollection<Ticket>,
     calendarEvents: db.collection('calendar_events') as MongoCollection<CalendarEvent>,
@@ -111,6 +115,8 @@ const DbInterface = {
     // ── Training Videos ───────────────────────────────────────────────────────
     trainingTypeVideos:    db.collection('training_type_videos')    as MongoCollection<TrainingTypeVideo>,
     trainingVideoProgress: db.collection('training_video_progress') as MongoCollection<TrainingVideoProgress>,
+
+    eraOptions: db.collection('era_options') as MongoCollection<EraOption>,
 }
 
 export default DbInterface

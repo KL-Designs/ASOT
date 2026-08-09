@@ -12,8 +12,10 @@ import {
     Add, Delete, MoreVert, DragIndicator,
 } from '@mui/icons-material'
 import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat/constants'
-import MilpacEditor from '@/app/members/[username]/MilpacEditor'
+import MemberDetailPanel from '@/app/dashboard/personnel/all/MemberDetailPanel'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
+import RolesManagerPanel from './RolesManagerPanel'
+import RoleSelect from './RoleSelect'
 import {
     DndContext,
     DragOverlay,
@@ -102,21 +104,25 @@ function buildSections(positions: OrbatPositionWithUser[], cat: string): Section
 }
 
 
-export default function OrbatManager({ initialUsers, canManageStructure, canManageMembers, canMilpacEditRestricted, canMilpacEditStandard }: {
+export default function OrbatManager({ initialUsers, canManageStructure, canManageMembers, canMilpacEditRestricted, canMilpacEditStandard, isJ4, canImpersonate }: {
     initialUsers: PickerUser[]
     canManageStructure: boolean
     canManageMembers: boolean
     canMilpacEditRestricted: boolean
     canMilpacEditStandard: boolean
+    isJ4: boolean
+    canImpersonate: boolean
 }) {
 
     const [positions, setPositions] = useState<OrbatPositionWithUser[]>([])
     const [loading, setLoading] = useState(true)
     const allUsers = initialUsers
 
+    // Roles Manager panel
+    const [rolesManagerOpen, setRolesManagerOpen] = useState(false)
+
     // Inline edit state
     const [editRoleId, setEditRoleId] = useState<string | null>(null)
-    const [editRoleVal, setEditRoleVal] = useState('')
     const [editSectionKey, setEditSectionKey] = useState<string | null>(null)  // `${cat}::${title}`
     const [editSectionVal, setEditSectionVal] = useState('')
 
@@ -124,7 +130,6 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
     const [addSectionCat, setAddSectionCat] = useState<string | null>(null)
     const [addSectionVal, setAddSectionVal] = useState('')
     const [addRoleKey, setAddRoleKey] = useState<string | null>(null)  // `${cat}::${sectionTitle}`
-    const [addRoleVal, setAddRoleVal] = useState('')
 
     // Expanded row (...) menu
     const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
@@ -150,10 +155,8 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
     const [addReservistCat, setAddReservistCat] = useState<'activeReservist' | 'inactiveReservist' | null>(null)
     const [addReservistSearch, setAddReservistSearch] = useState('')
 
-    // Milpac popout
-    const [milpacUser, setMilpacUser] = useState<User | null>(null)
-    const [milpacConfirmedOps, setMilpacConfirmedOps] = useState<{ operationId: string; name: string; confirmedAt: string | null }[]>([])
-    const [milpacLoading, setMilpacLoading] = useState(false)
+    // Member detail popout — shares MemberDetailPanel with the dashboard Members page
+    const [milpacUsername, setMilpacUsername] = useState<string | null>(null)
     const [milpacDirty, setMilpacDirty] = useState(false)
     const [milpacConfirmClose, setMilpacConfirmClose] = useState(false)
 
@@ -161,27 +164,25 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         if (milpacDirty) {
             setMilpacConfirmClose(true)
         } else {
-            setMilpacUser(null)
+            setMilpacUsername(null)
         }
     }
 
     function confirmCloseMilpac() {
         setMilpacConfirmClose(false)
         setMilpacDirty(false)
-        setMilpacUser(null)
+        setMilpacUsername(null)
     }
 
-    async function openMilpac(username: string) {
+    function openMilpac(username: string) {
         setMilpacDirty(false)
-        setMilpacLoading(true)
-        const [memberRes, opsRes] = await Promise.all([
-            fetch(`/api/members/${username}`),
-            fetch(`/api/members/${username}/confirmed-ops`),
-        ])
-        if (memberRes.ok) setMilpacUser(await memberRes.json())
-        if (opsRes.ok) setMilpacConfirmedOps(await opsRes.json())
-        else setMilpacConfirmedOps([])
-        setMilpacLoading(false)
+        setMilpacUsername(username)
+    }
+
+    function handleMemberDeletedFromOrbat() {
+        setMilpacDirty(false)
+        setMilpacUsername(null)
+        load()
     }
 
     // Section metadata (patch images + theme colors + discord roles)
@@ -406,14 +407,16 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
     // ── Role CRUD ────────────────────────────────────────────────────────────
 
-    async function saveRole(positionId: string, role: string) {
-        if (!role.trim()) { setEditRoleId(null); return }
+    async function saveRole(positionId: string, roleId: string, roleName: string) {
         setEditRoleId(null)
-        applyPatch(positionId, { role: role.trim() })
+        // roleId arrives as a plain string from RoleSelect's fetched JSON (same
+        // client/server ObjectId-vs-string mismatch already present for `_id`
+        // throughout this component's optimistic-update helpers).
+        applyPatch(positionId, { role: roleName, roleId: roleId as unknown as OrbatPosition['roleId'] })
         await fetch(`/api/admin/orbat/${positionId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role: role.trim() }),
+            body: JSON.stringify({ roleId }),
         })
     }
 
@@ -423,14 +426,13 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         await fetch(`/api/admin/orbat/${positionId}`, { method: 'DELETE' })
     }
 
-    async function addRole(cat: string, sectionTitle: string, role: string) {
-        if (!role.trim()) return
+    async function addRole(cat: string, sectionTitle: string, roleId: string) {
+        if (!roleId) return
         setAddRoleKey(null)
-        setAddRoleVal('')
         const res = await fetch('/api/admin/orbat/positions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ category: cat, sectionTitle, role: role.trim() }),
+            body: JSON.stringify({ category: cat, sectionTitle, roleId }),
         })
         if (res.ok) {
             const data = await res.json()
@@ -604,19 +606,10 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                     {/* Role name */}
                     <div className='flex-1 min-w-0'>
                         {isEditing && !opts.isDragOverlay ? (
-                            <TextField
-                                size='small'
-                                value={editRoleVal}
-                                onChange={e => setEditRoleVal(e.target.value)}
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter') saveRole(posId, editRoleVal)
-                                    if (e.key === 'Escape') setEditRoleId(null)
-                                }}
-                                onBlur={() => saveRole(posId, editRoleVal)}
-                                autoFocus
-                                fullWidth
-                                inputProps={{ style: { fontSize: '0.73rem', padding: '2px 6px' } }}
-                                sx={{ '& .MuiOutlinedInput-root': { height: 24 } }}
+                            <RoleSelect
+                                category={pos.category}
+                                value={pos.roleId ? String(pos.roleId) : null}
+                                onChange={(roleId, roleName) => saveRole(posId, roleId, roleName)}
                             />
                         ) : (
                             <Typography
@@ -697,11 +690,10 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                                 sx={menuItemBtn}
                                 onClick={() => {
                                     setEditRoleId(posId)
-                                    setEditRoleVal(pos.role)
                                     setExpandedRowId(null)
                                 }}
                             >
-                                Edit Name
+                                Change Role
                             </Button>
                         )}
                         {canManageMembers && (
@@ -914,24 +906,13 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 {canManageStructure && (
                     addRoleKey === sectionKey ? (
                         <div className='flex gap-1 px-1 py-1'>
-                            <TextField
-                                size='small'
-                                placeholder='Role name...'
-                                value={addRoleVal}
-                                onChange={e => setAddRoleVal(e.target.value)}
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter') addRole(cat, sec.title, addRoleVal)
-                                    if (e.key === 'Escape') { setAddRoleKey(null); setAddRoleVal('') }
-                                }}
-                                autoFocus
-                                fullWidth
-                                inputProps={{ style: { fontSize: '0.72rem', padding: '3px 8px' } }}
-                                sx={{ '& .MuiOutlinedInput-root': { height: 26 } }}
+                            <RoleSelect
+                                category={cat}
+                                value={null}
+                                onChange={(roleId) => addRole(cat, sec.title, roleId)}
+                                placeholder='Select a role…'
                             />
-                            <IconButton size='small' onClick={() => addRole(cat, sec.title, addRoleVal)} disabled={!addRoleVal.trim() || busy} sx={{ ...ghostBtn, padding: '2px' }}>
-                                <Add sx={{ fontSize: 14 }} />
-                            </IconButton>
-                            <IconButton size='small' onClick={() => { setAddRoleKey(null); setAddRoleVal('') }} sx={{ ...ghostBtn, padding: '2px' }}>
+                            <IconButton size='small' onClick={() => setAddRoleKey(null)} sx={{ ...ghostBtn, padding: '2px' }}>
                                 <Close sx={{ fontSize: 14 }} />
                             </IconButton>
                         </div>
@@ -940,7 +921,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                             size='small'
                             sx={addBtn}
                             startIcon={<Add sx={{ fontSize: '11px !important' }} />}
-                            onClick={() => { setAddRoleKey(sectionKey); setAddRoleVal('') }}
+                            onClick={() => setAddRoleKey(sectionKey)}
                         >
                             Add Role
                         </Button>
@@ -1270,13 +1251,23 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                     background: 'rgba(255,255,255,0.04)',
                 }}
             >
-                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
-                    Unit
-                </Typography>
-                <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
-                    ORBAT Management
-                </Typography>
+                <div className='flex items-center justify-between'>
+                    <div>
+                        <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
+                            Unit
+                        </Typography>
+                        <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
+                            ORBAT Management
+                        </Typography>
+                    </div>
+                    {canManageStructure && (
+                        <Button size='small' onClick={() => setRolesManagerOpen(true)} sx={ghostBtn}>
+                            Manage Roles
+                        </Button>
+                    )}
+                </div>
             </div>
+            <RolesManagerPanel open={rolesManagerOpen} onClose={() => setRolesManagerOpen(false)} />
 
             {/* Empty state */}
             {positions.length === 0 && (
@@ -1602,9 +1593,9 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             </Dialog>
 
 
-            {/* ── Milpac Popout ───────────────────────────────────────────────── */}
+            {/* ── Member Detail Popout — same MemberDetailPanel used on the dashboard Members page ── */}
             <Dialog
-                open={!!milpacUser || milpacLoading}
+                open={!!milpacUsername}
                 onClose={requestCloseMilpac}
                 maxWidth='md'
                 fullWidth
@@ -1612,31 +1603,32 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                     style: {
                         background: '#0e0e0e',
                         border: '1px solid rgba(219,0,29,0.32)',
-                        maxHeight: '90vh',
+                        height: '85vh',
+                        maxHeight: '85vh',
                     },
                 }}
             >
-                <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
                     <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.5)' }}>
-                        {milpacUser ? `Milpac — ${milpacUser.name || milpacUser.username}` : 'Loading…'}
+                        {milpacUsername ? `Milpac — ${allUsers.find(u => u.username === milpacUsername)?.displayName || milpacUsername}` : 'Loading…'}
                         {milpacDirty && <span style={{ marginLeft: 8, color: 'rgba(219,0,29,0.7)', fontSize: '0.65rem' }}>● Unsaved changes</span>}
                     </span>
                     <IconButton size='small' onClick={requestCloseMilpac} sx={ghostBtn}>
                         <Close fontSize='small' />
                     </IconButton>
                 </DialogTitle>
-                <DialogContent style={{ padding: 0, overflowY: 'auto' }}>
-                    {milpacLoading && <TacticalSkeleton rows={6} className='p-6' />}
-                    {milpacUser && !milpacLoading && (
-                        <div style={{ padding: '20px 24px' }}>
-                            <MilpacEditor
-                            member={milpacUser}
-                            confirmedOps={milpacConfirmedOps}
-                            onDirtyChange={setMilpacDirty}
+                <DialogContent style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                    {milpacUsername && (
+                        <MemberDetailPanel
+                            key={milpacUsername}
+                            username={milpacUsername}
+                            isJ4={isJ4}
                             canEditRestricted={canMilpacEditRestricted}
                             canEditStandard={canMilpacEditStandard}
+                            canImpersonate={canImpersonate}
+                            onDirtyChange={setMilpacDirty}
+                            onMemberDeleted={handleMemberDeletedFromOrbat}
                         />
-                        </div>
                     )}
                 </DialogContent>
             </Dialog>

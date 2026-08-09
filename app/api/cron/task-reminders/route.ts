@@ -93,6 +93,42 @@ export async function GET(request: NextRequest) {
         }
     }
 
+    // ── 1b. Orders check maker reminders ─────────────────────────────────────
+    // Fires a personal reminder to the mission maker (assignedBy) when their
+    // custom ordersCheckMakerReminderAt time has passed. One-shot per task.
+    const ordersCheckReminders = await Db.tasks.find({
+        type: 'orders_check',
+        ordersCheckStatus: 'confirmed',
+        ordersCheckMakerReminderAt: { $lte: now.toISOString() },
+        ordersCheckMakerReminderFiredAt: null,
+        completedAt: { $exists: false },
+    } as never).toArray()
+
+    for (const task of ordersCheckReminders) {
+        const taskAny = task as any
+        if (!taskAny.assignedBy) continue
+        const checkTimeStr = taskAny.ordersCheckAt
+            ? new Date(taskAny.ordersCheckAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+            : 'the scheduled time'
+        try {
+            await createNotification({
+                userId: taskAny.assignedBy,
+                type: 'task_reminder',
+                title: 'Orders Check Reminder',
+                body: `Reminder: your orders check for "${task.title.replace('[Orders Check] ', '')}" is scheduled for ${checkTimeStr}.`,
+                actionUrl: task.actionUrl ?? `/operations/${taskAny.relatedId}/edit`,
+                relatedId: task._id!.toString(),
+            })
+            await Db.tasks.updateOne(
+                { _id: task._id },
+                { $set: { ordersCheckMakerReminderFiredAt: now } } as never
+            )
+            console.log(`${tag} orders-check reminder sent — user ${taskAny.assignedBy}`)
+        } catch (err) {
+            console.error(`${tag} orders-check reminder failed for user ${taskAny.assignedBy}:`, err)
+        }
+    }
+
     // ── 2. Due / overdue notifications ────────────────────────────────────────
     //
     // Match tasks where:
