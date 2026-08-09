@@ -29,14 +29,14 @@ export interface PermissionCategory {
 export interface PermissionGrant {
     granted: boolean
     viaDiscordRoles: string[]
-    viaOrbatRole: string | null
+    viaOrbatRoles: string[]
     viaGlobalOverride: boolean
 }
 
 interface ResolvedState {
     userIds: string[]
     userIdToRoleNames: Map<string, Set<string>>
-    userIdToOrbatRoleId: Map<string, string>
+    userIdToOrbatRoleIds: Map<string, Set<string>>
     orbatRoleIdToDoc: Map<string, { name: string; permissions: string[] }>
     roleNameToDoc: Map<string, { id: string; name: string; color: number }>
     overrideUserIds: Set<string>
@@ -75,9 +75,15 @@ async function resolveState(): Promise<ResolvedState> {
 
     const orbatRoleIdToDoc = new Map(orbatRoles.map(r => [String(r._id), { name: r.name, permissions: r.permissions }]))
 
-    const userIdToOrbatRoleId = new Map<string, string>()
+    // A user can hold more than one ORBAT position — union every position's
+    // Role so no grant is silently dropped.
+    const userIdToOrbatRoleIds = new Map<string, Set<string>>()
     for (const pos of positions) {
-        if (pos.userId && pos.roleId) userIdToOrbatRoleId.set(pos.userId, String(pos.roleId))
+        if (pos.userId && pos.roleId) {
+            const set = userIdToOrbatRoleIds.get(pos.userId) ?? new Set<string>()
+            set.add(String(pos.roleId))
+            userIdToOrbatRoleIds.set(pos.userId, set)
+        }
     }
 
     const overrideUserIds = new Set(
@@ -87,7 +93,7 @@ async function resolveState(): Promise<ResolvedState> {
     return {
         userIds: users.map(u => u.id),
         userIdToRoleNames,
-        userIdToOrbatRoleId,
+        userIdToOrbatRoleIds,
         orbatRoleIdToDoc,
         roleNameToDoc,
         overrideUserIds,
@@ -101,13 +107,16 @@ function resolveGrant(state: ResolvedState, userId: string, key: string): Permis
     const qualifyingNames = PERMISSION_CATALOG[key] ?? []
     const viaDiscordRoles = qualifyingNames.filter(name => roleNames.has(name))
 
-    const orbatRoleId = state.userIdToOrbatRoleId.get(userId)
-    const orbatRoleDoc = orbatRoleId ? state.orbatRoleIdToDoc.get(orbatRoleId) : undefined
-    const viaOrbatRole = orbatRoleDoc?.permissions.includes(key) ? orbatRoleDoc.name : null
+    const orbatRoleIds = state.userIdToOrbatRoleIds.get(userId) ?? new Set<string>()
+    const viaOrbatRoles: string[] = []
+    for (const orbatRoleId of orbatRoleIds) {
+        const doc = state.orbatRoleIdToDoc.get(orbatRoleId)
+        if (doc?.permissions.includes(key)) viaOrbatRoles.push(doc.name)
+    }
 
-    const granted = viaGlobalOverride || viaDiscordRoles.length > 0 || viaOrbatRole !== null
+    const granted = viaGlobalOverride || viaDiscordRoles.length > 0 || viaOrbatRoles.length > 0
 
-    return { granted, viaDiscordRoles, viaOrbatRole, viaGlobalOverride }
+    return { granted, viaDiscordRoles, viaOrbatRoles, viaGlobalOverride }
 }
 
 function categoryLabel(key: string): string {
@@ -175,4 +184,14 @@ export async function buildMemberGrants(userId: string): Promise<Record<string, 
         grants[key] = resolveGrant(state, userId, key)
     }
     return grants
+}
+
+/**
+ * Every active (non-discharged, non-skeleton) user ID that is granted `key`,
+ * resolved through the same additive logic as hasPermission()/the permissions
+ * tree — Discord roles, ORBAT Role grants, and global overrides.
+ */
+export async function getGrantedUserIds(key: string): Promise<string[]> {
+    const state = await resolveState()
+    return state.userIds.filter(userId => resolveGrant(state, userId, key).granted)
 }

@@ -430,6 +430,13 @@ const PERMISSIONS = {
          * Confirm member attendance after an operation has run.
          * Section leaders and All Staff use this to mark who attended.
          *
+         * NOTE: this key can ALSO be granted via an ORBAT Role's `permissions`
+         * array (see the Roles Manager, `app/dashboard/orbat/RolesManagerPanel.tsx`).
+         * Anyone granted it that way gets the SAME roster-wide confirm and
+         * billet-count-editing power as `All Staff`/`HQ Staff` — it is NOT scoped
+         * to any particular section, since the confirm route only narrows to a
+         * section for users whose ORBAT position has `isSenior: true`.
+         *
          * Used by:
          *  - `app/operations/[id]/page.tsx` (`isAllStaff` flag — shows confirm UI)
          *  - `app/api/operations/[id]/attendance/confirm/route.ts`

@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
 import { hasPermission } from '@/lib/orbat/hasPermission'
+import { getGrantedUserIds } from '@/lib/permissions/tree'
 
 type Params = { params: Promise<{ id: string }> }
-
-const ACK_ROLES = PERMISSIONS.attendance.confirm  // ['All Staff', 'HQ Staff']
 
 /**
  * GET /api/operations/[id]/acknowledge?pageId=main
@@ -15,7 +13,8 @@ const ACK_ROLES = PERMISSIONS.attendance.confirm  // ['All Staff', 'HQ Staff']
  * Returns:
  *   - acknowledged: whether the current user has ack'd this page
  *   - acks: list of users who have acknowledged
- *   - eligible: all users who should acknowledge (All Staff + HQ Staff)
+ *   - eligible: everyone granted `attendance.confirm` (Discord roles, an ORBAT
+ *     Role grant, or a global override) — i.e. exactly who POST lets acknowledge
  *   - notAcknowledged: eligible users who haven't ack'd yet
  */
 export async function GET(req: NextRequest, { params }: Params) {
@@ -38,10 +37,13 @@ export async function GET(req: NextRequest, { params }: Params) {
     const acknowledgedUserIds = new Set(acks.map(a => a.userId))
     const acknowledged = me ? acknowledgedUserIds.has(me.id) : false
 
-    // Build eligible + not-acknowledged lists
-    const eligibleUsers = await Db.users
+    // Build eligible + not-acknowledged lists. Resolve who holds
+    // `attendance.confirm` through the shared permissions resolver so this
+    // roster always matches the gate POST enforces, then hydrate their names.
+    const eligibleUserIds = await getGrantedUserIds('attendance.confirm')
+    const eligibleUsers = eligibleUserIds.length === 0 ? [] : await Db.users
         .find(
-            { 'guild.roles': { $in: ACK_ROLES }, discharged: { $exists: false }, isSkeletonAccount: { $ne: true } },
+            { id: { $in: eligibleUserIds }, discharged: { $exists: false }, isSkeletonAccount: { $ne: true } },
             { projection: { id: 1, 'guild.displayName': 1, 'guild.nickname': 1, globalName: 1, username: 1 } }
         )
         .toArray()
@@ -66,7 +68,7 @@ export async function GET(req: NextRequest, { params }: Params) {
  * Body: { pageId: string }
  *
  * Mark the current user as having acknowledged this document page.
- * Only All Staff / HQ Staff can acknowledge.
+ * Only holders of `attendance.confirm` can acknowledge.
  */
 export async function POST(req: NextRequest, { params }: Params) {
     const { id } = await params

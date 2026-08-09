@@ -12,7 +12,7 @@ interface DiscordRoleChip { id: string; name: string; color: number; resolved: b
 interface OrbatRoleChip { id: string; name: string }
 interface PermissionNode { key: string; discordRoles: DiscordRoleChip[]; orbatRoles: OrbatRoleChip[]; memberCount: number }
 interface PermissionCategory { key: string; label: string; permissions: PermissionNode[] }
-interface PermissionGrant { granted: boolean; viaDiscordRoles: string[]; viaOrbatRole: string | null; viaGlobalOverride: boolean }
+interface PermissionGrant { granted: boolean; viaDiscordRoles: string[]; viaOrbatRoles: string[]; viaGlobalOverride: boolean }
 interface MemberOption { id: string; displayName: string }
 
 interface Props {
@@ -101,7 +101,7 @@ function PermissionLeaf({ node, grant }: { node: PermissionNode; grant?: Permiss
                         <DiscordChip key={r.id} chip={r} matched={grant?.viaDiscordRoles.includes(r.name) ?? false} />
                     ))}
                     {node.orbatRoles.map(r => (
-                        <OrbatChip key={r.id} chip={r} matched={grant?.viaOrbatRole === r.name} />
+                        <OrbatChip key={r.id} chip={r} matched={grant?.viaOrbatRoles.includes(r.name) ?? false} />
                     ))}
                     {node.discordRoles.length === 0 && node.orbatRoles.length === 0 && (
                         <span style={{ fontSize: '0.66rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>No roles granted</span>
