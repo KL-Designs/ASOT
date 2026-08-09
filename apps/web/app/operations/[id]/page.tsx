@@ -11,6 +11,7 @@ import LocalDate from './local-date'
 import PrintButton from './print-button'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import AttendanceDrawer from '@/components/operations/AttendanceDrawer'
 import ZeusNotesPanel from './ZeusNotesPanel'
 import OperationStatusBar from '@/components/operations/OperationStatusBar'
@@ -41,7 +42,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     ])
     const isLoggedIn = !!me
     const isHQ = me ? client.hasRoles(me, PERMISSIONS.pages.operationsEdit) : false
-    const isAllStaff = me ? client.hasRoles(me, PERMISSIONS.attendance.confirm) : false
+    const isAllStaff = me ? await hasPermission(me, 'attendance.confirm') : false
     const isJ6 = me ? client.hasRoles(me, PERMISSIONS.departments.j6) : false
 
     // Check if the logged-in user is a section leader (isSenior on their ORBAT position)

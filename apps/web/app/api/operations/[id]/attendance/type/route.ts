@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 // POST /api/operations/[id]/attendance/type
 // Body: { userId: string, attendanceType: string | null }
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const orbatPos = await Db.orbatPositions.findOne({ userId: me.id })
     const isHQ = client.hasRoles(me, ['HQ Staff'])
-    const isAllStaff = client.hasRoles(me, PERMISSIONS.attendance.confirm)
+    const isAllStaff = await hasPermission(me, 'attendance.confirm')
     if (!orbatPos?.isSenior && !isAllStaff && !isHQ) {
         return NextResponse.json({ error: 'Only section leaders or staff can set attendance types' }, { status: 403 })
     }

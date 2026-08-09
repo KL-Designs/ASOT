@@ -29,6 +29,7 @@ interface LeavingHistoryRecord {
     steamId?: string
     discordId?: string
     leavingDate: string
+    leavingDateSort: number   // epoch ms parsed from leavingDate at import time — lets MongoDB sort natively
     grace: string
     type: 'GD' | 'HD' | 'DD' | string
     return: 'YES' | 'REVIEW' | 'NO' | 'Indefinite' | 'Expired' | string
@@ -41,6 +42,7 @@ interface LeavingHistoryRecord {
 interface DeniedApplicationRecord {
     _id: import('mongodb').ObjectId
     date: string
+    dateSort: number   // epoch ms parsed from date at import time — lets MongoDB sort natively
     name: string
     steamId?: string
     discordId?: string
@@ -60,7 +62,9 @@ interface DisciplineRecord {
     disciplineLevel: string
     name: string
     issued: string
+    issuedSort: number    // epoch ms parsed from issued at import time — lets MongoDB sort natively
     expires: string
+    expiresSort: number   // epoch ms parsed from expires at import time — lets MongoDB sort natively
     expired: boolean
     givenBy: string
     authorisedBy: string

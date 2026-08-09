@@ -10,7 +10,8 @@
     "lint": "next lint",
     "generate-terrain": "node scripts/generate-terrain.mjs",
     "init-db": "node scripts/init-db.mjs",
-    "migrate-orbat-roles": "dotenv -e ../../.env -- node scripts/migrate-orbat-roles.mjs"
+    "migrate-orbat-roles": "dotenv -e ../../.env -- node scripts/migrate-orbat-roles.mjs",
+    "backfill-mastersheet-date-sort": "dotenv -e ../../.env -- node scripts/backfill-mastersheet-date-sort.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.1",
