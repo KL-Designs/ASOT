@@ -7,6 +7,7 @@ import {
 } from '@mui/material'
 import { Close, Delete, Add, Search } from '@mui/icons-material'
 import { PLATOON_CATEGORIES } from '@/lib/orbat/constants'
+import ChainOfCommandPanel from './ChainOfCommandPanel'
 
 interface GuildRole { id: string; name: string; color: number }
 
@@ -47,6 +48,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
     const [roleSearch, setRoleSearch] = useState('')
     const [discordSearch, setDiscordSearch] = useState('')
     const [permSearch, setPermSearch] = useState('')
+    const [chainOpen, setChainOpen] = useState(false)
 
     const load = useCallback(async () => {
         setLoading(true)
@@ -168,7 +170,13 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                         Roles Manager
                     </Typography>
                 </div>
-                <IconButton size='small' onClick={onClose}><Close sx={{ fontSize: 18, color: 'rgba(237,237,237,0.5)' }} /></IconButton>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Button size='small' variant='outlined' onClick={() => setChainOpen(true)}
+                        sx={{ fontSize: '0.65rem', letterSpacing: 1, borderColor: 'rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.85)' }}>
+                        Chain of Command
+                    </Button>
+                    <IconButton size='small' onClick={onClose}><Close sx={{ fontSize: 18, color: 'rgba(237,237,237,0.5)' }} /></IconButton>
+                </div>
             </DialogTitle>
 
             <Divider sx={{ borderColor: 'rgba(219,0,29,0.42)' }} />
@@ -323,6 +331,8 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                     </>
                 )}
             </DialogContent>
+
+            <ChainOfCommandPanel open={chainOpen} onClose={() => setChainOpen(false)} />
         </Dialog>
     )
 }
