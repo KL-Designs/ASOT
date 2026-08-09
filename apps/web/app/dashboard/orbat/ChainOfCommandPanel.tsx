@@ -9,7 +9,7 @@ import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
 import {
     Dialog, DialogTitle, DialogContent, Divider, TextField, IconButton,
-    Typography, Box, InputAdornment, CircularProgress, Alert,
+    Typography, Box, InputAdornment, CircularProgress, Alert, Button,
 } from '@mui/material'
 import { Close, Search } from '@mui/icons-material'
 
@@ -100,12 +100,11 @@ function layoutRoles(roles: OrbatRole[], search: string): { nodes: RoleFlowNode[
     return { nodes, edges }
 }
 
-function Canvas({ roles, search, error, onConnectRoles, onDisconnectRole, onSelectRole }: {
+function Canvas({ roles, search, error, onConnectRoles, onSelectRole }: {
     roles: OrbatRole[]
     search: string
     error: string | null
     onConnectRoles: (childId: string, parentId: string) => void
-    onDisconnectRole: (childId: string) => void
     onSelectRole: (role: OrbatRole) => void
 }) {
     const { nodes, edges } = useMemo(() => layoutRoles(roles, search), [roles, search])
@@ -122,10 +121,6 @@ function Canvas({ roles, search, error, onConnectRoles, onDisconnectRole, onSele
     function handleConnect(connection: Connection) {
         if (!connection.source || !connection.target) return
         onConnectRoles(connection.target, connection.source)
-    }
-
-    function handleEdgesDelete(deleted: Edge[]) {
-        for (const edge of deleted) onDisconnectRole(edge.target)
     }
 
     function handleNodeClick(_event: React.MouseEvent, node: RoleFlowNode) {
@@ -146,7 +141,6 @@ function Canvas({ roles, search, error, onConnectRoles, onDisconnectRole, onSele
                 nodesDraggable={false}
                 fitView
                 onConnect={handleConnect}
-                onEdgesDelete={handleEdgesDelete}
                 onNodeClick={handleNodeClick}
                 colorMode='dark'
             >
@@ -177,16 +171,21 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
 
     async function patchParent(childId: string, parentRoleId: string | null) {
         setError(null)
-        const res = await fetch(`/api/admin/orbat/roles/${childId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ parentRoleId }),
-        })
-        if (!res.ok) {
-            const data = await res.json().catch(() => ({}))
-            setError(data.error ?? 'Failed to update chain of command')
+        try {
+            const res = await fetch(`/api/admin/orbat/roles/${childId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ parentRoleId }),
+            })
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                setError(data.error ?? 'Failed to update chain of command')
+            }
+        } catch {
+            setError('Network error — could not update chain of command')
+        } finally {
+            await load()
         }
-        await load()
     }
 
     return (
@@ -219,7 +218,7 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
             <Divider sx={{ borderColor: 'rgba(219,0,29,0.42)' }} />
 
             <DialogContent sx={{ p: 0, display: 'flex', overflow: 'hidden', flex: 1 }}>
-                {loading ? (
+                {loading && roles.length === 0 ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
                         <CircularProgress size={26} />
                     </Box>
@@ -239,7 +238,6 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                                     search={search}
                                     error={error}
                                     onConnectRoles={(childId, parentId) => patchParent(childId, parentId)}
-                                    onDisconnectRole={childId => patchParent(childId, null)}
                                     onSelectRole={setSelectedRole}
                                 />
                             </ReactFlowProvider>
@@ -253,6 +251,15 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                                         <Close sx={{ fontSize: 14, color: 'rgba(237,237,237,0.4)' }} />
                                     </IconButton>
                                 </div>
+                                {selectedRole.parentRoleId && (
+                                    <Button
+                                        size='small' variant='outlined' fullWidth
+                                        onClick={() => { patchParent(String(selectedRole._id), null); setSelectedRole(null) }}
+                                        sx={{ fontSize: '0.65rem', letterSpacing: 1, borderColor: 'rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.85)', mb: 2 }}
+                                    >
+                                        Detach from Parent
+                                    </Button>
+                                )}
                                 <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 4 }}>
                                     Permissions ({selectedRole.permissions.length})
                                 </div>
