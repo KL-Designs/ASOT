@@ -201,7 +201,7 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                     borderTop: '2px solid var(--red)',
                     height: '85vh',
                     width: '90vw',
-                    maxWidth: 1800,
+                    maxWidth: 2000,
                 },
             }}
         >
