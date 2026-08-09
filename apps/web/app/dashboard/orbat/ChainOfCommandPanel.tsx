@@ -13,6 +13,7 @@ import {
     Checkbox, FormControlLabel,
 } from '@mui/material'
 import { Close, Search } from '@mui/icons-material'
+import { PLATOON_CATEGORIES } from '@/lib/orbat/constants'
 
 interface Props {
     open: boolean
@@ -39,10 +40,16 @@ function parseNodeId(nodeId: string): { kind: NodeKind; id: string } {
     return { kind: nodeId.slice(0, sep) as NodeKind, id: nodeId.slice(sep + 1) }
 }
 
+function categoryLabel(categories: string[]): string {
+    if (categories.length === 0) return 'All categories'
+    return categories.map(id => PLATOON_CATEGORIES.find(c => c._id === id)?.label ?? id).join(', ')
+}
+
 interface RoleNodeData extends Record<string, unknown> {
     kind: 'role'
     role: OrbatRole
     dimmed: boolean
+    duplicateNameLabel: string | null
 }
 
 interface GroupNodeData extends Record<string, unknown> {
@@ -67,6 +74,11 @@ function RoleNode({ data }: NodeProps<RoleFlowNode>) {
             <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.9)', fontWeight: 600, marginBottom: 6, wordBreak: 'break-word' }}>
                 {role.name}
             </div>
+            {data.duplicateNameLabel && (
+                <div style={{ fontSize: '0.55rem', color: 'rgba(100,180,255,0.85)', marginBottom: 6 }}>
+                    {data.duplicateNameLabel}
+                </div>
+            )}
             <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '0.6rem', padding: '1px 6px', borderRadius: 999, background: 'rgba(255,255,255,0.06)', color: 'rgba(237,237,237,0.5)' }}>
                     {role.permissions.length} perm{role.permissions.length === 1 ? '' : 's'}
@@ -156,6 +168,8 @@ function layoutChainOfCommand(roles: OrbatRole[], groups: OrbatRoleGroup[], sear
     dagre.layout(g)
 
     const term = search.trim().toLowerCase()
+    const nameCounts = new Map<string, number>()
+    for (const role of roles) nameCounts.set(role.name, (nameCounts.get(role.name) ?? 0) + 1)
     const roleNodes: RoleFlowNode[] = roles.map(role => {
         const id = nodeIdFor('role', String(role._id))
         const pos = g.node(id)
@@ -164,7 +178,12 @@ function layoutChainOfCommand(roles: OrbatRole[], groups: OrbatRoleGroup[], sear
             id,
             type: 'roleNode',
             position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
-            data: { kind: 'role', role, dimmed },
+            data: {
+                kind: 'role',
+                role,
+                dimmed,
+                duplicateNameLabel: (nameCounts.get(role.name) ?? 0) > 1 ? categoryLabel(role.categories) : null,
+            },
         }
     })
     const groupNodes: GroupFlowNode[] = groups.map(group => {

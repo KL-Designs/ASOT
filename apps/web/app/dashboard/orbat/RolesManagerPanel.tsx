@@ -32,6 +32,11 @@ function discordColorHex(color: number): string | null {
     return '#' + color.toString(16).padStart(6, '0')
 }
 
+function categoryLabel(categories: string[]): string {
+    if (categories.length === 0) return 'All categories'
+    return categories.map(id => PLATOON_CATEGORIES.find(c => c._id === id)?.label ?? id).join(', ')
+}
+
 export default function RolesManagerPanel({ open, onClose }: Props) {
     const [roles, setRoles] = useState<OrbatRole[]>([])
     const [guildRoles, setGuildRoles] = useState<GuildRole[]>([])
@@ -146,6 +151,12 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
         })
     }, [filteredPermissionKeys])
 
+    const duplicateNames = useMemo(() => {
+        const counts = new Map<string, number>()
+        for (const r of roles) counts.set(r.name, (counts.get(r.name) ?? 0) + 1)
+        return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([name]) => name))
+    }, [roles])
+
     return (
         <Dialog
             open={open}
@@ -216,7 +227,14 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                             border: selected ? '1px solid rgba(219,0,29,0.4)' : '1px solid transparent',
                                             '&:hover': { background: selected ? 'rgba(219,0,29,0.12)' : 'rgba(255,255,255,0.04)' },
                                         }}>
-                                            <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.85)' }}>{role.name}</span>
+                                            <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.85)', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{role.name}</span>
+                                                {duplicateNames.has(role.name) && (
+                                                    <span style={{ flexShrink: 0, fontSize: '0.55rem', padding: '1px 6px', borderRadius: 999, background: 'rgba(100,180,255,0.12)', color: 'rgba(100,180,255,0.85)' }}>
+                                                        {categoryLabel(role.categories)}
+                                                    </span>
+                                                )}
+                                            </span>
                                             <IconButton size='small' onClick={e => { e.stopPropagation(); remove(role) }}>
                                                 <Delete sx={{ fontSize: 14, color: 'rgba(219,0,29,0.6)' }} />
                                             </IconButton>
