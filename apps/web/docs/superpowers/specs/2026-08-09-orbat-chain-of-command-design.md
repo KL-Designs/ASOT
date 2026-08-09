@@ -47,7 +47,7 @@ No new routes. Two existing routes under `app/api/admin/orbat/roles/` change:
   1. `parentRoleId !== roleId` (a role can't be its own parent) — reject with 400.
   2. The proposed parent must exist in `Db.orbatRoles` — reject with 400 if not found.
   3. **Cycle check:** walk the proposed parent's ancestor chain (follow `parentRoleId` upward via repeated lookups) up to a sane depth bound (e.g. 50 — well beyond any real hierarchy, just a guard against a data-corruption infinite loop). If the role being edited appears anywhere in that chain, reject with 409 and a clear message ("This would create a cycle in the chain of command").
-- **`DELETE /api/admin/orbat/roles/[roleId]`** — before the existing delete-blocked-if-positions-reference-it check, cascade: `Db.orbatRoles.updateMany({ parentRoleId: roleId }, { $set: { parentRoleId: null } })`, so any children become roots. This doesn't change the existing block on deleting a Role that's still assigned to live `OrbatPosition`s — that check is orthogonal and stays as-is.
+- **`DELETE /api/admin/orbat/roles/[roleId]`** — the existing delete-blocked-if-positions-reference-it check runs first, unchanged; only once that check passes does the cascade run: `Db.orbatRoles.updateMany({ parentRoleId: roleId }, { $set: { parentRoleId: null } })`, so any children become roots. Running the cascade before that check would orphan children on a delete that then gets rejected, so the ordering is deliberate, not incidental.
 
 `GET /api/admin/orbat/roles` is unchanged — it already returns full `OrbatRole` documents, which will now include `parentRoleId`.
 
