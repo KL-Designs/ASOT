@@ -49,6 +49,39 @@ export async function PATCH(
     if (Array.isArray(body.permissions)) {
         updates.permissions = body.permissions.filter((p: unknown) => typeof p === 'string' && PERMISSION_KEYS.includes(p))
     }
+    if ('parentRoleId' in body) {
+        const raw = body.parentRoleId
+        if (raw === null) {
+            updates.parentRoleId = null
+        } else if (typeof raw === 'string') {
+            const parentObjectId = parseId(raw)
+            if (!parentObjectId) return NextResponse.json({ error: 'Invalid parentRoleId' }, { status: 400 })
+            if (parentObjectId.equals(objectId)) {
+                return NextResponse.json({ error: 'A role cannot be its own parent' }, { status: 400 })
+            }
+            const parentRole = await Db.orbatRoles.findOne({ _id: parentObjectId })
+            if (!parentRole) return NextResponse.json({ error: 'Parent role not found' }, { status: 400 })
+
+            // Cycle check: walk the proposed parent's ancestor chain. If this
+            // role appears anywhere in it, setting this parent would create a
+            // cycle. The depth bound is just a corruption guard — no real
+            // hierarchy should ever be anywhere close to 50 levels deep.
+            let cursor: ObjectId | null = parentRole.parentRoleId
+            let depth = 0
+            while (cursor && depth < 50) {
+                if (cursor.equals(objectId)) {
+                    return NextResponse.json({ error: 'This would create a cycle in the chain of command' }, { status: 409 })
+                }
+                const ancestor: OrbatRole | null = await Db.orbatRoles.findOne({ _id: cursor })
+                cursor = ancestor?.parentRoleId ?? null
+                depth++
+            }
+
+            updates.parentRoleId = parentObjectId
+        } else {
+            return NextResponse.json({ error: 'Invalid parentRoleId' }, { status: 400 })
+        }
+    }
 
     if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
 
@@ -81,6 +114,11 @@ export async function DELETE(
         return NextResponse.json({ error: 'Role is in use by existing positions', inUseCount }, { status: 409 })
     }
 
+    // Cascade: any role that had this one as its chain-of-command parent
+    // becomes a root instead of the delete being blocked — this is routing
+    // metadata, not structural/permission-critical, so a hard block here
+    // would just be friction.
+    await Db.orbatRoles.updateMany({ parentRoleId: objectId }, { $set: { parentRoleId: null } })
     await Db.orbatRoles.deleteOne({ _id: objectId })
     return NextResponse.json({ success: true })
 }

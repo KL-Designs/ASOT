@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
         categories,
         discordRoleIds,
         permissions,
+        parentRoleId: null,
         createdAt: new Date(),
         createdBy: me.id,
         createdByName: performedByName,
