@@ -274,7 +274,15 @@ export default function PermissionsExplorerPanel({ open, onClose }: Props) {
                     </Typography>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <button style={modeBtnSx(mode === 'system')} onClick={() => setMode('system')}>System Map</button>
+                    <button
+                        style={modeBtnSx(mode === 'system')}
+                        onClick={() => {
+                            setMode('system')
+                            setCollapsedCategories(new Set(categories.map(c => c.key)))
+                        }}
+                    >
+                        System Map
+                    </button>
                     <button style={modeBtnSx(mode === 'member')} onClick={() => setMode('member')}>Look Up Member</button>
                     <IconButton size='small' onClick={onClose}><Close sx={{ fontSize: 18, color: 'rgba(237,237,237,0.5)' }} /></IconButton>
                 </div>
