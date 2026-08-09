@@ -27,12 +27,32 @@ const searchFieldSx = {
     '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' },
 }
 
+type NodeKind = 'role' | 'group'
+
+function nodeIdFor(kind: NodeKind, id: string): string {
+    return `${kind}:${id}`
+}
+
+function parseNodeId(nodeId: string): { kind: NodeKind; id: string } {
+    const sep = nodeId.indexOf(':')
+    return { kind: nodeId.slice(0, sep) as NodeKind, id: nodeId.slice(sep + 1) }
+}
+
 interface RoleNodeData extends Record<string, unknown> {
+    kind: 'role'
     role: OrbatRole
     dimmed: boolean
 }
 
+interface GroupNodeData extends Record<string, unknown> {
+    kind: 'group'
+    group: OrbatRoleGroup
+    dimmed: boolean
+}
+
 type RoleFlowNode = Node<RoleNodeData, 'roleNode'>
+type GroupFlowNode = Node<GroupNodeData, 'groupNode'>
+type ChainFlowNode = RoleFlowNode | GroupFlowNode
 
 function RoleNode({ data }: NodeProps<RoleFlowNode>) {
     const { role, dimmed } = data
@@ -59,55 +79,118 @@ function RoleNode({ data }: NodeProps<RoleFlowNode>) {
     )
 }
 
-const nodeTypes = { roleNode: RoleNode }
+function GroupNode({ data }: NodeProps<GroupFlowNode>) {
+    const { group, dimmed } = data
+    return (
+        <div style={{
+            width: NODE_WIDTH, minHeight: NODE_HEIGHT, padding: '8px 12px',
+            background: 'rgba(20,20,20,0.95)', border: '1px dashed rgba(100,180,255,0.6)', borderTop: '2px dashed rgba(100,180,255,0.8)',
+            opacity: dimmed ? 0.3 : 1, transition: 'opacity 0.15s',
+        }}>
+            <Handle type='target' position={Position.Top} style={{ background: 'rgba(100,180,255,0.7)' }} />
+            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(100,180,255,0.85)', marginBottom: 3 }}>
+                Group
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.9)', fontWeight: 600, marginBottom: 6, wordBreak: 'break-word' }}>
+                {group.name}
+            </div>
+            <span style={{ fontSize: '0.6rem', padding: '1px 6px', borderRadius: 999, background: 'rgba(100,180,255,0.12)', color: 'rgba(100,180,255,0.85)' }}>
+                {group.memberRoleIds.length} member{group.memberRoleIds.length === 1 ? '' : 's'}
+            </span>
+            <Handle type='source' position={Position.Bottom} style={{ background: 'rgba(100,180,255,0.7)' }} />
+        </div>
+    )
+}
 
-function layoutRoles(roles: OrbatRole[], search: string): { nodes: RoleFlowNode[]; edges: Edge[] } {
+const nodeTypes = { roleNode: RoleNode, groupNode: GroupNode }
+
+function edgeFor(sourceId: string, targetId: string): Edge {
+    return {
+        id: `${sourceId}->${targetId}`,
+        source: sourceId,
+        target: targetId,
+        markerEnd: { type: MarkerType.ArrowClosed, color: 'rgba(219,0,29,0.6)' },
+        style: { stroke: 'rgba(219,0,29,0.5)' },
+    }
+}
+
+function layoutChainOfCommand(roles: OrbatRole[], groups: OrbatRoleGroup[], search: string): { nodes: ChainFlowNode[]; edges: Edge[] } {
     const g = new dagre.graphlib.Graph()
     g.setGraph({ rankdir: 'TB', nodesep: 40, ranksep: 90 })
     g.setDefaultEdgeLabel(() => ({}))
 
     for (const role of roles) {
-        g.setNode(String(role._id), { width: NODE_WIDTH, height: NODE_HEIGHT })
+        g.setNode(nodeIdFor('role', String(role._id)), { width: NODE_WIDTH, height: NODE_HEIGHT })
     }
+    for (const group of groups) {
+        g.setNode(nodeIdFor('group', String(group._id)), { width: NODE_WIDTH, height: NODE_HEIGHT })
+    }
+
+    const edges: Edge[] = []
     for (const role of roles) {
-        if (role.parentRoleId) g.setEdge(String(role.parentRoleId), String(role._id))
+        const id = nodeIdFor('role', String(role._id))
+        if (role.parentRoleId) {
+            const parentId = nodeIdFor('role', String(role.parentRoleId))
+            g.setEdge(parentId, id)
+            edges.push(edgeFor(parentId, id))
+        } else if (role.parentGroupId) {
+            const parentId = nodeIdFor('group', String(role.parentGroupId))
+            g.setEdge(parentId, id)
+            edges.push(edgeFor(parentId, id))
+        }
+    }
+    for (const group of groups) {
+        const id = nodeIdFor('group', String(group._id))
+        if (group.parentRoleId) {
+            const parentId = nodeIdFor('role', String(group.parentRoleId))
+            g.setEdge(parentId, id)
+            edges.push(edgeFor(parentId, id))
+        } else if (group.parentGroupId) {
+            const parentId = nodeIdFor('group', String(group.parentGroupId))
+            g.setEdge(parentId, id)
+            edges.push(edgeFor(parentId, id))
+        }
     }
 
     dagre.layout(g)
 
     const term = search.trim().toLowerCase()
-    const nodes: RoleFlowNode[] = roles.map(role => {
-        const pos = g.node(String(role._id))
+    const roleNodes: RoleFlowNode[] = roles.map(role => {
+        const id = nodeIdFor('role', String(role._id))
+        const pos = g.node(id)
         const dimmed = term.length > 0 && !role.name.toLowerCase().includes(term)
         return {
-            id: String(role._id),
+            id,
             type: 'roleNode',
             position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
-            data: { role, dimmed },
+            data: { kind: 'role', role, dimmed },
+        }
+    })
+    const groupNodes: GroupFlowNode[] = groups.map(group => {
+        const id = nodeIdFor('group', String(group._id))
+        const pos = g.node(id)
+        const dimmed = term.length > 0 && !group.name.toLowerCase().includes(term)
+        return {
+            id,
+            type: 'groupNode',
+            position: { x: pos.x - NODE_WIDTH / 2, y: pos.y - NODE_HEIGHT / 2 },
+            data: { kind: 'group', group, dimmed },
         }
     })
 
-    const edges: Edge[] = roles
-        .filter(role => role.parentRoleId)
-        .map(role => ({
-            id: `${role.parentRoleId}-${role._id}`,
-            source: String(role.parentRoleId),
-            target: String(role._id),
-            markerEnd: { type: MarkerType.ArrowClosed, color: 'rgba(219,0,29,0.6)' },
-            style: { stroke: 'rgba(219,0,29,0.5)' },
-        }))
-
-    return { nodes, edges }
+    return { nodes: [...roleNodes, ...groupNodes], edges }
 }
 
-function Canvas({ roles, search, error, onConnectRoles, onSelectRole }: {
+function Canvas({ roles, groups, search, error, onConnectNodes, onSelectRole, onSelectGroup }: {
     roles: OrbatRole[]
+    groups: OrbatRoleGroup[]
     search: string
     error: string | null
-    onConnectRoles: (childId: string, parentId: string) => void
+    onConnectNodes: (childKind: NodeKind, childId: string, parentKind: NodeKind, parentId: string) => void
     onSelectRole: (role: OrbatRole) => void
+    onSelectGroup: (group: OrbatRoleGroup) => void
 }) {
-    const { nodes, edges } = useMemo(() => layoutRoles(roles, search), [roles, search])
+    const { nodes, edges } = useMemo(() => layoutChainOfCommand(roles, groups, search), [roles, groups, search])
     const { setCenter, getZoom } = useReactFlow()
 
     useEffect(() => {
@@ -120,11 +203,14 @@ function Canvas({ roles, search, error, onConnectRoles, onSelectRole }: {
 
     function handleConnect(connection: Connection) {
         if (!connection.source || !connection.target) return
-        onConnectRoles(connection.target, connection.source)
+        const parent = parseNodeId(connection.source)
+        const child = parseNodeId(connection.target)
+        onConnectNodes(child.kind, child.id, parent.kind, parent.id)
     }
 
-    function handleNodeClick(_event: React.MouseEvent, node: RoleFlowNode) {
-        onSelectRole(node.data.role)
+    function handleNodeClick(_event: React.MouseEvent, node: ChainFlowNode) {
+        if (node.data.kind === 'role') onSelectRole(node.data.role)
+        else onSelectGroup(node.data.group)
     }
 
     return (
@@ -153,6 +239,7 @@ function Canvas({ roles, search, error, onConnectRoles, onSelectRole }: {
 
 export default function ChainOfCommandPanel({ open, onClose }: Props) {
     const [roles, setRoles] = useState<OrbatRole[]>([])
+    const [groups, setGroups] = useState<OrbatRoleGroup[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [search, setSearch] = useState('')
@@ -160,22 +247,29 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
 
     const load = useCallback(async () => {
         setLoading(true)
-        const res = await fetch('/api/admin/orbat/roles')
-        const data = await res.json().catch(() => ({}))
-        setRoles(data.roles ?? [])
+        const [rolesRes, groupsRes] = await Promise.all([
+            fetch('/api/admin/orbat/roles').then(r => r.json()).catch(() => ({})),
+            fetch('/api/admin/orbat/groups').then(r => r.json()).catch(() => ({})),
+        ])
+        setRoles(rolesRes.roles ?? [])
+        setGroups(groupsRes.groups ?? [])
         setLoading(false)
     }, [])
 
     useEffect(() => { if (open) load() }, [open, load])
     useEffect(() => { if (!open) { setSearch(''); setSelectedRole(null); setError(null) } }, [open])
 
-    async function patchParent(childId: string, parentRoleId: string | null) {
+    async function patchParent(childKind: NodeKind, childId: string, parentKind: NodeKind | null, parentId: string | null) {
         setError(null)
+        const body = parentKind === 'role' ? { parentRoleId: parentId }
+            : parentKind === 'group' ? { parentGroupId: parentId }
+            : { parentRoleId: null, parentGroupId: null }
+        const url = childKind === 'role' ? `/api/admin/orbat/roles/${childId}` : `/api/admin/orbat/groups/${childId}`
         try {
-            const res = await fetch(`/api/admin/orbat/roles/${childId}`, {
+            const res = await fetch(url, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ parentRoleId }),
+                body: JSON.stringify(body),
             })
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}))
@@ -220,7 +314,7 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
             <Divider sx={{ borderColor: 'rgba(219,0,29,0.42)' }} />
 
             <DialogContent sx={{ p: 0, display: 'flex', overflow: 'hidden', flex: 1 }}>
-                {loading && roles.length === 0 ? (
+                {loading && roles.length === 0 && groups.length === 0 ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
                         <CircularProgress size={26} />
                     </Box>
@@ -229,7 +323,7 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                             <Box sx={{ p: 1.5 }}>
                                 <TextField
-                                    size='small' placeholder='Search roles…' value={search} onChange={e => setSearch(e.target.value)}
+                                    size='small' placeholder='Search roles and groups…' value={search} onChange={e => setSearch(e.target.value)}
                                     InputProps={{ startAdornment: <InputAdornment position='start'><Search sx={{ fontSize: 16, color: 'rgba(237,237,237,0.4)' }} /></InputAdornment> }}
                                     sx={searchFieldSx}
                                 />
@@ -237,10 +331,12 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                             <ReactFlowProvider>
                                 <Canvas
                                     roles={roles}
+                                    groups={groups}
                                     search={search}
                                     error={error}
-                                    onConnectRoles={(childId, parentId) => patchParent(childId, parentId)}
+                                    onConnectNodes={(childKind, childId, parentKind, parentId) => patchParent(childKind, childId, parentKind, parentId)}
                                     onSelectRole={setSelectedRole}
+                                    onSelectGroup={() => {}}
                                 />
                             </ReactFlowProvider>
                         </Box>
@@ -253,10 +349,10 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                                         <Close sx={{ fontSize: 14, color: 'rgba(237,237,237,0.4)' }} />
                                     </IconButton>
                                 </div>
-                                {selectedRole.parentRoleId && (
+                                {(selectedRole.parentRoleId || selectedRole.parentGroupId) && (
                                     <Button
                                         size='small' variant='outlined' fullWidth
-                                        onClick={() => { patchParent(String(selectedRole._id), null); setSelectedRole(null) }}
+                                        onClick={() => { patchParent('role', String(selectedRole._id), null, null); setSelectedRole(null) }}
                                         sx={{ fontSize: '0.65rem', letterSpacing: 1, borderColor: 'rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.85)', mb: 2 }}
                                     >
                                         Detach from Parent
