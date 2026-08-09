@@ -1,50 +1,14 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# npm workspaces hoist most dependencies here
 /node_modules
-/.pnp
-.pnp.js
-.yarn/install-state.gz
 
-# testing
-/coverage
+# shared by both apps/web and apps/bot — see .env.template
+/.env
+/.env*.local
 
-# next.js
-/.next/
-/out/
+# runtime/uploaded data shared by both apps (gallery, uploads, snapshots, maps,
+# j1-j7/hq/all/members storage, milpacs, and the bot's data) — not source, never tracked.
+# README.md documents the layout and is the one file worth keeping in git.
+/storage/*
+!/storage/README.md
 
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
-.env
-.env*.local
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# local
-config.ts
-/uploads
-/gallery
-/gallery.new
-/gallery.old
-/milpacs
-/.backup
-/.test
-/snapshots
-/.claude
-/maps
+# per-app ignores live in apps/*/.gitignore

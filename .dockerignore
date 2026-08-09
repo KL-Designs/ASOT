@@ -1,6 +1,22 @@
-.next/
-node_modules/
-gallery/
-milpacs/
-uploads/
-snapshots/
+**/node_modules
+**/.next
+**/.git
+
+# Runtime/local data — volume-mounted at runtime instead, see docker-compose.yml.
+# storage/maps is the one exception: it's baked into the web image at build time
+# (see apps/web/dockerfile's terrain-generation step), so it's NOT excluded here.
+storage/gallery
+storage/milpacs
+storage/uploads
+storage/snapshots
+storage/j1
+storage/j2
+storage/j3
+storage/j4
+storage/j5
+storage/j6
+storage/j7
+storage/hq
+storage/all
+storage/members
+storage/bot
