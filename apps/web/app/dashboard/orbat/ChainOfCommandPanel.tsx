@@ -10,6 +10,7 @@ import dagre from 'dagre'
 import {
     Dialog, DialogTitle, DialogContent, Divider, TextField, IconButton,
     Typography, Box, InputAdornment, CircularProgress, Alert, Button,
+    Checkbox, FormControlLabel,
 } from '@mui/material'
 import { Close, Search } from '@mui/icons-material'
 
@@ -244,6 +245,9 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
     const [error, setError] = useState<string | null>(null)
     const [search, setSearch] = useState('')
     const [selectedRole, setSelectedRole] = useState<OrbatRole | null>(null)
+    const [groupEditor, setGroupEditor] = useState<{ id: string | null; name: string; memberRoleIds: string[] } | null>(null)
+    const [groupMemberSearch, setGroupMemberSearch] = useState('')
+    const [groupError, setGroupError] = useState<string | null>(null)
 
     const load = useCallback(async () => {
         setLoading(true)
@@ -257,7 +261,16 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
     }, [])
 
     useEffect(() => { if (open) load() }, [open, load])
-    useEffect(() => { if (!open) { setSearch(''); setSelectedRole(null); setError(null) } }, [open])
+    useEffect(() => {
+        if (!open) {
+            setSearch('')
+            setSelectedRole(null)
+            setError(null)
+            setGroupEditor(null)
+            setGroupMemberSearch('')
+            setGroupError(null)
+        }
+    }, [open])
 
     async function patchParent(childKind: NodeKind, childId: string, parentKind: NodeKind | null, parentId: string | null) {
         setError(null)
@@ -280,6 +293,44 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
         } finally {
             await load()
         }
+    }
+
+    function toggleGroupMember(roleId: string) {
+        setGroupEditor(prev => prev && {
+            ...prev,
+            memberRoleIds: prev.memberRoleIds.includes(roleId)
+                ? prev.memberRoleIds.filter(id => id !== roleId)
+                : [...prev.memberRoleIds, roleId],
+        })
+    }
+
+    async function saveGroup() {
+        if (!groupEditor) return
+        if (!groupEditor.name.trim()) { setGroupError('Name is required'); return }
+        setGroupError(null)
+        const body = { name: groupEditor.name.trim(), memberRoleIds: groupEditor.memberRoleIds }
+        const res = groupEditor.id === null
+            ? await fetch('/api/admin/orbat/groups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+            : await fetch(`/api/admin/orbat/groups/${groupEditor.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            setGroupError(data.error ?? 'Save failed')
+            return
+        }
+        setGroupEditor(null)
+        await load()
+    }
+
+    async function deleteGroup(groupId: string) {
+        setGroupError(null)
+        const res = await fetch(`/api/admin/orbat/groups/${groupId}`, { method: 'DELETE' })
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}))
+            setGroupError(data.error ?? 'Delete failed')
+            return
+        }
+        setGroupEditor(null)
+        await load()
     }
 
     return (
@@ -321,12 +372,19 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                 ) : (
                     <>
                         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                            <Box sx={{ p: 1.5 }}>
+                            <Box sx={{ p: 1.5, display: 'flex', gap: 1 }}>
                                 <TextField
                                     size='small' placeholder='Search roles and groups…' value={search} onChange={e => setSearch(e.target.value)}
                                     InputProps={{ startAdornment: <InputAdornment position='start'><Search sx={{ fontSize: 16, color: 'rgba(237,237,237,0.4)' }} /></InputAdornment> }}
-                                    sx={searchFieldSx}
+                                    sx={{ ...searchFieldSx, flex: 1 }}
                                 />
+                                <Button
+                                    size='small' variant='outlined'
+                                    onClick={() => { setSelectedRole(null); setGroupError(null); setGroupMemberSearch(''); setGroupEditor({ id: null, name: '', memberRoleIds: [] }) }}
+                                    sx={{ fontSize: '0.65rem', letterSpacing: 1, borderColor: 'rgba(100,180,255,0.4)', color: 'rgba(237,237,237,0.85)', whiteSpace: 'nowrap' }}
+                                >
+                                    New Group
+                                </Button>
                             </Box>
                             <ReactFlowProvider>
                                 <Canvas
@@ -335,8 +393,13 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                                     search={search}
                                     error={error}
                                     onConnectNodes={(childKind, childId, parentKind, parentId) => patchParent(childKind, childId, parentKind, parentId)}
-                                    onSelectRole={setSelectedRole}
-                                    onSelectGroup={() => {}}
+                                    onSelectRole={role => { setSelectedRole(role); setGroupEditor(null) }}
+                                    onSelectGroup={group => {
+                                        setSelectedRole(null)
+                                        setGroupError(null)
+                                        setGroupMemberSearch('')
+                                        setGroupEditor({ id: String(group._id), name: group.name, memberRoleIds: group.memberRoleIds.map(String) })
+                                    }}
                                 />
                             </ReactFlowProvider>
                         </Box>
@@ -375,6 +438,78 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                                     {selectedRole.discordRoleIds.length === 0
                                         ? <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic' }}>None granted</span>
                                         : <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.6)' }}>{selectedRole.discordRoleIds.length} role(s) — edit in Roles Manager to see names</span>}
+                                </div>
+                            </Box>
+                        )}
+
+                        {groupEditor && (
+                            <Box sx={{ width: 280, flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.08)', p: 2, overflowY: 'auto' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(100,180,255,0.9)' }}>
+                                        {groupEditor.id === null ? 'New Group' : 'Edit Group'}
+                                    </Typography>
+                                    <IconButton size='small' onClick={() => setGroupEditor(null)}>
+                                        <Close sx={{ fontSize: 14, color: 'rgba(237,237,237,0.4)' }} />
+                                    </IconButton>
+                                </div>
+
+                                {groupError && <Alert severity='error' sx={{ fontSize: '0.68rem', mb: 1.5 }}>{groupError}</Alert>}
+
+                                <TextField
+                                    size='small' fullWidth label='Name' value={groupEditor.name}
+                                    onChange={e => setGroupEditor(prev => prev && { ...prev, name: e.target.value })}
+                                    sx={{ mb: 2, ...searchFieldSx }}
+                                />
+
+                                {groupEditor.id !== null && (() => {
+                                    const liveGroup = groups.find(g => String(g._id) === groupEditor.id)
+                                    return liveGroup && (liveGroup.parentRoleId || liveGroup.parentGroupId) ? (
+                                        <Button
+                                            size='small' variant='outlined' fullWidth
+                                            onClick={() => { patchParent('group', groupEditor.id as string, null, null); setGroupEditor(null) }}
+                                            sx={{ fontSize: '0.65rem', letterSpacing: 1, borderColor: 'rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.85)', mb: 2 }}
+                                        >
+                                            Detach from Parent
+                                        </Button>
+                                    ) : null
+                                })()}
+
+                                <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>
+                                    Members ({groupEditor.memberRoleIds.length})
+                                </div>
+                                <TextField
+                                    size='small' fullWidth placeholder='Search roles…' value={groupMemberSearch}
+                                    onChange={e => setGroupMemberSearch(e.target.value)}
+                                    InputProps={{ startAdornment: <InputAdornment position='start'><Search sx={{ fontSize: 16, color: 'rgba(237,237,237,0.4)' }} /></InputAdornment> }}
+                                    sx={{ ...searchFieldSx, mb: 1 }}
+                                />
+                                <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)', marginBottom: 16 }}>
+                                    {roles
+                                        .filter(r => r.name.toLowerCase().includes(groupMemberSearch.trim().toLowerCase()))
+                                        .map(r => (
+                                            <FormControlLabel key={String(r._id)} sx={{ display: 'flex', ml: 0, px: 1 }}
+                                                control={
+                                                    <Checkbox size='small' checked={groupEditor.memberRoleIds.includes(String(r._id))}
+                                                        onChange={() => toggleGroupMember(String(r._id))} />
+                                                }
+                                                label={<span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.7)' }}>{r.name}</span>}
+                                            />
+                                        ))}
+                                    {roles.length === 0 && (
+                                        <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic', padding: '8px' }}>No roles in the catalog yet.</div>
+                                    )}
+                                </div>
+
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <Button size='small' variant='outlined' onClick={saveGroup}
+                                        sx={{ borderColor: 'rgba(100,180,255,0.5)', color: 'rgba(237,237,237,0.9)' }}>
+                                        Save
+                                    </Button>
+                                    {groupEditor.id !== null && (
+                                        <Button size='small' onClick={() => deleteGroup(groupEditor.id as string)} sx={{ color: 'rgba(219,0,29,0.7)' }}>
+                                            Delete Group
+                                        </Button>
+                                    )}
                                 </div>
                             </Box>
                         )}
