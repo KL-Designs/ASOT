@@ -1,15 +1,21 @@
 'use client'
 
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { CircularProgress } from '@mui/material'
 import VideocamIcon      from '@mui/icons-material/Videocam'
 import CheckCircleIcon   from '@mui/icons-material/CheckCircle'
 import ArrowForwardIcon  from '@mui/icons-material/ArrowForward'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
-import UploadFileIcon    from '@mui/icons-material/UploadFile'
+import SmartDisplayIcon  from '@mui/icons-material/SmartDisplay'
 import BarChartIcon      from '@mui/icons-material/BarChart'
 
-const ACCEPT = '.mp4,.mov,.mp3,.webm,.avi,.mkv,.ogg,.m4v,.m4a,.flv,.wmv,.ts,.3gp'
+function extractYouTubeId(url: string): string | null {
+    for (const re of [/[?&]v=([^&]+)/, /youtu\.be\/([^?&/]+)/, /youtube\.com\/embed\/([^?&/]+)/]) {
+        const m = re.exec(url)
+        if (m) return m[1]
+    }
+    return null
+}
 
 interface Config {
     videoUrl:      string
@@ -29,8 +35,6 @@ interface Stats {
 const ZERO_STATS: Stats = { totalSessions: 0, completed: 0, continued: 0, avgMaxPct: 0, avgContinuePct: 0 }
 
 export default function RecruitVideoTab() {
-    const fileInputRef = useRef<HTMLInputElement>(null)
-
     const [config,        setConfig]        = useState<Config | null>(null)
     const [stats,         setStats]         = useState<Stats | null>(null)
     const [canReset,      setCanReset]      = useState(false)
@@ -40,10 +44,6 @@ export default function RecruitVideoTab() {
     const [videoUrl,      setVideoUrl]      = useState('')
     const [enabled,       setEnabled]       = useState(true)
     const [startDelay,    setStartDelay]    = useState(2)
-    const [uploading,     setUploading]     = useState(false)
-    const [uploadPct,     setUploadPct]     = useState(0)
-    const [uploadMsg,     setUploadMsg]     = useState('')
-    const [dragOver,      setDragOver]      = useState(false)
     const [confirmReset,  setConfirmReset]  = useState(false)
     const [resetting,     setResetting]     = useState(false)
     const [resetMsg,      setResetMsg]      = useState('')
@@ -108,55 +108,6 @@ export default function RecruitVideoTab() {
         }
     }
 
-    const uploadFile = async (file: File) => {
-        setUploading(true)
-        setUploadPct(0)
-        setUploadMsg('')
-
-        const form = new FormData()
-        form.append('video', file)
-
-        await new Promise<void>((resolve, reject) => {
-            const xhr = new XMLHttpRequest()
-            xhr.open('POST', '/api/admin/j1/recruit-video/upload')
-            xhr.upload.onprogress = e => {
-                if (e.lengthComputable) setUploadPct(Math.round((e.loaded / e.total) * 100))
-            }
-            xhr.onload = async () => {
-                if (xhr.status === 200) {
-                    const data = JSON.parse(xhr.responseText)
-                    setVideoUrl(data.url)
-                    setUploadMsg(`Uploaded: ${file.name}`)
-                    await save(data.url)
-                    resolve()
-                } else {
-                    let errMsg = 'Upload failed'
-                    try { errMsg = JSON.parse(xhr.responseText).error ?? errMsg } catch {}
-                    setUploadMsg(errMsg)
-                    reject(new Error(errMsg))
-                }
-            }
-            xhr.onerror = () => { setUploadMsg('Upload failed (network error)'); reject() }
-            xhr.send(form)
-        }).catch(() => {})
-
-        setUploading(false)
-        setUploadPct(0)
-    }
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (file) uploadFile(file)
-        e.target.value = ''
-    }
-
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault()
-        setDragOver(false)
-        const file = e.dataTransfer.files[0]
-        if (file) uploadFile(file)
-    }
-
     const s = stats ?? ZERO_STATS
     const completionPct  = s.totalSessions ? Math.round((s.completed  / s.totalSessions) * 100) : 0
     const continuedPct   = s.totalSessions ? Math.round((s.continued  / s.totalSessions) * 100) : 0
@@ -189,71 +140,35 @@ export default function RecruitVideoTab() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-                    {/* Upload drop zone */}
+                    {/* YouTube URL */}
                     <div>
-                        <label style={{ display: 'block', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.45)', marginBottom: 8 }}>
-                            Upload Video File
+                        <label style={{ display: 'block', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.45)', marginBottom: 6 }}>
+                            YouTube Video URL
                         </label>
-                        <div
-                            onClick={() => !uploading && fileInputRef.current?.click()}
-                            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-                            onDragLeave={() => setDragOver(false)}
-                            onDrop={handleDrop}
-                            style={{
-                                border: `2px dashed ${dragOver ? 'var(--red)' : 'rgba(219,0,29,0.25)'}`,
-                                background: dragOver ? 'rgba(219,0,29,0.06)' : 'rgba(0,0,0,0.2)',
-                                padding: '28px 20px',
-                                textAlign: 'center',
-                                cursor: uploading ? 'default' : 'pointer',
-                                transition: 'border-color 0.15s, background 0.15s',
-                            }}
-                        >
-                            {uploading ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                                    <CircularProgress size={22} sx={{ color: 'var(--red)' }} />
-                                    <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.5)' }}>
-                                        Uploading… {uploadPct}%
-                                    </span>
-                                    <div style={{ width: '100%', maxWidth: 260, height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2 }}>
-                                        <div style={{ height: '100%', background: 'var(--red)', width: `${uploadPct}%`, borderRadius: 2, transition: 'width 0.2s' }} />
-                                    </div>
-                                </div>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                                    <UploadFileIcon sx={{ fontSize: 32, color: 'rgba(219,0,29,0.5)' }} />
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'rgba(237,237,237,0.6)' }}>
-                                        Drop video here or click to browse
-                                    </span>
-                                    <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.28)' }}>
-                                        MP4 · MOV · MP3 · WebM · AVI · MKV · OGG · M4V · FLV · WMV
-                                    </span>
-                                </div>
-                            )}
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <SmartDisplayIcon sx={{ fontSize: 18, color: 'rgba(219,0,29,0.6)', flexShrink: 0 }} />
+                            <input
+                                type='url'
+                                value={videoUrl}
+                                onChange={e => setVideoUrl(e.target.value)}
+                                placeholder='https://www.youtube.com/watch?v=...'
+                                style={{
+                                    flex: 1, boxSizing: 'border-box',
+                                    background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)',
+                                    color: 'var(--foreground)', fontSize: '0.8rem', padding: '9px 12px', outline: 'none',
+                                }}
+                            />
                         </div>
-                        <input ref={fileInputRef} type='file' accept={ACCEPT} onChange={handleFileChange} style={{ display: 'none' }} />
-                        {uploadMsg && (
-                            <div style={{ marginTop: 8, fontSize: '0.65rem', color: uploadMsg.startsWith('Uploaded') ? 'rgba(100,200,100,0.8)' : 'rgba(219,0,29,0.8)' }}>
-                                {uploadMsg}
+                        {videoUrl && !extractYouTubeId(videoUrl) && (
+                            <div style={{ marginTop: 5, fontSize: '0.62rem', color: 'rgba(219,0,29,0.7)' }}>
+                                Not a recognised YouTube URL — paste a youtube.com/watch or youtu.be link.
                             </div>
                         )}
-                    </div>
-
-                    {/* Manual URL fallback */}
-                    <div>
-                        <label style={{ display: 'block', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 6 }}>
-                            Or paste a direct video URL
-                        </label>
-                        <input
-                            type='url'
-                            value={videoUrl}
-                            onChange={e => setVideoUrl(e.target.value)}
-                            placeholder='https://example.com/recruitment.mp4'
-                            style={{
-                                width: '100%', boxSizing: 'border-box',
-                                background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)',
-                                color: 'var(--foreground)', fontSize: '0.8rem', padding: '9px 12px', outline: 'none',
-                            }}
-                        />
+                        {videoUrl && extractYouTubeId(videoUrl) && (
+                            <div style={{ marginTop: 5, fontSize: '0.62rem', color: 'rgba(80,200,120,0.7)' }}>
+                                Video ID: {extractYouTubeId(videoUrl)}
+                            </div>
+                        )}
                     </div>
 
                     {/* Play delay */}
@@ -301,13 +216,13 @@ export default function RecruitVideoTab() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <button
                             onClick={() => save()}
-                            disabled={saving || uploading}
+                            disabled={saving}
                             style={{
-                                padding: '9px 22px', cursor: (saving || uploading) ? 'default' : 'pointer',
-                                background: (saving || uploading) ? 'rgba(219,0,29,0.15)' : 'var(--red)',
+                                padding: '9px 22px', cursor: saving ? 'default' : 'pointer',
+                                background: saving ? 'rgba(219,0,29,0.15)' : 'var(--red)',
                                 border: 'none', color: '#fff',
                                 fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase',
-                                opacity: (saving || uploading) ? 0.6 : 1,
+                                opacity: saving ? 0.6 : 1,
                             }}
                         >
                             {saving ? 'Saving…' : 'Save Changes'}

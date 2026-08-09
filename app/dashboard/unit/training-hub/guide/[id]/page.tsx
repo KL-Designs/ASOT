@@ -34,7 +34,7 @@ export default async function Page({
     if (!guide) redirect('/dashboard/unit/training-hub')
     if (guide.status !== 'approved' && !isJ3) redirect('/dashboard/unit/training-hub')
 
-    const backUrl = from === 'j3' ? '/dashboard/j3?tab=0' : '/dashboard/unit/training-hub'
+    const backUrl = from === 'hub' ? '/dashboard/unit/training-hub' : '/dashboard/j3?tab=0'
 
     return (
         <GuideEditorPage

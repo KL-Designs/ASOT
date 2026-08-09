@@ -109,6 +109,8 @@ interface TrainingDocument {
     createdAt: Date
     updatedAt: Date
     deletedAt?: Date
+    deletedById?: string
+    deletedByName?: string
 }
 
 interface TrainingRequest {

@@ -14,6 +14,21 @@ const BORDER = 'rgba(255,255,255,0.1)'
 const TEXT   = 'rgba(237,237,237,0.88)'
 const MUTED  = 'rgba(237,237,237,0.35)'
 
+function normalizeCheckpoint(cp: TrainingVideoCheckpoint): TrainingVideoCheckpoint {
+    if (cp.questions && cp.questions.length > 0) return cp
+    return {
+        ...cp,
+        questions: [{
+            id: Math.random().toString(36).slice(2),
+            question: cp.question ?? '',
+            type: cp.type ?? 'mcq',
+            options: cp.options,
+            correctOptionIndex: cp.correctOptionIndex,
+            rubric: cp.rubric,
+        }],
+    }
+}
+
 function fmt(s: number) {
     const m = Math.floor(s / 60)
     const sec = Math.floor(s % 60)
@@ -52,10 +67,12 @@ export default function TrainingVideoPlayer({ video, myProgress, onProgressUpdat
     const [reviewing,          setReviewing]           = useState(false)
     const [feedback,           setFeedback]            = useState<{ passed: boolean; text: string } | null>(null)
 
+    const normalizedCheckpoints = (video.checkpoints ?? []).map(normalizeCheckpoint)
+
     // Per-checkpoint pass/fail/attempt tracking (local mirror of myProgress)
     const [cpStates, setCpStates] = useState<Record<string, CheckpointState>>(() => {
         const map: Record<string, CheckpointState> = {}
-        for (const cp of video.checkpoints) {
+        for (const cp of normalizedCheckpoints) {
             const prog = myProgress?.checkpoints.find(c => c.checkpointId === cp.id)
             map[cp.id] = {
                 checkpointId: cp.id,
@@ -68,7 +85,7 @@ export default function TrainingVideoPlayer({ video, myProgress, onProgressUpdat
     })
 
     // Sorted checkpoints by timestamp
-    const sorted = [...video.checkpoints].sort((a, b) => a.timestampSeconds - b.timestampSeconds)
+    const sorted = [...normalizedCheckpoints].sort((a, b) => a.timestampSeconds - b.timestampSeconds)
 
     // Set initial position from saved progress
     useEffect(() => {
@@ -142,10 +159,11 @@ export default function TrainingVideoPlayer({ video, myProgress, onProgressUpdat
     // Submit MCQ answer
     async function submitMcq() {
         if (selectedOption === null || !activeCheckpointId) return
-        const cp = video.checkpoints.find(c => c.id === activeCheckpointId)
+        const cp = normalizedCheckpoints.find(c => c.id === activeCheckpointId)
         if (!cp) return
 
-        const passed = selectedOption === cp.correctOptionIndex
+        const q = cp.questions[0]
+        const passed = selectedOption === q.correctOptionIndex
         await resolveCheckpoint(activeCheckpointId, passed, passed ? 'Correct.' : '')
     }
 
@@ -190,7 +208,7 @@ export default function TrainingVideoPlayer({ video, myProgress, onProgressUpdat
 
     function rewatch() {
         if (!videoRef.current || !activeCheckpointId) return
-        const cp = video.checkpoints.find(c => c.id === activeCheckpointId)
+        const cp = normalizedCheckpoints.find(c => c.id === activeCheckpointId)
         if (!cp) return
         setFadeOpaque(true)
         const v = videoRef.current
@@ -217,8 +235,9 @@ export default function TrainingVideoPlayer({ video, myProgress, onProgressUpdat
         }
     }
 
-    const activeCheckpoint = activeCheckpointId ? video.checkpoints.find(c => c.id === activeCheckpointId) : null
+    const activeCheckpoint = activeCheckpointId ? normalizedCheckpoints.find(c => c.id === activeCheckpointId) : null
     const activeCpState    = activeCheckpointId ? cpStates[activeCheckpointId] : null
+    const activeQuestion   = activeCheckpoint ? (activeCheckpoint.questions[0] ?? null) : null
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0, background: '#000', border: `1px solid ${BORDER}`, position: 'relative' }}>
@@ -257,13 +276,13 @@ export default function TrainingVideoPlayer({ video, myProgress, onProgressUpdat
                                 <span style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: RED }}>Checkpoint</span>
                             </div>
 
-                            <div style={{ fontSize: '0.92rem', fontWeight: 700, color: TEXT, lineHeight: 1.4 }}>{activeCheckpoint.question}</div>
+                            <div style={{ fontSize: '0.92rem', fontWeight: 700, color: TEXT, lineHeight: 1.4 }}>{activeQuestion?.question}</div>
 
                             {!feedback ? (
                                 <>
-                                    {activeCheckpoint.type === 'mcq' && activeCheckpoint.options && (
+                                    {activeQuestion?.type === 'mcq' && activeQuestion.options && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            {activeCheckpoint.options.map((opt, i) => (
+                                            {activeQuestion.options.map((opt, i) => (
                                                 <label key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '9px 12px', background: selectedOption === i ? 'rgba(219,0,29,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${selectedOption === i ? RED + '60' : BORDER}`, cursor: 'pointer', fontSize: '0.8rem', color: TEXT, lineHeight: 1.4 }}>
                                                     <input type='radio' name='mcq' value={i} checked={selectedOption === i} onChange={() => setSelectedOption(i)} style={{ accentColor: RED, marginTop: 2, flexShrink: 0 }} />
                                                     {opt}
@@ -272,7 +291,7 @@ export default function TrainingVideoPlayer({ video, myProgress, onProgressUpdat
                                         </div>
                                     )}
 
-                                    {activeCheckpoint.type === 'written' && (
+                                    {activeQuestion?.type === 'written' && (
                                         <textarea
                                             value={writtenAnswer}
                                             onChange={e => setWrittenAnswer(e.target.value)}
@@ -283,9 +302,9 @@ export default function TrainingVideoPlayer({ video, myProgress, onProgressUpdat
                                     )}
 
                                     <button
-                                        onClick={activeCheckpoint.type === 'mcq' ? submitMcq : submitWritten}
-                                        disabled={(activeCheckpoint.type === 'mcq' && selectedOption === null) || (activeCheckpoint.type === 'written' && !writtenAnswer.trim()) || reviewing}
-                                        style={{ alignSelf: 'flex-start', padding: '9px 22px', background: RED, border: 'none', color: '#fff', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', opacity: ((activeCheckpoint.type === 'mcq' && selectedOption === null) || reviewing) ? 0.45 : 1 }}>
+                                        onClick={activeQuestion?.type === 'mcq' ? submitMcq : submitWritten}
+                                        disabled={(activeQuestion?.type === 'mcq' && selectedOption === null) || (activeQuestion?.type === 'written' && !writtenAnswer.trim()) || reviewing}
+                                        style={{ alignSelf: 'flex-start', padding: '9px 22px', background: RED, border: 'none', color: '#fff', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', opacity: ((activeQuestion?.type === 'mcq' && selectedOption === null) || reviewing) ? 0.45 : 1 }}>
                                         {reviewing ? 'Reviewing…' : 'Submit Answer'}
                                     </button>
                                 </>
@@ -346,7 +365,7 @@ export default function TrainingVideoPlayer({ video, myProgress, onProgressUpdat
                             const state = cpStates[cp.id]
                             const left = (cp.timestampSeconds / duration) * 100
                             return (
-                                <div key={cp.id} title={cp.question} style={{ position: 'absolute', top: '50%', transform: 'translate(-50%, -50%)', left: `${left}%`, width: 8, height: 8, borderRadius: '50%', background: state?.passed ? 'rgba(80,200,120,0.9)' : RED, border: '1px solid rgba(0,0,0,0.6)', pointerEvents: 'none', zIndex: 1 }} />
+                                <div key={cp.id} title={cp.questions[0]?.question ?? ''} style={{ position: 'absolute', top: '50%', transform: 'translate(-50%, -50%)', left: `${left}%`, width: 8, height: 8, borderRadius: '50%', background: state?.passed ? 'rgba(80,200,120,0.9)' : RED, border: '1px solid rgba(0,0,0,0.6)', pointerEvents: 'none', zIndex: 1 }} />
                             )
                         })}
                     </div>
@@ -369,14 +388,15 @@ export default function TrainingVideoPlayer({ video, myProgress, onProgressUpdat
             </div>
 
             {/* Checkpoint summary strip (trainer view) */}
-            {isTrainer && video.checkpoints.length > 0 && (
+            {isTrainer && normalizedCheckpoints.length > 0 && (
                 <div style={{ padding: '8px 14px', borderTop: `1px solid ${BORDER}`, background: DARK, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {sorted.map((cp, i) => {
-                        const state = cpStates[cp.id]
+                        const state  = cpStates[cp.id]
+                        const firstQ = cp.questions[0]
                         return (
-                            <div key={cp.id} title={`${cp.question} (${fmt(cp.timestampSeconds)})`}
+                            <div key={cp.id} title={`${firstQ?.question ?? ''} (${fmt(cp.timestampSeconds)})`}
                                 style={{ fontSize: '0.55rem', padding: '3px 8px', border: `1px solid ${state?.passed ? 'rgba(80,200,120,0.3)' : BORDER}`, color: state?.passed ? 'rgba(80,200,120,0.8)' : MUTED, background: state?.passed ? 'rgba(80,200,120,0.06)' : 'transparent', letterSpacing: '0.06em' }}>
-                                CP{i + 1} · {fmt(cp.timestampSeconds)} · {cp.type.toUpperCase()}
+                                CP{i + 1} · {fmt(cp.timestampSeconds)} · {(firstQ?.type ?? 'mcq').toUpperCase()}
                             </div>
                         )
                     })}

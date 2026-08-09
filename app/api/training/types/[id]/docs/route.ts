@@ -5,7 +5,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { createNotificationForRole } from '@/lib/notifications'
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (!client.hasRoles(me, PERMISSIONS.pages.member)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -15,6 +15,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     const isJ3Lead = client.hasRoles(me, PERMISSIONS.training.manage)
     const isTrainer = client.hasRoles(me, PERMISSIONS.training.create)
+
+    // Recycle bin view — J3 leads only
+    const url = new URL(req.url)
+    if (url.searchParams.get('deleted') === 'true') {
+        if (!isJ3Lead) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        const docs = await Db.trainingTypeDocs.find({ trainingTypeId: id, deletedAt: { $exists: true } }).sort({ deletedAt: -1 }).toArray()
+        return NextResponse.json({ docs })
+    }
 
     const base: Record<string, unknown> = { trainingTypeId: id, deletedAt: { $exists: false } }
 

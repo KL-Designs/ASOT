@@ -90,17 +90,34 @@ function getSectionEnd(sec: TrainingVideoSection, sorted: TrainingVideoSection[]
     return sorted[i + 1] ? sorted[i + 1].startSeconds : dur
 }
 
-// ── Checkpoint edit form ─────────────────────────────────────────────────────
+function normalizeCheckpoint(cp: TrainingVideoCheckpoint): TrainingVideoCheckpoint {
+    if (cp.questions && cp.questions.length > 0) return cp
+    return {
+        ...cp,
+        questions: [{
+            id: Math.random().toString(36).slice(2),
+            question: cp.question ?? '',
+            type: cp.type ?? 'mcq',
+            options: cp.options,
+            correctOptionIndex: cp.correctOptionIndex,
+            rubric: cp.rubric,
+        }],
+    }
+}
 
-function CheckpointEditForm({ cp, currentTime, onUpdate, onDelete }: {
-    cp: TrainingVideoCheckpoint
-    currentTime: number
-    onUpdate: (patch: Partial<TrainingVideoCheckpoint>) => void
+// ── Single question editor (used inside CheckpointEditor) ────────────────────
+
+function QuestionEditor({ q, qIdx, total, cpId, onUpdate, onDelete }: {
+    q: CheckpointQuestion
+    qIdx: number
+    total: number
+    cpId: string
+    onUpdate: (patch: Partial<CheckpointQuestion>) => void
     onDelete: () => void
 }) {
     const [draggingOptIdx, setDraggingOptIdx] = useState<number | null>(null)
     const [dragOverOptIdx, setDragOverOptIdx] = useState<number | null>(null)
-    const options = cp.options ?? ['', '', '']
+    const options = q.options ?? ['', '', '']
 
     function updateOption(idx: number, val: string) {
         const opts = [...options]; opts[idx] = val; onUpdate({ options: opts })
@@ -108,7 +125,7 @@ function CheckpointEditForm({ cp, currentTime, onUpdate, onDelete }: {
     function addOption() { onUpdate({ options: [...options, ''] }) }
     function removeOption(idx: number) {
         const opts = options.filter((_, i) => i !== idx)
-        const oldC = cp.correctOptionIndex ?? -1
+        const oldC = q.correctOptionIndex ?? -1
         const newC = oldC < 0 ? -1 : oldC === idx ? -1 : oldC > idx ? oldC - 1 : oldC
         onUpdate({ options: opts, correctOptionIndex: newC })
     }
@@ -118,7 +135,7 @@ function CheckpointEditForm({ cp, currentTime, onUpdate, onDelete }: {
         const [removed] = newOpts.splice(fromIdx, 1)
         const at = Math.min(toIdx, newOpts.length)
         newOpts.splice(at, 0, removed)
-        const oldC = cp.correctOptionIndex ?? -1
+        const oldC = q.correctOptionIndex ?? -1
         let newC = oldC
         if (oldC >= 0) {
             if (oldC === fromIdx) newC = at
@@ -128,13 +145,24 @@ function CheckpointEditForm({ cp, currentTime, onUpdate, onDelete }: {
         onUpdate({ options: newOpts, correctOptionIndex: newC })
     }
 
-    const noCorrectSelected = (cp.correctOptionIndex ?? -1) < 0
+    const noCorrectSelected = (q.correctOptionIndex ?? -1) < 0
 
     return (
-        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 0', borderTop: qIdx > 0 ? `1px solid ${BORDER}` : 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(250,204,21,0.6)' }}>
+                    Question {qIdx + 1} of {total}
+                </span>
+                {total >= 2 && (
+                    <button type='button' onClick={onDelete} style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 7px', background: 'rgba(219,0,29,0.07)', border: `1px solid rgba(219,0,29,0.2)`, color: 'rgba(219,0,29,0.7)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                        <DeleteOutlineIcon style={{ fontSize: 11 }} /> Remove
+                    </button>
+                )}
+            </div>
+
             <div>
                 <label style={labelSx}>Question</label>
-                <textarea value={cp.question} onChange={e => onUpdate({ question: e.target.value })} rows={3} autoFocus
+                <textarea value={q.question} onChange={e => onUpdate({ question: e.target.value })} rows={3}
                     placeholder='Enter the question…' style={{ ...inputSx, resize: 'vertical' }} />
             </div>
 
@@ -142,20 +170,20 @@ function CheckpointEditForm({ cp, currentTime, onUpdate, onDelete }: {
                 <label style={labelSx}>Answer Type</label>
                 <div style={{ display: 'flex', gap: 10 }}>
                     {(['mcq', 'written'] as const).map(t => (
-                        <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: '0.72rem', color: cp.type === t ? TEXT : MUTED }}>
-                            <input type='radio' name={`cp-type-${cp.id}`} checked={cp.type === t} onChange={() => onUpdate({ type: t })} style={{ accentColor: RED }} />
+                        <label key={t} style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: '0.72rem', color: q.type === t ? TEXT : MUTED }}>
+                            <input type='radio' name={`q-type-${cpId}-${qIdx}`} checked={q.type === t} onChange={() => onUpdate({ type: t })} style={{ accentColor: RED }} />
                             {t === 'mcq' ? 'Multiple Choice' : 'Written Answer'}
                         </label>
                     ))}
                 </div>
             </div>
 
-            {cp.type === 'mcq' && (
+            {q.type === 'mcq' && (
                 <div>
                     <label style={labelSx}>Options — drag to reorder · click radio to mark correct</label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {options.map((opt, oi) => {
-                            const isCorrect   = !noCorrectSelected && (cp.correctOptionIndex ?? -1) === oi
+                            const isCorrect    = !noCorrectSelected && (q.correctOptionIndex ?? -1) === oi
                             const isDropTarget = dragOverOptIdx === oi && draggingOptIdx !== null && draggingOptIdx !== oi
                             return (
                                 <div key={oi}
@@ -166,7 +194,7 @@ function CheckpointEditForm({ cp, currentTime, onUpdate, onDelete }: {
                                     onDragEnd={() => { setDraggingOptIdx(null); setDragOverOptIdx(null) }}
                                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px', border: `1px solid ${isCorrect ? 'rgba(80,200,120,0.45)' : BORDER}`, background: isCorrect ? 'rgba(80,200,120,0.07)' : 'rgba(255,255,255,0.02)', borderRadius: 2, opacity: draggingOptIdx === oi ? 0.35 : 1, transition: 'opacity 0.12s', boxShadow: isDropTarget ? `inset 0 2px 0 0 ${RED}` : 'none' }}>
                                     <DragIndicatorIcon style={{ fontSize: 14, color: 'rgba(255,255,255,0.18)', flexShrink: 0, cursor: 'grab' }} />
-                                    <input type='radio' name={`cp-correct-${cp.id}`}
+                                    <input type='radio' name={`q-correct-${cpId}-${qIdx}`}
                                         checked={isCorrect}
                                         onChange={() => onUpdate({ correctOptionIndex: oi })}
                                         style={{ accentColor: 'rgb(80,200,120)', flexShrink: 0, cursor: 'pointer' }} />
@@ -200,58 +228,142 @@ function CheckpointEditForm({ cp, currentTime, onUpdate, onDelete }: {
                 </div>
             )}
 
-            {cp.type === 'written' && (
+            {q.type === 'written' && (
                 <div>
                     <label style={labelSx}>Claude Evaluation Rubric</label>
-                    <textarea value={cp.rubric ?? ''} onChange={e => onUpdate({ rubric: e.target.value })} rows={4}
+                    <textarea value={q.rubric ?? ''} onChange={e => onUpdate({ rubric: e.target.value })} rows={4}
                         placeholder='Describe what a correct answer should include…' style={{ ...inputSx, resize: 'vertical' }} />
                 </div>
             )}
+        </div>
+    )
+}
 
-            <div>
-                <label style={labelSx}>Pause Video At</label>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input type='number' min={0} step={1} value={cp.timestampSeconds} onChange={e => onUpdate({ timestampSeconds: Math.max(0, Number(e.target.value) || 0) })} style={{ ...inputSx, width: 80 }} />
-                    <span style={{ fontSize: '0.65rem', color: MUTED, flexShrink: 0 }}>{fmtTime(cp.timestampSeconds)}</span>
-                    <button type='button' onClick={() => onUpdate({ timestampSeconds: Math.floor(currentTime) })} style={setCurrentBtn}>
-                        <AccessTimeIcon style={{ fontSize: 11 }} /> Set Current
-                    </button>
-                </div>
-            </div>
+// ── Checkpoint edit form ─────────────────────────────────────────────────────
 
-            <div>
-                <label style={labelSx}>Rewind To On Fail</label>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input type='number' min={0} step={1} value={cp.rewindToSeconds} onChange={e => onUpdate({ rewindToSeconds: Math.max(0, Number(e.target.value) || 0) })} style={{ ...inputSx, width: 80 }} />
-                    <span style={{ fontSize: '0.65rem', color: MUTED, flexShrink: 0 }}>{fmtTime(cp.rewindToSeconds)}</span>
-                    <button type='button' onClick={() => onUpdate({ rewindToSeconds: Math.floor(currentTime) })} style={setCurrentBtn}>
-                        <AccessTimeIcon style={{ fontSize: 11 }} /> Set Current
-                    </button>
-                </div>
-                <div style={{ fontSize: '0.48rem', color: 'rgba(255,255,255,0.15)', marginTop: 4 }}>
-                    Pause at the rewatch start point, then click Set Current
-                </div>
-            </div>
+function CheckpointEditForm({ cp, currentTime, onUpdate, onDelete }: {
+    cp: TrainingVideoCheckpoint
+    currentTime: number
+    onUpdate: (patch: Partial<TrainingVideoCheckpoint>) => void
+    onDelete: () => void
+}) {
+    const questions = cp.questions ?? []
 
-            <button type='button' onClick={onDelete} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: 'rgba(219,0,29,0.07)', border: `1px solid rgba(219,0,29,0.2)`, color: 'rgba(219,0,29,0.7)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 4 }}>
-                <DeleteOutlineIcon style={{ fontSize: 13 }} /> Delete Checkpoint
+    function updateQuestion(qIdx: number, patch: Partial<CheckpointQuestion>) {
+        const updated = questions.map((q, i) => i === qIdx ? { ...q, ...patch } : q)
+        onUpdate({ questions: updated })
+    }
+
+    function deleteQuestion(qIdx: number) {
+        onUpdate({ questions: questions.filter((_, i) => i !== qIdx) })
+    }
+
+    function addQuestion() {
+        const newQ: CheckpointQuestion = {
+            id: Math.random().toString(36).slice(2),
+            question: '',
+            type: 'mcq',
+            options: ['', '', ''],
+            correctOptionIndex: -1,
+        }
+        onUpdate({ questions: [...questions, newQ] })
+    }
+
+    return (
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+
+            {questions.map((q, qIdx) => (
+                <QuestionEditor
+                    key={q.id}
+                    q={q}
+                    qIdx={qIdx}
+                    total={questions.length}
+                    cpId={cp.id}
+                    onUpdate={patch => updateQuestion(qIdx, patch)}
+                    onDelete={() => deleteQuestion(qIdx)}
+                />
+            ))}
+
+            <button type='button' onClick={addQuestion} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'none', border: `1px dashed rgba(250,204,21,0.3)`, color: 'rgba(250,204,21,0.6)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', alignSelf: 'flex-start' }}>
+                <AddIcon style={{ fontSize: 12 }} /> Add Question
             </button>
+
+            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                    <label style={labelSx}>Pause Video At</label>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input type='number' min={0} step={1} value={cp.timestampSeconds} onChange={e => onUpdate({ timestampSeconds: Math.max(0, Number(e.target.value) || 0) })} style={{ ...inputSx, width: 80 }} />
+                        <span style={{ fontSize: '0.65rem', color: MUTED, flexShrink: 0 }}>{fmtTime(cp.timestampSeconds)}</span>
+                        <button type='button' onClick={() => onUpdate({ timestampSeconds: Math.floor(currentTime) })} style={setCurrentBtn}>
+                            <AccessTimeIcon style={{ fontSize: 11 }} /> Set Current
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label style={labelSx}>Rewind To On Fail</label>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input type='number' min={0} step={1} value={cp.rewindToSeconds} onChange={e => onUpdate({ rewindToSeconds: Math.max(0, Number(e.target.value) || 0) })} style={{ ...inputSx, width: 80 }} />
+                        <span style={{ fontSize: '0.65rem', color: MUTED, flexShrink: 0 }}>{fmtTime(cp.rewindToSeconds)}</span>
+                        <button type='button' onClick={() => onUpdate({ rewindToSeconds: Math.floor(currentTime) })} style={setCurrentBtn}>
+                            <AccessTimeIcon style={{ fontSize: 11 }} /> Set Current
+                        </button>
+                    </div>
+                    <div style={{ fontSize: '0.48rem', color: 'rgba(255,255,255,0.15)', marginTop: 4 }}>
+                        Pause at the rewatch start point, then click Set Current
+                    </div>
+                </div>
+
+                <button type='button' onClick={onDelete} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: 'rgba(219,0,29,0.07)', border: `1px solid rgba(219,0,29,0.2)`, color: 'rgba(219,0,29,0.7)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 4 }}>
+                    <DeleteOutlineIcon style={{ fontSize: 13 }} /> Delete Checkpoint
+                </button>
+            </div>
         </div>
     )
 }
 
 // ── Main editor ──────────────────────────────────────────────────────────────
 
+function extractYouTubeId(url: string): string | null {
+    for (const re of [/[?&]v=([^&]+)/, /youtu\.be\/([^?&/]+)/, /youtube\.com\/embed\/([^?&/]+)/]) {
+        const m = re.exec(url); if (m) return m[1]
+    }
+    return null
+}
+
+let ytEditorApiReady = false
+let ytEditorCallbacks: Array<() => void> = []
+
+function loadYouTubeAPI(): Promise<void> {
+    return new Promise(resolve => {
+        if (typeof window === 'undefined') { resolve(); return }
+        if (ytEditorApiReady) { resolve(); return }
+        ytEditorCallbacks.push(resolve)
+        if (document.getElementById('yt-iframe-api')) return
+        const script = document.createElement('script')
+        script.id  = 'yt-iframe-api'
+        script.src = 'https://www.youtube.com/iframe_api'
+        document.head.appendChild(script)
+        window.onYouTubeIframeAPIReady = () => {
+            ytEditorApiReady = true
+            ytEditorCallbacks.forEach(cb => cb())
+            ytEditorCallbacks = []
+        }
+    })
+}
+
 export default function VideoEditorClient({ video, from }: { video: TrainingTypeVideo & { _id: string }; from: string }) {
     const router       = useRouter()
-    const videoRef     = useRef<HTMLVideoElement>(null)
+    const mountRef     = useRef<HTMLDivElement>(null)
+    const playerRef    = useRef<YT.Player | null>(null)
+    const pollRef      = useRef<NodeJS.Timeout | null>(null)
     const timelineRef  = useRef<HTMLDivElement>(null)
     const progressRef  = useRef<HTMLDivElement>(null)
 
     const [title, setTitle]             = useState(video.title)
     const [description, setDescription] = useState(video.description ?? '')
     const [sections, setSections]       = useState<TrainingVideoSection[]>(video.sections ?? [])
-    const [checkpoints, setCheckpoints] = useState<TrainingVideoCheckpoint[]>(video.checkpoints ?? [])
+    const [checkpoints, setCheckpoints] = useState<TrainingVideoCheckpoint[]>((video.checkpoints ?? []).map(normalizeCheckpoint))
 
     const [dirty, setDirty]   = useState(false)
     const [saving, setSaving] = useState(false)
@@ -274,11 +386,60 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
     useEffect(() => { durationRef.current = duration },  [duration])
     useEffect(() => { sectionsRef.current = sections },  [sections])
 
-    // Read duration from the video element on mount in case metadata already loaded (e.g. browser cache)
+    // Init YouTube player
     useEffect(() => {
-        const v = videoRef.current
-        if (v && !isNaN(v.duration) && v.duration > 0 && duration === 0) setDuration(v.duration)
-    }, [duration])
+        const videoId = extractYouTubeId(video.url)
+        if (!videoId || !mountRef.current) return
+        let destroyed = false
+
+        loadYouTubeAPI().then(() => {
+            if (destroyed || !mountRef.current || !window.YT) return
+            const player = new window.YT.Player(mountRef.current, {
+                videoId,
+                playerVars: { controls: 0, disablekb: 1, modestbranding: 1, rel: 0, iv_load_policy: 3, playsinline: 1, fs: 0 },
+                events: {
+                    onReady: (e) => {
+                        if (destroyed) return
+                        const iframe = e.target.getIframe()
+                        iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;display:block;border:none;'
+                        const dur = player.getDuration()
+                        if (dur > 0 && duration === 0) setDuration(dur)
+                        player.setVolume(muted ? 0 : 100)
+                    },
+                    onStateChange: (e) => {
+                        if (destroyed) return
+                        const state = e.data
+                        if (state === 1) {
+                            setPlaying(true)
+                            if (!pollRef.current) {
+                                pollRef.current = setInterval(() => {
+                                    setCurrentTime(player.getCurrentTime())
+                                    const dur = player.getDuration()
+                                    if (dur > 0) setDuration(dur)
+                                }, 100)
+                            }
+                        } else {
+                            setPlaying(state === 3)  // BUFFERING still shows as playing
+                            if (state !== 3) {
+                                setPlaying(false)
+                                if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+                            }
+                        }
+                        if (state === 0) setPlaying(false)
+                    },
+                },
+            })
+            playerRef.current = player
+        })
+
+        return () => {
+            destroyed = true
+            if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+            try { playerRef.current?.destroy() } catch {}
+            playerRef.current = null
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [video.url])
 
     // ── Derived ────────────────────────────────────────────────────────────
 
@@ -395,13 +556,15 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
     // ── Video controls ─────────────────────────────────────────────────────
 
     function togglePlay() {
-        const v = videoRef.current
-        if (!v) return
-        if (v.paused) v.play(); else v.pause()
+        const p = playerRef.current
+        if (!p) return
+        if (p.getPlayerState() === 1) p.pauseVideo(); else p.playVideo()
     }
 
     function seek(s: number) {
-        if (videoRef.current) videoRef.current.currentTime = Math.max(0, Math.min(duration || Infinity, s))
+        const clamped = Math.max(0, Math.min(duration || Infinity, s))
+        playerRef.current?.seekTo(clamped, true)
+        setCurrentTime(clamped)
     }
 
     function handleProgressClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -417,8 +580,8 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
         seek(((e.clientX - rect.left) / rect.width) * duration)
     }
 
-    useEffect(() => { if (videoRef.current) videoRef.current.playbackRate = speed }, [speed])
-    useEffect(() => { if (videoRef.current) videoRef.current.muted = muted },        [muted])
+    useEffect(() => { playerRef.current?.setPlaybackRate(speed) }, [speed])
+    useEffect(() => { if (muted) playerRef.current?.mute(); else playerRef.current?.unMute() }, [muted])
 
     // ── CRUD ───────────────────────────────────────────────────────────────
 
@@ -430,7 +593,7 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
         const end   = duration > 0
             ? Math.min(start + 60, Math.floor(duration))
             : start + 60
-        setSections(prev => [...prev, { id, title: 'New Section', startSeconds: start, endSeconds: Math.max(end, start + 1) }])
+        setSections(prev => [...prev, { id, title: 'New Chapter', startSeconds: start, endSeconds: Math.max(end, start + 1) }])
         setSelected({ type: 'section', id })
         mark()
     }
@@ -445,7 +608,7 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
         })
         const pauseAt   = containing ? getSectionEnd(containing, sortedSections, dur) : t
         const rewindTo  = containing ? containing.startSeconds : Math.max(0, t - 30)
-        setCheckpoints(prev => [...prev, { id, timestampSeconds: pauseAt, rewindToSeconds: rewindTo, question: '', type: 'mcq', options: ['', '', '', ''], correctOptionIndex: -1 }])
+        setCheckpoints(prev => [...prev, { id, timestampSeconds: pauseAt, rewindToSeconds: rewindTo, questions: [{ id: id + '-q1', question: '', type: 'mcq', options: ['', '', '', ''], correctOptionIndex: -1 }] }])
         setSelected({ type: 'checkpoint', id })
         mark()
     }
@@ -477,23 +640,25 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
     async function handleSave() {
         if (saving) return
 
-        // Validate: MCQ checkpoints with a question must have a correct answer selected
-        const unset = checkpoints.filter(c => c.type === 'mcq' && c.question.trim() && (c.correctOptionIndex ?? -1) < 0)
+        // Validate: MCQ questions with text must have a correct answer selected
+        const unset = checkpoints.filter(c =>
+            (c.questions ?? []).some(q => q.type === 'mcq' && q.question.trim() && (q.correctOptionIndex ?? -1) < 0)
+        )
         if (unset.length > 0) {
-            alert(`${unset.length} multiple-choice checkpoint${unset.length > 1 ? 's have' : ' has'} no correct answer selected. Please select the correct answer before saving.`)
+            alert(`${unset.length} checkpoint${unset.length > 1 ? 's have' : ' has'} a multiple-choice question with no correct answer selected. Please select the correct answer before saving.`)
             setSelected({ type: 'checkpoint', id: unset[0].id })
             return
         }
 
-        // Bias check: if 3+ MCQ checkpoints have a valid answer, warn if >60% share the same position
-        const answered = checkpoints.filter(c => c.type === 'mcq' && (c.correctOptionIndex ?? -1) >= 0)
-        if (answered.length >= 3) {
+        // Bias check: if 3+ MCQ questions have a valid answer, warn if >60% share the same position
+        const allMcqQuestions = checkpoints.flatMap(c => (c.questions ?? []).filter(q => q.type === 'mcq' && (q.correctOptionIndex ?? -1) >= 0))
+        if (allMcqQuestions.length >= 3) {
             const tally: Record<number, number> = {}
-            for (const c of answered) { const i = c.correctOptionIndex!; tally[i] = (tally[i] ?? 0) + 1 }
+            for (const q of allMcqQuestions) { const i = q.correctOptionIndex!; tally[i] = (tally[i] ?? 0) + 1 }
             const maxCount = Math.max(...Object.values(tally))
-            if (maxCount / answered.length > 0.6) {
+            if (maxCount / allMcqQuestions.length > 0.6) {
                 const pos = Number(Object.keys(tally).find(k => tally[Number(k)] === maxCount)!) + 1
-                const ok = confirm(`Answer option #${pos} is marked as correct in ${maxCount} of ${answered.length} checkpoints (${Math.round((maxCount / answered.length) * 100)}%). Consider shuffling the correct answer positions to avoid patterns. Save anyway?`)
+                const ok = confirm(`Answer option #${pos} is marked as correct in ${maxCount} of ${allMcqQuestions.length} questions (${Math.round((maxCount / allMcqQuestions.length) * 100)}%). Consider shuffling the correct answer positions to avoid patterns. Save anyway?`)
                 if (!ok) return
             }
         }
@@ -503,7 +668,7 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
             const res = await fetch(`/api/training-videos/${video._id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: title.trim() || video.title, description: description.trim() || undefined, sections, checkpoints, duration: videoRef.current?.duration ?? video.duration }),
+                body: JSON.stringify({ title: title.trim() || video.title, description: description.trim() || undefined, sections, checkpoints, duration: duration || video.duration }),
             })
             if (res.ok) { setDirty(false); setSaved(true); setTimeout(() => setSaved(false), 3000) }
         } finally { setSaving(false) }
@@ -557,12 +722,11 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
                 {/* Left: video area */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflowY: 'auto' }}>
 
-                    {/* Video */}
-                    <div style={{ background: '#000', cursor: 'pointer' }} onClick={togglePlay}>
-                        <video ref={videoRef} src={video.url} style={{ width: '100%', maxHeight: '62vh', display: 'block', outline: 'none' }}
-                            onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime ?? 0)}
-                            onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
-                            onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} />
+                    {/* Video — 16:9 padding-bottom ensures it fills column width */}
+                    <div style={{ position: 'relative', paddingBottom: 'min(56.25%, 62vh)', height: 0, background: '#000', flexShrink: 0 }}>
+                        <div ref={mountRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
+                        {/* Overlay blocks YouTube pause-state UI */}
+                        <div style={{ position: 'absolute', inset: 0, zIndex: 5, cursor: 'pointer' }} onClick={togglePlay} />
                     </div>
 
                     {/* Controls */}
@@ -673,7 +837,7 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
                                         setDragState({ kind: 'checkpoint', id: cp.id, timelineLeft: rect.left, timelineWidth: rect.width })
                                     }}
                                     onClick={e => { e.stopPropagation(); if (!dragState) { seek(cp.timestampSeconds); setSelected({ type: 'checkpoint', id: cp.id }) } }}
-                                    title={cp.question || `Checkpoint @ ${fmtTime(cp.timestampSeconds)}`}
+                                    title={(cp.questions?.[0]?.question) || `Checkpoint @ ${fmtTime(cp.timestampSeconds)}`}
                                     style={{
                                         position:  'absolute',
                                         left:      `calc(${left}% - 7px)`,
@@ -714,7 +878,7 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
                     <div style={{ padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', borderBottom: `1px solid ${BORDER}` }}>
                         <span style={{ fontSize: '0.52rem', color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase', flexShrink: 0 }}>At {fmtTime(currentTime)}:</span>
                         <button type='button' onClick={addSection} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'transparent', border: `1px solid rgba(255,255,255,0.12)`, color: MUTED, fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
-                            <AddIcon style={{ fontSize: 12 }} /> Add Section
+                            <AddIcon style={{ fontSize: 12 }} /> Add Chapter
                         </button>
                         <button type='button' onClick={addCheckpoint} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'transparent', border: `1px solid rgba(250,204,21,0.3)`, color: 'rgba(250,204,21,0.7)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
                             <AddIcon style={{ fontSize: 12 }} /> Add Checkpoint
@@ -739,7 +903,7 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
                                     <ArrowBackIcon style={{ fontSize: 13 }} /> All Items
                                 </button>
                                 <span style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: selected.type === 'section' ? 'rgba(255,255,255,0.4)' : 'rgba(250,204,21,0.75)' }}>
-                                    {selected.type === 'section' ? '■ Section' : '◆ Checkpoint'}
+                                    {selected.type === 'section' ? '■ Chapter' : '◆ Checkpoint'}
                                 </span>
                             </div>
 
@@ -749,7 +913,7 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
                                 return (
                                     <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
                                         <div>
-                                            <label style={labelSx}>Section Name</label>
+                                            <label style={labelSx}>Chapter Name</label>
                                             <input value={selectedSection.title} onChange={e => updateSection(selectedSection.id, { title: e.target.value })} autoFocus style={inputSx} />
                                         </div>
                                         <div>
@@ -780,7 +944,7 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
                                             <span style={{ fontSize: '0.58rem', color: MUTED }}>Color auto-assigned by position</span>
                                         </div>
                                         <button type='button' onClick={() => deleteSection(selectedSection.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', background: 'rgba(219,0,29,0.07)', border: `1px solid rgba(219,0,29,0.2)`, color: 'rgba(219,0,29,0.7)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', alignSelf: 'flex-start', marginTop: 4 }}>
-                                            <DeleteOutlineIcon style={{ fontSize: 13 }} /> Delete Section
+                                            <DeleteOutlineIcon style={{ fontSize: 13 }} /> Delete Chapter
                                         </button>
                                     </div>
                                 )
@@ -795,9 +959,9 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
                     ) : (
                         <>
                             <div style={{ padding: '12px 14px', borderBottom: `1px solid ${BORDER}`, background: '#0d0d0d', flexShrink: 0 }}>
-                                <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: MUTED }}>Sections & Checkpoints</div>
+                                <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: MUTED }}>Chapters & Checkpoints</div>
                                 <div style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.2)', marginTop: 3 }}>
-                                    {sortedSections.length} section{sortedSections.length !== 1 ? 's' : ''} · {checkpoints.length} checkpoint{checkpoints.length !== 1 ? 's' : ''}
+                                    {sortedSections.length} chapter{sortedSections.length !== 1 ? 's' : ''} · {checkpoints.length} checkpoint{checkpoints.length !== 1 ? 's' : ''}
                                 </div>
                             </div>
 
@@ -825,7 +989,7 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
                                                         </div>
                                                         <div style={{ flex: 1, minWidth: 0 }}>
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                                                                <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', flexShrink: 0 }}>Section</span>
+                                                                <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', flexShrink: 0 }}>Chapter</span>
                                                                 <span style={{ fontSize: '0.58rem', color: MUTED }}>{fmtTime(sec.startSeconds)} – {fmtTime(endSec)}</span>
                                                             </div>
                                                             <div style={{ fontSize: '0.73rem', fontWeight: 700, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sec.title}</div>
@@ -850,10 +1014,10 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
                                                                         <span style={{ fontSize: '0.58rem', color: MUTED }}>{fmtTime(cp.timestampSeconds)}</span>
                                                                     </div>
                                                                     <div style={{ fontSize: '0.7rem', fontWeight: 500, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                        {cp.question || <em style={{ color: MUTED, fontSize: '0.68rem' }}>No question set</em>}
+                                                                        {cp.questions?.[0]?.question || <em style={{ color: MUTED, fontSize: '0.68rem' }}>No question set</em>}
                                                                     </div>
                                                                     <div style={{ fontSize: '0.52rem', color: MUTED, marginTop: 2 }}>
-                                                                        {cp.type === 'mcq' ? `MCQ · ${(cp.options ?? []).filter(Boolean).length} options` : 'Written Answer'}
+                                                                        {cp.questions.length > 1 ? `${cp.questions.length} questions` : cp.questions[0]?.type === 'mcq' ? `MCQ · ${(cp.questions[0]?.options ?? []).filter(Boolean).length} options` : 'Written Answer'}
                                                                     </div>
                                                                 </div>
                                                                 <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)', paddingTop: 3 }}>›</span>
@@ -880,10 +1044,10 @@ export default function VideoEditorClient({ video, from }: { video: TrainingType
                                                             <span style={{ fontSize: '0.58rem', color: MUTED }}>{fmtTime(cp.timestampSeconds)}</span>
                                                         </div>
                                                         <div style={{ fontSize: '0.73rem', fontWeight: 500, color: TEXT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                            {cp.question || <em style={{ color: MUTED, fontSize: '0.68rem' }}>No question set</em>}
+                                                            {cp.questions?.[0]?.question || <em style={{ color: MUTED, fontSize: '0.68rem' }}>No question set</em>}
                                                         </div>
                                                         <div style={{ fontSize: '0.52rem', color: MUTED, marginTop: 2 }}>
-                                                            {cp.type === 'mcq' ? `MCQ · ${(cp.options ?? []).filter(Boolean).length} options` : 'Written Answer'}
+                                                            {cp.questions.length > 1 ? `${cp.questions.length} questions` : cp.questions[0]?.type === 'mcq' ? `MCQ · ${(cp.questions[0]?.options ?? []).filter(Boolean).length} options` : 'Written Answer'}
                                                         </div>
                                                     </div>
                                                     <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)', paddingTop: 3 }}>›</span>

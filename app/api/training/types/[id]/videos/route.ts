@@ -39,8 +39,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     let body: { title?: string; url?: string; filename?: string; description?: string }
     try { body = await req.json() } catch { return NextResponse.json({ error: 'bad json' }, { status: 400 }) }
 
-    if (!body.title?.trim() || !body.url?.trim() || !body.filename?.trim()) {
-        return NextResponse.json({ error: 'title, url and filename are required' }, { status: 400 })
+    if (!body.title?.trim() || !body.url?.trim()) {
+        return NextResponse.json({ error: 'title and url are required' }, { status: 400 })
     }
 
     const name = callerName(me)
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         trainingTypeId: id,
         title: body.title.trim(),
         url: body.url.trim(),
-        filename: body.filename.trim(),
+        filename: body.filename?.trim() ?? '',
         description: body.description?.trim() || undefined,
         checkpoints: [],
         addedById: me.id,

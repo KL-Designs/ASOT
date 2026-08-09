@@ -26,6 +26,9 @@ function blankPoint(): TrainingGuideTeachingPoint {
     return { id: uid(), title: '', dotPoints: [{ id: uid(), text: '' }], image: null, images: [], vitalPoints: [], commonFaults: [] }
 }
 function blankEquipment(): TrainingGuideEquipmentItem { return { id: uid(), text: '' } }
+function blankRevisionTopic(): RevisionTopic {
+    return { id: uid(), title: 'Revision Topic', questions: [{ id: uid(), text: '', indent: 0 }, { id: uid(), text: '', indent: 0 }, { id: uid(), text: '', indent: 0 }] }
+}
 
 function migrateImages(tp: TrainingGuideTeachingPoint): TrainingGuideImage[] {
     if (tp.images && tp.images.length > 0) return tp.images
@@ -45,19 +48,23 @@ function HatchPattern({ id }: { id: string }) {
 }
 
 // ─── Auto-resizing textarea ──────────────────────────────────────────────────
-function AutoTextarea({ value, onChange, placeholder, disabled, style, minRows = 1 }: {
+function AutoTextarea({ value, onChange, onKeyDown, inputRef, placeholder, disabled, style, minRows = 1 }: {
     value: string; onChange?: (v: string) => void; placeholder?: string
     disabled?: boolean; style?: React.CSSProperties; minRows?: number
+    onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
+    inputRef?: (el: HTMLTextAreaElement | null) => void
 }) {
-    const ref = useRef<HTMLTextAreaElement>(null)
+    const ref = useRef<HTMLTextAreaElement | null>(null)
     useEffect(() => {
         if (!ref.current) return
         ref.current.style.height = '0'
         ref.current.style.height = ref.current.scrollHeight + 'px'
     }, [value])
     return (
-        <textarea ref={ref} value={value} placeholder={disabled ? '' : placeholder} disabled={disabled} rows={minRows}
+        <textarea ref={el => { ref.current = el; inputRef?.(el) }}
+            value={value} placeholder={disabled ? '' : placeholder} disabled={disabled} rows={minRows}
             onChange={e => onChange?.(e.target.value)}
+            onKeyDown={onKeyDown}
             style={{ background: 'transparent', border: 'none', resize: 'none', font: 'inherit', color: 'inherit', width: '100%', outline: 'none', padding: 0, margin: 0, overflow: 'hidden', lineHeight: 'inherit', display: 'block', ...style }} />
     )
 }
@@ -70,6 +77,211 @@ function EditInput({ value, onChange, placeholder, disabled, style }: {
         <input type='text' value={value} placeholder={disabled ? '' : placeholder} disabled={disabled}
             onChange={e => onChange?.(e.target.value)}
             style={{ background: 'transparent', border: 'none', font: 'inherit', color: 'inherit', width: '100%', outline: 'none', padding: 0, margin: 0, lineHeight: 'inherit', ...style }} />
+    )
+}
+
+// Normalise stored HTML to safe inline tags only (no line-break conversion).
+function sanitizeInlineHtml(s: string): string {
+    return s
+        .replace(/<b\b[^>]*>/gi, '<strong>').replace(/<\/b>/gi, '</strong>')
+        .replace(/<i\b[^>]*>/gi, '<em>').replace(/<\/i>/gi, '</em>')
+        .replace(/<font\b[^>]*\bcolor="([^"]*)"[^>]*>/gi, (_, c) => `<span style="color:${c}">`)
+        .replace(/<\/font>/gi, '</span>')
+        .replace(/<span\b[^>]*>/gi, m => {
+            const sm = m.match(/\bstyle="([^"]*)"/i)
+            if (!sm) return ''
+            const cm = sm[1].match(/color:\s*([^;]+)/i)
+            return cm ? `<span style="color:${cm[1].trim()}">` : ''
+        })
+        .replace(/<(strong|em|u|s)\b[^>]*>/gi, (_, t) => `<${t}>`)
+        .replace(/<(?!\/?(strong|em|u|s|span)[ >])[^>]*>/gi, '')
+}
+
+// Convert stored value (plain text + inline HTML, may have \n) → HTML for display/editing.
+function valueToHtml(s: string): string {
+    return sanitizeInlineHtml(s).replace(/\n/g, '<br>')
+}
+
+// Extract stored value from contentEditable innerHTML:
+// normalises Chrome's <div> line-wrapping and <br> back to \n, then sanitizes tags.
+function htmlToValue(html: string): string {
+    return html
+        .replace(/<\/div><div>/gi, '\n')
+        .replace(/<div[^>]*>/gi, '\n').replace(/<\/div>/gi, '')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<b\b[^>]*>/gi, '<strong>').replace(/<\/b>/gi, '</strong>')
+        .replace(/<i\b[^>]*>/gi, '<em>').replace(/<\/i>/gi, '</em>')
+        .replace(/<font\b[^>]*\bcolor="([^"]*)"[^>]*>/gi, (_, c) => `<span style="color:${c}">`)
+        .replace(/<\/font>/gi, '</span>')
+        .replace(/<span\b[^>]*>/gi, m => {
+            const sm = m.match(/\bstyle="([^"]*)"/i)
+            if (!sm) return ''
+            const cm = sm[1].match(/color:\s*([^;]+)/i)
+            return cm ? `<span style="color:${cm[1].trim()}">` : ''
+        })
+        .replace(/<(strong|em|u|s)\b[^>]*>/gi, (_, t) => `<${t}>`)
+        .replace(/<(?!\/?(strong|em|u|s|span)[ >])[^>]*>/gi, '')
+}
+
+// ─── Formatting toolbar ──────────────────────────────────────────────────────
+function FormattingToolbar({ targetRef }: { targetRef: React.RefObject<HTMLDivElement | null> }) {
+    const savedRange = useRef<Range | null>(null)
+
+    function applyCmd(cmd: string) {
+        document.execCommand(cmd, false)
+        targetRef.current?.focus()
+    }
+
+    function saveSelection() {
+        const sel = window.getSelection()
+        if (sel && sel.rangeCount > 0) savedRange.current = sel.getRangeAt(0).cloneRange()
+    }
+
+    function applyColor(color: string) {
+        const sel = window.getSelection()
+        if (savedRange.current && sel) { sel.removeAllRanges(); sel.addRange(savedRange.current) }
+        document.execCommand('foreColor', false, color)
+        if (targetRef.current) {
+            targetRef.current.focus()
+        }
+    }
+
+    const btn: React.CSSProperties = {
+        background: 'none', border: `1px solid ${BORDER}`, cursor: 'pointer',
+        color: TEXT_SECONDARY, padding: '1px 6px', fontSize: '0.68rem', fontWeight: 700,
+        lineHeight: 1.5, minWidth: 22, fontFamily: 'Arial, sans-serif',
+    }
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 5px', background: 'rgba(12,12,12,0.95)', border: `1px solid ${BORDER}`, pointerEvents: 'all' }}>
+            <button onMouseDown={e => { e.preventDefault(); applyCmd('bold') }}          style={{ ...btn, fontWeight: 900 }}>B</button>
+            <button onMouseDown={e => { e.preventDefault(); applyCmd('italic') }}        style={{ ...btn, fontStyle: 'italic' }}>I</button>
+            <button onMouseDown={e => { e.preventDefault(); applyCmd('underline') }}     style={{ ...btn, textDecoration: 'underline' }}>U</button>
+            <button onMouseDown={e => { e.preventDefault(); applyCmd('strikeThrough') }} style={{ ...btn, textDecoration: 'line-through' }}>S</button>
+            <div style={{ width: 1, height: 12, background: BORDER, margin: '0 2px' }} />
+            <label onMouseDown={saveSelection} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 2, ...btn }}>
+                A
+                <input type='color' defaultValue='#ffffff' onChange={e => applyColor(e.target.value)}
+                    style={{ width: 14, height: 14, border: 'none', padding: 0, background: 'none', cursor: 'pointer' }} />
+            </label>
+        </div>
+    )
+}
+
+// ─── contentEditable rich-text input ────────────────────────────────────────
+function RichText({ value, onChange, onKeyDown, divRef: divRefProp, placeholder, disabled, style, minRows = 1 }: {
+    value: string; onChange?: (v: string) => void; placeholder?: string
+    disabled?: boolean; style?: React.CSSProperties; minRows?: number
+    onKeyDown?: (e: React.KeyboardEvent<HTMLElement>) => void
+    divRef?: (el: HTMLElement | null) => void
+}) {
+    const ref   = useRef<HTMLDivElement | null>(null)
+    const lastV = useRef(value)
+    const blurT = useRef<NodeJS.Timeout | null>(null)
+    const [focused, setFocused] = useState(false)
+
+    // Sync external value changes when the field is not focused
+    useEffect(() => {
+        if (!ref.current || focused) return
+        if (value !== lastV.current) {
+            ref.current.innerHTML = valueToHtml(value)
+            lastV.current = value
+        }
+    }, [value, focused])
+
+    if (disabled) {
+        return (
+            <div dangerouslySetInnerHTML={{ __html: valueToHtml(value) }}
+                style={{ whiteSpace: 'pre-wrap', width: '100%', ...style }} />
+        )
+    }
+
+    return (
+        <div style={{ position: 'relative' }}>
+            {focused && (
+                <div style={{ position: 'absolute', bottom: '100%', left: 0, zIndex: 30, marginBottom: 2 }}>
+                    <FormattingToolbar targetRef={ref} />
+                </div>
+            )}
+            <div
+                ref={el => {
+                    if (el && el !== ref.current) {
+                        el.innerHTML = valueToHtml(value)
+                        lastV.current = value
+                    }
+                    ref.current = el
+                    divRefProp?.(el)
+                }}
+                contentEditable suppressContentEditableWarning
+                onFocus={() => { if (blurT.current) clearTimeout(blurT.current); setFocused(true) }}
+                onBlur={() => { blurT.current = setTimeout(() => setFocused(false), 200) }}
+                onInput={() => {
+                    if (!ref.current) return
+                    const val = htmlToValue(ref.current.innerHTML)
+                    lastV.current = val
+                    onChange?.(val)
+                }}
+                onKeyDown={onKeyDown}
+                data-placeholder={placeholder}
+                style={{ outline: 'none', minHeight: `${minRows * 1.6}em`, whiteSpace: 'pre-wrap', wordBreak: 'break-word', width: '100%', cursor: 'text', ...style }}
+            />
+        </div>
+    )
+}
+
+// ─── contentEditable single-line rich input (equipment items etc.) ───────────
+function RichEditInput({ value, onChange, placeholder, disabled, style }: {
+    value: string; onChange?: (v: string) => void; placeholder?: string
+    disabled?: boolean; style?: React.CSSProperties
+}) {
+    const ref   = useRef<HTMLDivElement | null>(null)
+    const lastV = useRef(value)
+    const blurT = useRef<NodeJS.Timeout | null>(null)
+    const [focused, setFocused] = useState(false)
+
+    useEffect(() => {
+        if (!ref.current || focused) return
+        if (value !== lastV.current) {
+            ref.current.innerHTML = valueToHtml(value)
+            lastV.current = value
+        }
+    }, [value, focused])
+
+    if (disabled) {
+        return (
+            <span dangerouslySetInnerHTML={{ __html: valueToHtml(value) }}
+                style={{ width: '100%', display: 'block', ...style }} />
+        )
+    }
+
+    return (
+        <div style={{ position: 'relative' }}>
+            {focused && (
+                <div style={{ position: 'absolute', bottom: '100%', left: 0, zIndex: 30, marginBottom: 2 }}>
+                    <FormattingToolbar targetRef={ref} />
+                </div>
+            )}
+            <div
+                ref={el => {
+                    if (el && el !== ref.current) {
+                        el.innerHTML = valueToHtml(value)
+                        lastV.current = value
+                    }
+                    ref.current = el
+                }}
+                contentEditable suppressContentEditableWarning
+                onFocus={() => { if (blurT.current) clearTimeout(blurT.current); setFocused(true) }}
+                onBlur={() => { blurT.current = setTimeout(() => setFocused(false), 200) }}
+                onInput={() => {
+                    if (!ref.current) return
+                    const val = htmlToValue(ref.current.innerHTML)
+                    lastV.current = val
+                    onChange?.(val)
+                }}
+                onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
+                data-placeholder={placeholder}
+                style={{ outline: 'none', whiteSpace: 'nowrap', overflow: 'hidden', width: '100%', cursor: 'text', ...style }}
+            />
+        </div>
     )
 }
 
@@ -167,7 +379,7 @@ interface Props {
     isEditable:   boolean
     accentColor:  string
     outlineColor: string
-    onSaved?:     (version: string) => void
+    onSaved?:     (version: string, editEntry: TrainingGuideEditEntry, sessionMerged: boolean) => void
     hideDocRef?:  boolean
 }
 
@@ -181,6 +393,9 @@ const TrainingGuideEditor = forwardRef<TrainingGuideEditorHandle, Props>(functio
     const [teachingPoints,          setTeachingPoints]          = useState<TrainingGuideTeachingPoint[]>(
         initialGuide.teachingPoints.map(tp => ({ ...tp, images: migrateImages(tp) }))
     )
+    const [revisionTopics, setRevisionTopics] = useState<RevisionTopic[]>(initialGuide.revisionTopics ?? [])
+    const [showRevision,   setShowRevision]   = useState((initialGuide.revisionTopics?.length ?? 0) > 0)
+    const [revisionColor, setRevisionColor] = useState(initialGuide.revisionColor ?? '#d97706')
     const [notes,       setNotes]       = useState(initialGuide.notes)
     const [version,     setVersion]     = useState(initialGuide.version)
     const [lastRevised, setLastRevised] = useState(initialGuide.lastRevisedAt)
@@ -190,11 +405,11 @@ const TrainingGuideEditor = forwardRef<TrainingGuideEditorHandle, Props>(functio
     const timerRef   = useRef<NodeJS.Timeout | null>(null)
     const prevAccRef = useRef(accentColor)
     const prevOutRef = useRef(outlineColor)
-    const stateRef   = useRef({ title, accentColor, outlineColor, duration, overview, equipment, trainingAreaDescription, teachingPoints, notes, version })
+    const stateRef   = useRef({ title, accentColor, outlineColor, revisionColor, duration, overview, equipment, trainingAreaDescription, teachingPoints, revisionTopics, notes, version })
     const hatchId    = useId().replace(/:/g, '')
 
     useEffect(() => {
-        stateRef.current = { title, accentColor, outlineColor, duration, overview, equipment, trainingAreaDescription, teachingPoints, notes, version }
+        stateRef.current = { title, accentColor, outlineColor, revisionColor, duration, overview, equipment, trainingAreaDescription, teachingPoints, revisionTopics, notes, version }
     })
 
     const doSaveRef = useRef<() => void>(() => {})
@@ -213,16 +428,17 @@ const TrainingGuideEditor = forwardRef<TrainingGuideEditorHandle, Props>(functio
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: s.title, accentColor: s.accentColor, outlineColor: s.outlineColor,
+                    title: s.title, accentColor: s.accentColor, outlineColor: s.outlineColor, revisionColor: s.revisionColor,
                     duration: s.duration, overview: s.overview, equipment: s.equipment,
-                    trainingAreaDescription: s.trainingAreaDescription, teachingPoints: s.teachingPoints, notes: s.notes,
+                    trainingAreaDescription: s.trainingAreaDescription, teachingPoints: s.teachingPoints,
+                    revisionTopics: s.revisionTopics, notes: s.notes,
                 }),
             })
             if (res.ok) {
-                const { version: v } = await res.json()
+                const { version: v, editEntry, sessionMerged } = await res.json()
                 setVersion(v); setLastRevised(new Date())
                 setSaveMsg(`Saved · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)
-                onSaved?.(v)
+                onSaved?.(v, editEntry, sessionMerged)
             }
         } finally { setSaving(false) }
     }, [guideId, onSaved])
@@ -263,7 +479,10 @@ const TrainingGuideEditor = forwardRef<TrainingGuideEditorHandle, Props>(functio
 
     return (
         <div style={{ fontFamily: "'Oswald', Arial, sans-serif", color: TEXT_PRIMARY, position: 'relative' }}>
-            <style>{`@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap');`}</style>
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap');
+                [data-placeholder]:empty::before { content: attr(data-placeholder); color: rgba(237,237,237,0.25); pointer-events: none; }
+            `}</style>
 
             {/* Save status */}
             {isEditable && (saving || saveMsg) && (
@@ -308,7 +527,7 @@ const TrainingGuideEditor = forwardRef<TrainingGuideEditorHandle, Props>(functio
             <div style={{ border: `1px solid ${outlineColor}50`, marginBottom: 20 }}>
                 <AccentHeader label='Overview &amp; Objective' accent={accentColor} />
                 <div style={{ padding: '14px 16px', background: DARK_BG, fontFamily: 'Arial, sans-serif', fontSize: '0.88rem', lineHeight: 1.6, color: TEXT_PRIMARY }}>
-                    <AutoTextarea value={overview} onChange={v => { setOverview(v); scheduleSave() }} placeholder='Provide a brief overview of this training session and its learning objectives.' disabled={!isEditable} minRows={3} style={{ fontSize: '0.88rem', lineHeight: 1.6, fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY }} />
+                    <RichText value={overview} onChange={v => { setOverview(v); scheduleSave() }} placeholder='Provide a brief overview of this training session and its learning objectives.' disabled={!isEditable} minRows={3} style={{ fontSize: '0.88rem', lineHeight: 1.6, fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY }} />
                 </div>
             </div>
 
@@ -323,7 +542,7 @@ const TrainingGuideEditor = forwardRef<TrainingGuideEditorHandle, Props>(functio
                             <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 7 }}>
                                 <div style={{ width: 14, height: 14, border: `1.5px solid ${outlineColor}80`, borderRadius: 2, flexShrink: 0 }} />
                                 <div style={{ flex: 1, fontSize: '0.84rem', color: TEXT_PRIMARY }}>
-                                    <EditInput value={item.text} onChange={v => { setEquipment(prev => prev.map((e, idx) => idx === i ? { ...e, text: v } : e)); scheduleSave() }} placeholder='Equipment item' disabled={!isEditable} style={{ fontSize: '0.84rem' }} />
+                                    <RichEditInput value={item.text} onChange={v => { setEquipment(prev => prev.map((e, idx) => idx === i ? { ...e, text: v } : e)); scheduleSave() }} placeholder='Equipment item' disabled={!isEditable} style={{ fontSize: '0.84rem' }} />
                                 </div>
                                 {isEditable && <button onClick={() => { setEquipment(prev => prev.filter((_, idx) => idx !== i)); scheduleSave() }} style={delBtnSx}><DeleteOutlineIcon sx={{ fontSize: 14 }} /></button>}
                             </div>
@@ -338,7 +557,7 @@ const TrainingGuideEditor = forwardRef<TrainingGuideEditorHandle, Props>(functio
                         <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: outlineColor, fontFamily: "'Oswald', Arial, sans-serif" }}>Training Area / Setup</span>
                     </div>
                     <div style={{ padding: '12px 16px', background: DARK_BG, fontFamily: 'Arial, sans-serif', fontSize: '0.84rem', lineHeight: 1.55 }}>
-                        <AutoTextarea value={trainingAreaDescription} onChange={v => { setTrainingAreaDescription(v); scheduleSave() }} placeholder='Describe the training area layout and setup requirements.' disabled={!isEditable} minRows={2} style={{ fontSize: '0.84rem', lineHeight: 1.55, fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY, marginBottom: 10 }} />
+                        <RichText value={trainingAreaDescription} onChange={v => { setTrainingAreaDescription(v); scheduleSave() }} placeholder='Describe the training area layout and setup requirements.' disabled={!isEditable} minRows={2} style={{ fontSize: '0.84rem', lineHeight: 1.55, fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY, marginBottom: 10 }} />
                         <svg width='100%' height='110' xmlns='http://www.w3.org/2000/svg'>
                             <HatchPattern id={`${hatchId}-area`} />
                             <rect width='100%' height='110' fill={`url(#${hatchId}-area)`} stroke={BORDER} strokeWidth='1' />
@@ -347,6 +566,26 @@ const TrainingGuideEditor = forwardRef<TrainingGuideEditorHandle, Props>(functio
                     </div>
                 </div>
             </div>
+
+            {/* ── REVISION SECTION ────────────────────────────────────────── */}
+            {showRevision && (
+                <RevisionSection
+                    topics={revisionTopics}
+                    isEditable={isEditable}
+                    accent={revisionColor}
+                    outline={revisionColor}
+                    onUpdate={updated => { setRevisionTopics(updated); scheduleSave() }}
+                    onDeleteSection={() => { setShowRevision(false); setRevisionTopics([]); scheduleSave() }}
+                    onColorChange={c => { setRevisionColor(c); scheduleSave() }}
+                    scheduleSave={scheduleSave}
+                />
+            )}
+            {isEditable && !showRevision && (
+                <button onClick={() => { setShowRevision(true); setRevisionTopics([blankRevisionTopic()]); scheduleSave() }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: `1.5px dashed ${outlineColor}40`, cursor: 'pointer', padding: '8px 16px', color: TEXT_MUTED, fontFamily: "'Oswald', Arial, sans-serif", fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', width: '100%', justifyContent: 'center', marginBottom: 20 }}>
+                    <AddIcon sx={{ fontSize: 14 }} /> Add Revision Section
+                </button>
+            )}
 
             {/* ── SESSION CONTENT ─────────────────────────────────────────── */}
             <div style={{ marginBottom: 20 }}>
@@ -374,9 +613,29 @@ const TrainingGuideEditor = forwardRef<TrainingGuideEditorHandle, Props>(functio
             {/* ── NOTES ───────────────────────────────────────────────────── */}
             <div style={{ border: `1px solid ${outlineColor}50`, marginBottom: 32 }}>
                 <AccentHeader label='Notes / Observations' accent={accentColor} />
-                <div style={{ padding: '14px 16px', background: DARK_BG, fontFamily: 'Arial, sans-serif', fontSize: '0.88rem', lineHeight: 1.6 }}>
-                    <AutoTextarea value={notes} onChange={v => { setNotes(v); scheduleSave() }} placeholder='Add session notes or observations here.' disabled={!isEditable} minRows={4} style={{ fontSize: '0.88rem', lineHeight: 1.6, fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY }} />
-                    {!isEditable && [...Array(4)].map((_, i) => <div key={i} style={{ borderBottom: `1px solid ${BORDER}`, marginBottom: 18, height: 20 }} />)}
+                <div style={{
+                    padding: '8px 16px 8px',
+                    background: DARK_BG,
+                    backgroundImage: `repeating-linear-gradient(to bottom, transparent 0px, transparent 23px, ${BORDER} 23px, ${BORDER} 24px)`,
+                    backgroundSize: '100% 24px',
+                    backgroundPositionY: '8px',
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: '0.88rem',
+                }}>
+                    {isEditable ? (
+                        <textarea
+                            value={notes}
+                            onChange={e => { setNotes(e.target.value); scheduleSave() }}
+                            placeholder='Add session notes or observations here.'
+                            style={{ background: 'transparent', border: 'none', outline: 'none', resize: 'none', width: '100%', lineHeight: '24px', fontSize: '0.88rem', fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY, padding: 0, minHeight: 120, display: 'block', direction: 'ltr', overflowY: 'hidden' }}
+                            rows={5}
+                            onInput={e => { const t = e.currentTarget; t.style.height = '0'; t.style.height = t.scrollHeight + 'px' }}
+                        />
+                    ) : (
+                        <div style={{ lineHeight: '24px', fontSize: '0.88rem', fontFamily: 'Arial, sans-serif', color: notes ? TEXT_PRIMARY : TEXT_MUTED, whiteSpace: 'pre-wrap', minHeight: 120, wordBreak: 'break-word' }}>
+                            {notes || 'No notes added.'}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -392,7 +651,10 @@ function TeachingPointBlock({ tp, index, accent, outline, isEditable, onUpdate, 
 }) {
     const [selectedImgId, setSelectedImgId] = useState<string | null>(null)
     const [uploading,     setUploading]     = useState(false)
+    const [collapsed, setCollapsed] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
+    const dpRefs   = useRef<(HTMLElement | null)[]>([])
+    const vpRefs   = useRef<(HTMLElement | null)[]>([])
 
     const images    = tp.images ?? []
     const freeImgs  = images.filter(img => img.position === 'free')
@@ -432,6 +694,36 @@ function TeachingPointBlock({ tp, index, accent, outline, isEditable, onUpdate, 
         const file = e.target.files?.[0]
         if (file) await uploadFile(file)
         if (inputRef.current) inputRef.current.value = ''
+    }
+
+    function handleDpKeyDown(e: React.KeyboardEvent<HTMLElement>, dpIdx: number, dp: TrainingGuideDotPoint) {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            const next = { id: uid(), text: '', indent: dp.indent ?? 0 }
+            const updated = [...tp.dotPoints]
+            updated.splice(dpIdx + 1, 0, next)
+            onUpdate({ dotPoints: updated })
+            setTimeout(() => dpRefs.current[dpIdx + 1]?.focus(), 0)
+        } else if (e.key === 'Tab') {
+            e.preventDefault()
+            const delta = e.shiftKey ? -1 : 1
+            onUpdate({ dotPoints: tp.dotPoints.map((p, i) => i === dpIdx ? { ...p, indent: Math.max(0, Math.min(9, (p.indent ?? 0) + delta)) } : p) })
+        }
+    }
+
+    function handleVpKeyDown(e: React.KeyboardEvent<HTMLElement>, vpIdx: number, vp: TrainingGuideVitalPoint) {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            const next = { id: uid(), text: '', indent: vp.indent ?? 0 }
+            const updated = [...tp.vitalPoints]
+            updated.splice(vpIdx + 1, 0, next)
+            onUpdate({ vitalPoints: updated })
+            setTimeout(() => vpRefs.current[vpIdx + 1]?.focus(), 0)
+        } else if (e.key === 'Tab') {
+            e.preventDefault()
+            const delta = e.shiftKey ? -1 : 1
+            onUpdate({ vitalPoints: tp.vitalPoints.map((p, i) => i === vpIdx ? { ...p, indent: Math.max(0, Math.min(9, (p.indent ?? 0) + delta)) } : p) })
+        }
     }
 
     // Free image drag: DOM manipulation for zero-lag movement, click-vs-drag on mouseup
@@ -482,16 +774,21 @@ function TeachingPointBlock({ tp, index, accent, outline, isEditable, onUpdate, 
 
     return (
         <div style={{ border: `1px solid ${outline}30`, marginBottom: 28 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: `1px solid ${outline}20`, background: `${accent}10` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderBottom: collapsed ? 'none' : `1px solid ${outline}20`, background: `${accent}10`, cursor: 'pointer' }}
+                onClick={() => setCollapsed(c => !c)}>
+                <svg width='12' height='12' viewBox='0 0 14 14' style={{ transition: 'transform 0.2s', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)', flexShrink: 0, color: outline }} onClick={e => { e.stopPropagation(); setCollapsed(c => !c) }}>
+                    <path d='M2 4l5 5 5-5' stroke='currentColor' strokeWidth='2' fill='none' strokeLinecap='round' strokeLinejoin='round' />
+                </svg>
                 <div style={{ width: 30, height: 30, borderRadius: '50%', background: accent, color: '#fff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Oswald', Arial, sans-serif", fontWeight: 700, fontSize: '0.88rem' }}>{index + 1}</div>
-                <div style={{ flex: 1, fontFamily: "'Oswald', Arial, sans-serif", fontSize: '1rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: TEXT_PRIMARY }}>
+                <div style={{ flex: 1, fontFamily: "'Oswald', Arial, sans-serif", fontSize: '1rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: TEXT_PRIMARY }}
+                    onClick={e => e.stopPropagation()}>
                     <EditInput value={tp.title} onChange={v => onUpdate({ title: v })} placeholder='Teaching Point Title' disabled={!isEditable}
                         style={{ fontFamily: "'Oswald', Arial, sans-serif", fontSize: '1rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: TEXT_PRIMARY }} />
                 </div>
-                {isEditable && <button onClick={onRemove} style={{ ...delBtnSx, color: 'rgba(219,0,29,0.6)' }}><DeleteOutlineIcon sx={{ fontSize: 16 }} /></button>}
+                {isEditable && <button onClick={e => { e.stopPropagation(); onRemove() }} style={{ ...delBtnSx, color: 'rgba(219,0,29,0.6)' }}><DeleteOutlineIcon sx={{ fontSize: 16 }} /></button>}
             </div>
 
-            <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.07)', position: 'relative', minHeight: 60 }}>
+            {!collapsed && <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.07)', position: 'relative', minHeight: 60 }}>
 
                 {/* ── Free images — absolutely positioned, drag to move */}
                 {freeImgs.map(img => {
@@ -558,11 +855,13 @@ function TeachingPointBlock({ tp, index, accent, outline, isEditable, onUpdate, 
                 {/* ── Dot points — flows around any floated images above */}
                 <div style={{ fontFamily: 'Arial, sans-serif', fontSize: '0.86rem', lineHeight: 1.6, marginBottom: 12 }}>
                     {tp.dotPoints.map((dp, dpIdx) => (
-                        <div key={dp.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 6 }}>
-                            <span style={{ color: accent, flexShrink: 0, marginTop: 2, fontSize: '0.7rem' }}>●</span>
+                        <div key={dp.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 6, paddingLeft: (dp.indent ?? 0) * 20 }}>
+                            <span style={{ color: accent, flexShrink: 0, marginTop: 2, fontSize: '0.7rem' }}>{(['●', '○', '■', '□'] as const)[(dp.indent ?? 0) % 4]}</span>
                             <div style={{ flex: 1 }}>
-                                <AutoTextarea value={dp.text} onChange={v => onUpdate({ dotPoints: tp.dotPoints.map((p, i) => i === dpIdx ? { ...p, text: v } : p) })}
-                                    placeholder='Dot point' disabled={!isEditable} style={{ fontSize: '0.86rem', fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY }} />
+                                <RichText value={dp.text} onChange={v => onUpdate({ dotPoints: tp.dotPoints.map((p, i) => i === dpIdx ? { ...p, text: v } : p) })}
+                                    placeholder='Dot point' disabled={!isEditable} style={{ fontSize: '0.86rem', fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY }}
+                                    onKeyDown={isEditable ? e => handleDpKeyDown(e, dpIdx, dp) : undefined}
+                                    divRef={el => { dpRefs.current[dpIdx] = el }} />
                             </div>
                             {isEditable && <button onClick={() => onUpdate({ dotPoints: tp.dotPoints.filter((_, i) => i !== dpIdx) })} style={delBtnSx}><DeleteOutlineIcon sx={{ fontSize: 13 }} /></button>}
                         </div>
@@ -582,11 +881,13 @@ function TeachingPointBlock({ tp, index, accent, outline, isEditable, onUpdate, 
                             <span style={{ fontFamily: "'Oswald', Arial, sans-serif", fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: outline }}>Vital Points</span>
                         </div>
                         {tp.vitalPoints.map((vp, vpIdx) => (
-                            <div key={vp.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 5, fontFamily: 'Arial, sans-serif', fontSize: '0.84rem' }}>
-                                <span style={{ color: outline, flexShrink: 0, marginTop: 2, fontSize: '0.68rem' }}>●</span>
+                            <div key={vp.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 5, fontFamily: 'Arial, sans-serif', fontSize: '0.84rem', paddingLeft: (vp.indent ?? 0) * 20 }}>
+                                <span style={{ color: outline, flexShrink: 0, marginTop: 2, fontSize: '0.68rem' }}>{(['●', '○', '■', '□'] as const)[(vp.indent ?? 0) % 4]}</span>
                                 <div style={{ flex: 1 }}>
-                                    <AutoTextarea value={vp.text} onChange={v => onUpdate({ vitalPoints: tp.vitalPoints.map((p, i) => i === vpIdx ? { ...p, text: v } : p) })}
-                                        placeholder='Vital point' disabled={!isEditable} style={{ fontSize: '0.84rem', fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY }} />
+                                    <RichText value={vp.text} onChange={v => onUpdate({ vitalPoints: tp.vitalPoints.map((p, i) => i === vpIdx ? { ...p, text: v } : p) })}
+                                        placeholder='Vital point' disabled={!isEditable} style={{ fontSize: '0.84rem', fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY }}
+                                        onKeyDown={isEditable ? e => handleVpKeyDown(e, vpIdx, vp) : undefined}
+                                        divRef={el => { vpRefs.current[vpIdx] = el }} />
                                 </div>
                                 {isEditable && <button onClick={() => onUpdate({ vitalPoints: tp.vitalPoints.filter((_, i) => i !== vpIdx) })} style={delBtnSx}><DeleteOutlineIcon sx={{ fontSize: 13 }} /></button>}
                             </div>
@@ -610,11 +911,11 @@ function TeachingPointBlock({ tp, index, accent, outline, isEditable, onUpdate, 
                                 {tp.commonFaults.map((cf, cfIdx) => (
                                     <tr key={cf.id} style={{ background: cfIdx % 2 === 0 ? DARK_BG : DARK_BG_ALT, borderBottom: `1px solid ${BORDER}` }}>
                                         <td style={{ padding: '6px 12px', verticalAlign: 'top', color: TEXT_PRIMARY }}>
-                                            <AutoTextarea value={cf.fault} onChange={v => onUpdate({ commonFaults: tp.commonFaults.map((f, i) => i === cfIdx ? { ...f, fault: v } : f) })}
+                                            <RichText value={cf.fault} onChange={v => onUpdate({ commonFaults: tp.commonFaults.map((f, i) => i === cfIdx ? { ...f, fault: v } : f) })}
                                                 placeholder='Fault description' disabled={!isEditable} style={{ fontSize: '0.83rem', fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY }} />
                                         </td>
                                         <td style={{ padding: '6px 12px', verticalAlign: 'top', color: TEXT_PRIMARY }}>
-                                            <AutoTextarea value={cf.correction} onChange={v => onUpdate({ commonFaults: tp.commonFaults.map((f, i) => i === cfIdx ? { ...f, correction: v } : f) })}
+                                            <RichText value={cf.correction} onChange={v => onUpdate({ commonFaults: tp.commonFaults.map((f, i) => i === cfIdx ? { ...f, correction: v } : f) })}
                                                 placeholder='Correction' disabled={!isEditable} style={{ fontSize: '0.83rem', fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY }} />
                                         </td>
                                         {isEditable && <td style={{ padding: '4px 4px 4px 0', verticalAlign: 'middle' }}><button onClick={() => onUpdate({ commonFaults: tp.commonFaults.filter((_, i) => i !== cfIdx) })} style={delBtnSx}><DeleteOutlineIcon sx={{ fontSize: 13 }} /></button></td>}
@@ -673,7 +974,121 @@ function TeachingPointBlock({ tp, index, accent, outline, isEditable, onUpdate, 
                 )}
 
                 <div style={{ clear: 'both' }} />
+            </div>}
+        </div>
+    )
+}
+
+// ─── Revision section ────────────────────────────────────────────────────────
+function RevisionSection({ topics, isEditable, accent, outline, onUpdate, onDeleteSection, onColorChange, scheduleSave }: {
+    topics: RevisionTopic[]; isEditable: boolean; accent: string; outline: string
+    onUpdate: (updated: RevisionTopic[]) => void
+    onDeleteSection: () => void
+    onColorChange: (color: string) => void
+    scheduleSave: () => void
+}) {
+    const qRefs    = useRef<(HTMLElement | null)[][]>([])
+    const [collapsed, setCollapsed] = useState(false)
+
+    function updateTopic(idx: number, patch: Partial<RevisionTopic>) {
+        onUpdate(topics.map((t, i) => i === idx ? { ...t, ...patch } : t))
+        scheduleSave()
+    }
+
+    function handleQKeyDown(e: React.KeyboardEvent<HTMLElement>, topicIdx: number, qIdx: number, q: RevisionQuestion) {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            const next = { id: uid(), text: '', indent: q.indent ?? 0 }
+            const updated = [...topics[topicIdx].questions]
+            updated.splice(qIdx + 1, 0, next)
+            updateTopic(topicIdx, { questions: updated })
+            setTimeout(() => qRefs.current[topicIdx]?.[qIdx + 1]?.focus(), 0)
+        } else if (e.key === 'Tab') {
+            e.preventDefault()
+            const delta = e.shiftKey ? -1 : 1
+            updateTopic(topicIdx, {
+                questions: topics[topicIdx].questions.map((p, i) =>
+                    i === qIdx ? { ...p, indent: Math.max(0, Math.min(9, (p.indent ?? 0) + delta)) } : p
+                )
+            })
+        }
+    }
+
+    return (
+        <div style={{ marginBottom: 28 }}>
+            {/* Header row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: collapsed ? 0 : 12, paddingBottom: 8, borderBottom: `2px solid ${accent}` }}>
+                <button
+                    onClick={() => setCollapsed(c => !c)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: accent, padding: '0 2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                    title={collapsed ? 'Expand revision section' : 'Collapse revision section'}
+                >
+                    <svg width='14' height='14' viewBox='0 0 14 14' style={{ transition: 'transform 0.2s', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>
+                        <path d='M2 4l5 5 5-5' stroke='currentColor' strokeWidth='2' fill='none' strokeLinecap='round' strokeLinejoin='round' />
+                    </svg>
+                </button>
+                <h2 style={{ fontFamily: "'Oswald', Arial, sans-serif", fontSize: '1.1rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: accent, margin: 0, flex: 1 }}>
+                    Revision (Pre-Learning Check)
+                </h2>
+                {isEditable && (
+                    <label title='Revision section colour' style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 4 }}>
+                        <div style={{ width: 16, height: 16, borderRadius: '50%', background: accent, border: '2px solid rgba(255,255,255,0.2)', flexShrink: 0 }} />
+                        <input type='color' value={accent} onChange={e => onColorChange(e.target.value)}
+                            style={{ width: 0, height: 0, opacity: 0, position: 'absolute', pointerEvents: 'none' }}
+                            ref={el => { if (el) (el.parentElement as HTMLLabelElement).onclick = () => el.click() }} />
+                    </label>
+                )}
+                {isEditable && (
+                    <button onClick={onDeleteSection} style={{ ...delBtnSx }} title='Remove revision section'>
+                        <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                    </button>
+                )}
             </div>
+
+            {!collapsed && (
+                <>
+                    {topics.map((topic, topicIdx) => {
+                        if (!qRefs.current[topicIdx]) qRefs.current[topicIdx] = []
+                        return (
+                            <div key={topic.id} style={{ border: `1px solid ${accent}40`, marginBottom: 16 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${accent}25`, background: `${accent}18` }}>
+                                    <div style={{ width: 26, height: 26, borderRadius: '50%', background: accent, color: '#fff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Oswald', Arial, sans-serif", fontWeight: 700, fontSize: '0.82rem' }}>{topicIdx + 1}</div>
+                                    <div style={{ flex: 1, fontFamily: "'Oswald', Arial, sans-serif", fontSize: '0.95rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: TEXT_PRIMARY }}>
+                                        <EditInput value={topic.title} onChange={v => updateTopic(topicIdx, { title: v })} placeholder='Revision Topic' disabled={!isEditable}
+                                            style={{ fontFamily: "'Oswald', Arial, sans-serif", fontSize: '0.95rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: TEXT_PRIMARY }} />
+                                    </div>
+                                    {isEditable && <button onClick={() => { onUpdate(topics.filter((_, i) => i !== topicIdx)); scheduleSave() }} style={delBtnSx}><DeleteOutlineIcon sx={{ fontSize: 16 }} /></button>}
+                                </div>
+                                <div style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.07)', fontFamily: 'Arial, sans-serif', fontSize: '0.86rem', lineHeight: 1.6 }}>
+                                    {topic.questions.map((q, qIdx) => (
+                                        <div key={q.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 6, paddingLeft: (q.indent ?? 0) * 20 }}>
+                                            <span style={{ color: accent, flexShrink: 0, marginTop: 2, fontSize: '0.7rem' }}>{(['●', '○', '■', '□'] as const)[(q.indent ?? 0) % 4]}</span>
+                                            <div style={{ flex: 1 }}>
+                                                <RichText value={q.text}
+                                                    onChange={v => updateTopic(topicIdx, { questions: topic.questions.map((p, i) => i === qIdx ? { ...p, text: v } : p) })}
+                                                    placeholder='Revision Point / Question'
+                                                    disabled={!isEditable}
+                                                    style={{ fontSize: '0.86rem', fontFamily: 'Arial, sans-serif', color: TEXT_PRIMARY }}
+                                                    onKeyDown={isEditable ? e => handleQKeyDown(e, topicIdx, qIdx, q) : undefined}
+                                                    divRef={el => { qRefs.current[topicIdx][qIdx] = el }} />
+                                            </div>
+                                            {isEditable && <button onClick={() => updateTopic(topicIdx, { questions: topic.questions.filter((_, i) => i !== qIdx) })} style={delBtnSx}><DeleteOutlineIcon sx={{ fontSize: 13 }} /></button>}
+                                        </div>
+                                    ))}
+                                    {isEditable && <button onClick={() => updateTopic(topicIdx, { questions: [...topic.questions, { id: uid(), text: '', indent: 0 }] })} style={addBtnSx}><AddIcon sx={{ fontSize: 11 }} /> Add question</button>}
+                                </div>
+                            </div>
+                        )
+                    })}
+
+                    {isEditable && (
+                        <button onClick={() => { onUpdate([...topics, blankRevisionTopic()]); scheduleSave() }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: `1.5px dashed ${accent}60`, cursor: 'pointer', padding: '8px 16px', color: accent, fontFamily: "'Oswald', Arial, sans-serif", fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', width: '100%', justifyContent: 'center', marginBottom: 8 }}>
+                            <AddIcon sx={{ fontSize: 14 }} /> Add Revision Topic
+                        </button>
+                    )}
+                </>
+            )}
         </div>
     )
 }

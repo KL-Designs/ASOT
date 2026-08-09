@@ -53,6 +53,8 @@ type NotificationType =
     | 'training_doc_submitted'          // J3 leads: trainer submitted a document for review
     | 'training_doc_approved'           // Trainer: your submitted document was approved
     | 'training_doc_rejected'           // Trainer: your submitted document was rejected
+    | 'training_doc_deleted'            // J3 leads: a document was deleted
+    | 'training_guide_deleted'          // J3 leads: a training guide was deleted
     | 'training_qualification_awarded'  // Member: qualification added to milpac
     | 'training_reminder'               // Member: 60-min or 15-min reminder before training event
     | 'training_ticket_pending'         // J3 leads: new ticket needs review

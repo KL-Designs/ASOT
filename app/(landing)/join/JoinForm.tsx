@@ -14,13 +14,16 @@ import { containsOffensiveWord } from '@/lib/offensive-words'
 const REGIONS = ['Oceania', 'Asia', 'Europe', 'North America', 'South America', 'Middle East', 'Africa']
 const NIGHTS = ['Saturday', 'Sunday', 'Both', 'Flexible']
 const OPS_PER_MONTH = ['1+', '2+', '3+', '4+']
-const PRIMARY_ROLES = [
-    'Infantry', 'Combat First Aider (CFA)', 'Advanced Medic',
-    'Rotary Aviation', 'Armoured Crew',
-    'Machine Gunner', 'Medium Anti-Tank', 'Engineer',
-    'Logistics', 'Indirect Fire', 'Heavy Weapons',
+const ROLE_OPTIONS = [
+    'Infantry', 'Combat First Aider (Section Medic)', 'Combat Engineers',
+    'Indirect Fire & Heavy Weapons', 'Aviation',
+    'Medical Emergency Response Team', 'Cavalry',
 ]
-const ADDITIONAL_ROLES = PRIMARY_ROLES
+const HEARD_ABOUT_OPTIONS = [
+    'A friend', 'Google', 'ARMA Discord', 'Friend of unit', 'Facebook',
+    'Community Discords', 'Bohemia Forums', 'Reddit', 'Steam',
+    'In-game browser', 'YouTube', 'Returning member', 'Twitter',
+]
 const DEPARTMENTS = [
     'J1 — Recruitment', 'J2 — Mission Making', 'J3 — Training',
     'J4 — Company Headquarters', 'J5 — Media',
@@ -185,8 +188,11 @@ export default function JoinForm() {
         availableNights: '',
         opsPerMonth: '',
         primaryRole: '',
+        secondaryRole: '',
         additionalRoles: [] as string[],
         departmentInterest: [] as string[],
+        heardAbout: '',
+        heardAboutOther: '',
         ownsArma: true,
         experience: '',
         website: '',
@@ -367,9 +373,9 @@ export default function JoinForm() {
             case 1: return !!discord
             case 2: return steamStatus === 'resolved'
             case 3: return !!fields.inGameName.trim() && nameStatus === 'available' && !nameOffensive
-            case 4: return !!fields.age && !!fields.region
+            case 4: return !!fields.age && !!fields.region && !!fields.heardAbout && (fields.heardAbout !== 'Other' || !!fields.heardAboutOther.trim())
             case 5: return !!fields.availableNights && !!fields.opsPerMonth
-            case 6: return !!fields.primaryRole
+            case 6: return !!fields.primaryRole && !!fields.secondaryRole
             default: return true
         }
     }
@@ -734,6 +740,25 @@ export default function JoinForm() {
                     {fields.dualClan && (
                         <TextField label='Current unit / group' placeholder='List your current group(s)' value={fields.currentUnit} onChange={set('currentUnit')} fullWidth multiline minRows={2} inputProps={{ maxLength: 500 }} sx={inputSx} />
                     )}
+                    <FormControl required sx={inputSx}>
+                        <InputLabel>How did you hear about us?</InputLabel>
+                        <Select value={fields.heardAbout} label='How did you hear about us?' onChange={e => setSelect('heardAbout')(e.target.value)}>
+                            {HEARD_ABOUT_OPTIONS.map(o => <MenuItem key={o} value={o} style={{ fontSize: '0.85rem' }}>{o}</MenuItem>)}
+                            <MenuItem value='Other' style={{ fontSize: '0.85rem' }}>Other</MenuItem>
+                        </Select>
+                    </FormControl>
+                    {fields.heardAbout === 'Other' && (
+                        <TextField
+                            label='Please specify'
+                            placeholder='Tell us where you heard about ASOT'
+                            value={fields.heardAboutOther}
+                            onChange={set('heardAboutOther')}
+                            required
+                            fullWidth
+                            inputProps={{ maxLength: 200 }}
+                            sx={inputSx}
+                        />
+                    )}
                     {nav}
                 </div>
             )}
@@ -764,17 +789,26 @@ export default function JoinForm() {
             {/* ── Step 6: Roles ── */}
             {step === 6 && (
                 <div className='flex flex-col gap-4'>
-                    {sectionLabel('Step 6 — Role Interest', "Pick your preferred role. All new members receive onboarding — you'll be trained before being assigned to a section.")}
-                    <FormControl required sx={inputSx}>
-                        <InputLabel>Primary role</InputLabel>
-                        <Select value={fields.primaryRole} label='Primary role' onChange={e => setSelect('primaryRole')(e.target.value)}>
-                            {PRIMARY_ROLES.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
-                        </Select>
-                    </FormControl>
+                    {sectionLabel('Step 6 — Role Interest', "Select your primary and secondary role preferences. All new members complete the Reinforcement Cycle before being assigned to a section.")}
+                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                        <FormControl required sx={inputSx}>
+                            <InputLabel>Primary role preference</InputLabel>
+                            <Select value={fields.primaryRole} label='Primary role preference' onChange={e => setSelect('primaryRole')(e.target.value)}>
+                                {ROLE_OPTIONS.map(r => <MenuItem key={r} value={r} style={{ fontSize: '0.85rem' }}>{r}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+                        <FormControl required sx={inputSx}>
+                            <InputLabel>Secondary role preference</InputLabel>
+                            <Select value={fields.secondaryRole} label='Secondary role preference' onChange={e => setSelect('secondaryRole')(e.target.value)}>
+                                {ROLE_OPTIONS.map(r => <MenuItem key={r} value={r} style={{ fontSize: '0.85rem' }}>{r}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+                    </div>
                     <div>
-                        <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)', marginBottom: 8 }}>Additional role interests (optional)</div>
+                        <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)', marginBottom: 4 }}>Additional role interests (optional)</div>
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.25)', marginBottom: 8 }}>Select any other roles you may be interested in — your primary and secondary preferences take priority.</div>
                         <FormGroup row sx={{ gap: 0 }}>
-                            {ADDITIONAL_ROLES.map(r => (
+                            {ROLE_OPTIONS.map(r => (
                                 <FormControlLabel key={r}
                                     control={<Checkbox size='small' checked={fields.additionalRoles.includes(r)} onChange={() => toggleCheck('additionalRoles', r)} sx={{ color: 'rgba(219,0,29,0.4)', '&.Mui-checked': { color: 'var(--red)' }, padding: '4px 6px' }} />}
                                     label={<span style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.65)' }}>{r}</span>}

@@ -205,11 +205,11 @@ export default function TrainingGuideImportTab() {
                     )}
 
                     <Link
-                        href={`/dashboard/unit/training-hub/guide/${result.guideId}?from=hub`}
+                        href={`/dashboard/unit/training-hub/guide/${result.guideId}?from=j3`}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 4, color: 'rgba(237,237,237,0.55)', textDecoration: 'none', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}
                     >
                         <OpenInNew sx={{ fontSize: 13 }} />
-                        Open in Training Hub
+                        Open in J3 Training Hub
                     </Link>
                 </div>
             )}

@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Add, CheckCircle, Cancel, Delete, Edit, Refresh, Visibility, VisibilityOff, DragIndicator, Article, VideoLibrary } from '@mui/icons-material'
+import { Add, CheckCircle, Cancel, Delete, Edit, Refresh, Visibility, VisibilityOff, DragIndicator, Article, VideoLibrary, SmartDisplay } from '@mui/icons-material'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -87,6 +87,9 @@ type TDoc = {
     uploadedById: string
     uploadedByName: string
     approvedByName?: string
+    deletedAt?: string
+    deletedById?: string
+    deletedByName?: string
 }
 
 type MediaEntry = { type: 'video' | 'file' | 'url'; label: string; url: string }
@@ -317,6 +320,11 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
     const [approvingDocId, setApprovingDocId] = useState<string | null>(null)
     const [rejectDocModal, setRejectDocModal] = useState<{ docId: string; typeId: string; note: string } | null>(null)
     const [rejectingDoc, setRejectingDoc] = useState(false)
+    const [deleteDocModal, setDeleteDocModal] = useState<{ typeId: string; docId: string; docTitle: string } | null>(null)
+    const [showDeletedDocs, setShowDeletedDocs] = useState<Record<string, boolean>>({})
+    const [deletedDocsCache, setDeletedDocsCache] = useState<Record<string, TDoc[]>>({})
+    const [loadingDeletedDocs, setLoadingDeletedDocs] = useState<string | null>(null)
+    const [restoringDocId, setRestoringDocId] = useState<string | null>(null)
 
     // Add-doc mode: when addDocTypeId is set, 'pick' shows two options, 'url' shows form, 'guide' was used to create
     const [addDocMode, setAddDocMode] = useState<'pick' | 'url'>('pick')
@@ -342,20 +350,26 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
     const [createInstanceModal, setCreateInstanceModal] = useState<{ typeId: string; typeName: string; courseType: string; session1Date: string } | null>(null)
     const [deleteInstanceModal, setDeleteInstanceModal] = useState<{ instanceId: string; typeId: string; instanceRef: string } | null>(null)
 
-    // Per-course upload form state
+    // Per-course add video form state
     const [courseUploadTypeId, setCourseUploadTypeId] = useState<string | null>(null)
-    const [courseUploadTitle, setCourseUploadTitle]   = useState('')
-    const [courseUploadDesc,  setCourseUploadDesc]    = useState('')
-    const [courseUploadFile,  setCourseUploadFile]    = useState<File | null>(null)
-    const [courseUploading,   setCourseUploading]     = useState(false)
-    const [courseUploadPct,   setCourseUploadPct]     = useState(0)
-    const courseFileRef = useRef<HTMLInputElement>(null)
+    const [courseUploadTitle,  setCourseUploadTitle]  = useState('')
+    const [courseUploadDesc,   setCourseUploadDesc]   = useState('')
+    const [courseYoutubeUrl,   setCourseYoutubeUrl]   = useState('')
+    const [courseAdding,       setCourseAdding]       = useState(false)
 
     // Training Documents tab state
     const [allGuides, setAllGuides]           = useState<TrainingGuide[]>([])
     const [allGuidesLoading, setAllGuidesLoading] = useState(false)
     const [linkingGuideId, setLinkingGuideId] = useState<string | null>(null)
     const [linkTarget, setLinkTarget]         = useState<string>('')
+    const [deleteGuideModal, setDeleteGuideModal] = useState<{ guideId: string; guideTitle: string } | null>(null)
+    const [deletingGuide, setDeletingGuide]   = useState(false)
+    const [showDeletedGuides, setShowDeletedGuides] = useState(false)
+    const [deletedGuidesCache, setDeletedGuidesCache] = useState<TrainingGuide[]>([])
+    const [loadingDeletedGuides, setLoadingDeletedGuides] = useState(false)
+    const [restoringGuideId, setRestoringGuideId] = useState<string | null>(null)
+    const [deletedGuideView, setDeletedGuideView] = useState<TrainingGuide | null>(null)
+    const [loadingGuideView, setLoadingGuideView] = useState<string | null>(null)
 
     // dnd-kit sensors
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
@@ -560,26 +574,22 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
         router.push(`/dashboard/unit/training-hub/guide/${guideId}?from=${isJ3Context ? 'j3' : 'hub'}`)
     }
 
-    async function handleCourseVideoUpload(typeId: string) {
-        if (courseUploading || !courseUploadFile || !courseUploadTitle.trim()) return
-        setCourseUploading(true)
-        setCourseUploadPct(0)
+    function extractYouTubeId(url: string): string | null {
+        for (const re of [/[?&]v=([^&]+)/, /youtu\.be\/([^?&/]+)/, /youtube\.com\/embed\/([^?&/]+)/]) {
+            const m = re.exec(url)
+            if (m) return m[1]
+        }
+        return null
+    }
+
+    async function handleCourseVideoAdd(typeId: string) {
+        if (courseAdding || !courseYoutubeUrl.trim() || !courseUploadTitle.trim()) return
+        setCourseAdding(true)
         try {
-            const fd = new FormData()
-            fd.append('file', courseUploadFile)
-            const xhr = new XMLHttpRequest()
-            const uploadResult = await new Promise<{ url: string; filename: string }>((resolve, reject) => {
-                xhr.upload.onprogress = e => { if (e.lengthComputable) setCourseUploadPct(Math.round((e.loaded / e.total) * 90)) }
-                xhr.onload = () => { if (xhr.status === 200) resolve(JSON.parse(xhr.responseText)); else reject(new Error(xhr.responseText)) }
-                xhr.onerror = () => reject(new Error('Upload failed'))
-                xhr.open('POST', '/api/training-videos/upload')
-                xhr.send(fd)
-            })
-            setCourseUploadPct(95)
             const res = await fetch(`/api/training/types/${typeId}/videos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: courseUploadTitle.trim(), url: uploadResult.url, filename: uploadResult.filename, description: courseUploadDesc.trim() || undefined }),
+                body: JSON.stringify({ title: courseUploadTitle.trim(), url: courseYoutubeUrl.trim(), description: courseUploadDesc.trim() || undefined }),
             })
             if (!res.ok) return
             const created = await res.json()
@@ -587,10 +597,9 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             setCourseUploadTypeId(null)
             setCourseUploadTitle('')
             setCourseUploadDesc('')
-            setCourseUploadFile(null)
-            setCourseUploadPct(0)
+            setCourseYoutubeUrl('')
         } finally {
-            setCourseUploading(false)
+            setCourseAdding(false)
         }
     }
 
@@ -633,6 +642,53 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
         setLinkTarget('')
     }
 
+    async function handleConfirmDeleteGuide() {
+        if (!deleteGuideModal || deletingGuide) return
+        setDeletingGuide(true)
+        try {
+            const res = await fetch(`/api/training-guides/${deleteGuideModal.guideId}`, { method: 'DELETE' })
+            if (!res.ok) return
+            setAllGuides(prev => prev.filter(g => String(g._id) !== deleteGuideModal.guideId))
+            setDeleteGuideModal(null)
+        } finally {
+            setDeletingGuide(false)
+        }
+    }
+
+    async function handleLoadDeletedGuides() {
+        if (loadingDeletedGuides) return
+        setLoadingDeletedGuides(true)
+        try {
+            const res = await fetch('/api/training-guides?deleted=true')
+            if (res.ok) { const data = await res.json(); setDeletedGuidesCache(Array.isArray(data) ? data : []) }
+        } finally { setLoadingDeletedGuides(false) }
+    }
+
+    async function handleRestoreGuide(guideId: string) {
+        if (restoringGuideId) return
+        setRestoringGuideId(guideId)
+        try {
+            const res = await fetch(`/api/training-guides/${guideId}/restore`, { method: 'POST' })
+            if (!res.ok) return
+            const restored = deletedGuidesCache.find(g => String(g._id) === guideId)
+            if (restored) {
+                setDeletedGuidesCache(prev => prev.filter(g => String(g._id) !== guideId))
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { deletedAt, deletedById, deletedByName, ...rest } = restored
+                setAllGuides(prev => [...prev, rest as TrainingGuide])
+            }
+        } finally { setRestoringGuideId(null) }
+    }
+
+    async function handleViewDeletedGuide(guideId: string) {
+        if (loadingGuideView) return
+        setLoadingGuideView(guideId)
+        try {
+            const res = await fetch(`/api/training-guides/${guideId}`)
+            if (res.ok) setDeletedGuideView(await res.json())
+        } finally { setLoadingGuideView(null) }
+    }
+
     async function handleToggleVideos(typeId: string) {
         if (videosExpanded === typeId) { setVideosExpanded(null); return }
         setVideosExpanded(typeId)
@@ -671,15 +727,56 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
         }
     }
 
-    async function handleDeleteDoc(typeId: string, docId: string) {
-        if (deletingDocId) return
+    function handleDeleteDoc(typeId: string, docId: string, docTitle: string) {
+        setDeleteDocModal({ typeId, docId, docTitle })
+    }
+
+    async function handleConfirmDeleteDoc() {
+        if (!deleteDocModal || deletingDocId) return
+        const { typeId, docId } = deleteDocModal
         setDeletingDocId(docId)
+        setDeleteDocModal(null)
         try {
             const res = await fetch(`/api/training/types/${typeId}/docs/${docId}`, { method: 'DELETE' })
             if (!res.ok) return
             setDocsCache(prev => ({ ...prev, [typeId]: (prev[typeId] ?? []).filter(d => d._id !== docId) }))
+            // If the deleted docs panel is open for this type, refresh it
+            if (showDeletedDocs[typeId]) {
+                setLoadingDeletedDocs(typeId)
+                try {
+                    const r2 = await fetch(`/api/training/types/${typeId}/docs?deleted=true`)
+                    if (r2.ok) { const d = await r2.json(); setDeletedDocsCache(prev => ({ ...prev, [typeId]: d.docs ?? [] })) }
+                } finally { setLoadingDeletedDocs(null) }
+            }
         } finally {
             setDeletingDocId(null)
+        }
+    }
+
+    async function handleLoadDeletedDocs(typeId: string) {
+        setLoadingDeletedDocs(typeId)
+        try {
+            const res = await fetch(`/api/training/types/${typeId}/docs?deleted=true`)
+            if (res.ok) { const d = await res.json(); setDeletedDocsCache(prev => ({ ...prev, [typeId]: d.docs ?? [] })) }
+        } finally { setLoadingDeletedDocs(null) }
+    }
+
+    async function handleRestoreDoc(typeId: string, docId: string) {
+        if (restoringDocId) return
+        setRestoringDocId(docId)
+        try {
+            const res = await fetch(`/api/training/types/${typeId}/docs/${docId}/restore`, { method: 'POST' })
+            if (!res.ok) return
+            const restored = deletedDocsCache[typeId]?.find(d => d._id === docId)
+            if (restored) {
+                setDeletedDocsCache(prev => ({ ...prev, [typeId]: (prev[typeId] ?? []).filter(d => d._id !== docId) }))
+                setDocsCache(prev => ({
+                    ...prev,
+                    [typeId]: prev[typeId] ? [...prev[typeId], { ...restored, deletedAt: undefined, deletedById: undefined, deletedByName: undefined }] : prev[typeId]
+                }))
+            }
+        } finally {
+            setRestoringDocId(null)
         }
     }
 
@@ -985,7 +1082,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                                         {doc.approvalStatus === 'pending' ? 'Pending Review' : 'Rejected'}
                                     </span>
                                 </div>
-                                <button type='button' onClick={() => handleDeleteDoc(t._id, doc._id)} disabled={deletingDocId === doc._id}
+                                <button type='button' onClick={() => handleDeleteDoc(t._id, doc._id, doc.title)} disabled={deletingDocId === doc._id}
                                     style={{ flexShrink: 0, padding: '3px 6px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.25)', fontSize: '0.55rem', cursor: deletingDocId === doc._id ? 'default' : 'pointer', opacity: deletingDocId === doc._id ? 0.4 : 1 }}>
                                     <Delete style={{ fontSize: 11 }} />
                                 </button>
@@ -1021,6 +1118,23 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     )
                 })()}
 
+                {isJ3Lead && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)' }}>
+                            Approved Documents
+                        </div>
+                        <button type='button'
+                            onClick={() => {
+                                const next = !showDeletedDocs[t._id]
+                                setShowDeletedDocs(prev => ({ ...prev, [t._id]: next }))
+                                if (next && deletedDocsCache[t._id] === undefined) handleLoadDeletedDocs(t._id)
+                            }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', color: 'rgba(219,0,29,0.4)', fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                            <Delete style={{ fontSize: 10 }} />
+                            Bin {deletedDocsCache[t._id]?.length ? `(${deletedDocsCache[t._id].length})` : ''}
+                        </button>
+                    </div>
+                )}
                 {docsLoading && docsCache[t._id] === undefined ? (
                     <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)' }}>Loading…</div>
                 ) : approvedDocs.length === 0 && addDocTypeId !== t._id ? (
@@ -1039,13 +1153,36 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                                 <div style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.18)', marginTop: 2, letterSpacing: '0.04em' }}>by {doc.uploadedByName}</div>
                             </div>
                             {isJ3Lead && (
-                                <button type='button' onClick={() => handleDeleteDoc(t._id, doc._id)} disabled={deletingDocId === doc._id}
+                                <button type='button' onClick={() => handleDeleteDoc(t._id, doc._id, doc.title)} disabled={deletingDocId === doc._id}
                                     style={{ flexShrink: 0, padding: '3px 6px', background: 'transparent', border: '1px solid rgba(219,0,29,0.15)', color: 'rgba(219,0,29,0.4)', fontSize: '0.55rem', cursor: deletingDocId === doc._id ? 'default' : 'pointer', opacity: deletingDocId === doc._id ? 0.4 : 1 }}>
                                     <Delete style={{ fontSize: 11 }} />
                                 </button>
                             )}
                         </div>
                     ))
+                )}
+                {isJ3Lead && showDeletedDocs[t._id] && (
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(219,0,29,0.1)' }}>
+                        <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.35)', marginBottom: 6 }}>
+                            Recycle Bin
+                        </div>
+                        {loadingDeletedDocs === t._id ? (
+                            <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)' }}>Loading…</div>
+                        ) : (deletedDocsCache[t._id] ?? []).length === 0 ? (
+                            <div style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.2)' }}>Recycle bin is empty</div>
+                        ) : (deletedDocsCache[t._id] ?? []).map(doc => (
+                            <div key={doc._id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 6, padding: '6px 8px', background: 'rgba(219,0,29,0.03)', border: '1px solid rgba(219,0,29,0.08)' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'rgba(237,237,237,0.3)', textDecoration: 'line-through', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</div>
+                                    <div style={{ fontSize: '0.52rem', color: 'rgba(237,237,237,0.18)', marginTop: 2 }}>Deleted by {doc.deletedByName}</div>
+                                </div>
+                                <button type='button' onClick={() => handleRestoreDoc(t._id, doc._id)} disabled={restoringDocId === doc._id}
+                                    style={{ flexShrink: 0, padding: '3px 8px', background: 'transparent', border: '1px solid rgba(80,200,120,0.25)', color: 'rgba(80,200,120,0.6)', fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: restoringDocId === doc._id ? 'default' : 'pointer', opacity: restoringDocId === doc._id ? 0.4 : 1 }}>
+                                    Restore
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 )}
 
 
@@ -1102,7 +1239,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)' }}>No video added yet</div>
                         {(isJ3Lead || isTrainer) && (
-                            <button type='button' onClick={() => { setCourseUploadTypeId(t._id); setCourseUploadTitle(''); setCourseUploadDesc(''); setCourseUploadFile(null) }}
+                            <button type='button' onClick={() => { setCourseUploadTypeId(t._id); setCourseUploadTitle(''); setCourseUploadDesc(''); setCourseYoutubeUrl('') }}
                                 style={{ display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', padding: '4px 9px', background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', color: 'rgba(219,0,29,0.6)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
                                 <Add style={{ fontSize: 11 }} /> Add Video
                             </button>
@@ -1110,36 +1247,32 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     </div>
                 )}
 
-                {/* Upload form */}
+                {/* Add video form */}
                 {isUploading && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <input value={courseUploadTitle} onChange={e => setCourseUploadTitle(e.target.value)} placeholder='Video title *' autoFocus style={smallInput} />
                         <input value={courseUploadDesc}  onChange={e => setCourseUploadDesc(e.target.value)}  placeholder='Description (optional)' style={smallInput} />
-                        <div
-                            onClick={() => courseFileRef.current?.click()}
-                            onDragOver={e => e.preventDefault()}
-                            onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) setCourseUploadFile(f) }}
-                            style={{ border: '1.5px dashed rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '12px 10px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                            <VideoLibrary style={{ fontSize: 14, color: 'rgba(237,237,237,0.25)' }} />
-                            <span style={{ fontSize: '0.62rem', color: courseUploadFile ? 'rgba(237,237,237,0.7)' : 'rgba(237,237,237,0.25)' }}>
-                                {courseUploadFile ? courseUploadFile.name : 'Click or drag video file…'}
-                            </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <SmartDisplay style={{ fontSize: 15, color: 'rgba(219,0,29,0.5)', flexShrink: 0 }} />
+                            <input type='url' value={courseYoutubeUrl} onChange={e => setCourseYoutubeUrl(e.target.value)}
+                                placeholder='https://www.youtube.com/watch?v=…'
+                                style={{ ...smallInput, flex: 1 }} />
                         </div>
-                        <input ref={courseFileRef} type='file' accept='video/*,.mkv' onChange={e => { const f = e.target.files?.[0]; if (f) setCourseUploadFile(f) }} style={{ display: 'none' }} />
-                        {courseUploading && (
-                            <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
-                                <div style={{ height: '100%', width: `${courseUploadPct}%`, background: RED, borderRadius: 2, transition: 'width 0.3s' }} />
-                            </div>
+                        {courseYoutubeUrl && !extractYouTubeId(courseYoutubeUrl) && (
+                            <div style={{ fontSize: '0.58rem', color: 'rgba(219,0,29,0.65)', paddingLeft: 21 }}>Not a recognised YouTube URL.</div>
+                        )}
+                        {courseYoutubeUrl && extractYouTubeId(courseYoutubeUrl) && (
+                            <div style={{ fontSize: '0.58rem', color: 'rgba(80,200,120,0.65)', paddingLeft: 21 }}>ID: {extractYouTubeId(courseYoutubeUrl)}</div>
                         )}
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                             <button type='button' onClick={() => setCourseUploadTypeId(null)}
                                 style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.35)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
                                 Cancel
                             </button>
-                            <button type='button' onClick={() => handleCourseVideoUpload(t._id)}
-                                disabled={!courseUploadFile || !courseUploadTitle.trim() || courseUploading}
-                                style={{ padding: '4px 10px', background: RED, border: 'none', color: '#fff', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', opacity: (!courseUploadFile || !courseUploadTitle.trim() || courseUploading) ? 0.4 : 1 }}>
-                                {courseUploading ? `Uploading ${courseUploadPct}%…` : 'Upload'}
+                            <button type='button' onClick={() => handleCourseVideoAdd(t._id)}
+                                disabled={!courseYoutubeUrl.trim() || !courseUploadTitle.trim() || courseAdding || !extractYouTubeId(courseYoutubeUrl)}
+                                style={{ padding: '4px 10px', background: RED, border: 'none', color: '#fff', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', opacity: (!courseYoutubeUrl.trim() || !courseUploadTitle.trim() || courseAdding || !extractYouTubeId(courseYoutubeUrl)) ? 0.4 : 1 }}>
+                                {courseAdding ? 'Adding…' : 'Add Video'}
                             </button>
                         </div>
                     </div>
@@ -1268,6 +1401,53 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             {/* Tab: Training Documents */}
             {tab === 'guides' && (
                 <div style={{ padding: 'clamp(1.5rem, 3vw, 2.5rem)', paddingTop: 24 }}>
+                    {/* Recycle bin toggle */}
+                    {isJ3Lead && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                            <button type='button' onClick={() => {
+                                const next = !showDeletedGuides
+                                setShowDeletedGuides(next)
+                                if (next && deletedGuidesCache.length === 0) handleLoadDeletedGuides()
+                            }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 11px', background: showDeletedGuides ? 'rgba(219,0,29,0.08)' : 'transparent', border: '1px solid rgba(219,0,29,0.22)', color: 'rgba(219,0,29,0.55)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                <Delete style={{ fontSize: 12 }} />
+                                Recycle Bin{deletedGuidesCache.length > 0 ? ` (${deletedGuidesCache.length})` : ''}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Deleted guides panel */}
+                    {isJ3Lead && showDeletedGuides && (
+                        <div style={{ marginBottom: 20, border: '1px solid rgba(219,0,29,0.15)', background: 'rgba(219,0,29,0.03)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 2 }}>
+                                Recycle Bin
+                            </div>
+                            {loadingDeletedGuides ? (
+                                <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)' }}>Loading…</div>
+                            ) : deletedGuidesCache.length === 0 ? (
+                                <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)' }}>No deleted guides.</div>
+                            ) : deletedGuidesCache.map(g => {
+                                const gId = String(g._id)
+                                return (
+                                    <div key={gId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <span style={{ fontSize: '0.58rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.2)', flexShrink: 0 }}>{g.docRef}</span>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(237,237,237,0.3)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'line-through' }}>{g.title || '(Untitled)'}</span>
+                                        <span style={{ fontSize: '0.52rem', color: 'rgba(237,237,237,0.18)', flexShrink: 0 }}>
+                                            Deleted by {g.deletedByName ?? '—'}
+                                        </span>
+                                        <button type='button' onClick={() => handleViewDeletedGuide(gId)} disabled={loadingGuideView === gId}
+                                            style={{ padding: '2px 9px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: loadingGuideView === gId ? 'default' : 'pointer', opacity: loadingGuideView === gId ? 0.4 : 1, flexShrink: 0 }}>
+                                            {loadingGuideView === gId ? '…' : 'View'}
+                                        </button>
+                                        <button type='button' onClick={() => handleRestoreGuide(gId)} disabled={restoringGuideId === gId}
+                                            style={{ padding: '2px 9px', background: 'transparent', border: '1px solid rgba(80,200,120,0.3)', color: 'rgba(80,200,120,0.65)', fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: restoringGuideId === gId ? 'default' : 'pointer', opacity: restoringGuideId === gId ? 0.4 : 1, flexShrink: 0 }}>
+                                            Restore
+                                        </button>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+
                     {allGuidesLoading ? (
                         <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.1em' }}>Loading…</div>
                     ) : allGuides.length === 0 ? (
@@ -1275,7 +1455,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 0, border: '1px solid rgba(255,255,255,0.07)' }}>
                             {/* Header row */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 100px 80px 1fr 120px', gap: 12, padding: '7px 14px', background: 'rgba(219,0,29,0.07)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: `90px 1fr 100px 80px 1fr ${isJ3Lead ? '160px' : '120px'}`, gap: 12, padding: '7px 14px', background: 'rgba(219,0,29,0.07)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                 {['Ref', 'Title', 'Type', 'Status', 'Linked Course', ''].map(h => (
                                     <div key={h} style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>{h}</div>
                                 ))}
@@ -1285,7 +1465,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                                 const linkedType = g.trainingTypeId ? types.find(t => t._id === g.trainingTypeId) : null
                                 const isLinking  = linkingGuideId === gId
                                 return (
-                                    <div key={gId} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 100px 80px 1fr 120px', gap: 12, padding: '9px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', background: 'rgba(255,255,255,0.01)' }}>
+                                    <div key={gId} style={{ display: 'grid', gridTemplateColumns: `90px 1fr 100px 80px 1fr ${isJ3Lead ? '160px' : '120px'}`, gap: 12, padding: '9px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', background: 'rgba(255,255,255,0.01)' }}>
                                         <div style={{ fontSize: '0.62rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.docRef}</div>
                                         <div style={{ fontSize: '0.73rem', fontWeight: 700, color: 'rgba(237,237,237,0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title || '(Untitled)'}</div>
                                         <div>
@@ -1323,10 +1503,19 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <button type='button' onClick={() => { setLinkingGuideId(gId); setLinkTarget(g.trainingTypeId ?? '') }}
-                                                    style={{ padding: '3px 7px', background: 'transparent', border: '1px solid rgba(219,0,29,0.18)', color: 'rgba(219,0,29,0.5)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
-                                                    {g.trainingTypeId ? 'Relink' : 'Link'}
-                                                </button>
+                                                <>
+                                                    <button type='button' onClick={() => { setLinkingGuideId(gId); setLinkTarget(g.trainingTypeId ?? '') }}
+                                                        style={{ padding: '3px 7px', background: 'transparent', border: '1px solid rgba(219,0,29,0.18)', color: 'rgba(219,0,29,0.5)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                                        {g.trainingTypeId ? 'Relink' : 'Link'}
+                                                    </button>
+                                                    {isJ3Lead && (
+                                                        <button type='button' onClick={() => setDeleteGuideModal({ guideId: gId, guideTitle: g.title || '(Untitled)' })}
+                                                            style={{ display: 'flex', alignItems: 'center', padding: '3px 6px', background: 'transparent', border: '1px solid rgba(219,0,29,0.15)', color: 'rgba(219,0,29,0.4)', cursor: 'pointer' }}
+                                                            title='Delete guide'>
+                                                            <Delete style={{ fontSize: 12 }} />
+                                                        </button>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     </div>
@@ -1621,6 +1810,203 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                             <button type='button' onClick={() => handleCreateInstance(createInstanceModal.typeId, createInstanceModal.session1Date || undefined)} disabled={creatingInstance}
                                 style={{ padding: '8px 20px', background: creatingInstance ? 'rgba(219,0,29,0.3)' : RED, border: 'none', color: '#fff', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: creatingInstance ? 'default' : 'pointer' }}>
                                 {creatingInstance ? 'Launching…' : 'Launch'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete doc confirmation modal */}
+            {deleteDocModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                    onClick={e => { if (e.target === e.currentTarget) setDeleteDocModal(null) }}>
+                    <div style={{ background: '#0d0d0d', border: '1px solid rgba(219,0,29,0.25)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.85)' }}>Delete Document</div>
+                        <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.6)', fontFamily: 'Arial, sans-serif' }}>
+                            Delete <strong style={{ color: 'rgba(237,237,237,0.85)' }}>{deleteDocModal.docTitle}</strong>? It will be moved to the recycle bin and can be restored later.
+                        </div>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <button onClick={handleConfirmDeleteDoc}
+                                style={{ flex: 1, padding: '9px', background: '#db001d', border: 'none', color: '#fff', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                Delete
+                            </button>
+                            <button onClick={() => setDeleteDocModal(null)}
+                                style={{ flex: 1, padding: '9px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.5)', fontSize: '0.65rem', cursor: 'pointer' }}>
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Deleted guide view modal */}
+            {deletedGuideView && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 300, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 24px', overflowY: 'auto' }}
+                    onClick={e => { if (e.target === e.currentTarget) setDeletedGuideView(null) }}>
+                    <div style={{ background: '#0d0d0d', border: '1px solid rgba(219,0,29,0.2)', borderTop: '3px solid rgba(219,0,29,0.5)', width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                        {/* Header */}
+                        <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                            <div>
+                                <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 5 }}>
+                                    Recycle Bin — Read-only Preview
+                                </div>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.85)' }}>
+                                    {deletedGuideView.title || '(Untitled)'}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                                    <span style={{ fontSize: '0.52rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.3)' }}>{deletedGuideView.docRef}</span>
+                                    <span style={{ fontSize: '0.45rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '1px 6px', border: deletedGuideView.guideType === 'training_document' ? '1px solid rgba(100,160,240,0.25)' : '1px solid rgba(219,0,29,0.25)', color: deletedGuideView.guideType === 'training_document' ? 'rgba(100,160,240,0.7)' : 'rgba(219,0,29,0.6)' }}>
+                                        {deletedGuideView.guideType === 'training_document' ? 'Document' : 'Guide'}
+                                    </span>
+                                    <span style={{ fontSize: '0.45rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '1px 6px', border: deletedGuideView.status === 'approved' ? '1px solid rgba(80,200,120,0.25)' : '1px solid rgba(255,180,50,0.25)', color: deletedGuideView.status === 'approved' ? 'rgba(80,200,120,0.7)' : 'rgba(255,180,50,0.7)' }}>
+                                        {deletedGuideView.status}
+                                    </span>
+                                    {deletedGuideView.duration && (
+                                        <span style={{ fontSize: '0.48rem', color: 'rgba(237,237,237,0.25)', letterSpacing: '0.06em' }}>{deletedGuideView.duration}</span>
+                                    )}
+                                </div>
+                                {deletedGuideView.deletedByName && (
+                                    <div style={{ fontSize: '0.5rem', color: 'rgba(219,0,29,0.4)', marginTop: 5, letterSpacing: '0.04em' }}>
+                                        Deleted by {deletedGuideView.deletedByName}
+                                        {deletedGuideView.deletedAt && <> · {new Date(deletedGuideView.deletedAt).toLocaleDateString('en-AU')}</>}
+                                    </div>
+                                )}
+                            </div>
+                            <button type='button' onClick={() => setDeletedGuideView(null)}
+                                style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', fontSize: '0.9rem', padding: '3px 9px', cursor: 'pointer', flexShrink: 0, lineHeight: 1 }}>
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                            {/* Overview */}
+                            {deletedGuideView.overview && (
+                                <div>
+                                    <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 7 }}>Overview</div>
+                                    <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.55)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{deletedGuideView.overview}</div>
+                                </div>
+                            )}
+
+                            {/* Training area */}
+                            {deletedGuideView.trainingAreaDescription && (
+                                <div>
+                                    <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 7 }}>Training Area</div>
+                                    <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.55)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{deletedGuideView.trainingAreaDescription}</div>
+                                </div>
+                            )}
+
+                            {/* Equipment */}
+                            {deletedGuideView.equipment?.length > 0 && (
+                                <div>
+                                    <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 7 }}>Equipment</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                        {deletedGuideView.equipment.map((e, i) => (
+                                            <div key={i} style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)', display: 'flex', gap: 8 }}>
+                                                <span style={{ color: 'rgba(219,0,29,0.4)', flexShrink: 0 }}>·</span>
+                                                {e.text}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Teaching Points */}
+                            {deletedGuideView.teachingPoints?.length > 0 && (
+                                <div>
+                                    <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 10 }}>
+                                        Teaching Points ({deletedGuideView.teachingPoints.length})
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                        {deletedGuideView.teachingPoints.map((tp, i) => (
+                                            <div key={tp.id} style={{ borderLeft: '2px solid rgba(219,0,29,0.2)', paddingLeft: 12 }}>
+                                                <div style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.75)', marginBottom: 6 }}>
+                                                    {i + 1}. {tp.title}
+                                                </div>
+                                                {tp.dotPoints?.length > 0 && (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
+                                                        {tp.dotPoints.map(dp => (
+                                                            <div key={dp.id} style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.45)', paddingLeft: (dp.indent ?? 0) * 16, display: 'flex', gap: 6 }}>
+                                                                <span style={{ color: 'rgba(237,237,237,0.25)', flexShrink: 0, fontSize: '0.6rem' }}>
+                                                                    {(['●','○','■','□'] as const)[(dp.indent ?? 0) % 4]}
+                                                                </span>
+                                                                {dp.text}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {tp.vitalPoints?.length > 0 && (
+                                                    <div style={{ marginBottom: 5 }}>
+                                                        <div style={{ fontSize: '0.44rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,180,50,0.5)', marginBottom: 4 }}>Vital Points</div>
+                                                        {tp.vitalPoints.map(vp => (
+                                                            <div key={vp.id} style={{ fontSize: '0.7rem', color: 'rgba(255,180,50,0.55)', display: 'flex', gap: 6 }}>
+                                                                <span style={{ flexShrink: 0 }}>★</span>{vp.text}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {tp.commonFaults?.length > 0 && (
+                                                    <div>
+                                                        <div style={{ fontSize: '0.44rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.45)', marginBottom: 4 }}>Common Faults</div>
+                                                        {tp.commonFaults.map(cf => (
+                                                            <div key={cf.id} style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)', marginBottom: 4 }}>
+                                                                <span style={{ color: 'rgba(219,0,29,0.5)', fontWeight: 700 }}>Fault: </span>{cf.fault}
+                                                                {cf.correction && <><br /><span style={{ color: 'rgba(80,200,120,0.5)', fontWeight: 700 }}>Correction: </span>{cf.correction}</>}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Notes */}
+                            {deletedGuideView.notes && (
+                                <div>
+                                    <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 7 }}>Notes</div>
+                                    <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.45)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{deletedGuideView.notes}</div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div style={{ padding: '14px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <button type='button' onClick={() => {
+                                const gId = String(deletedGuideView._id)
+                                setDeletedGuideView(null)
+                                handleRestoreGuide(gId)
+                            }} disabled={!!restoringGuideId}
+                                style={{ padding: '7px 18px', background: 'transparent', border: '1px solid rgba(80,200,120,0.35)', color: 'rgba(80,200,120,0.7)', fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: restoringGuideId ? 'default' : 'pointer', opacity: restoringGuideId ? 0.4 : 1 }}>
+                                Restore
+                            </button>
+                            <button type='button' onClick={() => setDeletedGuideView(null)}
+                                style={{ padding: '7px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', fontSize: '0.6rem', cursor: 'pointer' }}>
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete guide confirmation modal */}
+            {deleteGuideModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+                    onClick={e => { if (e.target === e.currentTarget) setDeleteGuideModal(null) }}>
+                    <div style={{ background: '#0d0d0d', border: '1px solid rgba(219,0,29,0.25)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.85)' }}>Delete Training Guide</div>
+                        <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.6)', fontFamily: 'Arial, sans-serif', lineHeight: 1.5 }}>
+                            Delete <strong style={{ color: 'rgba(237,237,237,0.85)' }}>{deleteGuideModal.guideTitle}</strong>? It will be moved to the recycle bin and can be restored later. J3 leads will be notified.
+                        </div>
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <button type='button' onClick={handleConfirmDeleteGuide} disabled={deletingGuide}
+                                style={{ flex: 1, padding: '9px', background: deletingGuide ? 'rgba(219,0,29,0.4)' : '#db001d', border: 'none', color: '#fff', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: deletingGuide ? 'default' : 'pointer' }}>
+                                {deletingGuide ? 'Deleting…' : 'Delete'}
+                            </button>
+                            <button type='button' onClick={() => setDeleteGuideModal(null)} disabled={deletingGuide}
+                                style={{ flex: 1, padding: '9px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.5)', fontSize: '0.65rem', cursor: 'pointer' }}>
+                                Cancel
                             </button>
                         </div>
                     </div>

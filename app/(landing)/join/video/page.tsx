@@ -10,5 +10,11 @@ export const metadata: Metadata = {
 export default async function JoinVideoPage() {
     const config = await Db.recruitVideoConfig.findOne({ _id: 'main' }).catch(() => null)
     if (!config?.enabled || !config?.videoUrl) redirect('/join')
-    return <VideoPageClient videoUrl={config.videoUrl} startDelay={config.startDelay ?? 2} />
+    return (
+        <VideoPageClient
+            videoUrl={config.videoUrl}
+            startDelay={config.startDelay ?? 2}
+            showInfoPage={config.showInfoPage ?? true}
+        />
+    )
 }
