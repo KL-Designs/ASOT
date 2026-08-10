@@ -196,7 +196,7 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
             })
         } else {
             body.name = formName.trim()
-            body.linkedSlot = formLinkedSlot
+            if (!isEditingBase) body.linkedSlot = formLinkedSlot
             res = await fetch(`/api/admin/department-roles/${editingId}`, {
                 method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
             })

@@ -54,11 +54,11 @@ export async function PATCH(
         updates.permissions = body.permissions.filter((p: unknown) => typeof p === 'string' && PERMISSION_KEYS.includes(p))
     }
     if ('linkedSlot' in body) {
-        if (role.isBase) return NextResponse.json({ error: 'Base roles cannot be linked to a leadership position' }, { status: 400 })
         const slot = body.linkedSlot
         if (slot !== null && slot !== 'leader' && slot !== '2ic' && slot !== '3ic') {
             return NextResponse.json({ error: 'Invalid linkedSlot' }, { status: 400 })
         }
+        if (role.isBase && slot !== null) return NextResponse.json({ error: 'Base roles cannot be linked to a leadership position' }, { status: 400 })
         if (slot !== null) {
             const label = DEPT_LEADERSHIP_POSITIONS[role.department]?.[LEADERSHIP_SLOT_INDEX[slot as LeadershipSlot]]
             if (!label) return NextResponse.json({ error: 'This department has no such leadership position' }, { status: 400 })
