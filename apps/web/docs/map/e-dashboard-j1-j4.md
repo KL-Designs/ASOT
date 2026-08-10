@@ -2,7 +2,7 @@
 
 Scope: `app/dashboard/j1/**`, `app/dashboard/j2/**`, `app/dashboard/j3/**`, `app/dashboard/j4/**`.
 
-All four `page.tsx` files follow the identical shape: `await connection()`, `client.fetchMe()`, redirect to `/login` if unauthenticated, redirect to `/dashboard` if `!client.hasRoles(me, PERMISSIONS.departments.jN)`, then pass `displayName`, `userId`, `canManageMembers` (`await hasPermission(me, 'departmentLeads.jN')` for J1-J3; J4 has no separate lead role), and `isJ4` (`PERMISSIONS.departments.j4`) into the client `JNPanel`/`J4AdminPanel` component. Each has a `loading.tsx` rendering `<TacticalLoader label='LOADING JN // ...' />`.
+All four `page.tsx` files follow the identical shape: `await connection()`, `client.fetchMe()`, redirect to `/login` if unauthenticated, redirect to `/dashboard` if `!client.hasRoles(me, PERMISSIONS.departments.jN)`. J1-J3 then pass `displayName`, `userId`, `canManageMembers` (`await hasPermission(me, 'departmentLeads.jN')`), and `isJ4` (`PERMISSIONS.departments.j4`) into the client `JNPanel` component. J4's page passes neither `canManageMembers` nor `isJ4` — it passes only `userId` and `displayName` into `J4AdminPanel`. Each has a `loading.tsx` rendering `<TacticalLoader label='LOADING JN // ...' />`.
 
 Every panel's header has three toggle buttons (Members / Calendar / Activity Logs, or Logs for J4) that swap to shared components: `DeptMembersTab` (`app/dashboard/DeptMembersTab.tsx`), `DeptCalendarTab` (`app/dashboard/unit/calendar/DeptCalendarTab.tsx`), `ActivityLogTab` (`app/dashboard/_components/ActivityLogTab.tsx`). Tab state persisted via `useTabState` (`app/dashboard/_components/useTabState.ts`). Tab labels support pin-to-sidebar via `PinTabLabel`.
 

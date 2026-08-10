@@ -522,9 +522,15 @@ const PERMISSIONS = {
         /**
          * J1 lead — can add/remove J1 members and manage department membership tickets.
          *
-         * As of the permission-system migration, the real gate for this key
-         * is `await hasPermission(user, 'departmentLeads.j1')` (`lib/orbat/hasPermission.ts`)
-         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j1`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j1')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
          *
          * Used by:
          *  - `app/admin/j1/page.tsx` (`canManageMembers` flag)
@@ -535,9 +541,15 @@ const PERMISSIONS = {
         /**
          * J2 lead — can add/remove J2 members and manage department membership tickets.
          *
-         * As of the permission-system migration, the real gate for this key
-         * is `await hasPermission(user, 'departmentLeads.j2')` (`lib/orbat/hasPermission.ts`)
-         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j2`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j2')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
          *
          * Used by:
          *  - `app/admin/j2/page.tsx` (`canManageMembers` flag)
@@ -548,9 +560,15 @@ const PERMISSIONS = {
         /**
          * J3 lead — can add/remove J3 members and manage department membership tickets.
          *
-         * As of the permission-system migration, the real gate for this key
-         * is `await hasPermission(user, 'departmentLeads.j3')` (`lib/orbat/hasPermission.ts`)
-         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j3`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j3')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
          *
          * Used by:
          *  - `app/admin/j3/page.tsx` (`canManageMembers` flag)
@@ -566,9 +584,15 @@ const PERMISSIONS = {
          * receive `undefined` for J4's department-membership tickets, the
          * same way every other department already does.
          *
-         * As of the permission-system migration, the real gate for this key
-         * is `await hasPermission(user, 'departmentLeads.j4')` (`lib/orbat/hasPermission.ts`)
-         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j4`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j4')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
          *
          * Used by:
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J4)
@@ -579,9 +603,15 @@ const PERMISSIONS = {
          * J5 lead — can add/remove J5 members, manage department membership tickets,
          * and manage the Shot of the Month gallery feature.
          *
-         * As of the permission-system migration, the real gate for this key
-         * is `await hasPermission(user, 'departmentLeads.j5')` (`lib/orbat/hasPermission.ts`)
-         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j5`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j5')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
          *
          * Used by:
          *  - `app/admin/j5/page.tsx` (`canManageMembers` flag)
@@ -593,9 +623,15 @@ const PERMISSIONS = {
         /**
          * J6 lead — can add/remove J6 members and manage department membership tickets.
          *
-         * As of the permission-system migration, the real gate for this key
-         * is `await hasPermission(user, 'departmentLeads.j6')` (`lib/orbat/hasPermission.ts`)
-         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j6`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j6')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
          *
          * Used by:
          *  - `app/admin/j6/page.tsx` (`canManageMembers` flag)
@@ -606,9 +642,15 @@ const PERMISSIONS = {
         /**
          * J7 lead — can add/remove J7 members and manage department membership tickets.
          *
-         * As of the permission-system migration, the real gate for this key
-         * is `await hasPermission(user, 'departmentLeads.j7')` (`lib/orbat/hasPermission.ts`)
-         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j7`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j7')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
          *
          * Used by:
          *  - `app/admin/j7/page.tsx` (`canManageMembers` flag)
