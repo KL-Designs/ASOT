@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
     Dialog, DialogTitle, DialogContent, Divider, TextField, Button, IconButton,
-    Checkbox, FormControlLabel, CircularProgress, Alert, Typography, Box, InputAdornment,
+    Checkbox, FormControlLabel, CircularProgress, Alert, Typography, Box, InputAdornment, Tooltip,
 } from '@mui/material'
-import { Close, Delete, Add, Search } from '@mui/icons-material'
+import { AccountTree, Close, ContentCopy, ContentPaste, Delete, Add, Search } from '@mui/icons-material'
 import { PLATOON_CATEGORIES } from '@/lib/orbat/constants'
 import ChainOfCommandPanel from './ChainOfCommandPanel'
 
@@ -26,10 +26,39 @@ const searchFieldSx = {
     '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' },
 }
 
+const closeButtonSx = { '&:hover': { background: 'rgba(255,255,255,0.08)' } }
+
+const sectionHeaderSx = { fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)' } as const
+
 // Discord role colors are stored as decimal ints (0 = "no color" / default grey pill)
 function discordColorHex(color: number): string | null {
     if (!color) return null
     return '#' + color.toString(16).padStart(6, '0')
+}
+
+// Order-independent — toggling checkboxes can append/remove without preserving
+// the original array's order, so a strict equality check would false-positive as dirty.
+function sameMembers(a: string[], b: string[]): boolean {
+    return a.length === b.length && a.every(x => b.includes(x))
+}
+
+function CopyPasteButtons({ onCopy, onPaste, canPaste, label }: { onCopy: () => void; onPaste: () => void; canPaste: boolean; label: string }) {
+    return (
+        <span style={{ display: 'inline-flex', gap: 2 }}>
+            <Tooltip title={`Copy ${label}`}>
+                <IconButton size='small' onClick={onCopy} sx={{ p: 0.4, ...closeButtonSx }}>
+                    <ContentCopy sx={{ fontSize: 13, color: 'rgba(237,237,237,0.4)' }} />
+                </IconButton>
+            </Tooltip>
+            <Tooltip title={canPaste ? `Paste ${label}` : `Copy ${label} from another role first`}>
+                <span>
+                    <IconButton size='small' onClick={onPaste} disabled={!canPaste} sx={{ p: 0.4, ...closeButtonSx }}>
+                        <ContentPaste sx={{ fontSize: 13, color: canPaste ? 'rgba(100,180,255,0.75)' : 'rgba(237,237,237,0.15)' }} />
+                    </IconButton>
+                </span>
+            </Tooltip>
+        </span>
+    )
 }
 
 export default function RolesManagerPanel({ open, onClose }: Props) {
@@ -51,6 +80,13 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
     const [permSearch, setPermSearch] = useState('')
     const [chainOpen, setChainOpen] = useState(false)
 
+    // Copy/paste clipboards — cleared when the dialog closes. "Copy/Paste Settings"
+    // (whole-role) just operates on all three at once, so a per-section copy and a
+    // whole-settings paste compose naturally.
+    const [categoriesClipboard, setCategoriesClipboard] = useState<string[] | null>(null)
+    const [discordRoleIdsClipboard, setDiscordRoleIdsClipboard] = useState<string[] | null>(null)
+    const [permissionsClipboard, setPermissionsClipboard] = useState<string[] | null>(null)
+
     const load = useCallback(async () => {
         setLoading(true)
         const [rolesRes, guildRolesRes, permKeysRes] = await Promise.all([
@@ -65,9 +101,37 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
     }, [])
 
     useEffect(() => { if (open) load() }, [open, load])
-    useEffect(() => { if (!open) { setEditingId(null); setRoleSearch('') } }, [open])
+    useEffect(() => {
+        if (!open) {
+            setEditingId(null)
+            setRoleSearch('')
+            setCategoriesClipboard(null)
+            setDiscordRoleIdsClipboard(null)
+            setPermissionsClipboard(null)
+        }
+    }, [open])
+
+    const dirty = useMemo(() => {
+        if (!editingId) return false
+        if (editingId === '__new__') {
+            return formName.trim() !== '' || formTag.trim() !== '' || formCategories.length > 0 || formDiscordRoleIds.length > 0 || formPermissions.length > 0
+        }
+        const original = roles.find(r => String(r._id) === editingId)
+        if (!original) return false
+        return formName.trim() !== original.name
+            || formTag.trim() !== (original.tag ?? '')
+            || !sameMembers(formCategories, original.categories)
+            || !sameMembers(formDiscordRoleIds, original.discordRoleIds)
+            || !sameMembers(formPermissions, original.permissions)
+    }, [editingId, formName, formTag, formCategories, formDiscordRoleIds, formPermissions, roles])
+
+    function confirmDiscardIfDirty(message: string): boolean {
+        return !dirty || window.confirm(message)
+    }
 
     function startCreate() {
+        if (editingId === '__new__') return
+        if (!confirmDiscardIfDirty('You have unsaved changes. Discard them and create a new role?')) return
         setEditingId('__new__')
         setFormName('')
         setFormCategories([])
@@ -80,6 +144,8 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
     }
 
     function startEdit(role: OrbatRole) {
+        if (editingId === String(role._id)) return
+        if (!confirmDiscardIfDirty('You have unsaved changes. Discard them and switch role?')) return
         setEditingId(String(role._id))
         setFormName(role.name)
         setFormCategories(role.categories)
@@ -90,6 +156,35 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
         setPermSearch('')
         setError(null)
     }
+
+    function discard() {
+        setEditingId(null)
+        setError(null)
+    }
+
+    function handleClose() {
+        if (!confirmDiscardIfDirty('You have unsaved changes. Discard them and close?')) return
+        onClose()
+    }
+
+    function copyCategories() { setCategoriesClipboard(formCategories) }
+    function pasteCategories() { if (categoriesClipboard) setFormCategories(categoriesClipboard) }
+    function copyDiscordRoleIds() { setDiscordRoleIdsClipboard(formDiscordRoleIds) }
+    function pasteDiscordRoleIds() { if (discordRoleIdsClipboard) setFormDiscordRoleIds(discordRoleIdsClipboard) }
+    function copyPermissions() { setPermissionsClipboard(formPermissions) }
+    function pastePermissions() { if (permissionsClipboard) setFormPermissions(permissionsClipboard) }
+
+    function copySettings() {
+        copyCategories()
+        copyDiscordRoleIds()
+        copyPermissions()
+    }
+    function pasteSettings() {
+        pasteCategories()
+        pasteDiscordRoleIds()
+        pastePermissions()
+    }
+    const hasClipboard = categoriesClipboard !== null || discordRoleIdsClipboard !== null || permissionsClipboard !== null
 
     async function save() {
         if (!formName.trim()) { setError('Name is required'); return }
@@ -152,7 +247,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
     return (
         <Dialog
             open={open}
-            onClose={onClose}
+            onClose={handleClose}
             maxWidth={false}
             fullWidth
             PaperProps={{
@@ -176,11 +271,11 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                     </Typography>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Button size='small' variant='outlined' onClick={() => setChainOpen(true)}
+                    <Button size='small' variant='outlined' startIcon={<AccountTree sx={{ fontSize: 15 }} />} onClick={() => setChainOpen(true)}
                         sx={{ fontSize: '0.65rem', letterSpacing: 1, borderColor: 'rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.85)' }}>
                         Chain of Command
                     </Button>
-                    <IconButton size='small' onClick={onClose}><Close sx={{ fontSize: 18, color: 'rgba(237,237,237,0.5)' }} /></IconButton>
+                    <IconButton size='small' onClick={handleClose} sx={closeButtonSx}><Close sx={{ fontSize: 18, color: 'rgba(237,237,237,0.5)' }} /></IconButton>
                 </div>
             </DialogTitle>
 
@@ -242,112 +337,141 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                         </Box>
 
                         {/* Right: editor */}
-                        <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
+                        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                             {!editingId ? (
-                                <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Typography sx={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.35)', fontStyle: 'italic' }}>
                                         Select a role to edit, or create a new one.
                                     </Typography>
                                 </Box>
                             ) : (
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, maxWidth: 640 }}>
-                                    <TextField size='small' label='Name' value={formName} onChange={e => setFormName(e.target.value)} sx={inputSx} />
-
-                                    <div>
-                                        <TextField
-                                            size='small' label='Tag (optional)' value={formTag} onChange={e => setFormTag(e.target.value)}
-                                            inputProps={{ maxLength: 12 }} sx={{ ...inputSx, width: 200 }}
-                                        />
-                                        <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', marginTop: 4 }}>
-                                            Distinguishes roles sharing this name — never shown publicly.
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>
-                                            Categories (none = all)
-                                        </div>
-                                        <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
-                                            {PLATOON_CATEGORIES.map(c => (
-                                                <FormControlLabel key={c._id} sx={{ width: '48%', ml: 0 }}
-                                                    control={<Checkbox size='small' checked={formCategories.includes(c._id)} onChange={() => toggleIn(formCategories, setFormCategories, c._id)} />}
-                                                    label={<span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.7)' }}>{c.label}</span>}
-                                                />
-                                            ))}
-                                        </Box>
-                                    </div>
-
-                                    <div>
-                                        <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>
-                                            Discord roles granted {formDiscordRoleIds.length > 0 && `(${formDiscordRoleIds.length} selected)`}
-                                        </div>
-                                        <TextField
-                                            size='small' fullWidth placeholder='Search discord roles…' value={discordSearch} onChange={e => setDiscordSearch(e.target.value)}
-                                            InputProps={{ startAdornment: <InputAdornment position='start'><Search sx={{ fontSize: 16, color: 'rgba(237,237,237,0.4)' }} /></InputAdornment> }}
-                                            sx={{ ...searchFieldSx, mb: 1 }}
-                                        />
-                                        <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                            {filteredGuildRoles.map(r => {
-                                                const hex = discordColorHex(r.color)
-                                                return (
-                                                    <FormControlLabel key={r.id} sx={{ display: 'flex', ml: 0, px: 1 }}
-                                                        control={<Checkbox size='small' checked={formDiscordRoleIds.includes(r.id)} onChange={() => toggleIn(formDiscordRoleIds, setFormDiscordRoleIds, r.id)} />}
-                                                        label={
-                                                            <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: '0.72rem', color: 'rgba(237,237,237,0.7)' }}>
-                                                                <span style={{
-                                                                    width: 9, height: 9, borderRadius: '50%', marginRight: 7, flexShrink: 0,
-                                                                    background: hex ?? 'rgba(255,255,255,0.2)',
-                                                                    border: hex ? 'none' : '1px solid rgba(255,255,255,0.3)',
-                                                                }} />
-                                                                {r.name}
-                                                            </span>
-                                                        }
+                                <>
+                                    <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, maxWidth: 1400 }}>
+                                            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                                <TextField size='small' label='Name' value={formName} onChange={e => setFormName(e.target.value)} sx={{ ...inputSx, flex: '1 1 260px' }} />
+                                                <div>
+                                                    <TextField
+                                                        size='small' label='Tag (optional)' value={formTag} onChange={e => setFormTag(e.target.value)}
+                                                        inputProps={{ maxLength: 12 }} sx={{ ...inputSx, width: 200 }}
                                                     />
-                                                )
-                                            })}
-                                            {filteredGuildRoles.length === 0 && (
-                                                <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic', padding: '8px' }}>No matching Discord roles.</div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>
-                                            Permissions granted {formPermissions.length > 0 && `(${formPermissions.length} selected)`}
-                                        </div>
-                                        <TextField
-                                            size='small' fullWidth placeholder='Search permissions…' value={permSearch} onChange={e => setPermSearch(e.target.value)}
-                                            InputProps={{ startAdornment: <InputAdornment position='start'><Search sx={{ fontSize: 16, color: 'rgba(237,237,237,0.4)' }} /></InputAdornment> }}
-                                            sx={{ ...searchFieldSx, mb: 1 }}
-                                        />
-                                        <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                            {permissionRows.map(({ key, group, showHeader }) => (
-                                                <div key={key}>
-                                                    {showHeader && (
-                                                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', padding: '6px 8px 2px' }}>
-                                                            {group}
-                                                        </div>
-                                                    )}
-                                                    <FormControlLabel sx={{ display: 'block', ml: 0, px: 1 }}
-                                                        control={<Checkbox size='small' checked={formPermissions.includes(key)} onChange={() => toggleIn(formPermissions, setFormPermissions, key)} />}
-                                                        label={<span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.6)', fontFamily: 'monospace' }}>{key}</span>}
-                                                    />
+                                                    <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', marginTop: 4 }}>
+                                                        Distinguishes roles sharing this name — never shown publicly.
+                                                    </div>
                                                 </div>
-                                            ))}
-                                            {permissionRows.length === 0 && (
-                                                <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic', padding: '8px' }}>No matching permissions.</div>
-                                            )}
-                                        </div>
-                                    </div>
+                                            </Box>
 
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        <Button size='small' variant='outlined' onClick={save}
-                                            sx={{ borderColor: 'rgba(219,0,29,0.5)', color: 'rgba(237,237,237,0.9)' }}>
+                                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                                <Button size='small' variant='outlined' startIcon={<ContentCopy sx={{ fontSize: 14 }} />} onClick={copySettings}
+                                                    sx={{ fontSize: '0.65rem', letterSpacing: 0.5, borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.7)' }}>
+                                                    Copy Settings
+                                                </Button>
+                                                <Button size='small' variant='outlined' startIcon={<ContentPaste sx={{ fontSize: 14 }} />} onClick={pasteSettings} disabled={!hasClipboard}
+                                                    sx={{ fontSize: '0.65rem', letterSpacing: 0.5, borderColor: 'rgba(100,180,255,0.4)', color: 'rgba(100,180,255,0.85)' }}>
+                                                    Paste Settings
+                                                </Button>
+                                            </Box>
+
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                                                <div style={{ flex: '1 1 280px', minWidth: 260 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                                        <div style={sectionHeaderSx}>Categories (none = all)</div>
+                                                        <CopyPasteButtons onCopy={copyCategories} onPaste={pasteCategories} canPaste={categoriesClipboard !== null} label='categories' />
+                                                    </div>
+                                                    <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
+                                                        {PLATOON_CATEGORIES.map(c => (
+                                                            <FormControlLabel key={c._id} sx={{ width: '48%', ml: 0 }}
+                                                                control={<Checkbox size='small' checked={formCategories.includes(c._id)} onChange={() => toggleIn(formCategories, setFormCategories, c._id)} />}
+                                                                label={<span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.7)' }}>{c.label}</span>}
+                                                            />
+                                                        ))}
+                                                    </Box>
+                                                </div>
+
+                                                <div style={{ flex: '1 1 280px', minWidth: 260 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                                        <div style={sectionHeaderSx}>Discord roles granted {formDiscordRoleIds.length > 0 && `(${formDiscordRoleIds.length} selected)`}</div>
+                                                        <CopyPasteButtons onCopy={copyDiscordRoleIds} onPaste={pasteDiscordRoleIds} canPaste={discordRoleIdsClipboard !== null} label='Discord roles' />
+                                                    </div>
+                                                    <TextField
+                                                        size='small' fullWidth placeholder='Search discord roles…' value={discordSearch} onChange={e => setDiscordSearch(e.target.value)}
+                                                        InputProps={{ startAdornment: <InputAdornment position='start'><Search sx={{ fontSize: 16, color: 'rgba(237,237,237,0.4)' }} /></InputAdornment> }}
+                                                        sx={{ ...searchFieldSx, mb: 1 }}
+                                                    />
+                                                    <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                        {filteredGuildRoles.map(r => {
+                                                            const hex = discordColorHex(r.color)
+                                                            return (
+                                                                <FormControlLabel key={r.id} sx={{ display: 'flex', ml: 0, px: 1 }}
+                                                                    control={<Checkbox size='small' checked={formDiscordRoleIds.includes(r.id)} onChange={() => toggleIn(formDiscordRoleIds, setFormDiscordRoleIds, r.id)} />}
+                                                                    label={
+                                                                        <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: '0.72rem', color: 'rgba(237,237,237,0.7)' }}>
+                                                                            <span style={{
+                                                                                width: 9, height: 9, borderRadius: '50%', marginRight: 7, flexShrink: 0,
+                                                                                background: hex ?? 'rgba(255,255,255,0.2)',
+                                                                                border: hex ? 'none' : '1px solid rgba(255,255,255,0.3)',
+                                                                            }} />
+                                                                            {r.name}
+                                                                        </span>
+                                                                    }
+                                                                />
+                                                            )
+                                                        })}
+                                                        {filteredGuildRoles.length === 0 && (
+                                                            <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic', padding: '8px' }}>No matching Discord roles.</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ flex: '1 1 280px', minWidth: 260 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                                        <div style={sectionHeaderSx}>Permissions granted {formPermissions.length > 0 && `(${formPermissions.length} selected)`}</div>
+                                                        <CopyPasteButtons onCopy={copyPermissions} onPaste={pastePermissions} canPaste={permissionsClipboard !== null} label='permissions' />
+                                                    </div>
+                                                    <TextField
+                                                        size='small' fullWidth placeholder='Search permissions…' value={permSearch} onChange={e => setPermSearch(e.target.value)}
+                                                        InputProps={{ startAdornment: <InputAdornment position='start'><Search sx={{ fontSize: 16, color: 'rgba(237,237,237,0.4)' }} /></InputAdornment> }}
+                                                        sx={{ ...searchFieldSx, mb: 1 }}
+                                                    />
+                                                    <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                        {permissionRows.map(({ key, group, showHeader }) => (
+                                                            <div key={key}>
+                                                                {showHeader && (
+                                                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', padding: '6px 8px 2px' }}>
+                                                                        {group}
+                                                                    </div>
+                                                                )}
+                                                                <FormControlLabel sx={{ display: 'block', ml: 0, px: 1 }}
+                                                                    control={<Checkbox size='small' checked={formPermissions.includes(key)} onChange={() => toggleIn(formPermissions, setFormPermissions, key)} />}
+                                                                    label={<span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.6)', fontFamily: 'monospace' }}>{key}</span>}
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                        {permissionRows.length === 0 && (
+                                                            <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic', padding: '8px' }}>No matching permissions.</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </Box>
+                                        </Box>
+                                    </Box>
+
+                                    <Box sx={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15,15,15,0.98)', p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Button variant='contained' onClick={save}
+                                            sx={{ background: 'var(--red)', fontWeight: 700, letterSpacing: 1, fontSize: '0.75rem', '&:hover': { background: 'rgba(219,0,29,0.85)' } }}>
                                             Save
                                         </Button>
-                                        <Button size='small' onClick={() => setEditingId(null)} sx={{ color: 'rgba(237,237,237,0.4)' }}>Cancel</Button>
-                                    </div>
-                                </Box>
+                                        <Button variant='outlined' onClick={discard}
+                                            sx={{ borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.6)' }}>
+                                            Discard
+                                        </Button>
+                                        {dirty && (
+                                            <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,180,80,0.85)', fontStyle: 'italic' }}>
+                                                Unsaved changes
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </>
                             )}
                         </Box>
                     </>

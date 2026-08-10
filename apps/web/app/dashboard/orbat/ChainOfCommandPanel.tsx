@@ -22,6 +22,8 @@ interface Props {
 const NODE_WIDTH = 220
 const NODE_HEIGHT = 64
 
+const closeButtonSx = { '&:hover': { background: 'rgba(255,255,255,0.08)' } }
+
 const searchFieldSx = {
     background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
     color: 'rgba(237,237,237,0.85)', fontSize: '0.75rem',
@@ -391,7 +393,7 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                         Chain of Command
                     </Typography>
                 </div>
-                <IconButton size='small' onClick={onClose}><ArrowBack sx={{ fontSize: 18, color: 'rgba(237,237,237,0.5)' }} /></IconButton>
+                <IconButton size='small' onClick={onClose} sx={closeButtonSx}><ArrowBack sx={{ fontSize: 18, color: 'rgba(237,237,237,0.5)' }} /></IconButton>
             </DialogTitle>
 
             <Divider sx={{ borderColor: 'rgba(219,0,29,0.42)' }} />
@@ -441,7 +443,7 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                             <Box sx={{ width: 280, flexShrink: 0, borderLeft: '1px solid rgba(255,255,255,0.08)', p: 2, overflowY: 'auto' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                                     <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(237,237,237,0.9)' }}>{selectedRole.name}</Typography>
-                                    <IconButton size='small' onClick={() => setSelectedRole(null)}>
+                                    <IconButton size='small' onClick={() => setSelectedRole(null)} sx={closeButtonSx}>
                                         <Close sx={{ fontSize: 14, color: 'rgba(237,237,237,0.4)' }} />
                                     </IconButton>
                                 </div>
@@ -481,7 +483,7 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                                     <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(100,180,255,0.9)' }}>
                                         {groupEditor.id === null ? 'New Group' : 'Edit Group'}
                                     </Typography>
-                                    <IconButton size='small' onClick={() => setGroupEditor(null)}>
+                                    <IconButton size='small' onClick={() => setGroupEditor(null)} sx={closeButtonSx}>
                                         <Close sx={{ fontSize: 14, color: 'rgba(237,237,237,0.4)' }} />
                                     </IconButton>
                                 </div>
