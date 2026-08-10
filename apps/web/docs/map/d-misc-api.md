@@ -113,13 +113,16 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 ---
 
-### me (5 files)
+### me (6 files)
 
 #### /api/me/orbat
 - **GET** — returns the current user's ORBAT position entry (`getOrbatEntryByUserId`). Auth: any authenticated user (`client.fetchMe()`).
 
 #### /api/me/roles
 - **GET** — `?has=role1,role2` checks whether current user holds any of the given Discord roles. Auth: any authenticated user.
+
+#### /api/me/permission
+- **GET** — `?key=<permissionKey>` checks whether the current user holds a single migrated permission key via `hasPermission()` (`@/lib/orbat/hasPermission`), returning `{ access: boolean }`. Mirrors `/api/me/roles`'s shape but for the new DB-backed permission system — the client-side counterpart to `hasPermission()` for client components that can't call the server-only function directly. Auth: any authenticated user.
 
 #### /api/me
 - **GET** — returns current user document plus computed `isStaff`/`isMember` flags. Auth: any authenticated user.
