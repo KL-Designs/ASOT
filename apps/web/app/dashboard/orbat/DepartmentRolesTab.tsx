@@ -100,11 +100,12 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
 
     useEffect(() => { load() }, [load])
 
-    const editingRole = useMemo(
-        () => (editingId && editingId !== '__new__' ? roles.find(r => String(r._id) === editingId) ?? null : null) as DepartmentRole | null,
-        [editingId, roles],
-    )
     const newRoleDept = editingId?.startsWith('__new__:') ? editingId.slice('__new__:'.length) : null
+
+    const editingRole = useMemo(
+        () => (editingId && !newRoleDept ? roles.find(r => String(r._id) === editingId) ?? null : null) as DepartmentRole | null,
+        [editingId, newRoleDept, roles],
+    )
 
     const dirty = useMemo(() => {
         if (!editingId) return false
@@ -250,7 +251,6 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
         return map
     }, [roles])
 
-    const editingName = newRoleDept ? '' : editingRole?.name
     const isEditingBase = !newRoleDept && !!editingRole?.isBase
 
     return (
@@ -314,7 +314,7 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, maxWidth: 1400, flex: 1, minHeight: 0 }}>
                                         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', flexShrink: 0 }}>
                                             <TextField
-                                                size='small' label='Name' value={newRoleDept ? formName : (editingName ?? formName)}
+                                                size='small' label='Name' value={formName}
                                                 onChange={e => setFormName(e.target.value)}
                                                 disabled={isEditingBase}
                                                 sx={{ ...inputSx, flex: '1 1 260px' }}
