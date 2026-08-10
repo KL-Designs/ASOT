@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 // Column indices (0-based)
 const COL_TICKET   = 0
@@ -131,7 +132,7 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const isJ4     = client.hasRoles(me, PERMISSIONS.departments.j4)
-    const isJ1Lead = client.hasRoles(me, PERMISSIONS.departmentLeads.j1)
+    const isJ1Lead = await hasPermission(me, 'departmentLeads.j1')
     if (!isJ4 && !isJ1Lead) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     let patches: Array<
@@ -184,7 +185,7 @@ export async function POST(request: NextRequest) {
 
     // Require J4 or J1 lead
     const isJ4 = client.hasRoles(me, PERMISSIONS.departments.j4)
-    const isJ1Lead = client.hasRoles(me, PERMISSIONS.departmentLeads.j1)
+    const isJ1Lead = await hasPermission(me, 'departmentLeads.j1')
     if (!isJ4 && !isJ1Lead) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

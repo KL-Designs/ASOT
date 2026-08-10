@@ -6,7 +6,7 @@ import { Readable } from 'stream'
 import busboy from 'busboy'
 import type { FileInfo } from 'busboy'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 const ALLOWED_EXTS = new Set([
     '.mp4', '.mov', '.mp3', '.webm', '.avi', '.mkv',
@@ -22,7 +22,7 @@ const ALLOWED_MIME = new Set([
 
 export async function POST(req: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
-    if (!me || !client.hasRoles(me, PERMISSIONS.departmentLeads.j1)) {
+    if (!me || !(await hasPermission(me, 'departmentLeads.j1'))) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
