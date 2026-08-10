@@ -1,5 +1,6 @@
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
+import { ObjectId } from 'mongodb'
 import { PERMISSION_CATALOG } from '@/lib/permissions-catalog'
 
 /**
@@ -27,7 +28,7 @@ export async function hasPermission(user: User, key: string): Promise<boolean> {
     }
 
     const deptCodes = user.departments ?? []
-    const subRoleIds = user.departmentRoleIds ?? []
+    const subRoleIds = (user.departmentRoleIds ?? []).map(id => new ObjectId(String(id)))
     if (deptCodes.length > 0 || subRoleIds.length > 0) {
         const deptRoles = await Db.departmentRoles.find({
             $or: [
