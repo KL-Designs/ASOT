@@ -65,9 +65,19 @@ export async function applyOrbatMove({
         // the position's roleId field and the Discord/TS grant swaps agree.
         await Db.orbatPositions.updateOne({ _id: fromPos._id }, { $set: { userId: null } })
         const vacantSlot = await Db.orbatPositions.findOne({ category: 'activeReservist', userId: null })
-        const targetRoleId = vacantSlot ? vacantSlot.roleId : await ensureReservistRole()
+        // Nullish-coalesce on .roleId specifically, not on vacantSlot itself —
+        // a vacant slot can exist but still carry a stale roleId: null from
+        // before reservists had a real role (pre-migration data), in which
+        // case it needs the same backfill a brand-new position gets.
+        const targetRoleId = vacantSlot?.roleId ?? await ensureReservistRole()
         if (vacantSlot) {
-            await Db.orbatPositions.updateOne({ _id: vacantSlot._id }, { $set: { userId: targetUserId } })
+            // Also persist targetRoleId onto the slot itself (not just userId)
+            // so a previously-null roleId gets backfilled here too — otherwise
+            // this reservist's position keeps roleId: null in the DB even
+            // though the Discord/TS grants below are applied correctly for
+            // this transition, and future hasPermission() checks (which query
+            // Db.orbatPositions for roleId: { $ne: null }) would silently skip them.
+            await Db.orbatPositions.updateOne({ _id: vacantSlot._id }, { $set: { userId: targetUserId, roleId: targetRoleId } })
         } else {
             const count = await Db.orbatPositions.countDocuments({ category: 'activeReservist' })
             await Db.orbatPositions.insertOne({

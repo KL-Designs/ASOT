@@ -8,6 +8,7 @@ import { logAction } from '@/lib/logs'
 import { syncOrbatDiscordRoles } from '@/lib/orbat/discord'
 import { addGuildRole, removeGuildRole } from '@/lib/discord/bot'
 import { applyTsServerGroups } from '@/lib/teamspeak/groups'
+import { ensureReservistRole } from '@/lib/orbat/reservist-role'
 
 
 async function authStructure() {
@@ -67,11 +68,10 @@ export async function PATCH(
         // Auto-move evicted user to activeReservist (unless suppressed or this IS a reservist position)
         let reservistPosition: OrbatPosition | null = null
         if (isUnassign && position.userId && !skipAutoMove && !RESERVIST_CATEGORY_IDS.includes(position.category)) {
-            const last = await Db.orbatPositions
-                .find({ category: 'activeReservist' })
-                .sort({ positionOrder: -1 })
-                .limit(1)
-                .toArray()
+            const [last, reservistRoleId] = await Promise.all([
+                Db.orbatPositions.find({ category: 'activeReservist' }).sort({ positionOrder: -1 }).limit(1).toArray(),
+                ensureReservistRole(),
+            ])
             const positionOrder = (last[0]?.positionOrder ?? -1) + 1
 
             reservistPosition = {
@@ -79,7 +79,7 @@ export async function PATCH(
                 category: 'activeReservist',
                 sectionTitle: '',
                 role: 'Active Reservist',
-                roleId: null,
+                roleId: reservistRoleId,
                 userId: position.userId,
                 sectionOrder: 0,
                 positionOrder,
