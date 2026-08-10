@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-    ReactFlow, ReactFlowProvider, Background, Controls, Handle, Position, MarkerType, useReactFlow,
+    ReactFlow, ReactFlowProvider, Background, Controls, Panel, Handle, Position, MarkerType, useReactFlow,
     type Node, type Edge, type NodeProps, type Connection,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -12,7 +12,7 @@ import {
     Typography, Box, InputAdornment, CircularProgress, Alert, Button,
     Checkbox, FormControlLabel,
 } from '@mui/material'
-import { Close, Search } from '@mui/icons-material'
+import { ArrowBack, Close, Search } from '@mui/icons-material'
 
 interface Props {
     open: boolean
@@ -187,7 +187,7 @@ function layoutChainOfCommand(roles: OrbatRole[], groups: OrbatRoleGroup[], sear
     return { nodes: [...roleNodes, ...groupNodes], edges }
 }
 
-function Canvas({ roles, groups, search, error, onConnectNodes, onSelectRole, onSelectGroup }: {
+function Canvas({ roles, groups, search, error, onConnectNodes, onSelectRole, onSelectGroup, onReset }: {
     roles: OrbatRole[]
     groups: OrbatRoleGroup[]
     search: string
@@ -195,6 +195,7 @@ function Canvas({ roles, groups, search, error, onConnectNodes, onSelectRole, on
     onConnectNodes: (childKind: NodeKind, childId: string, parentKind: NodeKind, parentId: string) => void
     onSelectRole: (role: OrbatRole) => void
     onSelectGroup: (group: OrbatRoleGroup) => void
+    onReset: () => void
 }) {
     const { nodes, edges } = useMemo(() => layoutChainOfCommand(roles, groups, search), [roles, groups, search])
     const { setCenter, getZoom } = useReactFlow()
@@ -238,6 +239,14 @@ function Canvas({ roles, groups, search, error, onConnectNodes, onSelectRole, on
             >
                 <Background color='rgba(255,255,255,0.08)' />
                 <Controls showInteractive={false} />
+                <Panel position='bottom-right'>
+                    <Button
+                        size='small' variant='outlined' onClick={onReset}
+                        sx={{ fontSize: '0.6rem', letterSpacing: 0.5, borderColor: 'rgba(219,0,29,0.35)', color: 'rgba(219,0,29,0.6)', opacity: 0.7, '&:hover': { opacity: 1 } }}
+                    >
+                        Reset Chain of Command
+                    </Button>
+                </Panel>
             </ReactFlow>
         </Box>
     )
@@ -382,15 +391,7 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                         Chain of Command
                     </Typography>
                 </div>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Button
-                        size='small' variant='outlined' onClick={resetChainOfCommand}
-                        sx={{ fontSize: '0.65rem', letterSpacing: 1, borderColor: 'rgba(219,0,29,0.5)', color: 'rgba(219,0,29,0.85)' }}
-                    >
-                        Reset Chain of Command
-                    </Button>
-                    <IconButton size='small' onClick={onClose}><Close sx={{ fontSize: 18, color: 'rgba(237,237,237,0.5)' }} /></IconButton>
-                </Box>
+                <IconButton size='small' onClick={onClose}><ArrowBack sx={{ fontSize: 18, color: 'rgba(237,237,237,0.5)' }} /></IconButton>
             </DialogTitle>
 
             <Divider sx={{ borderColor: 'rgba(219,0,29,0.42)' }} />
@@ -431,6 +432,7 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                                         setGroupMemberSearch('')
                                         setGroupEditor({ id: String(group._id), name: group.name, memberRoleIds: group.memberRoleIds.map(String) })
                                     }}
+                                    onReset={resetChainOfCommand}
                                 />
                             </ReactFlowProvider>
                         </Box>
