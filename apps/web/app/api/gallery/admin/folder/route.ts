@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 
 const GALLERY_BASE = path.resolve('../../storage/gallery/content')
@@ -25,7 +25,7 @@ function resolveSafe(...parts: string[]): string {
 async function checkAuth() {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return null
-    if (!client.hasRoles(me, PERMISSIONS.gallery.manage)) return null
+    if (!(await hasPermission(me, 'gallery.manage'))) return null
     return me
 }
 

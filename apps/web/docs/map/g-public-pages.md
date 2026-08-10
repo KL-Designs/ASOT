@@ -489,7 +489,7 @@ cookie, redirects to `/optionals`.
 (no auth check in the shown portion) but requires `?type=` one of `qol|gfx|zeus|j2|j5`.
 
 #### app/optionals/manage/route.ts
-`POST` route: admin-only (`PERMISSIONS.optionals.manage`) add/remove/set-deps operations on the
+`POST` route: admin-only (`hasPermission(user, 'optionals.manage')`) add/remove/set-deps operations on the
 master `Db.optionals` list for a category; `remove` also pulls the mod from every user's enabled
 list.
 

@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb'
 import path from 'path'
 import fs from 'fs/promises'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import Db from '@/lib/mongo'
 
 const UPLOADS_DIR = path.join(process.cwd(), '..', '..', 'storage', 'uploads', 'ai-images')
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     try {
         const me = await client.fetchMe().catch(() => null)
         if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        if (!client.hasRoles(me, PERMISSIONS.intel.generateImages)) {
+        if (!(await hasPermission(me, 'intel.generateImages'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 

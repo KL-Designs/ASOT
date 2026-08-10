@@ -5,7 +5,7 @@ export const maxDuration = 300 // allow up to 5 min for image generation
 import path from 'path'
 import fs from 'fs/promises'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { callImageGenerate, callImageEdit } from '@/lib/ai/service'
 import { buildIntelImagePrompt, getSizeForAspectRatio } from '@/lib/ai/prompts/intel-image'
 import Db from '@/lib/mongo'
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     try {
         const me = await client.fetchMe().catch(() => null)
         if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        if (!client.hasRoles(me, PERMISSIONS.intel.generateImages)) {
+        if (!(await hasPermission(me, 'intel.generateImages'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 const VALID_TYPES = ['qol', 'gfx', 'zeus', 'j2', 'j5'] as const
 type OptType = typeof VALID_TYPES[number]
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.optionals.manage)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasPermission(me, 'optionals.manage'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { action, type, id, name, deps } = await request.json() as {
         action: 'add' | 'remove' | 'set-deps'

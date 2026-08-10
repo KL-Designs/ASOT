@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 const VALID_TYPES = ['qol', 'gfx', 'zeus', 'j2', 'j5'] as const
 type OptType = typeof VALID_TYPES[number]
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
         if (mode === 'all') {
             const user = await Db.users.findOne({ _id: me._id }, { projection: { optionals: 1 } })
-            const isAdmin = client.hasRoles(me, PERMISSIONS.optionals.manage)
+            const isAdmin = await hasPermission(me, 'optionals.manage')
             return NextResponse.json({ ...(user?.optionals ?? { qol: [], gfx: [], zeus: [], j2: [], j5: [] }), isAdmin }, { status: 200 })
         }
 

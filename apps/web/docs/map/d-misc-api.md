@@ -182,7 +182,7 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 #### /api/uploads/bio
 - **GET** — `?id=` serves `./uploads/bio/<id>.jpg` bio photo. Auth: public/no auth (read).
-- **POST** — uploads/overwrites the caller's own bio photo (`./uploads/bio/<me.id>.jpg`). Auth: `PERMISSIONS.uploads.bio`.
+- **POST** — uploads/overwrites the caller's own bio photo (`./uploads/bio/<me.id>.jpg`). Auth: `hasPermission(user, 'uploads.bio')`.
 
 #### /api/uploads/cover
 - **GET** — `?id=` serves `./uploads/cover/<id>.png` cover photo. Auth: public/no auth (read).
@@ -389,4 +389,4 @@ Both explicitly marked "DEV-ONLY — delete before deploying to production" in s
 ### auth (1 file)
 
 #### /api/auth/collab
-- **GET** — Hocuspocus collab-auth endpoint; reads `x-collab-token` header (not the `token` cookie) and `?doc=` query param to resolve document-specific permission: `sop-*` docs → any member (`hasPermission(user, 'pages.member')`); `ws-*` docs → J2 member/lead/admin; all others (operation briefings) → `PERMISSIONS.auth.collab`. Auth: bespoke per-document logic, no single gate. Returns `{authorized, userId, userName, userAvatar}` consumed by the Hocuspocus WS server on each connection.
+- **GET** — Hocuspocus collab-auth endpoint; reads `x-collab-token` header (not the `token` cookie) and `?doc=` query param to resolve document-specific permission: `sop-*` docs → any member (`hasPermission(user, 'pages.member')`); `ws-*` docs → J2 member/lead/admin; all others (operation briefings) → `hasPermission(user, 'auth.collab')`. Auth: bespoke per-document logic, no single gate. Returns `{authorized, userId, userName, userAvatar}` consumed by the Hocuspocus WS server on each connection.

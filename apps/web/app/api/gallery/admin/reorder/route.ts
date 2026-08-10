@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 const CONTENT_BASE = path.resolve('../../storage/gallery/content')
 
@@ -21,7 +21,7 @@ function resolveSafe(year: string, operation: string, stage: string): string {
 export async function POST(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.gallery.manage)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasPermission(me, 'gallery.manage'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await request.json().catch(() => null)
     if (!body) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })

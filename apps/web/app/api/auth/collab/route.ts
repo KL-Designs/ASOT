@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
                 ? client.hasRoles(me, PERMISSIONS.departments.j2) || client.hasRoles(me, PERMISSIONS.departmentLeads.j2) || client.hasRoles(me, PERMISSIONS.pages.admin)
                 : doc.startsWith('cfb-')
                     ? client.hasRoles(me, PERMISSIONS.training.manage)
-                    : client.hasRoles(me, PERMISSIONS.auth.collab)
+                    : await hasPermission(me, 'auth.collab')
 
         const userName = me.guild?.displayName || me.globalName || me.username || 'Unknown'
         const userAvatar = me.guild?.avatarURL || me.avatarURL || null
