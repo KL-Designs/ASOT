@@ -2,7 +2,7 @@
 
 Scope: `app/dashboard/j1/**`, `app/dashboard/j2/**`, `app/dashboard/j3/**`, `app/dashboard/j4/**`.
 
-All four `page.tsx` files follow the identical shape: `await connection()`, `client.fetchMe()`, redirect to `/login` if unauthenticated, redirect to `/dashboard` if `!client.hasRoles(me, PERMISSIONS.departments.jN)`, then pass `displayName`, `userId`, `canManageMembers` (`PERMISSIONS.departmentLeads.jN`), and `isJ4` (`PERMISSIONS.departments.j4`) into the client `JNPanel`/`J4AdminPanel` component. Each has a `loading.tsx` rendering `<TacticalLoader label='LOADING JN // ...' />`.
+All four `page.tsx` files follow the identical shape: `await connection()`, `client.fetchMe()`, redirect to `/login` if unauthenticated, redirect to `/dashboard` if `!client.hasRoles(me, PERMISSIONS.departments.jN)`, then pass `displayName`, `userId`, `canManageMembers` (`await hasPermission(me, 'departmentLeads.jN')` for J1-J3; J4 has no separate lead role), and `isJ4` (`PERMISSIONS.departments.j4`) into the client `JNPanel`/`J4AdminPanel` component. Each has a `loading.tsx` rendering `<TacticalLoader label='LOADING JN // ...' />`.
 
 Every panel's header has three toggle buttons (Members / Calendar / Activity Logs, or Logs for J4) that swap to shared components: `DeptMembersTab` (`app/dashboard/DeptMembersTab.tsx`), `DeptCalendarTab` (`app/dashboard/unit/calendar/DeptCalendarTab.tsx`), `ActivityLogTab` (`app/dashboard/_components/ActivityLogTab.tsx`). Tab state persisted via `useTabState` (`app/dashboard/_components/useTabState.ts`). Tab labels support pin-to-sidebar via `PinTabLabel`.
 
@@ -15,7 +15,7 @@ Above the member table, a "Department Leadership" card shows the department's 3 
 ### J1 — Recruitment
 
 #### app/dashboard/j1/page.tsx
-Route `/dashboard/j1`. Gated by `PERMISSIONS.departments.j1`; computes `canManageMembers` from `PERMISSIONS.departmentLeads.j1` and `isJ4` from `PERMISSIONS.departments.j4`. Renders `J1Panel`.
+Route `/dashboard/j1`. Gated by `PERMISSIONS.departments.j1`; computes `canManageMembers` from `await hasPermission(me, 'departmentLeads.j1')` and `isJ4` from `PERMISSIONS.departments.j4`. Renders `J1Panel`.
 
 #### app/dashboard/j1/J1Panel.tsx
 Top-level client panel. Tabs: Recruit Member (0), Applications (1), Mastersheet (2), Statistics (3), Meetings (4, via shared `MeetingsTab`), Tickets (5, via shared `DeptTicketsTab department='j1'`), TFAR Plugin (6, lead/J4 only). Header toggles to `DeptMembersTab`/`DeptCalendarTab`/`ActivityLogTab` for `department='j1'`.

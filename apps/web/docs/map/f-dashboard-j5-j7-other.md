@@ -20,7 +20,7 @@ The `/dashboard` landing page content: favourites grid (drag-and-drop reorder vi
 ## J5 — Media
 
 #### app/dashboard/j5/page.tsx
-Route: `/dashboard/j5`. Gate: `PERMISSIONS.departments.j5` (redirects `/dashboard` on failure). Computes `canManageMembers` (`departmentLeads.j5`) and `isJ4`, renders `J5Panel`.
+Route: `/dashboard/j5`. Gate: `PERMISSIONS.departments.j5` (redirects `/dashboard` on failure). Computes `canManageMembers` (`await hasPermission(me, 'departmentLeads.j5')`) and `isJ4`, renders `J5Panel`.
 
 #### app/dashboard/j5/J5Panel.tsx
 Client shell for the J5 dept page. Header with title "[J5] Media" + toggle buttons for Members/Calendar/Activity Log views (via `useTabState`, URL-backed). Default "dept" view has 5 sub-tabs: Operations (`GalleryOperationsTab`), Featured Images (`GalleryFeaturedTab`), Screenshot of Month (`ScreenshotOfMonthTab`), Meetings (`MeetingsTab`), Tickets (`DeptTicketsTab`). Reuses `DeptMembersTab` and `DeptCalendarTab` (outside this scope) for the Members/Calendar toggle views. Same shape reused by J6Panel/J7Panel.
@@ -42,7 +42,7 @@ Client component: view/set the current "Screenshot of the Month" (SOTM). Shows c
 ## J6 — Game Masters
 
 #### app/dashboard/j6/page.tsx
-Route: `/dashboard/j6`. Gate: `PERMISSIONS.departments.j6`. Renders `J6Panel` with `canManageMembers` (`departmentLeads.j6`), `isJ4`.
+Route: `/dashboard/j6`. Gate: `PERMISSIONS.departments.j6`. Renders `J6Panel` with `canManageMembers` (`await hasPermission(me, 'departmentLeads.j6')`), `isJ4`.
 
 #### app/dashboard/j6/J6Panel.tsx
 Same shell pattern as J5Panel, header "[J6] Game Masters". Dept tabs: Zeus Notes (`ZeusNotesTab`), Meetings, Tickets (only 3 tabs, no gallery-style tab).
@@ -58,7 +58,7 @@ Client component: master-detail view for per-operation "Zeus notes" (Zeus/GM fre
 ## J7 — Development
 
 #### app/dashboard/j7/page.tsx
-Route: `/dashboard/j7`. Gate: `PERMISSIONS.departments.j7`. Renders `J7Panel` with `canManageMembers` (`departmentLeads.j7`), `isJ4`.
+Route: `/dashboard/j7`. Gate: `PERMISSIONS.departments.j7`. Renders `J7Panel` with `canManageMembers` (`await hasPermission(me, 'departmentLeads.j7')`), `isJ4`.
 
 #### app/dashboard/j7/J7Panel.tsx
 Same shell pattern, header "[J7] Development". Dept tabs: **Board** (0, `BoardTab` — see below), Meetings (1), Tickets (2). `BoardTab` receives `department='j7'` and `canManageColumns={canManageMembers || isJ4}`.
@@ -145,7 +145,7 @@ Searchable single-select dropdown for choosing an `OrbatRole` (same open/filter/
 ## Quiz (Review)
 
 #### app/dashboard/quiz/review/[attemptId]/page.tsx
-Route: `/dashboard/quiz/review/[attemptId]`. Gate: `PERMISSIONS.quiz.review` (redirects `/dashboard/j3` on failure or invalid/missing attempt/quiz). Server-loads the `QuizAttempt` doc from `Db.quizAttempts` directly and the static quiz definition via `getQuizById()` (`lib/quiz-data`), serializes dates to ISO strings, computes `canEscalate` (`quiz.reviewEscalated`) and `isJ4`, renders `QuizReviewClient`.
+Route: `/dashboard/quiz/review/[attemptId]`. Gate: `await hasPermission(me, 'quiz.review')` (redirects `/dashboard/j3` on failure or invalid/missing attempt/quiz). Server-loads the `QuizAttempt` doc from `Db.quizAttempts` directly and the static quiz definition via `getQuizById()` (`lib/quiz-data`), serializes dates to ISO strings, computes `canEscalate` (`await hasPermission(me, 'quiz.reviewEscalated')`) and `isJ4`, renders `QuizReviewClient`.
 
 #### app/dashboard/quiz/review/[attemptId]/quiz-review-client.tsx
 Full quiz-attempt review/marking UI for J3 trainers. Left sidebar (`QuizSectionSidebar`, outside scope) for section nav with per-question tick state. Centre renders each question via `QuizQuestionCard` (outside scope) in read-only mode with reviewer marking controls per written/image question (or per-box for multi-box questions) — auto-grades multiple-choice, manual correct/incorrect for written. Right panel shows time taken, live score vs pass mark (with progress bar), status, and a decision panel (Pass / Fail / Send for Review with required notes on escalation). Calls `POST /api/admin/quiz/review/{attemptId}` (`{action, notes, questionDecisions, score, totalPoints}`), then redirects to `/dashboard/j3`.

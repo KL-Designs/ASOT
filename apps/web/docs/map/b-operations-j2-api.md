@@ -128,20 +128,20 @@ Scope: 42 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 - **GET** — lightweight poll endpoint for the operation viewer status bar: returns op `status`/`date` + attendance `rsvpOpen`/`rsvpOpenAt`/`rsvpCloseOffsetMins`/`confirmationOpen`/`confirmationOpenedAt`/`stage`. Gate: none (public). Collections: `Db.operations`, `Db.operationAttendance` (projections only).
 
 #### /api/operations/[id]/mission-development
-- **POST** — records a dev-check completion (`checkId`, `reviewerName`, `comments`, `outcome`) into `missionDevelopment.completions.{checkId}` on the op. Gate: `PERMISSIONS.departmentLeads.j2`. Collections: `Db.operations`.
-- **DELETE** — removes a dev-check completion (`?checkId=`). Gate: `PERMISSIONS.departmentLeads.j2`. Collections: `Db.operations`.
+- **POST** — records a dev-check completion (`checkId`, `reviewerName`, `comments`, `outcome`) into `missionDevelopment.completions.{checkId}` on the op. Gate: `await hasPermission(me, 'departmentLeads.j2')`. Collections: `Db.operations`.
+- **DELETE** — removes a dev-check completion (`?checkId=`). Gate: `await hasPermission(me, 'departmentLeads.j2')`. Collections: `Db.operations`.
 
 #### /api/operations/[id]/orders-check
 - **GET** — returns the active (uncompleted) `orders_check` task for this op, if any. Gate: `PERMISSIONS.departments.j2`. Collections: `Db.tasks`.
 - **POST** — J2 member requests an orders check from J2 leads (`preferredAt`, `comments`); creates a `Task` (`type: 'orders_check'`), errors if one already pending. Gate: `PERMISSIONS.departments.j2`. Collections: `Db.operations` (read), `Db.tasks`, `Db.users` (J2 leads lookup). Side effects: `createNotificationForRole(j2Lead)` + `sendTaskAssignedDM` to each J2 lead.
 - **DELETE** — requester (or J2 lead) cancels their pending orders-check task (`?taskId=`). Gate: `PERMISSIONS.departments.j2` (+ ownership or lead check). Collections: `Db.tasks`. Side effects: `createNotificationForRole(j2Lead)`.
-- **PATCH** — J2 lead `confirm`s or `propose`s an alternate time on a pending check; any J2 member can `set_reminder` (personal reminder timestamp). Gate: `PERMISSIONS.departments.j2` for `set_reminder`; `PERMISSIONS.departmentLeads.j2` for `confirm`/`propose`. Collections: `Db.tasks`. Side effects: `createNotification` to requester on confirm/propose.
+- **PATCH** — J2 lead `confirm`s or `propose`s an alternate time on a pending check; any J2 member can `set_reminder` (personal reminder timestamp). Gate: `PERMISSIONS.departments.j2` for `set_reminder`; `await hasPermission(me, 'departmentLeads.j2')` for `confirm`/`propose`. Collections: `Db.tasks`. Side effects: `createNotification` to requester on confirm/propose.
 
 #### /api/operations/[id]/publish
 - **POST** — transitions operation status `In Development` → `Upcoming` (409 if not currently In Development). Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`, `Db.users` (performer display name). Side effects: `createNotificationForRole('All Staff')` + `createNotificationForRole(j2Lead)`; `logAction('operation.publish')`.
 
 #### /api/operations/[id]/remind
-- **POST** — notifies all "All Staff" users who haven't yet acknowledged orders for this op. Gate: `PERMISSIONS.operations.write` OR `PERMISSIONS.departmentLeads.j2`. Collections: `Db.operations` (read title+acknowledgements), `Db.users` (All Staff list). Side effects: `createNotification` per unacknowledged user.
+- **POST** — notifies all "All Staff" users who haven't yet acknowledged orders for this op. Gate: `PERMISSIONS.operations.write` OR `await hasPermission(me, 'departmentLeads.j2')`. Collections: `Db.operations` (read title+acknowledgements), `Db.users` (All Staff list). Side effects: `createNotification` per unacknowledged user.
 
 ---
 
@@ -180,10 +180,10 @@ Scope: 42 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 ## `app/api/j2/workspace/` (J2 member workspace — files, docs, activity)
 
 #### /api/j2/workspace/activity
-- **GET** — paginated action-log feed filtered to `department: 'j2'` + `action` matching `^workspace\.`; supports `?memberId`, `?actionType` (whitelist of workspace.* actions), `?from`/`?to` date range, `?limit` (max 200), `?page`. Gate: `PERMISSIONS.departments.j2` OR `PERMISSIONS.departmentLeads.j2` OR `PERMISSIONS.pages.admin`. Collections: `Db.actionLogs`.
+- **GET** — paginated action-log feed filtered to `department: 'j2'` + `action` matching `^workspace\.`; supports `?memberId`, `?actionType` (whitelist of workspace.* actions), `?from`/`?to` date range, `?limit` (max 200), `?page`. Gate: `PERMISSIONS.departments.j2` OR `await hasPermission(me, 'departmentLeads.j2')` OR `PERMISSIONS.pages.admin`. Collections: `Db.actionLogs`.
 
 #### /api/j2/workspace/members
-- **GET** — lists all active J2 members (from `Db.users.departments: 'j2'`) with aggregated workspace metadata: file count, doc count, linked-op count (`ownedBy`), last-activity timestamp, and position label (Department Leader / Team Leader / Creator Trainer derived from whether the member's `departmentRoleIds` includes J2's `linkedSlot: 'leader'`/`'2ic'`/`'3ic'` `DepartmentRole` id). Gate: `PERMISSIONS.departments.j2` OR `PERMISSIONS.departmentLeads.j2` OR `PERMISSIONS.pages.admin`. Collections: `Db.users`, `Db.departmentRoles`, `Db.workspaceFiles` (aggregate), `Db.workspaceDocs` (aggregate), `Db.operations` (aggregate).
+- **GET** — lists all active J2 members (from `Db.users.departments: 'j2'`) with aggregated workspace metadata: file count, doc count, linked-op count (`ownedBy`), last-activity timestamp, and position label (Department Leader / Team Leader / Creator Trainer derived from whether the member's `departmentRoleIds` includes J2's `linkedSlot: 'leader'`/`'2ic'`/`'3ic'` `DepartmentRole` id). Gate: `PERMISSIONS.departments.j2` OR `await hasPermission(me, 'departmentLeads.j2')` OR `PERMISSIONS.pages.admin`. Collections: `Db.users`, `Db.departmentRoles`, `Db.workspaceFiles` (aggregate), `Db.workspaceDocs` (aggregate), `Db.operations` (aggregate).
 
 #### /api/j2/workspace/docs
 - **GET** — lists workspace docs for `?memberId=`, excludes `deleted`/`yjsState` binary from projection. Gate: J2 member/lead/admin. Collections: `Db.workspaceDocs`.
@@ -213,8 +213,8 @@ Scope: 42 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 ## `app/api/j2/dev-checks/` (mission development check tracking)
 
 #### /api/j2/dev-checks
-- **GET** — lists all `In Development`/`Active` (or `+Upcoming` with `?filter=all`) ops with computed dev-check status rows: for campaign ops uses `CAMPAIGN_CHECK_WEEKS = [16,12,10,8,6,4]` relative to campaign `startDate`, for standalone ops uses `SINGLE_CHECK_WEEKS = [12,10,8,6,4]` relative to op `date`; each check reports due date, overdue flag, days-until, linked completion (from `missionDevelopment.completions`), and assigned task info. Supports `?filter=active|overdue|completed|all`. Gate: `PERMISSIONS.departmentLeads.j2` or `PERMISSIONS.departments.j2`. Collections: `Db.operations`, `Db.operationCampaigns`, `Db.tasks`.
+- **GET** — lists all `In Development`/`Active` (or `+Upcoming` with `?filter=all`) ops with computed dev-check status rows: for campaign ops uses `CAMPAIGN_CHECK_WEEKS = [16,12,10,8,6,4]` relative to campaign `startDate`, for standalone ops uses `SINGLE_CHECK_WEEKS = [12,10,8,6,4]` relative to op `date`; each check reports due date, overdue flag, days-until, linked completion (from `missionDevelopment.completions`), and assigned task info. Supports `?filter=active|overdue|completed|all`. Gate: `await hasPermission(me, 'departmentLeads.j2')` or `PERMISSIONS.departments.j2`. Collections: `Db.operations`, `Db.operationCampaigns`, `Db.tasks`.
 
 #### /api/j2/dev-checks/[opId]/[checkId]
-- **POST** — assigns a reviewer to a specific dev check (`reviewerId`, `reviewerName`); computes `dueDate` as `referenceDate − weeksOut*7 days` (reference = campaign startDate if op is campaign-linked, else op date), reminder = dueDate + 7 days; deletes any existing task for this op+check and inserts a fresh `Task` (`type: 'dev_check'`). `CHECK_WEEKS` maps `w16|w12|w10|w8|w6|w4` → week counts. Gate: `PERMISSIONS.departmentLeads.j2`. Collections: `Db.operations`, `Db.operationCampaigns` (reference date), `Db.tasks`. Side effects: `createNotification` (task_assigned) + `sendTaskAssignedDM` to reviewer.
-- **DELETE** — removes the reviewer assignment (`deleteMany` on matching dev_check tasks for opId+checkId). Gate: `PERMISSIONS.departmentLeads.j2`. Collections: `Db.tasks`.
+- **POST** — assigns a reviewer to a specific dev check (`reviewerId`, `reviewerName`); computes `dueDate` as `referenceDate − weeksOut*7 days` (reference = campaign startDate if op is campaign-linked, else op date), reminder = dueDate + 7 days; deletes any existing task for this op+check and inserts a fresh `Task` (`type: 'dev_check'`). `CHECK_WEEKS` maps `w16|w12|w10|w8|w6|w4` → week counts. Gate: `await hasPermission(me, 'departmentLeads.j2')`. Collections: `Db.operations`, `Db.operationCampaigns` (reference date), `Db.tasks`. Side effects: `createNotification` (task_assigned) + `sendTaskAssignedDM` to reviewer.
+- **DELETE** — removes the reviewer assignment (`deleteMany` on matching dev_check tasks for opId+checkId). Gate: `await hasPermission(me, 'departmentLeads.j2')`. Collections: `Db.tasks`.
