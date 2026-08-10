@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 // GET /api/j2/workspace/activity
 // Query params:
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
     }
 
     const ok = client.hasRoles(me, PERMISSIONS.departments.j2)
-        || client.hasRoles(me, PERMISSIONS.departmentLeads.j2)
+        || (await hasPermission(me, 'departmentLeads.j2'))
         || client.hasRoles(me, PERMISSIONS.pages.admin)
     if (!ok) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 

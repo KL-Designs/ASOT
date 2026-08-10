@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { logAction } from '@/lib/logAction'
 import { ObjectId } from 'mongodb'
 
@@ -9,7 +10,7 @@ async function requireJ2() {
     let me: User
     try { me = await client.fetchMe() } catch { return null }
     const ok = client.hasRoles(me, PERMISSIONS.departments.j2)
-        || client.hasRoles(me, PERMISSIONS.departmentLeads.j2)
+        || (await hasPermission(me, 'departmentLeads.j2'))
         || client.hasRoles(me, PERMISSIONS.pages.admin)
     if (!ok) return null
     return me
@@ -67,7 +68,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const isOwner = doc.createdBy === me.id || doc.memberId === me.id
-    const isLead = client.hasRoles(me, PERMISSIONS.departmentLeads.j2) || client.hasRoles(me, PERMISSIONS.pages.admin)
+    const isLead = (await hasPermission(me, 'departmentLeads.j2')) || client.hasRoles(me, PERMISSIONS.pages.admin)
     if (!isOwner && !isLead) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const displayName = me.guild?.displayName || me.globalName || me.username || me.id
