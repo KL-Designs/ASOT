@@ -2,13 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { fetchAllGuildMembers } from '@/lib/discord/bot'
+import { fetchAllGuildMembers, addGuildRole, removeGuildRole } from '@/lib/discord/bot'
+import { applyTsServerGroups, getClientServerGroupIds } from '@/lib/teamspeak/groups'
 import { logAction } from '@/lib/logs'
-import { DEPT_ROLES, applyBaseDepartmentRoleSync } from '@/lib/discord/dept-roles'
+import { DEPT_ROLES } from '@/lib/discord/dept-roles'
 
 // POST /api/admin/members/sync-dept — J4 only
-// Reads current Discord guild members for the given department's roles and
-// adds any matched DB users who are missing from the department / lead list.
+// Full push reconciliation, NOT a Discord-discovery scan: for every current
+// member of the department, computes the union of Discord role IDs /
+// TeamSpeak group IDs their held DepartmentRoles (base + subs + leadership
+// slot) say they should have, compares against their actual live Discord
+// roles and TeamSpeak groups, and grants what's missing / revokes what's
+// extra. Only ever touches an ID that appears as a grant on SOME
+// DepartmentRole in this department's catalog, so unrelated Discord roles
+// (rank, event roles, other departments' grants) are never touched. Never
+// adds new members — membership changes only happen via the
+// department-membership ticket flow.
 export async function POST(request: NextRequest) {
     let me: User
     try {
@@ -28,88 +37,61 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid department.' }, { status: 400 })
     }
 
-    const mapping = DEPT_ROLES[department]
-
-    // Resolve Discord role IDs from the DB
-    const [memberRole, leadRole] = await Promise.all([
-        Db.roles.findOne({ name: mapping.member }),
-        mapping.lead ? Db.roles.findOne({ name: mapping.lead }) : Promise.resolve(null),
+    const [members, deptRoles, guildMembers] = await Promise.all([
+        Db.users.find({ departments: department }).project<Pick<User, 'id' | 'departmentRoleIds' | 'teamspeak'>>({ id: 1, departmentRoleIds: 1, teamspeak: 1 }).toArray(),
+        Db.departmentRoles.find({ department }).toArray(),
+        fetchAllGuildMembers(),
     ])
 
-    if (!memberRole?.id) {
-        return NextResponse.json({ error: `Discord role "${mapping.member}" not found in DB.` }, { status: 500 })
-    }
+    const guildRoleMap = new Map(guildMembers.map(m => [m.userId, new Set(m.roleIds)]))
+    const managedDiscordIds = new Set(deptRoles.flatMap(r => r.discordRoleIds))
+    const managedTsGroupIds = new Set(deptRoles.flatMap(r => r.tsGroupIds))
+    const baseRole = deptRoles.find(r => r.isBase)
+    const rolesById = new Map(deptRoles.map(r => [String(r._id), r]))
 
-    const memberRoleId = memberRole.id
-    const leadRoleId = leadRole?.id ?? null
+    let discordGranted = 0, discordRevoked = 0, tsGranted = 0, tsRevoked = 0
 
-    // Fetch all guild members from Discord
-    const guildMembers = await fetchAllGuildMembers()
+    await Promise.all(members.map(async member => {
+        const heldRoles = [
+            ...(baseRole ? [baseRole] : []),
+            ...(member.departmentRoleIds ?? [])
+                .map(id => rolesById.get(String(id)))
+                .filter((r): r is DepartmentRole => !!r),
+        ]
+        const shouldHaveDiscord = new Set(heldRoles.flatMap(r => r.discordRoleIds))
+        const shouldHaveTs = new Set(heldRoles.flatMap(r => r.tsGroupIds))
 
-    // Build sets of Discord user IDs that hold each role
-    const memberRoleHolders = new Set(
-        guildMembers.filter(m => m.roleIds.includes(memberRoleId)).map(m => m.userId)
-    )
-    const leadRoleHolders = leadRoleId
-        ? new Set(guildMembers.filter(m => m.roleIds.includes(leadRoleId)).map(m => m.userId))
-        : new Set<string>()
+        const actualDiscord = guildRoleMap.get(member.id) ?? new Set<string>()
+        const discordToGrant = [...shouldHaveDiscord].filter(id => !actualDiscord.has(id))
+        const discordToRevoke = [...actualDiscord].filter(id => managedDiscordIds.has(id) && !shouldHaveDiscord.has(id))
 
-    // Fetch all DB users who are in the Discord guild members list (match by id field)
-    const holderIds = [...new Set([...memberRoleHolders, ...leadRoleHolders])]
-    const dbUsers = holderIds.length > 0
-        ? await Db.users.find({ id: { $in: holderIds } }).toArray()
-        : []
+        const cldbid = member.teamspeak?.cldbid
+        const actualTs = cldbid ? new Set(await getClientServerGroupIds(cldbid)) : new Set<number>()
+        const tsToGrant = [...shouldHaveTs].filter(id => !actualTs.has(id))
+        const tsToRevoke = [...actualTs].filter(id => managedTsGroupIds.has(id) && !shouldHaveTs.has(id))
 
-    let membersAdded = 0
-    let leadsAdded = 0
+        discordGranted += discordToGrant.length
+        discordRevoked += discordToRevoke.length
+        tsGranted += tsToGrant.length
+        tsRevoked += tsToRevoke.length
+
+        await Promise.allSettled([
+            ...discordToGrant.map(id => addGuildRole(member.id, id)),
+            ...discordToRevoke.map(id => removeGuildRole(member.id, id)),
+            tsToGrant.length ? applyTsServerGroups(member.id, 'add', tsToGrant) : Promise.resolve(),
+            tsToRevoke.length ? applyTsServerGroups(member.id, 'remove', tsToRevoke) : Promise.resolve(),
+        ])
+    }))
 
     const performedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
-
-    for (const user of dbUsers) {
-        const hasMemberRole = memberRoleHolders.has(user.id)
-        const hasLeadRole = leadRoleHolders.has(user.id)
-        const isAlreadyMember = user.departments?.includes(department) ?? false
-        const isAlreadyLead = user.teamLeadDepts?.includes(department) ?? false
-
-        const setOps: Record<string, unknown> = {}
-        const addToSetOps: Record<string, unknown> = {}
-
-        if (hasMemberRole && !isAlreadyMember) {
-            addToSetOps.departments = department
-            membersAdded++
-        }
-        if (hasLeadRole && !isAlreadyLead) {
-            addToSetOps.teamLeadDepts = department
-            // Ensure they're also in departments
-            if (!hasMemberRole && !isAlreadyMember) {
-                addToSetOps.departments = department
-                membersAdded++
-            }
-            leadsAdded++
-        }
-
-        if (Object.keys(addToSetOps).length > 0 || Object.keys(setOps).length > 0) {
-            const update: Record<string, unknown> = {}
-            if (Object.keys(addToSetOps).length > 0) update.$addToSet = addToSetOps
-            if (Object.keys(setOps).length > 0) update.$set = setOps
-            await Db.users.updateOne({ id: user.id }, update)
-
-            if (addToSetOps.departments) {
-                applyBaseDepartmentRoleSync(user.id, department, 'add').catch(err =>
-                    console.error('[members/sync-dept] base-role sync failed:', err)
-                )
-            }
-        }
-    }
-
     logAction({
         action: 'member.department.sync',
         category: 'member',
         performedBy: me.id,
         performedByName,
         target: department.toUpperCase(),
-        details: { department, membersAdded, leadsAdded, guildMembersScanned: guildMembers.length },
+        details: { department, membersChecked: members.length, discordGranted, discordRevoked, tsGranted, tsRevoked },
     }).catch(() => {})
 
-    return NextResponse.json({ ok: true, membersAdded, leadsAdded, scanned: guildMembers.length })
+    return NextResponse.json({ ok: true, membersChecked: members.length, discordGranted, discordRevoked, tsGranted, tsRevoked })
 }

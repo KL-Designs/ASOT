@@ -142,11 +142,11 @@ export default function DeptMembersTab({
             })
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Sync failed')
-            const msg = data.membersAdded === 0 && data.leadsAdded === 0
-                ? `Sync complete — no new members found (${data.scanned} Discord members scanned).`
-                : `Sync complete — added ${data.membersAdded} member(s), ${data.leadsAdded} lead(s) from Discord.`
+            const totalChanges = data.discordGranted + data.discordRevoked + data.tsGranted + data.tsRevoked
+            const msg = totalChanges === 0
+                ? `Sync complete — ${data.membersChecked} member(s) checked, already up to date.`
+                : `Sync complete — ${data.membersChecked} member(s) checked. Discord: +${data.discordGranted}/-${data.discordRevoked}. TeamSpeak: +${data.tsGranted}/-${data.tsRevoked}.`
             showFeedback('success', msg)
-            if (data.membersAdded > 0 || data.leadsAdded > 0) fetchDeptMembers()
         } catch (e: unknown) {
             showFeedback('error', e instanceof Error ? e.message : 'Sync failed')
         } finally {
@@ -297,7 +297,7 @@ export default function DeptMembersTab({
                                 flexShrink: 0,
                             }}
                         >
-                            {syncing ? '⟳ Syncing…' : '⟳ Sync Discord'}
+                            {syncing ? '⟳ Syncing…' : '⟳ Sync Discord & TeamSpeak'}
                         </button>
                     )}
                 </div>
