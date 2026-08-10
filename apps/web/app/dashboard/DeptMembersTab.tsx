@@ -12,6 +12,7 @@ type MemberOption = {
     teamLeadDepts: string[]
     dept2icRoles: string[]
     dept3icRoles: string[]
+    departmentRoleIds: string[]
 }
 
 // Position names per department: [Department Leader, 2IC, 3IC]
@@ -85,6 +86,8 @@ export default function DeptMembersTab({
     const [allMembers, setAllMembers] = useState<MemberOption[]>([])
     const [loading, setLoading] = useState(true)
     const [loadingAll, setLoadingAll] = useState(false)
+    const [deptRoles, setDeptRoles] = useState<DepartmentRole[]>([])
+    const [roleActionId, setRoleActionId] = useState<string | null>(null)
 
     const [selected, setSelected] = useState<MemberOption | null>(null)
     // Which leadership slot is currently being assigned (null | 'leader' | '2ic' | '3ic')
@@ -106,6 +109,7 @@ export default function DeptMembersTab({
                 ...m,
                 dept2icRoles: m.dept2icRoles ?? [],
                 dept3icRoles: m.dept3icRoles ?? [],
+                departmentRoleIds: m.departmentRoleIds ?? [],
             })))
         } finally {
             setLoading(false)
@@ -114,6 +118,10 @@ export default function DeptMembersTab({
 
     useEffect(() => {
         fetchDeptMembers()
+        fetch(`/api/admin/department-roles?department=${department}`)
+            .then(r => r.json())
+            .then(d => setDeptRoles((d.roles ?? []).filter((r: DepartmentRole) => !r.isBase)))
+            .catch(() => setDeptRoles([]))
         if (canManage) {
             setLoadingAll(true)
             fetch('/api/admin/members?limit=1000')
@@ -122,10 +130,11 @@ export default function DeptMembersTab({
                     ...m,
                     dept2icRoles: m.dept2icRoles ?? [],
                     dept3icRoles: m.dept3icRoles ?? [],
+                    departmentRoleIds: m.departmentRoleIds ?? [],
                 }))))
                 .finally(() => setLoadingAll(false))
         }
-    }, [fetchDeptMembers, canManage])
+    }, [fetchDeptMembers, canManage, department])
 
     function showFeedback(type: 'success' | 'error', msg: string) {
         setFeedback({ type, msg })
@@ -224,6 +233,26 @@ export default function DeptMembersTab({
             showFeedback('error', e instanceof Error ? e.message : 'Failed to remove from position')
         } finally {
             setLeadActionId(null)
+        }
+    }
+
+    async function handleToggleRole(member: MemberOption, role: DepartmentRole) {
+        const holds = member.departmentRoleIds.includes(String(role._id))
+        setRoleActionId(member.id)
+        try {
+            const res = await fetch('/api/admin/department-roles/assign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetUserId: member.id, roleId: String(role._id), action: holds ? 'remove' : 'add' }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Request failed')
+            showFeedback('success', `${member.displayName} ${holds ? 'unassigned from' : 'assigned'} ${role.name}.`)
+            fetchDeptMembers()
+        } catch (e: unknown) {
+            showFeedback('error', e instanceof Error ? e.message : 'Failed to update role')
+        } finally {
+            setRoleActionId(null)
         }
     }
 
@@ -370,6 +399,7 @@ export default function DeptMembersTab({
                                     <th style={thStyle}>Name</th>
                                     <th style={thStyle}>Rank</th>
                                     <th style={thStyle}>Position</th>
+                                    {deptRoles.length > 0 && <th style={thStyle}>Roles</th>}
                                     {canManage && <th style={{ ...thStyle, textAlign: 'right' }} />}
                                 </tr>
                             </thead>
@@ -391,6 +421,33 @@ export default function DeptMembersTab({
                                             <td style={{ ...tdStyle, fontSize: '0.68rem', color: isLeader ? '#fbbf24' : 'rgba(219,0,29,0.55)' }}>
                                                 {position ?? '—'}
                                             </td>
+                                            {deptRoles.length > 0 && (
+                                                <td style={tdStyle}>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                        {deptRoles.map(role => {
+                                                            const holds = m.departmentRoleIds.includes(String(role._id))
+                                                            if (!holds && !canManage) return null
+                                                            return (
+                                                                <button
+                                                                    key={String(role._id)}
+                                                                    onClick={canManage ? () => handleToggleRole(m, role) : undefined}
+                                                                    disabled={roleActionId === m.id}
+                                                                    style={{
+                                                                        fontSize: '0.6rem', fontWeight: 600, padding: '2px 8px',
+                                                                        background: holds ? 'rgba(100,180,255,0.14)' : 'rgba(255,255,255,0.04)',
+                                                                        border: `1px solid ${holds ? 'rgba(100,180,255,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                                                                        color: holds ? 'rgba(100,180,255,0.9)' : 'rgba(237,237,237,0.3)',
+                                                                        cursor: canManage ? 'pointer' : 'default',
+                                                                        opacity: roleActionId === m.id ? 0.5 : 1,
+                                                                    }}
+                                                                >
+                                                                    {role.name}
+                                                                </button>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                </td>
+                                            )}
                                             {canManage && (
                                                 <td style={{ padding: '8px 12px', textAlign: 'right' }}>
                                                     <button

@@ -6,6 +6,8 @@ All four `page.tsx` files follow the identical shape: `await connection()`, `cli
 
 Every panel's header has three toggle buttons (Members / Calendar / Activity Logs, or Logs for J4) that swap to shared components: `DeptMembersTab` (`app/dashboard/DeptMembersTab.tsx`), `DeptCalendarTab` (`app/dashboard/unit/calendar/DeptCalendarTab.tsx`), `ActivityLogTab` (`app/dashboard/_components/ActivityLogTab.tsx`). Tab state persisted via `useTabState` (`app/dashboard/_components/useTabState.ts`). Tab labels support pin-to-sidebar via `PinTabLabel`.
 
+`DeptMembersTab`'s member table also renders a "Roles" column — one toggleable chip per non-base sub-role defined for the department (fetched via `GET /api/admin/department-roles?department=X`; base roles excluded), hidden entirely when the department has none. Clicking a chip calls `POST /api/admin/department-roles/assign` to add/remove that member's holding of the sub-role. Read-only (chips render but aren't clickable, and roles the member doesn't hold aren't shown) for non-managers; clickable for department leads/J4 (`canManage`).
+
 ---
 
 ### J1 — Recruitment
