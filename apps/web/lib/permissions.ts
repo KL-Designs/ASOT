@@ -240,6 +240,13 @@ const PERMISSIONS = {
         /**
          * Upload member bio/profile images.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'uploads.bio')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * This array is now dead code for that specific check; it's kept only
+         * because `lib/permissions/tree.ts` (the Permissions Explorer) still reads
+         * it for display purposes.
+         *
          * Used by:
          *  - `app/api/uploads/bio/route.ts`
          */
@@ -393,6 +400,13 @@ const PERMISSIONS = {
         /**
          * Add or remove mods from the unit's optional mod master lists.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'optionals.manage')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * This array is now dead code for that specific check; it's kept only
+         * because `lib/permissions/tree.ts` (the Permissions Explorer) still reads
+         * it for display purposes.
+         *
          * Used by:
          *  - `app/optionals/manage/route.ts`
          *  - `app/optionals/me/route.ts` (sets `isAdmin` flag)
@@ -436,6 +450,13 @@ const PERMISSIONS = {
          * Manage the media gallery — create/delete folders, upload and remove
          * images, and set featured/Shot of the Month images.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'gallery.manage')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * This array is now dead code for that specific check; it's kept only
+         * because `lib/permissions/tree.ts` (the Permissions Explorer) still reads
+         * it for display purposes.
+         *
          * Used by:
          *  - `app/admin/gallery/page.tsx` (page gate)
          *  - `app/api/gallery/admin/folder/route.ts`
@@ -474,6 +495,13 @@ const PERMISSIONS = {
         /**
          * Authorise access to the real-time collaborative operation editor
          * (Hocuspocus/Y.js WebSocket). Prevents non-J2 staff from connecting.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'auth.collab')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * This array is now dead code for that specific check; it's kept only
+         * because `lib/permissions/tree.ts` (the Permissions Explorer) still reads
+         * it for display purposes.
          *
          * Used by:
          *  - `app/api/auth/collab/route.ts`
@@ -839,6 +867,13 @@ const PERMISSIONS = {
          * Generate intel images via the AI image creator.
          * Primarily J2 mission makers; J4 bypasses globally.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'intel.generateImages')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * This array is now dead code for that specific check; it's kept only
+         * because `lib/permissions/tree.ts` (the Permissions Explorer) still reads
+         * it for display purposes.
+         *
          * Used by:
          *  - `app/api/ai/intel/generate/route.ts`
          *  - `app/dashboard/j2/tabs/IntelImagesTab.tsx`
@@ -848,6 +883,13 @@ const PERMISSIONS = {
         /**
          * View all members' generated intel images (the "All Images" library).
          * Own images are always visible to the generating member.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'intel.viewAllImages')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * This array is now dead code for that specific check; it's kept only
+         * because `lib/permissions/tree.ts` (the Permissions Explorer) still reads
+         * it for display purposes.
          *
          * Used by:
          *  - `app/api/ai/images/route.ts` (GET with ?scope=all)
