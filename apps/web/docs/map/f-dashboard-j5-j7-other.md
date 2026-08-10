@@ -7,7 +7,7 @@ Scope: `app/dashboard/j5/**`, `app/dashboard/j6/**`, `app/dashboard/j7/**`, `app
 ## Dashboard Root
 
 #### app/dashboard/layout.tsx
-Server layout gating the entire staff/member portal. Redirects to `/login` if unauthenticated, to `/me` if not `PERMISSIONS.pages.member`. Computes a `permissions` object (`isStaff`, `canSeeJ1`–`canSeeJ7`, `canManageJ1`, `canSeeOrbat`, `canSeePersonnel`, `displayName`) from `PERMISSIONS.departments.*` / `PERMISSIONS.pages.*` and passes it to `StaffDashboardShell` (sidebar/shell component, outside this scope) wrapping `children`.
+Server layout gating the entire staff/member portal. Redirects to `/login` if unauthenticated, to `/me` if not `hasPermission(user, 'pages.member')`. Computes a `permissions` object (`isStaff`, `canSeeJ1`–`canSeeJ7`, `canManageJ1`, `canSeeOrbat`, `canSeePersonnel`, `displayName`) from `PERMISSIONS.departments.*` / `PERMISSIONS.pages.*` and passes it to `StaffDashboardShell` (sidebar/shell component, outside this scope) wrapping `children`.
 
 #### app/dashboard/page.tsx
 Route: `/dashboard`. Same permission computation as layout (duplicated) and renders `DashboardOverview` — the portal landing page.
@@ -155,7 +155,7 @@ Full quiz-attempt review/marking UI for J3 trainers. Left sidebar (`QuizSectionS
 ## Retired Members
 
 #### app/dashboard/retired/page.tsx
-Route: `/dashboard/retired`. **No server component / no explicit permission gate in this file** — file starts directly with `'use client'`, so access control relies solely on the parent `app/dashboard/layout.tsx` gate (`PERMISSIONS.pages.member`), not a J4-specific check, despite the UI being J4-Administration tooling. CSV importer for the "HQ Leaving History" spreadsheet (discharge records) plus a raw JSON "patch" tool for fixing individual records. Upload/paste CSV → preview row count → Run Import (shows inserted/updated/skipped counts + skipped-row reasons table). Patch panel accepts a JSON array of `{find,set}` or `{upsert}` operations. Calls `POST /api/admin/retired/import` (CSV body, `text/plain`), `PATCH /api/admin/retired/import` (JSON patch array).
+Route: `/dashboard/retired`. **No server component / no explicit permission gate in this file** — file starts directly with `'use client'`, so access control relies solely on the parent `app/dashboard/layout.tsx` gate (`hasPermission(user, 'pages.member')`), not a J4-specific check, despite the UI being J4-Administration tooling. CSV importer for the "HQ Leaving History" spreadsheet (discharge records) plus a raw JSON "patch" tool for fixing individual records. Upload/paste CSV → preview row count → Run Import (shows inserted/updated/skipped counts + skipped-row reasons table). Patch panel accepts a JSON array of `{find,set}` or `{upsert}` operations. Calls `POST /api/admin/retired/import` (CSV body, `text/plain`), `PATCH /api/admin/retired/import` (JSON patch array).
 
 ---
 
@@ -172,13 +172,13 @@ Full task management UI with 3 tabs: My Tasks, Created by Me, All Tasks (elevate
 ## Unit
 
 #### app/dashboard/unit/allstaff-calendar/page.tsx
-Route: `/dashboard/unit/allstaff-calendar`. Gate: `PERMISSIONS.pages.member` (redirect `/me`). Computes `isTrainer` (`training.create`), `isJ3Lead` (`training.manage`). Renders `AllStaffCalendarPanel`.
+Route: `/dashboard/unit/allstaff-calendar`. Gate: `hasPermission(user, 'pages.member')` (redirect `/me`). Computes `isTrainer` (`training.create`), `isJ3Lead` (`training.manage`). Renders `AllStaffCalendarPanel`.
 
 #### app/dashboard/unit/allstaff-calendar/AllStaffCalendarPanel.tsx
 Wraps `DeptCalendarTab` (department `'unit'`) with a J3-trainer-only "Create Event" flow — either a blank event or pre-filled from a J3 training-type template (`GET /api/training/types`, active only) which auto-computes the end time from the type's `durationMinutes`. Modal has title/start/description/private toggle. Calls `POST /api/admin/calendar`.
 
 #### app/dashboard/unit/calendar/page.tsx
-Route: `/dashboard/unit/calendar`. Gate: `PERMISSIONS.pages.member`. Computes `isJ4`, `canWrite` (`pages.admin`). Renders `CalendarPanel`.
+Route: `/dashboard/unit/calendar`. Gate: `hasPermission(user, 'pages.member')`. Computes `isJ4`, `canWrite` (`pages.admin`). Renders `CalendarPanel`.
 
 #### app/dashboard/unit/calendar/CalendarPanel.tsx
 Unit-wide calendar (`react-big-calendar`, month/week/day/agenda views) showing **all** departments' events with a department-colour legend (click to filter to one/several depts) plus an "Ops Only" toggle. Clicking an event opens `EventModal` (view/edit); `canWrite` staff get an "Add Event" button. Calls `GET /api/admin/calendar`.
@@ -196,7 +196,7 @@ J2-specific modal used for two special event types: `mode='unavailability'` (J2 
 `<TacticalLoader label='LOADING UNIT CALENDAR' />`.
 
 #### app/dashboard/unit/sops/page.tsx
-Route: `/dashboard/unit/sops`. Gate: `PERMISSIONS.pages.member`. Computes `isJ4` from `PERMISSIONS.sops.manage`. Renders `SopsPanel`.
+Route: `/dashboard/unit/sops`. Gate: `hasPermission(user, 'pages.member')`. Computes `isJ4` from `PERMISSIONS.sops.manage`. Renders `SopsPanel`.
 
 #### app/dashboard/unit/sops/SopsPanel.tsx
 SOP (Standard Operating Procedure) library: list view grouped by category (`General`/`Operations`/`Training`/`Administration`/`Communications`) with search, and a document view. J4 (`isJ4`) can create new SOPs (title/category/description), edit an existing SOP's metadata inline, or delete (with confirm). Document body is a `CollabEditor` (Y.js/TipTap collaborative editor) with `documentId={'sop-' + sop._id}`, read-only for non-J4. Calls `GET/POST /api/sops`, `PATCH/DELETE /api/sops/{id}`.
@@ -214,7 +214,7 @@ Cross-department admin ticket queue/action console. Filterable/searchable/pagina
 `<TacticalLoader label='LOADING TICKETS' />`.
 
 #### app/dashboard/unit/training-docs/page.tsx
-Route: `/dashboard/unit/training-docs`. Gate: `PERMISSIONS.pages.member`. Computes `isJ3Lead` (`training.manage`), `isTrainer` (`training.create`), `isJ3Trainer` (`training.trainer`). Renders `TrainingHub` — the top-level J3 training hub with 3 tabs (Courses/Types, Events, Requests).
+Route: `/dashboard/unit/training-docs`. Gate: `hasPermission(user, 'pages.member')`. Computes `isJ3Lead` (`training.manage`), `isTrainer` (`training.create`), `isJ3Trainer` (`training.trainer`). Renders `TrainingHub` — the top-level J3 training hub with 3 tabs (Courses/Types, Events, Requests).
 
 #### app/dashboard/unit/training-docs/TrainingHub.tsx (1002 lines — large)
 Tab `'courses'`: manages `TrainingType` definitions (course catalogue) — create/edit (name, category, billet field/points, description, status, duration, server, required mods, prerequisites, min trainers/trainees, trainer/info doc URLs, cover image, linked media), drag-reorder via `@dnd-kit`, seed defaults, and per-type expandable **training docs** list with add/approve/reject/delete (a document-request/approval workflow distinct from the standalone `TrainingDocsPanel` explorer below — these are docs attached directly to a training type). Tab `'events'` renders `EventsTab`; tab `'requests'` renders `RequestsTab`. Calls `GET/POST /api/training/types`, `PATCH/DELETE /api/training/types/{id}`, `POST /api/training/types/seed`, `GET/POST /api/training/types/{id}/docs`, `DELETE /api/training/types/{typeId}/docs/{docId}`, `POST /api/training/types/{typeId}/docs/{docId}/approve|reject`.
@@ -229,7 +229,7 @@ Training-session event calendar/list: create/edit/cancel/complete training event
 Standalone file-explorer-style document library ("Training Docs") — folders and documents with custom icon/colour (`ICON_OPTIONS`/`COLOR_PRESETS`), drag-and-drop move between folders (`@dnd-kit`), breadcrumb navigation, search, create/rename/delete folders and docs, and a rich-text document view/editor using `SimpleEditor` (non-collaborative editor, distinct from `CollabEditor` used by SOPs). Supports linking a doc via URL open (`initialDocId` deep-link from `[id]/page.tsx`) with heading-based table of contents (`extractHeadings`/`DocToc`). `isJ3` gates create/edit/delete. Calls `GET/POST/PATCH/DELETE /api/training-docs` and `/api/training-docs/{id}` (multipart `POST` for doc content/attachments).
 
 #### app/dashboard/unit/training-docs/[id]/page.tsx
-Route: `/dashboard/unit/training-docs/[id]`. Gate: `PERMISSIONS.pages.member`. Computes `isJ3` (`trainingDocs.manage`). Renders `TrainingDocsPanel` (imported from parent dir) with `initialDocId` set — deep-links straight to a specific document.
+Route: `/dashboard/unit/training-docs/[id]`. Gate: `hasPermission(user, 'pages.member')`. Computes `isJ3` (`trainingDocs.manage`). Renders `TrainingDocsPanel` (imported from parent dir) with `initialDocId` set — deep-links straight to a specific document.
 
 #### app/dashboard/unit/training-docs/loading.tsx
 `<TacticalLoader label='LOADING TRAINING DOCS' />`.
@@ -300,6 +300,6 @@ Department-scoped view of **community feedback tickets** (`CommunityTicket`/`Db`
 
 - **Two separate "ticket" systems** exist and are easy to conflate: (1) `Db.tickets` / `/api/admin/tickets` — internal staff process tickets (move-request, discipline, performance-report, department-membership), surfaced in `unit/tickets/TicketsPanel.tsx` and the `personnel/all-staff/tabs/*` forms; (2) `CommunityTicket` / `/api/feedback` + `/api/tickets/{id}` — member-facing feedback/bug/mission-request tickets, surfaced per-department via `_components/tickets/DeptTicketsTab.tsx` (used inside J5Panel/J6Panel/J7Panel and presumably J1–J4).
 - **Two separate document-editing systems**: `CollabEditor` (Y.js/Hocuspocus real-time collaborative, used by `unit/sops/SopsPanel.tsx`) vs `SimpleEditor` (non-collaborative, used by `unit/training-docs/TrainingDocsPanel.tsx`).
-- **`app/dashboard/retired/page.tsx`** and **`app/dashboard/meeting/[id]/page.tsx`** are the only two files in this scope with no explicit per-page permission gate of their own — both rely on parent layout (`pages.member`) or API-level enforcement only, despite one being J4-administration tooling.
+- **`app/dashboard/retired/page.tsx`** and **`app/dashboard/meeting/[id]/page.tsx`** are the only two files in this scope with no explicit per-page permission gate of their own — both rely on parent layout (`hasPermission(user, 'pages.member')`) or API-level enforcement only, despite one being J4-administration tooling.
 - Every JX department panel (`J5Panel`, `J6Panel`, `J7Panel`, and by inference J1–J4 outside this scope) shares an identical shell structure: header with `CornerBrackets` + Members/Calendar/Activity toggle buttons (via `useTabState`), reusing `DeptMembersTab`, `DeptCalendarTab`, `ActivityLogTab`, `MeetingsTab`, `DeptTicketsTab` as common building blocks — only the department-specific feature tab(s) differ (J5: gallery/SOTM; J6: Zeus Notes; J7: Board — `BoardTab`, a Trello-style kanban board, see J7 section above).
 - Training has **two distinct doc concepts**: per-`TrainingType` attached docs (approval workflow inside `TrainingHub.tsx`'s Courses tab) vs the standalone `TrainingDocsPanel.tsx` folder/document explorer — do not confuse when asked to "add a training document."

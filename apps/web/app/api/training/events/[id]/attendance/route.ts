@@ -5,6 +5,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { createNotification } from '@/lib/notifications'
 import { logAction } from '@/lib/logAction'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
@@ -30,7 +31,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.pages.member)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasPermission(me, 'pages.member'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { id: eventId } = await params
     if (!ObjectId.isValid(eventId)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })

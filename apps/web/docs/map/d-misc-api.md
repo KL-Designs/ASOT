@@ -389,4 +389,4 @@ Both explicitly marked "DEV-ONLY — delete before deploying to production" in s
 ### auth (1 file)
 
 #### /api/auth/collab
-- **GET** — Hocuspocus collab-auth endpoint; reads `x-collab-token` header (not the `token` cookie) and `?doc=` query param to resolve document-specific permission: `sop-*` docs → any member (`PERMISSIONS.pages.member`); `ws-*` docs → J2 member/lead/admin; all others (operation briefings) → `PERMISSIONS.auth.collab`. Auth: bespoke per-document logic, no single gate. Returns `{authorized, userId, userName, userAvatar}` consumed by the Hocuspocus WS server on each connection.
+- **GET** — Hocuspocus collab-auth endpoint; reads `x-collab-token` header (not the `token` cookie) and `?doc=` query param to resolve document-specific permission: `sop-*` docs → any member (`hasPermission(user, 'pages.member')`); `ws-*` docs → J2 member/lead/admin; all others (operation briefings) → `PERMISSIONS.auth.collab`. Auth: bespoke per-document logic, no single gate. Returns `{authorized, userId, userName, userAvatar}` consumed by the Hocuspocus WS server on each connection.

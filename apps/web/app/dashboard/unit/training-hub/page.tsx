@@ -3,13 +3,14 @@ import { connection } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import TrainingHub from '../training-docs/TrainingHub'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 export default async function Page() {
     await connection()
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) redirect('/login')
-    if (!client.hasRoles(me, PERMISSIONS.pages.member)) redirect('/me')
+    if (!(await hasPermission(me, 'pages.member'))) redirect('/me')
 
     const isJ3Lead = client.hasRoles(me, PERMISSIONS.training.manage)
     const isTrainer = client.hasRoles(me, PERMISSIONS.training.create)

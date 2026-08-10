@@ -448,7 +448,7 @@ Client `ActivityLog` panel: polls `GET /api/operations/activity?id=` every 30s, 
 word-level diff (`before`/`after`) per edit entry when expanded, relative timestamps.
 
 #### app/operations/[id]/staff/page.tsx
-Server page: requires login (`PERMISSIONS.pages.member`, else redirect `/login`), fetches a
+Server page: requires login (`hasPermission(user, 'pages.member')`, else redirect `/login`), fetches a
 minimal operation projection, renders `<StaffView/>`.
 
 #### app/operations/[id]/staff/StaffView.tsx

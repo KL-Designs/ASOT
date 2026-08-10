@@ -5,6 +5,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logAction'
 import { createNotificationForRole } from '@/lib/notifications'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 const J3_LEAD_ROLES = ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer']
 
@@ -24,7 +25,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const { id } = await params
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.pages.member)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasPermission(me, 'pages.member'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const oid = parseOid(id)
     if (!oid) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 })

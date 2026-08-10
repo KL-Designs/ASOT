@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import StaffView from './StaffView'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 export default async function StaffPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -15,7 +15,7 @@ export default async function StaffPage({ params }: { params: Promise<{ id: stri
         redirect('/login')
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.pages.member)) redirect('/login')
+    if (!(await hasPermission(me, 'pages.member'))) redirect('/login')
 
     type OpProjection = { title: string; date?: Date; department?: string; status?: string; themeColor?: string; coverImage?: string }
     let operation: OpProjection | null = null

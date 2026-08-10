@@ -5,6 +5,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import GuideEditorPage from './GuideEditorPage'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 export default async function Page({
     params,
@@ -20,7 +21,7 @@ export default async function Page({
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) redirect('/login')
-    if (!client.hasRoles(me, PERMISSIONS.pages.member)) redirect('/me')
+    if (!(await hasPermission(me, 'pages.member'))) redirect('/me')
 
     let oid: ObjectId
     try { oid = new ObjectId(id) } catch { redirect('/dashboard/unit/training-hub') }
