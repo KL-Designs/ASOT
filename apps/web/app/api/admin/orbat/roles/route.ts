@@ -23,7 +23,7 @@ export async function GET() {
 
 
 // ── POST /api/admin/orbat/roles ────────────────────────────────────────────
-// Body: { name, categories, discordRoleIds, permissions, tag }
+// Body: { name, categories, discordRoleIds, tsGroupIds, permissions, tag }
 
 export async function POST(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
@@ -38,6 +38,9 @@ export async function POST(request: NextRequest) {
 
     const categories: string[] = Array.isArray(body.categories) ? body.categories : []
     const discordRoleIds: string[] = Array.isArray(body.discordRoleIds) ? body.discordRoleIds : []
+    const tsGroupIds: number[] = Array.isArray(body.tsGroupIds)
+        ? body.tsGroupIds.filter((id: unknown) => typeof id === 'number')
+        : []
     const permissions: string[] = Array.isArray(body.permissions)
         ? body.permissions.filter((p: unknown) => typeof p === 'string' && PERMISSION_KEYS.includes(p))
         : []
@@ -54,6 +57,7 @@ export async function POST(request: NextRequest) {
         name,
         categories,
         discordRoleIds,
+        tsGroupIds,
         permissions,
         tag,
         parentRoleId: null,

@@ -21,7 +21,7 @@ async function auth() {
 
 
 // ── PATCH /api/admin/orbat/roles/[roleId] ──────────────────────────────────
-// Body: { name?, categories?, discordRoleIds?, permissions?, tag? }
+// Body: { name?, categories?, discordRoleIds?, tsGroupIds?, permissions?, tag? }
 // Renaming cascades to every OrbatPosition.role denormalized copy.
 
 export async function PATCH(
@@ -59,6 +59,7 @@ export async function PATCH(
     if (categoriesChanging) updates.categories = body.categories
     if (tagChanging) updates.tag = proposedTag
     if (Array.isArray(body.discordRoleIds)) updates.discordRoleIds = body.discordRoleIds
+    if (Array.isArray(body.tsGroupIds)) updates.tsGroupIds = body.tsGroupIds.filter((id: unknown) => typeof id === 'number')
     if (Array.isArray(body.permissions)) {
         updates.permissions = body.permissions.filter((p: unknown) => typeof p === 'string' && PERMISSION_KEYS.includes(p))
     }

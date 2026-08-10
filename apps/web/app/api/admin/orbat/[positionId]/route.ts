@@ -7,6 +7,7 @@ import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
 import { logAction } from '@/lib/logs'
 import { syncOrbatDiscordRoles } from '@/lib/orbat/discord'
 import { addGuildRole, removeGuildRole } from '@/lib/discord/bot'
+import { applyTsServerGroups } from '@/lib/teamspeak/groups'
 
 
 async function authStructure() {
@@ -167,10 +168,14 @@ export async function PATCH(
         const oldRoleDoc = position.roleId ? await Db.orbatRoles.findOne({ _id: position.roleId }) : null
         const revokeIds = oldRoleDoc?.discordRoleIds ?? []
         const grantIds = newRoleDoc?.discordRoleIds ?? []
+        const revokeTsGroupIds = oldRoleDoc?.tsGroupIds ?? []
+        const grantTsGroupIds = newRoleDoc?.tsGroupIds ?? []
         Promise.allSettled([
             ...revokeIds.map(id => removeGuildRole(position.userId!, id)),
             ...grantIds.map(id => addGuildRole(position.userId!, id)),
-        ]).catch(err => console.error('[orbat] Role-level Discord sync failed:', err))
+            applyTsServerGroups(position.userId!, 'remove', revokeTsGroupIds),
+            applyTsServerGroups(position.userId!, 'add', grantTsGroupIds),
+        ]).catch(err => console.error('[orbat] Role-level Discord/TeamSpeak sync failed:', err))
     }
 
     if ('roleId' in body) {
