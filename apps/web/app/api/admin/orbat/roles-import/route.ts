@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
         discordRoleIds: Array.isArray(d.discordRoleIds) ? d.discordRoleIds.filter((id): id is string => typeof id === 'string') : [],
         tsGroupIds: Array.isArray(d.tsGroupIds) ? d.tsGroupIds.filter((id): id is number => typeof id === 'number') : [],
         permissions: Array.isArray(d.permissions) ? d.permissions.filter((p): p is string => typeof p === 'string') : [],
+        linkedSlot: (typeof d.linkedSlot === 'string' && ['leader', '2ic', '3ic'].includes(d.linkedSlot)) ? (d.linkedSlot as 'leader' | '2ic' | '3ic') : null,
         createdAt: toDate(d.createdAt),
         createdBy: String(d.createdBy ?? me.id),
         createdByName: String(d.createdByName ?? ''),

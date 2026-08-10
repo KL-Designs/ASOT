@@ -45,6 +45,7 @@ This map documents every file under `lib/**` (55 files), `types/**` (30 files), 
 
 ### lib/discord/dept-codes.ts
 - `DEPT_CODES: readonly ['j1','j2',...,'j7']` — plain, dependency-free department-code list. Exists so client components can get the valid code set without importing `dept-roles.ts` (which pulls in `Db`/mongodb via its server-only exports and breaks client bundling if imported from a `'use client'` file — this bit `app/dashboard/orbat/DepartmentRolesTab.tsx` once already).
+- `DEPT_LEADERSHIP_POSITIONS: Record<deptCode, [string,string,string]>` — per-department labels for the 3 leadership slots (`[Leader, 2IC, 3IC]`; empty string means that department has no such slot, e.g. J4 has no 2IC/3IC). `LeadershipSlot` type (`'leader'|'2ic'|'3ic'`) and `LEADERSHIP_SLOT_INDEX` (slot → array index). Shared by `DeptMembersTab.tsx`, `DepartmentRolesTab.tsx`, and the department-roles PATCH route.
 
 ### lib/discord/dept-roles.ts
 - `DEPT_ROLES: Record<deptCode, { member, lead? }>` — maps `j1`–`j7` → Discord role name(s). Server-only (imports `Db`) — never import this file from a `'use client'` component; use `dept-codes.ts` for just the code list.
@@ -248,6 +249,7 @@ This map documents every file under `lib/**` (55 files), `types/**` (30 files), 
 
 ### lib/teamspeak/groups.ts
 - `applyTsServerGroups(userId, action: 'add'|'remove', groupIds: number[]): Promise<{skipped, reason?}>` — shared low-level primitive: resolves the member's `teamspeak.cldbid`, checks `checkTsGate`, then runs `servergroupaddclient`/`servergroupdelclient` for each ID via `getConnection()` (the persistent connection from `lib/teamspeak/cache.ts`). Non-fatal — returns `skipped:true` (never throws) if the member has no linked TS account, is dev-mode-blocked, or the TS server is unreachable. Used by both `syncOrbatTeamspeakGroups` (section-level) and `swapRoleTsGroups` in `lib/orbat/move.ts` (Role-level).
+- `getClientServerGroupIds(cldbid): Promise<number[]>` — returns a client's actual current TS server group IDs via `serverGroupsByClientId()`. Returns `[]` (never throws) if TS is unreachable; used by `POST /api/admin/members/sync-dept` to read live state for its full reconcile.
 
 ### lib/teamspeak/orbat-sync.ts
 - `syncOrbatTeamspeakGroups(userId, action, category, sectionTitle): Promise<{skipped, reason?}>` — mirrors `syncOrbatDiscordRoles` but for TS server group IDs (`OrbatSectionMeta.tsGroupId`): resolves both section-level and category-level `tsGroupId` from `Db.orbatSectionMeta`, then delegates to `applyTsServerGroups()`.

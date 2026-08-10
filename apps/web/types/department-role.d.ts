@@ -20,6 +20,7 @@ declare global {
         discordRoleIds: string[]     // same shape/handling as OrbatRole.discordRoleIds
         tsGroupIds: number[]         // same shape/handling as OrbatRole.tsGroupIds
         permissions: string[]        // granted permission keys — see lib/permissions-catalog.ts
+        linkedSlot: 'leader' | '2ic' | '3ic' | null   // this role IS the department's Leader/2IC/3IC position when set — always null for base roles; at most one role per department holds a given value
         createdAt: Date
         createdBy: string            // Discord ID
         createdByName: string

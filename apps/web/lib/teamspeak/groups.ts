@@ -36,3 +36,23 @@ export async function applyTsServerGroups(
         return { skipped: true, reason: 'Failed to connect to TeamSpeak server' }
     }
 }
+
+/**
+ * Returns the TeamSpeak server group IDs a client currently holds, resolved
+ * by cldbid. Returns [] (never throws) if the TS server is unreachable —
+ * callers doing a full add/remove reconcile (sync-dept) tolerate this
+ * safely: on failure the "should have" set looks entirely missing, so the
+ * only effect is a redundant grant attempt, which itself independently
+ * no-ops via applyTsServerGroups's own connection-failure handling. Nothing
+ * ever gets incorrectly revoked from this failure mode.
+ */
+export async function getClientServerGroupIds(cldbid: number): Promise<number[]> {
+    try {
+        const ts = await getConnection()
+        const groups = await ts.serverGroupsByClientId(String(cldbid)) as unknown as Array<{ sgid: string | number }>
+        return groups.map(g => Number(g.sgid))
+    } catch (err) {
+        console.error('[TeamSpeak] getClientServerGroupIds failed:', err)
+        return []
+    }
+}

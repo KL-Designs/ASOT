@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Autocomplete, TextField, Typography } from '@mui/material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import { rankNameFromAbbr } from '@/lib/military/ranks'
+import { DEPT_LEADERSHIP_POSITIONS } from '@/lib/discord/dept-codes'
 
 type MemberOption = {
     id: string
@@ -13,17 +14,6 @@ type MemberOption = {
     dept2icRoles: string[]
     dept3icRoles: string[]
     departmentRoleIds: string[]
-}
-
-// Position names per department: [Department Leader, 2IC, 3IC]
-const DEPT_LEADERSHIP_POSITIONS: Record<string, [string, string, string]> = {
-    j1: ['Department Leader', 'Head Recruiter',        'Recruiter Trainer'],
-    j2: ['Department Leader', 'Team Leader',            'Creator Trainer'],
-    j3: ['Department Leader', 'Head Trainer',           'Assistant Head Trainer'],
-    j4: ['Department Leader', '',                       ''],
-    j5: ['Department Leader', 'Team Leader',            'Lead Content Creator'],
-    j6: ['Department Leader', 'Team Leader',            'Assistant Team Leader'],
-    j7: ['Department Leader', 'Team Leader',            'Assistant Team Leader'],
 }
 
 const inputSx = {
