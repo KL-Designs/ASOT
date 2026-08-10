@@ -28,6 +28,10 @@ export async function hasPermission(user: User, key: string): Promise<boolean> {
     }
 
     const deptCodes = user.departments ?? []
+    // Re-materialize through this file's own ObjectId import — the shared
+    // types/user.d.ts (monorepo root) resolves ObjectId from a different
+    // physical bson install than apps/web's, so TS treats them as distinct
+    // nominal types even though they're runtime-identical (same 24-char hex).
     const subRoleIds = (user.departmentRoleIds ?? []).map(id => new ObjectId(String(id)))
     if (deptCodes.length > 0 || subRoleIds.length > 0) {
         const deptRoles = await Db.departmentRoles.find({

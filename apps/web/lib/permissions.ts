@@ -346,7 +346,7 @@ const PERMISSIONS = {
          * J4 only.
          *
          * Used by:
-         *  - `app/dashboard/orbat/DepartmentRolesTab.tsx` (panel visibility)
+         *  - `app/dashboard/orbat/DepartmentRolesTab.tsx`
          *  - `app/api/admin/department-roles/route.ts` (GET/POST)
          *  - `app/api/admin/department-roles/[roleId]/route.ts` (PATCH/DELETE)
          *  - `app/api/admin/department-roles/assign/route.ts`
