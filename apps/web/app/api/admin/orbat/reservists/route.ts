@@ -5,37 +5,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
 import { syncOrbatDiscordRoles } from '@/lib/orbat/discord'
-
-const RESERVIST_ROLE_NAME = 'Reservist'
-
-// Lazily finds or creates the seeded "Reservist" OrbatRole — every reservist
-// position gets this role's id, giving reservists a real, editable grant
-// vehicle (Discord roles / TeamSpeak groups / permissions) via the Roles
-// Manager, same as any other position. Unscoped (categories: []) since
-// activeReservist/inactiveReservist aren't part of PLATOON_CATEGORY_IDS,
-// the taxonomy OrbatRole.categories scopes against.
-async function ensureReservistRole(): Promise<ObjectId> {
-    const existing = await Db.orbatRoles.findOne({ name: RESERVIST_ROLE_NAME })
-    if (existing) return existing._id
-
-    const role: OrbatRole = {
-        _id: new ObjectId(),
-        name: RESERVIST_ROLE_NAME,
-        categories: [],
-        tag: null,
-        discordRoleIds: [],
-        tsGroupIds: [],
-        permissions: [],
-        parentRoleId: null,
-        parentGroupId: null,
-        createdAt: new Date(),
-        createdBy: 'system',
-        createdByName: 'System',
-    }
-    await Db.orbatRoles.insertOne(role)
-    return role._id
-}
-
+import { ensureReservistRole } from '@/lib/orbat/reservist-role'
 
 async function auth() {
     const me = await client.fetchMe().catch(() => null)

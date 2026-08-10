@@ -37,6 +37,14 @@ const PERMISSIONS = {
          * Training Docs, and SOPs. J-department and staff-only sections are
          * hidden in the sidebar and page-gated individually.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'pages.member')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department membership, ORBAT-position role holding,
+         * or reservist role holding — NOT this Discord-role array. This array
+         * is now dead code for that specific check; it's kept only because
+         * `lib/permissions/tree.ts` (the Permissions Explorer) still reads it
+         * for display purposes.
+         *
          * Used by:
          *  - `app/dashboard/layout.tsx`
          *  - `app/dashboard/page.tsx`

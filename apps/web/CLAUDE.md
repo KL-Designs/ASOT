@@ -89,6 +89,8 @@ if (!client.hasRoles(me, PERMISSIONS.pages.member)) redirect('/me')
 - `departmentLeads.*` — per-department lead roles (distinct from member roles)
 - `operations.*`, `uploads.*`, `members.*`, `admin.*`, `gallery.*`, `attendance.*`, `auth.*`, `tickets.*`, `meetings.*`, `quiz.*`, `trainingDocs.*`, `sops.*`, `training.*`, `masterSheet.*`, `communityTickets.*`, `optionals.*`, `feedback.*`
 
+`pages.member` specifically has been migrated off this array as the first step of an ongoing move to a new permission system: the real gate is now `await hasPermission(me, 'pages.member')` (`lib/orbat/hasPermission.ts`), granted via department membership, ORBAT-position role holding, or reservist role holding, not `client.hasRoles()`. See `docs/superpowers/specs/2026-08-11-permission-system-migration-phase1-design.md` for the full plan. Every other permission key above is unaffected — the `client.hasRoles(me, PERMISSIONS.x.y)` pattern shown above still applies to them.
+
 ### Database
 
 `lib/mongo.ts` exports a single `Db` object with a typed property for every MongoDB collection. All server-side code imports `Db` from there — never create new `MongoClient` instances in routes (the client is a singleton cached on `global` to survive Next.js HMR hot reloads).

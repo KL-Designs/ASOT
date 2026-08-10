@@ -8,6 +8,7 @@ import { parseORBAT, parseRow } from '@/lib/orbat/csv-parser'
 import { CERTIFICATIONS } from '@/lib/military/certifications'
 import { AWARDS } from '@/lib/military/awards'
 import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/military/points'
+import { ensureReservistRole } from '@/lib/orbat/reservist-role'
 
 // ── Mastersheet CSV parser ────────────────────────────────────────────────────
 
@@ -253,8 +254,10 @@ export async function POST(request: NextRequest) {
     // Resolve each CSV role string to an existing OrbatRole by exact name
     // match. Unmatched roles still import (roleId stays null, the raw name
     // is preserved in `role`) — CSV noise should never silently mint new
-    // catalog entries. Reservist rows are always unmatched by design (see
-    // the ORBAT Roles design spec: reservists stay outside the catalog).
+    // catalog entries. Reservist rows don't go through this name-matching at
+    // all — there's no per-person job title to match against, just the one
+    // shared seeded "Reservist" role (resolved once below via
+    // `ensureReservistRole()` and applied directly to every reservist row).
     const allRoles = await Db.orbatRoles.find({}).toArray()
     const rolesByName = new Map<string, typeof allRoles>()
     for (const r of allRoles) {
@@ -321,13 +324,15 @@ export async function POST(request: NextRequest) {
         sectionOrder++
     }
 
+    const reservistRoleId = await ensureReservistRole()
+
     orbat.activeReservists.forEach((name, i) => {
-        positions.push({ category: 'activeReservist', sectionTitle: '', role: 'Active Reservist', roleId: null, userId: lookupAndTrack(name)?._id ?? null, sectionOrder, positionOrder: i })
+        positions.push({ category: 'activeReservist', sectionTitle: '', role: 'Active Reservist', roleId: reservistRoleId, userId: lookupAndTrack(name)?._id ?? null, sectionOrder, positionOrder: i })
     })
     sectionOrder++
 
     orbat.inactiveReservists.forEach((name, i) => {
-        positions.push({ category: 'inactiveReservist', sectionTitle: '', role: 'Inactive Reservist', roleId: null, userId: lookupAndTrack(name)?._id ?? null, sectionOrder, positionOrder: i })
+        positions.push({ category: 'inactiveReservist', sectionTitle: '', role: 'Inactive Reservist', roleId: reservistRoleId, userId: lookupAndTrack(name)?._id ?? null, sectionOrder, positionOrder: i })
     })
     sectionOrder++
 
