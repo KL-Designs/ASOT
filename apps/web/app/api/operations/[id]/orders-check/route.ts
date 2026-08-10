@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { createNotificationForRole, createNotification } from '@/lib/notifications'
 import { sendTaskAssignedDM } from '@/lib/discord/bot'
 
@@ -175,7 +176,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     if ((task as any).completedAt) return NextResponse.json({ error: 'Already completed' }, { status: 400 })
 
     // Only the requester (or J4/admin via override) can cancel
-    const isLead = client.hasRoles(me, PERMISSIONS.departmentLeads.j2)
+    const isLead = await hasPermission(me, 'departmentLeads.j2')
     if (task.assignedBy !== me.id && !isLead) {
         return NextResponse.json({ error: 'Only the requester can cancel' }, { status: 403 })
     }
@@ -248,7 +249,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
 
     // 'confirm' and 'propose' require J2 Lead
-    if (!client.hasRoles(me, PERMISSIONS.departmentLeads.j2)) {
+    if (!(await hasPermission(me, 'departmentLeads.j2'))) {
         return NextResponse.json({ error: 'Forbidden: J2 Lead required' }, { status: 403 })
     }
 

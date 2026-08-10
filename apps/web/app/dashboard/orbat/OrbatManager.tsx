@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import {
     Typography, Button, CircularProgress,
@@ -9,7 +10,7 @@ import {
 } from '@mui/material'
 import {
     Edit, Close, AccountTree, Warning, ArrowUpward, ArrowDownward,
-    Add, Delete, MoreVert, DragIndicator,
+    Add, Delete, MoreVert, DragIndicator, Settings,
 } from '@mui/icons-material'
 import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat/constants'
 import MemberDetailPanel from '@/app/dashboard/personnel/all/MemberDetailPanel'
@@ -120,6 +121,12 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
     // Roles Manager panel
     const [rolesManagerOpen, setRolesManagerOpen] = useState(false)
+    // The floating "Manage Roles" button is portaled to document.body so it
+    // can't be clipped/out-stacked by an ancestor's stacking context (e.g.
+    // the site-wide footer in app/footer.tsx) — document isn't available
+    // during SSR, so it only renders once mounted client-side.
+    const [manageRolesButtonMounted, setManageRolesButtonMounted] = useState(false)
+    useEffect(() => { setManageRolesButtonMounted(true) }, [])
 
     // Inline edit state
     const [editRoleId, setEditRoleId] = useState<string | null>(null)
@@ -362,6 +369,9 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             applyPatch(positionId, { userId: userId ?? null, user: lookupUser(userId) })
             if (data.reservistPosition) {
                 applyAppend(data.reservistPosition, lookupUser(data.reservistPosition.userId))
+            }
+            if (data.vacatedPositionId) {
+                applyPatch(data.vacatedPositionId, { userId: null, user: null })
             }
         }
         setSavingId(null)
@@ -1260,14 +1270,34 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                             ORBAT Management
                         </Typography>
                     </div>
-                    {canManageStructure && (
-                        <Button size='small' onClick={() => setRolesManagerOpen(true)} sx={ghostBtn}>
-                            Manage Roles
-                        </Button>
-                    )}
                 </div>
             </div>
             <RolesManagerPanel open={rolesManagerOpen} onClose={() => setRolesManagerOpen(false)} />
+
+            {canManageStructure && manageRolesButtonMounted && createPortal(
+                <button
+                    onClick={() => setRolesManagerOpen(true)}
+                    style={{
+                        // Aligned to sit directly left of the global "scroll to
+                        // top" button (app/navbar.tsx: bottom 28, right 28, 40px
+                        // square) — same bottom offset, right offset cleared past
+                        // its 40px width plus a matching gap.
+                        position: 'fixed', bottom: 28, right: 80, zIndex: 1200,
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '10px 18px', borderRadius: 999,
+                        background: 'rgba(15,15,15,0.92)', border: '1px solid rgba(219,0,29,0.5)',
+                        color: 'rgba(237,237,237,0.85)', fontSize: '0.72rem', fontWeight: 700,
+                        letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.5)', transition: 'background 0.15s, border-color 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(219,0,29,0.18)'; e.currentTarget.style.borderColor = 'var(--red)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(15,15,15,0.92)'; e.currentTarget.style.borderColor = 'rgba(219,0,29,0.5)' }}
+                >
+                    <Settings sx={{ fontSize: 16 }} />
+                    Manage Roles
+                </button>,
+                document.body,
+            )}
 
             {/* Empty state */}
             {positions.length === 0 && (

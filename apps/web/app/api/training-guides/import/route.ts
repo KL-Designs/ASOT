@@ -420,16 +420,18 @@ export async function POST(req: NextRequest) {
 
     let htmlResult: Awaited<ReturnType<typeof mammoth.convertToHtml>>
     try {
-        htmlResult = await mammoth.convertToHtml({
-            buffer,
-            // Override default nested-list HTML with flat <li class="l0">, <li class="l1"> etc.
-            // so the block tokeniser can read indent level from the class attribute.
-            styleMap: [
-                "p[numbering-level='0'] => li.l0:fresh",
-                "p[numbering-level='1'] => li.l1:fresh",
-                "p[numbering-level='2'] => li.l2:fresh",
-            ],
-        })
+        htmlResult = await mammoth.convertToHtml(
+            { buffer },
+            {
+                // Override default nested-list HTML with flat <li class="l0">, <li class="l1"> etc.
+                // so the block tokeniser can read indent level from the class attribute.
+                styleMap: [
+                    "p[numbering-level='0'] => li.l0:fresh",
+                    "p[numbering-level='1'] => li.l1:fresh",
+                    "p[numbering-level='2'] => li.l2:fresh",
+                ],
+            }
+        )
     } catch {
         return NextResponse.json({ error: 'Failed to parse DOCX — ensure the file is a valid .docx document' }, { status: 422 })
     }

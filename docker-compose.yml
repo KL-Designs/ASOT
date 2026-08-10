@@ -25,12 +25,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    environment:
-      # .env's MONGO_URI is 127.0.0.1, for host-run `npm run dev`/`npm start` — a
-      # container can't reach that. `environment:` overrides env_file for the same
-      # key, so this alone flips it to Docker Desktop's host-DNS name without
-      # touching .env.
-      - MONGO_URI=mongodb://172.24.0.11:27017
 
   bot:
     build:
@@ -42,5 +36,3 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    environment:
-      - MONGO_URI=mongodb://172.24.0.11:27017

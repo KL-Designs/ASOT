@@ -1,6 +1,11 @@
 # Part D — Misc API
 
-Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,minigame,members,notifications,upload,services-asot,recruit-session,maps,map-presets,dev,tfar,shoot,preferences,ping,orbat,milpacs,membercount,logout,generate,credits,award-request,auth}/**/route.ts` (excludes `gallery/admin/**`, which belongs to the admin catalog). 79 route files.
+Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,minigame,members,notifications,upload,services-asot,recruit-session,maps,map-presets,dev,tfar,shoot,preferences,ping,orbat,milpacs,membercount,logout,generate,credits,award-request,auth,dashboard}/**/route.ts` (excludes `gallery/admin/**`, which belongs to the admin catalog). 80 route files.
+
+### dashboard (1 file)
+
+#### /api/dashboard/status
+- **GET** — connectivity + dev-mode state for the `/dashboard` header's `ServiceStatusIcons`. Runs 4 checks in parallel, each racing a 5s timeout: Website (always reports online — reaching this route at all is the check), Database (`Db.users.findOne` with a `_id`-only projection), Discord (`GET https://discord.com/api/users/@me` with the bot token, same check `/api/admin/discord-bot-test` uses), TeamSpeak (`getConnection()` from `lib/teamspeak/cache.ts`, reusing the persistent connection). Also reads `Db.siteSettings` for `discordDevMode`/`teamspeakDevMode` (no caching — this route's own 30s client poll interval is cache enough). Auth: any authenticated user (`client.fetchMe()`), no admin gate — matches `/dashboard`'s own visibility. Collections: `Db.users`, `Db.siteSettings`.
 
 ---
 
@@ -108,13 +113,16 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 ---
 
-### me (5 files)
+### me (6 files)
 
 #### /api/me/orbat
 - **GET** — returns the current user's ORBAT position entry (`getOrbatEntryByUserId`). Auth: any authenticated user (`client.fetchMe()`).
 
 #### /api/me/roles
 - **GET** — `?has=role1,role2` checks whether current user holds any of the given Discord roles. Auth: any authenticated user.
+
+#### /api/me/permission
+- **GET** — `?key=<permissionKey>` checks whether the current user holds a single migrated permission key via `hasPermission()` (`@/lib/orbat/hasPermission`), returning `{ access: boolean }`. Mirrors `/api/me/roles`'s shape but for the new DB-backed permission system — the client-side counterpart to `hasPermission()` for client components that can't call the server-only function directly. Auth: any authenticated user.
 
 #### /api/me
 - **GET** — returns current user document plus computed `isStaff`/`isMember` flags. Auth: any authenticated user.
@@ -148,8 +156,8 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 #### /api/gallery/sotm
 - **GET** — returns SOTM metadata (filename, dateTaken, credit, operation link) sans `_id`. Auth: public/no auth. Collections: `Db.siteSettings`.
-- **POST** — uploads a new SOTM image (multipart: `file`, `dateTaken`, `credit`, optional `operationId`/`operationTitle`); validates MIME type, sanitises filename, deletes old file if replaced, upserts `Db.siteSettings`. Auth: `PERMISSIONS.departmentLeads.j5`.
-- **DELETE** — clears current SOTM (deletes file + doc). Auth: `PERMISSIONS.departmentLeads.j5`.
+- **POST** — uploads a new SOTM image (multipart: `file`, `dateTaken`, `credit`, optional `operationId`/`operationTitle`); validates MIME type, sanitises filename, deletes old file if replaced, upserts `Db.siteSettings`. Auth: `await hasPermission(me, 'departmentLeads.j5')`.
+- **DELETE** — clears current SOTM (deletes file + doc). Auth: `await hasPermission(me, 'departmentLeads.j5')`.
 
 ---
 
@@ -177,7 +185,7 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 #### /api/uploads/bio
 - **GET** — `?id=` serves `./uploads/bio/<id>.jpg` bio photo. Auth: public/no auth (read).
-- **POST** — uploads/overwrites the caller's own bio photo (`./uploads/bio/<me.id>.jpg`). Auth: `PERMISSIONS.uploads.bio`.
+- **POST** — uploads/overwrites the caller's own bio photo (`./uploads/bio/<me.id>.jpg`). Auth: `hasPermission(user, 'uploads.bio')`.
 
 #### /api/uploads/cover
 - **GET** — `?id=` serves `./uploads/cover/<id>.png` cover photo. Auth: public/no auth (read).
@@ -384,4 +392,4 @@ Both explicitly marked "DEV-ONLY — delete before deploying to production" in s
 ### auth (1 file)
 
 #### /api/auth/collab
-- **GET** — Hocuspocus collab-auth endpoint; reads `x-collab-token` header (not the `token` cookie) and `?doc=` query param to resolve document-specific permission: `sop-*` docs → any member (`PERMISSIONS.pages.member`); `ws-*` docs → J2 member/lead/admin; all others (operation briefings) → `PERMISSIONS.auth.collab`. Auth: bespoke per-document logic, no single gate. Returns `{authorized, userId, userName, userAvatar}` consumed by the Hocuspocus WS server on each connection.
+- **GET** — Hocuspocus collab-auth endpoint; reads `x-collab-token` header (not the `token` cookie) and `?doc=` query param to resolve document-specific permission: `sop-*` docs → any member (`hasPermission(user, 'pages.member')`); `ws-*` docs → J2 member/lead/admin; all others (operation briefings) → `hasPermission(user, 'auth.collab')`. Auth: bespoke per-document logic, no single gate. Returns `{authorized, userId, userName, userAvatar}` consumed by the Hocuspocus WS server on each connection.

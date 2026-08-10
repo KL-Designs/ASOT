@@ -69,7 +69,10 @@ declare global {
         }
 
         departments?: string[]   // dept codes this user is a member of, e.g. ['j1', 'j3']
-        teamLeadDepts?: string[] // dept codes this user is a team lead of, e.g. ['j3']
+        teamLeadDepts?: string[] // legacy — no longer written; leadership is now a DepartmentRole holding, see departmentRoleIds
+        dept2icRoles?: string[]  // legacy — no longer written, same reason
+        dept3icRoles?: string[]  // legacy — no longer written, same reason
+        departmentRoleIds?: ObjectId[]  // DepartmentRole ids this member holds (sub-roles AND leadership-slot roles; never base roles)
         isChaplain?: boolean
 
         teamspeak?: {
@@ -84,6 +87,7 @@ declare global {
             uid: string
             nickname: string
         }
+        tsLinkReminderSentAt?: number  // ms epoch — last time an unlinked-account DM reminder fired, for cooldown
 
         bio?: {
             content: string

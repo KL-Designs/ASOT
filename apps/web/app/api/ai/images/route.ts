@@ -5,6 +5,7 @@ import fs from 'fs/promises'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 const UPLOADS_DIR = path.join(process.cwd(), '..', '..', 'storage', 'uploads', 'ai-images')
 
@@ -20,7 +21,7 @@ export async function GET(req: Request) {
         const limit  = Math.min(50, parseInt(searchParams.get('limit') ?? '24', 10))
         const linked = searchParams.get('linkedOperationId')
 
-        const canViewAll = client.hasRoles(me, PERMISSIONS.intel.viewAllImages)
+        const canViewAll = await hasPermission(me, 'intel.viewAllImages')
 
         const filter: Record<string, unknown> = { status: { $ne: 'deleted' } }
 

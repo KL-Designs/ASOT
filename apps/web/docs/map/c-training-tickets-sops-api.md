@@ -31,7 +31,7 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 
 #### /api/training/events/[id]/attendance
 - **GET** — lists attendance records for an event, sorted by slot/status/name. Gate: `PERMISSIONS.training.manage` OR event owner. Collections: `Db.trainingAttendance`, `Db.trainingEvents`.
-- **POST** — member RSVP: cancel, or slot-based RSVP (trainer/trainee/sit-in) with capacity checks producing `attending`/`waitlist`; trainer slot requires `PERMISSIONS.training.trainer`; auto-promotes first waitlisted trainee on cancel/switch; manages a `Db.calendarReminders` entry (60-min-before) for confirmed attendees. Gate: `PERMISSIONS.pages.member`. Collections: `Db.trainingAttendance`, `Db.trainingEvents`, `Db.calendarReminders`. Side effects: `createNotification` on waitlist promotion, `logAction('training.rsvp.*')`.
+- **POST** — member RSVP: cancel, or slot-based RSVP (trainer/trainee/sit-in) with capacity checks producing `attending`/`waitlist`; trainer slot requires `PERMISSIONS.training.trainer`; auto-promotes first waitlisted trainee on cancel/switch; manages a `Db.calendarReminders` entry (60-min-before) for confirmed attendees. Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.trainingAttendance`, `Db.trainingEvents`, `Db.calendarReminders`. Side effects: `createNotification` on waitlist promotion, `logAction('training.rsvp.*')`.
 - **PATCH** — bulk-marks `attended: boolean` for a list of members (post-session sign-off). Gate: `PERMISSIONS.training.manage` OR event owner. Collections: `Db.trainingAttendance`.
 
 #### /api/training/events/[id]/award-qualifications
@@ -45,11 +45,11 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 - **GET** — paginated/filterable aggregation of training events joined with their `training_tickets` (via `$lookup` on `eventId`), plus distinct trainer and training-type lists for filter dropdowns. Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingEvents` (aggregate), `Db.trainingTypes`.
 
 #### /api/training/requests
-- **GET** — lists training requests; J3 leads see all, members see pending/approved only. Gate: `PERMISSIONS.pages.member`. Collections: `Db.trainingRequests`.
-- **POST** — member submits a request for a training type with optional preferred time/description. Gate: `PERMISSIONS.pages.member`. Collections: `Db.trainingRequests` (insert), `Db.trainingTypes` (read). Side effects: `createNotificationForRole` to J3 lead roles, `logAction('training.request.submit')`.
+- **GET** — lists training requests; J3 leads see all, members see pending/approved only. Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.trainingRequests`.
+- **POST** — member submits a request for a training type with optional preferred time/description. Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.trainingRequests` (insert), `Db.trainingTypes` (read). Side effects: `createNotificationForRole` to J3 lead roles, `logAction('training.request.submit')`.
 
 #### /api/training/requests/[id]
-- **PATCH** — cancels the caller's own pending request (or any, if J3 lead). Gate: `PERMISSIONS.pages.member` + (owner OR `PERMISSIONS.training.manage`). Collections: `Db.trainingRequests`.
+- **PATCH** — cancels the caller's own pending request (or any, if J3 lead). Gate: `hasPermission(user, 'pages.member')` + (owner OR `PERMISSIONS.training.manage`). Collections: `Db.trainingRequests`.
 
 #### /api/training/requests/[id]/approve
 - **POST** — J3 approves a request: creates a new approved `Db.trainingEvents` doc (trainer override or requester, scheduledAt override/preferredAt/+7 days fallback), auto-RSVPs trainer, marks request `approved` with `approvedEventId`, schedules reminders. Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingRequests`, `Db.trainingTypes` (read), `Db.trainingEvents` (insert), `Db.trainingAttendance` (insert). Side effects: `scheduleTrainingReminders()`, `createNotification` to requester + interested members, `logAction('training.request.approve')`.
@@ -58,7 +58,7 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 - **POST** — rejects a pending request with optional reason. Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingRequests`. Side effects: `createNotification`, `logAction('training.request.reject')`.
 
 #### /api/training/requests/[id]/interest
-- **POST** — toggles the caller's "interested" flag on a pending request (`interestedUserIds`/`interestedCount`). Gate: `PERMISSIONS.pages.member`. Collections: `Db.trainingRequests`.
+- **POST** — toggles the caller's "interested" flag on a pending request (`interestedUserIds`/`interestedCount`). Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.trainingRequests`.
 
 #### /api/training/tickets
 - **GET** — J3 leads see all training tickets; trainers see only their own (limit 100). Gate: `PERMISSIONS.training.trainer`. Collections: `Db.trainingTickets`.
@@ -77,14 +77,14 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 - **POST** — requests amendments on a pending ticket (requires `amendmentNotes`), sets status `amendments_requested`. Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingTickets`. Side effects: `createNotification` to trainer, `logAction('training.ticket.amend')`.
 
 #### /api/training/types
-- **GET** — lists training types (auto-seeds `TRAINING_TYPE_DEFAULTS` if collection empty); visibility scoped by role (J3 leads: all, trainers: active+wip, members: active only). Gate: `PERMISSIONS.pages.member`. Collections: `Db.trainingTypes`.
+- **GET** — lists training types (auto-seeds `TRAINING_TYPE_DEFAULTS` if collection empty); visibility scoped by role (J3 leads: all, trainers: active+wip, members: active only). Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.trainingTypes`.
 - **POST** — creates a new training type (name/category/billetField/points/description/status/etc). Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingTypes` (insert). Side effects: `logAction('training.type.create')`.
 
 #### /api/training/types/[id]
 - **PATCH** — updates a training type's fields (core info, status incl. legacy `isActive` sync, event defaults, resource links, sortOrder). Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingTypes`. Side effects: `logAction('training.type.edit')`.
 
 #### /api/training/types/[id]/docs
-- **GET** — lists documents attached to a training type; visibility scoped (J3 leads: all, trainers: approved+own, members: approved only). Gate: `PERMISSIONS.pages.member`. Collections: `Db.trainingTypeDocs`.
+- **GET** — lists documents attached to a training type; visibility scoped (J3 leads: all, trainers: approved+own, members: approved only). Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.trainingTypeDocs`.
 - **POST** — attaches a doc (title/url/description) to a training type; auto-approved if J3 lead, otherwise `pending`. Gate: `PERMISSIONS.training.manage` OR `PERMISSIONS.training.create`. Collections: `Db.trainingTypeDocs` (insert), `Db.trainingTypes` (read). Side effects: `createNotificationForRole` to J3 leads when submitted by a non-lead trainer.
 
 #### /api/training/types/[id]/docs/[docId]
@@ -106,16 +106,16 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 (Google-Docs-style folder/document tree, distinct from `training/types/[id]/docs` above — this is the standalone knowledge base under `Db.trainingDocs`.)
 
 #### /api/training-docs
-- **GET** — lists items (`?parentId=`) in a folder or root, sorted folders-first then alphabetical; excludes `htmlContent`/`imageFiles` in projection. Gate: `PERMISSIONS.pages.member`. Collections: `Db.trainingDocs`.
+- **GET** — lists items (`?parentId=`) in a folder or root, sorted folders-first then alphabetical; excludes `htmlContent`/`imageFiles` in projection. Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.trainingDocs`.
 - **POST** — creates a folder or blank document (JSON body), or uploads/parses a Google Docs `.zip` export (multipart) into a new document via `parseGoogleDocsZip`. Gate: `PERMISSIONS.trainingDocs.manage`. Collections: `Db.trainingDocs` (insert, then update after zip parse; deletes doc if parse fails).
 
 #### /api/training-docs/[id]
-- **GET** — fetches a full document including `htmlContent`. Gate: `PERMISSIONS.pages.member`. Collections: `Db.trainingDocs`.
+- **GET** — fetches a full document including `htmlContent`. Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.trainingDocs`.
 - **PATCH** — updates name/parentId (move, with self-move and non-folder-target guards)/htmlContent (sanitized via `sanitizeDocHtml`)/iconName/color. Gate: `PERMISSIONS.trainingDocs.manage`. Collections: `Db.trainingDocs`.
 - **DELETE** — deletes an item; folders are deleted recursively (children + their images via `deleteDocImages`). Gate: `PERMISSIONS.trainingDocs.manage`. Collections: `Db.trainingDocs`.
 
 #### /api/training-docs/images/[filename]
-- **GET** — serves an uploaded training-doc image from `uploads/training-docs/` with path-traversal guard (`path.basename`) and long-lived cache header. Gate: `PERMISSIONS.pages.member`. Collections: none (filesystem read).
+- **GET** — serves an uploaded training-doc image from `uploads/training-docs/` with path-traversal guard (`path.basename`) and long-lived cache header. Gate: `hasPermission(user, 'pages.member')`. Collections: none (filesystem read).
 
 ---
 
@@ -166,7 +166,7 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 ## app/api/sops/**
 
 #### /api/sops
-- **GET** — lists all SOPs (excludes `yjsState` collab payload from projection), plus `isJ4` flag. Gate: `PERMISSIONS.pages.member`. Collections: `Db.sops`.
+- **GET** — lists all SOPs (excludes `yjsState` collab payload from projection), plus `isJ4` flag. Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.sops`.
 - **POST** — creates a new SOP shell (title/category/description); the Y.js document body is populated separately via the collab editor (`sop-{sopId}`). Gate: `PERMISSIONS.sops.manage`. Collections: `Db.sops` (insert).
 
 #### /api/sops/[id]

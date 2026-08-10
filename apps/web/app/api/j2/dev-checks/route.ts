@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 /** Check week offsets by op type */
 const CAMPAIGN_CHECK_WEEKS = [16, 12, 10, 8, 6, 4] as const
@@ -53,12 +54,8 @@ function addWeeksDelta(base: Date, weeksOut: number): Date {
 export async function GET(req: NextRequest) {
     try {
         const me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.departmentLeads.j2) &&
-            !client.hasRoles(me, [PERMISSIONS.departmentLeads.j2[0]])) {
-            // Also allow J2 members to view
-            if (!client.hasRoles(me, PERMISSIONS.departments.j2)) {
-                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-            }
+        if (!(await hasPermission(me, 'departmentLeads.j2')) && !client.hasRoles(me, PERMISSIONS.departments.j2)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
     } catch {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

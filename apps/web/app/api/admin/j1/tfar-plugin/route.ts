@@ -5,6 +5,7 @@ import Db from '@/lib/mongo'
 import { writeFile, unlink, mkdir } from 'fs/promises'
 import { existsSync } from 'fs'
 import path from 'path'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 const UPLOAD_DIR = path.join(process.cwd(), '..', '..', 'storage', 'j1')
 const ALLOWED_EXTS = new Set(['.ts3_plugin', '.zip'])
@@ -16,7 +17,7 @@ async function ensureUploadDir() {
 async function requireLead() {
     let me: User
     try { me = await client.fetchMe() } catch { return null }
-    const isLead = client.hasRoles(me, PERMISSIONS.departmentLeads.j1)
+    const isLead = await hasPermission(me, 'departmentLeads.j1')
     const isJ4 = client.hasRoles(me, PERMISSIONS.pages.admin)
     if (!isLead && !isJ4) return null
     return me

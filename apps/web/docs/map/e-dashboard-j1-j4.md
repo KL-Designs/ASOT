@@ -2,16 +2,20 @@
 
 Scope: `app/dashboard/j1/**`, `app/dashboard/j2/**`, `app/dashboard/j3/**`, `app/dashboard/j4/**`.
 
-All four `page.tsx` files follow the identical shape: `await connection()`, `client.fetchMe()`, redirect to `/login` if unauthenticated, redirect to `/dashboard` if `!client.hasRoles(me, PERMISSIONS.departments.jN)`, then pass `displayName`, `userId`, `canManageMembers` (`PERMISSIONS.departmentLeads.jN`), and `isJ4` (`PERMISSIONS.departments.j4`) into the client `JNPanel`/`J4AdminPanel` component. Each has a `loading.tsx` rendering `<TacticalLoader label='LOADING JN // ...' />`.
+All four `page.tsx` files follow the identical shape: `await connection()`, `client.fetchMe()`, redirect to `/login` if unauthenticated, redirect to `/dashboard` if `!client.hasRoles(me, PERMISSIONS.departments.jN)`. J1-J3 then pass `displayName`, `userId`, `canManageMembers` (`await hasPermission(me, 'departmentLeads.jN')`), and `isJ4` (`PERMISSIONS.departments.j4`) into the client `JNPanel` component. J4's page passes neither `canManageMembers` nor `isJ4` — it passes only `userId` and `displayName` into `J4AdminPanel`. Each has a `loading.tsx` rendering `<TacticalLoader label='LOADING JN // ...' />`.
 
 Every panel's header has three toggle buttons (Members / Calendar / Activity Logs, or Logs for J4) that swap to shared components: `DeptMembersTab` (`app/dashboard/DeptMembersTab.tsx`), `DeptCalendarTab` (`app/dashboard/unit/calendar/DeptCalendarTab.tsx`), `ActivityLogTab` (`app/dashboard/_components/ActivityLogTab.tsx`). Tab state persisted via `useTabState` (`app/dashboard/_components/useTabState.ts`). Tab labels support pin-to-sidebar via `PinTabLabel`.
+
+`DeptMembersTab`'s member table also renders a "Roles" column — one toggleable chip per department sub-role that isn't a base role or linked to a leadership slot (fetched via `GET /api/admin/department-roles?department=X`; base and slot-linked roles are excluded — slot-linked roles are single-holder and only assignable via the Leadership card, see below), hidden entirely when the department has none. Clicking a chip calls `POST /api/admin/department-roles/assign` to add/remove that member's holding of the sub-role. Read-only (chips render but aren't clickable, and roles the member doesn't hold aren't shown) for non-managers; clickable for department leads/J4 (`canManage`).
+
+Above the member table, a "Department Leadership" card shows the department's 3 leadership slots (Leader/2IC/3IC — labels per `DEPT_LEADERSHIP_POSITIONS` in `lib/discord/dept-codes.ts`; some departments have fewer than 3, e.g. J4 has only a Leader). Each slot's holder is derived from who holds the `DepartmentRole` whose `linkedSlot` matches (configured per-role in `DepartmentRolesTab.tsx`, J4 only) — not a separate flag. A slot with no linked role shows "Not linked — configure in Department Roles" instead of an Assign control. Assigning/removing a holder goes through `POST /api/admin/tickets` (`type: 'department-membership'`, `memberAction: set-lead|remove-lead|set-2ic|remove-2ic|set-3ic|remove-3ic`), which resolves to `assignLeadershipSlot`/`unassignLeadershipSlot` (`lib/discord/dept-roles.ts`) server-side — single holder per slot, auto-replacing whoever held it before. A J4-only "Sync Discord & TeamSpeak" button (`POST /api/admin/members/sync-dept`) does a full push reconciliation of every current member's real Discord roles/TeamSpeak groups against what their held `DepartmentRole`s say they should have.
 
 ---
 
 ### J1 — Recruitment
 
 #### app/dashboard/j1/page.tsx
-Route `/dashboard/j1`. Gated by `PERMISSIONS.departments.j1`; computes `canManageMembers` from `PERMISSIONS.departmentLeads.j1` and `isJ4` from `PERMISSIONS.departments.j4`. Renders `J1Panel`.
+Route `/dashboard/j1`. Gated by `PERMISSIONS.departments.j1`; computes `canManageMembers` from `await hasPermission(me, 'departmentLeads.j1')` and `isJ4` from `PERMISSIONS.departments.j4`. Renders `J1Panel`.
 
 #### app/dashboard/j1/J1Panel.tsx
 Top-level client panel. Tabs: Recruit Member (0), Applications (1), Mastersheet (2), Statistics (3), Meetings (4, via shared `MeetingsTab`), Tickets (5, via shared `DeptTicketsTab department='j1'`), TFAR Plugin (6, lead/J4 only). Header toggles to `DeptMembersTab`/`DeptCalendarTab`/`ActivityLogTab` for `department='j1'`.

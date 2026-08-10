@@ -5,6 +5,7 @@ import fs from 'fs/promises'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 const UPLOADS_DIR = path.join(process.cwd(), '..', '..', 'storage', 'uploads', 'ai-images')
 
@@ -22,7 +23,7 @@ export async function GET(
         if (!image) return new Response('Not found', { status: 404 })
 
         // Only owner or J2/J4 can view
-        const canViewAll = client.hasRoles(me, PERMISSIONS.intel.viewAllImages)
+        const canViewAll = await hasPermission(me, 'intel.viewAllImages')
         if (image.userId !== me.id && !canViewAll) return new Response('Forbidden', { status: 403 })
 
         const filePath = path.join(UPLOADS_DIR, image.imagePath)

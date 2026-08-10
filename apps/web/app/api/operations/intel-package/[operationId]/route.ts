@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 export async function GET(
     _req: NextRequest,
@@ -10,7 +11,7 @@ export async function GET(
     const { operationId } = await params
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.pages.member)) {
+    if (!(await hasPermission(me, 'pages.member'))) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

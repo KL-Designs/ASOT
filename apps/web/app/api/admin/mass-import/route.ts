@@ -8,6 +8,7 @@ import { parseORBAT, parseRow } from '@/lib/orbat/csv-parser'
 import { CERTIFICATIONS } from '@/lib/military/certifications'
 import { AWARDS } from '@/lib/military/awards'
 import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/military/points'
+import { ensureReservistRole } from '@/lib/orbat/reservist-role'
 
 // ── Mastersheet CSV parser ────────────────────────────────────────────────────
 
@@ -253,15 +254,23 @@ export async function POST(request: NextRequest) {
     // Resolve each CSV role string to an existing OrbatRole by exact name
     // match. Unmatched roles still import (roleId stays null, the raw name
     // is preserved in `role`) — CSV noise should never silently mint new
-    // catalog entries. Reservist rows are always unmatched by design (see
-    // the ORBAT Roles design spec: reservists stay outside the catalog).
+    // catalog entries. Reservist rows don't go through this name-matching at
+    // all — there's no per-person job title to match against, just the one
+    // shared seeded "Reservist" role (resolved once below via
+    // `ensureReservistRole()` and applied directly to every reservist row).
     const allRoles = await Db.orbatRoles.find({}).toArray()
-    const roleByName = new Map(allRoles.map(r => [r.name, r._id]))
+    const rolesByName = new Map<string, typeof allRoles>()
+    for (const r of allRoles) {
+        const list = rolesByName.get(r.name) ?? []
+        list.push(r)
+        rolesByName.set(r.name, list)
+    }
     let unmatchedRoleCount = 0
-    const resolveRoleId = (name: string) => {
-        const id = roleByName.get(name) ?? null
-        if (!id) unmatchedRoleCount++
-        return id
+    const resolveRoleId = (name: string, category: string) => {
+        const candidates = rolesByName.get(name) ?? []
+        const match = candidates.find(r => r.categories.includes(category)) ?? candidates.find(r => r.categories.length === 0)
+        if (!match) unmatchedRoleCount++
+        return match?._id ?? null
     }
 
     const positions: Omit<OrbatPosition, '_id'>[] = []
@@ -273,7 +282,7 @@ export async function POST(request: NextRequest) {
             category: 'companyHQ',
             sectionTitle: 'India Company HQ',
             role: sec.senior.role,
-            roleId: resolveRoleId(sec.senior.role),
+            roleId: resolveRoleId(sec.senior.role, 'companyHQ'),
             userId: lookupAndTrack(sec.senior.name)?._id ?? null,
             sectionOrder,
             positionOrder: 0,
@@ -285,7 +294,7 @@ export async function POST(request: NextRequest) {
                 category: 'companyHQ',
                 sectionTitle: 'India Company HQ',
                 role: m.role,
-                roleId: resolveRoleId(m.role),
+                roleId: resolveRoleId(m.role, 'companyHQ'),
                 userId: lookupAndTrack(m.name)?._id ?? null,
                 sectionOrder,
                 positionOrder: i + 1,
@@ -296,37 +305,39 @@ export async function POST(request: NextRequest) {
 
     for (const section of orbat.platoon11) {
         section.members.forEach((m, i) => {
-            positions.push({ category: 'platoon11', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+            positions.push({ category: 'platoon11', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role, 'platoon11'), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
         })
         sectionOrder++
     }
 
     for (const section of orbat.platoon12) {
         section.members.forEach((m, i) => {
-            positions.push({ category: 'platoon12', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+            positions.push({ category: 'platoon12', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role, 'platoon12'), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
         })
         sectionOrder++
     }
 
     for (const section of orbat.support) {
         section.members.forEach((m, i) => {
-            positions.push({ category: 'support', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+            positions.push({ category: 'support', sectionTitle: section.title, role: m.role, roleId: resolveRoleId(m.role, 'support'), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
         })
         sectionOrder++
     }
 
+    const reservistRoleId = await ensureReservistRole()
+
     orbat.activeReservists.forEach((name, i) => {
-        positions.push({ category: 'activeReservist', sectionTitle: '', role: 'Active Reservist', roleId: null, userId: lookupAndTrack(name)?._id ?? null, sectionOrder, positionOrder: i })
+        positions.push({ category: 'activeReservist', sectionTitle: '', role: 'Active Reservist', roleId: reservistRoleId, userId: lookupAndTrack(name)?._id ?? null, sectionOrder, positionOrder: i })
     })
     sectionOrder++
 
     orbat.inactiveReservists.forEach((name, i) => {
-        positions.push({ category: 'inactiveReservist', sectionTitle: '', role: 'Inactive Reservist', roleId: null, userId: lookupAndTrack(name)?._id ?? null, sectionOrder, positionOrder: i })
+        positions.push({ category: 'inactiveReservist', sectionTitle: '', role: 'Inactive Reservist', roleId: reservistRoleId, userId: lookupAndTrack(name)?._id ?? null, sectionOrder, positionOrder: i })
     })
     sectionOrder++
 
     orbat.gamemasters.forEach((m, i) => {
-        positions.push({ category: 'gamemaster', sectionTitle: 'Gamemasters', role: m.role, roleId: resolveRoleId(m.role), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
+        positions.push({ category: 'gamemaster', sectionTitle: 'Gamemasters', role: m.role, roleId: resolveRoleId(m.role, 'gamemaster'), userId: lookupAndTrack(m.name)?._id ?? null, sectionOrder, positionOrder: i })
     })
 
     const seenUserIds = new Set<string>()

@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 type Params = { params: Promise<{ id: string }> }
 
 async function authJ2Lead() {
     try {
         const me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.departmentLeads.j2)) return null
+        if (!(await hasPermission(me, 'departmentLeads.j2'))) return null
         return me
     } catch { return null }
 }

@@ -3,6 +3,7 @@ import { connection } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import Db from '@/lib/mongo'
 import { getQuizById } from '@/lib/quiz-data'
 import QuizReviewClient from './quiz-review-client'
@@ -17,7 +18,7 @@ export default async function Page({ params }: Props) {
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) redirect('/login')
-    if (!client.hasRoles(me, PERMISSIONS.quiz.review)) redirect('/dashboard')
+    if (!(await hasPermission(me, 'quiz.review'))) redirect('/dashboard')
 
     let oid: ObjectId
     try {
@@ -32,7 +33,7 @@ export default async function Page({ params }: Props) {
     const quiz = getQuizById(attempt.quizId)
     if (!quiz) redirect('/dashboard/j3')
 
-    const canEscalate = client.hasRoles(me, PERMISSIONS.quiz.reviewEscalated)
+    const canEscalate = await hasPermission(me, 'quiz.reviewEscalated')
     const isJ4 = client.hasRoles(me, PERMISSIONS.departments.j4)
 
     const serialized: QuizAttemptSerialized = {

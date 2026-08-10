@@ -37,6 +37,14 @@ const PERMISSIONS = {
          * Training Docs, and SOPs. J-department and staff-only sections are
          * hidden in the sidebar and page-gated individually.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'pages.member')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department membership, ORBAT-position role holding,
+         * or reservist role holding — NOT this Discord-role array. This array
+         * is now dead code for that specific check; it's kept only because
+         * `lib/permissions/tree.ts` (the Permissions Explorer) still reads it
+         * for display purposes.
+         *
          * Used by:
          *  - `app/dashboard/layout.tsx`
          *  - `app/dashboard/page.tsx`
@@ -232,6 +240,13 @@ const PERMISSIONS = {
         /**
          * Upload member bio/profile images.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'uploads.bio')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * This array is now dead code for that specific check; it's kept only
+         * because `lib/permissions/tree.ts` (the Permissions Explorer) still reads
+         * it for display purposes.
+         *
          * Used by:
          *  - `app/api/uploads/bio/route.ts`
          */
@@ -339,6 +354,21 @@ const PERMISSIONS = {
         manageOrbatRoles: ['J4 - Administration'],
 
         /**
+         * Department Roles catalog — create, edit, and delete the department
+         * (J1-J7) role definitions (Discord roles, TeamSpeak groups, granted
+         * site permissions), and assign/unassign sub-roles to specific
+         * members. Parallel to manageOrbatRoles but for department roles.
+         * J4 only.
+         *
+         * Used by:
+         *  - `app/dashboard/orbat/DepartmentRolesTab.tsx`
+         *  - `app/api/admin/department-roles/route.ts` (GET/POST)
+         *  - `app/api/admin/department-roles/[roleId]/route.ts` (PATCH/DELETE)
+         *  - `app/api/admin/department-roles/assign/route.ts`
+         */
+        manageDepartmentRoles: ['J4 - Administration'],
+
+        /**
          * Permissions Explorer — read-only visualization of the entire
          * PERMISSIONS catalog (which Discord roles / ORBAT Roles grant each
          * key, and live member counts), plus per-member lookup. J4 only,
@@ -369,6 +399,13 @@ const PERMISSIONS = {
     optionals: {
         /**
          * Add or remove mods from the unit's optional mod master lists.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'optionals.manage')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * This array is now dead code for that specific check; it's kept only
+         * because `lib/permissions/tree.ts` (the Permissions Explorer) still reads
+         * it for display purposes.
          *
          * Used by:
          *  - `app/optionals/manage/route.ts`
@@ -413,6 +450,13 @@ const PERMISSIONS = {
          * Manage the media gallery — create/delete folders, upload and remove
          * images, and set featured/Shot of the Month images.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'gallery.manage')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * This array is now dead code for that specific check; it's kept only
+         * because `lib/permissions/tree.ts` (the Permissions Explorer) still reads
+         * it for display purposes.
+         *
          * Used by:
          *  - `app/admin/gallery/page.tsx` (page gate)
          *  - `app/api/gallery/admin/folder/route.ts`
@@ -452,6 +496,13 @@ const PERMISSIONS = {
          * Authorise access to the real-time collaborative operation editor
          * (Hocuspocus/Y.js WebSocket). Prevents non-J2 staff from connecting.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'auth.collab')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * This array is now dead code for that specific check; it's kept only
+         * because `lib/permissions/tree.ts` (the Permissions Explorer) still reads
+         * it for display purposes.
+         *
          * Used by:
          *  - `app/api/auth/collab/route.ts`
          */
@@ -471,6 +522,16 @@ const PERMISSIONS = {
         /**
          * J1 lead — can add/remove J1 members and manage department membership tickets.
          *
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j1`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j1')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
+         *
          * Used by:
          *  - `app/admin/j1/page.tsx` (`canManageMembers` flag)
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J1)
@@ -479,6 +540,16 @@ const PERMISSIONS = {
 
         /**
          * J2 lead — can add/remove J2 members and manage department membership tickets.
+         *
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j2`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j2')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
          *
          * Used by:
          *  - `app/admin/j2/page.tsx` (`canManageMembers` flag)
@@ -489,6 +560,16 @@ const PERMISSIONS = {
         /**
          * J3 lead — can add/remove J3 members and manage department membership tickets.
          *
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j3`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j3')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
+         *
          * Used by:
          *  - `app/admin/j3/page.tsx` (`canManageMembers` flag)
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J3)
@@ -496,8 +577,41 @@ const PERMISSIONS = {
         j3: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
 
         /**
+         * J4 lead — can add/remove J4 members and manage department membership
+         * tickets. In practice this is just J4-Administration itself (there's
+         * no separate "J4 lead" sub-role) — declared explicitly so
+         * `PERMISSIONS.departmentLeads.j4` exists and `hasRoles()` doesn't
+         * receive `undefined` for J4's department-membership tickets, the
+         * same way every other department already does.
+         *
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j4`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j4')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
+         *
+         * Used by:
+         *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J4)
+         */
+        j4: ['J4 - Administration'],
+
+        /**
          * J5 lead — can add/remove J5 members, manage department membership tickets,
          * and manage the Shot of the Month gallery feature.
+         *
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j5`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j5')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
          *
          * Used by:
          *  - `app/admin/j5/page.tsx` (`canManageMembers` flag)
@@ -509,6 +623,16 @@ const PERMISSIONS = {
         /**
          * J6 lead — can add/remove J6 members and manage department membership tickets.
          *
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j6`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j6')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
+         *
          * Used by:
          *  - `app/admin/j6/page.tsx` (`canManageMembers` flag)
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J6)
@@ -517,6 +641,16 @@ const PERMISSIONS = {
 
         /**
          * J7 lead — can add/remove J7 members and manage department membership tickets.
+         *
+         * As of the permission-system migration, call sites that referenced this
+         * key via static dot-notation (`PERMISSIONS.departmentLeads.j7`) now gate
+         * through `await hasPermission(user, 'departmentLeads.j7')`
+         * (`lib/orbat/hasPermission.ts`) instead — granted via department/ORBAT-role
+         * holding. Call sites that read this array via dynamic indexing
+         * (`PERMISSIONS.departmentLeads[dept]` / `Object.entries(...)`) — e.g. the
+         * meetings complete/attendance/delete/transfer routes, admin tickets, board
+         * columns, department-roles admin routes, and admin activity — were NOT
+         * part of this migration batch and still depend on this array; deferred.
          *
          * Used by:
          *  - `app/admin/j7/page.tsx` (`canManageMembers` flag)
@@ -543,6 +677,12 @@ const PERMISSIONS = {
     // Controls who can lock/unlock individual meeting records for each department.
     // Regular department members can create and edit meetings; only leads can lock.
 
+    /**
+     * As of the permission-system migration, the real gate for every lockJX
+     * key below is `await hasPermission(user, 'meetings.lockJX')`
+     * (`lib/orbat/hasPermission.ts`) — granted via department/ORBAT-role
+     * holding — NOT these Discord-role arrays.
+     */
     meetings: {
         lockJ1: ['J1 - Department Leader', 'J1 - Head Recruiter', 'J1 - Recruiter Trainer'],
         lockJ2: ['J2 - Department Leader', 'J2 - Team Leader', 'J2 - Creator Trainer'],
@@ -559,17 +699,29 @@ const PERMISSIONS = {
         /**
          * Assign a BCT quiz to a recruit and view training records.
          * All J3 trainers can assign; J3 leads and J4 can also review escalations.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'quiz.assign')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
          */
         assign: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
 
         /**
          * Review a submitted quiz attempt and issue a Pass, Fail, or escalation.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'quiz.review')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
          */
         review: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
 
         /**
          * Escalated review — available to J3 leads when a trainer sends for review,
          * and to J4 when a J3 lead escalates further.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'quiz.reviewEscalated')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
          */
         reviewEscalated: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer', 'J4 - Administration'],
     },
@@ -803,6 +955,13 @@ const PERMISSIONS = {
          * Generate intel images via the AI image creator.
          * Primarily J2 mission makers; J4 bypasses globally.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'intel.generateImages')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * This array is now dead code for that specific check; it's kept only
+         * because `lib/permissions/tree.ts` (the Permissions Explorer) still reads
+         * it for display purposes.
+         *
          * Used by:
          *  - `app/api/ai/intel/generate/route.ts`
          *  - `app/dashboard/j2/tabs/IntelImagesTab.tsx`
@@ -812,6 +971,13 @@ const PERMISSIONS = {
         /**
          * View all members' generated intel images (the "All Images" library).
          * Own images are always visible to the generating member.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'intel.viewAllImages')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         * This array is now dead code for that specific check; it's kept only
+         * because `lib/permissions/tree.ts` (the Permissions Explorer) still reads
+         * it for display purposes.
          *
          * Used by:
          *  - `app/api/ai/images/route.ts` (GET with ?scope=all)

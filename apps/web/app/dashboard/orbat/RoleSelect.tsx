@@ -39,10 +39,14 @@ export default function RoleSelect({ category, value, onChange, placeholder = 'S
 
     const selected = roles.find(r => String(r._id) === value)
 
+    function displayLabel(r: OrbatRole): string {
+        return r.tag ? `${r.name} (${r.tag})` : r.name
+    }
+
     return (
         <div ref={ref} style={{ position: 'relative', width: '100%' }}>
             <input
-                value={open ? query : (selected?.name ?? '')}
+                value={open ? query : (selected ? displayLabel(selected) : '')}
                 onChange={e => { setQuery(e.target.value); setOpen(true) }}
                 onFocus={() => { setOpen(true); setQuery('') }}
                 placeholder={placeholder}
@@ -66,7 +70,7 @@ export default function RoleSelect({ category, value, onChange, placeholder = 'S
                             onClick={() => { onChange(String(r._id), r.name); setOpen(false); setQuery('') }}
                             style={{ display: 'block', width: '100%', padding: '6px 10px', background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'rgba(237,237,237,0.75)', fontSize: '0.7rem', cursor: 'pointer', textAlign: 'left' }}
                         >
-                            {r.name}
+                            {displayLabel(r)}
                         </button>
                     ))}
                 </div>

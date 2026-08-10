@@ -5,6 +5,10 @@
 /.env
 /.env*.local
 
+# local-only docker-compose overrides (e.g. MONGO_URI pointed at the Docker
+# host instead of .env's 127.0.0.1) — never deployed, see docker-compose.yml
+/docker-compose.override.yml
+
 # runtime/uploaded data shared by both apps (gallery, uploads, snapshots, maps,
 # j1-j7/hq/all/members storage, milpacs, and the bot's data) — not source, never tracked.
 # README.md documents the layout and is the one file worth keeping in git.

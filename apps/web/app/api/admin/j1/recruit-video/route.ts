@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,7 +46,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
-    if (!me || !client.hasRoles(me, PERMISSIONS.departmentLeads.j1)) {
+    if (!me || !(await hasPermission(me, 'departmentLeads.j1'))) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Typography } from '@mui/material'
-import { CheckCircleOutline } from '@mui/icons-material'
+import { Typography, Tooltip } from '@mui/material'
+import { CheckCircleOutline, Language, Storage, Forum, Headset, Warning } from '@mui/icons-material'
 import {
     DndContext, closestCenter, PointerSensor, useSensor, useSensors,
     type DragEndEvent,
@@ -43,6 +43,79 @@ function LocalClock() {
             <div style={{ fontFamily: 'monospace', fontSize: '0.5rem', letterSpacing: '0.1em', color: 'rgba(237,237,237,0.2)', marginTop: 4, textTransform: 'uppercase' }}>
                 {tz || '─────────'}
             </div>
+        </div>
+    )
+}
+
+// ── Service status icons ──────────────────────────────────────────────────────
+
+type ServiceStatus = { online: boolean; devMode?: boolean }
+type StatusResponse = {
+    website: ServiceStatus
+    database: ServiceStatus
+    discord: ServiceStatus
+    teamspeak: ServiceStatus
+}
+
+const ALL_OFFLINE: StatusResponse = {
+    website: { online: false },
+    database: { online: false },
+    discord: { online: false },
+    teamspeak: { online: false },
+}
+
+function statusColor(status: ServiceStatus): string {
+    if (status.devMode) return status.online ? 'rgba(96,165,250,0.9)' : 'rgba(251,191,36,0.95)'
+    return status.online ? 'rgba(34,197,94,0.85)' : 'rgba(219,0,29,0.85)'
+}
+
+function statusLabel(name: string, status: ServiceStatus): string {
+    if (status.devMode) return status.online ? `${name}: Dev mode (connected)` : `${name}: Dev mode — OFFLINE`
+    return `${name}: ${status.online ? 'Online' : 'Offline'}`
+}
+
+function ServiceIcon({ name, status, Icon }: { name: string; status: ServiceStatus; Icon: typeof Language }) {
+    const showWarning = !!status.devMode && !status.online
+    return (
+        <Tooltip title={statusLabel(name, status)}>
+            <div style={{ position: 'relative', display: 'inline-flex', lineHeight: 0 }}>
+                <Icon sx={{ fontSize: 15, color: statusColor(status) }} />
+                {showWarning && (
+                    <Warning sx={{ fontSize: 9, color: 'rgba(251,191,36,0.95)', position: 'absolute', bottom: -3, right: -4 }} />
+                )}
+            </div>
+        </Tooltip>
+    )
+}
+
+function ServiceStatusIcons() {
+    const [status, setStatus] = useState<StatusResponse | null>(null)
+
+    useEffect(() => {
+        let cancelled = false
+        async function poll() {
+            try {
+                const res = await fetch('/api/dashboard/status')
+                if (!res.ok) throw new Error('bad response')
+                const data: StatusResponse = await res.json()
+                if (!cancelled) setStatus(data)
+            } catch {
+                if (!cancelled) setStatus(ALL_OFFLINE)
+            }
+        }
+        poll()
+        const id = setInterval(poll, 30_000)
+        return () => { cancelled = true; clearInterval(id) }
+    }, [])
+
+    if (!status) return null
+
+    return (
+        <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
+            <ServiceIcon name='Website' status={status.website} Icon={Language} />
+            <ServiceIcon name='Database' status={status.database} Icon={Storage} />
+            <ServiceIcon name='Discord' status={status.discord} Icon={Forum} />
+            <ServiceIcon name='TeamSpeak' status={status.teamspeak} Icon={Headset} />
         </div>
     )
 }
@@ -615,6 +688,7 @@ export default function DashboardOverview({
                     </Typography>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                    <ServiceStatusIcons />
                     <LocalClock />
                     <Typography
                         fontSize='0.6rem'

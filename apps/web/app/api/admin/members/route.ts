@@ -50,7 +50,7 @@ export async function GET(request: Request) {
         id: 1, username: 1, name: 1, globalName: 1,
         'guild.nickname': 1, 'guild.displayName': 1,
         'milpac.currentRank': 1,
-        teamLeadDepts: 1, dept2icRoles: 1, dept3icRoles: 1,
+        teamLeadDepts: 1, dept2icRoles: 1, dept3icRoles: 1, departmentRoleIds: 1,
         avatar: 1, avatarDecoration: 1, hexAccentColor: 1,
     }
 
@@ -102,6 +102,7 @@ export async function GET(request: Request) {
             teamLeadDepts:  u.teamLeadDepts  ?? [],
             dept2icRoles:   u.dept2icRoles   ?? [],
             dept3icRoles:   u.dept3icRoles   ?? [],
+            departmentRoleIds: (u.departmentRoleIds ?? []).map(String),
             orbatEntry:     orbatMap[u.id]   ?? null,
             // Pre-computed fields for consumers that need flat shape (DeptMembersTab)
             displayName,

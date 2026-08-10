@@ -448,7 +448,7 @@ Client `ActivityLog` panel: polls `GET /api/operations/activity?id=` every 30s, 
 word-level diff (`before`/`after`) per edit entry when expanded, relative timestamps.
 
 #### app/operations/[id]/staff/page.tsx
-Server page: requires login (`PERMISSIONS.pages.member`, else redirect `/login`), fetches a
+Server page: requires login (`hasPermission(user, 'pages.member')`, else redirect `/login`), fetches a
 minimal operation projection, renders `<StaffView/>`.
 
 #### app/operations/[id]/staff/StaffView.tsx
@@ -489,7 +489,7 @@ cookie, redirects to `/optionals`.
 (no auth check in the shown portion) but requires `?type=` one of `qol|gfx|zeus|j2|j5`.
 
 #### app/optionals/manage/route.ts
-`POST` route: admin-only (`PERMISSIONS.optionals.manage`) add/remove/set-deps operations on the
+`POST` route: admin-only (`hasPermission(user, 'optionals.manage')`) add/remove/set-deps operations on the
 master `Db.optionals` list for a category; `remove` also pulls the mod from every user's enabled
 list.
 

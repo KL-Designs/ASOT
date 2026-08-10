@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import Db from '@/lib/mongo'
 
 const DEFAULT_OPTIONS: Omit<EraOption, '_id'>[] = [
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     await client.updateRoles()
     let me: User
     try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-    if (!client.hasRoles(me, PERMISSIONS.departmentLeads.j2)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasPermission(me, 'departmentLeads.j2'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { name } = await req.json()
     if (!name?.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 })
@@ -52,7 +52,7 @@ export async function PATCH(req: NextRequest) {
     await client.updateRoles()
     let me: User
     try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-    if (!client.hasRoles(me, PERMISSIONS.departmentLeads.j2)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasPermission(me, 'departmentLeads.j2'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { id, name } = await req.json()
     if (!id || !name?.trim()) return NextResponse.json({ error: 'id and name required' }, { status: 400 })
@@ -69,7 +69,7 @@ export async function DELETE(req: NextRequest) {
     await client.updateRoles()
     let me: User
     try { me = await client.fetchMe() } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
-    if (!client.hasRoles(me, PERMISSIONS.departmentLeads.j2)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasPermission(me, 'departmentLeads.j2'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const id = req.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })

@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { logAction } from '@/lib/logs'
 
 
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
         const me = await client.fetchMe()
         if (!client.hasRoles(me, PERMISSIONS.operations.write)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
-        const isJ2LeadOrJ4 = client.hasRoles(me, PERMISSIONS.departmentLeads.j2)
+        const isJ2LeadOrJ4 = (await hasPermission(me, 'departmentLeads.j2'))
             || client.hasRoles(me, PERMISSIONS.members.editRestricted)
 
         if (title) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { title } })

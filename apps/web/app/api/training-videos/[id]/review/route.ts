@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { callText } from '@/lib/ai/service'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const { id } = await params
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.pages.member)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasPermission(me, 'pages.member'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     let body: { checkpointId: string; answer: string }
     try { body = await req.json() } catch { return NextResponse.json({ error: 'bad json' }, { status: 400 }) }

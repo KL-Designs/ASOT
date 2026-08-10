@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Autocomplete, TextField, Typography } from '@mui/material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import { rankNameFromAbbr } from '@/lib/military/ranks'
+import { DEPT_LEADERSHIP_POSITIONS } from '@/lib/discord/dept-codes'
 
 type MemberOption = {
     id: string
@@ -12,17 +13,7 @@ type MemberOption = {
     teamLeadDepts: string[]
     dept2icRoles: string[]
     dept3icRoles: string[]
-}
-
-// Position names per department: [Department Leader, 2IC, 3IC]
-const DEPT_LEADERSHIP_POSITIONS: Record<string, [string, string, string]> = {
-    j1: ['Department Leader', 'Head Recruiter',        'Recruiter Trainer'],
-    j2: ['Department Leader', 'Team Leader',            'Creator Trainer'],
-    j3: ['Department Leader', 'Head Trainer',           'Assistant Head Trainer'],
-    j4: ['Department Leader', '',                       ''],
-    j5: ['Department Leader', 'Team Leader',            'Lead Content Creator'],
-    j6: ['Department Leader', 'Team Leader',            'Assistant Team Leader'],
-    j7: ['Department Leader', 'Team Leader',            'Assistant Team Leader'],
+    departmentRoleIds: string[]
 }
 
 const inputSx = {
@@ -85,6 +76,8 @@ export default function DeptMembersTab({
     const [allMembers, setAllMembers] = useState<MemberOption[]>([])
     const [loading, setLoading] = useState(true)
     const [loadingAll, setLoadingAll] = useState(false)
+    const [allDeptRoles, setAllDeptRoles] = useState<DepartmentRole[]>([])
+    const [roleActionId, setRoleActionId] = useState<string | null>(null)
 
     const [selected, setSelected] = useState<MemberOption | null>(null)
     // Which leadership slot is currently being assigned (null | 'leader' | '2ic' | '3ic')
@@ -96,6 +89,7 @@ export default function DeptMembersTab({
     const [leadActionId, setLeadActionId] = useState<string | null>(null)
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
     const [syncing, setSyncing] = useState(false)
+    const [hoveredRowId, setHoveredRowId] = useState<string | null>(null)
 
     const fetchDeptMembers = useCallback(async () => {
         setLoading(true)
@@ -106,6 +100,7 @@ export default function DeptMembersTab({
                 ...m,
                 dept2icRoles: m.dept2icRoles ?? [],
                 dept3icRoles: m.dept3icRoles ?? [],
+                departmentRoleIds: m.departmentRoleIds ?? [],
             })))
         } finally {
             setLoading(false)
@@ -114,6 +109,10 @@ export default function DeptMembersTab({
 
     useEffect(() => {
         fetchDeptMembers()
+        fetch(`/api/admin/department-roles?department=${department}`)
+            .then(r => r.json())
+            .then(d => setAllDeptRoles(d.roles ?? []))
+            .catch(() => setAllDeptRoles([]))
         if (canManage) {
             setLoadingAll(true)
             fetch('/api/admin/members?limit=1000')
@@ -122,10 +121,11 @@ export default function DeptMembersTab({
                     ...m,
                     dept2icRoles: m.dept2icRoles ?? [],
                     dept3icRoles: m.dept3icRoles ?? [],
+                    departmentRoleIds: m.departmentRoleIds ?? [],
                 }))))
                 .finally(() => setLoadingAll(false))
         }
-    }, [fetchDeptMembers, canManage])
+    }, [fetchDeptMembers, canManage, department])
 
     function showFeedback(type: 'success' | 'error', msg: string) {
         setFeedback({ type, msg })
@@ -142,11 +142,11 @@ export default function DeptMembersTab({
             })
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Sync failed')
-            const msg = data.membersAdded === 0 && data.leadsAdded === 0
-                ? `Sync complete — no new members found (${data.scanned} Discord members scanned).`
-                : `Sync complete — added ${data.membersAdded} member(s), ${data.leadsAdded} lead(s) from Discord.`
+            const totalChanges = data.discordGranted + data.discordRevoked + data.tsGranted + data.tsRevoked
+            const msg = totalChanges === 0
+                ? `Sync complete — ${data.membersChecked} member(s) checked, already up to date.`
+                : `Sync complete — ${data.membersChecked} member(s) checked. Discord: +${data.discordGranted}/-${data.discordRevoked}. TeamSpeak: +${data.tsGranted}/-${data.tsRevoked}.`
             showFeedback('success', msg)
-            if (data.membersAdded > 0 || data.leadsAdded > 0) fetchDeptMembers()
         } catch (e: unknown) {
             showFeedback('error', e instanceof Error ? e.message : 'Sync failed')
         } finally {
@@ -227,17 +227,57 @@ export default function DeptMembersTab({
         }
     }
 
+    async function handleToggleRole(member: MemberOption, role: DepartmentRole) {
+        const holds = member.departmentRoleIds.includes(String(role._id))
+        setRoleActionId(member.id)
+        try {
+            const res = await fetch('/api/admin/department-roles/assign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetUserId: member.id, roleId: String(role._id), action: holds ? 'remove' : 'add' }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Request failed')
+            showFeedback('success', `${member.displayName} ${holds ? 'unassigned from' : 'assigned'} ${role.name}.`)
+            fetchDeptMembers()
+        } catch (e: unknown) {
+            showFeedback('error', e instanceof Error ? e.message : 'Failed to update role')
+        } finally {
+            setRoleActionId(null)
+        }
+    }
+
     const posNames = DEPT_LEADERSHIP_POSITIONS[department] ?? ['Department Leader', '2IC', '3IC']
 
-    const leaderHolder = deptMembers.find(m => m.teamLeadDepts?.includes(department)) ?? null
-    const secondHolder = deptMembers.find(m => m.dept2icRoles?.includes(department)) ?? null
-    const thirdHolder  = deptMembers.find(m => m.dept3icRoles?.includes(department)) ?? null
+    const toggleableRoles = allDeptRoles.filter(r => !r.isBase && !r.linkedSlot)
+    const slotRoleMap: Partial<Record<'leader' | '2ic' | '3ic', DepartmentRole>> = {}
+    for (const r of allDeptRoles) if (r.linkedSlot) slotRoleMap[r.linkedSlot] = r
+
+    function holdsRole(member: MemberOption, role: DepartmentRole | undefined): boolean {
+        return !!role && member.departmentRoleIds.includes(String(role._id))
+    }
+
+    const leaderHolder = deptMembers.find(m => holdsRole(m, slotRoleMap.leader)) ?? null
+    const secondHolder = deptMembers.find(m => holdsRole(m, slotRoleMap['2ic'])) ?? null
+    const thirdHolder  = deptMembers.find(m => holdsRole(m, slotRoleMap['3ic'])) ?? null
 
     const deptMemberIds = new Set(deptMembers.map(m => m.id))
     const addOptions = allMembers.filter(m => !deptMemberIds.has(m.id))
 
     return (
         <div className='p-6 flex flex-col gap-5'>
+
+            {feedback && (
+                <div style={{
+                    position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 2000,
+                    padding: '10px 20px', fontSize: '0.8rem', fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                    background: feedback.type === 'success' ? 'rgba(20,30,24,0.96)' : 'rgba(30,15,17,0.96)',
+                    border: `1px solid ${feedback.type === 'success' ? 'rgba(34,197,94,0.4)' : 'rgba(219,0,29,0.4)'}`,
+                    color: feedback.type === 'success' ? 'rgba(34,197,94,0.95)' : 'rgba(219,0,29,0.95)',
+                }}>
+                    {feedback.msg}
+                </div>
+            )}
 
             {/* Leadership Positions */}
             <div style={cardStyle}>
@@ -257,31 +297,20 @@ export default function DeptMembersTab({
                                 flexShrink: 0,
                             }}
                         >
-                            {syncing ? '⟳ Syncing…' : '⟳ Sync Discord'}
+                            {syncing ? '⟳ Syncing…' : '⟳ Sync Discord & TeamSpeak'}
                         </button>
                     )}
                 </div>
-
-                {feedback && (
-                    <div style={{
-                        marginBottom: 12, padding: '8px 12px', fontSize: '0.78rem',
-                        background: feedback.type === 'success' ? 'rgba(34,197,94,0.08)' : 'rgba(219,0,29,0.08)',
-                        border: `1px solid ${feedback.type === 'success' ? 'rgba(34,197,94,0.25)' : 'rgba(219,0,29,0.25)'}`,
-                        color: feedback.type === 'success' ? 'rgba(34,197,94,0.9)' : 'rgba(219,0,29,0.9)',
-                    }}>
-                        {feedback.msg}
-                    </div>
-                )}
 
                 {loading ? (
                     <TacticalSkeleton rows={3} />
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                         {([
-                            { slot: 'leader' as const, label: posNames[0], holder: leaderHolder, color: '#fbbf24' },
-                            ...(posNames[1] ? [{ slot: '2ic' as const, label: posNames[1], holder: secondHolder, color: 'rgba(219,0,29,0.7)' }] : []),
-                            ...(posNames[2] ? [{ slot: '3ic' as const, label: posNames[2], holder: thirdHolder,  color: 'rgba(237,237,237,0.5)' }] : []),
-                        ]).map(({ slot, label, holder, color }) => (
+                            { slot: 'leader' as const, label: posNames[0], holder: leaderHolder, linked: !!slotRoleMap.leader, color: '#fbbf24' },
+                            ...(posNames[1] ? [{ slot: '2ic' as const, label: posNames[1], holder: secondHolder, linked: !!slotRoleMap['2ic'], color: 'rgba(219,0,29,0.7)' }] : []),
+                            ...(posNames[2] ? [{ slot: '3ic' as const, label: posNames[2], holder: thirdHolder,  linked: !!slotRoleMap['3ic'], color: 'rgba(237,237,237,0.5)' }] : []),
+                        ]).map(({ slot, label, holder, linked, color }) => (
                             <div key={slot} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '12px 0' }}>
                                 {assigningSlot === slot ? (
                                     /* Inline assign row */
@@ -331,7 +360,7 @@ export default function DeptMembersTab({
                                                     </button>
                                                 )}
                                             </>
-                                        ) : (
+                                        ) : linked ? (
                                             <>
                                                 <span style={{ flex: 1, fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>Not assigned</span>
                                                 {canManage && (
@@ -343,6 +372,10 @@ export default function DeptMembersTab({
                                                     </button>
                                                 )}
                                             </>
+                                        ) : (
+                                            <span style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(255,180,80,0.6)', fontStyle: 'italic' }}>
+                                                Not linked — configure in Department Roles
+                                            </span>
                                         )}
                                     </div>
                                 )}
@@ -370,17 +403,27 @@ export default function DeptMembersTab({
                                     <th style={thStyle}>Name</th>
                                     <th style={thStyle}>Rank</th>
                                     <th style={thStyle}>Position</th>
+                                    {toggleableRoles.length > 0 && <th style={thStyle}>Roles</th>}
                                     {canManage && <th style={{ ...thStyle, textAlign: 'right' }} />}
                                 </tr>
                             </thead>
                             <tbody>
                                 {deptMembers.map(m => {
-                                    const isLeader = m.teamLeadDepts?.includes(department)
-                                    const is2ic    = m.dept2icRoles?.includes(department)
-                                    const is3ic    = m.dept3icRoles?.includes(department)
+                                    const isLeader = holdsRole(m, slotRoleMap.leader)
+                                    const is2ic    = holdsRole(m, slotRoleMap['2ic'])
+                                    const is3ic    = holdsRole(m, slotRoleMap['3ic'])
                                     const position = isLeader ? posNames[0] : is2ic ? posNames[1] : is3ic ? posNames[2] : null
                                     return (
-                                        <tr key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                        <tr
+                                            key={m.id}
+                                            onMouseEnter={() => setHoveredRowId(m.id)}
+                                            onMouseLeave={() => setHoveredRowId(prev => (prev === m.id ? null : prev))}
+                                            style={{
+                                                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                                background: hoveredRowId === m.id ? 'rgba(255,255,255,0.035)' : 'transparent',
+                                                transition: 'background 0.1s',
+                                            }}
+                                        >
                                             <td style={tdStyle}>
                                                 {isLeader && <span style={{ color: 'rgba(251,191,36,0.8)', marginRight: 6, fontSize: '0.72rem' }}>★</span>}
                                                 {m.displayName}
@@ -391,6 +434,33 @@ export default function DeptMembersTab({
                                             <td style={{ ...tdStyle, fontSize: '0.68rem', color: isLeader ? '#fbbf24' : 'rgba(219,0,29,0.55)' }}>
                                                 {position ?? '—'}
                                             </td>
+                                            {toggleableRoles.length > 0 && (
+                                                <td style={tdStyle}>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                                        {toggleableRoles.map(role => {
+                                                            const holds = m.departmentRoleIds.includes(String(role._id))
+                                                            if (!holds && !canManage) return null
+                                                            return (
+                                                                <button
+                                                                    key={String(role._id)}
+                                                                    onClick={canManage ? () => handleToggleRole(m, role) : undefined}
+                                                                    disabled={roleActionId === m.id}
+                                                                    style={{
+                                                                        fontSize: '0.6rem', fontWeight: 600, padding: '2px 8px',
+                                                                        background: holds ? 'rgba(100,180,255,0.14)' : 'rgba(255,255,255,0.04)',
+                                                                        border: `1px solid ${holds ? 'rgba(100,180,255,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                                                                        color: holds ? 'rgba(100,180,255,0.9)' : 'rgba(237,237,237,0.3)',
+                                                                        cursor: canManage ? 'pointer' : 'default',
+                                                                        opacity: roleActionId === m.id ? 0.5 : 1,
+                                                                    }}
+                                                                >
+                                                                    {role.name}
+                                                                </button>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                </td>
+                                            )}
                                             {canManage && (
                                                 <td style={{ padding: '8px 12px', textAlign: 'right' }}>
                                                     <button

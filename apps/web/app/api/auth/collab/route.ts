@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 export async function GET(request: NextRequest) {
     const token = request.headers.get('x-collab-token')
@@ -12,12 +13,12 @@ export async function GET(request: NextRequest) {
         // sop-* → any ASOT member; ws-* → J2 members/leads; cfb-* → J3 trainers; all others → staff collab role
         const doc = request.nextUrl.searchParams.get('doc') ?? ''
         const authorized = doc.startsWith('sop-')
-            ? client.hasRoles(me, PERMISSIONS.pages.member)
+            ? await hasPermission(me, 'pages.member')
             : doc.startsWith('ws-')
-                ? client.hasRoles(me, PERMISSIONS.departments.j2) || client.hasRoles(me, PERMISSIONS.departmentLeads.j2) || client.hasRoles(me, PERMISSIONS.pages.admin)
+                ? client.hasRoles(me, PERMISSIONS.departments.j2) || (await hasPermission(me, 'departmentLeads.j2')) || client.hasRoles(me, PERMISSIONS.pages.admin)
                 : doc.startsWith('cfb-')
                     ? client.hasRoles(me, PERMISSIONS.training.manage)
-                    : client.hasRoles(me, PERMISSIONS.auth.collab)
+                    : await hasPermission(me, 'auth.collab')
 
         const userName = me.guild?.displayName || me.globalName || me.username || 'Unknown'
         const userAvatar = me.guild?.avatarURL || me.avatarURL || null

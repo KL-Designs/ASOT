@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { logAction } from '@/lib/logAction'
 import { ObjectId } from 'mongodb'
 
@@ -9,7 +10,7 @@ async function requireJ2() {
     let me: User
     try { me = await client.fetchMe() } catch { return null }
     const ok = client.hasRoles(me, PERMISSIONS.departments.j2)
-        || client.hasRoles(me, PERMISSIONS.departmentLeads.j2)
+        || (await hasPermission(me, 'departmentLeads.j2'))
         || client.hasRoles(me, PERMISSIONS.pages.admin)
     if (!ok) return null
     return me

@@ -7,6 +7,7 @@ import { createNotification } from '@/lib/notifications'
 import { addGuildRole, removeGuildRole, setGuildNickname, sendTaskAssignedDM, sendDM, sendChannelMessage } from '@/lib/discord/bot'
 import { buildNickname } from '@/lib/buildNickname'
 import { calculatePromotionPoints } from '@/lib/military/points'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 // ── Returning-member check ────────────────────────────────────────────────────
 
@@ -174,7 +175,7 @@ export async function PATCH(
         return NextResponse.json({ error: 'Application not found.' }, { status: 404 })
     }
 
-    const isJ1Lead          = client.hasRoles(me, PERMISSIONS.departmentLeads.j1)
+    const isJ1Lead = await hasPermission(me, 'departmentLeads.j1')
     const isJ4              = client.hasRoles(me, PERMISSIONS.departments.j4)
     const isAssignedRecruiter = app.assignedReviewerId === me.id
 

@@ -22,6 +22,8 @@ Completed items are marked `[x]`. Do not delete entries.
 
 - [ ] **Multiple checkpoint questions** — allow chaining multiple questions at a single video checkpoint; user answers each in sequence before the video resumes
 
+- [ ] **Permission-key registry with rename backwards-compatibility** — the new `hasPermission(user, key)` system (`lib/orbat/hasPermission.ts`) has no central catalog of valid keys; each key is just a string literal at its call site and inside `DepartmentRole.permissions`/`OrbatRole.permissions` arrays in MongoDB. If a key is ever renamed, any DB documents still holding the old string silently stop granting access — no error, just quiet loss of access, and no compile-time or runtime signal that anything broke. Proposed fix: a small `lib/orbat/permission-keys.ts` with a canonical key list plus a `RENAMED_KEYS: Record<oldKey, newKey>` alias map that `hasPermission()` resolves through before checking. Raised during the Batch 2 permission migration (see `docs/superpowers/plans/2026-08-11-permission-system-migration-phase2-batch2-plan.md`); deferred until brainstormed properly — likely candidate for folding into the Phase 3 cleanup of the old `PERMISSIONS`/`hasRoles()` system.
+
 ---
 
 ## YouTube Embed Migration (complete)

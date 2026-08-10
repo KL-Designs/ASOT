@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import MilpacEditor from '@/app/members/[username]/MilpacEditor'
+import { DEPT_CODES } from '@/lib/discord/dept-codes'
 
 type ConfirmedOp = { operationId: string; name: string; date?: string | null; confirmedAt: string | null }
 type DiscordRole = { id: string; name: string; color: number; position: number }
@@ -63,6 +64,9 @@ export default function MemberDetailPanel({
 
     // J4 — department toggles
     const [deptToggling, setDeptToggling] = useState<string | null>(null)
+
+    // J4 — department leader-role ids, keyed by department code (for the ★ badge)
+    const [leaderRoleIdByDept, setLeaderRoleIdByDept] = useState<Record<string, string>>({})
 
     // J4 — Discord roles
     const [discordRoles, setDiscordRoles] = useState<DiscordRolesData | null>(null)
@@ -126,6 +130,36 @@ export default function MemberDetailPanel({
         if (!isJ4 || !memberData?.id) return
         loadDiscordRoles(memberData.id)
     }, [memberData?.id, isJ4, loadDiscordRoles])
+
+    // J4 — resolve each department's linked leader role, once per mount, so the
+    // ★ badge below reflects DepartmentRole holdings rather than the frozen
+    // legacy teamLeadDepts array. Fetched per-department (rather than the
+    // unfiltered, J4-only GET /api/admin/department-roles) since that's the
+    // gate this per-department form of the endpoint honors more permissively
+    // (J4, OR that department's lead, OR that department's plain member) —
+    // this stays correct even though every current caller happens to pass
+    // isJ4 for this whole admin panel.
+    useEffect(() => {
+        if (!isJ4) return
+        let cancelled = false
+        Promise.all(
+            DEPT_CODES.map(dept =>
+                fetch(`/api/admin/department-roles?department=${dept}`)
+                    .then(res => res.ok ? res.json() : { roles: [] })
+                    .then(data => ({ dept, roles: (data.roles ?? []) as DepartmentRole[] }))
+                    .catch(() => ({ dept, roles: [] as DepartmentRole[] }))
+            )
+        ).then(results => {
+            if (cancelled) return
+            const map: Record<string, string> = {}
+            for (const { dept, roles } of results) {
+                const leaderRole = roles.find(r => r.linkedSlot === 'leader')
+                if (leaderRole) map[dept] = String(leaderRole._id)
+            }
+            setLeaderRoleIdByDept(map)
+        })
+        return () => { cancelled = true }
+    }, [isJ4])
 
     async function handleDischargeMember() {
         if (!memberData || !dischargeType || !dischargeReason.trim()) {
@@ -409,9 +443,10 @@ export default function MemberDetailPanel({
                             Departments
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                            {(['j1', 'j2', 'j3', 'j4', 'j5', 'j6', 'j7'] as const).map(dept => {
+                            {DEPT_CODES.map(dept => {
                                 const isMember = (memberData.departments ?? []).includes(dept)
-                                const isLead = (memberData.teamLeadDepts ?? []).includes(dept)
+                                const leaderRoleId = leaderRoleIdByDept[dept]
+                                const isLead = !!leaderRoleId && (memberData.departmentRoleIds ?? []).map(String).includes(leaderRoleId)
                                 const isLoading = deptToggling === dept
                                 return (
                                     <button
@@ -433,7 +468,7 @@ export default function MemberDetailPanel({
                             })}
                         </div>
                         <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.2)', marginTop: 6 }}>
-                            Click to add or remove. ★ = team lead (managed via tickets).
+                            Click to add or remove. ★ = department leader (managed via the Department Leadership card on that department's Members page).
                         </div>
                     </div>
 

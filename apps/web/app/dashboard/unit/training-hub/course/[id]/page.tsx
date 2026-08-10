@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import Db from '@/lib/mongo'
 import CourseWorkspaceClient from './CourseWorkspaceClient'
 
@@ -21,7 +22,7 @@ export default async function CourseWorkspacePage({ params }: { params: Promise<
     if (!instance) notFound()
 
     const myName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || ''
-    const canManage = client.hasRoles(me, PERMISSIONS.departmentLeads.j3)
+    const canManage = await hasPermission(me, 'departmentLeads.j3')
 
     const pendingProposalsCount = instance.isLocked
         ? await Db.changeProposals.countDocuments({ courseInstanceId: id, status: 'pending' })
