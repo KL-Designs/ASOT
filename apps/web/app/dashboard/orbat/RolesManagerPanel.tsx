@@ -10,6 +10,7 @@ import { PLATOON_CATEGORIES } from '@/lib/orbat/constants'
 import ChainOfCommandPanel from './ChainOfCommandPanel'
 
 interface GuildRole { id: string; name: string; color: number }
+interface TsGroup { id: number; name: string }
 
 interface Props {
     open: boolean
@@ -38,7 +39,7 @@ function discordColorHex(color: number): string | null {
 
 // Order-independent — toggling checkboxes can append/remove without preserving
 // the original array's order, so a strict equality check would false-positive as dirty.
-function sameMembers(a: string[], b: string[]): boolean {
+function sameMembers<T>(a: T[], b: T[]): boolean {
     return a.length === b.length && a.every(x => b.includes(x))
 }
 
@@ -64,6 +65,7 @@ function CopyPasteButtons({ onCopy, onPaste, canPaste, label }: { onCopy: () => 
 export default function RolesManagerPanel({ open, onClose }: Props) {
     const [roles, setRoles] = useState<OrbatRole[]>([])
     const [guildRoles, setGuildRoles] = useState<GuildRole[]>([])
+    const [tsGroups, setTsGroups] = useState<TsGroup[]>([])
     const [permissionKeys, setPermissionKeys] = useState<string[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -72,30 +74,36 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
     const [formName, setFormName] = useState('')
     const [formCategories, setFormCategories] = useState<string[]>([])
     const [formDiscordRoleIds, setFormDiscordRoleIds] = useState<string[]>([])
+    const [formTsGroupIds, setFormTsGroupIds] = useState<number[]>([])
     const [formPermissions, setFormPermissions] = useState<string[]>([])
     const [formTag, setFormTag] = useState('')
+    const [confirmingDelete, setConfirmingDelete] = useState(false)
 
     const [roleSearch, setRoleSearch] = useState('')
     const [discordSearch, setDiscordSearch] = useState('')
+    const [tsSearch, setTsSearch] = useState('')
     const [permSearch, setPermSearch] = useState('')
     const [chainOpen, setChainOpen] = useState(false)
 
     // Copy/paste clipboards — cleared when the dialog closes. "Copy/Paste Settings"
-    // (whole-role) just operates on all three at once, so a per-section copy and a
+    // (whole-role) just operates on all four at once, so a per-section copy and a
     // whole-settings paste compose naturally.
     const [categoriesClipboard, setCategoriesClipboard] = useState<string[] | null>(null)
     const [discordRoleIdsClipboard, setDiscordRoleIdsClipboard] = useState<string[] | null>(null)
+    const [tsGroupIdsClipboard, setTsGroupIdsClipboard] = useState<number[] | null>(null)
     const [permissionsClipboard, setPermissionsClipboard] = useState<string[] | null>(null)
 
     const load = useCallback(async () => {
         setLoading(true)
-        const [rolesRes, guildRolesRes, permKeysRes] = await Promise.all([
+        const [rolesRes, guildRolesRes, tsGroupsRes, permKeysRes] = await Promise.all([
             fetch('/api/admin/orbat/roles').then(r => r.json()),
             fetch('/api/admin/orbat/discord-roles').then(r => r.json()),
+            fetch('/api/teamspeak/groups').then(r => r.json()).catch(() => ({})),
             fetch('/api/admin/orbat/permission-keys').then(r => r.json()),
         ])
         setRoles(rolesRes.roles ?? [])
         setGuildRoles(guildRolesRes.roles ?? [])
+        setTsGroups(tsGroupsRes.groups ?? [])
         setPermissionKeys(permKeysRes.keys ?? [])
         setLoading(false)
     }, [])
@@ -107,6 +115,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
             setRoleSearch('')
             setCategoriesClipboard(null)
             setDiscordRoleIdsClipboard(null)
+            setTsGroupIdsClipboard(null)
             setPermissionsClipboard(null)
         }
     }, [open])
@@ -114,7 +123,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
     const dirty = useMemo(() => {
         if (!editingId) return false
         if (editingId === '__new__') {
-            return formName.trim() !== '' || formTag.trim() !== '' || formCategories.length > 0 || formDiscordRoleIds.length > 0 || formPermissions.length > 0
+            return formName.trim() !== '' || formTag.trim() !== '' || formCategories.length > 0 || formDiscordRoleIds.length > 0 || formTsGroupIds.length > 0 || formPermissions.length > 0
         }
         const original = roles.find(r => String(r._id) === editingId)
         if (!original) return false
@@ -122,8 +131,9 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
             || formTag.trim() !== (original.tag ?? '')
             || !sameMembers(formCategories, original.categories)
             || !sameMembers(formDiscordRoleIds, original.discordRoleIds)
+            || !sameMembers(formTsGroupIds, original.tsGroupIds)
             || !sameMembers(formPermissions, original.permissions)
-    }, [editingId, formName, formTag, formCategories, formDiscordRoleIds, formPermissions, roles])
+    }, [editingId, formName, formTag, formCategories, formDiscordRoleIds, formTsGroupIds, formPermissions, roles])
 
     function confirmDiscardIfDirty(message: string): boolean {
         return !dirty || window.confirm(message)
@@ -136,11 +146,14 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
         setFormName('')
         setFormCategories([])
         setFormDiscordRoleIds([])
+        setFormTsGroupIds([])
         setFormPermissions([])
         setFormTag('')
         setDiscordSearch('')
+        setTsSearch('')
         setPermSearch('')
         setError(null)
+        setConfirmingDelete(false)
     }
 
     function startEdit(role: OrbatRole) {
@@ -150,16 +163,20 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
         setFormName(role.name)
         setFormCategories(role.categories)
         setFormDiscordRoleIds(role.discordRoleIds)
+        setFormTsGroupIds(role.tsGroupIds)
         setFormPermissions(role.permissions)
         setFormTag(role.tag ?? '')
         setDiscordSearch('')
+        setTsSearch('')
         setPermSearch('')
         setError(null)
+        setConfirmingDelete(false)
     }
 
     function discard() {
         setEditingId(null)
         setError(null)
+        setConfirmingDelete(false)
     }
 
     function handleClose() {
@@ -171,25 +188,29 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
     function pasteCategories() { if (categoriesClipboard) setFormCategories(categoriesClipboard) }
     function copyDiscordRoleIds() { setDiscordRoleIdsClipboard(formDiscordRoleIds) }
     function pasteDiscordRoleIds() { if (discordRoleIdsClipboard) setFormDiscordRoleIds(discordRoleIdsClipboard) }
+    function copyTsGroupIds() { setTsGroupIdsClipboard(formTsGroupIds) }
+    function pasteTsGroupIds() { if (tsGroupIdsClipboard) setFormTsGroupIds(tsGroupIdsClipboard) }
     function copyPermissions() { setPermissionsClipboard(formPermissions) }
     function pastePermissions() { if (permissionsClipboard) setFormPermissions(permissionsClipboard) }
 
     function copySettings() {
         copyCategories()
         copyDiscordRoleIds()
+        copyTsGroupIds()
         copyPermissions()
     }
     function pasteSettings() {
         pasteCategories()
         pasteDiscordRoleIds()
+        pasteTsGroupIds()
         pastePermissions()
     }
-    const hasClipboard = categoriesClipboard !== null || discordRoleIdsClipboard !== null || permissionsClipboard !== null
+    const hasClipboard = categoriesClipboard !== null || discordRoleIdsClipboard !== null || tsGroupIdsClipboard !== null || permissionsClipboard !== null
 
     async function save() {
         if (!formName.trim()) { setError('Name is required'); return }
         setError(null)
-        const body = { name: formName.trim(), categories: formCategories, discordRoleIds: formDiscordRoleIds, permissions: formPermissions, tag: formTag }
+        const body = { name: formName.trim(), categories: formCategories, discordRoleIds: formDiscordRoleIds, tsGroupIds: formTsGroupIds, permissions: formPermissions, tag: formTag }
 
         const res = editingId === '__new__'
             ? await fetch('/api/admin/orbat/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -216,7 +237,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
         await load()
     }
 
-    function toggleIn(arr: string[], setArr: (v: string[]) => void, value: string) {
+    function toggleIn<T>(arr: T[], setArr: (v: T[]) => void, value: T) {
         setArr(arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value])
     }
 
@@ -227,6 +248,10 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
     const filteredGuildRoles = useMemo(
         () => guildRoles.filter(r => r.name.toLowerCase().includes(discordSearch.trim().toLowerCase())),
         [guildRoles, discordSearch],
+    )
+    const filteredTsGroups = useMemo(
+        () => tsGroups.filter(g => g.name.toLowerCase().includes(tsSearch.trim().toLowerCase())),
+        [tsGroups, tsSearch],
     )
     const filteredPermissionKeys = useMemo(
         () => permissionKeys.filter(k => k.toLowerCase().includes(permSearch.trim().toLowerCase())),
@@ -308,7 +333,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                     const selected = editingId === String(role._id)
                                     return (
                                         <Box key={String(role._id)} onClick={() => startEdit(role)} sx={{
-                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            display: 'flex', alignItems: 'center',
                                             padding: '8px 10px', mb: 0.5, cursor: 'pointer',
                                             background: selected ? 'rgba(219,0,29,0.12)' : 'transparent',
                                             border: selected ? '1px solid rgba(219,0,29,0.4)' : '1px solid transparent',
@@ -322,9 +347,6 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                     </span>
                                                 )}
                                             </span>
-                                            <IconButton size='small' onClick={e => { e.stopPropagation(); remove(role) }}>
-                                                <Delete sx={{ fontSize: 14, color: 'rgba(219,0,29,0.6)' }} />
-                                            </IconButton>
                                         </Box>
                                     )
                                 })}
@@ -373,7 +395,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                             </Box>
 
                                             <Box sx={{ display: 'flex', gap: 3, flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden' }}>
-                                                <div style={{ flex: '1 0 260px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                                                <div style={{ flex: '0 0 200px', minWidth: 200, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Categories (none = all)</div>
                                                         <CopyPasteButtons onCopy={copyCategories} onPaste={pasteCategories} canPaste={categoriesClipboard !== null} label='categories' />
@@ -425,6 +447,29 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
 
                                                 <div style={{ flex: '1 0 260px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                                        <div style={sectionHeaderSx}>TeamSpeak roles granted {formTsGroupIds.length > 0 && `(${formTsGroupIds.length} selected)`}</div>
+                                                        <CopyPasteButtons onCopy={copyTsGroupIds} onPaste={pasteTsGroupIds} canPaste={tsGroupIdsClipboard !== null} label='TeamSpeak roles' />
+                                                    </div>
+                                                    <TextField
+                                                        size='small' fullWidth placeholder='Search TeamSpeak roles…' value={tsSearch} onChange={e => setTsSearch(e.target.value)}
+                                                        InputProps={{ startAdornment: <InputAdornment position='start'><Search sx={{ fontSize: 16, color: 'rgba(237,237,237,0.4)' }} /></InputAdornment> }}
+                                                        sx={{ ...searchFieldSx, mb: 1, flexShrink: 0 }}
+                                                    />
+                                                    <div style={{ flex: 1, minHeight: 120, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                        {filteredTsGroups.map(g => (
+                                                            <FormControlLabel key={g.id} sx={{ display: 'flex', ml: 0, px: 1 }}
+                                                                control={<Checkbox size='small' checked={formTsGroupIds.includes(g.id)} onChange={() => toggleIn(formTsGroupIds, setFormTsGroupIds, g.id)} />}
+                                                                label={<span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.7)' }}>{g.name}</span>}
+                                                            />
+                                                        ))}
+                                                        {filteredTsGroups.length === 0 && (
+                                                            <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic', padding: '8px' }}>No matching TeamSpeak roles.</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ flex: '1 0 260px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Permissions granted {formPermissions.length > 0 && `(${formPermissions.length} selected)`}</div>
                                                         <CopyPasteButtons onCopy={copyPermissions} onPaste={pastePermissions} canPaste={permissionsClipboard !== null} label='permissions' />
                                                     </div>
@@ -469,6 +514,35 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                             <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,180,80,0.85)', fontStyle: 'italic' }}>
                                                 Unsaved changes
                                             </Typography>
+                                        )}
+
+                                        {editingId !== '__new__' && (
+                                            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                {confirmingDelete ? (
+                                                    <>
+                                                        <Typography sx={{ fontSize: '0.68rem', color: 'rgba(219,0,29,0.85)' }}>
+                                                            Delete this role permanently?
+                                                        </Typography>
+                                                        <Button
+                                                            size='small' variant='contained'
+                                                            onClick={() => { const role = roles.find(r => String(r._id) === editingId); if (role) remove(role) }}
+                                                            sx={{ background: 'var(--red)', fontSize: '0.68rem', '&:hover': { background: 'rgba(219,0,29,0.85)' } }}
+                                                        >
+                                                            Confirm Delete
+                                                        </Button>
+                                                        <Button size='small' onClick={() => setConfirmingDelete(false)} sx={{ color: 'rgba(237,237,237,0.5)' }}>
+                                                            Cancel
+                                                        </Button>
+                                                    </>
+                                                ) : (
+                                                    <Button
+                                                        size='small' variant='outlined' startIcon={<Delete sx={{ fontSize: 14 }} />} onClick={() => setConfirmingDelete(true)}
+                                                        sx={{ fontSize: '0.68rem', borderColor: 'rgba(219,0,29,0.35)', color: 'rgba(219,0,29,0.7)' }}
+                                                    >
+                                                        Delete Role
+                                                    </Button>
+                                                )}
+                                            </Box>
                                         )}
                                     </Box>
                                 </>
