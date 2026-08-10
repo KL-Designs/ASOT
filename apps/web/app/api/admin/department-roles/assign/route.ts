@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { targetUserId, roleId, action } = body
-    if (!targetUserId || typeof roleId !== 'string' || (action !== 'add' && action !== 'remove')) {
+    if (typeof targetUserId !== 'string' || typeof roleId !== 'string' || (action !== 'add' && action !== 'remove')) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
