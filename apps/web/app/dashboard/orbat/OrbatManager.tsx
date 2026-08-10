@@ -9,7 +9,7 @@ import {
 } from '@mui/material'
 import {
     Edit, Close, AccountTree, Warning, ArrowUpward, ArrowDownward,
-    Add, Delete, MoreVert, DragIndicator,
+    Add, Delete, MoreVert, DragIndicator, Settings,
 } from '@mui/icons-material'
 import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat/constants'
 import MemberDetailPanel from '@/app/dashboard/personnel/all/MemberDetailPanel'
@@ -1260,14 +1260,29 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                             ORBAT Management
                         </Typography>
                     </div>
-                    {canManageStructure && (
-                        <Button size='small' onClick={() => setRolesManagerOpen(true)} sx={ghostBtn}>
-                            Manage Roles
-                        </Button>
-                    )}
                 </div>
             </div>
             <RolesManagerPanel open={rolesManagerOpen} onClose={() => setRolesManagerOpen(false)} />
+
+            {canManageStructure && (
+                <button
+                    onClick={() => setRolesManagerOpen(true)}
+                    style={{
+                        position: 'fixed', bottom: 24, right: 24, zIndex: 1200,
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '10px 18px', borderRadius: 999,
+                        background: 'rgba(15,15,15,0.92)', border: '1px solid rgba(219,0,29,0.5)',
+                        color: 'rgba(237,237,237,0.85)', fontSize: '0.72rem', fontWeight: 700,
+                        letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.5)', transition: 'background 0.15s, border-color 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(219,0,29,0.18)'; e.currentTarget.style.borderColor = 'var(--red)' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(15,15,15,0.92)'; e.currentTarget.style.borderColor = 'rgba(219,0,29,0.5)' }}
+                >
+                    <Settings sx={{ fontSize: 16 }} />
+                    Manage Roles
+                </button>
+            )}
 
             {/* Empty state */}
             {positions.length === 0 && (
