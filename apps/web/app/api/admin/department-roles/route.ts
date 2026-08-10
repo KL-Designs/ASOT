@@ -41,6 +41,9 @@ export async function GET(request: NextRequest) {
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const department = request.nextUrl.searchParams.get('department')
+    if (department && !VALID_DEPTS.includes(department)) {
+        return NextResponse.json({ error: 'Invalid department' }, { status: 400 })
+    }
     const isManager = client.hasRoles(me, PERMISSIONS.admin.manageDepartmentRoles)
     const leadRoles = department ? PERMISSIONS.departmentLeads[department as keyof typeof PERMISSIONS.departmentLeads] : undefined
     const memberRoles = department ? PERMISSIONS.departments[department as keyof typeof PERMISSIONS.departments] : undefined
