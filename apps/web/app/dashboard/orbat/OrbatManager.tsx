@@ -1275,7 +1275,11 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 <button
                     onClick={() => setRolesManagerOpen(true)}
                     style={{
-                        position: 'fixed', bottom: 24, right: 90, zIndex: 1200,
+                        // Aligned to sit directly left of the global "scroll to
+                        // top" button (app/navbar.tsx: bottom 28, right 28, 40px
+                        // square) — same bottom offset, right offset cleared past
+                        // its 40px width plus a matching gap.
+                        position: 'fixed', bottom: 28, right: 80, zIndex: 1200,
                         display: 'flex', alignItems: 'center', gap: 8,
                         padding: '10px 18px', borderRadius: 999,
                         background: 'rgba(15,15,15,0.92)', border: '1px solid rgba(219,0,29,0.5)',
