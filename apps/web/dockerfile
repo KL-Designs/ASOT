@@ -29,14 +29,6 @@ COPY apps/web/package.json apps/web/package-lock.json ./apps/web/
 RUN --mount=type=cache,target=/root/.npm \
     cd apps/web && npm ci --no-audit --no-fund
 
-# Terrain generation — separate layer so it only re-runs when storage/maps or scripts/
-# change, not on every app code change. storage/maps lives at the monorepo root (see
-# storage/README.md) but still gets baked into this image at build time, unlike the
-# other storage/ subfolders which are pure runtime data mounted via docker-compose.yml.
-COPY storage/maps/ ./storage/maps/
-COPY apps/web/scripts/ ./apps/web/scripts/
-RUN cd apps/web && node scripts/generate-terrain.mjs
-
 # Copy the rest of apps/web, the shared .env, and the shared types/ (referenced via
 # apps/web/tsconfig.json's "../../types/**/*.ts" include — see types/README.md), then build.
 COPY apps/web/ ./apps/web/

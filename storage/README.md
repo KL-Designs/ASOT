@@ -12,11 +12,10 @@ own app directory, e.g. `apps/web` or `apps/bot`), so code reads/writes via `../
 
 - `gallery/`, `milpacs/`, `uploads/`, `snapshots/` — web app user-uploaded/generated content.
 - `maps/` — Arma terrain source assets (DEM/geojson) **and** the terrain tiles generated
-  from them by `apps/web/scripts/generate-terrain.mjs`. Unlike everything else here, this
-  one **is** copied into the web Docker image at build time (see `apps/web/dockerfile`'s
-  terrain-generation layer) so the generated tiles ship with the image — it's the only
-  subfolder not excluded by root `.dockerignore`, and it isn't volume-mounted in
-  `docker-compose.yml`.
+  from them by `apps/web/scripts/generate-terrain.mjs` (`npm run generate-terrain` from
+  `apps/web`). Like everything else here, it's excluded from the Docker image and
+  volume-mounted at runtime instead — run the generation script on the host after adding
+  or changing a world's source assets, since the container never regenerates it.
 - `j1/` – `j7/`, `hq/`, `all/`, `members/` — department file storage. Recreated on every
   `apps/web` server startup if missing (see `server.mjs`'s "Storage directory
   initialisation" block). Only `j1` (TFAR plugin uploads) and `j2` (J2 workspace files)
@@ -27,5 +26,4 @@ own app directory, e.g. `apps/web` or `apps/bot`), so code reads/writes via `../
 ## Docker
 
 `docker-compose.yml` bind-mounts each subfolder individually (rather than mounting all of
-`storage/` at once) so container paths stay explicit and `maps/`'s build-time-baked
-behavior isn't accidentally overridden by a runtime mount.
+`storage/` at once) so container paths stay explicit.

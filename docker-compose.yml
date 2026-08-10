@@ -8,6 +8,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      - ./storage/maps:/app/storage/maps
       - ./storage/gallery:/app/storage/gallery
       - ./storage/milpacs:/app/storage/milpacs
       - ./storage/uploads:/app/storage/uploads

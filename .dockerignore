@@ -3,8 +3,7 @@
 **/.git
 
 # Runtime/local data — volume-mounted at runtime instead, see docker-compose.yml.
-# storage/maps is the one exception: it's baked into the web image at build time
-# (see apps/web/dockerfile's terrain-generation step), so it's NOT excluded here.
+storage/maps
 storage/gallery
 storage/milpacs
 storage/uploads
