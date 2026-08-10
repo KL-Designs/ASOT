@@ -522,6 +522,10 @@ const PERMISSIONS = {
         /**
          * J1 lead — can add/remove J1 members and manage department membership tickets.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'departmentLeads.j1')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         *
          * Used by:
          *  - `app/admin/j1/page.tsx` (`canManageMembers` flag)
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J1)
@@ -531,6 +535,10 @@ const PERMISSIONS = {
         /**
          * J2 lead — can add/remove J2 members and manage department membership tickets.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'departmentLeads.j2')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         *
          * Used by:
          *  - `app/admin/j2/page.tsx` (`canManageMembers` flag)
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J2)
@@ -539,6 +547,10 @@ const PERMISSIONS = {
 
         /**
          * J3 lead — can add/remove J3 members and manage department membership tickets.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'departmentLeads.j3')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
          *
          * Used by:
          *  - `app/admin/j3/page.tsx` (`canManageMembers` flag)
@@ -554,6 +566,10 @@ const PERMISSIONS = {
          * receive `undefined` for J4's department-membership tickets, the
          * same way every other department already does.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'departmentLeads.j4')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         *
          * Used by:
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J4)
          */
@@ -562,6 +578,10 @@ const PERMISSIONS = {
         /**
          * J5 lead — can add/remove J5 members, manage department membership tickets,
          * and manage the Shot of the Month gallery feature.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'departmentLeads.j5')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
          *
          * Used by:
          *  - `app/admin/j5/page.tsx` (`canManageMembers` flag)
@@ -573,6 +593,10 @@ const PERMISSIONS = {
         /**
          * J6 lead — can add/remove J6 members and manage department membership tickets.
          *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'departmentLeads.j6')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
+         *
          * Used by:
          *  - `app/admin/j6/page.tsx` (`canManageMembers` flag)
          *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J6)
@@ -581,6 +605,10 @@ const PERMISSIONS = {
 
         /**
          * J7 lead — can add/remove J7 members and manage department membership tickets.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'departmentLeads.j7')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
          *
          * Used by:
          *  - `app/admin/j7/page.tsx` (`canManageMembers` flag)
@@ -607,6 +635,12 @@ const PERMISSIONS = {
     // Controls who can lock/unlock individual meeting records for each department.
     // Regular department members can create and edit meetings; only leads can lock.
 
+    /**
+     * As of the permission-system migration, the real gate for every lockJX
+     * key below is `await hasPermission(user, 'meetings.lockJX')`
+     * (`lib/orbat/hasPermission.ts`) — granted via department/ORBAT-role
+     * holding — NOT these Discord-role arrays.
+     */
     meetings: {
         lockJ1: ['J1 - Department Leader', 'J1 - Head Recruiter', 'J1 - Recruiter Trainer'],
         lockJ2: ['J2 - Department Leader', 'J2 - Team Leader', 'J2 - Creator Trainer'],
@@ -623,17 +657,29 @@ const PERMISSIONS = {
         /**
          * Assign a BCT quiz to a recruit and view training records.
          * All J3 trainers can assign; J3 leads and J4 can also review escalations.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'quiz.assign')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
          */
         assign: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
 
         /**
          * Review a submitted quiz attempt and issue a Pass, Fail, or escalation.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'quiz.review')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
          */
         review: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
 
         /**
          * Escalated review — available to J3 leads when a trainer sends for review,
          * and to J4 when a J3 lead escalates further.
+         *
+         * As of the permission-system migration, the real gate for this key
+         * is `await hasPermission(user, 'quiz.reviewEscalated')` (`lib/orbat/hasPermission.ts`)
+         * — granted via department/ORBAT-role holding — NOT this Discord-role array.
          */
         reviewEscalated: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer', 'J4 - Administration'],
     },
