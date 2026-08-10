@@ -1,19 +1,18 @@
-import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { ObjectId } from 'mongodb'
-import { PERMISSION_CATALOG } from '@/lib/permissions-catalog'
 
 /**
- * Additive permission check: true if the user's Discord roles satisfy the
- * existing PERMISSIONS entry for this key, OR any ORBAT position Role they
- * hold grants it, OR their base department role (implicit from
- * User.departments) or any assigned department sub-role grants it. Only
- * ever widens access relative to the existing PERMISSIONS check — never
- * narrows it, so it's safe to introduce without touching any existing gate.
+ * Additive permission check: true if the user's Discord ID is in the
+ * OVERRIDE env list (the only hard bypass), OR any ORBAT position Role
+ * they hold grants it, OR their base department role (implicit from
+ * User.departments) or any assigned department sub-role grants it.
+ * Deliberately does NOT fall back to checking raw Discord role names —
+ * that pattern is what this function replaces, one permission key at a
+ * time, across the site. See docs/superpowers/specs/2026-08-11-permission-system-migration-phase1-design.md.
  */
 export async function hasPermission(user: User, key: string): Promise<boolean> {
-    const discordRoleNames = PERMISSION_CATALOG[key]
-    if (discordRoleNames && client.hasRoles(user, discordRoleNames)) return true
+    const override = process.env.OVERRIDE?.split(',') ?? []
+    if (override.includes(user.id)) return true
 
     const positions = await Db.orbatPositions
         .find({ userId: user.id, roleId: { $ne: null } }, { projection: { roleId: 1 } })
