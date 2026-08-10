@@ -39,13 +39,17 @@ async function ensureBaseRoles(): Promise<void> {
 export async function GET(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.admin.manageDepartmentRoles)) {
+
+    const department = request.nextUrl.searchParams.get('department')
+    const isManager = client.hasRoles(me, PERMISSIONS.admin.manageDepartmentRoles)
+    const leadRoles = department ? PERMISSIONS.departmentLeads[department as keyof typeof PERMISSIONS.departmentLeads] : undefined
+    const isDeptLead = leadRoles ? client.hasRoles(me, leadRoles) : false
+    if (!isManager && !isDeptLead) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     await ensureBaseRoles()
 
-    const department = request.nextUrl.searchParams.get('department')
     const filter = department ? { department } : {}
     const roles = await Db.departmentRoles.find(filter).sort({ department: 1, isBase: -1, name: 1 }).toArray()
     return NextResponse.json({ roles: JSON.parse(JSON.stringify(roles)) })
