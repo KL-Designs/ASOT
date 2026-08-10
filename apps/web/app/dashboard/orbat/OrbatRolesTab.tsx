@@ -249,7 +249,7 @@ export default function OrbatRolesTab({ onDirtyChange }: { onDirtyChange: (dirty
             {error && <Alert severity='error' sx={{ fontSize: '0.72rem', borderRadius: 0 }}>{error}</Alert>}
 
             {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                <Box sx={{ display: 'flex', flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}>
                     <CircularProgress size={26} />
                 </Box>
             ) : (

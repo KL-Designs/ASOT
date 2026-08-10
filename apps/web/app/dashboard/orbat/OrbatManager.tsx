@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import {
     Typography, Button, CircularProgress,
@@ -120,6 +121,12 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
 
     // Roles Manager panel
     const [rolesManagerOpen, setRolesManagerOpen] = useState(false)
+    // The floating "Manage Roles" button is portaled to document.body so it
+    // can't be clipped/out-stacked by an ancestor's stacking context (e.g.
+    // the site-wide footer in app/footer.tsx) — document isn't available
+    // during SSR, so it only renders once mounted client-side.
+    const [manageRolesButtonMounted, setManageRolesButtonMounted] = useState(false)
+    useEffect(() => { setManageRolesButtonMounted(true) }, [])
 
     // Inline edit state
     const [editRoleId, setEditRoleId] = useState<string | null>(null)
@@ -1264,7 +1271,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             </div>
             <RolesManagerPanel open={rolesManagerOpen} onClose={() => setRolesManagerOpen(false)} />
 
-            {canManageStructure && (
+            {canManageStructure && manageRolesButtonMounted && createPortal(
                 <button
                     onClick={() => setRolesManagerOpen(true)}
                     style={{
@@ -1281,7 +1288,8 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 >
                     <Settings sx={{ fontSize: 16 }} />
                     Manage Roles
-                </button>
+                </button>,
+                document.body,
             )}
 
             {/* Empty state */}

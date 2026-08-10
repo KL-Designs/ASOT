@@ -400,7 +400,7 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
 
             <DialogContent sx={{ p: 0, display: 'flex', overflow: 'hidden', flex: 1 }}>
                 {loading && roles.length === 0 && groups.length === 0 ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                    <Box sx={{ display: 'flex', flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}>
                         <CircularProgress size={26} />
                     </Box>
                 ) : (
