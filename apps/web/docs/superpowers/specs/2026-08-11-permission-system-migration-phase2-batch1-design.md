@@ -7,7 +7,7 @@
 
 Phase 1 ([[2026-08-11-permission-system-migration-phase1-design]]) migrated `pages.member` — the single foundational "can you open the dashboard" check — from the Discord-role-name `PERMISSIONS` object to the database-backed `hasPermission()`. That leaves roughly 70 permission keys still gated by `client.hasRoles(me, PERMISSIONS.x.y)`, spread across 22 categories and ~285 remaining call sites, ranging from `departments` (135 call sites) down to single-call-site categories.
 
-Phase 2 migrates the rest, category by category, each batch its own design → plan → implementation cycle (too large for one pass, same reasoning as Phase 1's own scoping). This spec covers **Batch 1 only**: the five smallest categories — `uploads`, `auth`, `optionals`, `gallery`, `intel` — 6 permission keys, 9 real call sites total. Chosen deliberately as the smallest, lowest-risk slice, to prove out a pattern this batch introduces that Phase 1 never had to deal with: **multi-role keys** (a key qualified by more than one Discord role name, OR'd together) and, within that, keys partly or wholly gated by `HQ Staff` — an org-wide Discord tier with no department/ORBAT mapping.
+Phase 2 migrates the rest, category by category, each batch its own design → plan → implementation cycle (too large for one pass, same reasoning as Phase 1's own scoping). This spec covers **Batch 1 only**: the five smallest categories — `uploads`, `auth`, `optionals`, `gallery`, `intel` — 6 permission keys, 12 real call sites total. Chosen deliberately as the smallest, lowest-risk slice, to prove out a pattern this batch introduces that Phase 1 never had to deal with: **multi-role keys** (a key qualified by more than one Discord role name, OR'd together) and, within that, keys partly or wholly gated by `HQ Staff` — an org-wide Discord tier with no department/ORBAT mapping.
 
 ## The `HQ Staff`/`All Staff` rule (applies to this and every future batch)
 
@@ -19,7 +19,7 @@ This rule is now established for the whole Phase 2 effort, not just this batch �
 
 ## Goals
 
-1. Convert all 9 real call sites of these 6 keys from `client.hasRoles(me, PERMISSIONS.x.y)` to `await hasPermission(me, 'x.y')`.
+1. Convert all 12 real call sites of these 6 keys from `client.hasRoles(me, PERMISSIONS.x.y)` to `await hasPermission(me, 'x.y')`.
 2. Apply the `HQ Staff`/`All Staff` rule: drop it from every key's grant path, keep whatever other role(s) were listed.
 3. Migration script grants each key on the department base role(s) below, so current legitimate holders (by the *new* rule, not literal 1:1 Discord-role preservation) don't lose access on cutover:
 
@@ -39,7 +39,7 @@ This rule is now established for the whole Phase 2 effort, not just this batch �
 - `PERMISSIONS.ai.use` — appears alongside `intel.viewAllImages` in two of this batch's files (`app/api/ai/images/route.ts`, `app/api/ai/images/[id]/file/route.ts`) but belongs to the separate `ai` category (10 call sites, not in this batch) — left untouched.
 - Any change to `lib/permissions-catalog.ts`/`lib/permissions/tree.ts` — same reasoning as Phase 1 (the Permissions Explorer still needs the Discord-role list for every not-yet-migrated key, including these 6 until this batch ships, and for the surviving `HQ Staff`/`All Staff`-adjacent history on already-migrated keys — the Explorer's display gap for migrated keys is an accepted, existing risk from Phase 1, not something this batch fixes).
 
-## Call sites (all 9, verified by reading each file)
+## Call sites (all 12, verified by reading each file)
 
 - `optionals.manage`: `app/optionals/manage/route.ts:15`, `app/optionals/me/route.ts:30` (a boolean assignment — `const isAdmin = client.hasRoles(...)` — not an `if` guard).
 - `gallery.manage`: `app/api/gallery/admin/folder/route.ts:28`, `app/api/gallery/admin/featured/route.ts:14`, `app/api/gallery/admin/images/route.ts:25` (all three inside a local `checkAuth()` helper that returns the boolean/user directly, not an inline `if`), `app/api/gallery/admin/reorder/route.ts:24` (inline `if` guard, no helper).
