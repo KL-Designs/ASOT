@@ -511,6 +511,19 @@ const PERMISSIONS = {
         j3: ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer'],
 
         /**
+         * J4 lead — can add/remove J4 members and manage department membership
+         * tickets. In practice this is just J4-Administration itself (there's
+         * no separate "J4 lead" sub-role) — declared explicitly so
+         * `PERMISSIONS.departmentLeads.j4` exists and `hasRoles()` doesn't
+         * receive `undefined` for J4's department-membership tickets, the
+         * same way every other department already does.
+         *
+         * Used by:
+         *  - `app/api/admin/tickets/route.ts` (department-membership ticket creation for J4)
+         */
+        j4: ['J4 - Administration'],
+
+        /**
          * J5 lead — can add/remove J5 members, manage department membership tickets,
          * and manage the Shot of the Month gallery feature.
          *

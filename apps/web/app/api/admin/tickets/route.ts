@@ -8,7 +8,8 @@ import { RANK_GROUPS } from '@/lib/military/ranks'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
 import { applyOrbatMove } from '@/lib/orbat/move'
 import { createNotification, createNotificationForRole } from '@/lib/notifications'
-import { syncDeptDiscordRole, applyBaseDepartmentRoleSync, revokeDepartmentSubRoles } from '@/lib/discord/dept-roles'
+import { syncDeptDiscordRole, applyBaseDepartmentRoleSync, revokeDepartmentSubRoles, assignLeadershipSlot, unassignLeadershipSlot, DEPT_ROLES } from '@/lib/discord/dept-roles'
+import type { LeadershipSlot } from '@/lib/discord/dept-codes'
 
 // Maps ticket department → role(s) that should be notified
 const TICKET_NOTIFY_ROLES: Record<string, string[]> = {
@@ -333,7 +334,7 @@ export async function POST(req: NextRequest) {
     // ── Department Membership ─────────────────────────────────────────────────
     if (type === 'department-membership') {
         const { targetUserId, targetUserName, deptCode, memberAction } = body
-        const validDepts = ['j1', 'j2', 'j3', 'j6', 'j7']
+        const validDepts = Object.keys(DEPT_ROLES)
         const validActions = ['add', 'remove', 'set-lead', 'remove-lead', 'set-2ic', 'remove-2ic', 'set-3ic', 'remove-3ic']
 
         if (!targetUserId || !targetUserName || !validDepts.includes(deptCode) || !validActions.includes(memberAction)) {
@@ -347,27 +348,37 @@ export async function POST(req: NextRequest) {
 
         const now = new Date()
 
-        // Apply immediately
-        if (memberAction === 'add') {
+        // Leadership slots (leader/2ic/3ic) are DepartmentRole holdings, not
+        // flat arrays — see lib/discord/dept-roles.ts's assignLeadershipSlot/
+        // unassignLeadershipSlot, which handle their own Discord/TeamSpeak
+        // sync internally (including auto-granting base membership on
+        // assign). Awaited directly, unlike the add/remove sync calls below,
+        // since a "no role linked to this slot yet" failure needs to reach
+        // the caller as a 400 rather than being silently logged.
+        const slotForAction: Partial<Record<string, LeadershipSlot>> = {
+            'set-lead': 'leader', 'remove-lead': 'leader',
+            'set-2ic': '2ic', 'remove-2ic': '2ic',
+            'set-3ic': '3ic', 'remove-3ic': '3ic',
+        }
+        const slot = slotForAction[memberAction]
+        if (slot) {
+            try {
+                if (memberAction.startsWith('set-')) {
+                    await assignLeadershipSlot(targetUserId, deptCode, slot)
+                } else {
+                    await unassignLeadershipSlot(targetUserId, deptCode, slot)
+                }
+            } catch (err) {
+                return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to update position' }, { status: 400 })
+            }
+        } else if (memberAction === 'add') {
             await Db.users.updateOne({ id: targetUserId }, { $addToSet: { departments: deptCode } })
         } else if (memberAction === 'remove') {
             await Db.users.updateOne({ id: targetUserId }, { $pull: { departments: deptCode } })
-        } else if (memberAction === 'set-lead') {
-            await Db.users.updateOne({ id: targetUserId }, { $addToSet: { teamLeadDepts: deptCode } })
-        } else if (memberAction === 'remove-lead') {
-            await Db.users.updateOne({ id: targetUserId }, { $pull: { teamLeadDepts: deptCode } })
-        } else if (memberAction === 'set-2ic') {
-            await Db.users.updateOne({ id: targetUserId }, { $addToSet: { dept2icRoles: deptCode } })
-        } else if (memberAction === 'remove-2ic') {
-            await Db.users.updateOne({ id: targetUserId }, { $pull: { dept2icRoles: deptCode } })
-        } else if (memberAction === 'set-3ic') {
-            await Db.users.updateOne({ id: targetUserId }, { $addToSet: { dept3icRoles: deptCode } })
-        } else if (memberAction === 'remove-3ic') {
-            await Db.users.updateOne({ id: targetUserId }, { $pull: { dept3icRoles: deptCode } })
         }
 
-        if (['add', 'remove', 'set-lead', 'remove-lead'].includes(memberAction)) {
-            syncDeptDiscordRole(targetUserId, deptCode, memberAction as 'add' | 'remove' | 'set-lead' | 'remove-lead').catch(err =>
+        if (memberAction === 'add' || memberAction === 'remove') {
+            syncDeptDiscordRole(targetUserId, deptCode, memberAction).catch(err =>
                 console.error('[tickets] dept Discord role sync failed:', err)
             )
         }
