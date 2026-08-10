@@ -395,14 +395,14 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                             </Box>
 
                                             <Box sx={{ display: 'flex', gap: 3, flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden' }}>
-                                                <div style={{ flex: '0 0 200px', minWidth: 200, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                                                <div style={{ flex: '0 0 240px', minWidth: 240, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Categories (none = all)</div>
                                                         <CopyPasteButtons onCopy={copyCategories} onPaste={pasteCategories} canPaste={categoriesClipboard !== null} label='categories' />
                                                     </div>
-                                                    <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
+                                                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                                                         {PLATOON_CATEGORIES.map(c => (
-                                                            <FormControlLabel key={c._id} sx={{ width: '48%', ml: 0 }}
+                                                            <FormControlLabel key={c._id} sx={{ ml: 0, whiteSpace: 'nowrap' }}
                                                                 control={<Checkbox size='small' checked={formCategories.includes(c._id)} onChange={() => toggleIn(formCategories, setFormCategories, c._id)} />}
                                                                 label={<span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.7)' }}>{c.label}</span>}
                                                             />
