@@ -28,7 +28,7 @@ export async function GET() {
             id: 1, username: 1, name: 1, globalName: 1,
             'guild.nickname': 1, 'guild.displayName': 1,
             'milpac.currentRank': 1,
-            teamLeadDepts: 1, dept2icRoles: 1, dept3icRoles: 1,
+            departmentRoleIds: 1,
         })
         .sort({ username: 1 })
         .toArray()
@@ -64,6 +64,15 @@ export async function GET() {
     const docMap  = Object.fromEntries(docMeta.map((d) => [(d as { _id: string })._id, d]))
     const opMap   = Object.fromEntries(opMeta.map(o => [o._id, o]))
 
+    // J2's leadership-slot DepartmentRoles — position labels are derived from
+    // whether a member's departmentRoleIds includes the linked role for that
+    // slot, replacing the legacy teamLeadDepts/dept2icRoles/dept3icRoles
+    // arrays (frozen, no longer written).
+    const j2Roles = await Db.departmentRoles.find({ department: 'j2' }).toArray()
+    const leaderRoleId = j2Roles.find(r => r.linkedSlot === 'leader')?._id
+    const secondRoleId = j2Roles.find(r => r.linkedSlot === '2ic')?._id
+    const thirdRoleId  = j2Roles.find(r => r.linkedSlot === '3ic')?._id
+
     const members = users.map(u => {
         const displayName = u.name
             || u.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
@@ -77,11 +86,12 @@ export async function GET() {
 
         const lastActivity = [fm?.lastUpload, dm?.lastDoc].filter(Boolean).sort().reverse()[0] ?? null
 
-        // Determine position label
+        // Determine position label from DepartmentRole holdings
+        const heldRoleIds = (u.departmentRoleIds ?? []).map(String)
         let position: string | null = null
-        if (u.teamLeadDepts?.includes('j2')) position = 'Department Leader'
-        else if (u.dept2icRoles?.includes('j2')) position = 'Team Leader'
-        else if (u.dept3icRoles?.includes('j2')) position = 'Creator Trainer'
+        if (leaderRoleId && heldRoleIds.includes(String(leaderRoleId))) position = 'Department Leader'
+        else if (secondRoleId && heldRoleIds.includes(String(secondRoleId))) position = 'Team Leader'
+        else if (thirdRoleId && heldRoleIds.includes(String(thirdRoleId))) position = 'Creator Trainer'
 
         return {
             id: u.id,
