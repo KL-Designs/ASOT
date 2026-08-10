@@ -339,6 +339,21 @@ const PERMISSIONS = {
         manageOrbatRoles: ['J4 - Administration'],
 
         /**
+         * Department Roles catalog — create, edit, and delete the department
+         * (J1-J7) role definitions (Discord roles, TeamSpeak groups, granted
+         * site permissions), and assign/unassign sub-roles to specific
+         * members. Parallel to manageOrbatRoles but for department roles.
+         * J4 only.
+         *
+         * Used by:
+         *  - `app/dashboard/orbat/DepartmentRolesTab.tsx` (panel visibility)
+         *  - `app/api/admin/department-roles/route.ts` (GET/POST)
+         *  - `app/api/admin/department-roles/[roleId]/route.ts` (PATCH/DELETE)
+         *  - `app/api/admin/department-roles/assign/route.ts`
+         */
+        manageDepartmentRoles: ['J4 - Administration'],
+
+        /**
          * Permissions Explorer — read-only visualization of the entire
          * PERMISSIONS catalog (which Discord roles / ORBAT Roles grant each
          * key, and live member counts), plus per-member lookup. J4 only,
