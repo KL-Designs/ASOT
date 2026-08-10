@@ -6,6 +6,7 @@ import Db from '@/lib/mongo'
 import { PERMISSION_KEYS } from '@/lib/permissions-catalog'
 import { removeGuildRole } from '@/lib/discord/bot'
 import { applyTsServerGroups } from '@/lib/teamspeak/groups'
+import { DEPT_LEADERSHIP_POSITIONS, LEADERSHIP_SLOT_INDEX, type LeadershipSlot } from '@/lib/discord/dept-codes'
 
 function parseId(roleId: string): ObjectId | null {
     try { return new ObjectId(roleId) } catch { return null }
@@ -52,8 +53,29 @@ export async function PATCH(
     if (Array.isArray(body.permissions)) {
         updates.permissions = body.permissions.filter((p: unknown) => typeof p === 'string' && PERMISSION_KEYS.includes(p))
     }
+    if ('linkedSlot' in body) {
+        if (role.isBase) return NextResponse.json({ error: 'Base roles cannot be linked to a leadership position' }, { status: 400 })
+        const slot = body.linkedSlot
+        if (slot !== null && slot !== 'leader' && slot !== '2ic' && slot !== '3ic') {
+            return NextResponse.json({ error: 'Invalid linkedSlot' }, { status: 400 })
+        }
+        if (slot !== null) {
+            const label = DEPT_LEADERSHIP_POSITIONS[role.department]?.[LEADERSHIP_SLOT_INDEX[slot as LeadershipSlot]]
+            if (!label) return NextResponse.json({ error: 'This department has no such leadership position' }, { status: 400 })
+        }
+        updates.linkedSlot = slot
+    }
 
     if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
+
+    if (updates.linkedSlot) {
+        // Only one role per department can hold a given slot — reassigning
+        // it clears the slot from whoever held it before.
+        await Db.departmentRoles.updateMany(
+            { department: role.department, linkedSlot: updates.linkedSlot, _id: { $ne: objectId } },
+            { $set: { linkedSlot: null } },
+        )
+    }
 
     await Db.departmentRoles.updateOne({ _id: objectId }, { $set: updates })
 

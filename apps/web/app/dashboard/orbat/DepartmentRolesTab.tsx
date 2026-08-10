@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-    TextField, Button, IconButton,
+    TextField, Button, IconButton, MenuItem,
     Checkbox, FormControlLabel, CircularProgress, Alert, Typography, Box, InputAdornment, Tooltip,
 } from '@mui/material'
 import { ContentCopy, ContentPaste, Delete, Add, Search } from '@mui/icons-material'
-import { DEPT_CODES } from '@/lib/discord/dept-codes'
+import { DEPT_CODES, DEPT_LEADERSHIP_POSITIONS, LEADERSHIP_SLOT_INDEX, type LeadershipSlot } from '@/lib/discord/dept-codes'
 
 interface GuildRole { id: string; name: string; color: number }
 interface TsGroup { id: number; name: string }
@@ -72,6 +72,7 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
     const [formDiscordRoleIds, setFormDiscordRoleIds] = useState<string[]>([])
     const [formTsGroupIds, setFormTsGroupIds] = useState<number[]>([])
     const [formPermissions, setFormPermissions] = useState<string[]>([])
+    const [formLinkedSlot, setFormLinkedSlot] = useState<LeadershipSlot | null>(null)
     const [confirmingDelete, setConfirmingDelete] = useState(false)
 
     const [discordSearch, setDiscordSearch] = useState('')
@@ -116,7 +117,8 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
             || !sameMembers(formDiscordRoleIds, editingRole.discordRoleIds)
             || !sameMembers(formTsGroupIds, editingRole.tsGroupIds)
             || !sameMembers(formPermissions, editingRole.permissions)
-    }, [editingId, newRoleDept, editingRole, formName, formDiscordRoleIds, formTsGroupIds, formPermissions])
+            || formLinkedSlot !== (editingRole.linkedSlot ?? null)
+    }, [editingId, newRoleDept, editingRole, formName, formDiscordRoleIds, formTsGroupIds, formPermissions, formLinkedSlot])
 
     useEffect(() => { onDirtyChange(dirty) }, [dirty, onDirtyChange])
 
@@ -132,6 +134,7 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
         setFormDiscordRoleIds([])
         setFormTsGroupIds([])
         setFormPermissions([])
+        setFormLinkedSlot(null)
         setDiscordSearch('')
         setTsSearch('')
         setPermSearch('')
@@ -147,6 +150,7 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
         setFormDiscordRoleIds(role.discordRoleIds)
         setFormTsGroupIds(role.tsGroupIds)
         setFormPermissions(role.permissions)
+        setFormLinkedSlot(role.linkedSlot ?? null)
         setDiscordSearch('')
         setTsSearch('')
         setPermSearch('')
@@ -192,6 +196,7 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
             })
         } else {
             body.name = formName.trim()
+            body.linkedSlot = formLinkedSlot
             res = await fetch(`/api/admin/department-roles/${editingId}`, {
                 method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
             })
@@ -292,6 +297,11 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
                                                     BASE
                                                 </span>
                                             )}
+                                            {role.linkedSlot && (
+                                                <span style={{ flexShrink: 0, fontSize: '0.52rem', fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'rgba(251,191,36,0.12)', color: 'rgba(251,191,36,0.85)' }}>
+                                                    {DEPT_LEADERSHIP_POSITIONS[role.department]?.[LEADERSHIP_SLOT_INDEX[role.linkedSlot]] ?? role.linkedSlot}
+                                                </span>
+                                            )}
                                         </Box>
                                     )
                                 })}
@@ -311,7 +321,7 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
                             <>
                                 <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', p: 3 }}>
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, maxWidth: 1400, flex: 1, minHeight: 0 }}>
-                                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', flexShrink: 0 }}>
+                                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', flexShrink: 0, alignItems: 'center' }}>
                                             <TextField
                                                 size='small' label='Name' value={formName}
                                                 onChange={e => setFormName(e.target.value)}
@@ -321,6 +331,22 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
                                                 <Typography sx={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', alignSelf: 'center' }}>
                                                     Base role — applies to every department member, can't be deleted.
                                                 </Typography>
+                                            )}
+                                            {!newRoleDept && !isEditingBase && editingRole && (
+                                                <TextField
+                                                    select size='small' label='Linked Position' value={formLinkedSlot ?? ''}
+                                                    onChange={e => setFormLinkedSlot((e.target.value || null) as LeadershipSlot | null)}
+                                                    sx={{ ...inputSx, minWidth: 200 }}
+                                                >
+                                                    <MenuItem value=''>None</MenuItem>
+                                                    {(['leader', '2ic', '3ic'] as const)
+                                                        .filter(slot => DEPT_LEADERSHIP_POSITIONS[editingRole.department]?.[LEADERSHIP_SLOT_INDEX[slot]])
+                                                        .map(slot => (
+                                                            <MenuItem key={slot} value={slot}>
+                                                                {DEPT_LEADERSHIP_POSITIONS[editingRole.department][LEADERSHIP_SLOT_INDEX[slot]]}
+                                                            </MenuItem>
+                                                        ))}
+                                                </TextField>
                                             )}
                                         </Box>
 
