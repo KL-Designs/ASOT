@@ -1,6 +1,11 @@
 # Part D — Misc API
 
-Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,minigame,members,notifications,upload,services-asot,recruit-session,maps,map-presets,dev,tfar,shoot,preferences,ping,orbat,milpacs,membercount,logout,generate,credits,award-request,auth}/**/route.ts` (excludes `gallery/admin/**`, which belongs to the admin catalog). 79 route files.
+Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,minigame,members,notifications,upload,services-asot,recruit-session,maps,map-presets,dev,tfar,shoot,preferences,ping,orbat,milpacs,membercount,logout,generate,credits,award-request,auth,dashboard}/**/route.ts` (excludes `gallery/admin/**`, which belongs to the admin catalog). 80 route files.
+
+### dashboard (1 file)
+
+#### /api/dashboard/status
+- **GET** — connectivity + dev-mode state for the `/dashboard` header's `ServiceStatusIcons`. Runs 4 checks in parallel, each racing a 5s timeout: Website (always reports online — reaching this route at all is the check), Database (`Db.users.findOne` with a `_id`-only projection), Discord (`GET https://discord.com/api/users/@me` with the bot token, same check `/api/admin/discord-bot-test` uses), TeamSpeak (`getConnection()` from `lib/teamspeak/cache.ts`, reusing the persistent connection). Also reads `Db.siteSettings` for `discordDevMode`/`teamspeakDevMode` (no caching — this route's own 30s client poll interval is cache enough). Auth: any authenticated user (`client.fetchMe()`), no admin gate — matches `/dashboard`'s own visibility. Collections: `Db.users`, `Db.siteSettings`.
 
 ---
 

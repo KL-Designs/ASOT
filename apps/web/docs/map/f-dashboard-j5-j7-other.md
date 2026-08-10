@@ -10,7 +10,10 @@ Scope: `app/dashboard/j5/**`, `app/dashboard/j6/**`, `app/dashboard/j7/**`, `app
 Server layout gating the entire staff/member portal. Redirects to `/login` if unauthenticated, to `/me` if not `PERMISSIONS.pages.member`. Computes a `permissions` object (`isStaff`, `canSeeJ1`–`canSeeJ7`, `canManageJ1`, `canSeeOrbat`, `canSeePersonnel`, `displayName`) from `PERMISSIONS.departments.*` / `PERMISSIONS.pages.*` and passes it to `StaffDashboardShell` (sidebar/shell component, outside this scope) wrapping `children`.
 
 #### app/dashboard/page.tsx
-Route: `/dashboard`. Same permission computation as layout (duplicated) and renders `DashboardOverview` (outside scope) — the portal landing page.
+Route: `/dashboard`. Same permission computation as layout (duplicated) and renders `DashboardOverview` — the portal landing page.
+
+#### app/dashboard/DashboardOverview.tsx
+The `/dashboard` landing page content: favourites grid (drag-and-drop reorder via `@dnd-kit`, `useFavourites` hook), header with unit branding, a live `LocalClock`, and `ServiceStatusIcons` — small colored-dot indicators (Website/Database/Discord/TeamSpeak) polling `GET /api/dashboard/status` every 30s. Discord/TeamSpeak get a 4-state model (green online / red offline / blue dev-mode-connected / amber-with-warning-badge dev-mode-but-offline, since those two have an existing dev-mode toggle); Website/Database are plain green/red (no dev-mode concept for either). A failed/timed-out fetch to the status endpoint itself is treated client-side as all four services offline. Visible to every staff member who reaches `/dashboard`, not gated further.
 
 ---
 
