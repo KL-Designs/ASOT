@@ -99,6 +99,7 @@ export default function DeptMembersTab({
     const [leadActionId, setLeadActionId] = useState<string | null>(null)
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
     const [syncing, setSyncing] = useState(false)
+    const [hoveredRowId, setHoveredRowId] = useState<string | null>(null)
 
     const fetchDeptMembers = useCallback(async () => {
         setLoading(true)
@@ -268,6 +269,18 @@ export default function DeptMembersTab({
     return (
         <div className='p-6 flex flex-col gap-5'>
 
+            {feedback && (
+                <div style={{
+                    position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 2000,
+                    padding: '10px 20px', fontSize: '0.8rem', fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                    background: feedback.type === 'success' ? 'rgba(20,30,24,0.96)' : 'rgba(30,15,17,0.96)',
+                    border: `1px solid ${feedback.type === 'success' ? 'rgba(34,197,94,0.4)' : 'rgba(219,0,29,0.4)'}`,
+                    color: feedback.type === 'success' ? 'rgba(34,197,94,0.95)' : 'rgba(219,0,29,0.95)',
+                }}>
+                    {feedback.msg}
+                </div>
+            )}
+
             {/* Leadership Positions */}
             <div style={cardStyle}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -290,17 +303,6 @@ export default function DeptMembersTab({
                         </button>
                     )}
                 </div>
-
-                {feedback && (
-                    <div style={{
-                        marginBottom: 12, padding: '8px 12px', fontSize: '0.78rem',
-                        background: feedback.type === 'success' ? 'rgba(34,197,94,0.08)' : 'rgba(219,0,29,0.08)',
-                        border: `1px solid ${feedback.type === 'success' ? 'rgba(34,197,94,0.25)' : 'rgba(219,0,29,0.25)'}`,
-                        color: feedback.type === 'success' ? 'rgba(34,197,94,0.9)' : 'rgba(219,0,29,0.9)',
-                    }}>
-                        {feedback.msg}
-                    </div>
-                )}
 
                 {loading ? (
                     <TacticalSkeleton rows={3} />
@@ -410,7 +412,16 @@ export default function DeptMembersTab({
                                     const is3ic    = m.dept3icRoles?.includes(department)
                                     const position = isLeader ? posNames[0] : is2ic ? posNames[1] : is3ic ? posNames[2] : null
                                     return (
-                                        <tr key={m.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                        <tr
+                                            key={m.id}
+                                            onMouseEnter={() => setHoveredRowId(m.id)}
+                                            onMouseLeave={() => setHoveredRowId(prev => (prev === m.id ? null : prev))}
+                                            style={{
+                                                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                                background: hoveredRowId === m.id ? 'rgba(255,255,255,0.035)' : 'transparent',
+                                                transition: 'background 0.1s',
+                                            }}
+                                        >
                                             <td style={tdStyle}>
                                                 {isLeader && <span style={{ color: 'rgba(251,191,36,0.8)', marginRight: 6, fontSize: '0.72rem' }}>★</span>}
                                                 {m.displayName}
