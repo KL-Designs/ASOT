@@ -6,12 +6,11 @@ import {
     Checkbox, FormControlLabel, CircularProgress, Alert, Typography, Box, InputAdornment, Tooltip,
 } from '@mui/material'
 import { ContentCopy, ContentPaste, Delete, Add, Search } from '@mui/icons-material'
-import { DEPT_ROLES } from '@/lib/discord/dept-roles'
+import { DEPT_CODES } from '@/lib/discord/dept-codes'
 
 interface GuildRole { id: string; name: string; color: number }
 interface TsGroup { id: number; name: string }
 
-const DEPT_CODES = Object.keys(DEPT_ROLES)
 const DEPT_LABELS: Record<string, string> = Object.fromEntries(DEPT_CODES.map(c => [c, c.toUpperCase()]))
 
 const inputSx = {
@@ -316,12 +315,11 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
                                             <TextField
                                                 size='small' label='Name' value={formName}
                                                 onChange={e => setFormName(e.target.value)}
-                                                disabled={isEditingBase}
                                                 sx={{ ...inputSx, flex: '1 1 260px' }}
                                             />
                                             {isEditingBase && (
                                                 <Typography sx={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', alignSelf: 'center' }}>
-                                                    Base roles can't be renamed.
+                                                    Base role — applies to every department member, can't be deleted.
                                                 </Typography>
                                             )}
                                         </Box>

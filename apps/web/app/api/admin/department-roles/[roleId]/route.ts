@@ -21,7 +21,9 @@ async function auth() {
 
 // ── PATCH /api/admin/department-roles/[roleId] ─────────────────────────────
 // Body: { name?, discordRoleIds?, tsGroupIds?, permissions? }
-// name is rejected (400) for base roles — their identity is fixed.
+// Base roles are renameable like any other role — "base" only means it can't
+// be deleted (see DELETE below) and its grants apply implicitly to every
+// member of the department, not that its name is fixed.
 
 export async function PATCH(
     request: NextRequest,
@@ -41,7 +43,6 @@ export async function PATCH(
     const updates: Partial<DepartmentRole> = {}
 
     if (typeof body.name === 'string' && body.name.trim() && body.name.trim() !== role.name) {
-        if (role.isBase) return NextResponse.json({ error: 'Base department roles cannot be renamed' }, { status: 400 })
         const conflict = await Db.departmentRoles.findOne({ department: role.department, name: body.name.trim(), _id: { $ne: objectId } })
         if (conflict) return NextResponse.json({ error: 'A role with that name already exists in this department' }, { status: 409 })
         updates.name = body.name.trim()

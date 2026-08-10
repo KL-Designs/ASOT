@@ -43,9 +43,14 @@ This map documents every file under `lib/**` (55 files), `types/**` (30 files), 
 - `ExchangeToken(code): Promise<OAuth>` — POSTs to Discord `/oauth2/token` (authorization_code grant).
 - `GetUser(oauth): Promise<OAuthUserResponse>` — GETs `/users/@me` with the bearer token.
 
+### lib/discord/dept-codes.ts
+- `DEPT_CODES: readonly ['j1','j2',...,'j7']` — plain, dependency-free department-code list. Exists so client components can get the valid code set without importing `dept-roles.ts` (which pulls in `Db`/mongodb via its server-only exports and breaks client bundling if imported from a `'use client'` file — this bit `app/dashboard/orbat/DepartmentRolesTab.tsx` once already).
+
 ### lib/discord/dept-roles.ts
-- `DEPT_ROLES: Record<deptCode, { member, lead? }>` — maps `j1`–`j7` → Discord role name(s).
+- `DEPT_ROLES: Record<deptCode, { member, lead? }>` — maps `j1`–`j7` → Discord role name(s). Server-only (imports `Db`) — never import this file from a `'use client'` component; use `dept-codes.ts` for just the code list.
 - `syncDeptDiscordRole(userId, deptCode, action: 'add'|'remove'|'set-lead'|'remove-lead')` — resolves role IDs via `Db.roles`, calls `addGuildRole`/`removeGuildRole` from `bot.ts`, then rebuilds and pushes the member's Discord nickname via `buildNickname` + `setGuildNickname`.
+- `applyBaseDepartmentRoleSync(userId, deptCode, action: 'add'|'remove')` — grants/revokes a department's base `DepartmentRole`'s Discord roles + TeamSpeak groups for a member. Called alongside `syncDeptDiscordRole` from every path that mutates `User.departments` (the `department-membership` ticket handler, `PATCH /api/admin/members/[id]`, and `POST /api/admin/members/sync-dept`'s add-only backfill) — the base role's grants are a separate, admin-configured layer on top of plain membership, not derived from it.
+- `revokeDepartmentSubRoles(userId, deptCode)` — revokes every `DepartmentRole` sub-role a member holds that belongs to `deptCode` specifically (sub-roles from other departments they're still in are untouched), and `$pullAll`s them from `User.departmentRoleIds`. Called whenever someone is removed from a department — sub-role grants are stored per-user and don't self-heal the way the base role (derived live from `User.departments`) does.
 
 ### lib/discord/bot.ts
 - Single source of truth for **all** outbound Discord actions. Every mutation passes through `checkDiscordGate()` (dev-mode gate, 30s in-process cache reading `Db.siteSettings._id:'discordDevMode'`, `OVERRIDE` env bypass) and logs via `logDiscord()` (`lib/logs.ts`).
