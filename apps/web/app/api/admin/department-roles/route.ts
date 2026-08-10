@@ -43,8 +43,10 @@ export async function GET(request: NextRequest) {
     const department = request.nextUrl.searchParams.get('department')
     const isManager = client.hasRoles(me, PERMISSIONS.admin.manageDepartmentRoles)
     const leadRoles = department ? PERMISSIONS.departmentLeads[department as keyof typeof PERMISSIONS.departmentLeads] : undefined
+    const memberRoles = department ? PERMISSIONS.departments[department as keyof typeof PERMISSIONS.departments] : undefined
     const isDeptLead = leadRoles ? client.hasRoles(me, leadRoles) : false
-    if (!isManager && !isDeptLead) {
+    const isDeptMember = memberRoles ? client.hasRoles(me, memberRoles) : false
+    if (!isManager && !isDeptLead && !isDeptMember) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
