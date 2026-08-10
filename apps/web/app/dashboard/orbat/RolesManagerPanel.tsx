@@ -32,11 +32,6 @@ function discordColorHex(color: number): string | null {
     return '#' + color.toString(16).padStart(6, '0')
 }
 
-function categoryLabel(categories: string[]): string {
-    if (categories.length === 0) return 'All categories'
-    return categories.map(id => PLATOON_CATEGORIES.find(c => c._id === id)?.label ?? id).join(', ')
-}
-
 export default function RolesManagerPanel({ open, onClose }: Props) {
     const [roles, setRoles] = useState<OrbatRole[]>([])
     const [guildRoles, setGuildRoles] = useState<GuildRole[]>([])
@@ -154,12 +149,6 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
         })
     }, [filteredPermissionKeys])
 
-    const duplicateNames = useMemo(() => {
-        const counts = new Map<string, number>()
-        for (const r of roles) counts.set(r.name, (counts.get(r.name) ?? 0) + 1)
-        return new Set([...counts.entries()].filter(([, c]) => c > 1).map(([name]) => name))
-    }, [roles])
-
     return (
         <Dialog
             open={open}
@@ -235,11 +224,6 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                 {role.tag && (
                                                     <span style={{ flexShrink: 0, fontSize: '0.55rem', fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'rgba(219,0,29,0.14)', color: 'rgba(219,0,29,0.85)' }}>
                                                         {role.tag}
-                                                    </span>
-                                                )}
-                                                {duplicateNames.has(role.name) && (
-                                                    <span style={{ flexShrink: 0, fontSize: '0.55rem', padding: '1px 6px', borderRadius: 999, background: 'rgba(100,180,255,0.12)', color: 'rgba(100,180,255,0.85)' }}>
-                                                        {categoryLabel(role.categories)}
                                                     </span>
                                                 )}
                                             </span>
