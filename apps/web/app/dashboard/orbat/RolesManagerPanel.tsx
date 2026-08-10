@@ -131,7 +131,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
             || formTag.trim() !== (original.tag ?? '')
             || !sameMembers(formCategories, original.categories)
             || !sameMembers(formDiscordRoleIds, original.discordRoleIds)
-            || !sameMembers(formTsGroupIds, original.tsGroupIds)
+            || !sameMembers(formTsGroupIds, original.tsGroupIds ?? [])
             || !sameMembers(formPermissions, original.permissions)
     }, [editingId, formName, formTag, formCategories, formDiscordRoleIds, formTsGroupIds, formPermissions, roles])
 
@@ -163,7 +163,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
         setFormName(role.name)
         setFormCategories(role.categories)
         setFormDiscordRoleIds(role.discordRoleIds)
-        setFormTsGroupIds(role.tsGroupIds)
+        setFormTsGroupIds(role.tsGroupIds ?? [])
         setFormPermissions(role.permissions)
         setFormTag(role.tag ?? '')
         setDiscordSearch('')
