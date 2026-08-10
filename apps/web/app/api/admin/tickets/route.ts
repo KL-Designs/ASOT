@@ -9,6 +9,8 @@ import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
 import { applyOrbatMove } from '@/lib/orbat/move'
 import { createNotification, createNotificationForRole } from '@/lib/notifications'
 import { syncDeptDiscordRole } from '@/lib/discord/dept-roles'
+import { addGuildRole, removeGuildRole } from '@/lib/discord/bot'
+import { applyTsServerGroups } from '@/lib/teamspeak/groups'
 
 // Maps ticket department → role(s) that should be notified
 const TICKET_NOTIFY_ROLES: Record<string, string[]> = {
@@ -370,6 +372,20 @@ export async function POST(req: NextRequest) {
             syncDeptDiscordRole(targetUserId, deptCode, memberAction as 'add' | 'remove' | 'set-lead' | 'remove-lead').catch(err =>
                 console.error('[tickets] dept Discord role sync failed:', err)
             )
+        }
+
+        // Base department role — implicit for every member of this department,
+        // never stored per-user. Stacks on top of the section-level Discord
+        // sync above, same pattern as ORBAT's role-level grants.
+        if (memberAction === 'add' || memberAction === 'remove') {
+            Db.departmentRoles.findOne({ department: deptCode, isBase: true }).then(baseRole => {
+                if (!baseRole) return
+                const grantFn = memberAction === 'add' ? addGuildRole : removeGuildRole
+                return Promise.allSettled([
+                    ...baseRole.discordRoleIds.map(id => grantFn(targetUserId, id)),
+                    applyTsServerGroups(targetUserId, memberAction, baseRole.tsGroupIds),
+                ])
+            }).catch(err => console.error('[tickets] dept base-role sync failed:', err))
         }
 
         // Log as pre-actioned ticket
