@@ -346,9 +346,9 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                 </Box>
                             ) : (
                                 <>
-                                    <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
-                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, maxWidth: 1400 }}>
-                                            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', p: 3 }}>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, maxWidth: 1400, flex: 1, minHeight: 0 }}>
+                                            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', flexShrink: 0 }}>
                                                 <TextField size='small' label='Name' value={formName} onChange={e => setFormName(e.target.value)} sx={{ ...inputSx, flex: '1 1 260px' }} />
                                                 <div>
                                                     <TextField
@@ -361,7 +361,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                 </div>
                                             </Box>
 
-                                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                            <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
                                                 <Button size='small' variant='outlined' startIcon={<ContentCopy sx={{ fontSize: 14 }} />} onClick={copySettings}
                                                     sx={{ fontSize: '0.65rem', letterSpacing: 0.5, borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.7)' }}>
                                                     Copy Settings
@@ -372,8 +372,8 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                 </Button>
                                             </Box>
 
-                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                                                <div style={{ flex: '1 1 280px', minWidth: 260 }}>
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, flex: 1, minHeight: 0 }}>
+                                                <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Categories (none = all)</div>
                                                         <CopyPasteButtons onCopy={copyCategories} onPaste={pasteCategories} canPaste={categoriesClipboard !== null} label='categories' />
@@ -388,7 +388,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                     </Box>
                                                 </div>
 
-                                                <div style={{ flex: '1 1 280px', minWidth: 260 }}>
+                                                <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Discord roles granted {formDiscordRoleIds.length > 0 && `(${formDiscordRoleIds.length} selected)`}</div>
                                                         <CopyPasteButtons onCopy={copyDiscordRoleIds} onPaste={pasteDiscordRoleIds} canPaste={discordRoleIdsClipboard !== null} label='Discord roles' />
@@ -396,9 +396,9 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                     <TextField
                                                         size='small' fullWidth placeholder='Search discord roles…' value={discordSearch} onChange={e => setDiscordSearch(e.target.value)}
                                                         InputProps={{ startAdornment: <InputAdornment position='start'><Search sx={{ fontSize: 16, color: 'rgba(237,237,237,0.4)' }} /></InputAdornment> }}
-                                                        sx={{ ...searchFieldSx, mb: 1 }}
+                                                        sx={{ ...searchFieldSx, mb: 1, flexShrink: 0 }}
                                                     />
-                                                    <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    <div style={{ flex: 1, minHeight: 120, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)' }}>
                                                         {filteredGuildRoles.map(r => {
                                                             const hex = discordColorHex(r.color)
                                                             return (
@@ -423,7 +423,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                     </div>
                                                 </div>
 
-                                                <div style={{ flex: '1 1 280px', minWidth: 260 }}>
+                                                <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Permissions granted {formPermissions.length > 0 && `(${formPermissions.length} selected)`}</div>
                                                         <CopyPasteButtons onCopy={copyPermissions} onPaste={pastePermissions} canPaste={permissionsClipboard !== null} label='permissions' />
@@ -431,9 +431,9 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                     <TextField
                                                         size='small' fullWidth placeholder='Search permissions…' value={permSearch} onChange={e => setPermSearch(e.target.value)}
                                                         InputProps={{ startAdornment: <InputAdornment position='start'><Search sx={{ fontSize: 16, color: 'rgba(237,237,237,0.4)' }} /></InputAdornment> }}
-                                                        sx={{ ...searchFieldSx, mb: 1 }}
+                                                        sx={{ ...searchFieldSx, mb: 1, flexShrink: 0 }}
                                                     />
-                                                    <div style={{ maxHeight: 240, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    <div style={{ flex: 1, minHeight: 120, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.08)' }}>
                                                         {permissionRows.map(({ key, group, showHeader }) => (
                                                             <div key={key}>
                                                                 {showHeader && (
