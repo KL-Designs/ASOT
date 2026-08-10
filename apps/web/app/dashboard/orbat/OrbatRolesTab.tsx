@@ -7,6 +7,7 @@ import {
 } from '@mui/material'
 import { ContentCopy, ContentPaste, Delete, Add, Search } from '@mui/icons-material'
 import { PLATOON_CATEGORIES } from '@/lib/orbat/constants'
+import { PERMISSION_DESCRIPTIONS } from '@/lib/permissions-descriptions'
 
 interface GuildRole { id: string; name: string; color: number }
 interface TsGroup { id: number; name: string }
@@ -425,9 +426,18 @@ export default function OrbatRolesTab({ onDirtyChange }: { onDirtyChange: (dirty
                                                                     {group}
                                                                 </div>
                                                             )}
-                                                            <FormControlLabel sx={{ display: 'block', ml: 0, px: 1 }}
-                                                                control={<Checkbox size='small' checked={formPermissions.includes(key)} onChange={() => toggleIn(formPermissions, setFormPermissions, key)} />}
-                                                                label={<span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.6)', fontFamily: 'monospace' }}>{key}</span>}
+                                                            <FormControlLabel sx={{ display: 'flex', alignItems: 'flex-start', ml: 0, px: 1, py: 0.25 }}
+                                                                control={<Checkbox size='small' sx={{ pt: 0 }} checked={formPermissions.includes(key)} onChange={() => toggleIn(formPermissions, setFormPermissions, key)} />}
+                                                                label={
+                                                                    <span style={{ display: 'block' }}>
+                                                                        <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.6)', fontFamily: 'monospace' }}>{key}</span>
+                                                                        {PERMISSION_DESCRIPTIONS[key] && (
+                                                                            <span style={{ display: 'block', fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)', marginTop: 1 }}>
+                                                                                {PERMISSION_DESCRIPTIONS[key]}
+                                                                            </span>
+                                                                        )}
+                                                                    </span>
+                                                                }
                                                             />
                                                         </div>
                                                     ))}
