@@ -372,7 +372,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                 </Button>
                                             </Box>
 
-                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, flex: 1, minHeight: 0, overflow: 'hidden' }}>
                                                 <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Categories (none = all)</div>
