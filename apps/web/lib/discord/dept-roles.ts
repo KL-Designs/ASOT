@@ -1,5 +1,6 @@
 import Db from '@/lib/mongo'
 import { addGuildRole, removeGuildRole, setGuildNickname } from '@/lib/discord/bot'
+import { applyTsServerGroups } from '@/lib/teamspeak/groups'
 import { buildNickname } from '@/lib/buildNickname'
 
 // Maps dept code → Discord role names to grant/revoke on membership changes.
@@ -60,4 +61,49 @@ export async function syncDeptDiscordRole(
         )
         await setGuildNickname(userId, nick)
     }
+}
+
+/**
+ * Grants or revokes a department's base DepartmentRole (Discord roles +
+ * TeamSpeak groups) for a member. Every mutation path that adds/removes
+ * someone from User.departments should call this alongside the existing
+ * section-level syncDeptDiscordRole, since the base role's grants are a
+ * separate, admin-configured layer on top of plain membership.
+ */
+export async function applyBaseDepartmentRoleSync(
+    userId: string,
+    deptCode: string,
+    action: 'add' | 'remove',
+): Promise<void> {
+    const baseRole = await Db.departmentRoles.findOne({ department: deptCode, isBase: true })
+    if (!baseRole) return
+    const grantFn = action === 'add' ? addGuildRole : removeGuildRole
+    await Promise.allSettled([
+        ...baseRole.discordRoleIds.map(id => grantFn(userId, id)),
+        applyTsServerGroups(userId, action, baseRole.tsGroupIds),
+    ])
+}
+
+/**
+ * Revokes every DepartmentRole sub-role a member holds THAT BELONGS TO the
+ * given department (leaving any sub-roles from other departments alone),
+ * and removes them from User.departmentRoleIds. Call this whenever someone
+ * is removed from a department — sub-role grants are stored per-user and
+ * don't self-heal the way the base role (derived live from User.departments)
+ * does, so without this cleanup a removed member keeps every grant and
+ * permission their department sub-roles gave them indefinitely.
+ */
+export async function revokeDepartmentSubRoles(userId: string, deptCode: string): Promise<void> {
+    const user = await Db.users.findOne({ id: userId }, { projection: { departmentRoleIds: 1 } })
+    const subRoleIds = user?.departmentRoleIds ?? []
+    if (subRoleIds.length === 0) return
+
+    const deptSubRoles = await Db.departmentRoles.find({ _id: { $in: subRoleIds }, department: deptCode }).toArray()
+    if (deptSubRoles.length === 0) return
+
+    await Promise.allSettled(deptSubRoles.flatMap(role => [
+        ...role.discordRoleIds.map(id => removeGuildRole(userId, id)),
+        applyTsServerGroups(userId, 'remove', role.tsGroupIds),
+    ]))
+    await Db.users.updateOne({ id: userId }, { $pull: { departmentRoleIds: { $in: deptSubRoles.map(r => r._id) } } })
 }
