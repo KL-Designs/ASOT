@@ -372,8 +372,8 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                 </Button>
                                             </Box>
 
-                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, flex: 1, minHeight: 0, overflow: 'hidden' }}>
-                                                <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                                            <Box sx={{ display: 'flex', gap: 3, flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden' }}>
+                                                <div style={{ flex: '1 0 260px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Categories (none = all)</div>
                                                         <CopyPasteButtons onCopy={copyCategories} onPaste={pasteCategories} canPaste={categoriesClipboard !== null} label='categories' />
@@ -388,7 +388,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                     </Box>
                                                 </div>
 
-                                                <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                                                <div style={{ flex: '1 0 260px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Discord roles granted {formDiscordRoleIds.length > 0 && `(${formDiscordRoleIds.length} selected)`}</div>
                                                         <CopyPasteButtons onCopy={copyDiscordRoleIds} onPaste={pasteDiscordRoleIds} canPaste={discordRoleIdsClipboard !== null} label='Discord roles' />
@@ -423,7 +423,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                     </div>
                                                 </div>
 
-                                                <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                                                <div style={{ flex: '1 0 260px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Permissions granted {formPermissions.length > 0 && `(${formPermissions.length} selected)`}</div>
                                                         <CopyPasteButtons onCopy={copyPermissions} onPaste={pastePermissions} canPaste={permissionsClipboard !== null} label='permissions' />
