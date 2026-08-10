@@ -1,6 +1,29 @@
 import { getConnection } from '@/lib/teamspeak/cache'
 import { checkTsGate } from '@/lib/teamspeak/devmode'
+import { sendTeamspeakLinkReminderDM } from '@/lib/discord/bot'
 import Db from '@/lib/mongo'
+
+const LINK_REMINDER_COOLDOWN_MS = 24 * 60 * 60 * 1000 // 24h — avoid spamming on repeated role changes
+
+/**
+ * DMs the member a "link your TeamSpeak account" reminder, at most once per
+ * LINK_REMINDER_COOLDOWN_MS. Never throws — a failed reminder DM should never
+ * take down the calling grant/revoke attempt.
+ */
+async function maybeSendLinkReminder(userId: string, user: User | null): Promise<void> {
+    const lastSent = user?.tsLinkReminderSentAt ?? 0
+    if (Date.now() - lastSent < LINK_REMINDER_COOLDOWN_MS) return
+
+    try {
+        await Db.users.updateOne(
+            { $or: [{ id: userId }, { _id: userId }] },
+            { $set: { tsLinkReminderSentAt: Date.now() } },
+        )
+        await sendTeamspeakLinkReminderDM(userId)
+    } catch (err) {
+        console.error('[TeamSpeak] link reminder DM failed:', err)
+    }
+}
 
 /**
  * Adds or removes a set of TeamSpeak server groups for a member, resolved by
@@ -18,7 +41,10 @@ export async function applyTsServerGroups(
 
     const user = await Db.users.findOne({ $or: [{ id: userId }, { _id: userId }] })
     const cldbid = user?.teamspeak?.cldbid
-    if (!cldbid) return { skipped: true, reason: 'Member has no linked TeamSpeak account' }
+    if (!cldbid) {
+        maybeSendLinkReminder(userId, user).catch(err => console.error('[TeamSpeak] link reminder failed:', err))
+        return { skipped: true, reason: 'Member has no linked TeamSpeak account' }
+    }
 
     const tsUid = user?.teamspeak?.uid
     if (tsUid) {

@@ -87,6 +87,7 @@ declare global {
             uid: string
             nickname: string
         }
+        tsLinkReminderSentAt?: number  // ms epoch — last time an unlinked-account DM reminder fired, for cooldown
 
         bio?: {
             content: string

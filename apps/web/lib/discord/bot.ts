@@ -950,6 +950,25 @@ export async function sendMeetingDM(
 }
 
 /**
+ * Nudge a member to link their TeamSpeak account after a Role/ORBAT grant
+ * had to skip their TeamSpeak server group sync because no linked account
+ * was found. Caller (lib/teamspeak/groups.ts) is responsible for cooldown —
+ * this always sends when called.
+ */
+export async function sendTeamspeakLinkReminderDM(userId: string): Promise<void> {
+    const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+    const embed: DiscordEmbed = {
+        title: '🔗 Link Your TeamSpeak Account',
+        description: "We just tried to update your TeamSpeak server group, but couldn't find a linked TeamSpeak account for you. Link your account so your roles stay in sync automatically.",
+        color: 0x0082dc,
+        footer: { text: 'ASOT Dashboard' },
+        timestamp: new Date().toISOString(),
+        fields: [{ name: '​', value: `[Link TeamSpeak Account](${base}/me)`, inline: false }],
+    }
+    await sendDM(userId, { embeds: [embed] }, 'teamspeak_link_reminder')
+}
+
+/**
  * Notify a feedback author that someone commented on their submission.
  */
 export async function sendFeedbackCommentDM(
