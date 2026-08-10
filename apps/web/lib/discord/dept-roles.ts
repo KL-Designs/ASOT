@@ -1,3 +1,4 @@
+import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import { addGuildRole, removeGuildRole, setGuildNickname } from '@/lib/discord/bot'
 import { applyTsServerGroups } from '@/lib/teamspeak/groups'
@@ -95,7 +96,11 @@ export async function applyBaseDepartmentRoleSync(
  */
 export async function revokeDepartmentSubRoles(userId: string, deptCode: string): Promise<void> {
     const user = await Db.users.findOne({ id: userId }, { projection: { departmentRoleIds: 1 } })
-    const subRoleIds = user?.departmentRoleIds ?? []
+    // Re-materialize through this file's own ObjectId import — the shared
+    // types/user.d.ts (monorepo root) resolves ObjectId from a different
+    // physical bson install than apps/web's, so TS treats them as distinct
+    // nominal types even though they're runtime-identical (same 24-char hex).
+    const subRoleIds = (user?.departmentRoleIds ?? []).map(id => new ObjectId(String(id)))
     if (subRoleIds.length === 0) return
 
     const deptSubRoles = await Db.departmentRoles.find({ _id: { $in: subRoleIds }, department: deptCode }).toArray()
@@ -105,5 +110,5 @@ export async function revokeDepartmentSubRoles(userId: string, deptCode: string)
         ...role.discordRoleIds.map(id => removeGuildRole(userId, id)),
         applyTsServerGroups(userId, 'remove', role.tsGroupIds),
     ]))
-    await Db.users.updateOne({ id: userId }, { $pull: { departmentRoleIds: { $in: deptSubRoles.map(r => r._id) } } })
+    await Db.users.updateOne({ id: userId }, { $pullAll: { departmentRoleIds: deptSubRoles.map(r => new ObjectId(String(r._id))) } })
 }
