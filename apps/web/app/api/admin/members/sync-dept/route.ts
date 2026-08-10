@@ -4,7 +4,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { fetchAllGuildMembers } from '@/lib/discord/bot'
 import { logAction } from '@/lib/logs'
-import { DEPT_ROLES } from '@/lib/discord/dept-roles'
+import { DEPT_ROLES, applyBaseDepartmentRoleSync } from '@/lib/discord/dept-roles'
 
 // POST /api/admin/members/sync-dept — J4 only
 // Reads current Discord guild members for the given department's roles and
@@ -93,6 +93,12 @@ export async function POST(request: NextRequest) {
             if (Object.keys(addToSetOps).length > 0) update.$addToSet = addToSetOps
             if (Object.keys(setOps).length > 0) update.$set = setOps
             await Db.users.updateOne({ id: user.id }, update)
+
+            if (addToSetOps.departments) {
+                applyBaseDepartmentRoleSync(user.id, department, 'add').catch(err =>
+                    console.error('[members/sync-dept] base-role sync failed:', err)
+                )
+            }
         }
     }
 

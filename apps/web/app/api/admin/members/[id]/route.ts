@@ -4,7 +4,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logs'
 import { addGuildRole, removeGuildRole, setGuildNickname } from '@/lib/discord/bot'
-import { syncDeptDiscordRole } from '@/lib/discord/dept-roles'
+import { syncDeptDiscordRole, applyBaseDepartmentRoleSync, revokeDepartmentSubRoles } from '@/lib/discord/dept-roles'
 import { buildNickname } from '@/lib/buildNickname'
 
 // PATCH /api/admin/members/[id] — J4 only: update display name, department, or chaplain status
@@ -55,6 +55,14 @@ export async function PATCH(
         syncDeptDiscordRole(id, department!, action as 'add' | 'remove').catch(err =>
             console.error('[admin/members] dept Discord role sync failed:', err)
         )
+        applyBaseDepartmentRoleSync(id, department!, action as 'add' | 'remove').catch(err =>
+            console.error('[admin/members] dept base-role sync failed:', err)
+        )
+        if (action === 'remove') {
+            revokeDepartmentSubRoles(id, department!).catch(err =>
+                console.error('[admin/members] dept sub-role cleanup failed:', err)
+            )
+        }
 
         logAction({
             action: `member.department.${action}`,
