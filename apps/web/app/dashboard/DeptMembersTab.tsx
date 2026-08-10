@@ -76,7 +76,7 @@ export default function DeptMembersTab({
     const [allMembers, setAllMembers] = useState<MemberOption[]>([])
     const [loading, setLoading] = useState(true)
     const [loadingAll, setLoadingAll] = useState(false)
-    const [deptRoles, setDeptRoles] = useState<DepartmentRole[]>([])
+    const [allDeptRoles, setAllDeptRoles] = useState<DepartmentRole[]>([])
     const [roleActionId, setRoleActionId] = useState<string | null>(null)
 
     const [selected, setSelected] = useState<MemberOption | null>(null)
@@ -111,8 +111,8 @@ export default function DeptMembersTab({
         fetchDeptMembers()
         fetch(`/api/admin/department-roles?department=${department}`)
             .then(r => r.json())
-            .then(d => setDeptRoles((d.roles ?? []).filter((r: DepartmentRole) => !r.isBase)))
-            .catch(() => setDeptRoles([]))
+            .then(d => setAllDeptRoles(d.roles ?? []))
+            .catch(() => setAllDeptRoles([]))
         if (canManage) {
             setLoadingAll(true)
             fetch('/api/admin/members?limit=1000')
@@ -249,9 +249,17 @@ export default function DeptMembersTab({
 
     const posNames = DEPT_LEADERSHIP_POSITIONS[department] ?? ['Department Leader', '2IC', '3IC']
 
-    const leaderHolder = deptMembers.find(m => m.teamLeadDepts?.includes(department)) ?? null
-    const secondHolder = deptMembers.find(m => m.dept2icRoles?.includes(department)) ?? null
-    const thirdHolder  = deptMembers.find(m => m.dept3icRoles?.includes(department)) ?? null
+    const toggleableRoles = allDeptRoles.filter(r => !r.isBase && !r.linkedSlot)
+    const slotRoleMap: Partial<Record<'leader' | '2ic' | '3ic', DepartmentRole>> = {}
+    for (const r of allDeptRoles) if (r.linkedSlot) slotRoleMap[r.linkedSlot] = r
+
+    function holdsRole(member: MemberOption, role: DepartmentRole | undefined): boolean {
+        return !!role && member.departmentRoleIds.includes(String(role._id))
+    }
+
+    const leaderHolder = deptMembers.find(m => holdsRole(m, slotRoleMap.leader)) ?? null
+    const secondHolder = deptMembers.find(m => holdsRole(m, slotRoleMap['2ic'])) ?? null
+    const thirdHolder  = deptMembers.find(m => holdsRole(m, slotRoleMap['3ic'])) ?? null
 
     const deptMemberIds = new Set(deptMembers.map(m => m.id))
     const addOptions = allMembers.filter(m => !deptMemberIds.has(m.id))
@@ -299,10 +307,10 @@ export default function DeptMembersTab({
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                         {([
-                            { slot: 'leader' as const, label: posNames[0], holder: leaderHolder, color: '#fbbf24' },
-                            ...(posNames[1] ? [{ slot: '2ic' as const, label: posNames[1], holder: secondHolder, color: 'rgba(219,0,29,0.7)' }] : []),
-                            ...(posNames[2] ? [{ slot: '3ic' as const, label: posNames[2], holder: thirdHolder,  color: 'rgba(237,237,237,0.5)' }] : []),
-                        ]).map(({ slot, label, holder, color }) => (
+                            { slot: 'leader' as const, label: posNames[0], holder: leaderHolder, linked: !!slotRoleMap.leader, color: '#fbbf24' },
+                            ...(posNames[1] ? [{ slot: '2ic' as const, label: posNames[1], holder: secondHolder, linked: !!slotRoleMap['2ic'], color: 'rgba(219,0,29,0.7)' }] : []),
+                            ...(posNames[2] ? [{ slot: '3ic' as const, label: posNames[2], holder: thirdHolder,  linked: !!slotRoleMap['3ic'], color: 'rgba(237,237,237,0.5)' }] : []),
+                        ]).map(({ slot, label, holder, linked, color }) => (
                             <div key={slot} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '12px 0' }}>
                                 {assigningSlot === slot ? (
                                     /* Inline assign row */
@@ -352,7 +360,7 @@ export default function DeptMembersTab({
                                                     </button>
                                                 )}
                                             </>
-                                        ) : (
+                                        ) : linked ? (
                                             <>
                                                 <span style={{ flex: 1, fontSize: '0.78rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>Not assigned</span>
                                                 {canManage && (
@@ -364,6 +372,10 @@ export default function DeptMembersTab({
                                                     </button>
                                                 )}
                                             </>
+                                        ) : (
+                                            <span style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(255,180,80,0.6)', fontStyle: 'italic' }}>
+                                                Not linked — configure in Department Roles
+                                            </span>
                                         )}
                                     </div>
                                 )}
@@ -391,15 +403,15 @@ export default function DeptMembersTab({
                                     <th style={thStyle}>Name</th>
                                     <th style={thStyle}>Rank</th>
                                     <th style={thStyle}>Position</th>
-                                    {deptRoles.length > 0 && <th style={thStyle}>Roles</th>}
+                                    {toggleableRoles.length > 0 && <th style={thStyle}>Roles</th>}
                                     {canManage && <th style={{ ...thStyle, textAlign: 'right' }} />}
                                 </tr>
                             </thead>
                             <tbody>
                                 {deptMembers.map(m => {
-                                    const isLeader = m.teamLeadDepts?.includes(department)
-                                    const is2ic    = m.dept2icRoles?.includes(department)
-                                    const is3ic    = m.dept3icRoles?.includes(department)
+                                    const isLeader = holdsRole(m, slotRoleMap.leader)
+                                    const is2ic    = holdsRole(m, slotRoleMap['2ic'])
+                                    const is3ic    = holdsRole(m, slotRoleMap['3ic'])
                                     const position = isLeader ? posNames[0] : is2ic ? posNames[1] : is3ic ? posNames[2] : null
                                     return (
                                         <tr
@@ -422,10 +434,10 @@ export default function DeptMembersTab({
                                             <td style={{ ...tdStyle, fontSize: '0.68rem', color: isLeader ? '#fbbf24' : 'rgba(219,0,29,0.55)' }}>
                                                 {position ?? '—'}
                                             </td>
-                                            {deptRoles.length > 0 && (
+                                            {toggleableRoles.length > 0 && (
                                                 <td style={tdStyle}>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                                                        {deptRoles.map(role => {
+                                                        {toggleableRoles.map(role => {
                                                             const holds = m.departmentRoleIds.includes(String(role._id))
                                                             if (!holds && !canManage) return null
                                                             return (
