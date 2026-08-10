@@ -6,6 +6,7 @@ import Db from '@/lib/mongo'
 import { getQuizById } from '@/lib/quiz-data'
 import { createNotification, createNotificationForRole } from '@/lib/notifications'
 import { logAction } from '@/lib/logAction'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 
 // GET /api/admin/quiz/review/[attemptId]
 // Returns quiz definition + attempt for the review page.
@@ -19,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ att
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.quiz.review)) {
+    if (!(await hasPermission(me, 'quiz.review'))) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ att
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.quiz.review)) {
+    if (!(await hasPermission(me, 'quiz.review'))) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -192,7 +193,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ att
         //   J3 Team Lead         → J4 Administration
         //   J4 Administration    → no further escalation
 
-        const isJ3Lead = client.hasRoles(me, PERMISSIONS.departmentLeads.j3)
+        const isJ3Lead = await hasPermission(me, 'departmentLeads.j3')
         const isJ4 = client.hasRoles(me, PERMISSIONS.departments.j4)
 
         let nextRoleName: string

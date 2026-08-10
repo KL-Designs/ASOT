@@ -128,7 +128,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const { id } = await params
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.departmentLeads.j3)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasPermission(me, 'departmentLeads.j3'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     let body: { userId: string; checkpointId: string; trainerId: string; trainerName: string }
     try { body = await req.json() } catch { return NextResponse.json({ error: 'bad json' }, { status: 400 }) }

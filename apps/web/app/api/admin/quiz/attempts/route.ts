@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import Db from '@/lib/mongo'
 
 // GET /api/admin/quiz/attempts
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.quiz.assign)) {
+    if (!(await hasPermission(me, 'quiz.assign'))) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
