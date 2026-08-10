@@ -346,7 +346,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                 </Box>
                             ) : (
                                 <>
-                                    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', p: 3 }}>
+                                    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', p: 3 }}>
                                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, maxWidth: 1400, flex: 1, minHeight: 0 }}>
                                             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', flexShrink: 0 }}>
                                                 <TextField size='small' label='Name' value={formName} onChange={e => setFormName(e.target.value)} sx={{ ...inputSx, flex: '1 1 260px' }} />
@@ -372,8 +372,8 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                 </Button>
                                             </Box>
 
-                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, flex: 1, minHeight: 0 }}>
-                                                <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                                                <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Categories (none = all)</div>
                                                         <CopyPasteButtons onCopy={copyCategories} onPaste={pasteCategories} canPaste={categoriesClipboard !== null} label='categories' />
@@ -388,7 +388,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                     </Box>
                                                 </div>
 
-                                                <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                                                <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Discord roles granted {formDiscordRoleIds.length > 0 && `(${formDiscordRoleIds.length} selected)`}</div>
                                                         <CopyPasteButtons onCopy={copyDiscordRoleIds} onPaste={pasteDiscordRoleIds} canPaste={discordRoleIdsClipboard !== null} label='Discord roles' />
@@ -423,7 +423,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                                     </div>
                                                 </div>
 
-                                                <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                                                <div style={{ flex: '1 1 280px', minWidth: 260, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                                         <div style={sectionHeaderSx}>Permissions granted {formPermissions.length > 0 && `(${formPermissions.length} selected)`}</div>
                                                         <CopyPasteButtons onCopy={copyPermissions} onPaste={pastePermissions} canPaste={permissionsClipboard !== null} label='permissions' />
