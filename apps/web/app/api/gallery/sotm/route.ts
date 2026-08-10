@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import db from '@/lib/mongo'
 
 const SOTM_DIR = path.resolve('../../storage/gallery/sotm')
@@ -12,7 +12,7 @@ const SETTING_ID = 'screenshotOfMonth'
 async function checkAuth() {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return null
-    if (!client.hasRoles(me, PERMISSIONS.departmentLeads.j5)) return null
+    if (!(await hasPermission(me, 'departmentLeads.j5'))) return null
     return me
 }
 
