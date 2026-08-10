@@ -352,6 +352,24 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
         await load()
     }
 
+    async function resetChainOfCommand() {
+        if (!window.confirm('This will detach every Role and Group from its parent, resetting the chain of command to a flat structure. This cannot be undone. Continue?')) return
+        setError(null)
+        setSelectedRole(null)
+        setGroupEditor(null)
+        try {
+            const res = await fetch('/api/admin/orbat/chain-of-command/reset', { method: 'POST' })
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                setError(data.error ?? 'Failed to reset chain of command')
+            }
+        } catch {
+            setError('Network error — could not reset chain of command')
+        } finally {
+            await load()
+        }
+    }
+
     return (
         <Dialog
             open={open}
@@ -378,7 +396,15 @@ export default function ChainOfCommandPanel({ open, onClose }: Props) {
                         Chain of Command
                     </Typography>
                 </div>
-                <IconButton size='small' onClick={onClose}><Close sx={{ fontSize: 18, color: 'rgba(237,237,237,0.5)' }} /></IconButton>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Button
+                        size='small' variant='outlined' onClick={resetChainOfCommand}
+                        sx={{ fontSize: '0.65rem', letterSpacing: 1, borderColor: 'rgba(219,0,29,0.5)', color: 'rgba(219,0,29,0.85)' }}
+                    >
+                        Reset Chain of Command
+                    </Button>
+                    <IconButton size='small' onClick={onClose}><Close sx={{ fontSize: 18, color: 'rgba(237,237,237,0.5)' }} /></IconButton>
+                </Box>
             </DialogTitle>
 
             <Divider sx={{ borderColor: 'rgba(219,0,29,0.42)' }} />
