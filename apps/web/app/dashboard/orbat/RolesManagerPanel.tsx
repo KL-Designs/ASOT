@@ -49,6 +49,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
     const [formCategories, setFormCategories] = useState<string[]>([])
     const [formDiscordRoleIds, setFormDiscordRoleIds] = useState<string[]>([])
     const [formPermissions, setFormPermissions] = useState<string[]>([])
+    const [formTag, setFormTag] = useState('')
 
     const [roleSearch, setRoleSearch] = useState('')
     const [discordSearch, setDiscordSearch] = useState('')
@@ -77,6 +78,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
         setFormCategories([])
         setFormDiscordRoleIds([])
         setFormPermissions([])
+        setFormTag('')
         setDiscordSearch('')
         setPermSearch('')
         setError(null)
@@ -88,6 +90,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
         setFormCategories(role.categories)
         setFormDiscordRoleIds(role.discordRoleIds)
         setFormPermissions(role.permissions)
+        setFormTag(role.tag ?? '')
         setDiscordSearch('')
         setPermSearch('')
         setError(null)
@@ -96,7 +99,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
     async function save() {
         if (!formName.trim()) { setError('Name is required'); return }
         setError(null)
-        const body = { name: formName.trim(), categories: formCategories, discordRoleIds: formDiscordRoleIds, permissions: formPermissions }
+        const body = { name: formName.trim(), categories: formCategories, discordRoleIds: formDiscordRoleIds, permissions: formPermissions, tag: formTag }
 
         const res = editingId === '__new__'
             ? await fetch('/api/admin/orbat/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -229,6 +232,11 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                                         }}>
                                             <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.85)', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
                                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{role.name}</span>
+                                                {role.tag && (
+                                                    <span style={{ flexShrink: 0, fontSize: '0.55rem', fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'rgba(219,0,29,0.14)', color: 'rgba(219,0,29,0.85)' }}>
+                                                        {role.tag}
+                                                    </span>
+                                                )}
                                                 {duplicateNames.has(role.name) && (
                                                     <span style={{ flexShrink: 0, fontSize: '0.55rem', padding: '1px 6px', borderRadius: 999, background: 'rgba(100,180,255,0.12)', color: 'rgba(100,180,255,0.85)' }}>
                                                         {categoryLabel(role.categories)}
@@ -260,6 +268,16 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                             ) : (
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, maxWidth: 640 }}>
                                     <TextField size='small' label='Name' value={formName} onChange={e => setFormName(e.target.value)} sx={inputSx} />
+
+                                    <div>
+                                        <TextField
+                                            size='small' label='Tag (optional)' value={formTag} onChange={e => setFormTag(e.target.value)}
+                                            inputProps={{ maxLength: 12 }} sx={{ ...inputSx, width: 200 }}
+                                        />
+                                        <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', marginTop: 4 }}>
+                                            Distinguishes roles sharing this name — never shown publicly.
+                                        </div>
+                                    </div>
 
                                     <div>
                                         <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>

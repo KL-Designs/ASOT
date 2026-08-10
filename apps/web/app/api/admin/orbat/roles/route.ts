@@ -4,7 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { PERMISSION_KEYS } from '@/lib/permissions-catalog'
-import { categoriesOverlap } from '@/lib/orbat/categoriesOverlap'
+import { rolesConflict } from '@/lib/orbat/categoriesOverlap'
 
 
 // ── GET /api/admin/orbat/roles ─────────────────────────────────────────────
@@ -23,7 +23,7 @@ export async function GET() {
 
 
 // ── POST /api/admin/orbat/roles ────────────────────────────────────────────
-// Body: { name, categories, discordRoleIds, permissions }
+// Body: { name, categories, discordRoleIds, permissions, tag }
 
 export async function POST(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
@@ -41,10 +41,11 @@ export async function POST(request: NextRequest) {
     const permissions: string[] = Array.isArray(body.permissions)
         ? body.permissions.filter((p: unknown) => typeof p === 'string' && PERMISSION_KEYS.includes(p))
         : []
+    const tag: string | null = typeof body.tag === 'string' && body.tag.trim() ? body.tag.trim() : null
 
     const sameName = await Db.orbatRoles.find({ name }).toArray()
-    const conflict = sameName.find(r => categoriesOverlap(r.categories, categories))
-    if (conflict) return NextResponse.json({ error: 'A Role with that name already exists in an overlapping category' }, { status: 409 })
+    const conflict = sameName.find(r => rolesConflict(r, { categories, tag }))
+    if (conflict) return NextResponse.json({ error: 'A Role with that name, category scope, and tag already exists' }, { status: 409 })
 
     const performedByName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
 
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
         categories,
         discordRoleIds,
         permissions,
+        tag,
         parentRoleId: null,
         parentGroupId: null,
         createdAt: new Date(),

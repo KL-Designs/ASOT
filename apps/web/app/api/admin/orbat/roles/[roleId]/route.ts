@@ -4,7 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { PERMISSION_KEYS } from '@/lib/permissions-catalog'
-import { categoriesOverlap } from '@/lib/orbat/categoriesOverlap'
+import { rolesConflict } from '@/lib/orbat/categoriesOverlap'
 import { wouldCreateCycle } from '@/lib/orbat/chainOfCommand'
 
 
@@ -21,7 +21,7 @@ async function auth() {
 
 
 // ── PATCH /api/admin/orbat/roles/[roleId] ──────────────────────────────────
-// Body: { name?, categories?, discordRoleIds?, permissions? }
+// Body: { name?, categories?, discordRoleIds?, permissions?, tag? }
 // Renaming cascades to every OrbatPosition.role denormalized copy.
 
 export async function PATCH(
@@ -43,16 +43,21 @@ export async function PATCH(
 
     const proposedName: string = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : role.name
     const proposedCategories: string[] = Array.isArray(body.categories) ? body.categories : role.categories
+    const proposedTag: string | null = 'tag' in body
+        ? (typeof body.tag === 'string' && body.tag.trim() ? body.tag.trim() : null)
+        : role.tag
     const nameChanging = proposedName !== role.name
     const categoriesChanging = Array.isArray(body.categories)
+    const tagChanging = 'tag' in body && proposedTag !== role.tag
 
-    if (nameChanging || categoriesChanging) {
+    if (nameChanging || categoriesChanging || tagChanging) {
         const sameName = await Db.orbatRoles.find({ name: proposedName, _id: { $ne: objectId } }).toArray()
-        const conflict = sameName.find(r => categoriesOverlap(r.categories, proposedCategories))
-        if (conflict) return NextResponse.json({ error: 'A Role with that name already exists in an overlapping category' }, { status: 409 })
+        const conflict = sameName.find(r => rolesConflict(r, { categories: proposedCategories, tag: proposedTag }))
+        if (conflict) return NextResponse.json({ error: 'A Role with that name, category scope, and tag already exists' }, { status: 409 })
     }
     if (nameChanging) updates.name = proposedName
     if (categoriesChanging) updates.categories = body.categories
+    if (tagChanging) updates.tag = proposedTag
     if (Array.isArray(body.discordRoleIds)) updates.discordRoleIds = body.discordRoleIds
     if (Array.isArray(body.permissions)) {
         updates.permissions = body.permissions.filter((p: unknown) => typeof p === 'string' && PERMISSION_KEYS.includes(p))

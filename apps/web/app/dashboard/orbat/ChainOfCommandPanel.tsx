@@ -74,6 +74,11 @@ function RoleNode({ data }: NodeProps<RoleFlowNode>) {
             <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.9)', fontWeight: 600, marginBottom: 6, wordBreak: 'break-word' }}>
                 {role.name}
             </div>
+            {role.tag && (
+                <span style={{ display: 'inline-block', fontSize: '0.55rem', fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'rgba(219,0,29,0.14)', color: 'rgba(219,0,29,0.85)', marginBottom: 4 }}>
+                    {role.tag}
+                </span>
+            )}
             {data.duplicateNameLabel && (
                 <div style={{ fontSize: '0.55rem', color: 'rgba(100,180,255,0.85)', marginBottom: 6 }}>
                     {data.duplicateNameLabel}
