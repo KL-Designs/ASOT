@@ -13,6 +13,12 @@ interface TsGroup { id: number; name: string }
 
 const DEPT_LABELS: Record<string, string> = Object.fromEntries(DEPT_CODES.map(c => [c, c.toUpperCase()]))
 
+// Compact badge text for the left-list row — the full position label (e.g.
+// "Assistant Team Leader") is often identical to the role's own name, so
+// showing it again as a badge just crowds out the name; the full label is
+// still available as a tooltip and in the "Linked Position" dropdown.
+const SLOT_BADGE_LABEL: Record<LeadershipSlot, string> = { leader: 'LEAD', '2ic': '2IC', '3ic': '3IC' }
+
 const inputSx = {
     background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
     color: 'rgba(237,237,237,0.85)', fontSize: '0.75rem',
@@ -289,17 +295,20 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
                                             border: selected ? '1px solid rgba(219,0,29,0.4)' : '1px solid transparent',
                                             '&:hover': { background: selected ? 'rgba(219,0,29,0.12)' : 'rgba(255,255,255,0.04)' },
                                         }}>
-                                            <span style={{ fontSize: '0.76rem', color: 'rgba(237,237,237,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            <span style={{ flex: '1 1 auto', minWidth: 0, fontSize: '0.76rem', color: 'rgba(237,237,237,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 {role.name}
                                             </span>
                                             {role.isBase && (
-                                                <span style={{ flexShrink: 0, fontSize: '0.52rem', fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'rgba(100,180,255,0.12)', color: 'rgba(100,180,255,0.85)' }}>
+                                                <span style={{ flexShrink: 0, fontSize: '0.52rem', fontWeight: 700, padding: '1px 5px', borderRadius: 999, background: 'rgba(100,180,255,0.12)', color: 'rgba(100,180,255,0.85)' }}>
                                                     BASE
                                                 </span>
                                             )}
                                             {role.linkedSlot && (
-                                                <span style={{ flexShrink: 0, fontSize: '0.52rem', fontWeight: 700, padding: '1px 6px', borderRadius: 999, background: 'rgba(251,191,36,0.12)', color: 'rgba(251,191,36,0.85)' }}>
-                                                    {DEPT_LEADERSHIP_POSITIONS[role.department]?.[LEADERSHIP_SLOT_INDEX[role.linkedSlot]] ?? role.linkedSlot}
+                                                <span
+                                                    title={DEPT_LEADERSHIP_POSITIONS[role.department]?.[LEADERSHIP_SLOT_INDEX[role.linkedSlot]] ?? role.linkedSlot}
+                                                    style={{ flexShrink: 0, fontSize: '0.52rem', fontWeight: 700, padding: '1px 5px', borderRadius: 999, background: 'rgba(251,191,36,0.12)', color: 'rgba(251,191,36,0.85)' }}
+                                                >
+                                                    {SLOT_BADGE_LABEL[role.linkedSlot]}
                                                 </span>
                                             )}
                                         </Box>
