@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logs'
 import { createNotification } from '@/lib/notifications'
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
     }
 
     // J2-specific permission gates
-    if (isJ2Unavailability && !client.hasRoles(me, PERMISSIONS.departmentLeads.j2)) {
+    if (isJ2Unavailability && !(await hasPermission(me, 'departmentLeads.j2'))) {
         return NextResponse.json({ error: 'Forbidden — J2 Lead role required' }, { status: 403 })
     }
     if (isMissionCheckRequest && !client.hasRoles(me, PERMISSIONS.departments.j2)) {

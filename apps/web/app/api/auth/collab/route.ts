@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
         const authorized = doc.startsWith('sop-')
             ? await hasPermission(me, 'pages.member')
             : doc.startsWith('ws-')
-                ? client.hasRoles(me, PERMISSIONS.departments.j2) || client.hasRoles(me, PERMISSIONS.departmentLeads.j2) || client.hasRoles(me, PERMISSIONS.pages.admin)
+                ? client.hasRoles(me, PERMISSIONS.departments.j2) || (await hasPermission(me, 'departmentLeads.j2')) || client.hasRoles(me, PERMISSIONS.pages.admin)
                 : doc.startsWith('cfb-')
                     ? client.hasRoles(me, PERMISSIONS.training.manage)
                     : await hasPermission(me, 'auth.collab')

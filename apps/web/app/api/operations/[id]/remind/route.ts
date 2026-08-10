@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { createNotification } from '@/lib/notifications'
 
 /** POST /api/operations/[id]/remind — notify All Staff who haven't yet acknowledged orders */
@@ -13,7 +14,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     try {
         me = await client.fetchMe()
         if (!client.hasRoles(me, PERMISSIONS.operations.write) &&
-            !client.hasRoles(me, PERMISSIONS.departmentLeads.j2)) {
+            !(await hasPermission(me, 'departmentLeads.j2'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
     } catch {

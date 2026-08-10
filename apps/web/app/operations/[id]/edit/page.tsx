@@ -239,7 +239,7 @@ export default function Page() {
             .then(r => r.json())
             .then(json => { if (!json.error) setIsHQ(json.access) })
 
-        fetch(`/api/me/roles?has=${PERMISSIONS.departmentLeads.j2.join(',')}`)
+        fetch('/api/me/permission?key=departmentLeads.j2')
             .then(r => r.json())
             .then(json => { if (!json.error) setIsJ2Lead(json.access) })
 
