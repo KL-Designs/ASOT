@@ -6,6 +6,7 @@ import Db from '@/lib/mongo'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
 import { syncOrbatDiscordRoles } from '@/lib/orbat/discord'
 import { ensureReservistRole } from '@/lib/orbat/reservist-role'
+import { swapRoleDiscordRoles, swapRoleTsGroups } from '@/lib/orbat/role-sync'
 
 async function auth() {
     const me = await client.fetchMe().catch(() => null)
@@ -56,9 +57,11 @@ export async function POST(request: NextRequest) {
             positionOrder,
         }
         await Db.orbatPositions.insertOne(newPosition)
-        syncOrbatDiscordRoles(userId, 'add', category, '').catch(err =>
-            console.error('[orbat/reservists] Discord role add failed:', err),
-        )
+        Promise.allSettled([
+            syncOrbatDiscordRoles(userId, 'add', category, ''),
+            swapRoleDiscordRoles(userId, null, reservistRoleId),
+            swapRoleTsGroups(userId, null, reservistRoleId),
+        ]).catch(err => console.error('[orbat/reservists] Discord/TeamSpeak role sync failed:', err))
 
         return NextResponse.json({ position: JSON.parse(JSON.stringify(newPosition)) })
     }
@@ -102,9 +105,11 @@ export async function DELETE(request: NextRequest) {
 
     await Db.orbatPositions.deleteOne({ _id: objectId })
     if (pos.userId) {
-        syncOrbatDiscordRoles(pos.userId, 'remove', pos.category, '').catch(err =>
-            console.error('[orbat/reservists] Discord role remove failed:', err),
-        )
+        Promise.allSettled([
+            syncOrbatDiscordRoles(pos.userId, 'remove', pos.category, ''),
+            swapRoleDiscordRoles(pos.userId, pos.roleId, undefined),
+            swapRoleTsGroups(pos.userId, pos.roleId, undefined),
+        ]).catch(err => console.error('[orbat/reservists] Discord/TeamSpeak role sync failed:', err))
     }
     return NextResponse.json({ success: true })
 }

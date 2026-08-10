@@ -370,6 +370,9 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             if (data.reservistPosition) {
                 applyAppend(data.reservistPosition, lookupUser(data.reservistPosition.userId))
             }
+            if (data.vacatedPositionId) {
+                applyPatch(data.vacatedPositionId, { userId: null, user: null })
+            }
         }
         setSavingId(null)
     }

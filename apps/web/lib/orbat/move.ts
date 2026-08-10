@@ -1,35 +1,8 @@
 import Db from '../mongo'
 import { RESERVIST_CATEGORY_IDS } from './constants'
 import { syncOrbatDiscordRoles } from './discord'
-import { addGuildRole, removeGuildRole } from '../discord/bot'
-import { applyTsServerGroups } from '../teamspeak/groups'
 import { ensureReservistRole } from './reservist-role'
-
-async function swapRoleDiscordRoles(userId: string, fromRoleId: OrbatPosition['roleId'], toRoleId: OrbatPosition['roleId'] | undefined) {
-    const [fromRole, toRole] = await Promise.all([
-        fromRoleId ? Db.orbatRoles.findOne({ _id: fromRoleId }) : Promise.resolve(null),
-        toRoleId ? Db.orbatRoles.findOne({ _id: toRoleId }) : Promise.resolve(null),
-    ])
-    const revokeIds = fromRole?.discordRoleIds ?? []
-    const grantIds = toRole?.discordRoleIds ?? []
-    await Promise.allSettled([
-        ...revokeIds.map(id => removeGuildRole(userId, id)),
-        ...grantIds.map(id => addGuildRole(userId, id)),
-    ])
-}
-
-async function swapRoleTsGroups(userId: string, fromRoleId: OrbatPosition['roleId'], toRoleId: OrbatPosition['roleId'] | undefined) {
-    const [fromRole, toRole] = await Promise.all([
-        fromRoleId ? Db.orbatRoles.findOne({ _id: fromRoleId }) : Promise.resolve(null),
-        toRoleId ? Db.orbatRoles.findOne({ _id: toRoleId }) : Promise.resolve(null),
-    ])
-    const revokeIds = fromRole?.tsGroupIds ?? []
-    const grantIds = toRole?.tsGroupIds ?? []
-    await Promise.allSettled([
-        applyTsServerGroups(userId, 'remove', revokeIds),
-        applyTsServerGroups(userId, 'add', grantIds),
-    ])
-}
+import { swapRoleDiscordRoles, swapRoleTsGroups } from './role-sync'
 
 /**
  * Applies an ORBAT position swap when a move request is approved.

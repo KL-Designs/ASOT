@@ -6,9 +6,9 @@ import Db from '@/lib/mongo'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
 import { logAction } from '@/lib/logs'
 import { syncOrbatDiscordRoles } from '@/lib/orbat/discord'
-import { addGuildRole, removeGuildRole } from '@/lib/discord/bot'
-import { applyTsServerGroups } from '@/lib/teamspeak/groups'
+import { swapRoleDiscordRoles, swapRoleTsGroups } from '@/lib/orbat/role-sync'
 import { ensureReservistRole } from '@/lib/orbat/reservist-role'
+import { applyOrbatMove } from '@/lib/orbat/move'
 
 
 async function authStructure() {
@@ -61,6 +61,28 @@ export async function PATCH(
             // Conflict check — prevent dual assignment
             const existing = await Db.orbatPositions.findOne({ userId, _id: { $ne: objectId } })
             if (existing) {
+                if (RESERVIST_CATEGORY_IDS.includes(existing.category)) {
+                    // Moving a reservist straight into an active position is a normal
+                    // transition, not a dual-assignment conflict — applyOrbatMove()
+                    // already handles vacating the reservist slot and swapping both
+                    // section-level and Role-level Discord/TeamSpeak grants for
+                    // exactly this case (it's the same path ticket-approved moves use).
+                    await applyOrbatMove({ fromPos: existing, toPos: position, toIsReservist: false, targetUserId: userId })
+
+                    const movedUser = await Db.users.findOne({ $or: [{ id: userId }, { _id: userId }] })
+                    const movedName = movedUser
+                        ? (movedUser.guild?.nickname || movedUser.guild?.displayName || movedUser.globalName || movedUser.username || userId)
+                        : userId
+                    logAction({
+                        action: 'orbat.assign',
+                        category: 'orbat',
+                        performedBy: me.id,
+                        performedByName,
+                        target: `${movedName} assigned to ${position.sectionTitle} (${position.role})`,
+                        details: { positionId, category: position.category, sectionTitle: position.sectionTitle, role: position.role },
+                    })
+                    return NextResponse.json({ success: true, reservistPosition: null, vacatedPositionId: existing._id.toString() })
+                }
                 return NextResponse.json({ error: 'User already assigned', conflict: existing }, { status: 409 })
             }
         }
@@ -89,17 +111,22 @@ export async function PATCH(
         await Db.orbatPositions.updateOne({ _id: objectId }, { $set: { userId: userId ?? null } })
         if (reservistPosition) await Db.orbatPositions.insertOne(reservistPosition)
 
-        // Sync Discord roles for section + platoon
+        // Sync Discord/TeamSpeak roles for section + platoon, and Role-level grants
         if (isUnassign && position.userId) {
             const evictedId = position.userId
+            const toRoleId = reservistPosition ? reservistPosition.roleId : undefined
             Promise.allSettled([
                 syncOrbatDiscordRoles(evictedId, 'remove', position.category, position.sectionTitle),
                 reservistPosition ? syncOrbatDiscordRoles(evictedId, 'add', 'activeReservist', '') : Promise.resolve(),
-            ]).catch(err => console.error('[orbat] Discord role sync failed:', err))
+                swapRoleDiscordRoles(evictedId, position.roleId, toRoleId),
+                swapRoleTsGroups(evictedId, position.roleId, toRoleId),
+            ]).catch(err => console.error('[orbat] Discord/TeamSpeak role sync failed:', err))
         } else if (!isUnassign && userId) {
-            syncOrbatDiscordRoles(userId, 'add', position.category, position.sectionTitle).catch(err =>
-                console.error('[orbat] Discord role add failed:', err),
-            )
+            Promise.allSettled([
+                syncOrbatDiscordRoles(userId, 'add', position.category, position.sectionTitle),
+                swapRoleDiscordRoles(userId, null, position.roleId),
+                swapRoleTsGroups(userId, null, position.roleId),
+            ]).catch(err => console.error('[orbat] Discord/TeamSpeak role sync failed:', err))
         }
 
         // Resolve display name of the member being assigned/unassigned
@@ -162,19 +189,12 @@ export async function PATCH(
     await Db.orbatPositions.updateOne({ _id: objectId }, { $set: updates })
 
     // If the position is currently occupied and its Role changed, swap the
-    // occupant's Role-level Discord roles (stacks on top of the unaffected
-    // section/category-level sync — see lib/orbat/discord.ts).
+    // occupant's Role-level Discord/TeamSpeak grants (stacks on top of the
+    // unaffected section/category-level sync — see lib/orbat/discord.ts).
     if ('roleId' in body && position.userId) {
-        const oldRoleDoc = position.roleId ? await Db.orbatRoles.findOne({ _id: position.roleId }) : null
-        const revokeIds = oldRoleDoc?.discordRoleIds ?? []
-        const grantIds = newRoleDoc?.discordRoleIds ?? []
-        const revokeTsGroupIds = oldRoleDoc?.tsGroupIds ?? []
-        const grantTsGroupIds = newRoleDoc?.tsGroupIds ?? []
         Promise.allSettled([
-            ...revokeIds.map(id => removeGuildRole(position.userId!, id)),
-            ...grantIds.map(id => addGuildRole(position.userId!, id)),
-            applyTsServerGroups(position.userId!, 'remove', revokeTsGroupIds),
-            applyTsServerGroups(position.userId!, 'add', grantTsGroupIds),
+            swapRoleDiscordRoles(position.userId, position.roleId, updates.roleId),
+            swapRoleTsGroups(position.userId, position.roleId, updates.roleId),
         ]).catch(err => console.error('[orbat] Role-level Discord/TeamSpeak sync failed:', err))
     }
 
