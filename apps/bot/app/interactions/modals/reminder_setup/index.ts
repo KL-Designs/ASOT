@@ -1,6 +1,8 @@
 import Discord from 'discord.js'
+import Db from 'lib/mongo.ts'
 import { getSession, updateSession, ReminderSession } from 'lib/reminderSessions.ts'
-import { buildButtonRow } from 'lib/reminderComponents.ts'
+import { buildReminderComponents } from 'lib/reminderComponents.ts'
+import { fromZoned, isRealDate } from 'lib/reminderDate.ts'
 
 
 export default async function (interaction: Discord.ModalSubmitInteraction, args: string[]) {
@@ -10,58 +12,67 @@ export default async function (interaction: Discord.ModalSubmitInteraction, args
     const session = getSession(sessionId)
     if (!session) return interaction.reply({ content: 'This reminder setup has expired. Please run the command again.', ephemeral: true })
 
-    if (action === 'chaseup') {
-        const timeInput = interaction.fields.getTextInputValue('chaseup_time').trim()
-        const dateInput = interaction.fields.getTextInputValue('chaseup_date').trim()
+    if (!interaction.isFromMessage()) return interaction.reply({ content: 'This interaction is not attached to a message.', ephemeral: true })
 
-        if (!/^\d{2}:\d{2}$/.test(timeInput)) {
-            return interaction.reply({ content: 'Invalid time format. Use HH:MM.', ephemeral: true })
-        }
-        const [ch, cm] = timeInput.split(':').map(Number)
-        if (ch < 0 || ch > 23 || cm < 0 || cm > 59) {
-            return interaction.reply({ content: 'Invalid time. Hours must be 00-23, minutes 00-59.', ephemeral: true })
-        }
+    if (action === 'timecustom') {
+        const dateInput = interaction.fields.getTextInputValue('date').trim()
+        const timeInput = interaction.fields.getTextInputValue('time').trim()
 
-        if (dateInput && !/^\d{2}\/\d{2}\/\d{4}$/.test(dateInput)) {
-            return interaction.reply({ content: 'Invalid date format. Use DD/MM/YYYY.', ephemeral: true })
-        }
+        if (!isRealDate(dateInput)) return interaction.reply({ content: 'Invalid date. Use DD/MM/YYYY and check it\'s a real date.', ephemeral: true })
 
-        // Resolve reminder date (same logic as confirm handler)
-        const reminderDateStr = session.date || (() => {
-            const t = new Date()
-            return `${String(t.getDate()).padStart(2, '0')}/${String(t.getMonth() + 1).padStart(2, '0')}/${t.getFullYear()}`
-        })()
+        const user = await Db.users.findOne({ id: interaction.user.id })
+        const timezone = user?.timezone
+        if (!timezone) return interaction.reply({ content: 'You haven\'t set a timezone yet. Run `/reminder timezone` to set one, then try again.', ephemeral: true })
 
-        const chaseUpDateStr = dateInput || reminderDateStr
+        const expected = fromZoned(dateInput, timeInput, timezone)
+        if (expected === null) return interaction.reply({ content: 'Invalid time. Use HH:MM, 24-hour.', ephemeral: true })
+        if (expected < Date.now()) return interaction.reply({ content: 'That time is in the past.', ephemeral: true })
 
-        // Build both datetimes and validate order
-        const [rd, rm, ry] = reminderDateStr.split('/').map(Number)
-        const [rh, rmin] = session.time.split(':').map(Number)
-        const reminderDatetime = new Date(ry, rm - 1, rd, rh, rmin, 0, 0)
+        updateSession(sessionId, { expected })
+        const updated: ReminderSession = { ...session, expected }
+        return interaction.update({ components: buildReminderComponents(sessionId, updated) })
+    }
 
-        const [cd, cmo, cy] = chaseUpDateStr.split('/').map(Number)
-        const chaseUpDatetime = new Date(cy, cmo - 1, cd, ch, cm, 0, 0)
+    if (action === 'repeatcustom') {
+        const amountInput = interaction.fields.getTextInputValue('amount').trim()
+        const unitInput = interaction.fields.getTextInputValue('unit').trim().toLowerCase()
 
-        if (chaseUpDatetime <= reminderDatetime) {
-            return interaction.reply({ content: 'Chase up time must be after the reminder time.', ephemeral: true })
+        const amount = Number(amountInput)
+        const unitMs: Record<string, number> = { m: 60_000, h: 60 * 60_000, d: 24 * 60 * 60_000, w: 7 * 24 * 60 * 60_000 }
+        const unitLabel: Record<string, string> = { m: 'minutes', h: 'hours', d: 'days', w: 'weeks' }
+
+        if (isNaN(amount) || amount <= 0 || !(unitInput in unitMs)) {
+            return interaction.reply({ content: 'Invalid repeat interval. Amount must be a positive number, unit must be m/h/d/w.', ephemeral: true })
         }
 
-        updateSession(sessionId, { chaseUpTime: timeInput, chaseUpDate: chaseUpDateStr })
-        const updatedSession = { ...session, chaseUpTime: timeInput, chaseUpDate: chaseUpDateStr }
+        const patch = { repeatMs: amount * unitMs[unitInput], repeatLabel: `Every ${amount} ${unitLabel[unitInput]}` }
+        updateSession(sessionId, patch)
+        const updated: ReminderSession = { ...session, ...patch }
+        return interaction.update({ components: buildReminderComponents(sessionId, updated) })
+    }
 
-        const buttonRow = buildButtonRow(sessionId, updatedSession)
+    if (action === 'chaseupcustom') {
+        const dateInput = interaction.fields.getTextInputValue('date').trim()
+        const timeInput = interaction.fields.getTextInputValue('time').trim()
 
-        const chaseUpTs = Math.floor(chaseUpDatetime.getTime() / 1000)
+        if (dateInput && !isRealDate(dateInput)) return interaction.reply({ content: 'Invalid date. Use DD/MM/YYYY.', ephemeral: true })
+        if (session.expected === null) return interaction.reply({ content: 'Pick a reminder time before setting a chase-up.', ephemeral: true })
 
-        if (!interaction.isFromMessage()) return interaction.reply({ content: 'Chase up time set.', ephemeral: true })
+        const user = await Db.users.findOne({ id: interaction.user.id })
+        const timezone = user?.timezone
+        if (!timezone) return interaction.reply({ content: 'You haven\'t set a timezone yet. Run `/reminder timezone` to set one, then try again.', ephemeral: true })
 
-        const existingComponents = interaction.message.components
-        const newComponents = [...existingComponents.slice(0, -1), buttonRow]
-        const baseContent = interaction.message.content.split('\n⏰')[0]
+        const reminderDate = new Date(session.expected)
+        const fallbackDateStr = `${String(reminderDate.getDate()).padStart(2, '0')}/${String(reminderDate.getMonth() + 1).padStart(2, '0')}/${reminderDate.getFullYear()}`
+        const chaseUpDateStr = dateInput || fallbackDateStr
 
-        return interaction.update({
-            content: `${baseContent}\n⏰ **Chase Up:** <t:${chaseUpTs}:F>`,
-            components: newComponents
-        })
+        const chaseUpTime = fromZoned(chaseUpDateStr, timeInput, timezone)
+        if (chaseUpTime === null) return interaction.reply({ content: 'Invalid time. Use HH:MM.', ephemeral: true })
+        if (chaseUpTime <= session.expected) return interaction.reply({ content: 'Chase up time must be after the reminder time.', ephemeral: true })
+
+        const patch = { chaseUpOffset: chaseUpTime - session.expected }
+        updateSession(sessionId, patch)
+        const updated: ReminderSession = { ...session, ...patch }
+        return interaction.update({ components: buildReminderComponents(sessionId, updated) })
     }
 }
