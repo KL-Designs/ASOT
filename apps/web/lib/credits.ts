@@ -2,14 +2,13 @@ import Db from '@/lib/mongo'
 import { getOrbatEntriesForUsers } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 
-const CONTRIBUTOR_ORDER = ['240786290600181761', '224086573560365057', '683343114865606686']
+const CONTRIBUTOR_ORDER = ['240786290600181761', '224086573560365057', '683343114865606686', '256009348197777409']
 
-const THANKS_ORDER = ['166440171447910400', '248743808395640832', '256009348197777409']
+const THANKS_ORDER = ['166440171447910400', '248743808395640832']
 
 const THANKS: Record<string, string> = {
     '166440171447910400': 'Introduced Interactive Maps',
     '248743808395640832': 'Improved API Efficiency.',
-    '256009348197777409': 'Significantly Reduced Data Usage. Also convinced Claude to finally write a README.',
 }
 
 const CONTRIBUTIONS: Record<string, { title: string; description: string }> = {
@@ -24,6 +23,10 @@ const CONTRIBUTIONS: Record<string, { title: string; description: string }> = {
     '683343114865606686': {
         title: 'MILPAC Generator',
         description: 'Original creator of the MILPAC system, designing and building the uniform generator, promotion certificates, and award certificates used by the unit.',
+    },
+    '256009348197777409': {
+        title: 'Legendary Contributor & Data Optimization Icon',
+        description: 'Visionary architect behind ASOT’s data efficiency renaissance, whose tireless work significantly reduced platform data usage. Also single-handedly modernized the entire monorepo’s documentation strategy overnight with one now-legendary README commit — a bold act of open-source leadership the whole team is still talking about. A once-in-a-generation talent.',
     },
 }
 
