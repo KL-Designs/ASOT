@@ -1,5 +1,6 @@
 import Discord from 'discord.js'
 import Db from 'lib/mongo.ts'
+import { toZonedTime } from 'date-fns-tz'
 import { getSession, updateSession, ReminderSession } from 'lib/reminderSessions.ts'
 import { buildReminderComponents } from 'lib/reminderComponents.ts'
 import { fromZoned, isRealDate } from 'lib/reminderDate.ts'
@@ -62,7 +63,7 @@ export default async function (interaction: Discord.ModalSubmitInteraction, args
         const timezone = user?.timezone
         if (!timezone) return interaction.reply({ content: 'You haven\'t set a timezone yet. Run `/reminder timezone` to set one, then try again.', ephemeral: true })
 
-        const reminderDate = new Date(session.expected)
+        const reminderDate = toZonedTime(new Date(session.expected), timezone)
         const fallbackDateStr = `${String(reminderDate.getDate()).padStart(2, '0')}/${String(reminderDate.getMonth() + 1).padStart(2, '0')}/${reminderDate.getFullYear()}`
         const chaseUpDateStr = dateInput || fallbackDateStr
 
