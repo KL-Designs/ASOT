@@ -693,6 +693,55 @@ const PERMISSIONS = {
         lockJ7: ['J7 - Department Leader', 'J7 - Team Leader', 'J7 - Assistant Team Leader'],
     },
 
+    // ── Department quick links ────────────────────────────────────────────────
+    //
+    // Per-department managed quick links (the favicon tile rail on each J1-J7
+    // landing view, managed from that department's Settings view).
+    //
+    // Every key here is new-system-only: the arrays are intentionally empty and
+    // the real gate is always `await hasPermission(user, 'deptLinks.x')` /
+    // `hasPermissions(user, [...])` (`lib/orbat/hasPermission.ts`,
+    // `lib/orbat/hasPermissions.ts`). They exist in this file solely so
+    // `lib/permissions-catalog.ts`'s flatten picks them up into the role
+    // manager's permission picker — there is no Discord-role fallback.
+    //
+    // Restriction is a per-department tier, not per-link: a link is either
+    // public to the department or restricted to viewRestrictedJX holders.
+    // Write access is `deptLinks.manageJX` OR `departmentLeads.jX`, so leads
+    // work day one and the right can be delegated through the role manager.
+
+    deptLinks: {
+        /** See J1's restricted quick links. New-system-only key. */
+        viewRestrictedJ1: [],
+        /** See J2's restricted quick links. New-system-only key. */
+        viewRestrictedJ2: [],
+        /** See J3's restricted quick links. New-system-only key. */
+        viewRestrictedJ3: [],
+        /** See J4's restricted quick links. New-system-only key. */
+        viewRestrictedJ4: [],
+        /** See J5's restricted quick links. New-system-only key. */
+        viewRestrictedJ5: [],
+        /** See J6's restricted quick links. New-system-only key. */
+        viewRestrictedJ6: [],
+        /** See J7's restricted quick links. New-system-only key. */
+        viewRestrictedJ7: [],
+
+        /** Add, edit, delete, reorder and restrict J1's quick links. New-system-only key. */
+        manageJ1: [],
+        /** Add, edit, delete, reorder and restrict J2's quick links. New-system-only key. */
+        manageJ2: [],
+        /** Add, edit, delete, reorder and restrict J3's quick links. New-system-only key. */
+        manageJ3: [],
+        /** Add, edit, delete, reorder and restrict J4's quick links. New-system-only key. */
+        manageJ4: [],
+        /** Add, edit, delete, reorder and restrict J5's quick links. New-system-only key. */
+        manageJ5: [],
+        /** Add, edit, delete, reorder and restrict J6's quick links. New-system-only key. */
+        manageJ6: [],
+        /** Add, edit, delete, reorder and restrict J7's quick links. New-system-only key. */
+        manageJ7: [],
+    },
+
     // ── Quiz / Training ───────────────────────────────────────────────────────
 
     quiz: {
