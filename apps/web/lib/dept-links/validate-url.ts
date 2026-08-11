@@ -1,12 +1,12 @@
 import net from 'node:net'
 import { isPublicIpAddress } from '@/lib/safe-fetch'
 
-// Pure, no IO. Storage-side validation only — any port may be stored (a link
+// Pure, no IO. Storage-side validation only; any port may be stored (a link
 // to an internal-only service on a nonstandard port is a legitimate use
 // case). The favicon-fetch pipeline (lib/dept-links/favicon.ts, via
 // lib/safe-fetch.ts's assertPublicHttpUrl) is the stricter, fetch-time gate
 // that additionally refuses default/80/443-only and .local/.internal/etc
-// hostnames — deliberately asymmetric from this validator.
+// hostnames, deliberately asymmetric from this validator.
 
 export const MAX_LINK_URL_LENGTH = 2048
 

@@ -703,7 +703,7 @@ const PERMISSIONS = {
     // `hasPermissions(user, [...])` (`lib/orbat/hasPermission.ts`,
     // `lib/orbat/hasPermissions.ts`). They exist in this file solely so
     // `lib/permissions-catalog.ts`'s flatten picks them up into the role
-    // manager's permission picker — there is no Discord-role fallback.
+    // manager's permission picker; there is no Discord-role fallback.
     //
     // Restriction is a per-department tier, not per-link: a link is either
     // public to the department or restricted to viewRestrictedJX holders.

@@ -11,7 +11,7 @@ declare global {
     // fetchedTitle, so clearing it restores the site's own title.
     interface DepartmentLink {
         _id: ObjectId
-        department: string                  // 'j1'..'j7' — see lib/discord/dept-codes.ts DEPT_CODES
+        department: string                  // 'j1'..'j7', see lib/discord/dept-codes.ts DEPT_CODES
         url: string                         // normalised absolute http(s) href
         fetchedTitle: string                // page <title>, else the URL host
         nameOverride: string | null         // display-only; null = show fetchedTitle
@@ -30,7 +30,7 @@ declare global {
     }
 
     // Wire shape returned by GET /api/admin/dept-links. faviconData is never
-    // included — the bytes are served separately from the favicon route.
+    // included; the bytes are served separately from the favicon route.
     interface DepartmentLinkListItem {
         _id: string
         department: string

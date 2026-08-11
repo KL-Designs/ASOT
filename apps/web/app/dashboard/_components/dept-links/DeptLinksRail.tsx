@@ -11,7 +11,7 @@ interface Props {
     onManage?: () => void
 }
 
-// Favicon tile rail — the first child of every panel's view === 'dept'
+// Favicon tile rail, the first child of every panel's view === 'dept'
 // fragment. onManage is a callback (setView('settings')), never a route, so
 // this sidesteps typedRoutes entirely (D2). Members with no visible links
 // render nothing; managers always see the ghost "+ ADD" tile plus, when

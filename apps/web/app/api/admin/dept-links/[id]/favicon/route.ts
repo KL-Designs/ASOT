@@ -66,7 +66,7 @@ export async function GET(
 
 
 // ── POST /api/admin/dept-links/[id]/favicon ──────────────────────────────────
-// Manual refresh — re-runs the title+favicon pipeline only. Never touches
+// Manual refresh, re-runs the title+favicon pipeline only. Never touches
 // url, nameOverride, restricted or order. Load-then-404-then-403 (D9).
 
 export async function POST(

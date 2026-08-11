@@ -14,7 +14,7 @@ interface Props {
 
 // Modelled on BoardCardModal.tsx. The client half of the FR-03 contract:
 // editing only submits the fields that actually changed, so a nameOverride
-// edit never sends url and vice versa — the server enforces the other half
+// edit never sends url and vice versa; the server enforces the other half
 // of that isolation independently.
 export default function DeptLinkModal({ open, onClose, department, link, onSaved }: Props) {
     const [urlInput, setUrlInput] = useState('')

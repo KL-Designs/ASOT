@@ -2,7 +2,7 @@ import { safeFetch } from '@/lib/safe-fetch'
 
 // Fetches a department quick link's page title and favicon in one bounded
 // pass. Invoked on link create, on URL change, and on manual refresh
-// (app/api/admin/dept-links routes). Never throws — a failure at any stage
+// (app/api/admin/dept-links routes). Never throws; a failure at any stage
 // degrades to a host-derived title and faviconStatus: 'failed' rather than
 // blocking the write that triggered it (NFR-08).
 
@@ -17,7 +17,7 @@ export interface SiteMeta {
 // Overall deadline across every hop this pipeline makes (page fetch, icon
 // fetch, /favicon.ico fallback, and any redirects each of those follows).
 // Three hops x 5s x 4 redirect attempts would be ~60s, which contradicts
-// FR-19/NFR-07 — so every safeFetch call below is capped to whatever's left
+// FR-19/NFR-07, so every safeFetch call below is capped to whatever's left
 // of this budget, not a flat 5s each.
 const OVERALL_DEADLINE_MS = 8000
 const PER_HOP_CAP_MS = 5000
@@ -25,7 +25,7 @@ const MIN_STEP_BUDGET_MS = 500
 const MAX_TITLE_LENGTH = 200
 const ICON_MAX_BYTES = 200_000
 
-// The only six shapes faviconContentType is ever allowed to hold — see D4 in
+// The only six shapes faviconContentType is ever allowed to hold, see D4 in
 // the design doc. image/vnd.microsoft.icon is accepted on the wire but
 // normalised to image/x-icon before storage.
 const ACCEPTED_CONTENT_TYPES = new Set([
@@ -51,7 +51,7 @@ function extractTitle(html: string, fallbackHost: string): string {
 
 // Matches every <link> tag, keeps the ones whose rel token list includes
 // "icon" (covers rel="icon" and rel="shortcut icon"; correctly excludes
-// apple-touch-icon), and returns the first href found — single-quoted,
+// apple-touch-icon), and returns the first href found: single-quoted,
 // double-quoted or bare.
 function extractIconHref(html: string): string | null {
     const linkTags = html.match(/<link\b[^>]*>/gi) ?? []
@@ -87,7 +87,7 @@ function sniffImageContentType(buf: Buffer): string | null {
 
 // Sniff wins; falls back to a whitelisted response Content-Type; otherwise
 // the candidate bytes are rejected outright (never trust attacker-supplied
-// header text past this point — D4).
+// header text past this point, D4).
 function acceptIcon(buf: Buffer, responseContentType: string | null): string | null {
     const sniffed = sniffImageContentType(buf)
     if (sniffed) return sniffed
@@ -133,7 +133,7 @@ export async function fetchSiteMeta(url: string): Promise<SiteMeta> {
             fetchedTitle = extractTitle(html, new URL(finalUrl).host)
             iconHref = extractIconHref(html)
         } catch {
-            // Page fetch failed entirely — fetchedTitle stays host-derived,
+            // Page fetch failed entirely; fetchedTitle stays host-derived,
             // iconHref stays null, and the /favicon.ico fallback below still
             // runs against the original input's origin.
         }
@@ -176,7 +176,7 @@ export async function fetchSiteMeta(url: string): Promise<SiteMeta> {
                 iconContentType = accepted
             }
         } catch {
-            // No favicon reachable — falls through to the failed state below.
+            // No favicon reachable, falls through to the failed state below.
         }
     }
 

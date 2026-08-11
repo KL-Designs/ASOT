@@ -12,7 +12,7 @@ import { fetchSiteMeta } from '@/lib/dept-links/favicon'
 const MAX_LINKS_PER_DEPARTMENT = 24
 const MAX_NAME_OVERRIDE_LENGTH = 80
 
-// Doc minus faviconData, plus hasFavicon — the shape every deptLinks audit
+// Doc minus faviconData, plus hasFavicon: the shape every deptLinks audit
 // log payload uses (D3: the log never carries favicon bytes).
 function withoutFaviconData(doc: DepartmentLink): Record<string, unknown> {
     const copy: Record<string, unknown> = { ...doc }
@@ -25,7 +25,7 @@ function withoutFaviconData(doc: DepartmentLink): Record<string, unknown> {
 // ── GET /api/admin/dept-links?department=jN ─────────────────────────────────
 // Any member of the department may view. Restricted links are excluded in
 // the Mongo filter itself for callers without the restricted-view or manage
-// gate — never filtered client-side or in JS (NFR-01/FR-17).
+// gate; never filtered client-side or in JS (NFR-01/FR-17).
 
 export async function GET(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)

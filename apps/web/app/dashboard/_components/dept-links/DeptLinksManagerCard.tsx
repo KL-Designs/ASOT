@@ -91,7 +91,7 @@ function SortableRow({
     )
 }
 
-// Renders only for managers (D8) — non-managers reach Settings for the
+// Renders only for managers (D8); non-managers reach Settings for the
 // members/leadership cards and see their links on the rail instead.
 export default function DeptLinksManagerCard({ department, canManage }: Props) {
     const [links, setLinks] = useState<DepartmentLinkListItem[]>([])

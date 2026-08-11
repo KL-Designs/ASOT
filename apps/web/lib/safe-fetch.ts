@@ -5,11 +5,11 @@ import type { LookupFunction } from 'node:net'
 import type { Readable } from 'node:stream'
 
 // SSRF-guarded fetcher. The only outbound-fetch path for the dept-links
-// favicon pipeline (lib/dept-links/favicon.ts) — nothing else in this feature
+// favicon pipeline (lib/dept-links/favicon.ts); nothing else in this feature
 // talks to the network directly. Validates at connect time (after DNS
 // resolution, on every socket opened through guardedAgent below), not just at
 // URL-parse time, so a DNS-rebinding second resolution cannot slip past it.
-// Redirects are handled manually (undici's plain Agent never auto-follows —
+// Redirects are handled manually (undici's plain Agent never auto-follows;
 // that's opt-in via an interceptor this module deliberately never adds), with
 // full re-validation on every hop. Body reads are hard-capped by byte count.
 
@@ -27,7 +27,7 @@ export class FetchCapError extends Error {
     }
 }
 
-// ── Private/reserved-range classification — fail closed ─────────────────────
+// ── Private/reserved-range classification, fail closed ──────────────────────
 // Anything that isn't a syntactically valid IPv4/IPv6 literal, or that falls
 // in a private/reserved/loopback/link-local/CGNAT/documentation/multicast
 // range, is NOT public.
@@ -60,7 +60,7 @@ function isPublicIpv4(ip: string): boolean {
 // Returns null for embedded-IPv4 dotted forms or any parse surprise, so the
 // caller (isPublicIpAddress) fails closed on a null.
 function expandIpv6(ip: string): number[] | null {
-    if (ip.includes('.')) return null   // embedded-IPv4 dotted form, e.g. ::ffff:1.2.3.4 — reject via null
+    if (ip.includes('.')) return null   // embedded-IPv4 dotted form, e.g. ::ffff:1.2.3.4, reject via null
 
     let groups: string[]
     if (ip.includes('::')) {
@@ -153,10 +153,10 @@ export function assertPublicHttpUrl(input: string | URL): URL {
     return url
 }
 
-// ── Transport — undici Agent with connect-time guarded lookup (Variant A) ──
+// ── Transport: undici Agent with connect-time guarded lookup (Variant A) ──
 //
 // The lookup runs at connect time, on every socket this Agent opens, after
-// DNS resolution has actually happened — that's what makes it rebinding-proof
+// DNS resolution has actually happened; that's what makes it rebinding-proof
 // (a pre-fetch "resolve once, check, then connect by hostname" pattern would
 // let a second, differently-answered resolution slip straight past the
 // check). Every resolved address must pass, not just the first.
@@ -212,7 +212,7 @@ function normaliseContentType(value: string | string[] | undefined): string | nu
 }
 
 // Accumulates chunks with a running byte total; the moment the total exceeds
-// maxBytes, destroys the stream and throws — never buffers past the cap.
+// maxBytes, destroys the stream and throws; never buffers past the cap.
 async function readCapped(stream: Readable, maxBytes: number): Promise<Buffer> {
     const chunks: Buffer[] = []
     let total = 0

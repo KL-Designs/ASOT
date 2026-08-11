@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb'
 /**
  * Batch variant of hasPermission: answers several permission keys in a single
  * query pass instead of repeating 2-3 uncached queries per key. Identical
- * semantics — the OVERRIDE env list is the only hard bypass, then ORBAT
+ * semantics: the OVERRIDE env list is the only hard bypass, then ORBAT
  * position Roles, then the base department role plus assigned department
  * sub-roles. hasPermission stays the single-key entry point and is unchanged.
  *
@@ -36,7 +36,7 @@ export async function hasPermissions(user: User, keys: string[]): Promise<Record
     }
 
     const deptCodes = user.departments ?? []
-    // Re-materialize through this file's own ObjectId import — the shared
+    // Re-materialize through this file's own ObjectId import; the shared
     // types/user.d.ts (monorepo root) resolves ObjectId from a different
     // physical bson install than apps/web's, so TS treats them as distinct
     // nominal types even though they're runtime-identical (same 24-char hex).

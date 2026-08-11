@@ -14,7 +14,7 @@ function parseId(id: string): ObjectId | null {
     try { return new ObjectId(id) } catch { return null }
 }
 
-// Doc minus faviconData, plus hasFavicon — the shape every deptLinks audit
+// Doc minus faviconData, plus hasFavicon: the shape every deptLinks audit
 // log payload uses (D3: the log never carries favicon bytes).
 function withoutFaviconData(doc: DepartmentLink): Record<string, unknown> {
     const copy: Record<string, unknown> = { ...doc }
@@ -25,10 +25,10 @@ function withoutFaviconData(doc: DepartmentLink): Record<string, unknown> {
 
 
 // ── PATCH /api/admin/dept-links/[id] ─────────────────────────────────────────
-// Body: { url?, nameOverride?, restricted?, order? } — each field mutates
+// Body: { url?, nameOverride?, restricted?, order? }; each field mutates
 // only its own concern (FR-03): a url change refetches title+favicon and
 // never writes nameOverride; a nameOverride change never writes url/
-// fetchedTitle. Load-then-404-then-403 (D9 — intentional, not the no-leak
+// fetchedTitle. Load-then-404-then-403 (D9, intentional, not the no-leak
 // favicon-route shape).
 
 export async function PATCH(
