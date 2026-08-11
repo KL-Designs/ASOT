@@ -44,6 +44,7 @@ const DbInterface = {
     notifications: db.collection('notifications') as MongoCollection<Notification>,
     tasks: db.collection('tasks') as MongoCollection<Task>,
     calendarReminders: db.collection('calendar_reminders') as MongoCollection<CalendarReminder>,
+    reminders: db.collection('reminders') as MongoCollection<Reminder>,
     meetings: db.collection('meetings') as MongoCollection<Meeting>,
     actionLogs: db.collection('action_logs') as MongoCollection<ActionLog>,
     errorLogs: db.collection('error_logs') as MongoCollection<ErrorLog>,

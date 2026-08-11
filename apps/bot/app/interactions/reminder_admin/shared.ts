@@ -7,7 +7,7 @@ export function buildDetailEmbed(reminder: Reminder, creatorName: string, creato
 
     let repeatText = 'One-time'
     if (reminder.repeat > 0) {
-        repeatText = reminder.repeatRaw ?? `every ${reminder.repeat}ms`
+        repeatText = reminder.repeatLabel ?? `every ${reminder.repeat}ms`
     }
 
     const embed = new Discord.EmbedBuilder()

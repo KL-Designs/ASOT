@@ -7,7 +7,7 @@ declare global {
     interface Reminder {
         _id: ObjectId
 
-        enabled: boolean | null
+        enabled: boolean
 
         expected: Date
         acknowledged: string[] | true | null
@@ -21,7 +21,7 @@ declare global {
         message: string
         channel: string
         messageId: string | null
-        repeatRaw: string | null
+        repeatLabel: string | null
         sendFailed: boolean
     }
 
