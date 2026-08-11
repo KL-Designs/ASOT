@@ -1,19 +1,19 @@
 # Part H — lib, types, components, root config
 
-This map documents every file under `lib/**` (55 files), `types/**` (30 files), and the requested
+This map documents every file under `lib/**` (59 files), `types/**` (31 files), and the requested
 `components/**` subset, plus root-level config files (`server.mjs`, `next.config.ts`, `middleware.ts`,
 `themes/unit.ts`). Use it to find existing helpers before writing new ones.
 
 ---
 
-## 1. `lib/**` — reusable server logic (55 files)
+## 1. `lib/**` — reusable server logic (59 files)
 
 ### lib/mongo.ts
-- Default export `Db` — singleton `MongoClient` cached on `global._mongoClient` (survives Next.js HMR). One typed `MongoCollection<T>` property per collection. Full list of ~56 collections including `users`, `roles`, `milpacs`, `optionals`, `operations`, `operationActivity`, `minigameScores`, `minigameLive`, `orbatPositions`, `orbatSectionMeta`, `orbatRoles`, `orbatRoleGroups`, `boardColumns`, `boardCards`, `operationAttendance`, `operationDocAcks`, `j1Applications`, `tickets`, `calendarEvents`, `siteSettings`, `operationTemplates`, `operationCampaigns`, `campaignMissions`, `notifications`, `tasks`, `calendarReminders`, `meetings`, `actionLogs`, `errorLogs`, `discordLogs`, `driversLicense`, `mapPresets`, `retiredMembers`, `quizAttempts`, `communityTickets` (→ `feedback` collection), `communityTicketComments` (→ `feedback_comments`), `meetingNotifQueue`, `userPreferences`, `notifPolicyConfig`, `sops`, `trainingDocs`, `teamspeakSnapshots`, `recruitSessions`, `tfarPlugins`, `inProgressRecruitments`, `workspaceFiles`, `workspaceDocs`, `workspaceVersions`, `leavingHistory`, `deniedApplicationsHQ`, `disciplineRecords`, `billetExtras`, `memberEmails`, `mastersheetRecycleBin`, `dischargeSnapshots`, `trainingTypes`, `trainingEvents`, `trainingAttendance`, `trainingTypeDocs`, `trainingRequests`, `trainingTickets`, `trainingReminders`, `trainingImportRecords`, `eraOptions`.
+- Default export `Db` — singleton `MongoClient` cached on `global._mongoClient` (survives Next.js HMR). One typed `MongoCollection<T>` property per collection. Full list of ~57 collections including `users`, `roles`, `milpacs`, `optionals`, `operations`, `operationActivity`, `minigameScores`, `minigameLive`, `orbatPositions`, `orbatSectionMeta`, `orbatRoles`, `orbatRoleGroups`, `boardColumns`, `boardCards`, `departmentLinks`, `operationAttendance`, `operationDocAcks`, `j1Applications`, `tickets`, `calendarEvents`, `siteSettings`, `operationTemplates`, `operationCampaigns`, `campaignMissions`, `notifications`, `tasks`, `calendarReminders`, `meetings`, `actionLogs`, `errorLogs`, `discordLogs`, `driversLicense`, `mapPresets`, `retiredMembers`, `quizAttempts`, `communityTickets` (→ `feedback` collection), `communityTicketComments` (→ `feedback_comments`), `meetingNotifQueue`, `userPreferences`, `notifPolicyConfig`, `sops`, `trainingDocs`, `teamspeakSnapshots`, `recruitSessions`, `tfarPlugins`, `inProgressRecruitments`, `workspaceFiles`, `workspaceDocs`, `workspaceVersions`, `leavingHistory`, `deniedApplicationsHQ`, `disciplineRecords`, `billetExtras`, `memberEmails`, `mastersheetRecycleBin`, `dischargeSnapshots`, `trainingTypes`, `trainingEvents`, `trainingAttendance`, `trainingTypeDocs`, `trainingRequests`, `trainingTickets`, `trainingReminders`, `trainingImportRecords`, `eraOptions`.
 - `Db.stats()` — prints DB stats via `console.table`.
 
 ### lib/permissions.ts
-- Default export `PERMISSIONS` — single source of truth, extensively JSDoc'd per key listing exactly which routes/pages consume it. Top-level groups: `pages` (member/admin/members/operationsEdit), `departments` (j1–j7), `operations` (write/viewInDevelopment), `uploads.bio`, `members` (edit/editRestricted/editStandard), `admin` (impersonate/manageOrbat/manageOrbatStructure/manageOrbatMembers/**manageOrbatRoles**/massImport), `optionals.manage`, `feedback.manageStatus`, `communityTickets.manage`, `gallery.manage`, `attendance.confirm`, `auth.collab`, `departmentLeads` (j1–j7), `meetings` (lockJ1–lockJ7), `quiz` (assign/review/reviewEscalated), `trainingDocs.manage`, `sops.manage`, `training` (create/trainer/manage), `masterSheet` (view/viewDiscipline/import), `tickets` (actionJ1–actionJ7, actionMoveRequest, actionDiscipline).
+- Default export `PERMISSIONS` — single source of truth, extensively JSDoc'd per key listing exactly which routes/pages consume it. Top-level groups: `pages` (member/admin/members/operationsEdit), `departments` (j1–j7), `operations` (write/viewInDevelopment), `uploads.bio`, `members` (edit/editRestricted/editStandard), `admin` (impersonate/manageOrbat/manageOrbatStructure/manageOrbatMembers/**manageOrbatRoles**/massImport), `optionals.manage`, `feedback.manageStatus`, `communityTickets.manage`, `gallery.manage`, `attendance.confirm`, `auth.collab`, `departmentLeads` (j1–j7), `meetings` (lockJ1–lockJ7), `deptLinks` (viewRestrictedJ1–J7, manageJ1–J7 — new-system-only, no Discord-role fallback), `quiz` (assign/review/reviewEscalated), `trainingDocs.manage`, `sops.manage`, `training` (create/trainer/manage), `masterSheet` (view/viewDiscipline/import), `tickets` (actionJ1–actionJ7, actionMoveRequest, actionDiscipline).
 
 ### lib/permissions-catalog.ts
 - `PERMISSION_CATALOG: Record<string, string[]>` — flattens the nested `PERMISSIONS` object into dot-path keys (e.g. `attendance.confirm`) mapped to their Discord-role-name arrays; the flat key space is what `OrbatRole.permissions` and the Roles Manager's permission picker draw from.
@@ -21,6 +21,9 @@ This map documents every file under `lib/**` (55 files), `types/**` (30 files), 
 
 ### lib/orbat/hasPermission.ts
 - `hasPermission(user, key): Promise<boolean>` — additive permission check: true if the user's Discord ID is in the `OVERRIDE` env list (the only hard bypass) **or** the user's currently-assigned `Db.orbatPositions` doc's `roleId` resolves to an `OrbatRole` whose `permissions` includes `key` **or** their base department role (implicit from `User.departments`) or any assigned department sub-role (from `User.departmentRoleIds`) grants it via `Db.departmentRoles`. Deliberately does NOT fall back to checking raw Discord role names — this function replaces that pattern, one permission key at a time, across the site. Wired into `attendance.confirm` (pre-existing) and, as of the permission-system migration, `pages.member` (35 call sites) — reservists can now satisfy this via their seeded "Reservist" `OrbatRole` (see `lib/orbat/reservist-role.ts`).
+
+### lib/orbat/hasPermissions.ts
+- `hasPermissions(user, keys: string[]): Promise<Record<string, boolean>>` — batch variant of `hasPermission`: answers every requested key in one query pass (one `orbatPositions`/`orbatRoles` round trip, one `departmentRoles` round trip) instead of repeating 2-3 uncached queries per key. Identical semantics to `hasPermission` — same `OVERRIDE`-only hard bypass, same three grant sources (ORBAT position Role, base department role, department sub-roles) — `hasPermission.ts` itself is untouched. Introduced for the department-quick-links build (`app/api/admin/dept-links/**`, `app/dashboard/j{1..7}/page.tsx`) where a single request needs 2-3 keys at once (e.g. manage + lead + view-restricted).
 
 ### lib/orbat/reservist-role.ts
 - `ensureReservistRole(): Promise<ObjectId>` — atomically finds or creates the seeded "Reservist" `OrbatRole` (unscoped, `categories: []`) via `findOneAndUpdate` upsert (race-free — never creates duplicate "Reservist" docs under concurrent callers, unlike a `findOne`-then-`insertOne` pattern). Every reservist position (`activeReservist`/`inactiveReservist`) sets its `roleId` to this, giving reservists a real, editable grant vehicle via the Roles Manager. Called from `POST /api/admin/orbat/reservists`, `lib/orbat/move.ts` (section→reservist move, both the new-slot and stale-null-vacant-slot cases), `PATCH /api/admin/orbat/[positionId]` (auto-evict-to-reservist on unassign), and `POST /api/admin/mass-import` (reservist rows on full-rebuild reimport).
@@ -304,9 +307,21 @@ This map documents every file under `lib/**` (55 files), `types/**` (30 files), 
 - `scheduleTrainingReminders(eventId, eventTitle, scheduledAt): Promise<void>` — upserts 60-min and 15-min-before reminder docs into `Db.trainingReminders` (skips reminders that would fire in the past).
 - `cancelTrainingReminders(eventId): Promise<void>` — deletes all unfired reminders for an event (on cancellation).
 
+### lib/safe-fetch.ts
+- SSRF-guarded fetcher — the only outbound-fetch path in the department-quick-links feature (`lib/dept-links/favicon.ts`). Exports `isPublicIpAddress(ip): boolean` (fail-closed IPv4/IPv6 classifier — rejects loopback/private/CGNAT/link-local incl. cloud metadata/documentation/multicast/6to4/Teredo/NAT64/IPv4-mapped ranges), `assertPublicHttpUrl(input): URL` (throws `BlockedUrlError` — http/https only, no embedded credentials, default/80/443 port only, rejects `localhost`/single-label/`.local`/`.internal`/`.lan`/`.home.arpa` hosts and non-public IP literals), `safeFetch(url, opts): Promise<SafeFetchResult>` (manual redirect handling with full per-hop re-validation, hard byte cap via `readCapped`, per-hop timeout via `AbortController`), and the `BlockedUrlError`/`FetchCapError` error classes. Transport is an undici `Agent` with a connect-time guarded DNS `lookup` (validates **every** resolved address, after resolution, on every socket) — rebinding-proof, unlike a pre-fetch resolve-then-check pattern. `undici` is a `serverExternalPackages` entry (`next.config.ts`).
+
+### lib/dept-links/keys.ts
+- Department-code ↔ permission-key helpers for the quick-links feature: `isDeptLinkDepartment(value): value is DeptLinkDepartment` (type guard over `DEPT_CODES`), `manageKey(dept)` → `'deptLinks.manageJX'`, `viewRestrictedKey(dept)` → `'deptLinks.viewRestrictedJX'`, `leadKey(dept)` → `'departmentLeads.jX'`.
+
+### lib/dept-links/validate-url.ts
+- `validateLinkUrl(raw): LinkUrlValidation` — pure, no IO. Storage-side URL validation (length ≤2048, `http:`/`https:` only, no embedded credentials, rejects `localhost`/single-label/trailing-dot hosts unless a public IP literal via `lib/safe-fetch.ts`'s `isPublicIpAddress`). Deliberately more permissive than `assertPublicHttpUrl` — any port may be *stored* (an internal-only service on a nonstandard port is a legitimate link); the favicon-fetch pipeline is the stricter fetch-time gate. Returns `{ok: true, href, url}` (the normalised `href` is what gets stored) or `{ok: false, error}`.
+
+### lib/dept-links/favicon.ts
+- `fetchSiteMeta(url): Promise<SiteMeta>` — never throws. Bounded by an 8s overall deadline (not just per-hop timeouts), shared across every hop it makes: guarded page fetch (≤200KB, `<title>` + `<link rel~="icon">` extraction, entity-decoded/whitespace-collapsed/200-char-capped title) → guarded icon fetch (href resolved against the final post-redirect URL) → fallback to `{origin}/favicon.ico` — any step with under 500ms of budget left is skipped outright. Icon bytes are accepted only via magic-byte sniff (`sniffImageContentType`) or, failing that, a whitelisted response `Content-Type`; `faviconContentType` is therefore always exactly one of six canonical strings (`image/png`, `image/jpeg`, `image/gif`, `image/webp`, `image/x-icon`, `image/svg+xml` — `image/vnd.microsoft.icon` normalises to `image/x-icon`), never attacker-controlled text. A total failure degrades to `{fetchedTitle: host, faviconStatus: 'failed', faviconData: null, ...}` rather than throwing.
+
 ---
 
-## 2. `types/**` — global ambient type declarations (30 files)
+## 2. `types/**` — global ambient type declarations (31 files)
 
 All declare into `declare global { ... }` (imports become no-ops via `export {}`), so no imports needed anywhere in the app.
 
@@ -360,7 +375,7 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 - Legacy/unused ORBAT-adjacent shapes: `Platoon`, `Section`, `Role` (id/order/name/abbr/description — **not** the Discord `Role` from `user.d.ts`), `Rank`, `Certification`, `Award`. Appears superseded by `lib/military/*` + `orbat.d.ts` — check usage before relying on this file.
 
 ### types/logs.d.ts
-- `ActionCategory` union (`orbat|calendar|member|operation|system|discord|meeting|ticket|task|training|award|teamspeak|board`).
+- `ActionCategory` union (`orbat|calendar|member|operation|system|discord|meeting|ticket|task|training|award|teamspeak|J3|board|reminder|deptLinks`).
 - `ActionLog` — audit log doc (see `lib/logAction.ts`/`lib/logs.ts`).
 - `ErrorLog` — `{path, method, message, stack?, userId?, userDisplayName?, createdAt}`.
 - `DiscordLogStatus` (`sent|blocked|failed`), `DiscordLog` — every outbound Discord action attempt (see `lib/discord/bot.ts`).
@@ -380,6 +395,10 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 ### types/board.d.ts
 - `BoardColumn` — `{_id, department, title, order, createdAt, createdBy, createdByName}`. `department`-scoped like every other dept-tab data model (only `'j7'` in use as of this writing, see `docs/superpowers/specs/2026-07-14-j7-board-design.md`).
 - `BoardCard` — `{_id, department, columnId, title, description?, assigneeId?, assigneeName?, linkedTaskId?, order, createdAt, createdBy, createdByName}`. `linkedTaskId` optionally references a `Db.tasks` doc — resolved live on read (via `?view=mine`+`?view=created`, never the J4-only `?view=all`), never duplicated onto the card. `assigneeId`/`assigneeName` must be set or cleared together (enforced server-side in the cards `PATCH` route) to avoid a card assigned to a member with no displayable name.
+
+### types/department-link.d.ts
+- `DepartmentLink` — one managed quick link on a department's (J1-J7) landing rail: `{_id, department, url, fetchedTitle, nameOverride, restricted, order, faviconData, faviconContentType, faviconFetchedAt, faviconStatus, createdAt, createdBy, createdByName, updatedAt?, updatedById?, updatedByName?}`. `nameOverride` is display-only — a URL change never writes it, and setting it never writes `url`/`fetchedTitle`; `null` means "show `fetchedTitle`". `faviconData` is doc-embedded base64 (≤200KB raw, atomic with the rest of the doc, no orphan files).
+- `DepartmentLinkListItem` — the wire shape from `GET /api/admin/dept-links`: same fields minus `faviconData`/`createdBy*`/`updated*`, plus `hasFavicon: boolean` and `faviconVersion: number | null` (`faviconFetchedAt.getTime()`, doubles as the favicon route's `?v=` cache buster). `faviconData` never appears in a list response — the bytes are served separately from `GET /api/admin/dept-links/{id}/favicon`.
 
 ### types/sops.d.ts
 - `SopCategory` union.

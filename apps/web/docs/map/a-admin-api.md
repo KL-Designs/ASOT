@@ -53,6 +53,14 @@ Catalogs every `route.ts` under `app/api/admin/**` (78 files). Background facts 
 
 ---
 
+#### /api/admin/dept-links (department quick links — J1-J7)
+
+- `GET/POST /api/admin/dept-links` — GET lists a department's links for `?department=jN` sorted by `order`, `faviconData` projected out (`hasFavicon` + `faviconVersion` instead); callers without `deptLinks.viewRestrictedJN` or the manage gate get `restricted: {$ne: true}` applied **in the Mongo query** so restricted documents never leave the server; returns `{links, canManage, canSeeRestricted}`. POST creates a link (24-per-department cap, `order = (max ?? -1) + 1`) and runs the title+favicon pipeline synchronously; pipeline failure still creates the link with `faviconStatus: 'failed'`. Gate: `PERMISSIONS.departments[dept]` via `client.hasRoles` (GET) / `deptLinks.manageJN` OR `departmentLeads.jN` via `hasPermissions` (POST). Collections: `Db.departmentLinks`. Side effects: `logAction('deptLinks.create')` (from `lib/logs`), outbound fetch via `lib/safe-fetch.ts`.
+- `PATCH/DELETE /api/admin/dept-links/{id}` — per-field isolation (`url` refetches title+favicon and never writes `nameOverride`; `nameOverride` never touches `url`/`fetchedTitle`; empty override normalises to `null`), hard delete, both re-derive `department` from the fetched doc. Gate: `deptLinks.manageJN` OR `departmentLeads.jN` via `hasPermissions`. Collections: `Db.departmentLinks`. Side effects: `logAction('deptLinks.update'|'reorder'|'delete')` with favicon bytes excluded from `before`/`after`.
+- `GET/POST /api/admin/dept-links/{id}/favicon` — GET serves the stored bytes with sniffed `Content-Type`, `Cache-Control: private, max-age=31536000, immutable`, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`; department membership plus an independent restricted re-check, and anything the caller may not see returns 404 rather than 403 so the route cannot probe link existence. POST re-runs title+favicon only. Gate: department membership + restricted re-check (GET, no-leak — 404 only); `deptLinks.manageJN` OR `departmentLeads.jN` (POST). Collections: `Db.departmentLinks`. Side effects: `logAction('deptLinks.favicon_refresh')`, outbound fetch via `lib/safe-fetch.ts`.
+
+---
+
 #### /api/admin/j1
 
 - `GET/PUT/DELETE /api/admin/j1/in-progress` — per-recruiter draft-application autosave (single doc per `recruiterId`). Gate: `PERMISSIONS.pages.admin`. Collections: `Db.inProgressRecruitments`.

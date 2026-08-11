@@ -24,6 +24,8 @@ Completed items are marked `[x]`. Do not delete entries.
 
 - [ ] **Permission-key registry with rename backwards-compatibility** — the new `hasPermission(user, key)` system (`lib/orbat/hasPermission.ts`) has no central catalog of valid keys; each key is just a string literal at its call site and inside `DepartmentRole.permissions`/`OrbatRole.permissions` arrays in MongoDB. If a key is ever renamed, any DB documents still holding the old string silently stop granting access — no error, just quiet loss of access, and no compile-time or runtime signal that anything broke. Proposed fix: a small `lib/orbat/permission-keys.ts` with a canonical key list plus a `RENAMED_KEYS: Record<oldKey, newKey>` alias map that `hasPermission()` resolves through before checking. Raised during the Batch 2 permission migration (see `docs/superpowers/plans/2026-08-11-permission-system-migration-phase2-batch2-plan.md`); deferred until brainstormed properly — likely candidate for folding into the Phase 3 cleanup of the old `PERMISSIONS`/`hasRoles()` system.
 
+- [x] **Department quick links (J1-J7) + Members>Settings rename**, per-department managed quick links (favicon tile rail on each J1-J7 landing view, manager card in the renamed Settings view), restriction gated server-side behind 14 new `deptLinks.*` permission keys (`lib/permissions.ts`), favicons fetched through a new SSRF-guarded fetcher (`lib/safe-fetch.ts`) and served from our own domain; confirmed working
+
 ---
 
 ## YouTube Embed Migration (complete)
