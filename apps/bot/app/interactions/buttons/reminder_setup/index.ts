@@ -86,9 +86,13 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
             return interaction.reply({ content: 'Please pick a time first.', ephemeral: true })
         }
 
-        const who: string[] = []
-        if (session.pingMe) who.push(`<@${session.userId}>`)
-        for (const mention of session.who) who.push(mention)
+        const whoRaw: string[] = []
+        if (session.pingMe) whoRaw.push(`<@${session.userId}>`)
+        for (const mention of session.who) whoRaw.push(mention)
+        // De-dupe: "Ping Me" and explicitly selecting yourself in the who-select
+        // both add the same `<@userId>` mention — without this, the creator gets
+        // pinged (and shows up in the acknowledgement list) twice.
+        const who = [...new Set(whoRaw)]
 
         if (who.length === 0) {
             return interaction.reply({ content: 'Please select at least one person to remind, or enable "Ping Me".', ephemeral: true })
