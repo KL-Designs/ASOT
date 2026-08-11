@@ -16,3 +16,6 @@
 !/storage/README.md
 
 # per-app ignores live in apps/*/.gitignore
+
+# Subagent-driven-development scratch workspace (ledgers, briefs, review packages)
+/.superpowers/
