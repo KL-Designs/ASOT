@@ -1,4 +1,4 @@
-import Discord from 'discord.js'
+import Discord, { SelectMenuDefaultValueType } from 'discord.js'
 import { ReminderSession } from 'lib/reminderSessions.ts'
 import { TIME_PRESETS, REPEAT_PRESETS, CHASEUP_PRESETS } from 'lib/reminderDate.ts'
 
@@ -17,12 +17,25 @@ export function buildReminderComponents(sessionId: string, session: ReminderSess
             .setStyle(Discord.ButtonStyle.Secondary)
     )
 
+    // Pre-fill the who-select with the reminder's existing recipients (edit flow) so
+    // re-opening it doesn't silently drop them when the session is next saved — the
+    // handler in mentionableSelectMenus/reminder_setup replaces session.who wholesale
+    // with whatever the select shows as selected at submit time. Empty for a fresh
+    // /reminder create session, where session.who starts as [].
+    const whoDefaultValues = session.who.map(mention => {
+        if (mention.startsWith('<@&')) {
+            return { id: mention.slice(3, -1), type: SelectMenuDefaultValueType.Role }
+        }
+        return { id: mention.slice(2, -1), type: SelectMenuDefaultValueType.User }
+    })
+
     const whoRow = new Discord.ActionRowBuilder<Discord.MentionableSelectMenuBuilder>().addComponents(
         new Discord.MentionableSelectMenuBuilder()
             .setCustomId(`reminder_setup.${sessionId}.select`)
             .setPlaceholder('Select who to remind... (leave empty for just yourself)')
             .setMinValues(0)
             .setMaxValues(20)
+            .setDefaultValues(whoDefaultValues as any)
     )
 
     const repeatRow = new Discord.ActionRowBuilder<Discord.StringSelectMenuBuilder>().addComponents(
