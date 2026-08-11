@@ -64,8 +64,8 @@ function SortableRow({
                     <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.85)' }}>
                         {link.nameOverride ?? link.fetchedTitle}
                     </span>
-                    {link.restricted && (
-                        <Tooltip title='Restricted — visible to authorised members only'>
+                    {link.visibleToRoleIds.length > 0 && (
+                        <Tooltip title='Restricted to specific sub-roles'>
                             <Lock sx={{ fontSize: 13, color: 'rgb(255,179,0)' }} />
                         </Tooltip>
                     )}

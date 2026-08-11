@@ -4,10 +4,11 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logs'
-import { hasPermissions } from '@/lib/orbat/hasPermissions'
-import { isDeptLinkDepartment, manageKey, viewRestrictedKey, leadKey } from '@/lib/dept-links/keys'
+import { hasDepartmentPermissions } from '@/lib/orbat/hasDepartmentPermissions'
+import { isDeptLinkDepartment, DEPT_LINKS_MANAGE_KEY, leadKey } from '@/lib/dept-links/keys'
 import { validateLinkUrl } from '@/lib/dept-links/validate-url'
 import { fetchSiteMeta } from '@/lib/dept-links/favicon'
+import { visibilityFilter } from '@/lib/dept-links/visibility'
 
 const MAX_LINKS_PER_DEPARTMENT = 24
 const MAX_NAME_OVERRIDE_LENGTH = 80
@@ -23,9 +24,9 @@ function withoutFaviconData(doc: DepartmentLink): Record<string, unknown> {
 
 
 // ── GET /api/admin/dept-links?department=jN ─────────────────────────────────
-// Any member of the department may view. Restricted links are excluded in
-// the Mongo filter itself for callers without the restricted-view or manage
-// gate; never filtered client-side or in JS (NFR-01/FR-17).
+// Any member of the department may view. Non-managers only see links their
+// held sub-roles are assigned to (or unrestricted ones); the visibility
+// filter is applied in the Mongo query itself, never client-side or in JS.
 
 export async function GET(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
@@ -41,15 +42,15 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const perms = await hasPermissions(me, [manageKey(department), leadKey(department), viewRestrictedKey(department)])
-    const canManage = perms[manageKey(department)] || perms[leadKey(department)]
-    const canSeeRestricted = perms[viewRestrictedKey(department)] || canManage
+    const perms = await hasDepartmentPermissions(me, department, [DEPT_LINKS_MANAGE_KEY, leadKey(department)])
+    const canManage = perms[DEPT_LINKS_MANAGE_KEY] || perms[leadKey(department)]
 
-    const filter: Record<string, unknown> = { department }
-    if (!canSeeRestricted) filter.restricted = { $ne: true }
+    const filter: Record<string, unknown> = canManage
+        ? { department }
+        : { department, ...visibilityFilter(me) }
 
     const docs = await Db.departmentLinks
-        .find(filter, { projection: { department: 1, url: 1, fetchedTitle: 1, nameOverride: 1, restricted: 1, order: 1, faviconFetchedAt: 1, faviconStatus: 1 } })
+        .find(filter, { projection: { department: 1, url: 1, fetchedTitle: 1, nameOverride: 1, visibleToRoleIds: 1, order: 1, faviconFetchedAt: 1, faviconStatus: 1 } })
         .sort({ order: 1 })
         .toArray()
 
@@ -59,18 +60,18 @@ export async function GET(request: NextRequest) {
         url: d.url,
         fetchedTitle: d.fetchedTitle,
         nameOverride: d.nameOverride,
-        restricted: d.restricted,
+        visibleToRoleIds: (d.visibleToRoleIds ?? []).map(String),
         order: d.order,
         hasFavicon: d.faviconStatus === 'ok',
         faviconVersion: d.faviconFetchedAt ? new Date(d.faviconFetchedAt).getTime() : null,
     }))
 
-    return NextResponse.json({ links: JSON.parse(JSON.stringify(links)), canManage, canSeeRestricted })
+    return NextResponse.json({ links: JSON.parse(JSON.stringify(links)), canManage })
 }
 
 
 // ── POST /api/admin/dept-links ───────────────────────────────────────────────
-// Body: { department, url, nameOverride?, restricted? }. Manage gate only.
+// Body: { department, url, nameOverride?, visibleToRoleIds? }. Manage gate only.
 
 export async function POST(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
@@ -82,8 +83,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'department is required' }, { status: 400 })
     }
 
-    const perms = await hasPermissions(me, [manageKey(department), leadKey(department)])
-    if (!perms[manageKey(department)] && !perms[leadKey(department)]) {
+    const perms = await hasDepartmentPermissions(me, department, [DEPT_LINKS_MANAGE_KEY, leadKey(department)])
+    if (!perms[DEPT_LINKS_MANAGE_KEY] && !perms[leadKey(department)]) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -103,12 +104,16 @@ export async function POST(request: NextRequest) {
         nameOverride = trimmed === '' ? null : trimmed
     }
 
-    let restricted = false
-    if (body && 'restricted' in body && body.restricted !== undefined) {
-        if (typeof body.restricted !== 'boolean') {
-            return NextResponse.json({ error: 'restricted must be true or false' }, { status: 400 })
+    let visibleToRoleIds: ObjectId[] = []
+    if (body && 'visibleToRoleIds' in body && body.visibleToRoleIds !== undefined) {
+        if (!Array.isArray(body.visibleToRoleIds) || !body.visibleToRoleIds.every((id: unknown) => typeof id === 'string')) {
+            return NextResponse.json({ error: 'visibleToRoleIds must be an array of role ids' }, { status: 400 })
         }
-        restricted = body.restricted
+        try {
+            visibleToRoleIds = body.visibleToRoleIds.map((id: string) => new ObjectId(id))
+        } catch {
+            return NextResponse.json({ error: 'visibleToRoleIds contains an invalid id' }, { status: 400 })
+        }
     }
 
     const count = await Db.departmentLinks.countDocuments({ department })
@@ -129,7 +134,7 @@ export async function POST(request: NextRequest) {
         url: v.href,
         fetchedTitle: meta.fetchedTitle,
         nameOverride,
-        restricted,
+        visibleToRoleIds,
         order,
         faviconData: meta.faviconData,
         faviconContentType: meta.faviconContentType,
@@ -160,7 +165,7 @@ export async function POST(request: NextRequest) {
         url: doc.url,
         fetchedTitle: doc.fetchedTitle,
         nameOverride: doc.nameOverride,
-        restricted: doc.restricted,
+        visibleToRoleIds: doc.visibleToRoleIds.map(String),
         order: doc.order,
         hasFavicon: doc.faviconStatus === 'ok',
         faviconVersion: doc.faviconFetchedAt ? doc.faviconFetchedAt.getTime() : null,

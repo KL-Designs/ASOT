@@ -4,9 +4,10 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logs'
-import { hasPermissions } from '@/lib/orbat/hasPermissions'
-import { manageKey, viewRestrictedKey, leadKey, type DeptLinkDepartment } from '@/lib/dept-links/keys'
+import { hasDepartmentPermissions } from '@/lib/orbat/hasDepartmentPermissions'
+import { DEPT_LINKS_MANAGE_KEY, leadKey, type DeptLinkDepartment } from '@/lib/dept-links/keys'
 import { fetchSiteMeta } from '@/lib/dept-links/favicon'
+import { isLinkVisible } from '@/lib/dept-links/visibility'
 
 function parseId(id: string): ObjectId | null {
     try { return new ObjectId(id) } catch { return null }
@@ -31,7 +32,7 @@ export async function GET(
 
     const link = await Db.departmentLinks.findOne(
         { _id: objectId },
-        { projection: { department: 1, restricted: 1, faviconData: 1, faviconContentType: 1, faviconStatus: 1 } }
+        { projection: { department: 1, visibleToRoleIds: 1, faviconData: 1, faviconContentType: 1, faviconStatus: 1 } }
     )
     if (!link) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -40,10 +41,10 @@ export async function GET(
         return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    if (link.restricted) {
+    if (!isLinkVisible(me, link)) {
         const dept = link.department as DeptLinkDepartment
-        const perms = await hasPermissions(me, [viewRestrictedKey(dept), manageKey(dept), leadKey(dept)])
-        if (!perms[viewRestrictedKey(dept)] && !perms[manageKey(dept)] && !perms[leadKey(dept)]) {
+        const perms = await hasDepartmentPermissions(me, dept, [DEPT_LINKS_MANAGE_KEY, leadKey(dept)])
+        if (!perms[DEPT_LINKS_MANAGE_KEY] && !perms[leadKey(dept)]) {
             return NextResponse.json({ error: 'Not found' }, { status: 404 })
         }
     }
@@ -84,8 +85,8 @@ export async function POST(
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const dept = link.department as DeptLinkDepartment
-    const perms = await hasPermissions(me, [manageKey(dept), leadKey(dept)])
-    if (!perms[manageKey(dept)] && !perms[leadKey(dept)]) {
+    const perms = await hasDepartmentPermissions(me, dept, [DEPT_LINKS_MANAGE_KEY, leadKey(dept)])
+    if (!perms[DEPT_LINKS_MANAGE_KEY] && !perms[leadKey(dept)]) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

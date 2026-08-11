@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, IconButton, Alert, FormControlLabel, Switch } from '@mui/material'
+import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, IconButton, Alert, Autocomplete, Chip } from '@mui/material'
 import { Close } from '@mui/icons-material'
 
 interface Props {
@@ -19,7 +19,8 @@ interface Props {
 export default function DeptLinkModal({ open, onClose, department, link, onSaved }: Props) {
     const [urlInput, setUrlInput] = useState('')
     const [overrideInput, setOverrideInput] = useState('')
-    const [restricted, setRestricted] = useState(false)
+    const [subRoles, setSubRoles] = useState<{ _id: string; name: string }[]>([])
+    const [visibleToRoleIds, setVisibleToRoleIds] = useState<string[]>([])
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -27,9 +28,14 @@ export default function DeptLinkModal({ open, onClose, department, link, onSaved
         if (!open) return
         setUrlInput(link?.url ?? '')
         setOverrideInput(link?.nameOverride ?? '')
-        setRestricted(link?.restricted ?? false)
+        setVisibleToRoleIds(link?.visibleToRoleIds ?? [])
         setError(null)
-    }, [open, link])
+
+        fetch(`/api/admin/department-roles?department=${department}`)
+            .then(r => r.json())
+            .then(data => setSubRoles((data.roles ?? []).filter((r: DepartmentRole) => !r.isBase).map((r: DepartmentRole) => ({ _id: String(r._id), name: r.name }))))
+            .catch(() => setSubRoles([]))
+    }, [open, link, department])
 
     async function handleSave() {
         setSaving(true)
@@ -40,13 +46,14 @@ export default function DeptLinkModal({ open, onClose, department, link, onSaved
             res = await fetch('/api/admin/dept-links', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ department, url: urlInput, nameOverride: overrideInput, restricted }),
+                body: JSON.stringify({ department, url: urlInput, nameOverride: overrideInput, visibleToRoleIds }),
             })
         } else {
             const body: Record<string, unknown> = {}
             if (urlInput !== link.url) body.url = urlInput
             if (overrideInput !== (link.nameOverride ?? '')) body.nameOverride = overrideInput
-            if (restricted !== link.restricted) body.restricted = restricted
+            const sameIds = visibleToRoleIds.length === link.visibleToRoleIds.length && visibleToRoleIds.every(id => link.visibleToRoleIds.includes(id))
+            if (!sameIds) body.visibleToRoleIds = visibleToRoleIds
 
             res = await fetch(`/api/admin/dept-links/${link._id}`, {
                 method: 'PATCH',
@@ -99,11 +106,24 @@ export default function DeptLinkModal({ open, onClose, department, link, onSaved
                     </span>
                 )}
 
-                <div>
-                    <FormControlLabel control={<Switch checked={restricted} onChange={e => setRestricted(e.target.checked)} />} label='Restricted' />
-                    <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)' }}>
-                        Only members granted this department's restricted-links permission will see it.
-                    </div>
+                <Autocomplete
+                    multiple
+                    size='small'
+                    options={subRoles.map(r => r._id)}
+                    getOptionLabel={id => subRoles.find(r => r._id === id)?.name ?? id}
+                    value={visibleToRoleIds}
+                    onChange={(_e, ids) => setVisibleToRoleIds(ids)}
+                    renderTags={(value, getTagProps) =>
+                        value.map((id, index) => (
+                            <Chip size='small' label={subRoles.find(r => r._id === id)?.name ?? id} {...getTagProps({ index })} key={id} />
+                        ))
+                    }
+                    renderInput={params => (
+                        <TextField {...params} label='Visible to' placeholder={visibleToRoleIds.length === 0 ? 'Everyone in the department' : undefined} />
+                    )}
+                />
+                <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)' }}>
+                    Leave empty for every department member to see this link. Pick specific sub-roles to restrict it to them (and managers).
                 </div>
             </DialogContent>
 

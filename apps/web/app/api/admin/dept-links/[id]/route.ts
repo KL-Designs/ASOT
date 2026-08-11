@@ -3,8 +3,8 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logs'
-import { hasPermissions } from '@/lib/orbat/hasPermissions'
-import { manageKey, leadKey, type DeptLinkDepartment } from '@/lib/dept-links/keys'
+import { hasDepartmentPermissions } from '@/lib/orbat/hasDepartmentPermissions'
+import { DEPT_LINKS_MANAGE_KEY, leadKey, type DeptLinkDepartment } from '@/lib/dept-links/keys'
 import { validateLinkUrl } from '@/lib/dept-links/validate-url'
 import { fetchSiteMeta } from '@/lib/dept-links/favicon'
 
@@ -46,8 +46,8 @@ export async function PATCH(
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const dept = link.department as DeptLinkDepartment
-    const perms = await hasPermissions(me, [manageKey(dept), leadKey(dept)])
-    if (!perms[manageKey(dept)] && !perms[leadKey(dept)]) {
+    const perms = await hasDepartmentPermissions(me, dept, [DEPT_LINKS_MANAGE_KEY, leadKey(dept)])
+    if (!perms[DEPT_LINKS_MANAGE_KEY] && !perms[leadKey(dept)]) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -78,11 +78,15 @@ export async function PATCH(
         updates.nameOverride = trimmed === '' ? null : trimmed
     }
 
-    if (body && 'restricted' in body && body.restricted !== undefined) {
-        if (typeof body.restricted !== 'boolean') {
-            return NextResponse.json({ error: 'restricted must be true or false' }, { status: 400 })
+    if (body && 'visibleToRoleIds' in body && body.visibleToRoleIds !== undefined) {
+        if (!Array.isArray(body.visibleToRoleIds) || !body.visibleToRoleIds.every((id: unknown) => typeof id === 'string')) {
+            return NextResponse.json({ error: 'visibleToRoleIds must be an array of role ids' }, { status: 400 })
         }
-        updates.restricted = body.restricted
+        try {
+            updates.visibleToRoleIds = body.visibleToRoleIds.map((id: string) => new ObjectId(id))
+        } catch {
+            return NextResponse.json({ error: 'visibleToRoleIds contains an invalid id' }, { status: 400 })
+        }
     }
 
     if (body && 'order' in body && body.order !== undefined) {
@@ -138,8 +142,8 @@ export async function DELETE(
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const dept = link.department as DeptLinkDepartment
-    const perms = await hasPermissions(me, [manageKey(dept), leadKey(dept)])
-    if (!perms[manageKey(dept)] && !perms[leadKey(dept)]) {
+    const perms = await hasDepartmentPermissions(me, dept, [DEPT_LINKS_MANAGE_KEY, leadKey(dept)])
+    if (!perms[DEPT_LINKS_MANAGE_KEY] && !perms[leadKey(dept)]) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

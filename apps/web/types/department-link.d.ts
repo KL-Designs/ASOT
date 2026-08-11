@@ -15,7 +15,7 @@ declare global {
         url: string                         // normalised absolute http(s) href
         fetchedTitle: string                // page <title>, else the URL host
         nameOverride: string | null         // display-only; null = show fetchedTitle
-        restricted: boolean                 // visible only to deptLinks.viewRestrictedJX holders (or managers)
+        visibleToRoleIds: ObjectId[]        // empty = visible to every department member; non-empty = only members holding one of these DepartmentRole ids (or managers)
         order: number                       // fractional-midpoint reorder, board precedent
         faviconData: string | null          // base64, <=200KB raw, doc-embedded (atomic, no orphan files)
         faviconContentType: string | null   // one of the six canonical image types, magic-byte sniffed
@@ -37,7 +37,7 @@ declare global {
         url: string
         fetchedTitle: string
         nameOverride: string | null
-        restricted: boolean
+        visibleToRoleIds: string[]           // DepartmentRole ids as strings; empty = everyone
         order: number
         hasFavicon: boolean
         faviconVersion: number | null       // faviconFetchedAt.getTime(), null when never fetched

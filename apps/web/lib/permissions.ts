@@ -696,50 +696,23 @@ const PERMISSIONS = {
     // ── Department quick links ────────────────────────────────────────────────
     //
     // Per-department managed quick links (the favicon tile rail on each J1-J7
-    // landing view, managed from that department's Settings view).
+    // landing view, managed from that department's Management view).
     //
-    // Every key here is new-system-only: the arrays are intentionally empty and
-    // the real gate is always `await hasPermission(user, 'deptLinks.x')` /
-    // `hasPermissions(user, [...])` (`lib/orbat/hasPermission.ts`,
-    // `lib/orbat/hasPermissions.ts`). They exist in this file solely so
-    // `lib/permissions-catalog.ts`'s flatten picks them up into the role
-    // manager's permission picker; there is no Discord-role fallback.
+    // A single new-system-only key (empty Discord-role array; the real gate is
+    // always `await hasDepartmentPermission(user, department, 'deptLinks.manage')`
+    // — see lib/orbat/hasDepartmentPermission.ts). Department scope comes from
+    // which DepartmentRole the key is assigned to, not from the key name, so
+    // one key covers all seven departments (unlike the old manageJ1..J7 keys).
     //
-    // Restriction is a per-department tier, not per-link: a link is either
-    // public to the department or restricted to viewRestrictedJX holders.
-    // Write access is `deptLinks.manageJX` OR `departmentLeads.jX`, so leads
-    // work day one and the right can be delegated through the role manager.
+    // Per-link visibility (which specific sub-roles can see a given link) is
+    // data on DepartmentLink.visibleToRoleIds, not a permission key — see
+    // types/department-link.d.ts. Write access is `deptLinks.manage` OR
+    // `departmentLeads.jX`, so leads work day one and the right can additionally
+    // be delegated to any department role through the role manager.
 
     deptLinks: {
-        /** See J1's restricted quick links. New-system-only key. */
-        viewRestrictedJ1: [],
-        /** See J2's restricted quick links. New-system-only key. */
-        viewRestrictedJ2: [],
-        /** See J3's restricted quick links. New-system-only key. */
-        viewRestrictedJ3: [],
-        /** See J4's restricted quick links. New-system-only key. */
-        viewRestrictedJ4: [],
-        /** See J5's restricted quick links. New-system-only key. */
-        viewRestrictedJ5: [],
-        /** See J6's restricted quick links. New-system-only key. */
-        viewRestrictedJ6: [],
-        /** See J7's restricted quick links. New-system-only key. */
-        viewRestrictedJ7: [],
-
-        /** Add, edit, delete, reorder and restrict J1's quick links. New-system-only key. */
-        manageJ1: [],
-        /** Add, edit, delete, reorder and restrict J2's quick links. New-system-only key. */
-        manageJ2: [],
-        /** Add, edit, delete, reorder and restrict J3's quick links. New-system-only key. */
-        manageJ3: [],
-        /** Add, edit, delete, reorder and restrict J4's quick links. New-system-only key. */
-        manageJ4: [],
-        /** Add, edit, delete, reorder and restrict J5's quick links. New-system-only key. */
-        manageJ5: [],
-        /** Add, edit, delete, reorder and restrict J6's quick links. New-system-only key. */
-        manageJ6: [],
-        /** Add, edit, delete, reorder and restrict J7's quick links. New-system-only key. */
-        manageJ7: [],
+        /** Add, edit, delete, reorder and control the visible-to sub-roles of a department's quick links. Scope comes from which DepartmentRole holds this key. New-system-only key. */
+        manage: [],
     },
 
     // ── Quiz / Training ───────────────────────────────────────────────────────

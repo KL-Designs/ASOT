@@ -6,13 +6,7 @@ export function isDeptLinkDepartment(value: unknown): value is DeptLinkDepartmen
     return typeof value === 'string' && (DEPT_CODES as readonly string[]).includes(value)
 }
 
-export function manageKey(dept: DeptLinkDepartment): string {
-    return `deptLinks.manage${dept.toUpperCase()}`
-}
-
-export function viewRestrictedKey(dept: DeptLinkDepartment): string {
-    return `deptLinks.viewRestricted${dept.toUpperCase()}`
-}
+export const DEPT_LINKS_MANAGE_KEY = 'deptLinks.manage'
 
 export function leadKey(dept: DeptLinkDepartment): string {
     return `departmentLeads.${dept}`

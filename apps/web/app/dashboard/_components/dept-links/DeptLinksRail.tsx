@@ -74,8 +74,8 @@ export default function DeptLinksRail({ department, canManage, onManage }: Props
                                 {link.nameOverride ?? link.fetchedTitle}
                             </span>
                             <OpenInNew sx={{ fontSize: 12, color: 'rgba(237,237,237,0.25)' }} />
-                            {link.restricted && (
-                                <Tooltip title='Restricted — visible to authorised members only'>
+                            {link.visibleToRoleIds.length > 0 && (
+                                <Tooltip title='Restricted to specific sub-roles'>
                                     <Lock sx={{ position: 'absolute', top: -6, right: -6, fontSize: 11, color: 'rgb(255,179,0)' }} />
                                 </Tooltip>
                             )}

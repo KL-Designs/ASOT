@@ -63,21 +63,7 @@ export const PERMISSION_DESCRIPTIONS: Record<string, string> = {
     'meetings.lockJ6': "Lock or unlock J6's meeting records so they can't be edited.",
     'meetings.lockJ7': "Lock or unlock J7's meeting records so they can't be edited.",
 
-    'deptLinks.viewRestrictedJ1': "See J1's restricted quick links on the department page.",
-    'deptLinks.viewRestrictedJ2': "See J2's restricted quick links on the department page.",
-    'deptLinks.viewRestrictedJ3': "See J3's restricted quick links on the department page.",
-    'deptLinks.viewRestrictedJ4': "See J4's restricted quick links on the department page.",
-    'deptLinks.viewRestrictedJ5': "See J5's restricted quick links on the department page.",
-    'deptLinks.viewRestrictedJ6': "See J6's restricted quick links on the department page.",
-    'deptLinks.viewRestrictedJ7': "See J7's restricted quick links on the department page.",
-
-    'deptLinks.manageJ1': "Add, edit, delete and reorder J1's quick links, and mark them restricted.",
-    'deptLinks.manageJ2': "Add, edit, delete and reorder J2's quick links, and mark them restricted.",
-    'deptLinks.manageJ3': "Add, edit, delete and reorder J3's quick links, and mark them restricted.",
-    'deptLinks.manageJ4': "Add, edit, delete and reorder J4's quick links, and mark them restricted.",
-    'deptLinks.manageJ5': "Add, edit, delete and reorder J5's quick links, and mark them restricted.",
-    'deptLinks.manageJ6': "Add, edit, delete and reorder J6's quick links, and mark them restricted.",
-    'deptLinks.manageJ7': "Add, edit, delete and reorder J7's quick links, and mark them restricted.",
+    'deptLinks.manage': "Add, edit, delete, reorder, and control who can see a department's quick links.",
 
     'quiz.assign': 'Assign the BCT quiz to a recruit and view training records.',
     'quiz.review': 'Review a submitted quiz attempt — pass it, fail it, or escalate it.',
