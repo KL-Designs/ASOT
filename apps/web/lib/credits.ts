@@ -9,7 +9,7 @@ const THANKS_ORDER = ['166440171447910400', '248743808395640832', '2560093481977
 const THANKS: Record<string, string> = {
     '166440171447910400': 'Introduced Interactive Maps',
     '248743808395640832': 'Improved API Efficiency.',
-    '256009348197777409': 'Significantly Reduced Data Usage.',
+    '256009348197777409': 'Significantly Reduced Data Usage. Also convinced Claude to finally write a README.',
 }
 
 const CONTRIBUTIONS: Record<string, { title: string; description: string }> = {
@@ -19,7 +19,7 @@ const CONTRIBUTIONS: Record<string, { title: string; description: string }> = {
     },
     '224086573560365057': {
         title: 'Founder & Departments Developer',
-        description: 'Creator and owner of ASOT, and the driving force behind the unit itself. Also built the departments dashboard and most of its core functionality, giving leadership the tools they need to effectively manage unit administration.',
+        description: 'Creator and owner of ASOT, and the driving force behind the unit itself. Also built the backbone of the departments dashboard — the J1 recruitment pipeline and BCT quiz, the ticketing and meetings systems, the J3 Training Hub, the J2 operations workspace and attendance tracking, and the J4 mastersheet and activity log leadership uses to run the unit day-to-day.',
     },
     '683343114865606686': {
         title: 'MILPAC Generator',
