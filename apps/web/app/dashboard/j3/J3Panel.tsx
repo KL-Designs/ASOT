@@ -16,11 +16,13 @@ import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 import TrainingHub from '@/app/dashboard/unit/training-docs/TrainingHub'
 import EventsTab from '@/app/dashboard/unit/training-docs/EventsTab'
+import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
 interface J3PanelProps {
     displayName: string
     userId: string
     canManageMembers: boolean
+    canManageLinks: boolean
     isJ4: boolean
 }
 
@@ -58,7 +60,7 @@ const btnSx = (active: boolean): React.CSSProperties => ({
     borderRadius: 999,
 })
 
-export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }: J3PanelProps) {
+export default function J3Panel({ displayName, userId, canManageMembers, canManageLinks, isJ4 }: J3PanelProps) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
 
     const tabSx = {
@@ -103,7 +105,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
             </div>
 
             {view === 'settings' && (
-                <DeptSettingsView department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
+                <DeptSettingsView department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
             )}
             {view === 'activity' && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
@@ -112,6 +114,8 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
             )}
             {view === 'dept' && (
                 <>
+                    <DeptLinksRail department='j3' canManage={canManageLinks} onManage={() => setView('settings')} />
+
                     {/* Tabs */}
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                         <Tabs

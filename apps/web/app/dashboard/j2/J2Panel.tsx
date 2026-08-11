@@ -15,16 +15,19 @@ import MembersWorkspaceTab from '@/app/dashboard/j2/tabs/MembersWorkspaceTab'
 import MissionChecksTab from '@/app/dashboard/j2/tabs/MissionChecksTab'
 import IntelImagesTab from '@/app/dashboard/j2/tabs/IntelImagesTab'
 import EraOptionsTab from '@/app/dashboard/j2/tabs/EraOptionsTab'
+import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
 export default function J2Panel({
     displayName,
     userId,
     canManageMembers,
+    canManageLinks,
     isJ4,
 }: {
     displayName: string
     userId: string
     canManageMembers: boolean
+    canManageLinks: boolean
     isJ4: boolean
 }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
@@ -86,7 +89,7 @@ export default function J2Panel({
             </div>
 
             {view === 'settings' && (
-                <DeptSettingsView department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
+                <DeptSettingsView department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j2' userId={userId} isJ4={isJ4} isJ2Lead={canManageMembers} />
@@ -98,6 +101,8 @@ export default function J2Panel({
             )}
             {view === 'dept' && (
                 <>
+                    <DeptLinksRail department='j2' canManage={canManageLinks} onManage={() => setView('settings')} />
+
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                         <Tabs
                             value={tab}

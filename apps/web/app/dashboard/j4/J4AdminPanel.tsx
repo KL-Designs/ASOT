@@ -18,6 +18,7 @@ import MasterSheetTab from './tabs/MasterSheetTab'
 import AIAdminTab from './tabs/AIAdminTab'
 import RolesManagerPanel from '@/app/dashboard/orbat/RolesManagerPanel'
 import PermissionsExplorerPanel from './PermissionsExplorerPanel'
+import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -820,7 +821,7 @@ function TestNotificationModal({ open, onClose, selfId }: { open: boolean; onClo
     )
 }
 
-export default function J4AdminPanel({ userId, displayName }: { userId: string; displayName: string }) {
+export default function J4AdminPanel({ userId, displayName, canManageLinks }: { userId: string; displayName: string; canManageLinks: boolean }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
@@ -931,7 +932,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                     </div>
             </div>
 
-            {view === 'settings'     && <DeptSettingsView department='j4' displayName={displayName} userId={userId} canManage={true} isJ4={true} />}
+            {view === 'settings'     && <DeptSettingsView department='j4' displayName={displayName} userId={userId} canManage={true} canManageLinks={canManageLinks} isJ4={true} />}
             {view === 'calendar'     && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
             {view === 'logs' && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
@@ -940,6 +941,8 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
             )}
             {view === 'dept' && (
                 <>
+                    <DeptLinksRail department='j4' canManage={canManageLinks} onManage={() => setView('settings')} />
+
                     {/* Tabs */}
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                         <Tabs

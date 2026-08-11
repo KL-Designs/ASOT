@@ -13,16 +13,19 @@ import { useTabState } from '@/app/dashboard/_components/useTabState'
 import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
+import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
 export default function J5Panel({
     displayName,
     userId,
     canManageMembers,
+    canManageLinks,
     isJ4,
 }: {
     displayName: string
     userId: string
     canManageMembers: boolean
+    canManageLinks: boolean
     isJ4: boolean
 }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
@@ -84,7 +87,7 @@ export default function J5Panel({
             </div>
 
             {view === 'settings' && (
-                <DeptSettingsView department='j5' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
+                <DeptSettingsView department='j5' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j5' userId={userId} isJ4={isJ4} />
@@ -96,6 +99,8 @@ export default function J5Panel({
             )}
             {view === 'dept' && (
                 <>
+                    <DeptLinksRail department='j5' canManage={canManageLinks} onManage={() => setView('settings')} />
+
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                         <Tabs
                             value={tab}
