@@ -75,6 +75,10 @@ declare global {
         departmentRoleIds?: ObjectId[]  // DepartmentRole ids this member holds (sub-roles AND leadership-slot roles; never base roles)
         isChaplain?: boolean
 
+        // IANA zone name (e.g. "Australia/Sydney"); null = not set yet.
+        // Set via the /me profile page or the bot's /reminder timezone command.
+        timezone?: string | null
+
         teamspeak?: {
             uid: string
             cldbid: number

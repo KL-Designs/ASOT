@@ -7,6 +7,7 @@ import remove from "./remove.ts"
 import enable from "./enable.ts"
 import disable from "./disable.ts"
 import admin from "./admin.ts"
+import timezone from "./timezone.ts"
 
 
 export default {
@@ -22,5 +23,6 @@ export default {
         enable,
         disable,
         admin,
+        timezone,
     ]
 } as ChatCommand

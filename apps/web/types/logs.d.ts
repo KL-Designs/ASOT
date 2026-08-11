@@ -19,6 +19,7 @@ declare global {
         | 'teamspeak'
         | 'J3'
         | 'board'
+        | 'reminder'
 
     interface ActionLog {
         _id: ObjectId

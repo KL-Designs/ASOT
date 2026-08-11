@@ -16,9 +16,10 @@ export default {
             autocomplete: true,
 
             async response(interaction) {
-                const search = interaction.options.getString('repeat') || ''
+                const search = interaction.options.getString('reminder') || ''
+                const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-                const reminders = await Db.reminders.find({ by: interaction.user.id, message: { $regex: search, $options: 'i' } }).limit(25).toArray()
+                const reminders = await Db.reminders.find({ by: interaction.user.id, message: { $regex: escapedSearch, $options: 'i' } }).limit(25).toArray()
 
                 interaction.respond(reminders.map(r => {
                     return {
@@ -32,10 +33,21 @@ export default {
     ],
 
     async execute(interaction) {
-        const reminder = interaction.options.getString('reminder')
-        
-        await Db.reminders.deleteOne({_id: new ObjectId(reminder)})
+        const reminderId = interaction.options.getString('reminder', true)
 
-        interaction.reply({content: `Reminder "${reminder}" has been removed.`, ephemeral: true})
+        let objectId: ObjectId
+        try {
+            objectId = new ObjectId(reminderId)
+        } catch {
+            return interaction.reply({ content: 'Invalid reminder ID.', ephemeral: true })
+        }
+
+        const reminder = await Db.reminders.findOne({ _id: objectId })
+        if (!reminder) return interaction.reply({ content: 'Reminder not found.', ephemeral: true })
+        if (reminder.by !== interaction.user.id) return interaction.reply({ content: 'You can only remove your own reminders.', ephemeral: true })
+
+        await Db.reminders.deleteOne({ _id: objectId })
+
+        interaction.reply({ content: `Reminder "${reminder.message}" has been removed.`, ephemeral: true })
     }
 } as ChatSubcommand

@@ -1389,6 +1389,8 @@ export async function POST(request: NextRequest) {
 
 - [ ] **Step 3: Write the `TimezoneSelector` component**
 
+**Amended after Task 7's review surfaced a UX improvement, approved before this task was dispatched:** in addition to the manual dropdown, auto-detect the browser's timezone via the standard `Intl.DateTimeFormat().resolvedOptions().timeZone` API (a JS built-in, no new dependency) and save it automatically the first time a user with no `timezone` set visits `/me` — matching how Discord scheduling bots like Sesh acquire timezone via a browser-side detection step, except we can do it silently since `/me` is already an authenticated page tied to the user's Discord account. The manual dropdown remains fully functional as an override.
+
 Follow `apps/web/app/me/TSLinkButton.tsx`'s self-contained-fetch-on-mount pattern (own `fetch('/api/me')` for current value, own save call):
 
 ```tsx
@@ -1412,8 +1414,9 @@ const headerStyle = {
 export default function TimezoneSelector({ initialTimezone }: { initialTimezone: string | null }) {
     const [timezone, setTimezone] = useState(initialTimezone ?? '')
     const [saving, setSaving] = useState(false)
+    const [autoDetected, setAutoDetected] = useState(false)
 
-    async function handleChange(value: string) {
+    async function saveTimezone(value: string) {
         setTimezone(value)
         setSaving(true)
         await fetch('/api/me', {
@@ -1422,6 +1425,26 @@ export default function TimezoneSelector({ initialTimezone }: { initialTimezone:
             body: JSON.stringify({ timezone: value }),
         })
         setSaving(false)
+    }
+
+    // Auto-detect once on mount if the user has no timezone saved yet. Runs only
+    // when initialTimezone was null/empty at page load — deliberately excluded
+    // from the dependency array so it never re-fires after the user picks one.
+    useEffect(() => {
+        if (initialTimezone) return
+        const detected = typeof Intl.DateTimeFormat === 'function'
+            ? Intl.DateTimeFormat().resolvedOptions().timeZone
+            : null
+        if (detected && ALL_TIMEZONES.includes(detected)) {
+            setAutoDetected(true)
+            saveTimezone(detected)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    function handleChange(value: string) {
+        setAutoDetected(false)
+        saveTimezone(value)
     }
 
     return (
@@ -1435,6 +1458,11 @@ export default function TimezoneSelector({ initialTimezone }: { initialTimezone:
                 <Typography fontSize='0.75rem' style={{ color: 'rgba(237,237,237,0.5)', marginBottom: 10 }}>
                     Used to interpret times you enter when creating reminders, on both the website and the Discord bot.
                 </Typography>
+                {autoDetected && (
+                    <Typography fontSize='0.72rem' style={{ color: 'rgba(63,174,92,0.85)', marginBottom: 8 }}>
+                        Detected as {timezone.replace(/_/g, ' ')} from your browser — change it below if that&apos;s wrong.
+                    </Typography>
+                )}
                 <TextField
                     select
                     size='small'
@@ -1464,7 +1492,7 @@ export default function TimezoneSelector({ initialTimezone }: { initialTimezone:
 }
 ```
 
-(A plain MUI `select` `TextField` with the full ~400-zone `Intl.supportedValuesOf('timeZone')` list is acceptable here — unlike Discord's 25-option component limit, a native `<select>`-backed MUI field has no such cap and users can type to jump to an option.)
+(A plain MUI `select` `TextField` with the full ~400-zone `Intl.supportedValuesOf('timeZone')` list is acceptable here — unlike Discord's 25-option component limit, a native `<select>`-backed MUI field has no such cap and users can type to jump to an option. The `detected && ALL_TIMEZONES.includes(detected)` guard defends against a browser reporting a timezone string the IANA database in this Node/browser version doesn't recognize — falls back to leaving the field blank for manual selection rather than saving a bogus value.)
 
 - [ ] **Step 4: Add it to the `/me` page**
 
@@ -1485,7 +1513,7 @@ import TimezoneSelector from './TimezoneSelector'
 Run: `npx tsc --noEmit -p tsconfig.json` from `apps/web`.
 Expected: no errors.
 
-Manual check: visit `/me`, confirm the Timezone card renders, pick a zone, refresh the page, confirm it persisted (shows the same value).
+Manual check: visit `/me` on an account with no `timezone` saved yet — confirm the field auto-fills with a plausible zone within a moment of page load, the "Detected as…" note appears, and refreshing the page shows the same value persisted (confirming it actually saved, not just displayed client-side). Then manually change it to a different zone, confirm the note disappears and the new value persists across a refresh.
 
 - [ ] **Step 6: Update the docs map**
 

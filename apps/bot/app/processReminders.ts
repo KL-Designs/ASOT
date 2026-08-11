@@ -10,9 +10,18 @@ export default async function processReminders() {
 
     for (const reminder of reminders) {
         const channel = await App.channel(reminder.channel) as Discord.TextChannel
-        if (!reminder.enabled && reminder.expected.getTime() < today.getTime()) { Db.reminders.updateOne({ _id: reminder._id }, { $set: { expected: new Date(reminder.expected.getTime() + reminder.repeat) } }); continue }
+        if (!channel) {
+            console.error(`[processReminders] Channel ${reminder.channel} not found for reminder ${reminder._id} — skipping`)
+            continue
+        }
+        if (!reminder.enabled && reminder.expected.getTime() < today.getTime()) {
+            await Db.reminders.updateOne({ _id: reminder._id }, { $set: { expected: new Date(reminder.expected.getTime() + reminder.repeat) } })
+            continue
+        }
 
-        const author = await App.user(reminder.by)
+        const author = App.user(reminder.by)
+        const authorName = author ? (author.nickname || author.user.globalName || author.user.username) : 'Unknown'
+        const authorAvatar = author?.user.displayAvatarURL()
 
 
         if (Array.isArray(reminder.acknowledged) && reminder.acknowledged.length > 0 && reminder.nextCheck && reminder.nextCheck.getTime() < today.getTime()) {
@@ -41,7 +50,7 @@ export default async function processReminders() {
 
             if (channelPings.length > 0) {
                 try {
-                    channel.send(`${channelPings.join(' ')} please acknowledge your reminder!`)
+                    await channel.send(`${channelPings.join(' ')} please acknowledge your reminder!`)
                 } catch {
                     console.error(`Failed to send chase-up in "${reminder.channel}" (${reminder.message})`)
                 }
@@ -81,7 +90,7 @@ export default async function processReminders() {
                     embeds: [
                         new Discord.EmbedBuilder()
                             .setTitle('Reminder')
-                            .setAuthor({ name: 'created by ' + (author.nickname || author.user.globalName || author.user.username), iconURL: author.user.displayAvatarURL() })
+                            .setAuthor({ name: 'created by ' + authorName, iconURL: authorAvatar })
                             .setDescription(reminder.message)
                             .setColor(App.colors.warning)
                             .setTimestamp()
@@ -90,7 +99,7 @@ export default async function processReminders() {
                     components: actionRows
                 })
 
-                Db.reminders.updateOne({ _id: reminder._id }, {
+                await Db.reminders.updateOne({ _id: reminder._id }, {
                     $set: {
                         expected: new Date(reminder.expected.getTime() + reminder.repeat),
                         nextCheck: reminder.chaseUpOffset !== null ? new Date(reminder.expected.getTime() + reminder.chaseUpOffset) : null,
@@ -103,12 +112,14 @@ export default async function processReminders() {
                 console.log(`Reminder ${reminder._id} has been sent`)
             } catch {
                 console.error(`Failed to send reminder in "${reminder.channel}" (${reminder.message})`)
-                if (!reminder.sendFailed) {
+                if (!reminder.sendFailed && author) {
                     try {
                         await author.send(`Failed to send your reminder **${reminder.message}** in <#${reminder.channel}>. The bot may not have access to that channel.`)
                     } catch {
                         console.error(`Failed to DM author ${reminder.by} about failed reminder (${reminder.message})`)
                     }
+                }
+                if (!reminder.sendFailed) {
                     await Db.reminders.updateOne({ _id: reminder._id }, { $set: { sendFailed: true } })
                 }
             }
@@ -116,6 +127,10 @@ export default async function processReminders() {
         }
 
 
-        if (reminder.repeat === 0 && reminder.acknowledged === true) { Db.reminders.deleteOne({ _id: reminder._id }), console.log(`Reminder ${reminder._id} has been removed`); continue }
+        if (reminder.repeat === 0 && reminder.acknowledged === true) {
+            await Db.reminders.deleteOne({ _id: reminder._id })
+            console.log(`Reminder ${reminder._id} has been removed`)
+            continue
+        }
     }
 }

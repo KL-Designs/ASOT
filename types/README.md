@@ -13,8 +13,9 @@ them and web wouldn't reasonably want them too — otherwise keep bot-only conce
 
 Only types that are genuinely shared MongoDB document shapes belong here — `User` (the
 `users` collection, referenced by both apps under that exact name — the bot used to have
-its own narrower duplicate called `GuildMember`, since merged into this `User`) and
-`Role`/`Optional` (also shared collections). Everything else stays app-local:
-`apps/web/types/` for the ~35 web-only concepts (operations, attendance, training, etc.),
-`apps/bot/types/` for bot-only ones (`Reminder`, `StatusData`/`SyncStateData`, the bot's
-runtime `Config`/`Modlist`).
+its own narrower duplicate called `GuildMember`, since merged into this `User`),
+`Role`/`Optional` (also shared collections), and `Reminder` (the `reminders` collection —
+moved here once the web dashboard's Reminders tab started reading/writing it directly).
+Everything else stays app-local: `apps/web/types/` for the ~35 web-only concepts
+(operations, attendance, training, etc.), `apps/bot/types/` for bot-only ones
+(`StatusData`/`SyncStateData`, the bot's runtime `Config`/`Modlist`).
