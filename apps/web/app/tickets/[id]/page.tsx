@@ -13,6 +13,7 @@ import {
     STATUS_META, ALL_STATUSES, PRIMARY_STATUS_META, PRIMARY_STATUSES, TAG_META, ALL_TAGS,
     CAT_META, SUBTYPE_LABELS, DEPT_META, SEV_META, FB_TYPE_META, getStatus, getPrimaryStatus,
 } from '../_shared/constants'
+import { avatarURL } from '@/lib/discord/avatar'
 
 type MyVote = 'up' | 'down' | null
 
@@ -64,8 +65,7 @@ interface DetailData extends Omit<CommunityTicket, '_id'> {
 }
 
 function avatarUrl(id: string, avatarId?: string) {
-    if (avatarId) return `https://cdn.discordapp.com/avatars/${id}/${avatarId}.png?size=40`
-    try { return `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(id) % BigInt(6))}.png` }
+    try { return avatarURL(id, avatarId, 40) }
     catch { return 'https://cdn.discordapp.com/embed/avatars/0.png' }
 }
 const fmt = (d: string | Date) => new Date(d).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })

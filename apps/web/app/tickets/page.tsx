@@ -14,6 +14,7 @@ import {
     CAT_META, SUBTYPE_LABELS, PUBLIC_CATEGORIES, PRIVATE_CATEGORIES,
     getStatus, isTicketClosed, getPrimaryStatus,
 } from './_shared/constants'
+import { avatarURL } from '@/lib/discord/avatar'
 
 type TicketItem = CommunityTicket & { _id: string }
 type SortMode = 'votes' | 'newest' | 'oldest'
@@ -68,8 +69,7 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
 
 function avatarUrl(item: TicketItem): string {
     if (item.isAnonymous) return ''
-    if (item.authorAvatarId) return `https://cdn.discordapp.com/avatars/${item.authorId}/${item.authorAvatarId}.png?size=32`
-    try { return `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(item.authorId) % BigInt(6))}.png` }
+    try { return avatarURL(item.authorId, item.authorAvatarId, 32) }
     catch { return 'https://cdn.discordapp.com/embed/avatars/0.png' }
 }
 

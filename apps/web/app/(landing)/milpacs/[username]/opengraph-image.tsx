@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og'
 import client from '@/lib/discord'
 import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
+import { defaultAvatarURL } from '@/lib/discord/avatar'
 
 export const size = { width: 1300, height: 630 }
 export const contentType = 'image/png'
@@ -33,8 +34,8 @@ export default async function Image({ params }: { params: Promise<{ username: st
         || (member.guild?.joinedTimestamp ? new Date(member.guild.joinedTimestamp).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) : null)
 
     const avatarUrl = member.avatar
-        ? `https://cdn.discordapp.com/avatars/${member.id}/${member.avatar}?size=256`
-        : `https://cdn.discordapp.com/embed/avatars/0.png`
+        ? `https://cdn.discordapp.com/avatars/${member.id}/${member.avatar}.${member.avatar.startsWith('a_') ? 'gif' : 'png'}?size=256`
+        : defaultAvatarURL(member.id)
 
     return new ImageResponse(
         <div

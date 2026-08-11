@@ -24,6 +24,10 @@ export async function processMember(member: Discord.GuildMember): Promise<boolea
 
     const user = await member.user.fetch()
     const userJson = user.toJSON()
+    // toJSON() only serializes raw fields (avatar hash, etc.) — it skips discord.js's
+    // computed URL getters, so members who are only ever synced by the bot (never log
+    // into the web app) would otherwise end up with no avatarURL at all.
+    userJson['avatarURL'] = user.displayAvatarURL()
     userJson['guild'] = member.toJSON()
     userJson['syncedAt'] = Date.now()
 

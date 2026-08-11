@@ -1,16 +1,23 @@
 'use client'
 
 import Image, { StaticImageData } from 'next/image'
-import { useState } from 'react'
-
+import { useEffect, useState } from 'react'
 
 import Fallback from '@/public/images/fallback_pfp.png'
+import { defaultAvatarURL } from '@/lib/discord/avatar'
 
 
+
+function resolveAvatar(user?: User): string | StaticImageData {
+    if (user?.avatarURL) return user.avatarURL
+    return user?.id ? defaultAvatarURL(user.id) : Fallback
+}
 
 export default function Avatar({ user, borderRadius = '100%' }: { user?: User, borderRadius?: string }) {
 
-    const [image, setImage] = useState<string | StaticImageData>(user?.avatarURL || Fallback)
+    const [image, setImage] = useState<string | StaticImageData>(() => resolveAvatar(user))
+
+    useEffect(() => setImage(resolveAvatar(user)), [user])
 
     return (
         <Image
@@ -19,7 +26,7 @@ export default function Avatar({ user, borderRadius = '100%' }: { user?: User, b
             fill
             className='object-cover'
             style={{ borderRadius }}
-            onError={(e) => setImage(Fallback)}
+            onError={() => setImage(user?.id ? defaultAvatarURL(user.id) : Fallback)}
         />
     )
 }

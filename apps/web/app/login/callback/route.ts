@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server"
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { ExchangeToken, GetUser } from "@/lib/discord/oauth"
+import { avatarURL as buildAvatarURL } from '@/lib/discord/avatar'
 
 function cdnAssetURL(base: 'avatars' | 'banners', id: string, hash: string | null | undefined): string | null {
     if (!hash) return null
@@ -41,8 +42,7 @@ export async function GET(request: NextRequest) {
                                     ? `${User.username}#${User.discriminator}`
                                     : User.username,
                 avatar:         User.avatar ?? null,
-                avatarURL:      cdnAssetURL('avatars', User.id, User.avatar)
-                                    ?? `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(User.id) >> BigInt(22)) % 6}.png`,
+                avatarURL:      buildAvatarURL(User.id, User.avatar),
                 banner:         User.banner ?? null,
                 bannerURL:      cdnAssetURL('banners', User.id, User.banner),
                 hexAccentColor: User.accent_color ? `#${User.accent_color.toString(16).padStart(6, '0')}` : '#000000',

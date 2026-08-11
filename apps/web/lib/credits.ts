@@ -1,6 +1,7 @@
 import Db from '@/lib/mongo'
 import { getOrbatEntriesForUsers } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
+import { defaultAvatarURL } from '@/lib/discord/avatar'
 
 const CONTRIBUTOR_ORDER = ['240786290600181761', '224086573560365057', '683343114865606686', '256009348197777409']
 
@@ -78,7 +79,7 @@ export async function getCreditsData(): Promise<CreditsResponse> {
                 name,
                 rankAbbr: rankAbbr ?? null,
                 fullRank: fullRank ?? null,
-                avatarURL: user.avatarURL || '/images/fallback_pfp.png',
+                avatarURL: user.avatarURL || defaultAvatarURL(id),
                 accent,
                 orbatRole: orbatEntry?.role ?? null,
                 orbatSection: orbatEntry?.section ?? null,
@@ -102,7 +103,7 @@ export async function getCreditsData(): Promise<CreditsResponse> {
                 id,
                 name,
                 rankAbbr: rankAbbr ?? null,
-                avatarURL: user.avatarURL || '/images/fallback_pfp.png',
+                avatarURL: user.avatarURL || defaultAvatarURL(id),
                 accent,
                 reason: THANKS[id],
             } satisfies CreditThanks

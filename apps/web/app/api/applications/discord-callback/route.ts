@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
 import { botRequest } from '@/lib/discord/bot'
+import { avatarURL } from '@/lib/discord/avatar'
 
 export async function GET(request: NextRequest) {
     const code  = request.nextUrl.searchParams.get('code')
@@ -72,9 +73,7 @@ export async function GET(request: NextRequest) {
         id:         user.id,
         username:   user.username,
         globalName: user.global_name ?? user.username,
-        avatar:     user.avatar
-            ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-            : `https://cdn.discordapp.com/embed/avatars/${parseInt(user.discriminator || '0') % 5}.png`,
+        avatar:     avatarURL(user.id, user.avatar),
     })
 
     const response = NextResponse.redirect(`${base}/join?discord_verified=1`)
