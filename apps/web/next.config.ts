@@ -37,6 +37,12 @@ const nextConfig: NextConfig = {
 
 			{
 				protocol: 'https',
+				hostname: 'cdn.discordapp.com',
+				pathname: '/embed/avatars/**',
+			},
+
+			{
+				protocol: 'https',
 				hostname: '*.asotmilsim.com',
 				pathname: '/api/gallery/fetch/**',
 			},
