@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { refreshOfflineCache, isOfflineRefreshing } from '@/lib/teamspeak/cache'
 import { verifyCronSecret } from '@/lib/cron-auth'
+import { trackJob } from '@/lib/diagnostics.mjs'
 
 /**
  * GET /api/cron/teamspeak-cache
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ skipped: true, reason: 'Already refreshing' })
     }
 
-    refreshOfflineCache().catch(e => console.error('[cron/teamspeak-cache] Error:', e.message))
+    trackJob('cron:teamspeak-cache-refresh', () => refreshOfflineCache())
+        .catch(e => console.error('[cron/teamspeak-cache] Error:', e.message))
     return NextResponse.json({ message: 'Cache refresh started' })
 }

@@ -16,6 +16,7 @@ import { Database } from '@hocuspocus/extension-database'
 import { MongoClient, ObjectId } from 'mongodb'
 import { yDocToProsemirrorJSON } from 'y-prosemirror'
 import { WebSocketServer } from 'ws'
+import { startEventLoopWatchdog, trackJob, registerInFlight } from './lib/diagnostics.mjs'
 
 const dev  = process.env.NODE_ENV !== 'production'
 const port = Number(process.env.PORT || 3000)
@@ -584,6 +585,11 @@ await app.prepare()
 // ── HTTP server ───────────────────────────────────────────────────────────────
 
 const httpServer = createServer((req, res) => {
+    const deregister = registerInFlight(`${req.method} ${req.url}`)
+    let cleaned = false
+    const cleanup = () => { if (!cleaned) { cleaned = true; deregister() } }
+    res.on('finish', cleanup)
+    res.on('close', cleanup)
     handle(req, res, parse(req.url, true))
 })
 
@@ -679,8 +685,15 @@ async function cleanupOperationImages() {
     }
 }
 
-cleanupOperationImages().catch(e => console.error('[image-cleanup] Error:', e.message))
-setInterval(() => cleanupOperationImages().catch(e => console.error('[image-cleanup] Error:', e.message)), 60 * 60 * 1000)
+function runImageCleanup() {
+    return trackJob('cron:image-cleanup', () => cleanupOperationImages())
+        .catch(e => console.error('[image-cleanup] Error:', e.message))
+}
+
+runImageCleanup()
+setInterval(runImageCleanup, 60 * 60 * 1000)
+
+startEventLoopWatchdog()
 
 httpServer.listen(port, '0.0.0.0', () => {
     console.log(`> Next.js ready on http://0.0.0.0:${port}`)
@@ -690,17 +703,19 @@ httpServer.listen(port, '0.0.0.0', () => {
 // ── Calendar reminders cron (every 1 minute) ─────────────────────────────────
 
 async function triggerCalendarRemindersCron() {
-    try {
-        const res = await fetch(`http://localhost:${port}/api/cron/calendar-reminders`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
-        if (!res.ok) {
-            console.error(`[cron/calendar-reminders] HTTP ${res.status} — check CRON_SECRET`)
-            return
+    await trackJob('cron:calendar-reminders', async () => {
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/calendar-reminders`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            if (!res.ok) {
+                console.error(`[cron/calendar-reminders] HTTP ${res.status} — check CRON_SECRET`)
+                return
+            }
+            const data = await res.json()
+            console.log(`[cron/calendar-reminders] tick — fired=${data.fired ?? 0}`)
+        } catch (e) {
+            console.error('[cron/calendar-reminders] Error:', e.message)
         }
-        const data = await res.json()
-        console.log(`[cron/calendar-reminders] tick — fired=${data.fired ?? 0}`)
-    } catch (e) {
-        console.error('[cron/calendar-reminders] Error:', e.message)
-    }
+    })
 }
 
 setInterval(triggerCalendarRemindersCron, 60 * 1000)
@@ -709,20 +724,22 @@ triggerCalendarRemindersCron()
 // ── Task reminders / overdue / escalation cron (every 1 minute) ──────────────
 
 async function triggerTaskRemindersCron() {
-    try {
-        const res = await fetch(`http://localhost:${port}/api/cron/task-reminders`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
-        if (!res.ok) {
-            console.error(`[cron/task-reminders] HTTP ${res.status} — check CRON_SECRET`)
-            return
+    await trackJob('cron:task-reminders', async () => {
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/task-reminders`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            if (!res.ok) {
+                console.error(`[cron/task-reminders] HTTP ${res.status} — check CRON_SECRET`)
+                return
+            }
+            const data = await res.json()
+            const { remindersFired, overdueFired, escalationsFired } = data
+            if (remindersFired + overdueFired + escalationsFired > 0) {
+                console.log(`[cron/task-reminders] tick — reminders=${remindersFired} overdue=${overdueFired} escalations=${escalationsFired}`)
+            }
+        } catch (e) {
+            console.error('[cron/task-reminders] Error:', e.message)
         }
-        const data = await res.json()
-        const { remindersFired, overdueFired, escalationsFired } = data
-        if (remindersFired + overdueFired + escalationsFired > 0) {
-            console.log(`[cron/task-reminders] tick — reminders=${remindersFired} overdue=${overdueFired} escalations=${escalationsFired}`)
-        }
-    } catch (e) {
-        console.error('[cron/task-reminders] Error:', e.message)
-    }
+    })
 }
 
 setInterval(triggerTaskRemindersCron, 60 * 1000)
@@ -731,19 +748,21 @@ triggerTaskRemindersCron()
 // ── Operations cron (every 1 minute) ─────────────────────────────────────────
 
 async function triggerOperationsCron() {
-    try {
-        const res = await fetch(`http://localhost:${port}/api/cron/operations`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
-        if (!res.ok) {
-            console.error(`[cron/operations] HTTP ${res.status} — check CRON_SECRET`)
-            return
+    await trackJob('cron:operations', async () => {
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/operations`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            if (!res.ok) {
+                console.error(`[cron/operations] HTTP ${res.status} — check CRON_SECRET`)
+                return
+            }
+            const data = await res.json()
+            const { rsvpOpened, rsvpClosed, activatedOps, confirmationOpened, confirmationClosed } = data
+            const summary = `rsvpOpened=${rsvpOpened} rsvpClosed=${rsvpClosed} activatedOps=${activatedOps} confirmationOpened=${confirmationOpened} confirmationClosed=${confirmationClosed}`
+            console.log(`[cron/operations] tick — ${summary}`)
+        } catch (e) {
+            console.error('[cron/operations] Error:', e.message)
         }
-        const data = await res.json()
-        const { rsvpOpened, rsvpClosed, activatedOps, confirmationOpened, confirmationClosed } = data
-        const summary = `rsvpOpened=${rsvpOpened} rsvpClosed=${rsvpClosed} activatedOps=${activatedOps} confirmationOpened=${confirmationOpened} confirmationClosed=${confirmationClosed}`
-        console.log(`[cron/operations] tick — ${summary}`)
-    } catch (e) {
-        console.error('[cron/operations] Error:', e.message)
-    }
+    })
 }
 
 setInterval(triggerOperationsCron, 60 * 1000)
@@ -752,19 +771,21 @@ triggerOperationsCron()
 // ── Dev check escalation cron (every 1 hour) ─────────────────────────────────
 
 async function triggerDevCheckEscalationCron() {
-    try {
-        const res = await fetch(`http://localhost:${port}/api/cron/dev-check-escalation`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
-        if (!res.ok) {
-            console.error(`[cron/dev-check-escalation] HTTP ${res.status} — check CRON_SECRET`)
-            return
+    await trackJob('cron:dev-check-escalation', async () => {
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/dev-check-escalation`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            if (!res.ok) {
+                console.error(`[cron/dev-check-escalation] HTTP ${res.status} — check CRON_SECRET`)
+                return
+            }
+            const data = await res.json()
+            if (data.escalated > 0 || data.errors > 0) {
+                console.log(`[cron/dev-check-escalation] tick — escalated=${data.escalated} errors=${data.errors}`)
+            }
+        } catch (e) {
+            console.error('[cron/dev-check-escalation] Error:', e.message)
         }
-        const data = await res.json()
-        if (data.escalated > 0 || data.errors > 0) {
-            console.log(`[cron/dev-check-escalation] tick — escalated=${data.escalated} errors=${data.errors}`)
-        }
-    } catch (e) {
-        console.error('[cron/dev-check-escalation] Error:', e.message)
-    }
+    })
 }
 
 setInterval(triggerDevCheckEscalationCron, 60 * 60 * 1000)
@@ -781,13 +802,15 @@ function msUntilNext3am() {
 }
 
 async function triggerScheduledSnapshot() {
-    try {
-        const res = await fetch(`http://localhost:${port}/api/cron/snapshots`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
-        const data = await res.json()
-        console.log('[snapshots] Scheduled snapshot triggered:', data)
-    } catch (e) {
-        console.error('[snapshots] Scheduled snapshot error:', e.message)
-    }
+    await trackJob('cron:snapshots', async () => {
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/snapshots`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            const data = await res.json()
+            console.log('[snapshots] Scheduled snapshot triggered:', data)
+        } catch (e) {
+            console.error('[snapshots] Scheduled snapshot error:', e.message)
+        }
+    })
 }
 
 setTimeout(() => {
@@ -800,13 +823,15 @@ console.log(`[snapshots] Next auto-snapshot check in ${Math.round(msUntilNext3am
 // ── TeamSpeak daily snapshot (every 24h at 3am) ───────────────────────────────
 
 async function triggerTsSnapshot() {
-    try {
-        const res = await fetch(`http://localhost:${port}/api/cron/teamspeak-snapshots`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
-        const data = await res.json()
-        console.log('[teamspeak-snapshots] Daily snapshot triggered:', data)
-    } catch (e) {
-        console.error('[teamspeak-snapshots] Error:', e.message)
-    }
+    await trackJob('cron:teamspeak-snapshots', async () => {
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/teamspeak-snapshots`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            const data = await res.json()
+            console.log('[teamspeak-snapshots] Daily snapshot triggered:', data)
+        } catch (e) {
+            console.error('[teamspeak-snapshots] Error:', e.message)
+        }
+    })
 }
 
 setTimeout(() => {
@@ -817,13 +842,15 @@ setTimeout(() => {
 // ── TeamSpeak offline client cache (refresh every 15 min) ────────────────────
 
 async function triggerTsCacheRefresh() {
-    try {
-        const res = await fetch(`http://localhost:${port}/api/cron/teamspeak-cache`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
-        const data = await res.json()
-        console.log('[teamspeak-cache] Refresh triggered:', data)
-    } catch (e) {
-        console.error('[teamspeak-cache] Error:', e.message)
-    }
+    await trackJob('cron:teamspeak-cache', async () => {
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/teamspeak-cache`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            const data = await res.json()
+            console.log('[teamspeak-cache] Refresh triggered:', data)
+        } catch (e) {
+            console.error('[teamspeak-cache] Error:', e.message)
+        }
+    })
 }
 
 setInterval(triggerTsCacheRefresh, 15 * 60 * 1000)
