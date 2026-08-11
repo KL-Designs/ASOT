@@ -585,7 +585,7 @@ await app.prepare()
 // ── HTTP server ───────────────────────────────────────────────────────────────
 
 const httpServer = createServer((req, res) => {
-    const deregister = registerInFlight(`${req.method} ${req.url}`)
+    const deregister = registerInFlight(`${req.method} ${req.url.split('?')[0]}`)
     let cleaned = false
     const cleanup = () => { if (!cleaned) { cleaned = true; deregister() } }
     res.on('finish', cleanup)
@@ -690,10 +690,10 @@ function runImageCleanup() {
         .catch(e => console.error('[image-cleanup] Error:', e.message))
 }
 
+startEventLoopWatchdog()
+
 runImageCleanup()
 setInterval(runImageCleanup, 60 * 60 * 1000)
-
-startEventLoopWatchdog()
 
 httpServer.listen(port, '0.0.0.0', () => {
     console.log(`> Next.js ready on http://0.0.0.0:${port}`)
