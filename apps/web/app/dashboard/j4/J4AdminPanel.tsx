@@ -824,6 +824,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
     const [devModeLoading, setDevModeLoading] = useState(false)
     const [tsDevMode, setTsDevMode]       = useState<boolean | null>(null)
     const [tsDevModeLoading, setTsDevModeLoading] = useState(false)
+    const [cpuProfile, setCpuProfile] = useState<'idle' | 'capturing' | { filename: string }>('idle')
 
     useEffect(() => {
         fetch('/api/admin/discord-devmode')
@@ -857,6 +858,22 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
             setTsDevMode(!!data.enabled)
         } finally {
             setTsDevModeLoading(false)
+        }
+    }
+
+    async function captureCpuProfile() {
+        if (cpuProfile === 'capturing') return
+        setCpuProfile('capturing')
+        try {
+            const res = await fetch('/api/admin/diagnostics/cpu-profile?duration=30', { method: 'POST' })
+            const data = await res.json()
+            if (res.ok && data.filename) {
+                setCpuProfile({ filename: data.filename })
+            } else {
+                setCpuProfile('idle')
+            }
+        } catch {
+            setCpuProfile('idle')
         }
     }
 
@@ -1161,6 +1178,47 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                         </Typography>
                                     </div>
                                 </button>
+
+                                {/* CPU Profile capture — for production event-loop stall investigation */}
+                                {typeof cpuProfile === 'object' ? (
+                                    <a
+                                        href={`/api/admin/diagnostics/cpu-profile/${encodeURIComponent(cpuProfile.filename)}`}
+                                        download={cpuProfile.filename}
+                                        className='flex-1 min-w-[160px]'
+                                        style={{ textDecoration: 'none' }}
+                                    >
+                                        <div
+                                            className='flex flex-col justify-center items-center gap-3 p-6 h-[160px] transition-colors duration-200'
+                                            style={{ background: 'rgba(0,195,100,0.06)', border: '1px solid rgba(0,195,100,0.3)', borderTop: '2px solid rgb(0,195,100)', cursor: 'pointer' }}
+                                        >
+                                            <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase', color: 'rgba(0,195,100,0.85)' }}>
+                                                Download<br />CPU Profile
+                                            </Typography>
+                                            <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: 'rgba(0,195,100,0.6)', textTransform: 'uppercase' }}>
+                                                Ready — click to save
+                                            </Typography>
+                                        </div>
+                                    </a>
+                                ) : (
+                                    <button
+                                        onClick={captureCpuProfile}
+                                        disabled={cpuProfile === 'capturing'}
+                                        className='flex-1 min-w-[160px]'
+                                        style={{ background: 'none', border: 'none', padding: 0, cursor: cpuProfile === 'capturing' ? 'default' : 'pointer', textAlign: 'left' }}
+                                    >
+                                        <div
+                                            className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
+                                            style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', opacity: cpuProfile === 'capturing' ? 0.6 : 1 }}
+                                        >
+                                            <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
+                                                CPU Profile<br />(30s)
+                                            </Typography>
+                                            <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: 'rgba(237,237,237,0.25)', textTransform: 'uppercase' }}>
+                                                {cpuProfile === 'capturing' ? 'Capturing…' : 'For stall investigation'}
+                                            </Typography>
+                                        </div>
+                                    </button>
+                                )}
 
                             </div>
                         </div>
