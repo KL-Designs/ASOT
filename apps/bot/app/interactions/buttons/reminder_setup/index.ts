@@ -54,10 +54,14 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
                 new Discord.ActionRowBuilder<Discord.TextInputBuilder>().addComponents(
                     new Discord.TextInputBuilder()
                         .setCustomId('date')
-                        .setLabel(`Date (DD/MM/YYYY), timezone: ${timezone}`)
+                        .setLabel('Date (DD/MM/YYYY)')
                         .setStyle(Discord.TextInputStyle.Short)
                         .setRequired(true)
-                        .setPlaceholder('31/12/2026')
+                        // Timezone goes in the placeholder (100-char cap), not the label
+                        // (45-char cap, per discord.js/Discord API) — some IANA zone names
+                        // (e.g. "America/Argentina/Buenos_Aires") push the combined label
+                        // text past 45 chars and crash `TextInputBuilder.setLabel()`.
+                        .setPlaceholder(`31/12/2026 — your timezone: ${timezone}`)
                 ),
                 new Discord.ActionRowBuilder<Discord.TextInputBuilder>().addComponents(
                     new Discord.TextInputBuilder()
