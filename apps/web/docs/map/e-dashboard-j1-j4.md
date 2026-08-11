@@ -2,9 +2,9 @@
 
 Scope: `app/dashboard/j1/**`, `app/dashboard/j2/**`, `app/dashboard/j3/**`, `app/dashboard/j4/**`.
 
-All four `page.tsx` files follow the identical shape: `await connection()`, `client.fetchMe()`, redirect to `/login` if unauthenticated, redirect to `/dashboard` if `!client.hasRoles(me, PERMISSIONS.departments.jN)`. J1-J3 then pass `displayName`, `userId`, `canManageMembers` (`await hasPermission(me, 'departmentLeads.jN')`), and `isJ4` (`PERMISSIONS.departments.j4`) into the client `JNPanel` component. J4's page passes neither `canManageMembers` nor `isJ4`; it passes only `userId` and `displayName` into `J4AdminPanel`. Each has a `loading.tsx` rendering `<TacticalLoader label='LOADING JN // ...' />`. J1-J3 (and J4) additionally compute `canManageLinks` from a single `hasPermissions(me, ['departmentLeads.jN', 'deptLinks.manageJN'])` call (lead OR the new `deptLinks.manageJN` key) and pass it into their panel; J4's page now computes `canManageLinks` too while still passing no `canManageMembers`/`isJ4`.
+All four `page.tsx` files follow the identical shape: `await connection()`, `client.fetchMe()`, redirect to `/login` if unauthenticated, redirect to `/dashboard` if `!client.hasRoles(me, PERMISSIONS.departments.jN)`. J1-J3 then pass `displayName`, `userId`, `canManageMembers` (`await hasPermission(me, 'departmentLeads.jN')`), and `isJ4` (`PERMISSIONS.departments.j4`) into the client `JNPanel` component. J4's page passes neither `canManageMembers` nor `isJ4`; it passes only `userId` and `displayName` into `J4AdminPanel`. Each has a `loading.tsx` rendering `<TacticalLoader label='LOADING JN // ...' />`. J1-J3 (and J4) additionally compute `canManageLinks` as `canManageMembers || await hasDepartmentPermission(me, 'jN', 'deptLinks.manage')` (lead OR the department-scoped `deptLinks.manage` key — scope comes from which `DepartmentRole` holds it, not from the key name) and pass it into their panel; J4's page now computes `canManageLinks` too while still passing no `canManageMembers`/`isJ4`.
 
-Every panel's header has three toggle buttons (Settings / Calendar / Activity Logs, or Logs for J4) that swap to shared components: the Settings pill renders `DeptSettingsView` (`app/dashboard/DeptSettingsView.tsx`), which stacks the quick-links manager card (`DeptLinksManagerCard`, department quick links, see H) above the unchanged `DeptMembersTab` (`app/dashboard/DeptMembersTab.tsx`); `DeptCalendarTab` (`app/dashboard/unit/calendar/DeptCalendarTab.tsx`); `ActivityLogTab` (`app/dashboard/_components/ActivityLogTab.tsx`). Tab state persisted via `useTabState` (`app/dashboard/_components/useTabState.ts`); the `View` union member is `'settings'`, with a legacy `?view=members` alias so old bookmarks still resolve. Each panel's `view === 'dept'` fragment now opens with `<DeptLinksRail>` (the favicon quick-links tile rail, see H) as its first child, before the Tabs strip. Tab labels support pin-to-sidebar via `PinTabLabel`.
+Every panel's header has three toggle buttons (Management / Calendar / Activity Logs, or Logs for J4 — labelled "Management", was "Settings") that swap to shared components: the Management pill renders `DeptSettingsView` (`app/dashboard/DeptSettingsView.tsx`), which stacks the quick-links manager card (`DeptLinksManagerCard`, department quick links, see H) above the unchanged `DeptMembersTab` (`app/dashboard/DeptMembersTab.tsx`); `DeptCalendarTab` (`app/dashboard/unit/calendar/DeptCalendarTab.tsx`); `ActivityLogTab` (`app/dashboard/_components/ActivityLogTab.tsx`). Tab state persisted via `useTabState` (`app/dashboard/_components/useTabState.ts`); the `View` union member is still `'settings'` (label-only rename, URL param unchanged), with a legacy `?view=members` alias so old bookmarks still resolve. Each panel's `view === 'dept'` fragment now opens with `<DeptLinksRail>` (the favicon quick-links tile rail, see H) as its first child, before the Tabs strip. Tab labels support pin-to-sidebar via `PinTabLabel`.
 
 `DeptMembersTab`'s member table also renders a "Roles" column — one toggleable chip per department sub-role that isn't a base role or linked to a leadership slot (fetched via `GET /api/admin/department-roles?department=X`; base and slot-linked roles are excluded — slot-linked roles are single-holder and only assignable via the Leadership card, see below), hidden entirely when the department has none. Clicking a chip calls `POST /api/admin/department-roles/assign` to add/remove that member's holding of the sub-role. Read-only (chips render but aren't clickable, and roles the member doesn't hold aren't shown) for non-managers; clickable for department leads/J4 (`canManage`).
 
@@ -15,7 +15,7 @@ Above the member table, a "Department Leadership" card shows the department's 3 
 ### J1 — Recruitment
 
 #### app/dashboard/j1/page.tsx
-Route `/dashboard/j1`. Gated by `PERMISSIONS.departments.j1`; computes `canManageMembers` and `canManageLinks` from one `hasPermissions(me, ['departmentLeads.j1', 'deptLinks.manageJ1'])` call, and `isJ4` from `PERMISSIONS.departments.j4`. Renders `J1Panel`.
+Route `/dashboard/j1`. Gated by `PERMISSIONS.departments.j1`; computes `canManageMembers` via `hasPermission(me, 'departmentLeads.j1')` and `canManageLinks` as that OR `hasDepartmentPermission(me, 'j1', 'deptLinks.manage')`, and `isJ4` from `PERMISSIONS.departments.j4`. Renders `J1Panel`.
 
 #### app/dashboard/j1/J1Panel.tsx
 Top-level client panel. Tabs: Recruit Member (0), Applications (1), Mastersheet (2), Statistics (3), Meetings (4, via shared `MeetingsTab`), Tickets (5, via shared `DeptTicketsTab department='j1'`), TFAR Plugin (6, lead/J4 only). Header toggles to `DeptSettingsView`/`DeptCalendarTab`/`ActivityLogTab` for `department='j1'`; `DeptLinksRail` renders above the Tabs strip on the `dept` view.
@@ -55,7 +55,7 @@ Exports `TIME_PERIODS`, `BCTSlotSummary` type — reused by `RecruitMemberTab`/`
 ### J2 — Mission Making
 
 #### app/dashboard/j2/page.tsx
-Route `/dashboard/j2`. Gated by `PERMISSIONS.departments.j2`; computes `canManageMembers` and `canManageLinks` from one `hasPermissions(me, ['departmentLeads.j2', 'deptLinks.manageJ2'])` call. Renders `J2Panel`.
+Route `/dashboard/j2`. Gated by `PERMISSIONS.departments.j2`; computes `canManageMembers` via `hasPermission(me, 'departmentLeads.j2')` and `canManageLinks` as that OR `hasDepartmentPermission(me, 'j2', 'deptLinks.manage')`. Renders `J2Panel`.
 
 #### app/dashboard/j2/J2Panel.tsx
 Tabs: Operations (0), Meetings (1), Tickets (2), Members Workspace (3), Mission Checks (4), ERA Options (5, lead-only). Header toggles to `DeptSettingsView`/`DeptCalendarTab` (passes extra `isJ2Lead` prop)/`ActivityLogTab` for `department='j2'`; `DeptLinksRail` renders above the Tabs strip on the `dept` view. ("Members Workspace" at tab index 3 is an unrelated J2 tab label, not part of the rename, see FR-41.)
@@ -87,7 +87,7 @@ API calls: `GET/POST/PATCH/DELETE /api/admin/era-options[?id=]`.
 ### J3 — Training
 
 #### app/dashboard/j3/page.tsx
-Route `/dashboard/j3`. Gated by `PERMISSIONS.departments.j3`; computes `canManageMembers` and `canManageLinks` from one `hasPermissions(me, ['departmentLeads.j3', 'deptLinks.manageJ3'])` call. Renders `J3Panel`.
+Route `/dashboard/j3`. Gated by `PERMISSIONS.departments.j3`; computes `canManageMembers` via `hasPermission(me, 'departmentLeads.j3')` and `canManageLinks` as that OR `hasDepartmentPermission(me, 'j3', 'deptLinks.manage')`. Renders `J3Panel`.
 
 #### app/dashboard/j3/J3Panel.tsx
 Tabs: Training Hub (0, via shared `TrainingHub` from `app/dashboard/unit/training-docs/TrainingHub.tsx`), Training Tickets (1), Training Calendar (2, `DeptCalendarTab department='j3'`), Training Requests (3, via shared `EventsTab` from `app/dashboard/unit/training-docs/EventsTab.tsx`), Training Records (4), Meetings (5), Tickets (6, `DeptTicketsTab department='j3'`), Master Sheet (7), CSV Import (8). Header toggles Settings/Activity Logs only (no Calendar toggle; calendar is an inline tab instead); Settings renders `DeptSettingsView`, and `DeptLinksRail` renders above the Tabs strip on the `dept` view.
@@ -130,7 +130,7 @@ API calls: `GET /api/admin/members`, `GET/POST /api/admin/tickets?issuedById=` (
 ### J4 — Administration
 
 #### app/dashboard/j4/page.tsx
-Route `/dashboard/j4`. Gated by `PERMISSIONS.departments.j4`; computes `canManageLinks` from `hasPermissions(me, ['departmentLeads.j4', 'deptLinks.manageJ4'])`. Renders `J4AdminPanel` (no separate `canManageMembers`/`isJ4` props needed; J4 members are always leads/J4).
+Route `/dashboard/j4`. Gated by `PERMISSIONS.departments.j4`; computes `canManageLinks` as `hasPermission(me, 'departmentLeads.j4')` OR `hasDepartmentPermission(me, 'j4', 'deptLinks.manage')`. Renders `J4AdminPanel` (no separate `canManageMembers`/`isJ4` props needed; J4 members are always leads/J4).
 
 #### app/dashboard/j4/J4AdminPanel.tsx
 Main J4 panel. Tabs: Mastersheet (0, `MasterSheetTab`), Tickets (1, `CommunityTicketsTab`), Meetings (2, `J4MeetingsTab`), Snapshots (3, `SnapshotsTab`), Teamspeak (4, `TeamspeakTab`), Tools (5, grid of action tiles, not a separate component file). Header toggles: Settings (`DeptSettingsView department='j4'`, `canManage={true}` kept exactly as before, plus the new `canManageLinks` prop), Calendar (`DeptCalendarTab department='j4'`), Activity Logs (`LogsTab`, note: uses `view==='logs'` not `'activity'`); `DeptLinksRail` renders above the Tabs strip on the `dept` view.
