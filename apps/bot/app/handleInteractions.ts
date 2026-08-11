@@ -104,7 +104,11 @@ export function Button(interaction: Discord.ButtonInteraction) {
     const args = interaction.customId.split('.').slice(1)
 
     try {
-        return Buttons[ext](interaction, args)
+        const handler = Buttons[ext]
+        if (!handler) throw new Error(`No ButtonID matching \`${ext}\` was found.`)
+        return Promise.resolve(handler(interaction, args)).catch(err => {
+            console.error(`[Button:${ext}] Unhandled error:`, err)
+        })
     } catch {
         return interaction.reply({ content: `No ButtonID matching \`${ext}\` was found.`, ephemeral: true })
     }
@@ -116,7 +120,11 @@ export function ModalSubmit(interaction: Discord.ModalSubmitInteraction) {
     const args = interaction.customId.split('.').slice(1)
 
     try {
-        return Modals[ext](interaction, args)
+        const handler = Modals[ext]
+        if (!handler) throw new Error(`No ModalSubmitID matching \`${ext}\` was found.`)
+        return Promise.resolve(handler(interaction, args)).catch(err => {
+            console.error(`[ModalSubmit:${ext}] Unhandled error:`, err)
+        })
     } catch {
         return interaction.reply({ content: `No ModalSubmitID matching \`${ext}\` was found.`, ephemeral: true })
     }
@@ -131,7 +139,11 @@ export function StringSelectMenu(interaction: Discord.StringSelectMenuInteractio
     if (!channel) return interaction.reply({ content: `This interaction is not valid in this context.`, ephemeral: true })
 
     try {
-        return StringSelectMenus[ext](interaction, args)
+        const handler = StringSelectMenus[ext]
+        if (!handler) throw new Error(`No StringSelectMenu matching \`${ext}\` was found.`)
+        return Promise.resolve(handler(interaction, args)).catch(err => {
+            console.error(`[StringSelectMenu:${ext}] Unhandled error:`, err)
+        })
     } catch {
         return interaction.reply({ content: `No StringSelectMenu matching \`${ext}\` was found.`, ephemeral: true })
     }
@@ -143,7 +155,11 @@ export function MentionableSelectMenu(interaction: Discord.MentionableSelectMenu
     const args = interaction.customId.split('.').slice(1)
 
     try {
-        return MentionableSelectMenus[ext](interaction, args)
+        const handler = MentionableSelectMenus[ext]
+        if (!handler) throw new Error(`No MentionableSelectMenu matching \`${ext}\` was found.`)
+        return Promise.resolve(handler(interaction, args)).catch(err => {
+            console.error(`[MentionableSelectMenu:${ext}] Unhandled error:`, err)
+        })
     } catch {
         return interaction.reply({ content: `No MentionableSelectMenu matching \`${ext}\` was found.`, ephemeral: true })
     }

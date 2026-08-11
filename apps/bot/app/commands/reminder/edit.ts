@@ -20,7 +20,8 @@ export default {
 
             async response(interaction) {
                 const search = interaction.options.getString('reminder') || ''
-                const reminders = await Db.reminders.find({ by: interaction.user.id, message: { $regex: search, $options: 'i' } }).limit(25).toArray()
+                const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                const reminders = await Db.reminders.find({ by: interaction.user.id, message: { $regex: escapedSearch, $options: 'i' } }).limit(25).toArray()
                 interaction.respond(reminders.map(r => ({
                     name: (r.message.length > 50 ? `${r.message.slice(0, 50)}... | ` : r.message + ' | ') + new Date(r.expected).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }),
                     value: r._id.toString()

@@ -54,7 +54,7 @@ export default async function (client: Discord.Client) {
         if (processRemindersRunning) return
         processRemindersRunning = true
         try {
-            await processReminders()
+            await processReminders().catch(err => console.error('[processReminders] Uncaught error:', err))
         } finally {
             processRemindersRunning = false
         }

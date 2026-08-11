@@ -31,7 +31,7 @@ export default {
             return interaction.reply({ content: 'Please select a timezone from the autocomplete list.', ephemeral: true })
         }
 
-        await Db.users.updateOne({ id: interaction.user.id }, { $set: { timezone: zone } })
+        await Db.users.updateOne({ id: interaction.user.id }, { $set: { timezone: zone } }, { upsert: true })
 
         return interaction.reply({ content: `✅ Your timezone is now set to **${zone.replace(/_/g, ' ')}**.`, ephemeral: true })
     }

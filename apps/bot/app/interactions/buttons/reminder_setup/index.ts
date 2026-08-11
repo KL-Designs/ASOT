@@ -27,12 +27,16 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
     if (!session) return interaction.reply({ content: 'This reminder setup has expired. Please run the command again.', ephemeral: true })
 
     if (action === 'time') {
-        const timezone = await requireTimezone(interaction)
-        if (!timezone) return
-
         const presetId = args[2]
         const preset = TIME_PRESETS.find(p => p.id === presetId)
         if (!preset) return interaction.reply({ content: 'Unknown time preset.', ephemeral: true })
+
+        let timezone = ''
+        if (preset.needsTimezone) {
+            const tz = await requireTimezone(interaction)
+            if (!tz) return
+            timezone = tz
+        }
 
         const expected = preset.compute(timezone)
         updateSession(sessionId, { expected })

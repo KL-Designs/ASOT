@@ -10,6 +10,10 @@ export default async function processReminders() {
 
     for (const reminder of reminders) {
         const channel = await App.channel(reminder.channel) as Discord.TextChannel
+        if (!channel) {
+            console.error(`[processReminders] Channel ${reminder.channel} not found for reminder ${reminder._id} — skipping`)
+            continue
+        }
         if (!reminder.enabled && reminder.expected.getTime() < today.getTime()) {
             await Db.reminders.updateOne({ _id: reminder._id }, { $set: { expected: new Date(reminder.expected.getTime() + reminder.repeat) } })
             continue

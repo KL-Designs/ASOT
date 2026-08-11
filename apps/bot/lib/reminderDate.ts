@@ -37,11 +37,11 @@ function nextWeekday(from: Date, targetDay: number): Date {
     return result
 }
 
-export const TIME_PRESETS: { id: string; label: string; compute: (timezone: string) => number }[] = [
-    { id: '1h', label: 'In 1 Hour', compute: () => Date.now() + 60 * 60_000 },
-    { id: '3h', label: 'In 3 Hours', compute: () => Date.now() + 3 * 60 * 60_000 },
+export const TIME_PRESETS: { id: string; label: string; needsTimezone: boolean; compute: (timezone: string) => number }[] = [
+    { id: '1h', label: 'In 1 Hour', needsTimezone: false, compute: () => Date.now() + 60 * 60_000 },
+    { id: '3h', label: 'In 3 Hours', needsTimezone: false, compute: () => Date.now() + 3 * 60 * 60_000 },
     {
-        id: 'tomorrow9', label: 'Tomorrow 9am', compute: (timezone) => {
+        id: 'tomorrow9', label: 'Tomorrow 9am', needsTimezone: true, compute: (timezone) => {
             const nowInZone = toZonedTime(new Date(), timezone)
             nowInZone.setDate(nowInZone.getDate() + 1)
             const dateStr = `${String(nowInZone.getDate()).padStart(2, '0')}/${String(nowInZone.getMonth() + 1).padStart(2, '0')}/${nowInZone.getFullYear()}`
@@ -49,7 +49,7 @@ export const TIME_PRESETS: { id: string; label: string; compute: (timezone: stri
         }
     },
     {
-        id: 'nextmon9', label: 'Next Monday 9am', compute: (timezone) => {
+        id: 'nextmon9', label: 'Next Monday 9am', needsTimezone: true, compute: (timezone) => {
             const nowInZone = toZonedTime(new Date(), timezone)
             const monday = nextWeekday(nowInZone, 1)
             const dateStr = `${String(monday.getDate()).padStart(2, '0')}/${String(monday.getMonth() + 1).padStart(2, '0')}/${monday.getFullYear()}`
