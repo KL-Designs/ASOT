@@ -27,6 +27,14 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
+    if ('timezone' in body) {
+        if (typeof body.timezone !== 'string' || !Intl.supportedValuesOf('timeZone').includes(body.timezone)) {
+            return NextResponse.json({ error: 'Invalid timezone' }, { status: 400 })
+        }
+        await Db.users.updateOne({ _id: me._id }, { $set: { timezone: body.timezone } }, { upsert: true })
+        return NextResponse.json({ success: true }, { status: 200 })
+    }
+
     const update: Record<string, any> = {}
     for (const [key, value] of Object.entries(body)) {
         update[`bio.${key}`] = value

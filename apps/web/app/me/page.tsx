@@ -11,6 +11,7 @@ import { rankNameFromAbbr } from '@/lib/military/ranks'
 import { BioSections } from './bio'
 import TSLinkButton from './TSLinkButton'
 import ResetTokenButton from './ResetTokenButton'
+import TimezoneSelector from './TimezoneSelector'
 import Avatar from '@/components/member/avatar'
 
 
@@ -108,6 +109,7 @@ export default async function Page() {
                 {/* Left column */}
                 <div className='flex flex-col gap-5 flex-grow min-w-0'>
                     <BioSections canUploadImage={isHQ} isHQ={isHQ} />
+                    <TimezoneSelector initialTimezone={me.timezone ?? null} />
                     <TSLinkButton
                         linked={me.teamspeak ? { cldbid: me.teamspeak.cldbid, linkedAt: me.teamspeak.linkedAt } : null}
                         expectedNickname={bioRankAbbr ? `[${bioRankAbbr}] ${bioDisplayName}` : bioDisplayName}

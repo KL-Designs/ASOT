@@ -510,12 +510,21 @@ No-op `h-full` wrapper.
 #### app/me/page.tsx
 Server page: `redirect('/login')` if not authenticated. Shows the current user's own profile card
 (avatar, rank, callsign, role via `getOrbatEntryByUserId`), embeds `<BioSections/>`,
-`<TSLinkButton/>`, and `<ResetTokenButton/>`. Also surfaces `isHQ`/`isJ5` flags (not fully shown but
-present) likely for quick-link buttons (dashboard/preferences/calendar/member-management icons
-imported: `Api`, `Tune`, `CalendarToday`, `ManageAccounts`).
+`<TimezoneSelector/>`, `<TSLinkButton/>`, and `<ResetTokenButton/>`. Also surfaces `isHQ`/`isJ5`
+flags (not fully shown but present) likely for quick-link buttons (dashboard/preferences/calendar/
+member-management icons imported: `Api`, `Tune`, `CalendarToday`, `ManageAccounts`).
 
 #### app/me/bio.tsx
 Client `BioSections`: fetches/saves the current user's biography text via `GET/POST /api/me`.
+
+#### app/me/TimezoneSelector.tsx
+Client widget: MUI select of all IANA zones (`Intl.supportedValuesOf('timeZone')`) for the user's
+`timezone` (used to interpret times entered when creating reminders, on both the website and the
+Discord bot), saved via `POST /api/me` with a top-level `{ timezone }` body (validated server-side
+against `Intl.supportedValuesOf('timeZone')`, distinct from the `bio.*`-nesting body shape used
+elsewhere on this route). On mount, if the user has no `timezone` saved yet, silently auto-detects
+and saves it from the browser's `Intl.DateTimeFormat().resolvedOptions().timeZone`, showing a
+"Detected as…" note until the user manually overrides it.
 
 #### app/me/TSLinkButton.tsx
 Client TeamSpeak account-linking widget: multi-step flow (`searching → confirm/manual →
