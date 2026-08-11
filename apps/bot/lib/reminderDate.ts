@@ -1,4 +1,4 @@
-import { fromZonedTime } from 'date-fns-tz'
+import { fromZonedTime, toZonedTime } from 'date-fns-tz'
 
 /** DD/MM/YYYY -> {day,month,year} or null if malformed / not a real calendar date. */
 function parseDateStr(dateStr: string): { day: number; month: number; year: number } | null {
@@ -42,14 +42,16 @@ export const TIME_PRESETS: { id: string; label: string; compute: (timezone: stri
     { id: '3h', label: 'In 3 Hours', compute: () => Date.now() + 3 * 60 * 60_000 },
     {
         id: 'tomorrow9', label: 'Tomorrow 9am', compute: (timezone) => {
-            const tomorrow = new Date(Date.now() + 24 * 60 * 60_000)
-            const dateStr = `${String(tomorrow.getDate()).padStart(2, '0')}/${String(tomorrow.getMonth() + 1).padStart(2, '0')}/${tomorrow.getFullYear()}`
+            const nowInZone = toZonedTime(new Date(), timezone)
+            nowInZone.setDate(nowInZone.getDate() + 1)
+            const dateStr = `${String(nowInZone.getDate()).padStart(2, '0')}/${String(nowInZone.getMonth() + 1).padStart(2, '0')}/${nowInZone.getFullYear()}`
             return fromZoned(dateStr, '09:00', timezone)!
         }
     },
     {
         id: 'nextmon9', label: 'Next Monday 9am', compute: (timezone) => {
-            const monday = nextWeekday(new Date(), 1)
+            const nowInZone = toZonedTime(new Date(), timezone)
+            const monday = nextWeekday(nowInZone, 1)
             const dateStr = `${String(monday.getDate()).padStart(2, '0')}/${String(monday.getMonth() + 1).padStart(2, '0')}/${monday.getFullYear()}`
             return fromZoned(dateStr, '09:00', timezone)!
         }
