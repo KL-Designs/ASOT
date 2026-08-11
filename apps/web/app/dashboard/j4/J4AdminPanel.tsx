@@ -541,6 +541,14 @@ function ReinstateModal({ open, onClose }: { open: boolean; onClose: () => void 
     )
 }
 
+const CPU_PROFILE_DURATIONS: { value: number; label: string }[] = [
+    { value: 30,   label: '30s' },
+    { value: 60,   label: '1 min' },
+    { value: 300,  label: '5 min' },
+    { value: 900,  label: '15 min' },
+    { value: 1800, label: '30 min' },
+]
+
 const NOTIF_TYPES: { value: string; label: string }[] = [
     { value: 'system',                     label: 'System' },
     { value: 'task_assigned',              label: 'Task Assigned' },
@@ -825,6 +833,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
     const [tsDevMode, setTsDevMode]       = useState<boolean | null>(null)
     const [tsDevModeLoading, setTsDevModeLoading] = useState(false)
     const [cpuProfile, setCpuProfile] = useState<'idle' | 'capturing' | { filename: string }>('idle')
+    const [cpuProfileDuration, setCpuProfileDuration] = useState(30)
 
     useEffect(() => {
         fetch('/api/admin/discord-devmode')
@@ -865,7 +874,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
         if (cpuProfile === 'capturing') return
         setCpuProfile('capturing')
         try {
-            const res = await fetch('/api/admin/diagnostics/cpu-profile?duration=30', { method: 'POST' })
+            const res = await fetch(`/api/admin/diagnostics/cpu-profile?duration=${cpuProfileDuration}`, { method: 'POST' })
             const data = await res.json()
             if (res.ok && data.filename) {
                 setCpuProfile({ filename: data.filename })
@@ -1200,24 +1209,33 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                                         </div>
                                     </a>
                                 ) : (
-                                    <button
-                                        onClick={captureCpuProfile}
-                                        disabled={cpuProfile === 'capturing'}
-                                        className='flex-1 min-w-[160px]'
-                                        style={{ background: 'none', border: 'none', padding: 0, cursor: cpuProfile === 'capturing' ? 'default' : 'pointer', textAlign: 'left' }}
+                                    <div
+                                        className='flex-1 min-w-[160px] flex flex-col justify-center items-center gap-3 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)]'
+                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', opacity: cpuProfile === 'capturing' ? 0.6 : 1 }}
                                     >
-                                        <div
-                                            className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                            style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', opacity: cpuProfile === 'capturing' ? 0.6 : 1 }}
+                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
+                                            CPU Profile
+                                        </Typography>
+                                        <select
+                                            value={cpuProfileDuration}
+                                            onChange={e => setCpuProfileDuration(Number(e.target.value))}
+                                            disabled={cpuProfile === 'capturing'}
+                                            style={{ background: '#1a1a1a', color: '#ededed', border: '1px solid rgba(237,237,237,0.2)', fontSize: '0.65rem', padding: '3px 6px', borderRadius: 2 }}
                                         >
-                                            <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                                CPU Profile<br />(30s)
-                                            </Typography>
+                                            {CPU_PROFILE_DURATIONS.map(d => (
+                                                <option key={d.value} value={d.value}>{d.label}</option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            onClick={captureCpuProfile}
+                                            disabled={cpuProfile === 'capturing'}
+                                            style={{ background: 'none', border: 'none', padding: 0, cursor: cpuProfile === 'capturing' ? 'default' : 'pointer' }}
+                                        >
                                             <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: 'rgba(237,237,237,0.25)', textTransform: 'uppercase' }}>
-                                                {cpuProfile === 'capturing' ? 'Capturing…' : 'For stall investigation'}
+                                                {cpuProfile === 'capturing' ? 'Capturing…' : 'Click to start capture'}
                                             </Typography>
-                                        </div>
-                                    </button>
+                                        </button>
+                                    </div>
                                 )}
 
                             </div>
