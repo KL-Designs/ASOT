@@ -15,6 +15,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { useFavourites, type Favourite } from '@/hooks/useFavourites'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
+import DashboardQuickLinks from './_components/DashboardQuickLinks'
 import type { DashboardPermissions } from './StaffDashboardShell'
 
 // ── Local clock ────────────────────────────────────────────────────────────────
@@ -727,6 +728,9 @@ export default function DashboardOverview({
                     </DndContext>
                 )}
             </div>
+
+            {/* ── Quick links (per-department, member-visible) ──────────────── */}
+            <DashboardQuickLinks />
 
             {/* ── Tasks ──────────────────────────────────────────────────────── */}
             <TasksWidget />

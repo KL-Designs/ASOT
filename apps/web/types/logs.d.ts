@@ -20,6 +20,7 @@ declare global {
         | 'J3'
         | 'board'
         | 'reminder'
+        | 'deptLinks'
 
     interface ActionLog {
         _id: ObjectId

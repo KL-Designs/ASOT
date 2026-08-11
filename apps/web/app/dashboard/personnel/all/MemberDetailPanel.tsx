@@ -468,7 +468,7 @@ export default function MemberDetailPanel({
                             })}
                         </div>
                         <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.2)', marginTop: 6 }}>
-                            Click to add or remove. ★ = department leader (managed via the Department Leadership card on that department's Members page).
+                            Click to add or remove. ★ = department leader (managed via the Department Leadership card on that department's Settings page).
                         </div>
                     </div>
 

@@ -693,6 +693,28 @@ const PERMISSIONS = {
         lockJ7: ['J7 - Department Leader', 'J7 - Team Leader', 'J7 - Assistant Team Leader'],
     },
 
+    // ── Department quick links ────────────────────────────────────────────────
+    //
+    // Per-department managed quick links (the favicon tile rail on each J1-J7
+    // landing view, managed from that department's Management view).
+    //
+    // A single new-system-only key (empty Discord-role array; the real gate is
+    // always `await hasDepartmentPermission(user, department, 'deptLinks.manage')`
+    // — see lib/orbat/hasDepartmentPermission.ts). Department scope comes from
+    // which DepartmentRole the key is assigned to, not from the key name, so
+    // one key covers all seven departments (unlike the old manageJ1..J7 keys).
+    //
+    // Per-link visibility (which specific sub-roles can see a given link) is
+    // data on DepartmentLink.visibleToRoleIds, not a permission key — see
+    // types/department-link.d.ts. Write access is `deptLinks.manage` OR
+    // `departmentLeads.jX`, so leads work day one and the right can additionally
+    // be delegated to any department role through the role manager.
+
+    deptLinks: {
+        /** Add, edit, delete, reorder and control the visible-to sub-roles of a department's quick links. Scope comes from which DepartmentRole holds this key. New-system-only key. */
+        manage: [],
+    },
+
     // ── Quiz / Training ───────────────────────────────────────────────────────
 
     quiz: {

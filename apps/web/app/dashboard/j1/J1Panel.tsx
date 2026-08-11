@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { Typography, Tabs, Tab } from '@mui/material'
-import { PeopleAlt, CalendarMonth, HistoryEdu } from '@mui/icons-material'
+import { Settings, CalendarMonth, HistoryEdu } from '@mui/icons-material'
 import { Construction } from '@mui/icons-material'
 import ApplicationsTab from './tabs/ApplicationsTab'
 import RecruitMemberTab from './tabs/RecruitMemberTab'
@@ -9,7 +9,7 @@ import MastersheetTab from './tabs/MastersheetTab'
 import StatisticsTab from './tabs/StatisticsTab'
 import TFARPluginTab from './tabs/TFARPluginTab'
 import RecruitVideoTab from './tabs/RecruitVideoTab'
-import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
+import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
@@ -17,11 +17,13 @@ import { useTabState } from '@/app/dashboard/_components/useTabState'
 import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
+import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
 interface J1PanelProps {
     displayName: string
     userId: string
     canManageMembers: boolean
+    canManageLinks: boolean
     isJ4: boolean
 }
 
@@ -59,7 +61,7 @@ const btnSx = (active: boolean): React.CSSProperties => ({
     borderRadius: 999,
 })
 
-export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }: J1PanelProps) {
+export default function J1Panel({ displayName, userId, canManageMembers, canManageLinks, isJ4 }: J1PanelProps) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
 
     const tabSx = {
@@ -94,8 +96,8 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                     </Typography>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button style={{ ...btnSx(view === 'members'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>
-                            <PeopleAlt sx={{ fontSize: '0.85rem' }} />Members
+                        <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
+                            <Settings sx={{ fontSize: '0.85rem' }} />Management
                         </button>
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
@@ -106,8 +108,8 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                     </div>
             </div>
 
-            {view === 'members' && (
-                <DeptMembersTab department='j1' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
+            {view === 'settings' && (
+                <DeptSettingsView department='j1' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j1' userId={userId} isJ4={isJ4} />
@@ -119,6 +121,8 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
             )}
             {view === 'dept' && (
                 <>
+                    <DeptLinksRail department='j1' canManage={canManageLinks} onManage={() => setView('settings')} />
+
                     {/* Tabs */}
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                         <Tabs

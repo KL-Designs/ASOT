@@ -24,6 +24,10 @@ Completed items are marked `[x]`. Do not delete entries.
 
 - [ ] **Permission-key registry with rename backwards-compatibility** — the new `hasPermission(user, key)` system (`lib/orbat/hasPermission.ts`) has no central catalog of valid keys; each key is just a string literal at its call site and inside `DepartmentRole.permissions`/`OrbatRole.permissions` arrays in MongoDB. If a key is ever renamed, any DB documents still holding the old string silently stop granting access — no error, just quiet loss of access, and no compile-time or runtime signal that anything broke. Proposed fix: a small `lib/orbat/permission-keys.ts` with a canonical key list plus a `RENAMED_KEYS: Record<oldKey, newKey>` alias map that `hasPermission()` resolves through before checking. Raised during the Batch 2 permission migration (see `docs/superpowers/plans/2026-08-11-permission-system-migration-phase2-batch2-plan.md`); deferred until brainstormed properly — likely candidate for folding into the Phase 3 cleanup of the old `PERMISSIONS`/`hasRoles()` system.
 
+- [x] **Department quick links (J1-J7) + Members>Settings rename**, per-department managed quick links (favicon tile rail on each J1-J7 landing view, manager card in the renamed Settings view), favicons fetched through a new SSRF-guarded fetcher (`lib/safe-fetch.ts`) and served from our own domain; confirmed working
+
+- [x] **Department quick links: permissions rework + home surfacing + Settings→Management rename** — collapsed the 14 per-department `deptLinks.*` keys down to one department-scoped `deptLinks.manage` key (scope comes from which `DepartmentRole` holds it, checked via new `lib/orbat/hasDepartmentPermission(s).ts`), replaced the restricted/public binary with per-link sub-role visibility assignment (`DepartmentLink.visibleToRoleIds`), surfaced visible links grouped by department on `/dashboard` home (`GET /api/dashboard/quick-links`, `DashboardQuickLinks.tsx`), renamed the department header pill from "Settings" to "Management" (label only, URL param unchanged)
+
 ---
 
 ## YouTube Embed Migration (complete)

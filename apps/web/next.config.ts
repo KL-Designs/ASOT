@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
 
 	// @napi-rs/canvas ships a native .node binary that webpack cannot bundle.
 	// Marking it external keeps it as a require() at runtime on the server.
-	serverExternalPackages: ['@napi-rs/canvas', 'unzipper', 'archiver', 'ts3-nodejs-library'],
+	serverExternalPackages: ['@napi-rs/canvas', 'unzipper', 'archiver', 'ts3-nodejs-library', 'undici'],
 
 	webpack(config) {
 		// require.resolve (not a hardcoded path) so this still finds the single yjs instance

@@ -20,10 +20,10 @@ The `/dashboard` landing page content: favourites grid (drag-and-drop reorder vi
 ## J5 — Media
 
 #### app/dashboard/j5/page.tsx
-Route: `/dashboard/j5`. Gate: `PERMISSIONS.departments.j5` (redirects `/dashboard` on failure). Computes `canManageMembers` (`await hasPermission(me, 'departmentLeads.j5')`) and `isJ4`, renders `J5Panel`.
+Route: `/dashboard/j5`. Gate: `PERMISSIONS.departments.j5` (redirects `/dashboard` on failure). Computes `canManageMembers` via `hasPermission(me, 'departmentLeads.j5')` and `canManageLinks` as that OR `hasDepartmentPermission(me, 'j5', 'deptLinks.manage')`, and `isJ4`, renders `J5Panel`.
 
 #### app/dashboard/j5/J5Panel.tsx
-Client shell for the J5 dept page. Header with title "[J5] Media" + toggle buttons for Members/Calendar/Activity Log views (via `useTabState`, URL-backed). Default "dept" view has 5 sub-tabs: Operations (`GalleryOperationsTab`), Featured Images (`GalleryFeaturedTab`), Screenshot of Month (`ScreenshotOfMonthTab`), Meetings (`MeetingsTab`), Tickets (`DeptTicketsTab`). Reuses `DeptMembersTab` and `DeptCalendarTab` (outside this scope) for the Members/Calendar toggle views. Same shape reused by J6Panel/J7Panel.
+Client shell for the J5 dept page. Header with title "[J5] Media" + toggle buttons for Settings/Calendar/Activity Log views (via `useTabState`, URL-backed). Default "dept" view has 5 sub-tabs: Operations (`GalleryOperationsTab`), Featured Images (`GalleryFeaturedTab`), Screenshot of Month (`ScreenshotOfMonthTab`), Meetings (`MeetingsTab`), Tickets (`DeptTicketsTab`); opens with `DeptLinksRail` (department quick links, see H) as the first child before the Tabs strip. Reuses `DeptSettingsView` (which stacks the quick-links manager card above the unchanged `DeptMembersTab`) and `DeptCalendarTab` (outside this scope) for the Settings/Calendar toggle views. Same shape reused by J6Panel/J7Panel.
 
 #### app/dashboard/j5/loading.tsx
 `<TacticalLoader label='LOADING J5 // MEDIA' />`.
@@ -42,10 +42,10 @@ Client component: view/set the current "Screenshot of the Month" (SOTM). Shows c
 ## J6 — Game Masters
 
 #### app/dashboard/j6/page.tsx
-Route: `/dashboard/j6`. Gate: `PERMISSIONS.departments.j6`. Renders `J6Panel` with `canManageMembers` (`await hasPermission(me, 'departmentLeads.j6')`), `isJ4`.
+Route: `/dashboard/j6`. Gate: `PERMISSIONS.departments.j6`. Renders `J6Panel` with `canManageMembers` via `hasPermission(me, 'departmentLeads.j6')` and `canManageLinks` as that OR `hasDepartmentPermission(me, 'j6', 'deptLinks.manage')`, `isJ4`.
 
 #### app/dashboard/j6/J6Panel.tsx
-Same shell pattern as J5Panel, header "[J6] Game Masters". Dept tabs: Zeus Notes (`ZeusNotesTab`), Meetings, Tickets (only 3 tabs, no gallery-style tab).
+Same shell pattern as J5Panel, header "[J6] Game Masters". Dept tabs: Zeus Notes (`ZeusNotesTab`), Meetings, Tickets (only 3 tabs, no gallery-style tab). Settings/Calendar/Activity Log header toggles and the `DeptLinksRail` quick-links rail follow the same shape as J5Panel above.
 
 #### app/dashboard/j6/ZeusNotesTab.tsx
 Client component: master-detail view for per-operation "Zeus notes" (Zeus/GM freeform notes attached to an operation). Left: searchable, paginated operation list (title, date, status, has-notes indicator dot). Right: view/edit notes textarea for the selected op with Save/Cancel. Calls `GET/POST /api/operations/zeus-notes` (list paginated via `?page=&search=`, save via `{ id, notes }`).
@@ -58,10 +58,10 @@ Client component: master-detail view for per-operation "Zeus notes" (Zeus/GM fre
 ## J7 — Development
 
 #### app/dashboard/j7/page.tsx
-Route: `/dashboard/j7`. Gate: `PERMISSIONS.departments.j7`. Renders `J7Panel` with `canManageMembers` (`await hasPermission(me, 'departmentLeads.j7')`), `isJ4`.
+Route: `/dashboard/j7`. Gate: `PERMISSIONS.departments.j7`. Renders `J7Panel` with `canManageMembers` via `hasPermission(me, 'departmentLeads.j7')` and `canManageLinks` as that OR `hasDepartmentPermission(me, 'j7', 'deptLinks.manage')`, `isJ4`.
 
 #### app/dashboard/j7/J7Panel.tsx
-Same shell pattern, header "[J7] Development". Dept tabs: **Board** (0, `BoardTab` — see below), Meetings (1), Tickets (2). `BoardTab` receives `department='j7'` and `canManageColumns={canManageMembers || isJ4}`.
+Same shell pattern, header "[J7] Development". Dept tabs: **Board** (0, `BoardTab`, see below), Meetings (1), Tickets (2). `BoardTab` receives `department='j7'` and `canManageColumns={canManageMembers || isJ4}`. Settings/Calendar/Activity Log header toggles and the `DeptLinksRail` quick-links rail follow the same shape as J5Panel above.
 
 #### app/dashboard/j7/tabs/BoardTab.tsx
 Trello-style kanban board — the only department-specific feature tab J7 has. Customizable columns (create/rename/delete/drag-reorder, `canManageColumns`-gated — i.e. dept lead or J4 only) each holding freeform cards (title/description/optional assignee/optional linked `Db.tasks` item), draggable within and between columns. Any dept member (not just leads) can create/edit/move/delete cards. Drag-and-drop combines `@dnd-kit/sortable`'s `useSortable` (in-column card reorder, and column-itself reorder via a `` `col:{id}` `` id prefix to avoid colliding with the same column's card-drop-zone id) nested inside per-column `useDroppable` zones (cross-column card moves) — same combined pattern as the codebase's other multi-container drag UIs (`OrbatManager.tsx`, `AttendanceManageDialog.tsx`). Reorder drops use midpoint-order insertion (`(prevSibling.order + target.order) / 2`) rather than reusing the target's exact order value, avoiding order collisions. Opens `BoardCardModal` for card create/edit and `ConfirmDialog` for column delete. Calls `GET/POST /api/admin/board/columns`, `PATCH/DELETE /api/admin/board/columns/{id}`, `GET/POST /api/admin/board/cards`, `PATCH/DELETE /api/admin/board/cards/{id}`.
@@ -264,7 +264,24 @@ Generic searchable Discord-role autocomplete input (single value, with clear but
 Presentational shimmer-loading placeholder (animated CSS gradient rows) used throughout dashboard panels while data loads (e.g. gallery tabs, move-requests tab, calendars). Props: `rows`, `className`. No fetches.
 
 #### app/dashboard/_components/useTabState.ts
-Hook: URL-search-param-backed `{tab, setTab, view, setView}` state for department panels, so the sidebar's deep-links (`?tab=&view=`) drive the active tab reactively and links stay shareable/bookmarkable. `View` union: `'dept'|'members'|'calendar'|'meetings'|'logs'|'activity'|'tickets'`. Used by J5Panel/J6Panel/J7Panel (and presumably J1–J4 panels outside this scope).
+Hook: URL-search-param-backed `{tab, setTab, view, setView}` state for department panels, so the sidebar's deep-links (`?tab=&view=`) drive the active tab reactively and links stay shareable/bookmarkable. `View` union: `'dept'|'settings'|'calendar'|'meetings'|'logs'|'activity'|'tickets'`; `'settings'` replaced `'members'` in the department-quick-links build; `rawView === 'members'` is aliased to `'settings'` so pre-existing `?view=members` bookmarks/pinned links keep resolving. Used by J5Panel/J6Panel/J7Panel (and J1–J4 panels, see E).
+
+### `_components/dept-links/` (department quick links, J1-J7 favicon tile rail, managed from each department's Management view)
+
+#### app/dashboard/_components/dept-links/DeptLinksRail.tsx
+Favicon tile rail rendered as the first child of every JX panel's `view === 'dept'` fragment, before the Tabs strip. Props `{ department, canManage, onManage? }`; `onManage` is a callback (`() => setView('settings')`), never a route, so it sidesteps `typedRoutes`. Loads `GET /api/admin/dept-links?department=` on mount; renders `null` while loading or when there are no visible links and the caller can't manage; the "+ ADD" ghost tile is gated on the server's own `canManage` from that response, not just the prop. Tiles open the link's URL in a new tab (`target='_blank' rel='noopener noreferrer'`), favicon via `<img src="/api/admin/dept-links/{id}/favicon?v={faviconVersion}">` falling back to an MUI `Link` icon on load error, links with a non-empty `visibleToRoleIds` get a `Lock` badge/tooltip.
+
+#### app/dashboard/_components/dept-links/DeptLinksManagerCard.tsx
+Manager UI for a department's quick links, rendered inside `DeptSettingsView` above `DeptMembersTab`. Props `{ department, canManage }`; returns `null` when `!canManage` (non-managers never see this card; they get their links via the rail instead). Loads/reloads via `GET /api/admin/dept-links?department=`; row-per-link with favicon, resolved display name (`nameOverride ?? fetchedTitle`, plus the original fetched title greyed out underneath when overridden), a lock chip when `visibleToRoleIds.length > 0`, and `Refresh`/`Edit`/`Delete` actions. Reorder via `@dnd-kit` (`PointerSensor`, activation distance 6, same fractional-midpoint formula as `BoardTab.tsx`); `PATCH /api/admin/dept-links/{id}` with `{order}` on drop. Delete goes through `ConfirmDialog`. Inline MUI `<Alert>` for load errors, no toasts. Calls `GET /api/admin/dept-links`, `DELETE /api/admin/dept-links/{id}`, `POST /api/admin/dept-links/{id}/favicon` (manual refresh), and opens `DeptLinkModal` for create/edit.
+
+#### app/dashboard/_components/dept-links/DeptLinkModal.tsx
+Create/edit modal for a single quick link, modelled on `j7/tabs/BoardCardModal.tsx`. Props `{ open, onClose, department, link, onSaved }` (`link: null` = create mode). Fields: URL, display-name override (helper text `Leave blank to use the site's own title — currently: {fetchedTitle}`, shows a stale-override hint when the URL has changed but the override hasn't been cleared), a "Visible to" multi-select `Autocomplete` of that department's sub-roles (fetched from `GET /api/admin/department-roles?department=`, base role excluded — empty selection means everyone in the department). On edit, only the fields that actually changed are sent in the PATCH body; the client half of the FR-03 url/nameOverride isolation contract, the server enforces the other half independently. Confirm button reads "Fetching site info…" and is disabled while saving. Calls `POST /api/admin/dept-links` (create) or `PATCH /api/admin/dept-links/{id}` (edit, changed fields only).
+
+#### app/dashboard/DeptSettingsView.tsx
+Wrapper rendered by every JX panel's Management header pill (replacing the old direct `DeptMembersTab` render; label was "Settings", the `view` URL param is still `'settings'`). Props `{ department, displayName, userId, canManage, canManageLinks, isJ4? }`. Stacks `DeptLinksManagerCard` (manager-only, `canManageLinks`) above the unmodified `DeptMembersTab` (`canManage`); the members/leadership card set is untouched by this build.
+
+#### app/dashboard/_components/DashboardQuickLinks.tsx
+Grouped-by-department quick links section on `/dashboard` home (`DashboardOverview.tsx`, rendered between Favourites and Tasks). Self-fetches `GET /api/dashboard/quick-links` on mount; renders one tile row per department the caller belongs to that has at least one visible link (no department header when there are none anywhere — no empty state on the home page). Tile styling duplicates `DeptLinksRail.tsx`'s tiles rather than sharing a component.
 
 ### `_components/meetings/` (department meeting sub-system, used by `MeetingsTab` inside every JX panel)
 

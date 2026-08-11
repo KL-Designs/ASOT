@@ -32,6 +32,7 @@ const DbInterface = {
     departmentRoles: db.collection('department_roles') as MongoCollection<DepartmentRole>,
     boardColumns: db.collection('board_columns') as MongoCollection<BoardColumn>,
     boardCards: db.collection('board_cards') as MongoCollection<BoardCard>,
+    departmentLinks: db.collection('department_links') as MongoCollection<DepartmentLink>,
     operationAttendance: db.collection('operation_attendance') as MongoCollection<OperationAttendance>,
     operationDocAcks: db.collection('operation_doc_acknowledgements') as MongoCollection<DocAcknowledgement>,
     j1Applications: db.collection('j1_applications') as MongoCollection<J1Application>,

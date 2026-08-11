@@ -1,8 +1,8 @@
 ﻿'use client'
 
 import { Typography, Tabs, Tab } from '@mui/material'
-import { PeopleAlt, CalendarMonth, HistoryEdu } from '@mui/icons-material'
-import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
+import { Settings, CalendarMonth, HistoryEdu } from '@mui/icons-material'
+import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import ZeusNotesTab from './ZeusNotesTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
@@ -11,16 +11,19 @@ import { useTabState } from '@/app/dashboard/_components/useTabState'
 import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
+import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
 export default function J6Panel({
     displayName,
     userId,
     canManageMembers,
+    canManageLinks,
     isJ4,
 }: {
     displayName: string
     userId: string
     canManageMembers: boolean
+    canManageLinks: boolean
     isJ4: boolean
 }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
@@ -69,8 +72,8 @@ export default function J6Panel({
                     </Typography>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button style={{ ...btnSx(view === 'members'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>
-                            <PeopleAlt sx={{ fontSize: '0.85rem' }} />Members
+                        <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
+                            <Settings sx={{ fontSize: '0.85rem' }} />Management
                         </button>
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
@@ -81,8 +84,8 @@ export default function J6Panel({
                     </div>
             </div>
 
-            {view === 'members' && (
-                <DeptMembersTab department='j6' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
+            {view === 'settings' && (
+                <DeptSettingsView department='j6' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j6' userId={userId} isJ4={isJ4} />
@@ -94,6 +97,8 @@ export default function J6Panel({
             )}
             {view === 'dept' && (
                 <>
+                    <DeptLinksRail department='j6' canManage={canManageLinks} onManage={() => setView('settings')} />
+
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                         <Tabs
                             value={tab}

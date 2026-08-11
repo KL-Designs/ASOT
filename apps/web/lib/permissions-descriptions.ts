@@ -63,6 +63,8 @@ export const PERMISSION_DESCRIPTIONS: Record<string, string> = {
     'meetings.lockJ6': "Lock or unlock J6's meeting records so they can't be edited.",
     'meetings.lockJ7': "Lock or unlock J7's meeting records so they can't be edited.",
 
+    'deptLinks.manage': "Add, edit, delete, reorder, and control who can see a department's quick links.",
+
     'quiz.assign': 'Assign the BCT quiz to a recruit and view training records.',
     'quiz.review': 'Review a submitted quiz attempt — pass it, fail it, or escalate it.',
     'quiz.reviewEscalated': 'Handle quiz reviews escalated up from a trainer or department lead.',
