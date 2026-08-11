@@ -1,12 +1,12 @@
 'use client'
 
 import { Typography, Tabs, Tab } from '@mui/material'
-import { PeopleAlt, HistoryEdu } from '@mui/icons-material'
+import { Settings, HistoryEdu } from '@mui/icons-material'
 import { Construction } from '@mui/icons-material'
 import TrainingRecordsTab from './tabs/TrainingRecordsTab'
 import TrainingTicketsTab from './tabs/TrainingTicketsTab'
 import J3MasterSheetTab from './tabs/J3MasterSheetTab'
-import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
+import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
@@ -93,8 +93,8 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                     </Typography>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button style={{ ...btnSx(view === 'members'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>
-                            <PeopleAlt sx={{ fontSize: '0.85rem' }} />Members
+                        <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
+                            <Settings sx={{ fontSize: '0.85rem' }} />Settings
                         </button>
                         <button style={{ ...btnSx(view === 'activity'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'activity' ? 'dept' : 'activity')}>
                             <HistoryEdu sx={{ fontSize: '0.85rem' }} />Activity Logs
@@ -102,8 +102,8 @@ export default function J3Panel({ displayName, userId, canManageMembers, isJ4 }:
                     </div>
             </div>
 
-            {view === 'members' && (
-                <DeptMembersTab department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
+            {view === 'settings' && (
+                <DeptSettingsView department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
             )}
             {view === 'activity' && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>

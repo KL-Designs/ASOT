@@ -2,9 +2,9 @@
 import { useCallback } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 
-type View = 'dept' | 'members' | 'calendar' | 'meetings' | 'logs' | 'activity' | 'tickets'
+type View = 'dept' | 'settings' | 'calendar' | 'meetings' | 'logs' | 'activity' | 'tickets'
 
-const VALID_VIEWS: View[] = ['dept', 'members', 'calendar', 'meetings', 'logs', 'activity', 'tickets']
+const VALID_VIEWS: View[] = ['dept', 'settings', 'calendar', 'meetings', 'logs', 'activity', 'tickets']
 
 /**
  * URL-backed tab + view state for department panels.
@@ -16,10 +16,13 @@ export function useTabState(defaultTab = 0, defaultView: View = 'dept') {
     const pathname = usePathname()
 
     const rawTab  = searchParams.get('tab')
-    const rawView = searchParams.get('view') as View | null
+    const rawView = searchParams.get('view')
 
     const tab  = rawTab !== null && !isNaN(Number(rawTab)) ? Number(rawTab) : defaultTab
-    const view: View = rawView && VALID_VIEWS.includes(rawView) ? rawView : defaultView
+    // Legacy alias: this view was called 'members' before it became Settings.
+    // Keep old bookmarks and pinned links working.
+    const requestedView = rawView === 'members' ? 'settings' : rawView
+    const view: View = requestedView && VALID_VIEWS.includes(requestedView as View) ? (requestedView as View) : defaultView
 
     const setTab = useCallback((n: number) => {
         const params = new URLSearchParams(searchParams.toString())

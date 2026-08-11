@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { Typography, Tabs, Tab } from '@mui/material'
-import { PeopleAlt, CalendarMonth, HistoryEdu } from '@mui/icons-material'
+import { Settings, CalendarMonth, HistoryEdu } from '@mui/icons-material'
 import { Construction } from '@mui/icons-material'
 import ApplicationsTab from './tabs/ApplicationsTab'
 import RecruitMemberTab from './tabs/RecruitMemberTab'
@@ -9,7 +9,7 @@ import MastersheetTab from './tabs/MastersheetTab'
 import StatisticsTab from './tabs/StatisticsTab'
 import TFARPluginTab from './tabs/TFARPluginTab'
 import RecruitVideoTab from './tabs/RecruitVideoTab'
-import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
+import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
@@ -94,8 +94,8 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                     </Typography>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button style={{ ...btnSx(view === 'members'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>
-                            <PeopleAlt sx={{ fontSize: '0.85rem' }} />Members
+                        <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
+                            <Settings sx={{ fontSize: '0.85rem' }} />Settings
                         </button>
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
@@ -106,8 +106,8 @@ export default function J1Panel({ displayName, userId, canManageMembers, isJ4 }:
                     </div>
             </div>
 
-            {view === 'members' && (
-                <DeptMembersTab department='j1' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
+            {view === 'settings' && (
+                <DeptSettingsView department='j1' displayName={displayName} userId={userId} canManage={canManageMembers} isJ4={isJ4} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j1' userId={userId} isJ4={isJ4} />

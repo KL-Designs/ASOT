@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, Tabs, Tab } from '@mui/material'
-import { PeopleAlt, CalendarMonth, HistoryEdu, Settings } from '@mui/icons-material'
+import { CalendarMonth, HistoryEdu, Settings } from '@mui/icons-material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
-import DeptMembersTab from '@/app/dashboard/DeptMembersTab'
+import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import { useTabState } from '@/app/dashboard/_components/useTabState'
@@ -919,8 +919,8 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                     </Typography>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button style={{ ...btnSx(view === 'members'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'members' ? 'dept' : 'members')}>
-                            <PeopleAlt sx={{ fontSize: '0.85rem' }} />Members
+                        <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
+                            <Settings sx={{ fontSize: '0.85rem' }} />Settings
                         </button>
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
@@ -931,7 +931,7 @@ export default function J4AdminPanel({ userId, displayName }: { userId: string; 
                     </div>
             </div>
 
-            {view === 'members'      && <DeptMembersTab department='j4' displayName={displayName} userId={userId} canManage={true} isJ4={true} />}
+            {view === 'settings'     && <DeptSettingsView department='j4' displayName={displayName} userId={userId} canManage={true} isJ4={true} />}
             {view === 'calendar'     && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
             {view === 'logs' && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
