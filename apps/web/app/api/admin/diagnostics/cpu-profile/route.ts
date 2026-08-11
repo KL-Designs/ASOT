@@ -7,7 +7,7 @@ import PERMISSIONS from '@/lib/permissions'
 import { logAction } from '@/lib/logs'
 
 const MIN_DURATION_S = 5
-const MAX_DURATION_S = 120
+const MAX_DURATION_S = 1800
 const DEFAULT_DURATION_S = 30
 
 // Guards against overlapping captures corrupting each other — this is a
@@ -41,7 +41,7 @@ function captureProfile(durationMs: number) {
  * POST /api/admin/diagnostics/cpu-profile?duration=30
  *
  * Captures a CPU profile of the running process for `duration` seconds
- * (5-120, default 30) using Node's built-in inspector Profiler, and writes
+ * (5-1800, default 30) using Node's built-in inspector Profiler, and writes
  * it to storage/diagnostics/cpu-<timestamp>.cpuprofile — storage/ is
  * bind-mounted to the host (see docker-compose.yml), so the file lands
  * directly on the host filesystem with no extra retrieval step. Load it
