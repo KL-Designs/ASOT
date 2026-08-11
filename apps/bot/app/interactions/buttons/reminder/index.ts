@@ -87,8 +87,8 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
                 icon_url: interaction.user.displayAvatarURL()
             }
         }
-        interaction.update({ embeds: [newEmbed], components: [] })
-        Db.reminders.updateOne({ _id: reminder._id }, { $set: { enabled: false } })
+        await interaction.update({ embeds: [newEmbed], components: [] })
+        await Db.reminders.updateOne({ _id: reminder._id }, { $set: { enabled: false } })
     }
 
 }

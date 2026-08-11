@@ -34,3 +34,12 @@ export function updateSession(id: string, patch: Partial<ReminderSession>): void
 export function deleteSession(id: string): void {
     sessions.delete(id)
 }
+
+// Lazy cleanup (in getSession) only fires for sessions someone revisits. This
+// sweep catches abandoned setup flows nobody ever clicks a button on again.
+setInterval(() => {
+    const now = Date.now()
+    for (const [id, session] of sessions) {
+        if (now > session.expiresAt) sessions.delete(id)
+    }
+}, 1000 * 60 * 5)

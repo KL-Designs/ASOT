@@ -49,5 +49,15 @@ export default async function (client: Discord.Client) {
     setInterval(updateStatus, 1000 * 60 * 5), updateStatus()
     setInterval(processRoles, 1000 * 60 * 60), processRoles()
     setInterval(processMembers, MEMBERS_SYNC_INTERVAL_MS), processMembers()
-    setInterval(processReminders, 1000 * 30), processReminders()
+    let processRemindersRunning = false
+    setInterval(async () => {
+        if (processRemindersRunning) return
+        processRemindersRunning = true
+        try {
+            await processReminders()
+        } finally {
+            processRemindersRunning = false
+        }
+    }, 1000 * 30)
+    processReminders()
 }

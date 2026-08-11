@@ -16,7 +16,7 @@ export default {
             autocomplete: true,
 
             async response(interaction) {
-                const search = interaction.options.getString('repeat') || ''
+                const search = interaction.options.getString('reminder') || ''
 
                 const reminders = await Db.reminders.find({ by: interaction.user.id, message: { $regex: search, $options: 'i' } }).limit(25).toArray()
 
