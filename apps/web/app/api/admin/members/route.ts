@@ -51,7 +51,7 @@ export async function GET(request: Request) {
         'guild.nickname': 1, 'guild.displayName': 1,
         'milpac.currentRank': 1,
         teamLeadDepts: 1, dept2icRoles: 1, dept3icRoles: 1, departmentRoleIds: 1,
-        avatar: 1, avatarDecoration: 1, hexAccentColor: 1,
+        avatar: 1, avatarURL: 1, avatarDecoration: 1, hexAccentColor: 1,
     }
 
     const [users, total] = await Promise.all([
