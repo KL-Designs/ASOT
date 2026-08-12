@@ -13,10 +13,17 @@ export interface PermissionOrbatRole {
     name: string
 }
 
+export interface PermissionDepartmentRole {
+    id: string
+    department: string
+    name: string
+}
+
 export interface PermissionNodeStatic {
     key: string
     discordRoles: PermissionDiscordRole[]
     orbatRoles: PermissionOrbatRole[]
+    departmentRoles: PermissionDepartmentRole[]
     memberCount: number
 }
 
@@ -30,6 +37,7 @@ export interface PermissionGrant {
     granted: boolean
     viaDiscordRoles: string[]
     viaOrbatRoles: string[]
+    viaDepartmentRoles: string[]
     viaGlobalOverride: boolean
 }
 
@@ -40,17 +48,24 @@ interface ResolvedState {
     orbatRoleIdToDoc: Map<string, { name: string; permissions: string[] }>
     roleNameToDoc: Map<string, { id: string; name: string; color: number }>
     overrideUserIds: Set<string>
+    userIdToDepartments: Map<string, Set<string>>
+    userIdToDepartmentRoleIds: Map<string, Set<string>>
+    departmentRoleIdToDoc: Map<string, { name: string; department: string; isBase: boolean; permissions: string[] }>
+    departmentBaseRoleIdByDept: Map<string, string>
 }
 
 // Shared by buildPermissionsTree() and buildMemberGrants() so both compute
 // grants with identical logic to hasPermission() — additive: a global
 // Discord-role bypass, OR a qualifying Discord role, OR an ORBAT position
-// whose Role grants the key.
+// whose Role grants the key, OR a DepartmentRole (base or held sub-role)
+// whose permissions include the key — the same three-way OR
+// hasDepartmentPermission() itself checks for department-scoped keys like
+// deptLinks.manage.
 async function resolveState(): Promise<ResolvedState> {
-    const [users, discordRoles, positions, orbatRoles] = await Promise.all([
+    const [users, discordRoles, positions, orbatRoles, departmentRoles] = await Promise.all([
         Db.users.find(
             { discharged: { $exists: false }, isSkeletonAccount: { $ne: true } },
-            { projection: { id: 1, 'guild.roles': 1 } }
+            { projection: { id: 1, 'guild.roles': 1, departments: 1, departmentRoleIds: 1 } }
         ).toArray(),
         Db.roles.find({}).toArray(),
         Db.orbatPositions.find(
@@ -58,6 +73,7 @@ async function resolveState(): Promise<ResolvedState> {
             { projection: { userId: 1, roleId: 1 } }
         ).toArray(),
         Db.orbatRoles.find({}, { projection: { name: 1, permissions: 1 } }).toArray(),
+        Db.departmentRoles.find({}, { projection: { name: 1, department: 1, isBase: 1, permissions: 1 } }).toArray(),
     ])
 
     const roleIdToDoc = new Map(discordRoles.map(r => [r.id, r]))
@@ -90,6 +106,21 @@ async function resolveState(): Promise<ResolvedState> {
         (process.env.OVERRIDE?.split(',') ?? []).map(id => id.trim()).filter(Boolean)
     )
 
+    const departmentRoleIdToDoc = new Map(
+        departmentRoles.map(r => [String(r._id), { name: r.name, department: r.department, isBase: r.isBase, permissions: r.permissions }])
+    )
+    const departmentBaseRoleIdByDept = new Map<string, string>()
+    for (const r of departmentRoles) {
+        if (r.isBase) departmentBaseRoleIdByDept.set(r.department, String(r._id))
+    }
+
+    const userIdToDepartments = new Map<string, Set<string>>()
+    const userIdToDepartmentRoleIds = new Map<string, Set<string>>()
+    for (const u of users) {
+        userIdToDepartments.set(u.id, new Set(u.departments ?? []))
+        userIdToDepartmentRoleIds.set(u.id, new Set((u.departmentRoleIds ?? []).map(id => String(id))))
+    }
+
     return {
         userIds: users.map(u => u.id),
         userIdToRoleNames,
@@ -97,6 +128,10 @@ async function resolveState(): Promise<ResolvedState> {
         orbatRoleIdToDoc,
         roleNameToDoc,
         overrideUserIds,
+        userIdToDepartments,
+        userIdToDepartmentRoleIds,
+        departmentRoleIdToDoc,
+        departmentBaseRoleIdByDept,
     }
 }
 
@@ -114,9 +149,23 @@ function resolveGrant(state: ResolvedState, userId: string, key: string): Permis
         if (doc?.permissions.includes(key)) viaOrbatRoles.push(doc.name)
     }
 
-    const granted = viaGlobalOverride || viaDiscordRoles.length > 0 || viaOrbatRoles.length > 0
+    // Base-role grant: one per department this user is a member of. Sub-role
+    // grant: every DepartmentRole id explicitly held, regardless of
+    // department — mirrors hasDepartmentPermission()'s isBase-or-held-id OR.
+    const viaDepartmentRoles: string[] = []
+    for (const dept of state.userIdToDepartments.get(userId) ?? []) {
+        const baseId = state.departmentBaseRoleIdByDept.get(dept)
+        const doc = baseId ? state.departmentRoleIdToDoc.get(baseId) : undefined
+        if (doc?.permissions.includes(key) && baseId) viaDepartmentRoles.push(baseId)
+    }
+    for (const roleId of state.userIdToDepartmentRoleIds.get(userId) ?? []) {
+        const doc = state.departmentRoleIdToDoc.get(roleId)
+        if (doc?.permissions.includes(key)) viaDepartmentRoles.push(roleId)
+    }
 
-    return { granted, viaDiscordRoles, viaOrbatRoles, viaGlobalOverride }
+    const granted = viaGlobalOverride || viaDiscordRoles.length > 0 || viaOrbatRoles.length > 0 || viaDepartmentRoles.length > 0
+
+    return { granted, viaDiscordRoles, viaOrbatRoles, viaDepartmentRoles, viaGlobalOverride }
 }
 
 function categoryLabel(key: string): string {
@@ -132,6 +181,15 @@ export async function buildPermissionsTree(): Promise<PermissionCategory[]> {
             const list = orbatRolesByKey.get(key) ?? []
             list.push({ id, name: doc.name })
             orbatRolesByKey.set(key, list)
+        }
+    }
+
+    const departmentRolesByKey = new Map<string, PermissionDepartmentRole[]>()
+    for (const [id, doc] of state.departmentRoleIdToDoc) {
+        for (const key of doc.permissions) {
+            const list = departmentRolesByKey.get(key) ?? []
+            list.push({ id, department: doc.department, name: doc.name })
+            departmentRolesByKey.set(key, list)
         }
     }
 
@@ -156,6 +214,7 @@ export async function buildPermissionsTree(): Promise<PermissionCategory[]> {
             key,
             discordRoles,
             orbatRoles: orbatRolesByKey.get(key) ?? [],
+            departmentRoles: departmentRolesByKey.get(key) ?? [],
             memberCount,
         }
 

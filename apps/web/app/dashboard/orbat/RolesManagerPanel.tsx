@@ -6,6 +6,7 @@ import { AccountTree, Close, FileDownload, FileUpload } from '@mui/icons-materia
 import ChainOfCommandPanel from './ChainOfCommandPanel'
 import OrbatRolesTab from './OrbatRolesTab'
 import DepartmentRolesTab from './DepartmentRolesTab'
+import PermissionsExplorerTab from './PermissionsExplorerTab'
 
 interface Props {
     open: boolean
@@ -23,7 +24,7 @@ const tabButtonSx = (active: boolean) => ({
 })
 
 export default function RolesManagerPanel({ open, onClose }: Props) {
-    const [tab, setTab] = useState<'orbat' | 'department'>('orbat')
+    const [tab, setTab] = useState<'orbat' | 'department' | 'permissions'>('orbat')
     const [chainOpen, setChainOpen] = useState(false)
     // Whichever tab is currently mounted reports its own dirty state up here —
     // the shell owns the Dialog's close button/Escape/backdrop, so it's the
@@ -48,7 +49,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
         onClose()
     }
 
-    function switchTab(next: 'orbat' | 'department') {
+    function switchTab(next: 'orbat' | 'department' | 'permissions') {
         if (tab === next) return
         if (!confirmDiscardIfDirty('You have unsaved changes. Discard them and switch tabs?')) return
         setActiveDirty(false)   // the current tab is about to unmount — its edit is gone either way
@@ -152,12 +153,13 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
             <div style={{ display: 'flex', borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
                 <Button disableRipple onClick={() => switchTab('orbat')} sx={tabButtonSx(tab === 'orbat')}>ORBAT Roles</Button>
                 <Button disableRipple onClick={() => switchTab('department')} sx={tabButtonSx(tab === 'department')}>Department Roles</Button>
+                <Button disableRipple onClick={() => switchTab('permissions')} sx={tabButtonSx(tab === 'permissions')}>Permissions Explorer</Button>
             </div>
 
             <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
-                {tab === 'orbat'
-                    ? <OrbatRolesTab key={`orbat-${reloadKey}`} onDirtyChange={setActiveDirty} />
-                    : <DepartmentRolesTab key={`department-${reloadKey}`} onDirtyChange={setActiveDirty} />}
+                {tab === 'orbat' && <OrbatRolesTab key={`orbat-${reloadKey}`} onDirtyChange={setActiveDirty} />}
+                {tab === 'department' && <DepartmentRolesTab key={`department-${reloadKey}`} onDirtyChange={setActiveDirty} />}
+                {tab === 'permissions' && <PermissionsExplorerTab key={`permissions-${reloadKey}`} />}
             </DialogContent>
 
             <ChainOfCommandPanel key={`chain-${reloadKey}`} open={chainOpen} onClose={() => setChainOpen(false)} />
