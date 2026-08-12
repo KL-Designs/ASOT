@@ -46,7 +46,10 @@ export default async function Page() {
 	const metaMap = new Map(metaDocs.map(m => [`${m.category}:${m.sectionTitle ?? ''}`, m]))
 	const canManageOrbat = !!me && client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
 
-	const lookup = client.buildOrbatLookup(allMembers)
+	// fetchAllMembers() returns raw Mongo documents — departmentRoleIds (ObjectId[])
+	// can't cross the Server->Client Component boundary as-is (Card below is
+	// 'use client'), so strip it down to a plain-JSON-safe shape first.
+	const lookup = client.buildOrbatLookup(JSON.parse(JSON.stringify(allMembers)))
 
 	const navSections = [
 		{
