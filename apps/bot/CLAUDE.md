@@ -16,7 +16,7 @@ npm start            # tsx index.ts (production — no build step, runs TS direc
 npm run typecheck    # tsc --noEmit
 ```
 
-From the repo root: `npm run dev:bot` / `npm run start:bot` (this app is the sole entry in the root `package.json` workspaces array).
+From the repo root: `npm run menu` (`Dev — bot` / `Start — bot (prod)` under the **Run** category) — this app is the sole entry in the root `package.json` workspaces array.
 
 **No test suite exists.**
 

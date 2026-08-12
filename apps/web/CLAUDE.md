@@ -29,9 +29,9 @@ npm run dev-collab    # Dev server + Hocuspocus WebSocket (required for collabor
 npm run build         # Production build
 npm start             # Production server (Next.js + Hocuspocus on same port via server.mjs)
 npm run lint          # ESLint
-npm run generate-terrain   # Pre-generate terrain images from ../../storage/maps DEM data (run once after install)
-npm run init-db            # Interactive setup wizard — generates .env and seeds first admin user
 ```
+
+Lint is also available from the repo root's `npm run menu` (Setup / one-off → Lint — web). The first-time setup wizard (init-db), terrain generation, and the migration scripts in `scripts/` are no longer separate npm scripts here — those remain menu-only, run from the repo root's `npm run menu` (see root `CLAUDE.md`).
 
 **No test suite exists.** The `.test/` directory holds Playwright scripts for manual verification only.
 

@@ -2,7 +2,8 @@
 /node_modules
 
 # shared by both apps/web and apps/bot — see .env.template
-/.env
+# *.env also covers personal variants like .mine.env
+/*.env
 /.env*.local
 
 # local-only docker-compose overrides (e.g. MONGO_URI pointed at the Docker

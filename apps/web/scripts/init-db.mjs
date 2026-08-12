@@ -2,15 +2,14 @@
 /**
  * Setup wizard — generates .env and creates your user account in MongoDB.
  *
- * Usage:
- *   npm run init-db
+ * Usage: run via the repo root's `npm run menu` (Setup / one-off → First-time setup).
  */
 
 import { createServer }                          from 'http'
 import { MongoClient }                           from 'mongodb'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { parse as parseUrl }                     from 'url'
-import { exec }                                  from 'child_process'
+import { execFile }                              from 'child_process'
 import { createInterface }                       from 'readline'
 import { randomBytes }                           from 'crypto'
 
@@ -85,30 +84,64 @@ function parseDotEnv(filePath) {
     }
 }
 
+// Unset optional values are written as a commented-out `# KEY=` line instead
+// of being omitted entirely — the .env stays a complete reference of every
+// variable .env.template documents, not just the ones you filled in.
+function optLine(key, value) {
+    return value ? `${key}=${value}` : `# ${key}=`
+}
+
 function writeEnvFile(v) {
     const lines = [
         `NODE_ENV=development`,
         ``,
-        `# Site`,
-        `NEXT_PUBLIC_BASEURL=${v.NEXT_PUBLIC_BASEURL}`,
-        `NEXT_PUBLIC_COLLAB_WS_URL=${v.NEXT_PUBLIC_COLLAB_WS_URL}`,
-        ``,
-        `# MongoDB`,
+        `# ── Shared (used by both apps/web and apps/bot) ────────────────────────────────`,
         `MONGO_URI=${v.MONGO_URI}`,
         `MONGO_DB=${v.MONGO_DB}`,
-        ``,
-        `# Discord`,
         `DISCORD_GUILD_ID=${v.DISCORD_GUILD_ID}`,
+        `DISCORD_BOT_TOKEN=${v.DISCORD_BOT_TOKEN}`,
+        `NEXT_PUBLIC_BASEURL=${v.NEXT_PUBLIC_BASEURL}`,
+        ``,
+        `# ── apps/web only ───────────────────────────────────────────────────────────────`,
+        ``,
+        `# AI Providers (optional)`,
+        optLine('ANTHROPIC_API_KEY', v.ANTHROPIC_API_KEY),
+        optLine('OPENAI_API_KEY', v.OPENAI_API_KEY),
+        ``,
+        `# Site`,
+        `NEXT_PUBLIC_COLLAB_WS_URL=${v.NEXT_PUBLIC_COLLAB_WS_URL}`,
+        ``,
+        `# Discord OAuth (login flow)`,
         `DISCORD_CLIENT_ID=${v.DISCORD_CLIENT_ID}`,
         `DISCORD_CLIENT_SECRET=${v.DISCORD_CLIENT_SECRET}`,
-        `DISCORD_BOT_TOKEN=${v.DISCORD_BOT_TOKEN}`,
         `DISCORD_REDIRECT_URI=${v.DISCORD_REDIRECT_URI}`,
         `DISCORD_SCOPE=identify`,
+        optLine('DISCORD_J1_RECRUITMENT_CHANNEL_ID', v.DISCORD_J1_RECRUITMENT_CHANNEL_ID),
+        optLine('DISCORD_J4_ROLE_ID', v.DISCORD_J4_ROLE_ID),
         ``,
-        `# Development`,
+        `# TeamSpeak (optional)`,
+        optLine('NEXT_PUBLIC_TS_ADDRESS', v.NEXT_PUBLIC_TS_ADDRESS),
+        optLine('TS_HOST', v.TS_HOST),
+        optLine('TS_QUERY_PORT', v.TS_QUERY_PORT),
+        optLine('TS_SERVER_PORT', v.TS_SERVER_PORT),
+        optLine('TS_SERVERADMIN_PASSWORD', v.TS_SERVERADMIN_PASSWORD),
+        ``,
+        `# OCAP (optional)`,
+        optLine('OCAP_API_URL', v.OCAP_API_URL),
+        optLine('OCAP_VIEWER_URL', v.OCAP_VIEWER_URL),
+        ``,
+        `# Cron / dev`,
         `CRON_SECRET=${v.CRON_SECRET}`,
         `ANALYZE=false`,
+        `WIP_PAGES=false`,
         v.OVERRIDE ? `OVERRIDE=${v.OVERRIDE}` : `# OVERRIDE=`,
+        optLine('TS_OVERRIDE', v.TS_OVERRIDE),
+        ``,
+        `# ── apps/bot only ────────────────────────────────────────────────────────────────`,
+        optLine('DISCORD_MEMBER_ROLE_ID', v.DISCORD_MEMBER_ROLE_ID),
+        optLine('DISCORD_ADMIN_ROLE_ID', v.DISCORD_ADMIN_ROLE_ID),
+        optLine('DISCORD_NOTIFICATION_CHANNEL_ID', v.DISCORD_NOTIFICATION_CHANNEL_ID),
+        optLine('DISCORD_SONG_SUBMISSION_CHANNEL_ID', v.DISCORD_SONG_SUBMISSION_CHANNEL_ID),
     ]
     writeFileSync('.env', lines.join('\n') + '\n', 'utf8')
 }
@@ -126,9 +159,11 @@ function patchEnvVar(key, value) {
 // ─── Discord OAuth ────────────────────────────────────────────────────────────
 
 function openBrowser(url) {
-    if (process.platform === 'win32') exec(`start "" "${url}"`)
-    else if (process.platform === 'darwin') exec(`open "${url}"`)
-    else exec(`xdg-open "${url}"`)
+    // execFile, not exec — no shell involved, so the URL can't be interpreted
+    // as shell syntax no matter what it contains.
+    if (process.platform === 'win32') execFile('cmd', ['/c', 'start', '', url])
+    else if (process.platform === 'darwin') execFile('open', [url])
+    else execFile('xdg-open', [url])
 }
 
 async function exchangeCode(code, redirectUri) {
@@ -191,7 +226,7 @@ async function waitForOAuthCode(port, callbackPath) {
 // ─── Wizard steps ─────────────────────────────────────────────────────────────
 
 async function stepSite(existing) {
-    console.log(`\n  ${head('[1/4] Site Configuration')}\n`)
+    console.log(`\n  ${head('[1/8] Site Configuration')}\n`)
 
     const baseUrl = await ask('Base URL', existing.NEXT_PUBLIC_BASEURL || 'http://localhost:3000')
 
@@ -203,7 +238,7 @@ async function stepSite(existing) {
 }
 
 async function stepMongo(existing) {
-    console.log(`\n\n  ${head('[2/4] MongoDB')}\n`)
+    console.log(`\n\n  ${head('[2/8] MongoDB')}\n`)
 
     const mongoUri = await ask('Connection URI', existing.MONGO_URI || 'mongodb://127.0.0.1:27017')
     const mongoDb  = await ask('Database name',  existing.MONGO_DB  || 'ASOT')
@@ -224,7 +259,7 @@ async function stepMongo(existing) {
 }
 
 async function stepDiscord(existing, baseUrl) {
-    console.log(`\n\n  ${head('[3/4] Discord Application')}\n`)
+    console.log(`\n\n  ${head('[3/8] Discord Application')}\n`)
 
     const redirectUri  = '/login/callback'
     const fullRedirect = `${baseUrl}${redirectUri}`
@@ -247,8 +282,80 @@ async function stepDiscord(existing, baseUrl) {
     return { guildId, clientId, clientSecret, botToken, redirectUri }
 }
 
+async function stepDiscordIds(existing) {
+    console.log(`\n\n  ${head('[4/8] Discord Roles & Channels')}\n`)
+    console.log(`  ${dim('Used for role-gating and notifications across the site and bot. Leave any blank to fill in later.')}\n`)
+
+    const j1Channel     = await ask('J1 recruitment channel ID',                existing.DISCORD_J1_RECRUITMENT_CHANNEL_ID  || '')
+    const j4Role        = await ask('J4 role ID',                               existing.DISCORD_J4_ROLE_ID                 || '')
+    const memberRole    = await ask('Bot: member role ID',                      existing.DISCORD_MEMBER_ROLE_ID             || '')
+    const adminRole     = await ask('Bot: admin role ID',                       existing.DISCORD_ADMIN_ROLE_ID              || '')
+    const notifyChannel = await ask('Bot: notification channel ID',             existing.DISCORD_NOTIFICATION_CHANNEL_ID    || '')
+    const songChannel   = await ask('Bot: song submission channel ID',          existing.DISCORD_SONG_SUBMISSION_CHANNEL_ID || '')
+
+    return { j1Channel, j4Role, memberRole, adminRole, notifyChannel, songChannel }
+}
+
+async function stepAI(existing) {
+    console.log(`\n\n  ${head('[5/8] AI Providers')}  ${dim('(optional)')}\n`)
+
+    const hasExisting = Boolean(existing.ANTHROPIC_API_KEY || existing.OPENAI_API_KEY)
+    const configure = await confirm('Configure AI provider API keys?', hasExisting)
+    if (!configure) {
+        return { anthropicKey: existing.ANTHROPIC_API_KEY || '', openaiKey: existing.OPENAI_API_KEY || '' }
+    }
+
+    console.log()
+    const anthropicKey = await askSecret('Anthropic API Key (leave blank to skip)', existing.ANTHROPIC_API_KEY || '')
+    const openaiKey    = await askSecret('OpenAI API Key (leave blank to skip)',    existing.OPENAI_API_KEY    || '')
+
+    return { anthropicKey, openaiKey }
+}
+
+async function stepTeamSpeak(existing) {
+    console.log(`\n\n  ${head('[6/8] TeamSpeak')}  ${dim('(optional)')}\n`)
+
+    const hasExisting = Boolean(existing.TS_HOST || existing.NEXT_PUBLIC_TS_ADDRESS)
+    const configure = await confirm('Configure TeamSpeak integration?', hasExisting)
+    if (!configure) {
+        return {
+            publicAddress: existing.NEXT_PUBLIC_TS_ADDRESS  || '',
+            host:          existing.TS_HOST                 || '',
+            queryPort:     existing.TS_QUERY_PORT            || '',
+            serverPort:    existing.TS_SERVER_PORT           || '',
+            adminPassword: existing.TS_SERVERADMIN_PASSWORD  || '',
+            override:      existing.TS_OVERRIDE              || '',
+        }
+    }
+
+    console.log()
+    const publicAddress = await ask('Public address (shown to members)',       existing.NEXT_PUBLIC_TS_ADDRESS || '')
+    const host          = await ask('ServerQuery host',                       existing.TS_HOST                || '')
+    const queryPort     = await ask('ServerQuery port',                      existing.TS_QUERY_PORT           || '10022')
+    const serverPort    = await ask('Voice server port',                     existing.TS_SERVER_PORT          || '9987')
+    const adminPassword = await askSecret('ServerQuery admin password',      existing.TS_SERVERADMIN_PASSWORD || '')
+    const override       = await ask('Override UIDs (comma-separated, optional)', existing.TS_OVERRIDE        || '')
+
+    return { publicAddress, host, queryPort, serverPort, adminPassword, override }
+}
+
+async function stepOcap(existing) {
+    console.log(`\n\n  ${head('[7/8] OCAP')}  ${dim('(optional)')}\n`)
+
+    const configure = await confirm('Configure OCAP after-action review integration?', Boolean(existing.OCAP_API_URL))
+    if (!configure) {
+        return { apiUrl: existing.OCAP_API_URL || '', viewerUrl: existing.OCAP_VIEWER_URL || '' }
+    }
+
+    console.log()
+    const apiUrl    = await ask('OCAP API URL',    existing.OCAP_API_URL    || '')
+    const viewerUrl = await ask('OCAP Viewer URL', existing.OCAP_VIEWER_URL || '')
+
+    return { apiUrl, viewerUrl }
+}
+
 async function stepUser(vars) {
-    console.log(`\n\n  ${head('[4/4] Create Your User Account')}\n`)
+    console.log(`\n\n  ${head('[8/8] Create Your User Account')}\n`)
     console.log('  A Discord login will open in your browser. After authorising,')
     console.log('  your account will be added to MongoDB and granted admin access.\n')
 
@@ -360,6 +467,7 @@ async function main() {
         console.log(`  You will need:`)
         console.log(`    • MongoDB running locally (or a connection URI)`)
         console.log(`    • A Discord application with a bot`)
+        console.log(`  AI provider keys, TeamSpeak, and OCAP are optional — you can skip those sections.`)
     }
 
     let vars = { ...existing }
@@ -368,6 +476,10 @@ async function main() {
         const { baseUrl, collabWsUrl } = await stepSite(existing)
         const { mongoUri, mongoDb }    = await stepMongo(existing)
         const { guildId, clientId, clientSecret, botToken, redirectUri } = await stepDiscord(existing, baseUrl)
+        const { j1Channel, j4Role, memberRole, adminRole, notifyChannel, songChannel } = await stepDiscordIds(existing)
+        const { anthropicKey, openaiKey } = await stepAI(existing)
+        const { publicAddress, host, queryPort, serverPort, adminPassword, override: tsOverride } = await stepTeamSpeak(existing)
+        const { apiUrl, viewerUrl } = await stepOcap(existing)
 
         vars = {
             NEXT_PUBLIC_BASEURL:       baseUrl,
@@ -379,8 +491,29 @@ async function main() {
             DISCORD_CLIENT_SECRET:     clientSecret,
             DISCORD_BOT_TOKEN:         botToken,
             DISCORD_REDIRECT_URI:      redirectUri,
-            CRON_SECRET:               existing.CRON_SECRET || randomBytes(24).toString('hex'),
-            OVERRIDE:                  existing.OVERRIDE || '',
+
+            DISCORD_J1_RECRUITMENT_CHANNEL_ID:  j1Channel,
+            DISCORD_J4_ROLE_ID:                 j4Role,
+            DISCORD_MEMBER_ROLE_ID:             memberRole,
+            DISCORD_ADMIN_ROLE_ID:              adminRole,
+            DISCORD_NOTIFICATION_CHANNEL_ID:    notifyChannel,
+            DISCORD_SONG_SUBMISSION_CHANNEL_ID: songChannel,
+
+            ANTHROPIC_API_KEY: anthropicKey,
+            OPENAI_API_KEY:    openaiKey,
+
+            NEXT_PUBLIC_TS_ADDRESS:  publicAddress,
+            TS_HOST:                 host,
+            TS_QUERY_PORT:           queryPort,
+            TS_SERVER_PORT:          serverPort,
+            TS_SERVERADMIN_PASSWORD: adminPassword,
+            TS_OVERRIDE:             tsOverride,
+
+            OCAP_API_URL:    apiUrl,
+            OCAP_VIEWER_URL: viewerUrl,
+
+            CRON_SECRET: existing.CRON_SECRET || randomBytes(24).toString('hex'),
+            OVERRIDE:    existing.OVERRIDE || '',
         }
 
         writeEnvFile(vars)

@@ -18,15 +18,13 @@ This file only covers what's shared across both.
 ## Commands (from repo root)
 
 ```bash
-npm run install:all     # installs root deps + apps/web deps (apps/bot is an npm workspace, installed by root install)
-npm run dev:web:collab  # apps/web dev server + collaborative editor
-npm run dev:bot         # apps/bot dev (tsx watch)
-npm run build:web       # apps/web production build
-npm run start:web       # apps/web production server
-npm run start:bot       # apps/bot production
+npm run install:all     # fresh clone: installs root deps + apps/web deps (apps/bot is an npm workspace, installed by root install)
+npm run menu            # interactive menu — dev/build/start for both apps, first-time setup (init-db), migrations
 ```
 
-For lint/typecheck/single-test-equivalent commands, see each app's own `CLAUDE.md` — they're not unified at the root.
+`npm run menu` (`scripts/menu.mjs`) is the primary way to run anything in this repo day-to-day — it replaces what used to be a long list of separate npm scripts. See its own source for the full item list; categories are Run, Setup / one-off, and Migrations.
+
+For lint/typecheck commands, see each app's own `CLAUDE.md` — they're not unified at the root.
 
 ---
 
