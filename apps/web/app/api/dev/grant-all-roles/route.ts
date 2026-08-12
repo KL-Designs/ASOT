@@ -10,12 +10,11 @@ import { addGuildRole, botRequest } from '@/lib/discord/bot'
 
 const TARGET_ROLE_NAMES = [
     // Member roles
-    // NOTE: 'ASOT Member' alone no longer grants dashboard access. As of the
-    // permission-system migration, `pages.member` is gated by
-    // `hasPermission(user, 'pages.member')` (`lib/orbat/hasPermission.ts`),
-    // which checks department/ORBAT-position/reservist role holding — a
-    // developer using this endpoint for local test access also needs to be
-    // in a department or hold a position/reservist role that grants it.
+    // NOTE: 'ASOT Member' alone no longer grants dashboard access. Dashboard
+    // access (`hasDashboardAccess()`, `lib/orbat/hasDashboardAccess.ts`) is
+    // implicit for anyone with any department/ORBAT-position/reservist role
+    // holding — a developer using this endpoint for local test access also
+    // needs to be in a department or hold a position/reservist role.
     'ASOT Member',
     'All Staff',
     'HQ Staff',

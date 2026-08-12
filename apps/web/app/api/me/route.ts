@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import { hasPermission } from '@/lib/orbat/hasPermission'
+import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 
 
 
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     try {
         const me = await client.fetchMe()
         const isStaff = client.hasRoles(me, PERMISSIONS.pages.admin)
-        const isMember = await hasPermission(me, 'pages.member')
+        const isMember = await hasDashboardAccess(me)
         return NextResponse.json({ ...me, isStaff, isMember }, { status: 200 })
     }
 

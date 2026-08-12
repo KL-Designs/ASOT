@@ -4,7 +4,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { deleteDocImages, sanitizeDocHtml } from '@/lib/training-docs/parse-gdocs-zip'
-import { hasPermission } from '@/lib/orbat/hasPermission'
+import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -12,7 +12,7 @@ type Params = { params: Promise<{ id: string }> }
 export async function GET(_req: NextRequest, { params }: Params) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!(await hasPermission(me, 'pages.member'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasDashboardAccess(me))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { id } = await params
     if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 })

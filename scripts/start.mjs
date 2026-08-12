@@ -109,6 +109,7 @@ const C = {
     green: '\x1b[32m',
     yellow: '\x1b[33m',
     red: '\x1b[31m',
+    blue: '\x1b[34m',
     // True-color (24-bit) so the logo renders as ASOT's actual colors rather
     // than whatever red/white the terminal theme happens to remap the
     // standard 16 ANSI colors to.
@@ -121,10 +122,11 @@ const cyan = s => `${C.cyan}${s}${C.reset}`
 const green = s => `${C.green}${s}${C.reset}`
 const yellow = s => `${C.yellow}${s}${C.reset}`
 const red = s => `${C.red}${s}${C.reset}`
+const blue = s => `${C.blue}${s}${C.reset}`
 
 // One color per category, applied to that category's items on the "Pick one"
 // screen so the whole list reads as belonging to the category you picked.
-const CATEGORY_COLOR = { run: cyan, production: red, setup: green, migrations: yellow }
+const CATEGORY_COLOR = { docker: blue, run: cyan, production: red, setup: green, migrations: yellow }
 
 // Wide-tracked "AUSTRALIAN SPECIAL OPERATIONS TASKFORCE" subtitle — letters
 // spaced out, words separated further, echoing the stencil-style lettering
@@ -237,6 +239,11 @@ function printBanner(status) {
 
 // ─── Menu items ─────────────────────────────────────────────────────────────
 
+const DOCKER_ITEMS = [
+    { label: '🏗️  Build & Start', run: () => run('docker', ['compose', 'up', '-d', '--build', '--remove-orphans']) },
+    { label: '🛑 Stop', run: () => run('docker', ['compose', 'down']) },
+]
+
 const RUN_ITEMS = [
     { label: '🌏 Website', run: () => run('npm', ['--prefix', 'apps/web', 'run', 'dev-collab']) },
     { label: '🤖 Discord', run: () => run('npm', ['run', 'dev', '--workspace=apps/bot']) },
@@ -266,6 +273,7 @@ const MIGRATION_ITEMS = [
     { label: '🗃️ Migrate: batch2 permissions', script: 'scripts/migrate-batch2-permissions.mjs', cwd: ROOT },
     { label: '🗃️ Migrate: department leadership', script: 'scripts/migrate-department-leadership.mjs', cwd: ROOT },
     { label: '🗃️ Migrate: pages.member permission', script: 'scripts/migrate-pages-member-permission.mjs', cwd: ROOT },
+    { label: '🗃️ Migrate: pages.dashboard cleanup', script: 'scripts/migrate-pages-dashboard-cleanup.mjs', cwd: ROOT },
     { label: '🗃️ Migrate: reminders schema', script: 'scripts/migrate-reminders-schema.mjs', cwd: ROOT },
     { label: '🗃️ Migrate: reservist role', script: 'scripts/migrate-reservist-role.mjs', cwd: ROOT },
 ]
@@ -305,6 +313,7 @@ async function main() {
             options: [
                 { value: 'run', label: cyan('🧪 Development') },
                 { value: 'production', label: red('🚀 Production') },
+                { value: 'docker', label: blue('🐳 Docker') },
                 { value: 'setup', label: green('🛠️ Setup') },
                 { value: 'migrations', label: yellow('🗃️ Migrations') },
                 { value: 'quit', label: dim('🚪 Quit') },
@@ -313,7 +322,7 @@ async function main() {
 
         if (p.isCancel(category) || category === 'quit') break
 
-        const items = { run: RUN_ITEMS, production: PRODUCTION_ITEMS, setup: SETUP_ITEMS, migrations: MIGRATION_ITEMS }[category]
+        const items = { docker: DOCKER_ITEMS, run: RUN_ITEMS, production: PRODUCTION_ITEMS, setup: SETUP_ITEMS, migrations: MIGRATION_ITEMS }[category]
         const itemColor = CATEGORY_COLOR[category]
 
         const choice = await p.select({

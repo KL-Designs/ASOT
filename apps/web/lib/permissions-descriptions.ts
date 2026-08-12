@@ -4,7 +4,7 @@
 // description (who's affected, which routes use it, migration status) lives in
 // permissions.ts's JSDoc above each key.
 export const PERMISSION_DESCRIPTIONS: Record<string, string> = {
-    'pages.member': 'Lets any ASOT member open the staff dashboard.',
+    'pages.dashboard': 'Lets any ASOT member open the staff dashboard.',
     'pages.admin': 'Full access to staff-only dashboard sections.',
     'pages.members': 'View the public member list and personnel pages.',
     'pages.operationsEdit': 'Open the mission/operations editor.',

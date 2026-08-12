@@ -37,13 +37,13 @@ const PERMISSIONS = {
          * Training Docs, and SOPs. J-department and staff-only sections are
          * hidden in the sidebar and page-gated individually.
          *
-         * As of the permission-system migration, the real gate for this key
-         * is `await hasPermission(user, 'pages.member')` (`lib/orbat/hasPermission.ts`)
-         * — granted via department membership, ORBAT-position role holding,
-         * or reservist role holding — NOT this Discord-role array. This array
-         * is now dead code for that specific check; it's kept only because
-         * `lib/permissions/tree.ts` (the Permissions Explorer) still reads it
-         * for display purposes.
+         * The real gate for this key is `await hasDashboardAccess(user)`
+         * (`lib/orbat/hasDashboardAccess.ts`) — implicitly granted to anyone
+         * with any department membership, department sub-role, or ORBAT
+         * position role (including Reservists) — NOT this Discord-role
+         * array. This array is now dead code for that specific check; it's
+         * kept only because `lib/permissions/tree.ts` (the Permissions
+         * Explorer) still reads it for display purposes.
          *
          * Used by:
          *  - `app/dashboard/layout.tsx`
@@ -52,7 +52,7 @@ const PERMISSIONS = {
          *  - `app/dashboard/unit/sops/page.tsx`
          *  - `app/dashboard/unit/training-docs/page.tsx`
          */
-        member: ['ASOT Member'],
+        dashboard: ['ASOT Member'],
 
         /**
          * Staff dashboard — full access to staff-only sections.
@@ -375,7 +375,7 @@ const PERMISSIONS = {
          * since it exposes the full access-control map of the site.
          *
          * Used by:
-         *  - `app/dashboard/j4/PermissionsExplorerPanel.tsx` (panel visibility)
+         *  - `app/dashboard/j4/J4AdminPanel.tsx` (Roles Manager tile visibility)
          *  - `app/api/admin/permissions/tree/route.ts`
          *  - `app/api/admin/permissions/member/[id]/route.ts`
          */

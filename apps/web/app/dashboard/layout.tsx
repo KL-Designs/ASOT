@@ -4,13 +4,14 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import StaffDashboardShell from './StaffDashboardShell'
 import { hasPermission } from '@/lib/orbat/hasPermission'
+import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
     await connection()
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) redirect('/login')
-    if (!(await hasPermission(me, 'pages.member'))) redirect('/me')
+    if (!(await hasDashboardAccess(me))) redirect('/me')
 
     const isStaff = client.hasRoles(me, PERMISSIONS.pages.admin)
 

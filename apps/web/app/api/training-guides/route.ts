@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { hasPermission } from '@/lib/orbat/hasPermission'
+import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!(await hasPermission(me, 'pages.member'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasDashboardAccess(me))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const isJ3 = client.hasRoles(me, PERMISSIONS.departments.j3)
     const isJ3Lead = client.hasRoles(me, PERMISSIONS.trainingGuides.delete)

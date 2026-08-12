@@ -4,13 +4,14 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import DashboardOverview from './DashboardOverview'
 import { hasPermission } from '@/lib/orbat/hasPermission'
+import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 
 export default async function Page() {
     await connection()
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) redirect('/login')
-    if (!(await hasPermission(me, 'pages.member'))) redirect('/me')
+    if (!(await hasDashboardAccess(me))) redirect('/me')
 
     const permissions = {
         displayName:     me.guild?.nickname || me.globalName || me.username || '',

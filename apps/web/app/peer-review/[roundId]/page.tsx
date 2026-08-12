@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import client from '@/lib/discord'
 import PeerReviewClient from './PeerReviewClient'
-import { hasPermission } from '@/lib/orbat/hasPermission'
+import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +9,7 @@ export default async function PeerReviewPage({ params }: { params: Promise<{ rou
     const { roundId } = await params
     const me = await client.fetchMe().catch(() => null)
     if (!me) redirect('/login')
-    if (!(await hasPermission(me, 'pages.member'))) redirect('/login')
+    if (!(await hasDashboardAccess(me))) redirect('/login')
 
     const name = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || 'Unknown'
 

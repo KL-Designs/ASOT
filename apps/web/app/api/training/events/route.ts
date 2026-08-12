@@ -5,12 +5,12 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { createNotificationForRole } from '@/lib/notifications'
 import { logAction } from '@/lib/logAction'
-import { hasPermission } from '@/lib/orbat/hasPermission'
+import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 
 export async function GET() {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!(await hasPermission(me, 'pages.member'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasDashboardAccess(me))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const isJ3Lead = client.hasRoles(me, PERMISSIONS.training.manage)
     const isTrainer = client.hasRoles(me, PERMISSIONS.training.create)

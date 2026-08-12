@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import VideoWatchClient from './VideoWatchClient'
-import { hasPermission } from '@/lib/orbat/hasPermission'
+import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 
 export default async function Page({
     params,
@@ -20,7 +20,7 @@ export default async function Page({
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) redirect('/login')
-    if (!(await hasPermission(me, 'pages.member'))) redirect('/dashboard')
+    if (!(await hasDashboardAccess(me))) redirect('/dashboard')
 
     let oid: ObjectId
     try { oid = new ObjectId(id) } catch { redirect('/dashboard/j3') }

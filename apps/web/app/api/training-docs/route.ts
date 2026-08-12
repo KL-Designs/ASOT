@@ -4,13 +4,13 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { parseGoogleDocsZip } from '@/lib/training-docs/parse-gdocs-zip'
-import { hasPermission } from '@/lib/orbat/hasPermission'
+import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 
 // GET /api/training-docs?parentId=xxx  — list items in a folder (or root)
 export async function GET(req: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!(await hasPermission(me, 'pages.member'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasDashboardAccess(me))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const isJ3 = client.hasRoles(me, PERMISSIONS.trainingDocs.manage)
     const parentIdParam = req.nextUrl.searchParams.get('parentId')

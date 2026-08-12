@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { DEFAULT_LOCKOUT_GROUPS, type LockoutGroup } from '@/lib/lockout'
-import { hasPermission } from '@/lib/orbat/hasPermission'
+import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 
 export async function GET() {
     let me: User
     try { me = await client.fetchMe() }
     catch { return NextResponse.json({ locked: false }) }
 
-    if (!(await hasPermission(me, 'pages.member'))) {
+    if (!(await hasDashboardAccess(me))) {
         return NextResponse.json({ locked: false })
     }
 

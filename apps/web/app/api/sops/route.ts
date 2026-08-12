@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
-import { hasPermission } from '@/lib/orbat/hasPermission'
+import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 
 export async function GET() {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!(await hasPermission(me, 'pages.member'))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!(await hasDashboardAccess(me))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const isJ4 = client.hasRoles(me, PERMISSIONS.sops.manage)
     const sops = await Db.sops
