@@ -76,7 +76,16 @@ export const SETUP_ITEMS = [
     { label: 'Generate terrain', run: () => run('node', ['scripts/generate-terrain.mjs'], { cwd: WEB }) },
     { label: 'Lint — web', run: () => run('npm', ['exec', '--prefix', 'apps/web', '--', 'next', 'lint']) },
 ]
-export const MIGRATION_ITEMS = []
+export const MIGRATION_ITEMS = [
+    { label: 'Migrate ORBAT roles (web)', script: 'scripts/migrate-orbat-roles.mjs', cwd: WEB },
+    { label: 'Backfill mastersheet date sort (web)', script: 'scripts/backfill-mastersheet-date-sort.mjs', cwd: WEB },
+    { label: 'Migrate: batch1 permissions', script: 'scripts/migrate-batch1-permissions.mjs', cwd: ROOT },
+    { label: 'Migrate: batch2 permissions', script: 'scripts/migrate-batch2-permissions.mjs', cwd: ROOT },
+    { label: 'Migrate: department leadership', script: 'scripts/migrate-department-leadership.mjs', cwd: ROOT },
+    { label: 'Migrate: pages.member permission', script: 'scripts/migrate-pages-member-permission.mjs', cwd: ROOT },
+    { label: 'Migrate: reminders schema', script: 'scripts/migrate-reminders-schema.mjs', cwd: ROOT },
+    { label: 'Migrate: reservist role', script: 'scripts/migrate-reservist-role.mjs', cwd: ROOT },
+]
 
 // ─── Main loop ──────────────────────────────────────────────────────────────
 

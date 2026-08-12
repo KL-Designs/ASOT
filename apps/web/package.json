@@ -6,9 +6,7 @@
     "dev": "dotenv -e ../../.env -- next dev",
     "dev-collab": "dotenv -v NODE_ENV=development -e ../../.env -- node --max-old-space-size=4096 server.mjs",
     "build": "dotenv -e ../../.env -- next build",
-    "start": "dotenv -v NODE_ENV=production -e ../../.env -- node server.mjs",
-    "migrate-orbat-roles": "dotenv -e ../../.env -- node scripts/migrate-orbat-roles.mjs",
-    "backfill-mastersheet-date-sort": "dotenv -e ../../.env -- node scripts/backfill-mastersheet-date-sort.mjs"
+    "start": "dotenv -v NODE_ENV=production -e ../../.env -- node server.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.1",
