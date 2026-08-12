@@ -6,7 +6,8 @@
     "dev": "dotenv -e ../../.env -- next dev",
     "dev-collab": "dotenv -v NODE_ENV=development -e ../../.env -- node --max-old-space-size=4096 server.mjs",
     "build": "dotenv -e ../../.env -- next build",
-    "start": "dotenv -v NODE_ENV=production -e ../../.env -- node server.mjs"
+    "start": "dotenv -v NODE_ENV=production -e ../../.env -- node server.mjs",
+    "lint": "next lint"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.1",

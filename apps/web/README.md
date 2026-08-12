@@ -20,8 +20,9 @@ Run the setup wizard after installing dependencies. It walks you through every c
 
 ```bash
 npm install
-npm run init-db
 ```
+
+Then, from the repo root, run `npm run menu` → **Setup / one-off** → **First-time setup (init-db)**.
 
 The wizard covers four steps:
 
@@ -35,7 +36,7 @@ The wizard covers four steps:
 
 If you already have a `.env`, the wizard asks whether you want to reconfigure or jump straight to step 4.
 
-> Make sure MongoDB is running and the dev server is **not** running when you run `npm run init-db`.
+> Make sure MongoDB is running and the dev server is **not** running when you run the setup wizard.
 
 ### Environment Variables Reference
 
@@ -55,11 +56,7 @@ If you already have a `.env`, the wizard asks whether you want to reconfigure or
 
 ### Terrain Assets
 
-The operations map requires pre-generated terrain images. Run this once after install (or whenever map data in `maps/` changes):
-
-```bash
-npm run generate-terrain
-```
+The operations map requires pre-generated terrain images. Run this once after install (or whenever map data in `maps/` changes) via the repo root's `npm run menu` → **Setup / one-off** → **Generate terrain**.
 
 ---
 

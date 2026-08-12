@@ -16,8 +16,7 @@ This is a monorepo with two deployable apps sharing a `types/` directory and a b
 
 ```bash
 npm run install:all     # installs root + apps/web dependencies
-npm run dev:web:collab  # web app + collaborative editor
-npm run dev:bot         # Discord bot
+npm run menu             # interactive menu — dev/build/start for both apps, setup, migrations
 ```
 
 See each app's own docs for environment variables and setup: `apps/web/CLAUDE.md` and `apps/bot/README.md`.

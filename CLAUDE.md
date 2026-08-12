@@ -19,7 +19,7 @@ This file only covers what's shared across both.
 
 ```bash
 npm run install:all     # fresh clone: installs root deps + apps/web deps (apps/bot is an npm workspace, installed by root install)
-npm run menu             # interactive menu — dev/build/start for both apps, first-time setup (init-db), migrations
+npm run menu            # interactive menu — dev/build/start for both apps, first-time setup (init-db), migrations
 ```
 
 `npm run menu` (`scripts/menu.mjs`) is the primary way to run anything in this repo day-to-day — it replaces what used to be a long list of separate npm scripts. See its own source for the full item list; categories are Run, Setup / one-off, and Migrations.

@@ -9,7 +9,7 @@
     "install:all": "npm install && npm --prefix apps/web install",
     "menu": "node scripts/menu.mjs"
   },
-  "dependencies": {
+  "devDependencies": {
     "@clack/prompts": "^1.7.0"
   }
 }

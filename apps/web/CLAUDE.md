@@ -28,9 +28,10 @@ npm run dev           # Standard dev server (no collab WebSocket)
 npm run dev-collab    # Dev server + Hocuspocus WebSocket (required for collaborative editor)
 npm run build         # Production build
 npm start             # Production server (Next.js + Hocuspocus on same port via server.mjs)
+npm run lint          # ESLint
 ```
 
-Lint, the first-time setup wizard (init-db), terrain generation, and the migration scripts in `scripts/` are no longer separate npm scripts here — run them from the repo root's `npm run menu` instead (see root `CLAUDE.md`).
+Lint is also available from the repo root's `npm run menu` (Setup / one-off → Lint — web). The first-time setup wizard (init-db), terrain generation, and the migration scripts in `scripts/` are no longer separate npm scripts here — those remain menu-only, run from the repo root's `npm run menu` (see root `CLAUDE.md`).
 
 **No test suite exists.** The `.test/` directory holds Playwright scripts for manual verification only.
 

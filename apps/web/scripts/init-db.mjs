@@ -2,8 +2,7 @@
 /**
  * Setup wizard — generates .env and creates your user account in MongoDB.
  *
- * Usage:
- *   npm run init-db
+ * Usage: run via the repo root's `npm run menu` (Setup / one-off → First-time setup).
  */
 
 import { createServer }                          from 'http'

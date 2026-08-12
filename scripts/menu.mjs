@@ -6,8 +6,8 @@ import { dirname, join } from 'node:path'
 import * as p from '@clack/prompts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-export const ROOT = join(__dirname, '..')
-export const WEB = join(ROOT, 'apps', 'web')
+const ROOT = join(__dirname, '..')
+const WEB = join(ROOT, 'apps', 'web')
 
 // ─── Env ────────────────────────────────────────────────────────────────────
 // Same hand-rolled .env parsing apps/web/scripts/init-db.mjs already uses —
@@ -29,7 +29,7 @@ function loadRootEnv() {
     return result
 }
 
-export const ENV = { ...process.env, ...loadRootEnv() }
+const ENV = { ...process.env, ...loadRootEnv() }
 
 // Ignore SIGINT at the parent level so Ctrl-C during a spawned child (e.g. a
 // dev server) kills the child and returns to the menu, instead of also
@@ -39,7 +39,7 @@ process.on('SIGINT', () => {})
 
 // ─── Process spawning ───────────────────────────────────────────────────────
 
-export function run(command, args, opts = {}) {
+function run(command, args, opts = {}) {
     return new Promise(resolve => {
         const child = spawn(command, args, {
             stdio: 'inherit',
@@ -48,7 +48,7 @@ export function run(command, args, opts = {}) {
             cwd: ROOT,
             ...opts,
         })
-        child.on('exit', code => resolve(code ?? 1))
+        child.on('exit', (code, signal) => resolve(signal ? 'signal' : (code ?? 1)))
         child.on('error', err => {
             console.error(`\n  Failed to start "${command}": ${err.message}`)
             resolve(1)
@@ -56,8 +56,8 @@ export function run(command, args, opts = {}) {
     })
 }
 
-export function reportExit(code) {
-    if (code !== 0) p.log.error(`exited with code ${code}`)
+function reportExit(code) {
+    if (code !== 0 && code !== 'signal') p.log.error(`exited with code ${code}`)
 }
 
 // ─── Menu items ─────────────────────────────────────────────────────────────
@@ -71,12 +71,13 @@ const RUN_ITEMS = [
     { label: 'Start — bot (prod)', run: () => run('npm', ['run', 'start', '--workspace=apps/bot']) },
 ]
 
-export const SETUP_ITEMS = [
-    { label: 'First-time setup (init-db)', run: () => run('node', ['scripts/init-db.mjs'], { cwd: WEB }) },
+const SETUP_ITEMS = [
+    { label: 'First-time setup (init-db)', run: () => run('node', ['apps/web/scripts/init-db.mjs']) },
     { label: 'Generate terrain', run: () => run('node', ['scripts/generate-terrain.mjs'], { cwd: WEB }) },
-    { label: 'Lint — web', run: () => run('npm', ['exec', '--prefix', 'apps/web', '--', 'next', 'lint']) },
+    { label: 'Lint — web', run: () => run('npm', ['exec', '--', 'next', 'lint'], { cwd: WEB }) },
 ]
-export const MIGRATION_ITEMS = [
+
+const MIGRATION_ITEMS = [
     { label: 'Migrate ORBAT roles (web)', script: 'scripts/migrate-orbat-roles.mjs', cwd: WEB },
     { label: 'Backfill mastersheet date sort (web)', script: 'scripts/backfill-mastersheet-date-sort.mjs', cwd: WEB },
     { label: 'Migrate: batch1 permissions', script: 'scripts/migrate-batch1-permissions.mjs', cwd: ROOT },
@@ -97,7 +98,7 @@ async function runMigration(item) {
         return
     }
 
-    const apply = await p.confirm({ message: 'Apply these changes?', initialValue: false })
+    const apply = await p.confirm({ message: `Apply these changes to "${ENV.MONGO_DB}"?`, initialValue: false })
     if (p.isCancel(apply) || !apply) {
         p.log.info('Skipped — no changes applied')
         return
@@ -126,11 +127,6 @@ async function main() {
 
         const items = { run: RUN_ITEMS, setup: SETUP_ITEMS, migrations: MIGRATION_ITEMS }[category]
 
-        if (items.length === 0) {
-            p.log.warn('Nothing here yet.')
-            continue
-        }
-
         const choice = await p.select({
             message: 'Pick one',
             options: [
@@ -152,4 +148,7 @@ async function main() {
     p.outro('Bye!')
 }
 
-main()
+main().catch(err => {
+    p.log.error(err.message)
+    process.exit(1)
+})

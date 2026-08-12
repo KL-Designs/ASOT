@@ -6,9 +6,10 @@
 // three mastersheet route.ts POST handlers) — this script only backfills
 // documents that already existed before that change shipped.
 //
-// Usage (from apps/web):
-//   npm run backfill-mastersheet-date-sort              (dry run — reports only)
-//   npm run backfill-mastersheet-date-sort -- --apply    (writes changes)
+// Usage: run via the repo root's `npm run menu` (Migrations category — handles the
+// dry-run/apply confirm flow), or directly from apps/web:
+//   node scripts/backfill-mastersheet-date-sort.mjs              (dry run — reports only)
+//   node scripts/backfill-mastersheet-date-sort.mjs --apply       (writes changes)
 
 import { MongoClient } from 'mongodb'
 
