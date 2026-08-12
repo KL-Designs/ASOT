@@ -13,7 +13,7 @@ Replace most of these scripts with a single interactive menu, reachable via `npm
 
 ## Non-goals
 
-- `apps/web/scripts/scrape-milpacs.mjs` is out of scope. It needs Playwright and a local Ollama server (neither is an installed dependency today), takes a dozen-plus flags, and isn't currently wired to any npm script. It stays a manually-run advanced script.
+- `apps/web/scripts/scrape-milpacs.mjs` is out of scope. It needs a local Ollama server (not something `npm install` can provide) and takes a dozen-plus flags, and isn't currently wired to any npm script. It stays a manually-run advanced script.
 - `apps/web/scripts/import-a3-markers.ps1` and `import-metis-markers.ps1` are out of scope — different runtime (PowerShell, not Node), not part of this cleanup.
 - No CLI-argument passthrough for scripting/automation (e.g. `npm run menu -- init-db` to skip navigation). The menu is a human-facing convenience tool; nothing currently needs to drive it non-interactively.
 - No changes to `apps/bot/package.json` — it's already minimal (`dev`, `start`, `typecheck`) and none of its scripts move.
