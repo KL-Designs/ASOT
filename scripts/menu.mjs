@@ -71,7 +71,11 @@ const RUN_ITEMS = [
     { label: 'Start — bot (prod)', run: () => run('npm', ['run', 'start', '--workspace=apps/bot']) },
 ]
 
-export const SETUP_ITEMS = []
+export const SETUP_ITEMS = [
+    { label: 'First-time setup (init-db)', run: () => run('node', ['scripts/init-db.mjs'], { cwd: WEB }) },
+    { label: 'Generate terrain', run: () => run('node', ['scripts/generate-terrain.mjs'], { cwd: WEB }) },
+    { label: 'Lint — web', run: () => run('npm', ['exec', '--prefix', 'apps/web', '--', 'next', 'lint']) },
+]
 export const MIGRATION_ITEMS = []
 
 // ─── Main loop ──────────────────────────────────────────────────────────────
