@@ -2,6 +2,13 @@
 **/.next
 **/.git
 
+# playwright — generated per run, only relevant to apps/web/tests locally,
+# never needed in the image (see apps/web/tests/README.md)
+**/test-results
+**/playwright-report
+**/blob-report
+**/playwright/.cache
+
 # Runtime/local data — volume-mounted at runtime instead, see docker-compose.yml.
 storage/maps
 storage/gallery

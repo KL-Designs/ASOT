@@ -9,6 +9,12 @@
 # testing
 /coverage
 
+# playwright — generated per run, see tests/README.md
+/test-results
+/playwright-report
+/blob-report
+/playwright/.cache
+
 # next.js
 /.next/
 /out/
