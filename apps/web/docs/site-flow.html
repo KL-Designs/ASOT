@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ASOT — Site Flow</title>
+<style>
+    :root {
+        --bg: #0c0c0e;
+        --panel: #131317;
+        --border: #26262b;
+        --text: #e9e9ec;
+        --dim: #8a8a92;
+        --red: #c41e28;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+        overflow: hidden;
+    }
+    #toolbar {
+        height: 52px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 0 18px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+    }
+    #toolbar .bar { width: 4px; height: 22px; background: var(--red); border-radius: 1px; }
+    #toolbar h1 {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 0;
+        white-space: nowrap;
+    }
+    #toolbar .hint { font-size: 12px; color: var(--dim); }
+    #toolbar .spacer { flex: 1; }
+    #toolbar button {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--dim);
+        font-size: 12px;
+        padding: 5px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    #toolbar button:hover { color: var(--text); border-color: #3a3a40; }
+    #canvas { width: 100%; height: calc(100% - 52px); }
+    #canvas svg { cursor: grab; }
+    #canvas svg:active { cursor: grabbing; }
+
+    /* Mermaid theme overrides — dark background, ASOT red accent on edges/lines */
+    .mermaid .edgeLabel { background-color: var(--bg) !important; color: var(--dim) !important; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+    <div class="bar"></div>
+    <h1>ASOT — Site Flow</h1>
+    <span class="hint">Scroll / pinch to zoom · drag to pan</span>
+    <div class="spacer"></div>
+    <button id="reset">Reset view</button>
+</div>
+
+<div id="canvas"></div>
+
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'
+    import svgPanZoom from 'https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.2/+esm'
+
+    // Kept as a plain JS string (not markup inside a <pre>) deliberately —
+    // the browser's HTML parser would otherwise process this content before
+    // Mermaid ever sees it, mangling "-->" and turning "<br/>" into a real,
+    // empty <br> DOM element instead of the literal text Mermaid needs to
+    // parse it as a line break.
+    const diagram = `
+flowchart TD
+    classDef entry fill:#1a1a1f,stroke:#3a3a40,color:#e9e9ec
+    classDef auth fill:#2a1215,stroke:#c41e28,color:#e9e9ec
+    classDef dash fill:#141b14,stroke:#3a6b3a,color:#e9e9ec
+    classDef infra fill:#141821,stroke:#2f5d8a,color:#e9e9ec
+
+    Landing["Public site<br/>home · about · gallery · public ORBAT<br/>services-asot · shoot minigame"]:::entry
+    Join["Join flow<br/>application · recruit session"]:::entry
+    OpsPublic["/operations<br/>public board"]:::entry
+    Community["Community pages<br/>quiz · retired wall · feedback tickets"]:::entry
+
+    Login["/login<br/>Discord OAuth"]:::auth
+    Cookie["token cookie<br/>(random string on User doc)"]:::auth
+    FetchMe["client.fetchMe()<br/>Db.users + Db.roles"]:::auth
+    Gates["hasRoles() / hasPermission()<br/>hasDashboardAccess() / hasDepartmentPermission()"]:::auth
+
+    Login -->|OAuth round-trip| Cookie --> FetchMe --> Gates
+    Landing -.-> Login
+    Join -.-> Login
+
+    DashGate["/dashboard layout gate<br/>hasDashboardAccess()<br/>(any dept / sub-role / ORBAT position)"]:::dash
+    Depts["J1-J7 department panels<br/>recruitment · mission-making · training<br/>administration · media · game-master · community dev"]:::dash
+    Orbat["ORBAT<br/>structure · roles · chain of command · reservists"]:::dash
+    Personnel["Personnel / Members<br/>milpac edit · discharge · impersonation"]:::dash
+    TasksTickets["Tasks and Tickets<br/>assignment · lockout · staff tickets"]:::dash
+    CalMeet["Calendar and Meetings<br/>reminders · attendance"]:::dash
+    Training["Training<br/>types · events · docs · BCT quiz"]:::dash
+    SOPs["SOPs"]:::dash
+    J2Ops["Operations editor (J2)<br/>briefings · campaigns · attendance · OCAP"]:::dash
+    J4Admin["J4 admin<br/>mastersheet · discipline · snapshots<br/>permissions explorer · roles manager"]:::dash
+    Board["J7 Board<br/>kanban, optionally linked to a task"]:::dash
+
+    Gates --> DashGate
+    DashGate --> Depts & Orbat & Personnel & TasksTickets & CalMeet & Training & SOPs & J2Ops & J4Admin & Board
+
+    Mongo[("MongoDB<br/>Db.* - one property per collection")]:::infra
+    Bot["Discord bot<br/>DMs · role/member sync · slash commands"]:::infra
+    TS["TeamSpeak<br/>client mgmt · snapshots · dev-mode gate"]:::infra
+    Cron["Cron jobs<br/>reminders · escalation · snapshots<br/>(server.mjs scheduler)"]:::infra
+    Notif["Notifications<br/>SSE push + Discord DM"]:::infra
+    Collab["Collab editor<br/>Hocuspocus / Y.js / TipTap"]:::infra
+
+    Depts & Orbat & Personnel & TasksTickets & CalMeet & Training & SOPs & J2Ops & J4Admin & Board --> Mongo
+    J2Ops --> Collab
+    TasksTickets --> Notif
+    CalMeet --> Notif
+    Bot --> Notif
+    Cron --> Notif
+    Cron --> Mongo
+    Gates -.->|role/dept sync every hour| Bot
+    DashGate -.->|dev-mode suppression| Bot
+    DashGate -.->|dev-mode suppression| TS
+    OpsPublic --> Mongo
+    Community --> Mongo
+    Join --> Mongo
+`
+
+    mermaid.initialize({
+        startOnLoad: false,
+        theme: 'dark',
+        themeVariables: {
+            background: '#0c0c0e',
+            primaryColor: '#1a1a1f',
+            primaryTextColor: '#e9e9ec',
+            primaryBorderColor: '#3a3a40',
+            lineColor: '#6a6a72',
+            fontSize: '13px',
+        },
+        flowchart: { curve: 'basis', htmlLabels: true },
+    })
+
+    const { svg } = await mermaid.render('site-flow-svg', diagram)
+    document.getElementById('canvas').innerHTML = svg
+
+    const svgEl = document.querySelector('#canvas svg')
+    svgEl.removeAttribute('height')
+    svgEl.style.maxWidth = 'none'
+
+    // Wait a frame before measuring for fit/center — doing it synchronously
+    // right after inserting the SVG risks the browser not having laid it
+    // out yet, which is what produced the "only the first few nodes visible"
+    // bug (svg-pan-zoom fit to a stale/incomplete bounding box).
+    requestAnimationFrame(() => {
+        const pz = svgPanZoom(svgEl, {
+            zoomEnabled: true,
+            controlIconsEnabled: false,
+            fit: true,
+            center: true,
+            minZoom: 0.2,
+            maxZoom: 8,
+        })
+
+        document.getElementById('reset').addEventListener('click', () => {
+            pz.resetZoom()
+            pz.center()
+        })
+    })
+</script>
+
+</body>
+</html>

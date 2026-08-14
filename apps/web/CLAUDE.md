@@ -33,7 +33,9 @@ npm run lint          # ESLint
 
 Lint is also available from the repo root's `npm run menu` (Setup / one-off → Lint — web). The first-time setup wizard (init-db), terrain generation, and the migration scripts in `scripts/` are no longer separate npm scripts here — those remain menu-only, run from the repo root's `npm run menu` (see root `CLAUDE.md`).
 
-**No test suite exists.** The `.test/` directory holds Playwright scripts for manual verification only.
+**`tests/` is a real Playwright E2E suite** (dashboard gate, permission-system migration behaviour, dev mode, hidden/privileged routes) — see `tests/README.md` for how it's wired (in-memory Mongo, fixed ports, seeded personas) and its design rationale/gotchas before adding or editing a spec. Run via `npm run test:e2e` (`:headed` / `:ui` / `:report` variants also exist) or the repo root's `npm run menu` → Testing category.
+
+**Keep it current:** if a change adds, removes, or changes the behaviour of anything the suite covers — a page gate, a permission key, sidebar visibility, a privileged/dev-only route, a dev-mode toggle — update the relevant spec in the same change, add one if new gated surface has no coverage, or remove/adjust one for a route that no longer exists. Same discipline as the site map above: a suite that quietly drifts from what it's testing is worse than an honest gap.
 
 ---
 

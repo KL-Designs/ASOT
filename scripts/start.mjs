@@ -243,6 +243,7 @@ const C = {
     khaki: '\x1b[38;2;150;140;100m', // hull fill shading
     track: '\x1b[38;2;70;70;70m',   // wheels/treads
     dirt: '\x1b[38;2;120;95;60m',   // ground
+    sand: '\x1b[38;2;150;130;95m',  // Bushmaster escort body
 }
 
 const dim = s => `${C.dim}${s}${C.reset}`
@@ -262,6 +263,75 @@ const CATEGORY_COLOR = { docker: blue, run: cyan, production: red, setup: green,
 // on the unit's actual banner.
 function trackOut(text) {
     return text.split(' ').map(word => word.split('').join(' ')).join('   ')
+}
+
+function hslToRgb(h, s, l) {
+    const c = (1 - Math.abs(2 * l - 1)) * s
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1))
+    const m = l - c / 2
+    const [r, g, b] =
+        h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] :
+        h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x]
+    return `\x1b[38;2;${Math.round((r + m) * 255)};${Math.round((g + m) * 255)};${Math.round((b + m) * 255)}m`
+}
+
+const LOGO_WAVE_AMPLITUDE = 1 // rows a column can shift up/down — the smallest possible non-zero shift
+// Scales the sine value before rounding, so only columns near the wave's
+// peak actually shift a row — most sit still. Tuned empirically: the
+// threshold for a ±1 shift is 0.5/damping, and because sine spends a
+// surprisingly large fraction of each cycle close to its peak, even
+// damping=0.6 still shifts ~37% of columns at any moment (too busy);
+// 0.52 lands closer to ~18% — an occasional, brief dip rather than
+// constant motion.
+const LOGO_WAVE_DAMPING = 0.8
+const LOGO_PAD = LOGO_WAVE_AMPLITUDE // extra blank rows top/bottom so shifted columns never clip
+
+// The big figlet "ASOT" wordmark, animated: each *column* of the rendered
+// glyph grid is shifted up/down by its own sine wave (keyed to that column's
+// index, so it's a ripple sweeping left to right as `tick` advances, not the
+// whole block bobbing in unison), and colored by a rainbow hue that depends
+// on both column and its current row — so the gradient sweeps diagonally as
+// the ripple moves. This works on the rendered character grid directly
+// rather than per letter, since figlet doesn't expose per-letter boundaries
+// and the individual-letter-glyph route risks kerning mismatches against
+// the joint word render.
+function buildWaveLogoRows(tick) {
+    const asciiLines = figlet.textSync('ASOT', { font: 'Sub-Zero' }).split('\n').filter(line => line.trim())
+    const width = Math.max(...asciiLines.map(line => [...line].length))
+    const grid = asciiLines.map(line => {
+        const chars = [...line]
+        while (chars.length < width) chars.push(' ')
+        return chars
+    })
+
+    const height = grid.length + LOGO_PAD * 2
+    const outChars = Array.from({ length: height }, () => Array(width).fill(' '))
+    const outColors = Array.from({ length: height }, () => Array(width).fill(null))
+
+    for (let c = 0; c < width; c++) {
+        // Low spatial frequency so neighbouring columns — within the same
+        // letter — move together instead of shearing the glyph apart.
+        const wave = Math.sin(c * 0.1 + tick * 0.25) // -1..1
+        const offset = Math.round(wave * LOGO_WAVE_AMPLITUDE * LOGO_WAVE_DAMPING)
+        for (let r = 0; r < grid.length; r++) {
+            const ch = grid[r][c]
+            if (ch === ' ') continue
+            const outRow = r + LOGO_PAD + offset
+            if (outRow < 0 || outRow >= height) continue
+            const hue = (c * 6 + outRow * 30 + tick * 6) % 360
+            outChars[outRow][c] = ch
+            outColors[outRow][c] = hslToRgb(hue, 0.7, 0.6)
+        }
+    }
+
+    const bar = `${C.bannerRed}▐▐${C.reset} `
+    return outChars.map((rowChars, r) => {
+        let out = ''
+        for (let c = 0; c < width; c++) {
+            out += rowChars[c] === ' ' ? ' ' : `${outColors[r][c]}${C.bold}${rowChars[c]}${C.reset}`
+        }
+        return `${bar}${out}`
+    })
 }
 
 // ─── Connection status ──────────────────────────────────────────────────────
@@ -340,27 +410,24 @@ function statusLine(label, { ok, detail }) {
 }
 
 // Builds the banner as an array of lines rather than printing directly, so
-// both the plain menu screen (printBanner, full clear + print) and the live
-// header (runItem, absolute per-row redraw) render from one definition
-// instead of two copies drifting apart. `running`, when given, adds the
+// both the idle menu screen and the live header for a running item (see
+// runItem, and main()'s own drawMenuHeader) render from one definition
+// instead of copies drifting apart. `running`, when given, adds the
 // "Running"/"Resources" lines for the item currently executing. `compact`
 // drops the figlet wordmark and most blank-line padding — for the live
 // header specifically, in a terminal too short to fit the full ~20-line
 // banner above a usable scroll region (see runItem's draw()).
-function buildHeaderLines(status, running, { compact = false } = {}) {
+function buildHeaderLines(status, running, { compact = false } = {}, tick = 0) {
     const lines = []
 
     if (compact) {
         lines.push(`   ${C.bold}${C.bannerWhite}ASOT${C.reset}  ${dim('•  asotmilsim.com  •  Support: Koda — Discord @itskodas')}`)
     } else {
-        // Sub-Zero's slanted outline letterforms, rendered in one flat color —
-        // white for the wordmark, matching the unit's actual banner, where red
-        // is confined to the accent stripe, never the letters themselves.
-        const asciiLines = figlet.textSync('ASOT', { font: 'Sub-Zero' }).split('\n').filter(line => line.trim())
-        // A solid red bar stands in for the diagonal accent stripe on the unit's
-        // actual banner — a real diagonal doesn't hold up across terminal fonts.
-        const bar = `${C.bannerRed}▐▐${C.reset} `
-        for (const line of asciiLines) lines.push(`${bar}${C.bold}${C.bannerWhite}${line}${C.reset}`)
+        // Sub-Zero's slanted outline letterforms — animated, see
+        // buildWaveLogoRows(); a solid red bar stands in for the diagonal
+        // accent stripe on the unit's actual banner (a real diagonal
+        // doesn't hold up across terminal fonts).
+        for (const line of buildWaveLogoRows(tick)) lines.push(line)
         lines.push('')
         lines.push(`   ${C.bold}${C.bannerWhite}${trackOut('AUSTRALIAN SPECIAL OPERATIONS TASKFORCE')}${C.reset}`)
         lines.push('')
@@ -395,78 +462,133 @@ const repeatToLength = (pattern, len) => pattern.repeat(Math.ceil(len / pattern.
 // Side-profile tank silhouette for the empty space to the right of the
 // header on a wide terminal — purely decorative. The hull is static; the
 // tread and ground rows are generated per animation tick by tankFrame()
-// below to simulate it driving forward, and withArt() staggers the whole
-// block up/down/left/right slightly on some ticks to simulate rough ground.
+// below (see it for how the tank, its Bushmaster escort, and the ground
+// each move independently). Barrel faces right (toward the log/output) —
+// mirror image of the muzzle-left silhouette this started as.
+// All rows (hull + tread + ground below) share one 49-column coordinate
+// system so they line up — these are the original muzzle-left rows padded
+// to that width *then* mirrored as a block, not reversed individually
+// (reversing each string on its own loses each row's alignment relative to
+// the others, which is what happened the first time around).
 const TANK_HULL = [
-    ['▄▄▄▄▄▄▄▄▄▄▄▄▄██████████████████▄', C.olive],
-    ['            ▄███████████████████████▄', C.olive],
-    ['      ▄▄▄▄▄██████████████████████████▄▄▄▄', C.olive],
-    ['     █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░█', C.khaki],
-    ['      ▀███████████████████████████████████▀', C.olive],
+    ['                 ▄██████████████████▄▄▄▄▄▄▄▄▄▄▄▄▄', C.olive],
+    ['            ▄███████████████████████▄            ', C.olive],
+    ['        ▄▄▄▄██████████████████████████▄▄▄▄▄      ', C.olive],
+    ['       █░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░█     ', C.khaki],
+    ['      ▀███████████████████████████████████▀      ', C.olive],
 ]
 const TANK_INDENT = '      '
-const TREAD_WIDTH = 43
+// 37, not the hull row's own 49 — the tread sits directly under the hull
+// skirt (the row right above it), which only spans columns 6-42 within that
+// 49-wide frame. Matching the tread to the *hull row string length* instead
+// of the skirt's actual visible span was what made the tread overhang
+// wider than the hull sitting on it.
+const TREAD_WIDTH = 37
+const TANK_WIDTH = TANK_HULL[0][0].length // 49 — the barrel (widest row) reaches the full padded frame; escort anchoring is relative to this, not the (now narrower) tread
 const GROUND_TILE = '‾_.°_‾..°_‾.°_‾_..°'
 
-// One frame of the animation. `tick` only needs to keep advancing — the
-// tread alternates phase every tick (reads as tracks turning) and the
-// ground pattern shifts by one character per tick (reads as terrain
-// scrolling past underneath), independent of how often this is called.
-function tankFrame(tick) {
-    const tread = TANK_INDENT + repeatToLength(tick % 2 === 0 ? '●─' : '─●', TREAD_WIDTH)
-    const groundOffset = tick % GROUND_TILE.length
-    const ground = TANK_INDENT + repeatToLength(GROUND_TILE.slice(groundOffset) + GROUND_TILE, TREAD_WIDTH)
-    return [
-        ...TANK_HULL.map(([text, color]) => `${color}${text}${C.reset}`),
-        `${C.track}${tread}${C.reset}`,
-        `${C.dirt}${ground}${C.reset}`,
-    ]
-}
+// A Bushmaster PMV escort, driving just ahead of the tank (to its right,
+// since the tank's barrel faces right = the direction of travel). 6 rows —
+// roof, windscreen, side windows, body, lower hull, wheels — aligned 1:1
+// against the tank's 5 hull rows plus its tread row in tankFrame() below.
+// Mirrored (front/windshield on the right) from the original muzzle-left-
+// style draft so it faces the same way as the tank's barrel — reversing
+// each row is safe here (unlike the tank hull) because every row already
+// shares the same padded width.
+const BUSHMASTER = [
+    ['▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄        ', C.sand],
+    [' █▀▀▀▀▀▀▀▀▀▀▀▀▀▀█▄      ', C.sand],
+    [' █░░░░░░[]░[]░[]░██▄    ', C.khaki],
+    [' █░░░░░░░░░░░░░░░░░░█   ', C.khaki],
+    [' ▀▀▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▀▀   ', C.sand],
+    ['   ●            ●       ', C.track],
+]
+const ESCORT_GAP = 6 // columns between the tank's (unjittered) right edge and the escort's own anchor
+const JITTER_MARGIN = 2 // headroom on the left/right of each vehicle's anchor so ±1 jitter never collides with the other or clips the scene edge
 
 // Small looping bump patterns rather than continuous randomness — mostly
-// flat with an occasional ±1 nudge, and different lengths so the two axes
-// drift out of phase instead of always bumping together.
-const V_JITTER = [0, 0, 0, 0, -1, 0, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0]
-const H_JITTER = [0, 0, 1, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 0]
+// flat with an occasional ±1 nudge. Two different patterns (different
+// lengths too, so they drift out of phase) give the tank and the escort
+// independent side-to-side wobbles rather than swaying in lockstep.
+const TANK_H_JITTER = [0, 0, 1, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 0]
+const ESCORT_H_JITTER = [0, -1, 0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, -1, 0, 1, 0]
 
-const ART_GUTTER = 4 // blank columns between the header text and the art
+// Places pre-colored `segments` (`{ col, text, color }`, `text` plain/
+// uncolored so its length is its true visible width) onto a blank canvas of
+// `width` columns, left to right, padding the gaps with spaces. This is what
+// lets the tank and the escort share the same rows while each sits at its
+// own independently-jittering column.
+function buildRow(width, segments) {
+    let out = ''
+    let cursor = 0
+    for (const seg of [...segments].sort((a, b) => a.col - b.col)) {
+        if (seg.col <= cursor) continue // defensive: never let one segment overwrite another
+        out += ' '.repeat(seg.col - cursor) + `${seg.color}${seg.text}${C.reset}`
+        cursor = seg.col + seg.text.length
+    }
+    if (cursor < width) out += ' '.repeat(width - cursor)
+    return out
+}
+
+// One frame of the animation. `tick` only needs to keep advancing — the
+// tread alternates phase every tick (reads as tracks turning), the ground
+// pattern shifts by one character per tick (reads as terrain scrolling past
+// underneath both vehicles), and the tank/escort each apply their own
+// jitter pattern to their own column anchor. The ground spans the full
+// scene width and never jitters — only scrolls — so the road stays put
+// under whichever vehicle is currently drifting over it.
+function tankFrame(tick) {
+    const escortWidth = BUSHMASTER[0][0].length
+    const tankCol = JITTER_MARGIN + TANK_H_JITTER[tick % TANK_H_JITTER.length]
+    const escortAnchor = JITTER_MARGIN + TANK_WIDTH + ESCORT_GAP
+    const escortCol = escortAnchor + ESCORT_H_JITTER[tick % ESCORT_H_JITTER.length]
+    const sceneWidth = escortAnchor + escortWidth + JITTER_MARGIN
+
+    const tread = TANK_INDENT + repeatToLength(tick % 2 === 0 ? '●─' : '─●', TREAD_WIDTH)
+    const groundOffset = tick % GROUND_TILE.length
+    const ground = repeatToLength(GROUND_TILE.slice(groundOffset) + GROUND_TILE, sceneWidth)
+
+    // 6 combined tank rows (5 hull + tread), 1:1 against BUSHMASTER's own 6.
+    const tankRows = [...TANK_HULL, [tread, C.track]]
+
+    const rows = tankRows.map(([text, color], i) => {
+        const [escText, escColor] = BUSHMASTER[i]
+        return buildRow(sceneWidth, [
+            { col: tankCol, text, color },
+            { col: escortCol, text: escText, color: escColor },
+        ])
+    })
+    rows.push(`${C.dirt}${ground}${C.reset}`)
+    return rows
+}
+
+const ART_GUTTER = 10 // blank columns between the header text and the art
 const ART_MARGIN = 6 // extra breathing room beyond art's own width before it's worth showing at all
 
-// Pairs `art` alongside `lines` row-by-row, right-padding each line to the
-// widest one first (so ragged status/running text doesn't shift the art
-// left and right between redraws) and vertically centering the (usually
-// shorter) art block next to the taller header. `tick` offsets the art's
-// position by that tick's jitter, clamped so it never runs off the header's
-// own rows even with zero slack. Returns `lines` unchanged if the terminal
-// isn't wide enough for both columns plus a margin.
-function withArt(lines, art, tick = 0) {
+// Pairs `art` (already-composited plain rows from tankFrame — vehicle
+// jitter is handled internally there, not here) alongside `lines` row-by-
+// row, right-padding each line to the widest one first (so ragged status/
+// running text doesn't shift the art left and right between redraws) and
+// vertically centering the (usually shorter) art block next to the taller
+// header. Returns `lines` unchanged if the terminal isn't wide enough for
+// both columns plus a margin.
+function withArt(lines, art) {
     const maxLeftWidth = Math.max(...lines.map(visibleLength))
     const artWidth = Math.max(...art.map(visibleLength))
     const columns = process.stdout.columns || 80
     if (columns < maxLeftWidth + ART_GUTTER + artWidth + ART_MARGIN) return lines
 
     const totalRows = Math.max(lines.length, art.length)
-    const baseStartRow = Math.max(0, Math.floor((lines.length - art.length) / 2))
-    const maxStartRow = Math.max(0, lines.length - art.length)
-    const artStartRow = Math.min(Math.max(baseStartRow + V_JITTER[tick % V_JITTER.length], 0), maxStartRow)
-    const gutter = Math.max(1, ART_GUTTER + H_JITTER[tick % H_JITTER.length])
+    const artStartRow = Math.max(0, Math.floor((lines.length - art.length) / 2))
 
     const out = []
     for (let i = 0; i < totalRows; i++) {
         const left = lines[i] ?? ''
         const artIdx = i - artStartRow
         const artLine = (artIdx >= 0 && artIdx < art.length) ? art[artIdx] : ''
-        out.push(artLine ? `${padVisible(left, maxLeftWidth + gutter)}${artLine}` : left)
+        out.push(artLine ? `${padVisible(left, maxLeftWidth + ART_GUTTER)}${artLine}` : left)
     }
     return out
-}
-
-function printBanner(status) {
-    // Clear the screen so the banner starts fresh at the top regardless of
-    // terminal height, instead of sitting cramped right under the "> npm
-    // start" preamble (a handful of blank lines wouldn't fill a tall window).
-    console.clear()
-    for (const line of withArt(buildHeaderLines(status, null), tankFrame(0))) console.log(line)
 }
 
 function formatUptime(ms) {
@@ -577,9 +699,9 @@ async function runItem(item) {
         // The full banner (~20 lines) leaves nothing for the log in a short
         // terminal — drop to the compact header (~8 lines) once there isn't
         // room for it plus a handful of visible log lines underneath.
-        let lines = buildHeaderLines(liveStatus, runningMeta, { compact: false })
+        let lines = buildHeaderLines(liveStatus, runningMeta, { compact: false }, tick)
         if (rows < lines.length + MIN_LOG_ROWS) lines = buildHeaderLines(liveStatus, runningMeta, { compact: true })
-        lines = withArt(lines, tankFrame(tick), tick)
+        lines = withArt(lines, tankFrame(tick))
         headerRowCount = lines.length
 
         if (!firstSpawn) process.stdout.write('\x1b7')
@@ -653,16 +775,19 @@ const SETUP_ITEMS = [
     { label: '🧙 Run First-time Setup', command: 'node', args: ['apps/web/scripts/init-db.mjs'] },
     { label: '🗺️ Generate Terrain', command: 'node', args: ['scripts/generate-terrain.mjs'], opts: { cwd: WEB } },
     { label: '🧹 Lint Website', command: 'npm', args: ['exec', '--', 'next', 'lint'], opts: { cwd: WEB } },
+    // `start ""` — the empty string is the (unused) window title `start` expects
+    // as its first argument; without it, a quoted path gets misread as one.
+    { label: '📊 View Site Flow Chart', command: 'cmd', args: ['/c', 'start', '', join(WEB, 'docs', 'site-flow.html')] },
 ]
 
 // Playwright E2E suite (apps/web/tests) — a real Next dev server on :3100
 // plus an in-memory MongoDB on :27018, both spun up by playwright.config.ts
 // itself, so no local .env/Docker/Mongo is needed. See apps/web/tests/README.md.
 const TESTING_ITEMS = [
-    { label: '🎭 Run E2E Suite', run: () => run('npm', ['run', 'test:e2e'], { cwd: WEB }) },
-    { label: '🖥️ Run E2E Suite (headed)', run: () => run('npm', ['run', 'test:e2e:headed'], { cwd: WEB }) },
-    { label: '🕹️ Run E2E Suite (UI mode)', run: () => run('npm', ['run', 'test:e2e:ui'], { cwd: WEB }) },
-    { label: '📊 Open Last E2E Report', run: () => run('npm', ['run', 'test:e2e:report'], { cwd: WEB }) },
+    { label: '🎭 Run E2E Suite', command: 'npm', args: ['run', 'test:e2e'], opts: { cwd: WEB } },
+    { label: '🖥️ Run E2E Suite (headed)', command: 'npm', args: ['run', 'test:e2e:headed'], opts: { cwd: WEB } },
+    { label: '🕹️ Run E2E Suite (UI mode)', command: 'npm', args: ['run', 'test:e2e:ui'], opts: { cwd: WEB } },
+    { label: '📊 Open Last E2E Report', command: 'npm', args: ['run', 'test:e2e:report'], opts: { cwd: WEB } },
 ]
 
 const MIGRATION_ITEMS = [
@@ -704,8 +829,74 @@ async function main() {
     const [mongo, discord, teamspeak] = await Promise.all([checkMongo(), checkDiscord(), checkTeamSpeak()])
     s.stop('Connections checked')
 
-    const status = { mongo, discord, teamspeak }
-    printBanner(status)
+    // Same pinned-header machinery runItem() uses for a running item, applied
+    // to the idle menu screen too — a scroll region confines @clack/prompts'
+    // own rendering to the rows below the header, so the tank keeps animating
+    // continuously (tick/data timers) while the user is just sitting at a
+    // prompt, not only while something is actually running.
+    let liveStatus = { mongo, discord, teamspeak }
+    let tick = 0
+    let headerRowCount = 0
+    let firstDraw = true
+    let headerActive = false
+    let animTimer = null
+    let dataTimer = null
+
+    async function refreshMenuStatus() {
+        const [mongo, discord, teamspeak] = await Promise.all([checkMongo(), checkDiscord(), checkTeamSpeak()])
+        liveStatus = { mongo, discord, teamspeak }
+    }
+
+    function drawMenuHeader() {
+        const rows = process.stdout.rows || 40
+        let lines = buildHeaderLines(liveStatus, null, { compact: false }, tick)
+        if (rows < lines.length + MIN_LOG_ROWS) lines = buildHeaderLines(liveStatus, null, { compact: true })
+        lines = withArt(lines, tankFrame(tick))
+        headerRowCount = lines.length
+
+        if (!firstDraw) process.stdout.write('\x1b7')
+        lines.forEach((line, i) => process.stdout.write(`\x1b[${i + 1};1H\x1b[2K${line}`))
+        if (rows > headerRowCount + 2) process.stdout.write(`\x1b[${headerRowCount + 1};${rows}r`)
+        if (firstDraw) {
+            process.stdout.write(`\x1b[${headerRowCount + 1};1H`)
+            firstDraw = false
+        } else {
+            process.stdout.write('\x1b8')
+        }
+    }
+
+    // No-op if already active — safe to call on every 'back' regardless of
+    // whether the header is already running. Terminal too short even for
+    // the compact header (see runItem's identical check): fall back to a
+    // single static print with no scroll region/timers, same as before this
+    // screen animated at all — a broken sliver of a pinned header is worse
+    // than no header.
+    function resumeMenuHeader() {
+        if (headerActive) return
+        if ((process.stdout.rows || 40) < COMPACT_HEADER_ROWS + MIN_LOG_ROWS) {
+            console.clear()
+            for (const line of withArt(buildHeaderLines(liveStatus, null, { compact: true }), tankFrame(tick))) console.log(line)
+            return
+        }
+        headerActive = true
+        firstDraw = true
+        console.clear()
+        drawMenuHeader()
+        animTimer = setInterval(() => { tick++; drawMenuHeader() }, ANIM_INTERVAL_MS)
+        dataTimer = setInterval(async () => { await refreshMenuStatus(); drawMenuHeader() }, HEADER_REFRESH_MS)
+    }
+
+    // Hands the terminal off to a child item/migration cleanly — resets the
+    // scroll region so their own output isn't confined to the header's band.
+    function pauseMenuHeader() {
+        if (!headerActive) return
+        headerActive = false
+        clearInterval(animTimer)
+        clearInterval(dataTimer)
+        process.stdout.write('\x1b[r')
+    }
+
+    resumeMenuHeader()
 
     while (true) {
         const category = await p.select({
@@ -734,29 +925,31 @@ async function main() {
             ],
         })
 
-        // Redraw the banner fresh before returning to the category prompt —
-        // without this, each loop iteration's prompts just pile up in the
-        // scrollback and the banner eventually scrolls out of view.
+        // The header keeps animating on its own through 'back' — this just
+        // restarts it in the (rare) case it was left paused after a crash
+        // below.
         if (p.isCancel(choice) || choice === 'back') {
-            printBanner(status)
+            resumeMenuHeader()
             continue
         }
 
         const item = items[choice]
+        pauseMenuHeader()
         if (category === 'migrations') {
             await runMigration(item)
-            printBanner(status)
+            resumeMenuHeader()
         } else {
             const code = await runItem(item)
             reportExit(code)
-            // Only redraw immediately on a clean stop (exit 0 or Ctrl-C).
-            // A genuine crash's output/error stays on screen instead of
-            // being wiped out from under the user — it reappears once they
-            // navigate onward from here.
-            if (code === 0 || code === 'signal') printBanner(status)
+            // Only resume (which clears the screen) on a clean stop (exit 0
+            // or Ctrl-C). A genuine crash's output/error stays on screen
+            // instead of being wiped out from under the user — the header
+            // resumes next time they complete a cycle from here.
+            if (code === 0 || code === 'signal') resumeMenuHeader()
         }
     }
 
+    pauseMenuHeader()
     p.outro('Bye!')
 }
 

@@ -24,10 +24,17 @@ interface Member extends User {
 export class Client implements IClient {
 
     roles: IClient['roles']
+    // Resolves once `roles` is actually populated — awaited at the top of
+    // fetchMember() (see below) so every caller of fetchMe()/fetchMember()
+    // is guaranteed a non-stale `this.roles` before it can read it, without
+    // hasRoles() itself needing to become async (it stays synchronous and
+    // untouched — see fetchMember() for why that matters).
+    private rolesReady: Promise<void>
 
 
     constructor() {
         this.roles = []
+        this.rolesReady = this.updateRoles()
     }
 
 
@@ -51,6 +58,13 @@ export class Client implements IClient {
     }
 
     async fetchMember(identifier: string, rolesEnabled?: boolean): Promise<Member> {
+        // Both this method's own `this.roles` read below and every caller's
+        // subsequent hasRoles()/PERMISSIONS check need roles to already be
+        // loaded — this is the one place that guarantee actually needs to
+        // be enforced, since fetchMe()/fetchMember() is awaited before any
+        // of the ~300 call sites elsewhere ever touch roles at all.
+        await this.rolesReady
+
         const user = await Db.users.findOne({ $or: [{ _id: identifier }, { token: identifier }] })
         if (!user) throw new Error('User not found, please try again later.')
         if (user.discharged) throw new Error('Account has been discharged.')
@@ -127,6 +141,5 @@ export class Client implements IClient {
 
 
 const client = new Client()
-client.updateRoles()
 
 export default client
