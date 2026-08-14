@@ -5,7 +5,7 @@
             "name": "Start Menu",
             "type": "node-terminal",
             "request": "launch",
-            "command": "npm run start",
+            "command": "node scripts/start.mjs",
             "cwd": "${workspaceFolder}"
         },
         {

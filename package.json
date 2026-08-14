@@ -11,6 +11,8 @@
   },
   "devDependencies": {
     "@clack/prompts": "^1.7.0",
-    "figlet": "^1.11.4"
+    "figlet": "^1.11.4",
+    "pidtree": "^1.0.0",
+    "pidusage": "^4.0.1"
   }
 }

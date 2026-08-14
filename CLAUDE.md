@@ -19,10 +19,13 @@ This file only covers what's shared across both.
 
 ```bash
 npm run install:all     # fresh clone: installs root deps + apps/web deps (apps/bot is an npm workspace, installed by root install)
-npm run menu            # interactive menu — dev/build/start for both apps, first-time setup (init-db), migrations
+npm start               # interactive menu — dev/build/start for both apps, first-time setup (init-db), migrations
+node scripts/start.mjs  # same menu, invoked directly — see the Windows note below
 ```
 
-`npm run menu` (`scripts/menu.mjs`) is the primary way to run anything in this repo day-to-day — it replaces what used to be a long list of separate npm scripts. See its own source for the full item list; categories are Run, Setup / one-off, and Migrations.
+`npm start` (`scripts/start.mjs`) is the primary way to run anything in this repo day-to-day — it replaces what used to be a long list of separate npm scripts. See its own source for the full item list; categories are Run, Setup / one-off, and Migrations. The `.vscode/launch.json` "Start Menu" config runs it too (as `node scripts/start.mjs` directly, for the reason below).
+
+**Windows: Ctrl-C cannot reliably stop just a running dev server from inside the menu** — it was observed taking down the whole menu (and sometimes the whole terminal) regardless of launch method, since Windows broadcasts Ctrl-C to every process sharing the console rather than just the intended child. `scripts/start.mjs` works around this itself rather than depending on the launch method: while a child (dev server, build, etc.) is running, it reads its own stdin directly and treats **Esc, Backspace, or Ctrl-C** as "stop this and return to the menu" and **R** as "restart this in place," then force-kills the child's whole process tree via `taskkill /T` (plain `child.kill()` only signals the immediate `cmd.exe` wrapper `shell: true` introduces, not the actual dev server underneath it) before re-spawning if it was a restart. See `watchControlKeys`/`runOnce`/`runItem`/`killTree` in `scripts/start.mjs`. `runItem` also pins a live header (banner, live Mongo/Discord/TeamSpeak status, PID/port/uptime/CPU/memory, and the same keybind hint) above the item's own scrolling output via a VT100 scroll region, dropping to a compact variant or no header at all in a short terminal — see `buildHeaderLines`/`COMPACT_HEADER_ROWS` in the same file.
 
 For lint/typecheck commands, see each app's own `CLAUDE.md` — they're not unified at the root.
 
@@ -51,3 +54,5 @@ Standalone `.mjs` scripts for schema/data migrations, run manually (not part of 
 ## Deployment
 
 `docker-compose.yml` builds `web` and `bot` as separate containers from the same build context (repo root), both reading the shared `.env` and the bind-mounted `storage/` tree. `.github/workflows/deploy.yml` deploys on every push to `main`: SSHes into the server, `git pull`s, and runs `docker compose up -d --build --remove-orphans`. There is no CI test/build gate before deploy — pushing to `main` deploys directly.
+
+**Build any large or multi-step feature/implementation on its own branch, not directly on `main`.** Because a push to `main` deploys immediately with no CI gate, committing straight to `main` mid-implementation would ship an unfinished change live. Branch, do the work, and merge to `main` only once it's ready to deploy.

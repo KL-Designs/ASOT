@@ -70,26 +70,31 @@ Two global overrides bypass every check:
 - Users with the Discord role `J4-Administration` (hardcoded in `client.hasRoles()`)
 - Discord user IDs listed in the `OVERRIDE` env var
 
-Usage in routes:
+Legacy usage — still the live pattern for any key that hasn't migrated yet (check the key's JSDoc in `lib/permissions.ts` before assuming this applies):
 ```ts
 const me = await client.fetchMe()
 if (!client.hasRoles(me, PERMISSIONS.pages.admin)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 ```
 
-Usage in layouts (redirect on failure):
-```ts
-const me = await client.fetchMe().catch(() => null)
-if (!me) redirect('/login')
-if (!client.hasRoles(me, PERMISSIONS.pages.member)) redirect('/me')
-```
-
 `PERMISSIONS` structure:
-- `pages.*` — top-level page gates (`member`, `admin`, `members`, `operationsEdit`)
+- `pages.*` — top-level page gates (`dashboard`, `admin`, `members`, `operationsEdit`)
 - `departments.*` — J1–J7 department membership (`j1`–`j7`)
 - `departmentLeads.*` — per-department lead roles (distinct from member roles)
-- `operations.*`, `uploads.*`, `members.*`, `admin.*`, `gallery.*`, `attendance.*`, `auth.*`, `tickets.*`, `meetings.*`, `quiz.*`, `trainingDocs.*`, `sops.*`, `training.*`, `masterSheet.*`, `communityTickets.*`, `optionals.*`, `feedback.*`
+- `operations.*`, `uploads.*`, `members.*`, `admin.*`, `gallery.*`, `attendance.*`, `auth.*`, `tickets.*`, `meetings.*`, `quiz.*`, `trainingDocs.*`, `sops.*`, `training.*`, `masterSheet.*`, `communityTickets.*`, `optionals.*`, `feedback.*`, `deptLinks.*`, `intel.*`, `ai.*`
 
-`pages.member` specifically has been migrated off this array as the first step of an ongoing move to a new permission system: the real gate is now `await hasPermission(me, 'pages.member')` (`lib/orbat/hasPermission.ts`), granted via department membership, ORBAT-position role holding, or reservist role holding, not `client.hasRoles()`. See `docs/superpowers/specs/2026-08-11-permission-system-migration-phase1-design.md` for the full plan. Every other permission key above is unaffected — the `client.hasRoles(me, PERMISSIONS.x.y)` pattern shown above still applies to them.
+**A migration off the hardcoded Discord-role arrays above and onto dynamic, DB-stored grants is in progress** (`docs/superpowers/specs/2026-08-11-permission-system-migration-phase*-design.md`). Many keys have already moved — their `PERMISSIONS.x.y` array is now dead code kept only so the Permissions Explorer can still display it, and the real gate is one of:
+- `await hasPermission(user, 'x.y')` (`lib/orbat/hasPermission.ts`) — dot-path key, e.g. `'pages.dashboard'`, `'gallery.manage'`, `'quiz.assign'`
+- `await hasDepartmentPermission(user, department, 'x.y')` (`lib/orbat/hasDepartmentPermission.ts`) — department-scoped keys like `deptLinks.manage`
+- `await hasDashboardAccess(user)` (`lib/orbat/hasDashboardAccess.ts`) — the dashboard entry gate specifically
+
+`lib/permissions-catalog.ts` exports `PERMISSION_KEYS`, the flattened dot-path list of every key in `PERMISSIONS` (e.g. `admin.manageOrbat`, `deptLinks.manage`) — this is the grantable-permission catalog the Roles Manager UI draws from.
+
+**Translating user requests about access control:**
+- If the user describes a change in Discord-role terms ("give the X role access to Y", "require the Z role") — don't add to or check a `PERMISSIONS.x.y` Discord-role array for a key whose JSDoc says it's already migrated. Prefer granting the permission key itself (via an ORBAT Role's or Department Role's `permissions` array in the Roles Manager, or a `hasPermission`/`hasDepartmentPermission` check) over touching raw Discord role names.
+- **"Role" is ambiguous in this codebase — confirm which the user means before making changes:**
+  1. A **site permission** / permission key — a dot-path string from `PERMISSION_KEYS` (e.g. `admin.manageOrbat`) that a `hasPermission`/`hasRoles` check tests for.
+  2. A **dynamic ORBAT Role or Department Role** (`types/orbat-role.d.ts` / `types/department-role.d.ts`, managed via the Roles Manager) — a named, DB-stored bundle of permission keys + Discord role IDs + TS group IDs that a member holds; assigning one is what grants that member's permission keys.
+  A literal Discord server role (the legacy `PERMISSIONS.x.y` string arrays) is a third, older concept that's being phased out — don't default to it as what "role" means.
 
 ### Database
 
