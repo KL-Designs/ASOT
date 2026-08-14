@@ -19,6 +19,11 @@ WORKDIR /app
 # multi-minute install time. Skip that; npm ci also skips dependency resolution (we already
 # have an exact lockfile), which is faster and more reproducible than npm install for a build.
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+# Same idea for the tests/e2e-only devDependencies (npm ci installs devDependencies too,
+# there's no --omit=dev below): mongodb-memory-server's postinstall unconditionally tries
+# to download a mongod binary, which this image never needs and shouldn't depend on
+# network access for at build time.
+ENV MONGOMS_DISABLE_POSTINSTALL=1
 
 # apps/web is not an npm workspace member (it has its own hoisting-sensitive build —
 # see next.config.ts's outputFileTracingRoot comment) — install it independently.

@@ -61,9 +61,11 @@ test.describe('Layout gate', () => {
     })
 
     test('holding "ASOT Member" alone is NOT enough to enter the dashboard', async ({ pageAs }) => {
-        // Regression guard for the permission-system migration: `pages.member`
-        // is now resolved by hasPermission() via department / ORBAT-position /
-        // reservist holding, NOT by the legacy PERMISSIONS.pages.member array.
+        // Regression guard for the permission-system migration: the dashboard
+        // gate is hasDashboardAccess() — implicit for department membership,
+        // a department sub-role, or an ORBAT position, NOT the legacy
+        // PERMISSIONS.pages.member/pages.dashboard Discord-role array (dead
+        // code now, kept only for the Permissions Explorer's display).
         // A user with only the Discord role must be bounced to /me.
         const page = await pageAs('plainMember')
         await page.goto('/dashboard')

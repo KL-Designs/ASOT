@@ -69,8 +69,9 @@ purely because its ID is in `OVERRIDE` — which makes it a clean probe for whet
 bypass is actually wired up, rather than a user that would have passed anyway.
 
 `plainMember` is the regression guard for the permission-system migration: holding the
-`ASOT Member` Discord role is **no longer sufficient** for `pages.member`. The real gate
-is `hasPermission()` via department / ORBAT-position / reservist holding.
+`ASOT Member` Discord role is **no longer sufficient** to reach `/dashboard`. The real
+gate is `hasDashboardAccess()` — implicit for department membership, a department
+sub-role, or an ORBAT position (including Reservists), not a `hasPermission()` key at all.
 
 ## Coverage
 
@@ -111,6 +112,14 @@ visible in CI rather than implicit.
    false (bar the `OVERRIDE` bypass). On a cold server the first request or two can
    therefore under-grant permissions. Not observed to flake this suite, but it is a real
    boot race.
+
+5. **`app/me/page.tsx:65` passes a non-serializable prop into a Client Component.**
+   `<Avatar user={me} />` hands the whole `me` object to `Avatar` (`'use client'`), and
+   `me.roles` is the raw `Db.roles` documents — including MongoDB's `ObjectId` `_id` —
+   attached by `fetchMe()`. Next logs `Only plain objects can be passed to Client
+   Components...` on every visit to `/me` in dev mode (seen running this suite; does not
+   fail a test or visibly break the page — React silently drops what it can't serialize).
+   Suggested fix: pass only the specific fields `Avatar` actually reads, not the full `me`.
 
 ---
 
@@ -159,6 +168,15 @@ Mitigations, in order of effort:
 
 Ports are fixed (27018 / 3100), so **two runs cannot overlap**. Check both are free before
 starting if a previous run was interrupted.
+
+**A single, isolated failure with `read ECONNRESET` is the same root cause, smaller
+blast radius.** Rather than mongod dying outright, `next dev` sometimes logs
+`⚠ Server is approaching the used memory threshold, restarting...` and restarts itself
+mid-run; whichever request lands in that window gets `ECONNRESET` instead of a response.
+Seen twice writing the config: two full runs, one flaky failure each, a *different* test
+both times, and both passed cleanly on their own in isolation immediately after. If a lone
+failure shows that log line right above it, re-run just that test before assuming
+anything's broken — `npx playwright test -g "<test name>"`.
 
 ---
 

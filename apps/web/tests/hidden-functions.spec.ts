@@ -71,14 +71,15 @@ test.describe('OVERRIDE env bypass', () => {
 
     test('grants full access to a user holding zero Discord roles', async ({ adminPage }) => {
         // The override persona's guild.roles is []. If OVERRIDE were not
-        // honoured it would fail hasPermission('pages.member') and land on /me,
-        // exactly like the plainMember persona does.
+        // honoured it would fail hasDashboardAccess() (no department, no
+        // department sub-role, no ORBAT position) and land on /me, exactly
+        // like the plainMember persona does.
         await adminPage.goto('/dashboard/j4')
         await expect(adminPage).toHaveURL(/\/dashboard\/j4/)
     })
 
     test('bypasses hasPermission() as well as hasRoles()', async ({ adminPage }) => {
-        // /api/admin/tasks/lockout-status gates on hasPermission('pages.member').
+        // /api/admin/tasks/lockout-status gates on hasDashboardAccess().
         const res = await adminPage.request.get('/api/admin/tasks/lockout-status')
         expect(res.status()).toBe(200)
     })

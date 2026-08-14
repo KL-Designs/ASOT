@@ -99,9 +99,13 @@ export async function seedDatabase(): Promise<void> {
         )
 
         // ── Base department roles ────────────────────────────────────────────
-        // `hasPermission()` grants a key if the user's *base* department role
-        // (matched via User.departments + isBase:true) lists it. This is what
-        // actually opens /dashboard now — NOT the `ASOT Member` Discord role.
+        // `isBase: true` + `User.departments` membership is what actually
+        // opens /dashboard now — hasDashboardAccess() checks that directly,
+        // NOT any permission key (not the `ASOT Member` Discord role either).
+        // `pages.dashboard` is still listed below for realism — it's what the
+        // Roles Manager would show a real base role holding — but it's dead
+        // weight for the dashboard gate specifically; only `departmentLeads.jX`
+        // is actually consulted by hasPermission() for these two roles.
         await db.collection('department_roles').insertMany([
             {
                 _id: DEPT_ROLE_IDS.j4Base,
@@ -110,7 +114,7 @@ export async function seedDatabase(): Promise<void> {
                 isBase: true,
                 discordRoleIds: [ROLE_IDS.j4DepartmentName],
                 tsGroupIds: [],
-                permissions: ['pages.member', 'departmentLeads.j4'],
+                permissions: ['pages.dashboard', 'departmentLeads.j4'],
                 linkedSlot: null,
                 createdAt: new Date('2026-01-01'),
                 createdBy: '0',
@@ -123,7 +127,7 @@ export async function seedDatabase(): Promise<void> {
                 isBase: true,
                 discordRoleIds: [ROLE_IDS.j3Training],
                 tsGroupIds: [],
-                permissions: ['pages.member'],
+                permissions: ['pages.dashboard'],
                 linkedSlot: null,
                 createdAt: new Date('2026-01-01'),
                 createdBy: '0',
@@ -149,7 +153,7 @@ export async function seedDatabase(): Promise<void> {
                 departments: ['j3'],
             }),
 
-            // Has `ASOT Member` but no department -> fails hasPermission('pages.member').
+            // Has `ASOT Member` but no department -> fails hasDashboardAccess().
             buildUser({ ...USERS.plainMember, roles: [ROLE_IDS.asotMember] }),
 
             buildUser({

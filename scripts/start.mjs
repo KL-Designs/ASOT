@@ -110,6 +110,7 @@ const C = {
     yellow: '\x1b[33m',
     red: '\x1b[31m',
     blue: '\x1b[34m',
+    magenta: '\x1b[35m',
     // True-color (24-bit) so the logo renders as ASOT's actual colors rather
     // than whatever red/white the terminal theme happens to remap the
     // standard 16 ANSI colors to.
@@ -123,10 +124,11 @@ const green = s => `${C.green}${s}${C.reset}`
 const yellow = s => `${C.yellow}${s}${C.reset}`
 const red = s => `${C.red}${s}${C.reset}`
 const blue = s => `${C.blue}${s}${C.reset}`
+const magenta = s => `${C.magenta}${s}${C.reset}`
 
 // One color per category, applied to that category's items on the "Pick one"
 // screen so the whole list reads as belonging to the category you picked.
-const CATEGORY_COLOR = { docker: blue, run: cyan, production: red, setup: green, migrations: yellow }
+const CATEGORY_COLOR = { docker: blue, run: cyan, production: red, setup: green, migrations: yellow, testing: magenta }
 
 // Wide-tracked "AUSTRALIAN SPECIAL OPERATIONS TASKFORCE" subtitle — letters
 // spaced out, words separated further, echoing the stencil-style lettering
@@ -266,6 +268,16 @@ const SETUP_ITEMS = [
     { label: '🧹 Lint Website', run: () => run('npm', ['exec', '--', 'next', 'lint'], { cwd: WEB }) },
 ]
 
+// Playwright E2E suite (apps/web/tests) — a real Next dev server on :3100
+// plus an in-memory MongoDB on :27018, both spun up by playwright.config.ts
+// itself, so no local .env/Docker/Mongo is needed. See apps/web/tests/README.md.
+const TESTING_ITEMS = [
+    { label: '🎭 Run E2E Suite', run: () => run('npm', ['run', 'test:e2e'], { cwd: WEB }) },
+    { label: '🖥️ Run E2E Suite (headed)', run: () => run('npm', ['run', 'test:e2e:headed'], { cwd: WEB }) },
+    { label: '🕹️ Run E2E Suite (UI mode)', run: () => run('npm', ['run', 'test:e2e:ui'], { cwd: WEB }) },
+    { label: '📊 Open Last E2E Report', run: () => run('npm', ['run', 'test:e2e:report'], { cwd: WEB }) },
+]
+
 const MIGRATION_ITEMS = [
     { label: '🗃️ Migrate ORBAT roles (web)', script: 'scripts/migrate-orbat-roles.mjs', cwd: WEB },
     { label: '🗃️ Backfill mastersheet date sort (web)', script: 'scripts/backfill-mastersheet-date-sort.mjs', cwd: WEB },
@@ -315,6 +327,7 @@ async function main() {
                 { value: 'production', label: red('🚀 Production') },
                 { value: 'docker', label: blue('🐳 Docker') },
                 { value: 'setup', label: green('🛠️ Setup') },
+                { value: 'testing', label: magenta('🎭 Playwright') },
                 { value: 'migrations', label: yellow('🗃️ Migrations') },
                 { value: 'quit', label: dim('🚪 Quit') },
             ],
@@ -322,7 +335,7 @@ async function main() {
 
         if (p.isCancel(category) || category === 'quit') break
 
-        const items = { docker: DOCKER_ITEMS, run: RUN_ITEMS, production: PRODUCTION_ITEMS, setup: SETUP_ITEMS, migrations: MIGRATION_ITEMS }[category]
+        const items = { docker: DOCKER_ITEMS, run: RUN_ITEMS, production: PRODUCTION_ITEMS, setup: SETUP_ITEMS, testing: TESTING_ITEMS, migrations: MIGRATION_ITEMS }[category]
         const itemColor = CATEGORY_COLOR[category]
 
         const choice = await p.select({

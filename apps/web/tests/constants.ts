@@ -66,8 +66,8 @@ export const USERS = {
 
     /** Holds the `ASOT Member` Discord role but belongs to NO department and
      *  holds no ORBAT position. Under the permission-system migration this
-     *  user FAILS `hasPermission('pages.member')` and is bounced to /me,
-     *  even though the legacy `PERMISSIONS.pages.member` array would pass. */
+     *  user FAILS `hasDashboardAccess()` and is bounced to /me, even though
+     *  the legacy `PERMISSIONS.pages.dashboard` Discord-role array would pass. */
     plainMember: { id: '10000000000000004', token: 'e2e-token-plain', name: 'E2E Plain' },
 
     /** Discharged — `fetchMember()` throws, so every gate treats them as
