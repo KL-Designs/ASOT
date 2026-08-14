@@ -275,59 +275,53 @@ function hslToRgb(h, s, l) {
     return `\x1b[38;2;${Math.round((r + m) * 255)};${Math.round((g + m) * 255)};${Math.round((b + m) * 255)}m`
 }
 
-const LOGO_WAVE_AMPLITUDE = 1 // rows a column can shift up/down — the smallest possible non-zero shift
-// Scales the sine value before rounding, so only columns near the wave's
-// peak actually shift a row — most sit still. Tuned empirically: the
-// threshold for a ±1 shift is 0.5/damping, and because sine spends a
-// surprisingly large fraction of each cycle close to its peak, even
-// damping=0.6 still shifts ~37% of columns at any moment (too busy);
-// 0.52 lands closer to ~18% — an occasional, brief dip rather than
-// constant motion.
-const LOGO_WAVE_DAMPING = 0.8
-const LOGO_PAD = LOGO_WAVE_AMPLITUDE // extra blank rows top/bottom so shifted columns never clip
+const LOGO_LETTERS = ['A', 'S', 'O', 'T']
+const LOGO_STEP_TICKS = 4 // animation ticks each letter spends "active" before the bump moves to the next one
 
-// The big figlet "ASOT" wordmark, animated: each *column* of the rendered
-// glyph grid is shifted up/down by its own sine wave (keyed to that column's
-// index, so it's a ripple sweeping left to right as `tick` advances, not the
-// whole block bobbing in unison), and colored by a rainbow hue that depends
-// on both column and its current row — so the gradient sweeps diagonally as
-// the ripple moves. This works on the rendered character grid directly
-// rather than per letter, since figlet doesn't expose per-letter boundaries
-// and the individual-letter-glyph route risks kerning mismatches against
-// the joint word render.
+// The big figlet "ASOT" wordmark, animated as a simple traveling bump: one
+// letter at a time sits raised a row; every other letter — including
+// whichever one was raised last — sits at its normal resting row. Only 2
+// positions per letter (neutral, raised), not 3 (neutral, raised, dropped).
+// Whole letters move as a unit (not individual columns, which sheared the
+// glyphs apart in an earlier version), colored by a rainbow hue that
+// depends on both column and row so the gradient sweeps diagonally as the
+// bump travels. Individual letters are generated separately rather than
+// sliced out of the combined word — confirmed they concatenate to exactly
+// the same output for this font, so there's no kerning-mismatch risk, and
+// it's what makes clean per-letter boundaries possible at all.
 function buildWaveLogoRows(tick) {
-    const asciiLines = figlet.textSync('ASOT', { font: 'Sub-Zero' }).split('\n').filter(line => line.trim())
-    const width = Math.max(...asciiLines.map(line => [...line].length))
-    const grid = asciiLines.map(line => {
-        const chars = [...line]
-        while (chars.length < width) chars.push(' ')
-        return chars
-    })
+    const letterGrids = LOGO_LETTERS.map(ch => figlet.textSync(ch, { font: 'Sub-Zero' }).split('\n').filter(line => line.trim()))
+    const rowCount = letterGrids[0].length
+    const letterWidths = letterGrids.map(rows => Math.max(...rows.map(row => [...row].length)))
+    const totalWidth = letterWidths.reduce((a, b) => a + b, 0)
 
-    const height = grid.length + LOGO_PAD * 2
-    const outChars = Array.from({ length: height }, () => Array(width).fill(' '))
-    const outColors = Array.from({ length: height }, () => Array(width).fill(null))
+    const activeIdx = Math.floor(tick / LOGO_STEP_TICKS) % LOGO_LETTERS.length
 
-    for (let c = 0; c < width; c++) {
-        // Low spatial frequency so neighbouring columns — within the same
-        // letter — move together instead of shearing the glyph apart.
-        const wave = Math.sin(c * 0.1 + tick * 0.25) // -1..1
-        const offset = Math.round(wave * LOGO_WAVE_AMPLITUDE * LOGO_WAVE_DAMPING)
-        for (let r = 0; r < grid.length; r++) {
-            const ch = grid[r][c]
-            if (ch === ' ') continue
-            const outRow = r + LOGO_PAD + offset
-            if (outRow < 0 || outRow >= height) continue
-            const hue = (c * 6 + outRow * 30 + tick * 6) % 360
-            outChars[outRow][c] = ch
-            outColors[outRow][c] = hslToRgb(hue, 0.7, 0.6)
+    const height = rowCount + 1 // one spare row on top for the raised letter
+    const outChars = Array.from({ length: height }, () => Array(totalWidth).fill(' '))
+    const outColors = Array.from({ length: height }, () => Array(totalWidth).fill(null))
+
+    let colOffset = 0
+    for (let li = 0; li < LOGO_LETTERS.length; li++) {
+        const rowShift = li === activeIdx ? -1 : 0
+        for (let r = 0; r < letterGrids[li].length; r++) {
+            const chars = [...letterGrids[li][r]]
+            for (let c = 0; c < chars.length; c++) {
+                if (chars[c] === ' ') continue
+                const outRow = r + 1 + rowShift
+                const outCol = colOffset + c
+                const hue = (outCol * 6 + outRow * 30 + tick * 6) % 360
+                outChars[outRow][outCol] = chars[c]
+                outColors[outRow][outCol] = hslToRgb(hue, 0.7, 0.6)
+            }
         }
+        colOffset += letterWidths[li]
     }
 
     const bar = `${C.bannerRed}▐▐${C.reset} `
     return outChars.map((rowChars, r) => {
         let out = ''
-        for (let c = 0; c < width; c++) {
+        for (let c = 0; c < totalWidth; c++) {
             out += rowChars[c] === ' ' ? ' ' : `${outColors[r][c]}${C.bold}${rowChars[c]}${C.reset}`
         }
         return `${bar}${out}`
