@@ -6,6 +6,8 @@
  * globalSetup has run. That removes any ordering dependency between
  * globalSetup (which starts mongod) and `webServer` (which needs MONGO_URI).
  */
+import { join } from 'path'
+import { tmpdir } from 'os'
 
 /** Port the in-memory mongod binds to. Deliberately not 27017 so a real local
  *  Mongo dev instance can keep running alongside the suite. */
@@ -17,6 +19,17 @@ export const WEB_PORT = 3100
 export const MONGO_URI = `mongodb://127.0.0.1:${MONGO_PORT}`
 export const MONGO_DB = 'asot_e2e'
 export const BASE_URL = `http://127.0.0.1:${WEB_PORT}`
+
+/**
+ * Isolated storage root for restic repos during e2e tests — see
+ * `lib/backups.ts`'s `BACKUPS_STORAGE_ROOT` env override. Without this, the
+ * `backups.spec.ts` "authorized caller" tests for create/revert/upload would
+ * write real backup snapshots (of the ephemeral test database) into the
+ * real storage/db-backups and storage/media-backups repos, indistinguishable
+ * from genuine restore points. Fixed path (not per-run) so global-setup and
+ * global-teardown can reliably wipe it.
+ */
+export const BACKUPS_STORAGE_ROOT = join(tmpdir(), 'asot-e2e-backups-storage')
 
 /**
  * Discord role IDs seeded into `Db.roles`.

@@ -216,7 +216,7 @@ export default function BackupsTab() {
     async function handleForceReset() {
         openConfirm(
             'Force Reset Status',
-            'This will reset the in-progress status immediately. If a background operation is still running it may finish silently or leave a partial .tmp file (cleaned up automatically after 2 hours). Only use this if the operation appears stuck.',
+            'This will reset the in-progress status immediately. If a background operation is still running, it keeps running and may overwrite this reset once it finishes — temp files it created are always cleaned up regardless. Only use this if the operation appears stuck.',
             async () => {
                 setCancelling(true)
                 try {

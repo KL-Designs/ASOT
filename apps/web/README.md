@@ -94,7 +94,9 @@ A `docker-compose.yml` is provided for containerised deployments. It mounts the 
 - `gallery/` — uploaded gallery images
 - `milpacs/` — milpac profile assets
 - `uploads/` — general file uploads
-- `snapshots/` — operation snapshots
+- `snapshots/` — old full-copy backup archives (superseded by `db-backups/`/`media-backups/` below, left in place untouched)
+- `db-backups/`, `media-backups/` — restic-backed, deduplicating, hourly database + media backups
+- `backup-meta/` — shared status/retention-config files for the two backup repos above
 
 ```bash
 docker-compose up --build

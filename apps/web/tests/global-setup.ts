@@ -10,8 +10,9 @@
  * `playwright.config.ts` can bake MONGO_URI into `webServer.env` without
  * depending on whether globalSetup or webServer starts first.
  */
+import { rm } from 'fs/promises'
 import { MongoMemoryServer } from 'mongodb-memory-server'
-import { MONGO_PORT, MONGO_DB } from './constants'
+import { MONGO_PORT, MONGO_DB, BACKUPS_STORAGE_ROOT } from './constants'
 import { seedDatabase } from './seed'
 
 // Stashed on globalThis so global-teardown can stop the same instance.
@@ -21,6 +22,10 @@ declare global {
 }
 
 export default async function globalSetup(): Promise<void> {
+    // Fresh, empty storage scratch dir — in case a previous interrupted run
+    // left a stale restic repo behind.
+    await rm(BACKUPS_STORAGE_ROOT, { recursive: true, force: true }).catch(() => {})
+
     const mongo = await MongoMemoryServer.create({
         instance: { port: MONGO_PORT, dbName: MONGO_DB },
     })

@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
-import { BASE_URL, MONGO_URI, MONGO_DB, WEB_PORT, USERS } from './tests/constants'
+import { BASE_URL, MONGO_URI, MONGO_DB, WEB_PORT, USERS, BACKUPS_STORAGE_ROOT } from './tests/constants'
 
 /**
  * Ports and Mongo/base-URL come from tests/constants.ts, not hardcoded here —
@@ -61,6 +61,14 @@ export default defineConfig({
             // anything: a clean probe for whether OVERRIDE is actually wired up.
             OVERRIDE: USERS.override.id,
             NODE_OPTIONS: '--max-old-space-size=4096',
+            // Points every restic repo / status file at an isolated scratch
+            // dir instead of the real storage/ tree — see lib/backups.ts and
+            // tests/global-setup.ts / tests/global-teardown.ts.
+            BACKUPS_STORAGE_ROOT,
+            // Fixed test-only value so the suite never depends on whatever
+            // (if anything) the developer's real .env has set — same spirit
+            // as DISCORD_BOT_TOKEN above.
+            RESTIC_PASSWORD: 'e2e-test-only-password',
         },
     },
 })

@@ -147,7 +147,7 @@ await createNotification({ userId, type, title, body, actionUrl?, relatedId? })
 - `cron/task-reminders` — fire task chase-up and overdue notifications
 - `cron/meeting-reminders` — fire meeting reminder DMs
 - `cron/application-reminders` — chase up stale J1 applications
-- `cron/snapshots` — periodic TeamSpeak snapshots
+- `cron/backups` — hourly restic-backed database + media backups (see `lib/backups.ts`)
 - `cron/teamspeak-cache` — refresh TS3 online member cache
 - `cron/dev-check-escalation` — escalate overdue mission development checks
 

@@ -16,13 +16,21 @@ const execFileAsync = promisify(execFile)
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-export const DB_REPO     = resolve('../../storage/db-backups')
-export const MEDIA_REPO  = resolve('../../storage/media-backups')
-export const META_DIR    = resolve('../../storage/backup-meta')
+// Overridable so the e2e suite can point every restic repo and status file at
+// an isolated scratch directory instead of the real storage/ tree — without
+// this, the Playwright "authorized caller" tests for create/revert/upload
+// would write real backup snapshots (of the ephemeral test database) into
+// the real repos, indistinguishable from genuine restore points. See
+// tests/global-setup.ts / tests/global-teardown.ts.
+const STORAGE_ROOT = process.env.BACKUPS_STORAGE_ROOT ?? resolve('../../storage')
+
+export const DB_REPO     = join(STORAGE_ROOT, 'db-backups')
+export const MEDIA_REPO  = join(STORAGE_ROOT, 'media-backups')
+export const META_DIR    = join(STORAGE_ROOT, 'backup-meta')
 export const STATUS_FILE = join(META_DIR, '.status.json')
 export const CONFIG_FILE = join(META_DIR, '.config.json')
-export const GALLERY_DIR = resolve('../../storage/gallery')
-export const UPLOADS_DIR = resolve('../../storage/uploads')
+export const GALLERY_DIR = join(STORAGE_ROOT, 'gallery')
+export const UPLOADS_DIR = join(STORAGE_ROOT, 'uploads')
 
 export type BackupConfig = {
     autoEnabled:  boolean
@@ -64,22 +72,39 @@ function resticPath(): string {
 }
 
 function resticEnv(repo: string): NodeJS.ProcessEnv {
+    // Fail fast and clearly rather than let restic fail cryptically trying to
+    // prompt for a password on a non-tty (the single most likely deployment
+    // mistake — an env missing RESTIC_PASSWORD).
+    if (!process.env.RESTIC_PASSWORD) {
+        throw new Error('RESTIC_PASSWORD is not set — every restic repo here is encrypted and needs it')
+    }
     return {
         ...process.env,
         RESTIC_REPOSITORY: repo,
-        RESTIC_PASSWORD: process.env.RESTIC_PASSWORD ?? '',
+        RESTIC_PASSWORD: process.env.RESTIC_PASSWORD,
     }
 }
 
-async function runRestic(repo: string, args: string[]): Promise<string> {
+// Exit codes restic can return that don't mean the operation actually failed
+// overall, per call site. Currently just `backup`'s 3 ("completed with some
+// source files unreadable, e.g. deleted mid-run on a live directory") — that
+// is routine on storage/gallery|uploads and should not read as a hard error.
+async function runRestic(repo: string, args: string[], tolerableExitCodes: number[] = []): Promise<string> {
     try {
-        const { stdout } = await execFileAsync(resticPath(), args, {
+        // --retry-lock: `forget --prune` takes an exclusive repo lock; without
+        // this, any backup/restore/snapshots call that lands mid-prune fails
+        // immediately instead of waiting its turn.
+        const { stdout } = await execFileAsync(resticPath(), ['--retry-lock', '5m', ...args], {
             env: resticEnv(repo),
             maxBuffer: 1024 * 1024 * 64, // 64MB — snapshot lists / backup summaries can be large
         })
         return stdout
     } catch (e: unknown) {
-        const err = e as { stderr?: string; message?: string }
+        const err = e as { code?: number; stdout?: string; stderr?: string; message?: string }
+        if (typeof err.code === 'number' && tolerableExitCodes.includes(err.code)) {
+            console.warn(`[backups] restic exited ${err.code} (tolerated):`, err.stderr?.trim() || err.message)
+            return err.stdout ?? ''
+        }
         throw new Error(err.stderr?.trim() || err.message || 'restic command failed')
     }
 }
@@ -142,7 +167,7 @@ export async function writeConfig(c: BackupConfig): Promise<void> {
     await writeFile(CONFIG_FILE, JSON.stringify(c), 'utf-8')
 }
 
-// ── Database dump (streamed, same approach lib/snapshots.ts used) ──────────────
+// ── Database dump (streamed, one EJSON file per collection) ────────────────────
 
 // Yields one EJSON-encoded document per line, pulled lazily from the cursor —
 // keeps each synchronous stringify call tiny instead of stringifying an entire
@@ -185,11 +210,24 @@ async function dumpDatabase(destDir: string): Promise<void> {
 
 interface ResticBackupSummary { message_type: 'summary'; snapshot_id: string }
 
+// Fixed --host: restic's default snapshot grouping (for both `forget` and
+// its own display) is by hostname+paths, and this app's real hostname is a
+// Docker container ID that changes on every deploy. Pinning it keeps
+// `restic snapshots` output stable and readable; `resticForget`'s own
+// `--group-by tags` below is what actually makes retention correct
+// regardless of hostname.
+const RESTIC_HOST = 'asot-backups'
+
 async function resticBackup(repo: string, paths: string[], tag: string): Promise<string> {
     await ensureRepoInitialized(repo)
-    const stdout = await runRestic(repo, ['backup', ...paths, '--tag', tag, '--json'])
+    const stdout = await runRestic(
+        repo,
+        ['backup', ...paths, '--tag', tag, '--host', RESTIC_HOST, '--json'],
+        [3], // "completed with some source files unreadable" — routine on a live directory, not a failure
+    )
     const summary = stdout.trim().split('\n').filter(Boolean)
-        .map(line => JSON.parse(line) as { message_type?: string })
+        .map(line => { try { return JSON.parse(line) as { message_type?: string } } catch { return null } })
+        .filter((entry): entry is { message_type?: string } => entry !== null)
         .find((entry): entry is ResticBackupSummary => entry.message_type === 'summary')
     if (!summary) throw new Error('restic backup produced no summary line')
     return summary.snapshot_id
@@ -198,6 +236,13 @@ async function resticBackup(repo: string, paths: string[], tag: string): Promise
 async function resticForget(repo: string, cfg: BackupConfig): Promise<void> {
     await runRestic(repo, [
         'forget', '--prune',
+        // Group by tag, not the default host+paths: each repo carries exactly
+        // one constant tag ('db' or 'media'), so this collapses to a single
+        // group regardless of hostname — the container's real hostname is
+        // its container ID, which changes on every deploy, and the default
+        // grouping would otherwise start a fresh never-pruned group every
+        // time, silently defeating retention entirely.
+        '--group-by', 'tags',
         '--keep-hourly',  String(cfg.keepHourly),
         '--keep-daily',   String(cfg.keepDaily),
         '--keep-weekly',  String(cfg.keepWeekly),
@@ -230,6 +275,11 @@ export async function runMediaBackup(): Promise<void> {
     const cfg = await readConfig()
     await writeStatus({ state: 'backing-up', startedAt: new Date().toISOString(), message: 'Backing up media…' })
     try {
+        // Always ensure the repo exists, even if there's nothing to back up
+        // yet (a fresh clone has neither storage/gallery nor storage/uploads
+        // until something is uploaded) — resticForget() below runs
+        // unconditionally and throws on a repo that was never `restic init`'d.
+        await ensureRepoInitialized(MEDIA_REPO)
         const paths = [GALLERY_DIR, UPLOADS_DIR].filter(existsSync)
         if (paths.length > 0) await resticBackup(MEDIA_REPO, paths, 'media')
         await writeStatus({ state: 'backing-up', startedAt: new Date().toISOString(), message: 'Pruning old backups…' })
@@ -244,16 +294,33 @@ export async function runMediaBackup(): Promise<void> {
     }
 }
 
+// In-process guard against overlapping runs. Every route already checks
+// readStatus().state !== 'idle' before calling this, but that's a
+// check-then-act race across separate HTTP requests (two callers can both
+// observe 'idle' before either has written 'backing-up') — this flag closes
+// it synchronously within this one Node process, which is all of them
+// (server.mjs's cron trigger and every API route run in the same process).
+let backupInProgress = false
+
 // Runs both sequentially (see Global Constraints — they share one status
 // file). Each side's failure is caught independently so DB issues don't
 // block a media attempt or vice versa; if either failed, the combined
 // error is what's left in status once both have finished (even though each
 // function already wrote its own transient status/error along the way).
 export async function runAllBackups(): Promise<void> {
-    const errors: string[] = []
-    try { await runDbBackup() } catch (e) { errors.push(`DB: ${e instanceof Error ? e.message : String(e)}`) }
-    try { await runMediaBackup() } catch (e) { errors.push(`Media: ${e instanceof Error ? e.message : String(e)}`) }
-    if (errors.length > 0) await writeStatus({ state: 'idle', error: errors.join(' | ') })
+    if (backupInProgress) {
+        console.warn('[backups] runAllBackups() called while a run is already in progress — skipping')
+        return
+    }
+    backupInProgress = true
+    try {
+        const errors: string[] = []
+        try { await runDbBackup() } catch (e) { errors.push(`DB: ${e instanceof Error ? e.message : String(e)}`) }
+        try { await runMediaBackup() } catch (e) { errors.push(`Media: ${e instanceof Error ? e.message : String(e)}`) }
+        if (errors.length > 0) await writeStatus({ state: 'idle', error: errors.join(' | ') })
+    } finally {
+        backupInProgress = false
+    }
 }
 
 // ── List ──────────────────────────────────────────────────────────────────────
@@ -427,6 +494,7 @@ export async function buildDownloadZip(point: BackupPoint): Promise<string> {
     const tmp = join(tmpdir(), `asot-download-${Date.now()}`)
     const outDir = join(tmp, 'out')
     const zipPath = `${tmp}.zip`
+    let succeeded = false
     try {
         await mkdir(outDir, { recursive: true })
 
@@ -456,9 +524,14 @@ export async function buildDownloadZip(point: BackupPoint): Promise<string> {
             archive.finalize()
         })
 
+        succeeded = true
         return zipPath
     } finally {
         await rm(tmp, { recursive: true, force: true }).catch(() => {})
+        // zipPath lives deliberately outside tmp (it's the return value) — if
+        // archiving failed partway through, clean up the partial file rather
+        // than leaking it in os.tmpdir() forever.
+        if (!succeeded) await rm(zipPath, { force: true }).catch(() => {})
     }
 }
 
@@ -513,16 +586,36 @@ export async function applyUploadedZip(zipPath: string): Promise<void> {
         await safeExtractZip(zipPath, tmp)
 
         const dbDir = join(tmp, 'db-source')
-        if (existsSync(dbDir)) {
+        const gallery = join(tmp, 'gallery')
+        const uploads = join(tmp, 'uploads')
+        const hasDbSource = existsSync(dbDir)
+        const hasGallery  = existsSync(gallery)
+        const hasUploads  = existsSync(uploads)
+
+        if (!hasDbSource && !hasGallery && !hasUploads) {
+            // The old lib/snapshots.ts system's zips had `manifest.json` +
+            // `db/` at the archive root, not `db-source/` — recognizably
+            // different from anything this uploader can produce or restore.
+            // Silently "succeeding" while restoring nothing (as opposed to
+            // this explicit check) is exactly the failure class the Task 3
+            // extraction-race bug already was: reported success, nothing
+            // actually restored.
+            const looksLegacy = existsSync(join(tmp, 'manifest.json')) && existsSync(join(tmp, 'db'))
+            throw new Error(
+                looksLegacy
+                    ? 'This ZIP is from the old backup system (pre-restic) and is not compatible with this uploader.'
+                    : 'Uploaded ZIP does not contain a recognised backup (expected db-source/, gallery/, or uploads/ at its root).'
+            )
+        }
+
+        if (hasDbSource) {
             await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring database…' })
             await restoreDatabase(dbDir)
         }
 
         await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring media files…' })
-        const gallery = join(tmp, 'gallery')
-        const uploads = join(tmp, 'uploads')
-        if (existsSync(gallery)) await copyDirRecursive(gallery, GALLERY_DIR)
-        if (existsSync(uploads)) await copyDirRecursive(uploads, UPLOADS_DIR)
+        if (hasGallery) await copyDirRecursive(gallery, GALLERY_DIR)
+        if (hasUploads) await copyDirRecursive(uploads, UPLOADS_DIR)
 
         await writeStatus({ state: 'idle' })
         console.log('[backups] Upload-revert complete')
