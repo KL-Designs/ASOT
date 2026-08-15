@@ -73,6 +73,7 @@ test.describe('Member Sync tab UI', () => {
                 teamspeak: { missing: [], extra: [], linked: true },
             },
         ],
+        tsAvailable: true,
     }
 
     test('renders status pills and expands to show missing/extra details', async ({ adminPage }) => {
@@ -171,7 +172,7 @@ test.describe('Member Sync tab UI', () => {
     })
 
     test('Sync All is disabled when nothing is out of sync', async ({ adminPage }) => {
-        const ALL_GREEN = { onRoster: [SAMPLE_REPORT.onRoster[2]], offRoster: [] }
+        const ALL_GREEN = { onRoster: [SAMPLE_REPORT.onRoster[2]], offRoster: [], tsAvailable: true }
         await adminPage.route('**/api/admin/orbat/member-sync', route => route.fulfill({ json: ALL_GREEN }))
 
         await adminPage.goto('/dashboard/orbat')
@@ -179,5 +180,41 @@ test.describe('Member Sync tab UI', () => {
         await adminPage.getByRole('button', { name: 'Member Sync' }).click()
 
         await expect(adminPage.getByRole('button', { name: /Sync All/ })).toBeDisabled()
+    })
+
+    test('Sync All opens a confirmation dialog for every out-of-sync member, then applies and reloads', async ({ adminPage }) => {
+        let getCalls = 0
+        await adminPage.route('**/api/admin/orbat/member-sync', route => {
+            getCalls++
+            route.fulfill({ json: SAMPLE_REPORT })
+        })
+        let applyBody: unknown = null
+        await adminPage.route('**/api/admin/orbat/member-sync/apply', async route => {
+            applyBody = route.request().postDataJSON()
+            await route.fulfill({
+                json: { membersChecked: 3, discordGranted: 1, discordRevoked: 2, discordFailed: 0, tsGranted: 0, tsRevoked: 0, tsFailed: 0 },
+            })
+        })
+
+        await adminPage.goto('/dashboard/orbat')
+        await adminPage.getByRole('button', { name: 'Manage Roles' }).click()
+        await adminPage.getByRole('button', { name: 'Member Sync' }).click()
+
+        // Sync All targets every out-of-sync entry, on-roster AND off-roster —
+        // SAMPLE_REPORT has 3: Red Member (u1), Orange Member (u2), and the
+        // off-roster Stray Member (u4), so the dialog covers all 3, not just
+        // the 2 on-roster ones.
+        await adminPage.getByRole('button', { name: /Sync All/ }).click()
+
+        await expect(adminPage.getByText('Sync 3 member(s)?')).toBeVisible()
+        const dialog = adminPage.getByRole('dialog')
+        await expect(dialog.getByText('Red Member')).toBeVisible()
+        await expect(dialog.getByText('Orange Member')).toBeVisible()
+
+        await adminPage.getByRole('button', { name: 'Confirm Sync' }).click()
+        await expect(adminPage.getByText('Sync 3 member(s)?')).not.toBeVisible()
+
+        expect(applyBody).toEqual({})
+        expect(getCalls).toBeGreaterThanOrEqual(2) // initial load + reload after apply
     })
 })
