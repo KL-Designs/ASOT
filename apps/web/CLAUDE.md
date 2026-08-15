@@ -35,6 +35,8 @@ Lint is also available from the repo root's `npm run menu` (Setup / one-off → 
 
 **`tests/` is a real Playwright E2E suite** (dashboard gate, permission-system migration behaviour, dev mode, hidden/privileged routes) — see `tests/README.md` for how it's wired (in-memory Mongo, fixed ports, seeded personas) and its design rationale/gotchas before adding or editing a spec. Run via `npm run test:e2e` (`:headed` / `:ui` / `:report` variants also exist) or the repo root's `npm run menu` → Testing category.
 
+**Claude: ask before running the suite, don't default to running it.** The user may want to run `npm run test:e2e` themselves — ask which before invoking it, including as a verification step inside a larger workflow (e.g. before merging a branch). This isn't just etiquette: the suite spawns a real `next dev` server as its `webServer`, which hot-reloads on any file save — editing source files while a run is in flight can itself cause a spurious failure, so don't run the suite and keep editing at the same time either way.
+
 **Keep it current:** if a change adds, removes, or changes the behaviour of anything the suite covers — a page gate, a permission key, sidebar visibility, a privileged/dev-only route, a dev-mode toggle — update the relevant spec in the same change, add one if new gated surface has no coverage, or remove/adjust one for a route that no longer exists. Same discipline as the site map above: a suite that quietly drifts from what it's testing is worse than an honest gap.
 
 ---
