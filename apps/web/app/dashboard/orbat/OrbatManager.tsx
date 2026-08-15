@@ -7,10 +7,12 @@ import {
     Typography, Button, CircularProgress,
     Dialog, DialogTitle, DialogContent, DialogActions,
     TextField, IconButton, Avatar, Tooltip,
+    Menu, MenuItem, ListItemIcon, ListItemText, Divider,
 } from '@mui/material'
 import {
     Edit, Close, AccountTree, Warning, ArrowUpward, ArrowDownward,
-    Add, Delete, MoreVert, DragIndicator, Settings,
+    Add, Delete, DragIndicator, Settings, MoreVert,
+    PersonAdd, PersonRemove, LinkOff,
 } from '@mui/icons-material'
 import { PLATOON_CATEGORIES, RESERVIST_CATEGORIES, SINGLE_SECTION_CATEGORIES } from '@/lib/orbat/constants'
 import MemberDetailPanel from '@/app/dashboard/personnel/all/MemberDetailPanel'
@@ -70,13 +72,30 @@ const addBtn = {
     justifyContent: 'flex-start',
 }
 
-const menuItemBtn = {
-    fontSize: '0.67rem',
-    color: 'rgba(237,237,237,0.45)',
-    padding: '1px 8px',
+const posMenuPaperSx = {
+    background: '#141414',
+    border: '1px solid rgba(219,0,29,0.32)',
+    minWidth: 172,
+}
+
+const posMenuItemSx = {
+    fontSize: '0.7rem',
+    color: 'rgba(237,237,237,0.7)',
+    gap: 0.5,
+    py: 0.6,
+    '&:hover': { color: 'rgba(237,237,237,0.95)', background: 'rgba(255,255,255,0.06)' },
+}
+
+const posMenuItemDangerSx = {
+    ...posMenuItemSx,
+    color: 'rgba(219,0,29,0.7)',
+    '&:hover': { color: 'rgba(219,0,29,1)', background: 'rgba(219,0,29,0.08)' },
+}
+
+const posMenuIconSx = {
     minWidth: 0,
-    textTransform: 'none' as const,
-    '&:hover': { color: 'rgba(237,237,237,0.8)', background: 'rgba(255,255,255,0.05)' },
+    color: 'inherit',
+    '& svg': { fontSize: 14 },
 }
 
 
@@ -138,8 +157,11 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
     const [addSectionVal, setAddSectionVal] = useState('')
     const [addRoleKey, setAddRoleKey] = useState<string | null>(null)  // `${cat}::${sectionTitle}`
 
-    // Expanded row (...) menu
-    const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
+    // Row action menu — which position row's menu is open, anchored to the
+    // click coordinates directly (not a stored DOM node — MUI's anchorEl
+    // positioning proved unreliable for this row-click pattern, landing the
+    // menu at the viewport origin instead of the clicked row).
+    const [openMenu, setOpenMenu] = useState<{ posId: string; x: number; y: number } | null>(null)
 
     // Drag state (within a section)
     const [activeDragId, setActiveDragId] = useState<string | null>(null)
@@ -202,6 +224,9 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
     // the tree otherwise gives no visual sign of that. See the "unlinked
     // role" warning icon in the row renderer below.
     const [validRoleIds, setValidRoleIds] = useState<Set<string>>(new Set())
+    // Full Role catalog docs keyed by _id — used to look up a linked
+    // position's tag (an admin-only disambiguation label) when its menu opens.
+    const [rolesById, setRolesById] = useState<Map<string, OrbatRole>>(new Map())
 
     // Discord role picker
     const [discordRoles, setDiscordRoles] = useState<Role[]>([])
@@ -223,7 +248,12 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             fetch('/api/admin/orbat').then(r => r.ok ? r.json() : null).then(d => { if (d) setPositions(d) }),
             fetch('/api/admin/orbat/meta').then(r => r.ok ? r.json() : null).then(d => { if (d) setSectionMeta(d) }),
             fetch('/api/admin/orbat/roles').then(r => r.ok ? r.json() : null)
-                .then(d => { if (d) setValidRoleIds(new Set((d.roles ?? []).map((r: OrbatRole) => String(r._id)))) }),
+                .then(d => {
+                    if (!d) return
+                    const roles: OrbatRole[] = d.roles ?? []
+                    setValidRoleIds(new Set(roles.map(r => String(r._id))))
+                    setRolesById(new Map(roles.map(r => [String(r._id), r])))
+                }),
         ]
         if (canManageStructure) {
             fetches.push(
@@ -606,13 +636,19 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
     function renderPositionRowContent(pos: OrbatPositionWithUser, opts: { isDragOverlay?: boolean; dragListeners?: ReturnType<typeof useSortable>['listeners'] } = {}) {
         const posId = pos._id.toString()
         const isSaving = savingId === posId
-        const isExpanded = expandedRowId === posId
         const isEditing = editRoleId === posId
+        const isMenuOpen = openMenu?.posId === posId
+        const canOpenMenu = !isEditing && !opts.isDragOverlay && (canManageStructure || canManageMembers)
+        const roleTag = pos.roleId ? rolesById.get(String(pos.roleId))?.tag ?? null : null
 
         return (
             <>
                 {/* Main row */}
-                <div className='flex items-center gap-1.5 px-2 py-1' style={rowStyle}>
+                <div
+                    className={`group flex items-center gap-1.5 px-2 py-1 bg-[rgba(255,255,255,0.015)] transition-colors duration-150 ${canOpenMenu ? 'cursor-pointer hover:bg-[rgba(255,255,255,0.05)]' : ''}`}
+                    style={{ border: rowStyle.border }}
+                    onClick={canOpenMenu ? (e) => setOpenMenu({ posId, x: e.clientX, y: e.clientY }) : undefined}
+                >
 
                     {/* Drag handle — structure managers only */}
                     {canManageStructure && (
@@ -623,7 +659,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                     )}
 
                     {/* Role name */}
-                    <div className='flex-1 min-w-0 flex items-center gap-1'>
+                    <div className='flex items-center gap-1 min-w-0' style={{ flex: '1 1 auto', maxWidth: '60%' }} onClick={isEditing ? (e) => e.stopPropagation() : undefined}>
                         {isEditing && !opts.isDragOverlay ? (
                             <RoleSelect
                                 category={pos.category}
@@ -652,17 +688,17 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                     </div>
 
                     {/* Assigned user or Assign button */}
-                    <div className='flex items-center gap-1 shrink-0'>
+                    <div className='flex items-center justify-end gap-1 min-w-0' style={{ flex: '1 1 auto' }}>
                         {isSaving ? (
                             <CircularProgress size={12} sx={{ color: 'var(--red)', opacity: 0.6 }} />
                         ) : pos.user ? (
                             <>
-                                <Avatar src={pos.user.avatarURL} sx={{ width: 16, height: 16, fontSize: '0.5rem' }} />
+                                <Avatar src={pos.user.avatarURL} sx={{ width: 16, height: 16, fontSize: '0.5rem', flexShrink: 0 }} />
                                 <button
-                                    onClick={() => pos.user && openMilpac(pos.user.username)}
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                                    onClick={(e) => { e.stopPropagation(); pos.user && openMilpac(pos.user.username) }}
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', display: 'block', minWidth: 0, flex: '0 1 auto' }}
                                 >
-                                    <Typography fontSize='0.68rem' noWrap style={{ color: 'rgba(237,237,237,0.75)', maxWidth: 90 }}>
+                                    <Typography fontSize='0.68rem' noWrap style={{ color: 'rgba(237,237,237,0.75)' }}>
                                         {pos.user.displayName}
                                     </Typography>
                                 </button>
@@ -670,7 +706,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                         ) : canManageMembers ? (
                             <Button
                                 size='small'
-                                onClick={() => { setPickerOpen(posId); setUserSearch('') }}
+                                onClick={(e) => { e.stopPropagation(); setPickerOpen(posId); setUserSearch('') }}
                                 sx={{
                                     fontSize: '0.63rem',
                                     color: 'rgba(237,237,237,0.22)',
@@ -692,74 +728,87 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                         ) : null}
                     </div>
 
-                    {/* More menu toggle */}
-                    {!isEditing && !opts.isDragOverlay && (canManageStructure || canManageMembers) && (
-                        <IconButton
-                            size='small'
-                            onClick={() => setExpandedRowId(isExpanded ? null : posId)}
-                            sx={{ ...ghostBtn, padding: '1px', color: isExpanded ? 'rgba(237,237,237,0.6)' : 'rgba(237,237,237,0.2)' }}
-                        >
-                            <MoreVert sx={{ fontSize: 13 }} />
-                        </IconButton>
+                    {/* Menu affordance — decorative; the whole row opens the menu */}
+                    {canOpenMenu && (
+                        <MoreVert
+                            className='opacity-25 group-hover:opacity-70 transition-opacity'
+                            sx={{ fontSize: 13, color: 'rgba(237,237,237,0.7)', flexShrink: 0 }}
+                        />
                     )}
                 </div>
 
-                {/* Expanded options panel */}
-                {isExpanded && !opts.isDragOverlay && (
-                    <div
-                        className='flex flex-wrap items-center gap-x-0.5 gap-y-0.5 px-2 py-1'
-                        style={{ background: 'rgba(0,0,0,0.18)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                {/* Row action menu */}
+                {canOpenMenu && (
+                    <Menu
+                        open={isMenuOpen}
+                        onClose={() => setOpenMenu(null)}
+                        anchorReference='anchorPosition'
+                        anchorPosition={isMenuOpen ? { top: openMenu.y, left: openMenu.x } : undefined}
+                        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                        PaperProps={{ sx: posMenuPaperSx }}
                     >
+                        <div style={{ padding: '4px 12px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 4 }}>
+                            <Typography fontSize='0.68rem' noWrap style={{ color: 'rgba(237,237,237,0.6)', fontWeight: 600 }}>
+                                {pos.role}
+                            </Typography>
+                            {roleTag && (
+                                <Typography fontSize='0.6rem' style={{ color: 'rgba(237,237,237,0.35)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                                    Tag: {roleTag}
+                                </Typography>
+                            )}
+                        </div>
                         {canManageStructure && (
-                            <Button
-                                size='small'
-                                sx={menuItemBtn}
+                            <MenuItem
+                                sx={posMenuItemSx}
                                 onClick={() => {
                                     setEditRoleId(posId)
-                                    setExpandedRowId(null)
+                                    setOpenMenu(null)
                                 }}
                             >
-                                Change Role
-                            </Button>
+                                <ListItemIcon sx={posMenuIconSx}><Edit /></ListItemIcon>
+                                <ListItemText primaryTypographyProps={{ fontSize: '0.7rem' }}>Change Role</ListItemText>
+                            </MenuItem>
                         )}
                         {canManageMembers && (
-                            <Button
-                                size='small'
-                                sx={menuItemBtn}
+                            <MenuItem
+                                sx={posMenuItemSx}
                                 onClick={() => {
                                     setPickerOpen(posId)
                                     setUserSearch('')
-                                    setExpandedRowId(null)
+                                    setOpenMenu(null)
                                 }}
                             >
-                                {pos.user ? 'Change User' : 'Assign User'}
-                            </Button>
+                                <ListItemIcon sx={posMenuIconSx}><PersonAdd /></ListItemIcon>
+                                <ListItemText primaryTypographyProps={{ fontSize: '0.7rem' }}>{pos.user ? 'Change User' : 'Assign User'}</ListItemText>
+                            </MenuItem>
                         )}
                         {canManageMembers && pos.user && (
-                            <Button
-                                size='small'
-                                sx={menuItemBtn}
+                            <MenuItem
+                                sx={posMenuItemSx}
                                 onClick={() => {
                                     assign(posId, null)
-                                    setExpandedRowId(null)
+                                    setOpenMenu(null)
                                 }}
                             >
-                                Remove User
-                            </Button>
+                                <ListItemIcon sx={posMenuIconSx}><PersonRemove /></ListItemIcon>
+                                <ListItemText primaryTypographyProps={{ fontSize: '0.7rem' }}>Remove User</ListItemText>
+                            </MenuItem>
                         )}
-                        {canManageStructure && (
-                            <Button
-                                size='small'
-                                sx={{ ...menuItemBtn, color: 'rgba(219,0,29,0.45)', '&:hover': { color: 'rgba(219,0,29,0.85)', background: 'rgba(219,0,29,0.06)' } }}
+                        {canManageStructure && [
+                            <Divider key='divider' sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 0.5 }} />,
+                            <MenuItem
+                                key='remove-role'
+                                sx={posMenuItemDangerSx}
                                 onClick={() => {
                                     setConfirmDeletePos(posId)
-                                    setExpandedRowId(null)
+                                    setOpenMenu(null)
                                 }}
                             >
-                                Delete Role
-                            </Button>
-                        )}
-                    </div>
+                                <ListItemIcon sx={posMenuIconSx}><LinkOff /></ListItemIcon>
+                                <ListItemText primaryTypographyProps={{ fontSize: '0.7rem' }}>Remove Role</ListItemText>
+                            </MenuItem>,
+                        ]}
+                    </Menu>
                 )}
             </>
         )
@@ -1452,17 +1501,17 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                 PaperProps={{ style: { background: '#141414', border: '1px solid rgba(219,0,29,0.32)' } }}
             >
                 <DialogTitle style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>
-                    Delete Position
+                    Remove Role
                 </DialogTitle>
                 <DialogContent>
                     <Typography fontSize='0.82rem' style={{ color: 'rgba(237,237,237,0.6)' }}>
-                        This will permanently delete this position. If someone is assigned, they will be moved to Active Reservists.
+                        This will permanently remove this position from the callsign. If someone is assigned, they will be moved to Active Reservists.
                     </Typography>
                 </DialogContent>
                 <DialogActions>
                     <Button sx={ghostBtn} onClick={() => setConfirmDeletePos(null)}>Cancel</Button>
                     <Button variant='outlined' sx={redBtn} disabled={busy} onClick={() => confirmDeletePos && deletePosition(confirmDeletePos)}>
-                        {busy ? <CircularProgress size={14} sx={{ color: 'var(--red)' }} /> : 'Delete'}
+                        {busy ? <CircularProgress size={14} sx={{ color: 'var(--red)' }} /> : 'Remove'}
                     </Button>
                 </DialogActions>
             </Dialog>
