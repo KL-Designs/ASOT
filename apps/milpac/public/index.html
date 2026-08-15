@@ -1,0 +1,1150 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Your Page Title</title>
+    <style>
+      /* Reset some default styles */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      /* Body styles */
+      body {
+        font-family: Arial, sans-serif;
+        background: linear-gradient(to right, #00b4db, #af37d0);
+        margin: 0;
+        padding: 0;
+        color: #333;
+      }
+
+      /* Header styles */
+      header {
+        background-color: #ff3333;
+        padding: 20px 0;
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 48px;
+        font-weight: bold;
+        letter-spacing: 2px;
+        background: linear-gradient(to right, #00b4db, #af37d0);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      /* Navbar styles */
+      .navbar {
+        background-color: #333;
+        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+        padding: 10px 0;
+        text-align: center;
+      }
+
+      .navbar a {
+        text-decoration: none;
+        margin: 0 20px;
+        position: relative;
+        font-size: 18px;
+        color: #fff;
+        transition: color 0.3s ease;
+      }
+
+      .navbar a:before {
+        content: "";
+        position: absolute;
+        width: 100%;
+        height: 2px;
+        bottom: -4px;
+        left: 0;
+        background-color: #ff3333;
+        transform: scaleX(0);
+        transform-origin: center;
+        transition: transform 0.3s ease;
+      }
+
+      .navbar a:hover {
+        color: #ff3333;
+      }
+
+      .navbar a:hover:before {
+        transform: scaleX(1);
+      }
+
+      /* Content container styles */
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      /* Example content styles */
+      .content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      /* Generate Button */
+      #generate {
+        background-color: #ff3333;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 10px 20px; /* Decrease the size */
+        font-size: 16px; /* Decrease the font size */
+        cursor: pointer;
+        transition:
+          background-color 0.3s ease,
+          transform 0.2s ease; /* Add hover effect */
+      }
+
+      /* Style the button on hover */
+      #generate:hover {
+        background-color: #ff5555;
+        background-color: #ff5555;
+        transform: scale(1.05); /* Add a slight scale effect on hover */
+      }
+
+      /* Footer styles */
+      footer {
+        background-color: #333;
+        color: white;
+        text-align: center;
+        padding: 10px 0;
+        position: relative; /* Position at the bottom */
+        overflow: auto;
+        width: 100%; /* Take the full width */
+        bottom: 0; /* Stick to the bottom */
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <header>
+      <h1>Australian Special Operations Taskforce</h1>
+    </header>
+
+    <!-- Navbar -->
+    <div class="navbar">
+      <div class="container">
+        <a href="/">Uniform</a>
+        <a href="/certificates">Certificates</a>
+        <a href="/box">Boxes</a>
+      </div>
+    </div>
+
+    <!-- Content container -->
+    <div class="container">
+      <div class="content">
+        <body>
+          <h1>Milpac Generator</h1>
+
+          <form id="inputForm">
+            <label for="name">Name:</label>
+            <input
+              type="text"
+              id="name"
+              oninput="this.value = this.value.toUpperCase()"
+              required
+            />
+            <button type="button" id="fill_data">Fill Data</button><br /><br />
+            <label for="rifle">PTE or PTE(P):</label>
+            <input type="text" id="rifle" readonly />
+            <br />
+            <input type="checkbox" id="PTE" value="PTE" />
+            <label for="PTE">PTE</label>
+
+            <input type="checkbox" id="PTEP" value="PTEP" />
+            <label for="PTEP">PTE(P)</label>
+
+            <br /><br />
+
+            <label for="badge">Corps:</label>
+            <input type="text" id="badge" readonly />
+            <br />
+            <input type="checkbox" id="Command" value="Command" />
+            <label for="Command">Command</label>
+
+            <input type="checkbox" id="Echo" value="Echo" />
+            <label for="Echo">Echo</label>
+
+            <input type="checkbox" id="GM" value="GM" />
+            <label for="GM">GM</label>
+
+            <input type="checkbox" id="Golf" value="Golf" />
+            <label for="Golf">Golf</label>
+
+            <input type="checkbox" id="Hotel" value="Hotel" />
+            <label for="Hotel">Hotel</label>
+
+            <input type="checkbox" id="Infantry" value="Infantry" />
+            <label for="Infantry">Infantry</label>
+
+            <input type="checkbox" id="Mike" value="Mike" />
+            <label for="Mike">Mike</label>
+
+            <input type="checkbox" id="Pronto" value="Pronto" />
+            <label for="Pronto">Pronto</label>
+
+            <input type="checkbox" id="Victor" value="Victor" />
+            <label for="Victor">Victor</label>
+
+            <input type="checkbox" id="Hotel" value="Hotel" />
+            <label for="Hotel">Hotel</label>
+            <br /><br />
+
+            <label for="uniformColor">Uniform Color:</label>
+            <input type="text" id="uniformColor" readonly />
+            <br />
+            <input type="checkbox" id="Brown" value="Brown" />
+            <label for="Brown">Brown</label>
+
+            <input type="checkbox" id="Blue" value="Blue" />
+            <label for="Blue">Blue</label>
+            <br /><br />
+            <label for="medallions">Medallions:</label>
+            <input type="text" id="medallions" readonly /><br /><br />
+
+            <text><underline>Soldier Medallions</underline></text
+            ><br />
+
+            <input type="checkbox" id="Bronze1" value="Bronze1" />
+            <label for="Bronze1">Bronze1</label>
+            <input type="checkbox" id="Silver1" value="Silver1" />
+            <label for="Silver1">Silver1</label>
+            <input type="checkbox" id="Gold1" value="Gold1" />
+            <label for="Gold1">Gold1</label>
+            <br />
+            <input type="checkbox" id="Bronze2" value="Bronze2" />
+            <label for="Bronze2">Bronze2</label>
+            <input type="checkbox" id="Silver2" value="Silver2" />
+            <label for="Silver2">Silver2</label>
+            <input type="checkbox" id="Gold2" value="Gold2" />
+            <label for="Gold2">Gold2</label>
+            <br />
+            <input type="checkbox" id="Bronze3" value="Bronze3" />
+            <label for="Bronze3">Bronze3</label>
+            <input type="checkbox" id="Silver3" value="Silver3" />
+            <label for="Silver3">Silver3</label>
+            <input type="checkbox" id="Gold3" value="Gold3" />
+            <label for="Gold3">Gold3</label>
+
+            <br /><br />
+
+            <label for="citations">Citations:</label>
+            <input type="text" id="citations" readonly /><br /><br />
+
+            <text
+              ><underline>Operational Service Citations</underline
+              ><text
+                ><br />
+
+                <input type="checkbox" id="campaign" value="campaign" />
+                <label for="campaign">Campaign</label>
+
+                <input type="checkbox" id="campaign1" value="campaign1" />
+                <label for="campaign1">Campaign1</label>
+
+                <input type="checkbox" id="campaign2" value="campaign2" />
+                <label for="campaign2">Campaign2</label>
+
+                <input type="checkbox" id="campaign3" value="campaign3" />
+                <label for="campaign3">Campaign3</label>
+
+                <input type="checkbox" id="campaign4" value="campaign4" />
+                <label for="campaign4">Campaign4</label>
+
+                <input type="checkbox" id="campaign5" value="campaign5" />
+                <label for="campaign5">Campaign5</label>
+
+                <input type="checkbox" id="campaign6" value="campaign6" />
+                <label for="campaign6">Campaign6</label>
+
+                <input type="checkbox" id="campaign7" value="campaign7" />
+                <label for="campaign7">Campaign7</label><br />
+
+                <input type="checkbox" id="campaign8" value="campaign8" />
+                <label for="campaign8">Campaign8</label>
+
+                <input type="checkbox" id="campaign9" value="campaign9" />
+                <label for="campaign9">Campaign9</label>
+
+                <input type="checkbox" id="campaign10" value="campaign10" />
+                <label for="campaign10">Campaign10</label>
+
+                <input type="checkbox" id="campaign11" value="campaign11" />
+                <label for="campaign11">Campaign11</label>
+
+                <input type="checkbox" id="campaign12" value="campaign12" />
+                <label for="campaign12">Campaign12</label>
+
+                <input type="checkbox" id="campaign13" value="campaign13" />
+                <label for="campaign13">Campaign13</label>
+
+                <input type="checkbox" id="campaign14" value="campaign14" />
+                <label for="campaign14">Campaign14</label>
+
+                <input type="checkbox" id="campaign15" value="campaign15" />
+                <label for="campaign15">Campaign15</label><br />
+
+                <input type="checkbox" id="campaign16" value="campaign16" />
+                <label for="campaign16">Campaign16</label>
+
+                <br />
+                <text><underline>Period of Service Citations</underline></text
+                ><br />
+
+                <input type="checkbox" id="1year" value="1year" />
+                <label for="1Year">1 Year</label>
+
+                <input type="checkbox" id="2year" value="2year" />
+                <label for="2Year">2 Year</label>
+
+                <input type="checkbox" id="3year" value="3year" />
+                <label for="3Year">3 Year</label>
+
+                <input type="checkbox" id="4year" value="4year" />
+                <label for="4Year">4 Year</label><br />
+
+                <text><underline>Member Skill Awards</underline></text
+                ><br />
+                <input type="checkbox" id="aviation" value="aviation" />
+                <label for="aviation">Aviation</label>
+
+                <input type="checkbox" id="medical" value="medical" />
+                <label for="medical">Medical</label><br />
+
+                <text><underline>Leadership Awards</underline></text
+                ><br />
+
+                <input type="checkbox" id="protagonist" value="protagonist" />
+                <label for="protagonist">Protagonist</label>
+
+                <input
+                  type="checkbox"
+                  id="juniorleadership"
+                  value="juniorleadership"
+                />
+                <label for="juniorleadership">Junior Leadership</label>
+
+                <input
+                  type="checkbox"
+                  id="seniorleadership"
+                  value="seniorleadership"
+                />
+                <label for="seniorleadership">Senior Leadership</label><br />
+
+                <text><underline>Non-Operational Awards</underline></text
+                ><br />
+
+                <input type="checkbox" id="atlas" value="atlas" />
+                <label for="atlas">Atlas</label>
+
+                <input type="checkbox" id="instructor" value="instructor" />
+                <label for="instructor">Instructor</label>
+
+                <input type="checkbox" id="watchman" value="watchman" />
+                <label for="watchman">Watchman</label>
+
+                <input type="checkbox" id="architect" value="architect" />
+                <label for="architect">Architect</label>
+
+                <input type="checkbox" id="brokenlance" value="brokenlance" />
+                <label for="brokenlance">Broken Lance</label><br />
+
+                <input type="checkbox" id="diplomat" value="diplomat" />
+                <label for="diplomat">Diplomat</label>
+
+                <input
+                  type="checkbox"
+                  id="publicrelation"
+                  value="publicrelation"
+                />
+                <label for="publicrelation">Public Relation</label>
+
+                <input
+                  type="checkbox"
+                  id="groupdevelopment"
+                  value="groupdevelopment"
+                />
+                <label for="groupdevelopment">Group Development</label>
+
+                <input type="checkbox" id="founders" value="founders" />
+                <label for="founders">Founders</label>
+
+                <input type="checkbox" id="beyond" value="beyond" />
+                <label for="beyond">Beyond</label><br />
+
+                <text><underline>Operational Awards</underline></text
+                ><br />
+
+                <input type="checkbox" id="gallantry" value="gallantry" />
+                <label for="gallantry">Gallantry</label>
+
+                <input
+                  type="checkbox"
+                  id="crossofvalour"
+                  value="crossofvalour"
+                />
+                <label for="crossofvalour">Cross Of Valour</label>
+
+                <input
+                  type="checkbox"
+                  id="starofcourage"
+                  value="starofcourage"
+                />
+                <label for="starofcourage">Star Of Courage</label>
+
+                <br /><br />
+
+                <label for="trainingBadges">Training Badges:</label>
+                <input type="text" id="trainingBadges" /><br /><br />
+
+                <text><underline>Misc</underline></text
+                ><br />
+
+                <input type="checkbox" id="RE" value="RE" />
+                <label for="RE">RE</label><br />
+
+                <text><underline>Paratrooper</underline></text
+                ><br />
+
+                <input type="checkbox" id="PT" value="PT" />
+                <label for="PT">PT</label>
+
+                <input type="checkbox" id="HALO" value="HALO" />
+                <label for="HALO">HALO</label>
+
+                <input type="checkbox" id="JM" value="JM" />
+                <label for="JM">JM</label>
+                <br />
+
+                <text><underline>IDF</underline></text
+                ><br />
+
+                <input type="checkbox" id="BIDF" value="BIDF" />
+                <label for="BIDF">BIDF</label>
+
+                <input type="checkbox" id="AIDF" value="AIDF" />
+                <label for="AIDF">AIDF</label>
+
+                <input type="checkbox" id="BCIDF" value="BCIDF" />
+                <label for="BCIDF">BCIDF</label><br />
+
+                <text><underline>Staff</underline></text
+                ><br />
+
+                <input type="checkbox" id="NCO" value="NCO" />
+                <label for="NCO">NCO</label>
+
+                <input type="checkbox" id="Platoon" value="Platoon" />
+                <label for="Platoon">Platoon</label>
+
+                <input type="checkbox" id="Company" value="Company" />
+                <label for="Company">Company</label><br />
+
+                <text><underline>Special Forces</underline></text
+                ><br />
+
+                <input type="checkbox" id="Ranger" value="Ranger" />
+                <label for="Ranger">Ranger</label>
+
+                <input type="checkbox" id="Commando" value="Commando" />
+                <label for="Commando">Commando</label>
+
+                <input type="checkbox" id="SASR" value="SASR" />
+                <label for="SASR">SASR</label>
+                <br />
+
+                <text><underline>Rotary</underline></text
+                ><br />
+
+                <input type="checkbox" id="BR" value="BR" />
+                <label for="BR">BR</label>
+
+                <input type="checkbox" id="AR" value="AR" />
+                <label for="AR">AR</label>
+
+                <input type="checkbox" id="ER" value="ER" />
+                <label for="ER">ER</label>
+                <br />
+
+                <text><underline>Fixed-Wing</underline></text
+                ><br />
+
+                <input type="checkbox" id="BF" value="BF" />
+                <label for="BF">BF</label>
+
+                <input type="checkbox" id="AF" value="AF" />
+                <label for="AF">AF</label>
+
+                <input type="checkbox" id="EF" value="EF" />
+                <label for="EF">EF</label>
+                <br />
+
+                <text><underline>CQB</underline></text
+                ><br />
+
+                <input type="checkbox" id="BCQB" value="BCQB" />
+                <label for="BCQB">BCQB</label>
+
+                <input type="checkbox" id="ACQB" value="ACQB" />
+                <label for="ACQB">ACQB</label>
+
+                <input type="checkbox" id="ECQB" value="ECQB" />
+                <label for="ECQB">ECQB</label>
+                <br />
+
+                <text><underline>Medical</underline></text
+                ><br />
+
+                <input type="checkbox" id="BM" value="BM" />
+                <label for="BM">BM</label>
+
+                <input type="checkbox" id="AM" value="AM" />
+                <label for="AM">AM</label>
+
+                <input type="checkbox" id="EM" value="EM" />
+                <label for="EM">EM</label>
+
+                <input type="checkbox" id="PR" value="PR" />
+                <label for="PR">PR</label>
+                <br />
+
+                <text><underline>Armoured</underline></text
+                ><br />
+
+                <input type="checkbox" id="Driver" value="Driver" />
+                <label for="Driver">Driver</label>
+
+                <input type="checkbox" id="Gunner" value="Gunner" />
+                <label for="Gunner">Gunner</label>
+
+                <input type="checkbox" id="Commander" value="Commander" />
+                <label for="Commander">Commander</label>
+                <br />
+
+                <text><underline>Radioman</underline></text
+                ><br />
+
+                <input type="checkbox" id="FO" value="FO" />
+                <label for="FO">FO</label>
+
+                <input type="checkbox" id="JTAC" value="JTAC" />
+                <label for="JTAC">JTAC</label>
+                <br />
+
+                <text><underline>Weapons</underline></text
+                ><br />
+
+                <input type="checkbox" id="Rifle" value="Rifle" />
+                <label for="Rifle">Rifle</label>
+
+                <input type="checkbox" id="Pistol" value="Pistol" />
+                <label for="Pistol">Pistol</label>
+
+                <input type="checkbox" id="AT" value="AT" />
+                <label for="AT">AT</label>
+
+                <input type="checkbox" id="Sniper" value="Sniper" />
+                <label for="Sniper">Sniper</label>
+
+                <br /><br />
+                <!-- Sixth checkbox list - Rank -->
+                <label for="rank">Rank:</label>
+                <input type="text" id="rank" name="rank" readonly />
+                <br />
+                <input type="checkbox" id="PTEL)" value="PTEL" />
+                <label for="PTEL">PTE(L)</label>
+
+                <input type="checkbox" id="PTES" value="PTES" />
+                <label for="PTES">PTE(S)</label>
+
+                <input type="checkbox" id="PTESL" value="PTESL" />
+                <label for="PTESL">PTE(SL)</label>
+
+                <input type="checkbox" id="TPRL" value="TPRL" />
+                <label for="TPRL">TPR(L)</label>
+
+                <input type="checkbox" id="TPRS" value="TPRS" />
+                <label for="TPRS">TPR(S)</label>
+
+                <input type="checkbox" id="TPRSL" value="TPRSL" />
+                <label for="TPRSL">TPR(SL)</label>
+
+                <input type="checkbox" id="GMP" value="GMP" />
+                <label for="GMP">GM(P)</label>
+
+                <input type="checkbox" id="GMS" value="GMS" />
+                <label for="GMS">GM(S)</label>
+
+                <input type="checkbox" id="GMG" value="GMG" />
+                <label for="GMG">GM(G)</label>
+
+                <input type="checkbox" id="GMD" value="GMD" />
+                <label for="GMD">GM(D)</label>
+
+                <input type="checkbox" id="SIG" value="SIG" />
+                <label for="SIG">SIG</label>
+
+                <input type="checkbox" id="SIGL" value="SIGL" />
+                <label for="SIGL">SIG(L)</label>
+
+                <input type="checkbox" id="SIGS" value="SIGS" />
+                <label for="SIGS">SIG(S)</label>
+
+                <input type="checkbox" id="SIGSL" value="SIGSL" />
+                <label for="SIGSL">SIG(SL)</label>
+
+                <br />
+
+                <input type="checkbox" id="LCPLJ" value="LCPLJ" />
+                <label for="LCPLJ">LCPLJ</label>
+
+                <input type="checkbox" id="LCPL" value="LCPL" />
+                <label for="LCPL">LCPL</label>
+
+                <input type="checkbox" id="LCPLL" value="LCPLL" />
+                <label for="LCPLL">LCPL(L)</label>
+
+                <input type="checkbox" id="LCPLS" value="LCPLS" />
+                <label for="LCPLS">LCPL(S)</label>
+
+                <input type="checkbox" id="LCPLP" value="LCPLP" />
+                <label for="LCPLP">LCPL(P)</label>
+
+                <input type="checkbox" id="CPLJ" value="CPLJV" />
+                <label for="CPLJV">CPLJV</label>
+
+                <input type="checkbox" id="LCPLV" value="LCPLV" />
+                <label for="LCPLV">LCPLV</label>
+
+                <input type="checkbox" id="LCPLVL" value="LCPLVL" />
+                <label for="LCPLVL">LCPLV(L)</label>
+
+                <input type="checkbox" id="LCPLVS" value="LCPLVS" />
+                <label for="LCPLVS">LCPLV(S)</label>
+
+                <input type="checkbox" id="LCPLVP" value="LCPLVP" />
+                <label for="LCPLVP">LCPLV(P)</label>
+                <br />
+
+                <input type="checkbox" id="CPLJ" value="CPLJ" />
+                <label for="CPLJ">CPLJ</label>
+
+                <input type="checkbox" id="CPL" value="CPL" />
+                <label for="CPL">CPL</label>
+
+                <input type="checkbox" id="CPLP" value="CPLP" />
+                <label for="CPLP">CPL(P)</label>
+
+                <input type="checkbox" id="CPLL" value="CPLL" />
+                <label for="CPLL">CPL(L)</label>
+
+                <input type="checkbox" id="CPLS" value="CPLS" />
+                <label for="CPLS">CPL(S)</label>
+
+                <input type="checkbox" id="CPLV" value="CPLV" />
+                <label for="CPLV">CPLV</label>
+
+                <input type="checkbox" id="CPLJV" value="CPLJV" />
+                <label for="CPLJV">CPLJV</label>
+
+                <input type="checkbox" id="CPLVP" value="CPLVP" />
+                <label for="CPLVP">CPLV(P)</label>
+
+                <input type="checkbox" id="CPLVL" value="CPLVL" />
+                <label for="CPLVL">CPLV(L)</label>
+
+                <input type="checkbox" id="CPLVS" value="CPLVS" />
+                <label for="CPLVS">CPLV(S)</label>
+                <br />
+
+                <input type="checkbox" id="SGT" value="SGT" />
+                <label for="SGT">SGT</label>
+
+                <input type="checkbox" id="SSGT" value="SSGT" />
+                <label for="SSGT">SSGT</label>
+
+                <input type="checkbox" id="SAM" value="SAM" />
+                <label for="SAM">SAM</label>
+
+                <input type="checkbox" id="SSAM" value="SSAM" />
+                <label for="SSAM">SSAM</label>
+
+                <input type="checkbox" id="PSM" value="PSM" />
+                <label for="PSM">PSM</label>
+
+                <input type="checkbox" id="SGTV" value="SGTV" />
+                <label for="SGTV">SGTV</label>
+
+                <input type="checkbox" id="SSGTV" value="SSGTV" />
+                <label for="SSGTV">SSGTV</label>
+
+                <input type="checkbox" id="SAMV" value="SAMV" />
+                <label for="SAMV">SAMV</label>
+
+                <input type="checkbox" id="SSAMV" value="SSAMV" />
+                <label for="SSAMV">SSAMV</label>
+
+                <input type="checkbox" id="PSMV" value="PSMV" />
+                <label for="PSMV">PSMV</label>
+                <br />
+                <input type="checkbox" id="WO2" value="WO2" />
+                <label for="WO2">WO2</label>
+
+                <input type="checkbox" id="WO1" value="WO1" />
+                <label for="WO1">WO1</label>
+
+                <input type="checkbox" id="CSM" value="CSM" />
+                <label for="CSM">CSM</label>
+
+                <input type="checkbox" id="CSMA" value="CSMA" />
+                <label for="CSMA">CSMA</label>
+                <br />
+                <input type="checkbox" id="OCDT" value="OCDT" />
+                <label for="OCDT">OCDT</label>
+
+                <input type="checkbox" id="OCDTV" value="OCDTV" />
+                <label for="OCDTV">OCDTV</label>
+                <input type="checkbox" id="SECLT" value="SECLT" />
+                <label for="SECLT">2LT</label>
+
+                <input type="checkbox" id="SECLTV" value="SECLTV" />
+                <label for="SECLTV">2LTV</label>
+
+                <input type="checkbox" id="LT" value="LT" />
+                <label for="LT">LT</label>
+
+                <input type="checkbox" id="LTV" value="LTV" />
+                <label for="LTV">LTV</label>
+
+                <input type="checkbox" id="SLT" value="SLT" />
+                <label for="SLT">SLT</label>
+
+                <input type="checkbox" id="SLTV" value="SLTV" />
+                <label for="SLTV">SLTV</label>
+
+                <input type="checkbox" id="CLT" value="CLT" />
+                <label for="CLT">CLT</label>
+
+                <br />
+
+                <input type="checkbox" id="SCAPT" value="SCAPT" />
+
+                <input type="checkbox" id="CAPT" value="CAPT" />
+                <label for="CAPT">CAPT</label>
+
+                <input type="checkbox" id="MAJ" value="MAJ" />
+                <label for="MAJ">MAJ</label>
+
+                <input type="checkbox" id="LTCOL" value="LTCOL" />
+                <label for="LTCOL">LTCOL</label>
+
+                <input type="checkbox" id="COL" value="COL" />
+                <label for="COL">COL</label>
+
+                <input type="checkbox" id="BRIG" value="BRIG" />
+                <label for="BRIG">BRIG</label>
+
+                <input type="checkbox" id="MAJGEN" value="MAJGEN" />
+                <label for="MAJGEN">MAJGEN</label>
+
+                <input type="checkbox" id="LTGEN" value="LTGEN" />
+                <label for="LTGEN">LTGEN</label>
+
+                <input type="checkbox" id="GEN" value="GEN" />
+                <label for="GEN">GEN</label>
+                <br />
+
+                <input type="checkbox" id="AC" value="AC" />
+                <label for="AC">AC</label>
+
+                <input type="checkbox" id="LAC" value="LAC" />
+                <label for="LAC">LAC</label>
+
+                <input type="checkbox" id="LM" value="LM" />
+                <label for="LM">LM</label>
+
+                <input type="checkbox" id="SLM" value="SLM" />
+                <label for="SLM">SLM</label>
+
+                <input type="checkbox" id="FSGT" value="FSGT" />
+                <label for="FSGT">FSGT</label>
+
+                <input type="checkbox" id="HOCDT" value="HOCDT" />
+                <label for="HOCDT">HOCDT</label>
+
+                <input type="checkbox" id="POF" value="POF" />
+                <label for="POF">POF</label>
+
+                <input type="checkbox" id="FOF" value="FOF" />
+                <label for="FOF">FOF</label>
+
+                <input type="checkbox" id="FLT" value="FLT" />
+                <label for="FLT">FLT</label>
+                <br />
+
+                <input type="checkbox" id="FLL" value="FLL" />
+                <label for="FLL">FLL</label>
+
+                <input type="checkbox" id="SQLD" value="SQLD" />
+                <label for="SQLD">SQLD</label>
+
+                <input type="checkbox" id="WGCP" value="WGCP" />
+                <label for="WGCP">WGCP</label>
+
+                <input type="checkbox" id="WGCDR" value="WGCDR" />
+                <label for="WGCDR">WGCDR</label>
+
+                <input type="checkbox" id="GCPT" value="GCPT" />
+                <label for="GCPT">GCPT</label>
+                <br />
+                <input type="checkbox" id="COM" value="COM" />
+                <label for="COM">COM</label>
+
+                <input type="checkbox" id="AVM" value="AVM" />
+                <label for="AVM">AVM</label>
+
+                <input type="checkbox" id="HAM" value="HAM" />
+                <label for="HAM">AM(H)</label>
+
+                <input type="checkbox" id="ACM" value="ACM" />
+                <label for="ACM">ACM</label>
+
+                <input type="checkbox" id="SACM" value="SACM" />
+                <label for="SACM">SACM</label>
+
+                <br /><br />
+
+                <script>
+                  // First checkbox list - PTE or PTE(P)
+                  const checkboxPTE = document.getElementById("PTE");
+                  const checkboxPTEP = document.getElementById("PTEP");
+                  const rifleField = document.getElementById("rifle");
+
+                  checkboxPTE.addEventListener("change", updateRifleField);
+                  checkboxPTEP.addEventListener("change", updateRifleField);
+
+                  function updateRifleField() {
+                    let rifle = "";
+
+                    if (checkboxPTE.checked) {
+                      rifle += checkboxPTE.value + " ";
+                    }
+
+                    if (checkboxPTEP.checked) {
+                      rifle += checkboxPTEP.value + " ";
+                    }
+
+                    rifleField.value = rifle.trim();
+                  }
+
+                  // Second checkbox list - Corps
+                  const checkboxes = document.querySelectorAll(
+                    "#Command, #Echo, #GM, #Golf, #Hotel, #Infantry, #Mike, #Pronto, #Victor"
+                  );
+                  const badgeField = document.getElementById("badge");
+
+                  checkboxes.forEach((checkbox) => {
+                    checkbox.addEventListener("change", updateBadgeField);
+                  });
+
+                  function updateBadgeField() {
+                    let badge = "";
+
+                    checkboxes.forEach((checkbox) => {
+                      if (checkbox.checked) {
+                        badge += checkbox.value + " ";
+                      }
+                    });
+
+                    badgeField.value = badge.trim();
+                  }
+
+                  // Third checkbox list - Uniform Color
+                  const checkboxBrown = document.getElementById("Brown");
+                  const checkboxBlue = document.getElementById("Blue");
+                  const uniformColorField =
+                    document.getElementById("uniformColor");
+
+                  checkboxBrown.addEventListener(
+                    "change",
+                    updateUniformColorField
+                  );
+                  checkboxBlue.addEventListener(
+                    "change",
+                    updateUniformColorField
+                  );
+
+                  function updateUniformColorField() {
+                    let uniformColor = "";
+
+                    if (checkboxBrown.checked) {
+                      uniformColor += checkboxBrown.value + " ";
+                    }
+
+                    if (checkboxBlue.checked) {
+                      uniformColor += checkboxBlue.value + " ";
+                    }
+
+                    uniformColorField.value = uniformColor.trim();
+                  }
+                  //Soldier Medallions
+                  const medallionCheckboxes = document.querySelectorAll(
+                    "#Bronze1, #Silver1, #Gold1, #Bronze2, #Silver2, #Gold2, #Bronze3, #Silver3, #Gold3"
+                  );
+                  const medallionField = document.getElementById("medallions");
+                  medallionCheckboxes.forEach((checkbox) => {
+                    checkbox.addEventListener("change", updateMedallionField);
+                  });
+                  function updateMedallionField() {
+                    let medallions = Array.from(medallionCheckboxes)
+                      .filter((checkbox) => checkbox.checked)
+                      .map((checkbox) => checkbox.value)
+                      .join(",");
+                    medallionField.value = medallions;
+                  }
+                  // Fourth checkbox list - Citations
+                  const citationsCheckboxes = document.querySelectorAll(
+                    'input[type="checkbox"][value^="campaign"], input[type="checkbox"][value$="year"], input[type="checkbox"][value="aviation"], input[type="checkbox"][value="medical"], input[type="checkbox"][value="protagonist"], input[type="checkbox"][value="juniorleadership"], input[type="checkbox"][value="seniorleadership"], input[type="checkbox"][value="atlas"], input[type="checkbox"][value="instructor"], input[type="checkbox"][value="watchman"], input[type="checkbox"][value="architect"], input[type="checkbox"][value="brokenlance"], input[type="checkbox"][value="diplomat"], input[type="checkbox"][value="publicrelation"], input[type="checkbox"][value="groupdevelopment"], input[type="checkbox"][value="founders"], input[type="checkbox"][value="gallantry"], input[type="checkbox"][value="crossofvalour"], input[type="checkbox"][value="starofcourage"], input[type="checkbox"][value="beyond"]'
+                  );
+                  const citationsField = document.getElementById("citations");
+
+                  citationsCheckboxes.forEach((checkbox) => {
+                    checkbox.addEventListener("change", updateCitationsField);
+                  });
+
+                  function updateCitationsField() {
+                    let citations = Array.from(citationsCheckboxes)
+                      .filter((checkbox) => checkbox.checked)
+                      .map((checkbox) => checkbox.value)
+                      .join(",");
+                    console.log(citations);
+                    citationsField.value = citations;
+                  }
+
+                  // Fifth checkbox list - Training Badges
+                  const trainingBadgesCheckboxes = document.querySelectorAll(
+                    "#RE, #PT, #HALO, #JM, #BIDF, #AIDF, #BCIDF, #NCO, #Platoon, #Company, #Ranger, #Commando, #SASR, #BR, #AR, #ER, #BF, #AF, #EF, #BCQB, #ACQB, #ECQB, #BM, #AM, #EM, #PR, #Driver, #Gunner, #Commander, #FO, #JTAC, #Rifle, #Pistol, #AT, #Sniper"
+                  );
+                  const trainingBadgesField =
+                    document.getElementById("trainingBadges");
+
+                  trainingBadgesCheckboxes.forEach((checkbox) => {
+                    checkbox.addEventListener(
+                      "change",
+                      updateTrainingBadgesField
+                    );
+                  });
+
+                  function updateTrainingBadgesField() {
+                    const checkedTrainingBadges = Array.from(
+                      trainingBadgesCheckboxes
+                    )
+                      .filter((checkbox) => checkbox.checked)
+                      .map((checkbox) => checkbox.value);
+
+                    trainingBadgesField.value = checkedTrainingBadges.join(",");
+                  }
+
+                  // Sixth checkbox list - Rank
+
+                  const checkboxesRank = document.querySelectorAll(
+                    "#SIG, #SIGL, #SIGS, #SIGSL, #LCPLJ, #LCPL, #LCPLP, #LCPLL, #LCPLS, #LCPLJV, #LCPLV, #LCPLVL, #LCPLVS, #LCPLJP, #CPLJ, #CPL, #CPLP, #CPLL, #CPLS, #CPLJV, #CPLV, #CPLVP, #CPLVL, #CPLVS, #SGT, #SSGT, #SAM, #SSAM, #PSM, #SGTV, #SSGTV, #SAMV, #SSAMV, #PSMV, #WO2, #WO1, #CSM, #CSMA, #OCDT, #SECLTV, #SECLT, #CLT, #CLTV, #OCDTV, #SLT, #SLTV, #LT, #LTV, #CAPT, #BRIG, #GEN, #MAJGEN, #LTGEN, #SCAPT, #MAJ, #COL, #LTCOL, #PTEL, #PTES, #PTESL, #TPRL, #TPRS, #TPRSL, #GMP, #GMS, #GMG, #GMD, #AC, #LM, #LAC, #SLM, #FSGT, #HOCDT, #POF, #FOF, #FLT, #SFLT, #FLL, #SQLD, #WGCP, #WGCDR, #CCPT, #COM, #AVM, #HAM, #ACM, #SACM"
+                  );
+                  const rankField = document.getElementById("rank");
+
+                  checkboxesRank.forEach((checkbox) => {
+                    checkbox.addEventListener("change", updateRankField);
+                  });
+
+                  function updateRankField() {
+                    let rank = "";
+
+                    checkboxesRank.forEach((checkbox) => {
+                      if (checkbox.checked) {
+                        rank += checkbox.value + " ";
+                      }
+                    });
+
+                    rankField.value = rank.trim();
+                  }
+                </script>
+
+                <br />
+
+                <button type="submit">Generate Image</button>
+                <a href="/certificates"> Certificates</a>
+                <a href="/box"> Medal Cabinet</a>
+
+                <div id="imageContainer"></div>
+
+                <script type="text/javascript" src="/index.js"></script>
+                <script>
+                  //add eevent listener when button with id fill_data is clicked
+                  document;
+                  document
+                    .getElementById("fill_data")
+                    .addEventListener("click", async function (event) {
+                      let userData = await fetch("/data", {
+                        method: "GET",
+                        headers: {
+                          "Content-Type": "application/json",
+                          name: document.getElementById("name").value,
+                        },
+                      })
+                        .then((response) => response.json())
+                        .catch((error) => {
+                          alert("User not found");
+                        });
+
+                      if (
+                        userData.citations.length == 1 &&
+                        userData.citations[0] == ""
+                      )
+                        userData.citations = [];
+                      userData.citations.forEach((citation) => {
+                        if (citation.includes(" "))
+                          citation = citation.replaceAll(" ", "");
+                        document.getElementById(citation).checked = true;
+                      });
+                      if (
+                        userData.medallions.length == 1 &&
+                        userData.medallions[0] == ""
+                      )
+                        userData.medallions = [];
+                      userData.medallions.forEach((medallion) => {
+                        document.getElementById(medallion).checked = true;
+                      });
+                      if (
+                        userData.TrainingMedals.length == 1 &&
+                        userData.TrainingMedals[0] == ""
+                      )
+                        userData.TrainingMedals = [];
+                      userData.TrainingMedals.forEach((trainingMedal) => {
+                        if (
+                          trainingMedal.includes("FO") ||
+                          trainingMedal.includes("BR") ||
+                          trainingMedal.includes("AR")
+                        )
+                          trainingMedal = trainingMedal.slice(0, 2);
+                        document.getElementById(trainingMedal).checked = true;
+                      });
+                      if (userData.rank)
+                        document.getElementById(userData.rank).checked = true;
+                      document.getElementById(userData.Uniform).checked = true;
+                      document.getElementById(userData.RifleManBadge).checked =
+                        true;
+                      document.getElementById(userData.badge).checked = true;
+                      document.getElementById("medallions").value =
+                        userData.medallions.join(",");
+                      document.getElementById("citations").value =
+                        userData.citations.join(",");
+                      document.getElementById("trainingBadges").value =
+                        userData.TrainingMedals.join(",");
+                      document.getElementById("uniformColor").value =
+                        userData.Uniform;
+                      document.getElementById("rifle").value =
+                        userData.RifleManBadge;
+                      document.getElementById("badge").value = userData.badge;
+                      if (userData.rank)
+                        document.getElementById("rank").value = userData.rank;
+                    });
+                  document
+                    .getElementById("inputForm")
+                    .addEventListener("submit", function (event) {
+                      event.preventDefault();
+
+                      // Gather user input
+
+                      var nameInput = document.getElementById("name").value;
+                      var name = nameInput.toUpperCase();
+                      var rank = document.getElementById("rank").value;
+                      var medallions = document
+                        .getElementById("medallions")
+                        .value.split(",");
+                      var citations = document
+                        .getElementById("citations")
+                        .value.split(",");
+                      var trainingBadges = document
+                        .getElementById("trainingBadges")
+                        .value.split(",");
+                      var uniformColor =
+                        document.getElementById("uniformColor").value;
+                      var rifle = document.getElementById("rifle").value;
+                      var badge = document.getElementById("badge").value;
+
+                      // Create data object
+                      var data = {
+                        name: name,
+                        rank: rank,
+                        medallions: medallions,
+                        citations: citations,
+                        TrainingMedals: trainingBadges,
+                        Uniform: uniformColor,
+                        RifleManBadge: rifle,
+                        badge: badge,
+                      };
+
+                      if (data.citations.length == 1 && data.citations[0] == "")
+                        data.citations = [];
+                      if (
+                        data.TrainingMedals.length == 1 &&
+                        data.TrainingMedals[0] == ""
+                      )
+                        data.TrainingMedals = [];
+
+                      //Some magic to get around element ID limitations
+                      if (["SECLT", "SECLTV"].includes(data.rank)) {
+                        data.rank = data.rank.replace("SECLT", "2LT");
+                      }
+
+                      // Call the main function from index.js and display the returned image
+
+                      fetch("/update", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(data),
+                      })
+                        .then((response) => response.blob())
+                        .then((imageBlob) => {
+                          // Create a URL for the image blob
+                          var imageUrl = URL.createObjectURL(imageBlob);
+                          // Create an <img> element
+                          var imgElement = document.createElement("img");
+                          console.log(imageUrl);
+
+                          // Set the source of the image to the generated image
+                          imgElement.src = imageUrl;
+
+                          // Append the image element to the "imageContainer" div
+                          document
+                            .getElementById("imageContainer")
+                            .appendChild(imgElement);
+                        })
+                        .catch((error) => {
+                          console.error("Error:", error);
+                        });
+                    });
+                </script>
+              </text></text
+            >
+          </form>
+        </body>
+      </div>
+    </div>
+  </body>
+  <!-- Footer -->
+  <footer>&copy; 2023 Australian Special Operations Taskforce</footer>
+</html>

@@ -1,0 +1,12 @@
+node_modules
+certificates
+milpac
+medal-box-images/boxes
+.env
+output.pptx
+certs-*
+src/.vs
+src/.vscode
+test.js
+templates/.~lock.Bulk Template.pptx#
+dist
