@@ -1,9 +1,15 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Box, Typography, Button, CircularProgress, Alert, Collapse, IconButton } from '@mui/material'
+import { Box, Typography, Button, CircularProgress, Alert, Collapse, IconButton, TextField, InputAdornment } from '@mui/material'
 import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material'
-import { ExpandMore, ExpandLess, Refresh } from '@mui/icons-material'
+import { ExpandMore, ExpandLess, Refresh, Search } from '@mui/icons-material'
+
+const searchFieldSx = {
+    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+    color: 'rgba(237,237,237,0.85)', fontSize: '0.75rem',
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' },
+}
 import type { MemberSyncEntry, MemberSyncReport, GrantDetail } from '@/lib/orbat/member-sync'
 
 const STATUS_STYLE: Record<MemberSyncEntry['status'], { label: string; color: string; bg: string; border: string }> = {
@@ -113,6 +119,7 @@ export default function MemberSyncTab() {
     const [successMessage, setSuccessMessage] = useState<string | null>(null)
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
     const [offRosterExpanded, setOffRosterExpanded] = useState(false)
+    const [search, setSearch] = useState('')
     const [confirmTarget, setConfirmTarget] = useState<{ kind: 'all'; entries: MemberSyncEntry[] } | { kind: 'member'; entries: MemberSyncEntry[] } | null>(null)
     const [applying, setApplying] = useState(false)
 
@@ -149,9 +156,25 @@ export default function MemberSyncTab() {
 
     const allEntries = useMemo(() => report ? [...report.onRoster, ...report.offRoster] : [], [report])
     const outOfSync = useMemo(() => allEntries.filter(e => e.status !== 'green'), [allEntries])
-    const onRosterSorted = useMemo(() => report ? sortEntries(report.onRoster) : [], [report])
-    const offRosterFlagged = useMemo(() => report ? report.offRoster.filter(e => e.status !== 'green') : [], [report])
+
+    const searchTerm = search.trim().toLowerCase()
+    const matchesSearch = useCallback((e: MemberSyncEntry) => !searchTerm || e.name.toLowerCase().includes(searchTerm), [searchTerm])
+
+    const onRosterSorted = useMemo(
+        () => report ? sortEntries(report.onRoster.filter(matchesSearch)) : [],
+        [report, matchesSearch],
+    )
+    const offRosterFlagged = useMemo(
+        () => report ? report.offRoster.filter(e => e.status !== 'green').filter(matchesSearch) : [],
+        [report, matchesSearch],
+    )
     const offRosterSorted = useMemo(() => sortEntries(offRosterFlagged), [offRosterFlagged])
+
+    // A search that only matches something in the (collapsed-by-default) Off
+    // Roster section shouldn't hide that result behind a "Show" click.
+    useEffect(() => {
+        if (searchTerm && offRosterFlagged.length > 0) setOffRosterExpanded(true)
+    }, [searchTerm, offRosterFlagged.length])
 
     async function applyConfirmed() {
         if (!confirmTarget) return
@@ -188,6 +211,11 @@ export default function MemberSyncTab() {
                 <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1, color: 'rgba(237,237,237,0.5)', flex: 1 }}>
                     Discord / TeamSpeak grant drift across every member
                 </Typography>
+                <TextField
+                    size='small' placeholder='Search members…' value={search} onChange={e => setSearch(e.target.value)}
+                    InputProps={{ startAdornment: <InputAdornment position='start'><Search sx={{ fontSize: 16, color: 'rgba(237,237,237,0.4)' }} /></InputAdornment> }}
+                    sx={{ ...searchFieldSx, width: 220 }}
+                />
                 <Button size='small' variant='contained' disabled={loading || outOfSync.length === 0}
                     onClick={() => openConfirm({ kind: 'all', entries: outOfSync })}
                     sx={{ background: 'var(--red)', fontWeight: 700, letterSpacing: 1, fontSize: '0.65rem', '&:hover': { background: 'rgba(219,0,29,0.85)' } }}>
@@ -222,7 +250,9 @@ export default function MemberSyncTab() {
                             onSync={e => openConfirm({ kind: 'member', entries: [e] })} />
                     ))}
                     {onRosterSorted.length === 0 && (
-                        <Typography sx={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', fontStyle: 'italic', px: 2, py: 1 }}>No on-roster members.</Typography>
+                        <Typography sx={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', fontStyle: 'italic', px: 2, py: 1 }}>
+                            {searchTerm ? 'No members match your search.' : 'No on-roster members.'}
+                        </Typography>
                     )}
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, pt: 2, pb: 0.5 }}>

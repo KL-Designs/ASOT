@@ -217,4 +217,33 @@ test.describe('Member Sync tab UI', () => {
         expect(applyBody).toEqual({})
         expect(getCalls).toBeGreaterThanOrEqual(2) // initial load + reload after apply
     })
+
+    test('search filters both lists by name, and auto-expands Off Roster when it matches there', async ({ adminPage }) => {
+        await adminPage.route('**/api/admin/orbat/member-sync', route => route.fulfill({ json: SAMPLE_REPORT }))
+
+        await adminPage.goto('/dashboard/orbat')
+        await adminPage.getByRole('button', { name: 'Manage Roles' }).click()
+        await adminPage.getByRole('button', { name: 'Member Sync' }).click()
+
+        await expect(adminPage.getByText('Red Member')).toBeVisible()
+        await expect(adminPage.getByText('Orange Member')).toBeVisible()
+        await expect(adminPage.getByText('Green Member')).toBeVisible()
+
+        const search = adminPage.getByPlaceholder('Search members…')
+        await search.fill('red')
+
+        await expect(adminPage.getByText('Red Member')).toBeVisible()
+        await expect(adminPage.getByText('Orange Member')).not.toBeVisible()
+        await expect(adminPage.getByText('Green Member')).not.toBeVisible()
+        await expect(adminPage.getByText('On Roster (1)')).toBeVisible()
+
+        // A search matching only an Off Roster member (collapsed by default)
+        // auto-expands that section instead of hiding the result.
+        await search.fill('stray')
+        await expect(adminPage.getByText('Stray Member')).toBeVisible()
+        await expect(adminPage.getByText('No members match your search.')).toBeVisible() // nothing on-roster matches "stray"
+
+        await search.fill('')
+        await expect(adminPage.getByText('On Roster (3)')).toBeVisible()
+    })
 })
