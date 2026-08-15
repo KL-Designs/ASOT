@@ -97,6 +97,7 @@ export async function GET(request: Request) {
             guild:          u.guild          ?? null,
             milpac:         u.milpac         ?? null,
             avatar:         u.avatar         ?? null,
+            avatarURL:      u.avatarURL      ?? null,
             avatarDecoration: u.avatarDecoration ?? null,
             hexAccentColor: u.hexAccentColor  ?? null,
             teamLeadDepts:  u.teamLeadDepts  ?? [],

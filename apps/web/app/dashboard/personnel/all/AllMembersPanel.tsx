@@ -17,6 +17,7 @@ type MemberRow = {
     guild?: { nickname?: string | null; displayName?: string | null } | null
     milpac?: { currentRank?: string | null } | null
     avatar?: string | null
+    avatarURL?: string | null
     avatarDecoration?: string | null
     hexAccentColor?: string | null
     teamLeadDepts: string[]
