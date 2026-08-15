@@ -232,6 +232,7 @@ export default function MemberSyncTab() {
                     {confirmTarget?.kind === 'all' ? `Sync ${confirmTarget.entries.length} member(s)?` : `Sync ${confirmTarget?.entries[0]?.name}?`}
                 </DialogTitle>
                 <DialogContent>
+                    {error && <Alert severity='error' sx={{ fontSize: '0.72rem', mb: 1.5 }}>{error}</Alert>}
                     {confirmTarget && <DiffPreview entries={confirmTarget.entries} />}
                 </DialogContent>
                 <DialogActions>

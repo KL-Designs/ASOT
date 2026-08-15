@@ -146,6 +146,30 @@ test.describe('Member Sync tab UI', () => {
         expect(getCalls).toBeGreaterThanOrEqual(2) // initial load + reload after apply
     })
 
+    test('a failed apply shows the error inside the still-open confirmation dialog', async ({ adminPage }) => {
+        await adminPage.route('**/api/admin/orbat/member-sync', route => route.fulfill({ json: SAMPLE_REPORT }))
+        await adminPage.route('**/api/admin/orbat/member-sync/apply', async route => {
+            await route.fulfill({ status: 500, json: { error: 'Discord API unavailable' } })
+        })
+
+        await adminPage.goto('/dashboard/orbat')
+        await adminPage.getByRole('button', { name: 'Manage Roles' }).click()
+        await adminPage.getByRole('button', { name: 'Member Sync' }).click()
+
+        const redRow = adminPage.locator('div', { hasText: 'Red Member' }).last()
+        await redRow.getByRole('button', { name: 'Sync' }).click()
+        await expect(adminPage.getByText('Sync Red Member?')).toBeVisible()
+
+        await adminPage.getByRole('button', { name: 'Confirm Sync' }).click()
+
+        // Dialog must stay open (apply failed, confirmTarget is only cleared
+        // on success) and the error must be visible inside it, not just in
+        // the page-level Alert the dialog's own backdrop would cover.
+        const dialog = adminPage.getByRole('dialog')
+        await expect(dialog).toBeVisible()
+        await expect(dialog.getByText('Discord API unavailable')).toBeVisible()
+    })
+
     test('Sync All is disabled when nothing is out of sync', async ({ adminPage }) => {
         const ALL_GREEN = { onRoster: [SAMPLE_REPORT.onRoster[2]], offRoster: [] }
         await adminPage.route('**/api/admin/orbat/member-sync', route => route.fulfill({ json: ALL_GREEN }))
