@@ -110,6 +110,7 @@ export default function MemberSyncTab() {
     const [report, setReport] = useState<MemberSyncReport | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [successMessage, setSuccessMessage] = useState<string | null>(null)
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
     const [offRosterExpanded, setOffRosterExpanded] = useState(false)
     const [confirmTarget, setConfirmTarget] = useState<{ kind: 'all'; entries: MemberSyncEntry[] } | { kind: 'member'; entries: MemberSyncEntry[] } | null>(null)
@@ -118,6 +119,7 @@ export default function MemberSyncTab() {
     const load = useCallback(async () => {
         setLoading(true)
         setError(null)
+        setSuccessMessage(null)
         try {
             const res = await fetch('/api/admin/orbat/member-sync')
             const data = await res.json().catch(() => ({}))
@@ -140,6 +142,11 @@ export default function MemberSyncTab() {
         })
     }
 
+    function openConfirm(target: { kind: 'all'; entries: MemberSyncEntry[] } | { kind: 'member'; entries: MemberSyncEntry[] }) {
+        setSuccessMessage(null)
+        setConfirmTarget(target)
+    }
+
     const allEntries = useMemo(() => report ? [...report.onRoster, ...report.offRoster] : [], [report])
     const outOfSync = useMemo(() => allEntries.filter(e => e.status !== 'green'), [allEntries])
     const onRosterSorted = useMemo(() => report ? sortEntries(report.onRoster) : [], [report])
@@ -157,8 +164,17 @@ export default function MemberSyncTab() {
             })
             const data = await res.json().catch(() => ({}))
             if (!res.ok) { setError(data.error ?? 'Sync failed'); return }
+            const failedTotal = (data.discordFailed ?? 0) + (data.tsFailed ?? 0)
             setConfirmTarget(null)
+            // load() clears successMessage at its own start (stale-message
+            // cleanup on any fetch), so the real message must be set AFTER
+            // it resolves — setting it before would be clobbered by that
+            // clear in the same synchronous batch and never actually render.
             await load()
+            setSuccessMessage(
+                `Sync complete — ${data.membersChecked} member(s) checked. Discord: +${data.discordGranted}/-${data.discordRevoked}. TeamSpeak: +${data.tsGranted}/-${data.tsRevoked}.` +
+                (failedTotal > 0 ? ` ${failedTotal} change(s) failed — see server logs.` : ''),
+            )
         } catch {
             setError('Sync failed')
         } finally {
@@ -173,7 +189,7 @@ export default function MemberSyncTab() {
                     Discord / TeamSpeak grant drift across every member
                 </Typography>
                 <Button size='small' variant='contained' disabled={loading || outOfSync.length === 0}
-                    onClick={() => setConfirmTarget({ kind: 'all', entries: outOfSync })}
+                    onClick={() => openConfirm({ kind: 'all', entries: outOfSync })}
                     sx={{ background: 'var(--red)', fontWeight: 700, letterSpacing: 1, fontSize: '0.65rem', '&:hover': { background: 'rgba(219,0,29,0.85)' } }}>
                     Sync All ({outOfSync.length})
                 </Button>
@@ -184,6 +200,12 @@ export default function MemberSyncTab() {
             </Box>
 
             {error && <Alert severity='error' sx={{ fontSize: '0.72rem', borderRadius: 0 }}>{error}</Alert>}
+            {successMessage && <Alert severity='success' sx={{ fontSize: '0.72rem', borderRadius: 0 }}>{successMessage}</Alert>}
+            {report && !report.tsAvailable && (
+                <Alert severity='warning' sx={{ fontSize: '0.72rem', borderRadius: 0 }}>
+                    TeamSpeak is currently unreachable — TeamSpeak group drift was not evaluated this run. Discord-only results are shown below.
+                </Alert>
+            )}
 
             {loading ? (
                 <Box sx={{ display: 'flex', flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -197,7 +219,7 @@ export default function MemberSyncTab() {
                     {onRosterSorted.map(entry => (
                         <MemberRow key={entry.userId} entry={entry} expanded={expandedIds.has(entry.userId)}
                             onToggle={() => toggleExpand(entry.userId)}
-                            onSync={e => setConfirmTarget({ kind: 'member', entries: [e] })} />
+                            onSync={e => openConfirm({ kind: 'member', entries: [e] })} />
                     ))}
                     {onRosterSorted.length === 0 && (
                         <Typography sx={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', fontStyle: 'italic', px: 2, py: 1 }}>No on-roster members.</Typography>
@@ -220,7 +242,7 @@ export default function MemberSyncTab() {
                         {offRosterSorted.map(entry => (
                             <MemberRow key={entry.userId} entry={entry} expanded={expandedIds.has(entry.userId)}
                                 onToggle={() => toggleExpand(entry.userId)}
-                                onSync={e => setConfirmTarget({ kind: 'member', entries: [e] })} />
+                                onSync={e => openConfirm({ kind: 'member', entries: [e] })} />
                         ))}
                     </Collapse>
                 </Box>

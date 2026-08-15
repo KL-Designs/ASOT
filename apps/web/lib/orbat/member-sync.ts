@@ -3,7 +3,7 @@ import client from '@/lib/discord'
 import { DEPT_CODES } from '@/lib/discord/dept-codes'
 import { fetchAllGuildMembers, addGuildRole, removeGuildRole } from '@/lib/discord/bot'
 import { getClientServerGroupIds, applyTsServerGroups } from '@/lib/teamspeak/groups'
-import { getGroupCache } from '@/lib/teamspeak/cache'
+import { getGroupCache, getConnection } from '@/lib/teamspeak/cache'
 
 export interface GrantDetail {
     id: string | number
@@ -24,6 +24,7 @@ export interface MemberSyncEntry {
 export interface MemberSyncReport {
     onRoster: MemberSyncEntry[]
     offRoster: MemberSyncEntry[]
+    tsAvailable: boolean
 }
 
 interface GrantBundle {
@@ -89,6 +90,13 @@ function statusFor(discord: MemberSyncEntry['discord'], teamspeak: MemberSyncEnt
  *  same fail-hard behaviour as the existing `sync-dept` route; callers
  *  should let it propagate to a 500, not swallow it. */
 export async function computeMemberSyncReport(): Promise<MemberSyncReport> {
+    let tsAvailable = true
+    try {
+        await getConnection()
+    } catch {
+        tsAvailable = false
+    }
+
     const [users, departmentRoles, orbatRoles, orbatPositions, orbatSectionMeta, guildMembers] = await Promise.all([
         Db.users.find({ discharged: { $exists: false } })
             .project<Pick<User, 'id' | 'name' | 'globalName' | 'username' | 'avatarURL' | 'guild' | 'departments' | 'departmentRoleIds' | 'teamspeak'>>(
@@ -172,10 +180,10 @@ export async function computeMemberSyncReport(): Promise<MemberSyncReport> {
 
         const actualDiscord = guildRoleMap.get(user.id) ?? new Set<string>()
         const cldbid = user.teamspeak?.cldbid
-        const actualTs = cldbid ? new Set(await getClientServerGroupIds(cldbid)) : new Set<number>()
+        const actualTs = (cldbid && tsAvailable) ? new Set(await getClientServerGroupIds(cldbid)) : new Set<number>()
 
         const discordDiff = diffIds(discordIds, managedDiscordIds, actualDiscord, discordSource, roleNameById)
-        const teamspeakDiff = cldbid
+        const teamspeakDiff = (cldbid && tsAvailable)
             ? diffIds(tsIds, managedTsGroupIds, actualTs, tsSource, tsGroupNameById)
             : { missing: [], extra: [] }
 
@@ -198,6 +206,7 @@ export async function computeMemberSyncReport(): Promise<MemberSyncReport> {
     return {
         onRoster: entries.filter(e => e.onRoster),
         offRoster: entries.filter(e => !e.onRoster),
+        tsAvailable,
     }
 }
 
@@ -205,15 +214,27 @@ export interface MemberSyncApplyResult {
     membersChecked: number
     discordGranted: number
     discordRevoked: number
+    discordFailed: number
     tsGranted: number
     tsRevoked: number
+    tsFailed: number
 }
+
+const APPLY_BATCH_SIZE = 5
 
 /** Re-runs computeMemberSyncReport() (fresh live Discord/TeamSpeak state,
  *  never trusts a diff computed earlier in the request lifecycle) and grants
  *  / revokes whatever each target member's fresh diff says. `userIds`
  *  omitted = every currently out-of-sync member; provided = only those
- *  (used for both the per-member Sync button and Sync All). */
+ *  (used for both the per-member Sync button and Sync All). Processes
+ *  members in small batches (not one giant Promise.all) to avoid bursting
+ *  past Discord's rate limit — `botRequest` has no retry/backoff of its own.
+ *  Counts reflect actual settled outcomes, not attempts: a rejected
+ *  addGuildRole/removeGuildRole counts as failed, not granted/revoked.
+ *  TeamSpeak counts are best-effort — applyTsServerGroups() itself doesn't
+ *  expose per-group success/failure (it internally allSettles and always
+ *  reports {skipped:false} once it reaches the server), so a TS grant/revoke
+ *  batch counts as fully successful or fully failed together. */
 export async function applyMemberSyncFixes(userIds?: string[]): Promise<MemberSyncApplyResult> {
     const report = await computeMemberSyncReport()
     const allEntries = [...report.onRoster, ...report.offRoster]
@@ -221,26 +242,38 @@ export async function applyMemberSyncFixes(userIds?: string[]): Promise<MemberSy
         ? allEntries.filter(e => userIds.includes(e.userId))
         : allEntries.filter(e => e.status !== 'green')
 
-    let discordGranted = 0, discordRevoked = 0, tsGranted = 0, tsRevoked = 0
+    let discordGranted = 0, discordRevoked = 0, discordFailed = 0
+    let tsGranted = 0, tsRevoked = 0, tsFailed = 0
 
-    await Promise.all(targets.map(async entry => {
-        const discordToGrant = entry.discord.missing.map(g => String(g.id))
-        const discordToRevoke = entry.discord.extra.map(g => String(g.id))
-        const tsToGrant = entry.teamspeak.missing.map(g => Number(g.id))
-        const tsToRevoke = entry.teamspeak.extra.map(g => Number(g.id))
+    for (let i = 0; i < targets.length; i += APPLY_BATCH_SIZE) {
+        const batch = targets.slice(i, i + APPLY_BATCH_SIZE)
 
-        discordGranted += discordToGrant.length
-        discordRevoked += discordToRevoke.length
-        tsGranted += tsToGrant.length
-        tsRevoked += tsToRevoke.length
+        await Promise.all(batch.map(async entry => {
+            const discordToGrant = entry.discord.missing.map(g => String(g.id))
+            const discordToRevoke = entry.discord.extra.map(g => String(g.id))
+            const tsToGrant = entry.teamspeak.missing.map(g => Number(g.id))
+            const tsToRevoke = entry.teamspeak.extra.map(g => Number(g.id))
 
-        await Promise.allSettled([
-            ...discordToGrant.map(id => addGuildRole(entry.userId, id)),
-            ...discordToRevoke.map(id => removeGuildRole(entry.userId, id)),
-            tsToGrant.length ? applyTsServerGroups(entry.userId, 'add', tsToGrant) : Promise.resolve(),
-            tsToRevoke.length ? applyTsServerGroups(entry.userId, 'remove', tsToRevoke) : Promise.resolve(),
-        ])
-    }))
+            const [grantResults, revokeResults, tsGrantResult, tsRevokeResult] = await Promise.all([
+                Promise.allSettled(discordToGrant.map(id => addGuildRole(entry.userId, id))),
+                Promise.allSettled(discordToRevoke.map(id => removeGuildRole(entry.userId, id))),
+                tsToGrant.length ? applyTsServerGroups(entry.userId, 'add', tsToGrant) : Promise.resolve(null),
+                tsToRevoke.length ? applyTsServerGroups(entry.userId, 'remove', tsToRevoke) : Promise.resolve(null),
+            ])
 
-    return { membersChecked: targets.length, discordGranted, discordRevoked, tsGranted, tsRevoked }
+            for (const r of grantResults) r.status === 'fulfilled' ? discordGranted++ : discordFailed++
+            for (const r of revokeResults) r.status === 'fulfilled' ? discordRevoked++ : discordFailed++
+
+            if (tsToGrant.length) {
+                if (tsGrantResult && !tsGrantResult.skipped) tsGranted += tsToGrant.length
+                else tsFailed += tsToGrant.length
+            }
+            if (tsToRevoke.length) {
+                if (tsRevokeResult && !tsRevokeResult.skipped) tsRevoked += tsToRevoke.length
+                else tsFailed += tsToRevoke.length
+            }
+        }))
+    }
+
+    return { membersChecked: targets.length, discordGranted, discordRevoked, discordFailed, tsGranted, tsRevoked, tsFailed }
 }
