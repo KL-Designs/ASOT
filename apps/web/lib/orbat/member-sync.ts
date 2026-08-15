@@ -1,6 +1,5 @@
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
-import { DEPT_CODES } from '@/lib/discord/dept-codes'
 import { fetchAllGuildMembers, addGuildRole, removeGuildRole } from '@/lib/discord/bot'
 import { getClientServerGroupIds, applyTsServerGroups } from '@/lib/teamspeak/groups'
 import { getGroupCache, getConnection } from '@/lib/teamspeak/cache'
@@ -98,7 +97,7 @@ export async function computeMemberSyncReport(): Promise<MemberSyncReport> {
     }
 
     const [users, departmentRoles, orbatRoles, orbatPositions, orbatSectionMeta, guildMembers] = await Promise.all([
-        Db.users.find({ discharged: { $exists: false } })
+        Db.users.find({ discharged: { $exists: false }, isSkeletonAccount: { $ne: true } })
             .project<Pick<User, 'id' | 'name' | 'globalName' | 'username' | 'avatarURL' | 'guild' | 'departments' | 'departmentRoleIds' | 'teamspeak'>>(
                 { id: 1, name: 1, globalName: 1, username: 1, avatarURL: 1, guild: 1, departments: 1, departmentRoleIds: 1, teamspeak: 1 },
             )
