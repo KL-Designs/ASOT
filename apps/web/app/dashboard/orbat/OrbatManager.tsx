@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
     Typography, Button, CircularProgress,
     Dialog, DialogTitle, DialogContent, DialogActions,
-    TextField, IconButton, Avatar,
+    TextField, IconButton, Avatar, Tooltip,
 } from '@mui/material'
 import {
     Edit, Close, AccountTree, Warning, ArrowUpward, ArrowDownward,
@@ -196,6 +196,13 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
     const [sectionMeta, setSectionMeta] = useState<OrbatSectionMeta[]>([])
     const metaTargetRef = useRef<{ category: string; sectionTitle: string | null } | null>(null)
 
+    // Every real OrbatRole _id — a position whose roleId isn't in this set
+    // (null, or pointing at a deleted Role) shows its `role` label as plain
+    // text with no actual Discord/TeamSpeak/permission grants behind it, and
+    // the tree otherwise gives no visual sign of that. See the "unlinked
+    // role" warning icon in the row renderer below.
+    const [validRoleIds, setValidRoleIds] = useState<Set<string>>(new Set())
+
     // Discord role picker
     const [discordRoles, setDiscordRoles] = useState<Role[]>([])
     const [rolePickerTarget, setRolePickerTarget] = useState<{ category: string; sectionTitle: string | null } | null>(null)
@@ -215,6 +222,8 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         const fetches: Promise<void>[] = [
             fetch('/api/admin/orbat').then(r => r.ok ? r.json() : null).then(d => { if (d) setPositions(d) }),
             fetch('/api/admin/orbat/meta').then(r => r.ok ? r.json() : null).then(d => { if (d) setSectionMeta(d) }),
+            fetch('/api/admin/orbat/roles').then(r => r.ok ? r.json() : null)
+                .then(d => { if (d) setValidRoleIds(new Set((d.roles ?? []).map((r: OrbatRole) => String(r._id)))) }),
         ]
         if (canManageStructure) {
             fetches.push(
@@ -614,7 +623,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                     )}
 
                     {/* Role name */}
-                    <div className='flex-1 min-w-0'>
+                    <div className='flex-1 min-w-0 flex items-center gap-1'>
                         {isEditing && !opts.isDragOverlay ? (
                             <RoleSelect
                                 category={pos.category}
@@ -622,16 +631,23 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                                 onChange={(roleId, roleName) => saveRole(posId, roleId, roleName)}
                             />
                         ) : (
-                            <Typography
-                                fontSize='0.73rem'
-                                noWrap
-                                style={{
-                                    color: pos.isSenior ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.62)',
-                                    fontWeight: pos.isSenior ? 700 : 400,
-                                }}
-                            >
-                                {pos.role}
-                            </Typography>
+                            <>
+                                <Typography
+                                    fontSize='0.73rem'
+                                    noWrap
+                                    style={{
+                                        color: pos.isSenior ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.62)',
+                                        fontWeight: pos.isSenior ? 700 : 400,
+                                    }}
+                                >
+                                    {pos.role}
+                                </Typography>
+                                {!pos.roleId || !validRoleIds.has(String(pos.roleId)) ? (
+                                    <Tooltip title="This position isn't linked to a Role in the catalog — the name above is just display text, so no Discord roles, TeamSpeak groups, or permissions from a Role are actually granted to whoever holds it. Fix it by re-picking a Role for this position.">
+                                        <Warning sx={{ fontSize: 12, color: 'rgba(251,191,36,0.85)', flexShrink: 0 }} />
+                                    </Tooltip>
+                                ) : null}
+                            </>
                         )}
                     </div>
 
