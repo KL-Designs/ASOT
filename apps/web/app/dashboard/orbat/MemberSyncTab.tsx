@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Box, Typography, Button, CircularProgress, Alert, Collapse, IconButton } from '@mui/material'
+import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material'
 import { ExpandMore, ExpandLess, Refresh } from '@mui/icons-material'
 import type { MemberSyncEntry, MemberSyncReport, GrantDetail } from '@/lib/orbat/member-sync'
 
@@ -38,7 +39,7 @@ function GrantDetailList({ title, items, tone }: { title: string; items: GrantDe
     )
 }
 
-function MemberRow({ entry, expanded, onToggle }: { entry: MemberSyncEntry; expanded: boolean; onToggle: () => void }) {
+function MemberRow({ entry, expanded, onToggle, onSync }: { entry: MemberSyncEntry; expanded: boolean; onToggle: () => void; onSync: (entry: MemberSyncEntry) => void }) {
     const style = STATUS_STYLE[entry.status]
     const count = issueCount(entry)
 
@@ -64,6 +65,12 @@ function MemberRow({ entry, expanded, onToggle }: { entry: MemberSyncEntry; expa
                 }}>
                     {style.label}{entry.status !== 'green' && ` (${count})`}
                 </Box>
+                {entry.status !== 'green' && (
+                    <Button size='small' variant='outlined' onClick={e => { e.stopPropagation(); onSync(entry) }}
+                        sx={{ fontSize: '0.62rem', letterSpacing: 0.5, borderColor: 'rgba(100,180,255,0.4)', color: 'rgba(100,180,255,0.85)' }}>
+                        Sync
+                    </Button>
+                )}
             </Box>
             <Collapse in={expanded}>
                 <Box sx={{ px: 2, pb: 1.5, pl: 5.5 }}>
@@ -83,12 +90,30 @@ function MemberRow({ entry, expanded, onToggle }: { entry: MemberSyncEntry; expa
     )
 }
 
+function DiffPreview({ entries }: { entries: MemberSyncEntry[] }) {
+    return (
+        <Box sx={{ maxHeight: 320, overflowY: 'auto' }}>
+            {entries.map(entry => (
+                <Box key={entry.userId} sx={{ mb: 1.5 }}>
+                    <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'rgba(237,237,237,0.85)' }}>{entry.name}</Typography>
+                    <GrantDetailList title='Grant (Discord)' items={entry.discord.missing} tone='red' />
+                    <GrantDetailList title='Revoke (Discord)' items={entry.discord.extra} tone='orange' />
+                    <GrantDetailList title='Grant (TeamSpeak)' items={entry.teamspeak.missing} tone='red' />
+                    <GrantDetailList title='Revoke (TeamSpeak)' items={entry.teamspeak.extra} tone='orange' />
+                </Box>
+            ))}
+        </Box>
+    )
+}
+
 export default function MemberSyncTab() {
     const [report, setReport] = useState<MemberSyncReport | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
     const [offRosterExpanded, setOffRosterExpanded] = useState(false)
+    const [confirmTarget, setConfirmTarget] = useState<{ kind: 'all'; entries: MemberSyncEntry[] } | { kind: 'member'; entries: MemberSyncEntry[] } | null>(null)
+    const [applying, setApplying] = useState(false)
 
     const load = useCallback(async () => {
         setLoading(true)
@@ -115,9 +140,31 @@ export default function MemberSyncTab() {
         })
     }
 
+    const allEntries = useMemo(() => report ? [...report.onRoster, ...report.offRoster] : [], [report])
+    const outOfSync = useMemo(() => allEntries.filter(e => e.status !== 'green'), [allEntries])
     const onRosterSorted = useMemo(() => report ? sortEntries(report.onRoster) : [], [report])
     const offRosterFlagged = useMemo(() => report ? report.offRoster.filter(e => e.status !== 'green') : [], [report])
     const offRosterSorted = useMemo(() => sortEntries(offRosterFlagged), [offRosterFlagged])
+
+    async function applyConfirmed() {
+        if (!confirmTarget) return
+        setApplying(true)
+        setError(null)
+        try {
+            const userIds = confirmTarget.kind === 'member' ? confirmTarget.entries.map(e => e.userId) : undefined
+            const res = await fetch('/api/admin/orbat/member-sync/apply', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userIds }),
+            })
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok) { setError(data.error ?? 'Sync failed'); return }
+            setConfirmTarget(null)
+            await load()
+        } catch {
+            setError('Sync failed')
+        } finally {
+            setApplying(false)
+        }
+    }
 
     return (
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -125,6 +172,11 @@ export default function MemberSyncTab() {
                 <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1, color: 'rgba(237,237,237,0.5)', flex: 1 }}>
                     Discord / TeamSpeak grant drift across every member
                 </Typography>
+                <Button size='small' variant='contained' disabled={loading || outOfSync.length === 0}
+                    onClick={() => setConfirmTarget({ kind: 'all', entries: outOfSync })}
+                    sx={{ background: 'var(--red)', fontWeight: 700, letterSpacing: 1, fontSize: '0.65rem', '&:hover': { background: 'rgba(219,0,29,0.85)' } }}>
+                    Sync All ({outOfSync.length})
+                </Button>
                 <Button size='small' variant='outlined' startIcon={<Refresh sx={{ fontSize: 15 }} />} onClick={load} disabled={loading}
                     sx={{ fontSize: '0.65rem', letterSpacing: 1, borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.7)' }}>
                     Refresh
@@ -143,7 +195,9 @@ export default function MemberSyncTab() {
                         On Roster ({onRosterSorted.length})
                     </Typography>
                     {onRosterSorted.map(entry => (
-                        <MemberRow key={entry.userId} entry={entry} expanded={expandedIds.has(entry.userId)} onToggle={() => toggleExpand(entry.userId)} />
+                        <MemberRow key={entry.userId} entry={entry} expanded={expandedIds.has(entry.userId)}
+                            onToggle={() => toggleExpand(entry.userId)}
+                            onSync={e => setConfirmTarget({ kind: 'member', entries: [e] })} />
                     ))}
                     {onRosterSorted.length === 0 && (
                         <Typography sx={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', fontStyle: 'italic', px: 2, py: 1 }}>No on-roster members.</Typography>
@@ -164,11 +218,30 @@ export default function MemberSyncTab() {
                     </Box>
                     <Collapse in={offRosterExpanded}>
                         {offRosterSorted.map(entry => (
-                            <MemberRow key={entry.userId} entry={entry} expanded={expandedIds.has(entry.userId)} onToggle={() => toggleExpand(entry.userId)} />
+                            <MemberRow key={entry.userId} entry={entry} expanded={expandedIds.has(entry.userId)}
+                                onToggle={() => toggleExpand(entry.userId)}
+                                onSync={e => setConfirmTarget({ kind: 'member', entries: [e] })} />
                         ))}
                     </Collapse>
                 </Box>
             )}
+
+            <Dialog open={!!confirmTarget} onClose={() => !applying && setConfirmTarget(null)} maxWidth='sm' fullWidth
+                PaperProps={{ style: { background: 'var(--background, #0a0a0a)', border: '1px solid rgba(219,0,29,0.32)' } }}>
+                <DialogTitle sx={{ fontSize: '0.85rem', fontWeight: 700 }}>
+                    {confirmTarget?.kind === 'all' ? `Sync ${confirmTarget.entries.length} member(s)?` : `Sync ${confirmTarget?.entries[0]?.name}?`}
+                </DialogTitle>
+                <DialogContent>
+                    {confirmTarget && <DiffPreview entries={confirmTarget.entries} />}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setConfirmTarget(null)} disabled={applying} sx={{ color: 'rgba(237,237,237,0.6)' }}>Cancel</Button>
+                    <Button onClick={applyConfirmed} disabled={applying} variant='contained'
+                        sx={{ background: 'var(--red)', fontWeight: 700, '&:hover': { background: 'rgba(219,0,29,0.85)' } }}>
+                        {applying ? 'Syncing…' : 'Confirm Sync'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     )
 }

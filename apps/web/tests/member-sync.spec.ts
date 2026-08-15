@@ -107,4 +107,53 @@ test.describe('Member Sync tab UI', () => {
         await adminPage.getByRole('button', { name: 'Show' }).click()
         await expect(adminPage.getByText('Stray Member')).toBeVisible()
     })
+
+    test('per-member Sync opens a confirmation dialog showing the diff, then applies and reloads', async ({ adminPage }) => {
+        let getCalls = 0
+        await adminPage.route('**/api/admin/orbat/member-sync', route => {
+            getCalls++
+            route.fulfill({ json: SAMPLE_REPORT })
+        })
+        let applyBody: unknown = null
+        await adminPage.route('**/api/admin/orbat/member-sync/apply', async route => {
+            applyBody = route.request().postDataJSON()
+            await route.fulfill({ json: { membersChecked: 1, discordGranted: 1, discordRevoked: 0, tsGranted: 0, tsRevoked: 0 } })
+        })
+
+        await adminPage.goto('/dashboard/orbat')
+        await adminPage.getByRole('button', { name: 'Manage Roles' }).click()
+        await adminPage.getByRole('button', { name: 'Member Sync' }).click()
+
+        // Rows aren't semantic <tr>s. Multiple ancestor divs contain "Red Member"
+        // (the row wrapper, the header row, the list container...) — .last() picks
+        // the innermost one (the row's own flex header), which is the only div that
+        // contains Red Member's Sync button but not Orange Member's.
+        const redRow = adminPage.locator('div', { hasText: 'Red Member' }).last()
+        await redRow.getByRole('button', { name: 'Sync' }).click()
+
+        await expect(adminPage.getByText('Sync Red Member?')).toBeVisible()
+        await expect(adminPage.getByText('Grant (Discord)')).toBeVisible()
+        // "J4 - Administration" also appears elsewhere on the page (an ORBAT
+        // role select rendered in the DOM behind the dialog) — scope to the
+        // dialog itself to avoid a strict-mode ambiguity.
+        const dialog = adminPage.getByRole('dialog')
+        await expect(dialog.getByText('J4 - Administration', { exact: false })).toBeVisible()
+
+        await adminPage.getByRole('button', { name: 'Confirm Sync' }).click()
+        await expect(adminPage.getByText('Sync Red Member?')).not.toBeVisible()
+
+        expect(applyBody).toEqual({ userIds: ['u1'] })
+        expect(getCalls).toBeGreaterThanOrEqual(2) // initial load + reload after apply
+    })
+
+    test('Sync All is disabled when nothing is out of sync', async ({ adminPage }) => {
+        const ALL_GREEN = { onRoster: [SAMPLE_REPORT.onRoster[2]], offRoster: [] }
+        await adminPage.route('**/api/admin/orbat/member-sync', route => route.fulfill({ json: ALL_GREEN }))
+
+        await adminPage.goto('/dashboard/orbat')
+        await adminPage.getByRole('button', { name: 'Manage Roles' }).click()
+        await adminPage.getByRole('button', { name: 'Member Sync' }).click()
+
+        await expect(adminPage.getByRole('button', { name: /Sync All/ })).toBeDisabled()
+    })
 })
