@@ -22,6 +22,9 @@
 # production
 /build
 
+# locally provisioned binaries (restic, etc. — parallel to node_modules)
+/bin
+
 # misc
 .DS_Store
 *.pem

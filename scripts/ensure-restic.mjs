@@ -8,7 +8,7 @@
 //
 // Usage: node scripts/ensure-restic.mjs
 
-import { existsSync, mkdirSync, createWriteStream, createReadStream, chmodSync, readdirSync, rmSync, renameSync } from 'fs'
+import { existsSync, mkdirSync, createWriteStream, chmodSync, readdirSync, rmSync, renameSync } from 'fs'
 import { join, resolve } from 'path'
 import { pipeline } from 'stream/promises'
 import { Readable } from 'stream'
@@ -46,26 +46,33 @@ async function main() {
 
     if (platform === 'windows') {
         const tmpZip = join(BIN_DIR, 'restic-download.zip')
-        await pipeline(Readable.fromWeb(downloadRes.body), createWriteStream(tmpZip))
-        // Expand-Archive is built into every supported Windows version — avoids
-        // needing a zip-extraction npm dependency just for this one-off script.
-        await execFileAsync('powershell.exe', [
-            '-NoProfile', '-Command',
-            `Expand-Archive -Path "${tmpZip}" -DestinationPath "${BIN_DIR}" -Force`,
-        ])
-        rmSync(tmpZip, { force: true })
-        const extracted = readdirSync(BIN_DIR).find(f => /^restic.*\.exe$/i.test(f) && f !== BINARY_NAME)
-        if (!extracted) throw new Error('Expand-Archive did not produce a restic .exe')
-        renameSync(join(BIN_DIR, extracted), BINARY_PATH)
+        try {
+            await pipeline(Readable.fromWeb(downloadRes.body), createWriteStream(tmpZip))
+            // Expand-Archive is built into every supported Windows version — avoids
+            // needing a zip-extraction npm dependency just for this one-off script.
+            await execFileAsync('powershell.exe', [
+                '-NoProfile', '-Command',
+                `Expand-Archive -Path "${tmpZip}" -DestinationPath "${BIN_DIR}" -Force`,
+            ])
+            const extracted = readdirSync(BIN_DIR).find(f => /^restic.*\.exe$/i.test(f) && f !== BINARY_NAME)
+            if (!extracted) throw new Error('Expand-Archive did not produce a restic .exe')
+            renameSync(join(BIN_DIR, extracted), BINARY_PATH)
+        } finally {
+            rmSync(tmpZip, { force: true })
+        }
     } else {
         const tmpBz2 = join(BIN_DIR, 'restic-download.bz2')
-        await pipeline(Readable.fromWeb(downloadRes.body), createWriteStream(tmpBz2))
-        await execFileAsync('bunzip2', ['-f', tmpBz2])
-        renameSync(tmpBz2.replace(/\.bz2$/, ''), BINARY_PATH)
-        chmodSync(BINARY_PATH, 0o755)
+        try {
+            await pipeline(Readable.fromWeb(downloadRes.body), createWriteStream(tmpBz2))
+            await execFileAsync('bunzip2', ['-f', tmpBz2])
+            renameSync(tmpBz2.replace(/\.bz2$/, ''), BINARY_PATH)
+            chmodSync(BINARY_PATH, 0o755)
+        } finally {
+            rmSync(tmpBz2, { force: true })
+        }
     }
 
     console.log(`[restic] Installed to ${BINARY_PATH}`)
 }
 
-main().catch(err => { console.error('[restic] Setup failed:', err.message); process.exit(1) })
+main().catch(err => { console.error('[restic] Setup failed:', err); process.exit(1) })
