@@ -46,6 +46,7 @@ export default function RoleSelect({ category, value, onChange, placeholder = 'S
     return (
         <div ref={ref} style={{ position: 'relative', width: '100%' }}>
             <input
+                autoFocus
                 value={open ? query : (selected ? displayLabel(selected) : '')}
                 onChange={e => { setQuery(e.target.value); setOpen(true) }}
                 onFocus={() => { setOpen(true); setQuery('') }}

@@ -5,7 +5,7 @@ import {
     TextField, Button, IconButton,
     Checkbox, FormControlLabel, CircularProgress, Alert, Typography, Box, InputAdornment, Tooltip,
 } from '@mui/material'
-import { ContentCopy, ContentPaste, Delete, Add, Search } from '@mui/icons-material'
+import { ContentCopy, ContentPaste, Delete, Add, Search, CheckCircle, ErrorOutline } from '@mui/icons-material'
 import { PLATOON_CATEGORIES } from '@/lib/orbat/constants'
 import { PERMISSION_DESCRIPTIONS } from '@/lib/permissions-descriptions'
 
@@ -65,6 +65,8 @@ export default function OrbatRolesTab({ onDirtyChange }: { onDirtyChange: (dirty
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
+    const [saving, setSaving] = useState(false)
+    const [saveStatus, setSaveStatus] = useState<'success' | 'error' | null>(null)
     const [editingId, setEditingId] = useState<string | null>(null)   // '__new__' for the create form
     const [formName, setFormName] = useState('')
     const [formCategories, setFormCategories] = useState<string[]>([])
@@ -118,6 +120,12 @@ export default function OrbatRolesTab({ onDirtyChange }: { onDirtyChange: (dirty
 
     useEffect(() => { onDirtyChange(dirty) }, [dirty, onDirtyChange])
 
+    useEffect(() => {
+        if (saveStatus !== 'success') return
+        const t = setTimeout(() => setSaveStatus(null), 2500)
+        return () => clearTimeout(t)
+    }, [saveStatus])
+
     function confirmDiscardIfDirty(message: string): boolean {
         return !dirty || window.confirm(message)
     }
@@ -136,6 +144,7 @@ export default function OrbatRolesTab({ onDirtyChange }: { onDirtyChange: (dirty
         setTsSearch('')
         setPermSearch('')
         setError(null)
+        setSaveStatus(null)
         setConfirmingDelete(false)
     }
 
@@ -153,12 +162,14 @@ export default function OrbatRolesTab({ onDirtyChange }: { onDirtyChange: (dirty
         setTsSearch('')
         setPermSearch('')
         setError(null)
+        setSaveStatus(null)
         setConfirmingDelete(false)
     }
 
     function discard() {
         setEditingId(null)
         setError(null)
+        setSaveStatus(null)
         setConfirmingDelete(false)
     }
 
@@ -186,21 +197,49 @@ export default function OrbatRolesTab({ onDirtyChange }: { onDirtyChange: (dirty
     const hasClipboard = categoriesClipboard !== null || discordRoleIdsClipboard !== null || tsGroupIdsClipboard !== null || permissionsClipboard !== null
 
     async function save() {
+        if (saving) return
         if (!formName.trim()) { setError('Name is required'); return }
         setError(null)
-        const body = { name: formName.trim(), categories: formCategories, discordRoleIds: formDiscordRoleIds, tsGroupIds: formTsGroupIds, permissions: formPermissions, tag: formTag }
+        setSaveStatus(null)
+        setSaving(true)
+        try {
+            const name = formName.trim()
+            const tag = formTag.trim() || null
+            const body = { name, categories: formCategories, discordRoleIds: formDiscordRoleIds, tsGroupIds: formTsGroupIds, permissions: formPermissions, tag }
 
-        const res = editingId === '__new__'
-            ? await fetch('/api/admin/orbat/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-            : await fetch(`/api/admin/orbat/roles/${editingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+            const wasNew = editingId === '__new__'
+            const res = wasNew
+                ? await fetch('/api/admin/orbat/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+                : await fetch(`/api/admin/orbat/roles/${editingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
-        if (!res.ok) {
-            const data = await res.json().catch(() => ({}))
-            setError(data.error ?? 'Save failed')
-            return
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                setError(data.error ?? 'Save failed')
+                setSaveStatus('error')
+                return
+            }
+
+            // Patch local state from the known-good save instead of re-fetching
+            // everything — avoids a full-panel reload/spinner on every save.
+            if (wasNew) {
+                const data = await res.json().catch(() => ({}))
+                const created: OrbatRole | undefined = data.role
+                if (created) {
+                    setRoles(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
+                    setEditingId(String(created._id))
+                }
+            } else {
+                const savedId = editingId
+                setRoles(prev => prev
+                    .map(r => String(r._id) === savedId
+                        ? { ...r, name, tag, categories: formCategories, discordRoleIds: formDiscordRoleIds, tsGroupIds: formTsGroupIds, permissions: formPermissions }
+                        : r)
+                    .sort((a, b) => a.name.localeCompare(b.name)))
+            }
+            setSaveStatus('success')
+        } finally {
+            setSaving(false)
         }
-        setEditingId(null)
-        await load()
     }
 
     async function remove(role: OrbatRole) {
@@ -451,17 +490,31 @@ export default function OrbatRolesTab({ onDirtyChange }: { onDirtyChange: (dirty
                                 </Box>
 
                                 <Box sx={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15,15,15,0.98)', p: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <Button variant='contained' onClick={save}
-                                        sx={{ background: 'var(--red)', fontWeight: 700, letterSpacing: 1, fontSize: '0.75rem', '&:hover': { background: 'rgba(219,0,29,0.85)' } }}>
+                                    <Button variant='contained' onClick={save} disabled={saving}
+                                        sx={{
+                                            background: 'var(--red)', fontWeight: 700, letterSpacing: 1, fontSize: '0.75rem',
+                                            '&:hover': { background: 'rgba(219,0,29,0.85)' },
+                                            '&.Mui-disabled': { background: 'var(--red)', color: 'rgba(255,255,255,0.6)', opacity: 0.5 },
+                                        }}>
                                         Save
                                     </Button>
-                                    <Button variant='outlined' onClick={discard}
+                                    <Button variant='outlined' onClick={discard} disabled={saving}
                                         sx={{ borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.6)' }}>
                                         Discard
                                     </Button>
                                     {dirty && (
                                         <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,180,80,0.85)', fontStyle: 'italic' }}>
                                             Unsaved changes
+                                        </Typography>
+                                    )}
+                                    {saveStatus === 'success' && (
+                                        <Typography sx={{ fontSize: '0.68rem', color: 'rgba(80,220,140,0.9)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <CheckCircle sx={{ fontSize: 14 }} /> Saved
+                                        </Typography>
+                                    )}
+                                    {saveStatus === 'error' && (
+                                        <Typography sx={{ fontSize: '0.68rem', color: 'rgba(219,0,29,0.85)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <ErrorOutline sx={{ fontSize: 14 }} /> Save failed
                                         </Typography>
                                     )}
 

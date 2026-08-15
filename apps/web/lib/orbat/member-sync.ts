@@ -2,7 +2,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { fetchAllGuildMembers, addGuildRole, removeGuildRole } from '@/lib/discord/bot'
 import { getClientServerGroupIds, applyTsServerGroups } from '@/lib/teamspeak/groups'
-import { getGroupCache, getConnection } from '@/lib/teamspeak/cache'
+import { getConnection } from '@/lib/teamspeak/cache'
 
 export interface GrantDetail {
     id: string | number
@@ -90,8 +90,15 @@ function statusFor(discord: MemberSyncEntry['discord'], teamspeak: MemberSyncEnt
  *  should let it propagate to a 500, not swallow it. */
 export async function computeMemberSyncReport(): Promise<MemberSyncReport> {
     let tsAvailable = true
+    // Resolved directly from the live connection rather than getGroupCache() —
+    // that cache is only warmed by the periodic cron job or a visit to the
+    // TeamSpeak clients page, so relying on it here left group names showing
+    // as raw sgid numbers whenever this ran before either had populated it.
+    let tsGroupNameById = new Map<number, string>()
     try {
-        await getConnection()
+        const ts = await getConnection()
+        const allGroups = await ts.serverGroupList()
+        tsGroupNameById = new Map(allGroups.map(g => [Number(g.sgid), g.name]))
     } catch {
         tsAvailable = false
     }
@@ -122,8 +129,6 @@ export async function computeMemberSyncReport(): Promise<MemberSyncReport> {
 
     const guildRoleMap = new Map(guildMembers.map(m => [m.userId, new Set(m.roleIds)]))
     const roleNameById = new Map(client.roles.map(r => [r.id, r.name]))
-    const tsGroupCache = getGroupCache()
-    const tsGroupNameById = new Map((tsGroupCache?.groups ?? []).map(g => [g.id, g.name]))
 
     const positionByUserId = new Map(orbatPositions.filter(p => p.userId).map(p => [p.userId as string, p]))
     const orbatRoleById = new Map(orbatRoles.map(r => [String(r._id), r]))

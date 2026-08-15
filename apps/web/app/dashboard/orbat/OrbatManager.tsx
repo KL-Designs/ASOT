@@ -7,7 +7,7 @@ import {
     Typography, Button, CircularProgress,
     Dialog, DialogTitle, DialogContent, DialogActions,
     TextField, IconButton, Avatar, Tooltip,
-    Menu, MenuItem, ListItemIcon, ListItemText, Divider,
+    MenuItem, ListItemIcon, ListItemText, Divider,
 } from '@mui/material'
 import {
     Edit, Close, AccountTree, Warning, ArrowUpward, ArrowDownward,
@@ -157,11 +157,24 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
     const [addSectionVal, setAddSectionVal] = useState('')
     const [addRoleKey, setAddRoleKey] = useState<string | null>(null)  // `${cat}::${sectionTitle}`
 
-    // Row action menu — which position row's menu is open, anchored to the
-    // click coordinates directly (not a stored DOM node — MUI's anchorEl
-    // positioning proved unreliable for this row-click pattern, landing the
-    // menu at the viewport origin instead of the clicked row).
-    const [openMenu, setOpenMenu] = useState<{ posId: string; x: number; y: number } | null>(null)
+    // Row action menu — which position row's menu is open, if any. Rendered
+    // as a plain CSS-positioned dropdown (like RoleSelect's own picker)
+    // rather than an MUI Menu/Popover — Popover's anchorEl and anchorPosition
+    // positioning modes both proved unreliable here, landing the menu at the
+    // viewport origin instead of the clicked row.
+    const [openMenuPosId, setOpenMenuPosId] = useState<string | null>(null)
+    const activeMenuRowRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (!openMenuPosId) return
+        function handler(e: MouseEvent) {
+            if (activeMenuRowRef.current && !activeMenuRowRef.current.contains(e.target as Node)) {
+                setOpenMenuPosId(null)
+            }
+        }
+        document.addEventListener('mousedown', handler)
+        return () => document.removeEventListener('mousedown', handler)
+    }, [openMenuPosId])
 
     // Drag state (within a section)
     const [activeDragId, setActiveDragId] = useState<string | null>(null)
@@ -637,7 +650,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         const posId = pos._id.toString()
         const isSaving = savingId === posId
         const isEditing = editRoleId === posId
-        const isMenuOpen = openMenu?.posId === posId
+        const isMenuOpen = openMenuPosId === posId
         const canOpenMenu = !isEditing && !opts.isDragOverlay && (canManageStructure || canManageMembers)
         const roleTag = pos.roleId ? rolesById.get(String(pos.roleId))?.tag ?? null : null
 
@@ -645,9 +658,10 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             <>
                 {/* Main row */}
                 <div
-                    className={`group flex items-center gap-1.5 px-2 py-1 bg-[rgba(255,255,255,0.015)] transition-colors duration-150 ${canOpenMenu ? 'cursor-pointer hover:bg-[rgba(255,255,255,0.05)]' : ''}`}
+                    ref={isMenuOpen ? activeMenuRowRef : undefined}
+                    className={`group relative flex items-center gap-1.5 px-2 py-1 bg-[rgba(255,255,255,0.015)] transition-colors duration-150 ${canOpenMenu ? 'cursor-pointer hover:bg-[rgba(255,255,255,0.05)]' : ''}`}
                     style={{ border: rowStyle.border }}
-                    onClick={canOpenMenu ? (e) => setOpenMenu({ posId, x: e.clientX, y: e.clientY }) : undefined}
+                    onClick={canOpenMenu ? () => setOpenMenuPosId(posId) : undefined}
                 >
 
                     {/* Drag handle — structure managers only */}
@@ -672,12 +686,21 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                                     fontSize='0.73rem'
                                     noWrap
                                     style={{
+                                        minWidth: 0,
                                         color: pos.isSenior ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.62)',
                                         fontWeight: pos.isSenior ? 700 : 400,
                                     }}
                                 >
                                     {pos.role}
                                 </Typography>
+                                {roleTag && (
+                                    <span style={{
+                                        flexShrink: 0, fontSize: '0.55rem', fontWeight: 700, padding: '1px 6px', borderRadius: 999,
+                                        background: 'rgba(251,191,36,0.14)', color: 'rgba(251,191,36,0.85)', border: '1px solid rgba(251,191,36,0.3)',
+                                    }}>
+                                        {roleTag}
+                                    </span>
+                                )}
                                 {!pos.roleId || !validRoleIds.has(String(pos.roleId)) ? (
                                     <Tooltip title="This position isn't linked to a Role in the catalog — the name above is just display text, so no Discord roles, TeamSpeak groups, or permissions from a Role are actually granted to whoever holds it. Fix it by re-picking a Role for this position.">
                                         <Warning sx={{ fontSize: 12, color: 'rgba(251,191,36,0.85)', flexShrink: 0 }} />
@@ -735,81 +758,79 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                             sx={{ fontSize: 13, color: 'rgba(237,237,237,0.7)', flexShrink: 0 }}
                         />
                     )}
-                </div>
 
-                {/* Row action menu */}
-                {canOpenMenu && (
-                    <Menu
-                        open={isMenuOpen}
-                        onClose={() => setOpenMenu(null)}
-                        anchorReference='anchorPosition'
-                        anchorPosition={isMenuOpen ? { top: openMenu.y, left: openMenu.x } : undefined}
-                        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                        PaperProps={{ sx: posMenuPaperSx }}
-                    >
-                        <div style={{ padding: '4px 12px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 4 }}>
-                            <Typography fontSize='0.68rem' noWrap style={{ color: 'rgba(237,237,237,0.6)', fontWeight: 600 }}>
-                                {pos.role}
-                            </Typography>
-                            {roleTag && (
-                                <Typography fontSize='0.6rem' style={{ color: 'rgba(237,237,237,0.35)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                                    Tag: {roleTag}
+                    {/* Row action menu — plain CSS-anchored dropdown (see openMenuPosId
+                        above for why this isn't an MUI Menu/Popover) */}
+                    {canOpenMenu && isMenuOpen && (
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ ...posMenuPaperSx, position: 'absolute', top: '100%', right: 0, zIndex: 50, marginTop: 2 }}
+                        >
+                            <div style={{ padding: '4px 12px 6px', borderBottom: '1px solid rgba(255,255,255,0.06)', marginBottom: 4 }}>
+                                <Typography fontSize='0.68rem' noWrap style={{ color: 'rgba(237,237,237,0.6)', fontWeight: 600 }}>
+                                    {pos.role}
                                 </Typography>
+                                {roleTag && (
+                                    <Typography fontSize='0.6rem' style={{ color: 'rgba(237,237,237,0.35)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                                        Tag: {roleTag}
+                                    </Typography>
+                                )}
+                            </div>
+                            {canManageStructure && (
+                                <MenuItem
+                                    sx={posMenuItemSx}
+                                    onClick={() => {
+                                        setEditRoleId(posId)
+                                        setOpenMenuPosId(null)
+                                    }}
+                                >
+                                    <ListItemIcon sx={posMenuIconSx}><Edit /></ListItemIcon>
+                                    <ListItemText primaryTypographyProps={{ fontSize: '0.7rem' }}>Change Role</ListItemText>
+                                </MenuItem>
+                            )}
+                            {canManageMembers && (
+                                <MenuItem
+                                    sx={posMenuItemSx}
+                                    onClick={() => {
+                                        setPickerOpen(posId)
+                                        setUserSearch('')
+                                        setOpenMenuPosId(null)
+                                    }}
+                                >
+                                    <ListItemIcon sx={posMenuIconSx}><PersonAdd /></ListItemIcon>
+                                    <ListItemText primaryTypographyProps={{ fontSize: '0.7rem' }}>{pos.user ? 'Change User' : 'Assign User'}</ListItemText>
+                                </MenuItem>
+                            )}
+                            {canManageMembers && pos.user && (
+                                <MenuItem
+                                    sx={posMenuItemSx}
+                                    onClick={() => {
+                                        assign(posId, null)
+                                        setOpenMenuPosId(null)
+                                    }}
+                                >
+                                    <ListItemIcon sx={posMenuIconSx}><PersonRemove /></ListItemIcon>
+                                    <ListItemText primaryTypographyProps={{ fontSize: '0.7rem' }}>Remove User</ListItemText>
+                                </MenuItem>
+                            )}
+                            {canManageStructure && (
+                                <>
+                                    <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 0.5 }} />
+                                    <MenuItem
+                                        sx={posMenuItemDangerSx}
+                                        onClick={() => {
+                                            setConfirmDeletePos(posId)
+                                            setOpenMenuPosId(null)
+                                        }}
+                                    >
+                                        <ListItemIcon sx={posMenuIconSx}><LinkOff /></ListItemIcon>
+                                        <ListItemText primaryTypographyProps={{ fontSize: '0.7rem' }}>Remove Role</ListItemText>
+                                    </MenuItem>
+                                </>
                             )}
                         </div>
-                        {canManageStructure && (
-                            <MenuItem
-                                sx={posMenuItemSx}
-                                onClick={() => {
-                                    setEditRoleId(posId)
-                                    setOpenMenu(null)
-                                }}
-                            >
-                                <ListItemIcon sx={posMenuIconSx}><Edit /></ListItemIcon>
-                                <ListItemText primaryTypographyProps={{ fontSize: '0.7rem' }}>Change Role</ListItemText>
-                            </MenuItem>
-                        )}
-                        {canManageMembers && (
-                            <MenuItem
-                                sx={posMenuItemSx}
-                                onClick={() => {
-                                    setPickerOpen(posId)
-                                    setUserSearch('')
-                                    setOpenMenu(null)
-                                }}
-                            >
-                                <ListItemIcon sx={posMenuIconSx}><PersonAdd /></ListItemIcon>
-                                <ListItemText primaryTypographyProps={{ fontSize: '0.7rem' }}>{pos.user ? 'Change User' : 'Assign User'}</ListItemText>
-                            </MenuItem>
-                        )}
-                        {canManageMembers && pos.user && (
-                            <MenuItem
-                                sx={posMenuItemSx}
-                                onClick={() => {
-                                    assign(posId, null)
-                                    setOpenMenu(null)
-                                }}
-                            >
-                                <ListItemIcon sx={posMenuIconSx}><PersonRemove /></ListItemIcon>
-                                <ListItemText primaryTypographyProps={{ fontSize: '0.7rem' }}>Remove User</ListItemText>
-                            </MenuItem>
-                        )}
-                        {canManageStructure && [
-                            <Divider key='divider' sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 0.5 }} />,
-                            <MenuItem
-                                key='remove-role'
-                                sx={posMenuItemDangerSx}
-                                onClick={() => {
-                                    setConfirmDeletePos(posId)
-                                    setOpenMenu(null)
-                                }}
-                            >
-                                <ListItemIcon sx={posMenuIconSx}><LinkOff /></ListItemIcon>
-                                <ListItemText primaryTypographyProps={{ fontSize: '0.7rem' }}>Remove Role</ListItemText>
-                            </MenuItem>,
-                        ]}
-                    </Menu>
-                )}
+                    )}
+                </div>
             </>
         )
     }
