@@ -30,3 +30,19 @@ test.describe('GET /api/admin/orbat/member-sync', () => {
         expect(res.status()).not.toBe(401)
     })
 })
+
+test.describe('POST /api/admin/orbat/member-sync/apply', () => {
+    test('rejects an anonymous caller', async ({ request }) => {
+        expect((await request.post('/api/admin/orbat/member-sync/apply')).status()).toBe(401)
+    })
+
+    test('rejects an ordinary department member', async ({ memberPage }) => {
+        expect((await memberPage.request.post('/api/admin/orbat/member-sync/apply')).status()).toBe(403)
+    })
+
+    test('passes the gate for an authorized caller', async ({ adminPage }) => {
+        const res = await adminPage.request.post('/api/admin/orbat/member-sync/apply', { data: {} })
+        expect(res.status()).not.toBe(403)
+        expect(res.status()).not.toBe(401)
+    })
+})

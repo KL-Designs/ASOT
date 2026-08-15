@@ -1,8 +1,8 @@
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { DEPT_CODES } from '@/lib/discord/dept-codes'
-import { fetchAllGuildMembers } from '@/lib/discord/bot'
-import { getClientServerGroupIds } from '@/lib/teamspeak/groups'
+import { fetchAllGuildMembers, addGuildRole, removeGuildRole } from '@/lib/discord/bot'
+import { getClientServerGroupIds, applyTsServerGroups } from '@/lib/teamspeak/groups'
 import { getGroupCache } from '@/lib/teamspeak/cache'
 
 export interface GrantDetail {
@@ -199,4 +199,48 @@ export async function computeMemberSyncReport(): Promise<MemberSyncReport> {
         onRoster: entries.filter(e => e.onRoster),
         offRoster: entries.filter(e => !e.onRoster),
     }
+}
+
+export interface MemberSyncApplyResult {
+    membersChecked: number
+    discordGranted: number
+    discordRevoked: number
+    tsGranted: number
+    tsRevoked: number
+}
+
+/** Re-runs computeMemberSyncReport() (fresh live Discord/TeamSpeak state,
+ *  never trusts a diff computed earlier in the request lifecycle) and grants
+ *  / revokes whatever each target member's fresh diff says. `userIds`
+ *  omitted = every currently out-of-sync member; provided = only those
+ *  (used for both the per-member Sync button and Sync All). */
+export async function applyMemberSyncFixes(userIds?: string[]): Promise<MemberSyncApplyResult> {
+    const report = await computeMemberSyncReport()
+    const allEntries = [...report.onRoster, ...report.offRoster]
+    const targets = userIds
+        ? allEntries.filter(e => userIds.includes(e.userId))
+        : allEntries.filter(e => e.status !== 'green')
+
+    let discordGranted = 0, discordRevoked = 0, tsGranted = 0, tsRevoked = 0
+
+    await Promise.all(targets.map(async entry => {
+        const discordToGrant = entry.discord.missing.map(g => String(g.id))
+        const discordToRevoke = entry.discord.extra.map(g => String(g.id))
+        const tsToGrant = entry.teamspeak.missing.map(g => Number(g.id))
+        const tsToRevoke = entry.teamspeak.extra.map(g => Number(g.id))
+
+        discordGranted += discordToGrant.length
+        discordRevoked += discordToRevoke.length
+        tsGranted += tsToGrant.length
+        tsRevoked += tsToRevoke.length
+
+        await Promise.allSettled([
+            ...discordToGrant.map(id => addGuildRole(entry.userId, id)),
+            ...discordToRevoke.map(id => removeGuildRole(entry.userId, id)),
+            tsToGrant.length ? applyTsServerGroups(entry.userId, 'add', tsToGrant) : Promise.resolve(),
+            tsToRevoke.length ? applyTsServerGroups(entry.userId, 'remove', tsToRevoke) : Promise.resolve(),
+        ])
+    }))
+
+    return { membersChecked: targets.length, discordGranted, discordRevoked, tsGranted, tsRevoked }
 }
