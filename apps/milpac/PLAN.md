@@ -26,11 +26,11 @@ at the top of §6 for exactly what was moved, deleted, and redacted.
 is an archive of Fulcrum's work, kept for attribution. Phase 1 is a rewrite
 against the §4 layout, not a refactor of what is there.
 
-**Three decisions in §7 block implementation and are still unanswered.** #2
-(UnitCommander push) blocks Phase 3; #3 (corps-specific rank insignia) and #4
-(medal box layering and centring) block finalising the renderer in Phase 1. They
-need a person from the unit, not a technical judgement — ask before building
-past them.
+**All §7 decisions are settled** — answered by the unit on 2026-08-16 and
+recorded there with their consequences. Nothing in this plan is waiting on an
+answer. The three that mattered: corps-specific rank insignia **do** render, the
+medal box follows the **original** layering and centring, and the UnitCommander
+push is **dropped entirely** rather than moved to web.
 
 **Outside this repo:** the MongoDB Atlas credential and the `UC_API_KEY` JWT
 found during the import still require rotation. See the end of §6 Phase 0.
@@ -112,10 +112,12 @@ Two smaller divergences to resolve during the overhaul:
 
 - **Medal box draw order is reversed.** The original drew right-to-left so the
   leftmost medal overlapped its neighbour; the web port draws left-to-right so
-  the rightmost does. Different layering, visibly different output.
+  the rightmost does. Different layering, visibly different output. **Resolved:
+  the original is correct** (§7 decision #4) — draw right-to-left.
 - **Medal box centring differs.** The web port accounts for medal width in the
-  centring maths (`(n-1)*step + width`); the original did not (`n*step`). Neither
-  has been confirmed correct against what the unit expects.
+  centring maths (`(n-1)*step + width`); the original did not (`n*step`).
+  **Resolved: the original is correct** (§7 decision #4) — `n*step`, medal width
+  excluded. In both cases the web port's version is the regression.
 
 ---
 
@@ -373,6 +375,10 @@ Container base goes `node:bookworm` + libreoffice + ghostscript + cairo
    `WaxSealGold.png` → `logo.png`.
 4. Render all 158 and diff against pptx-produced references. Nothing replaces the
    old pipeline until this passes review.
+5. Once it passes: delete the 614 legacy renders in `certificates/`, `milpac/`
+   and `medal-box-images/boxes/` (§7 decision #5). They are kept through this
+   phase as visual references and discarded at the end of it, rather than left
+   on the bind mount indefinitely.
 
 Expected: 3–6 s per certificate → tens of milliseconds, with no shared-file race
 and no `execSync` string interpolation.
@@ -497,15 +503,29 @@ report honestly.
 
 ---
 
-## 7. Open decisions
+## 7. Decisions
 
-| # | Decision | Notes |
+All five are settled. Nothing in this plan is blocked on a further answer.
+
+| # | Decision | Resolution |
 |---|---|---|
-| 1 | Fulcrum's commit email | Defaulting to `crackedpotato007@users.noreply.github.com`, which attributes correctly on GitHub without exposing a personal address. Override if he'd prefer his real one. |
-| 2 | UnitCommander push | `/update` currently POSTs the finished uniform to UC as a profile background. Recommendation: keep the feature, but on the **web** side — web owns the member data and the UC ID lookup, and the service stays a pure renderer with no outbound credentials. **If you action this, read §9 finding 7 first** — `get-uc-id.ts` and `update-uc-uniform.ts` interpolate unvalidated identifiers into the UC API URL, and porting them as-is would carry that flaw into the website. |
-| 3 | Corps-specific rank insignia | `TPRL/TPRS/TPRSL`, `SAPL/SAPS/SAPSL`, `GNRL/GNRS/GNRSL` assets exist, but **neither** implementation renders them — Fulcrum's substring replace mapped them onto the `PTE*` equivalents, and the web port blanks them entirely. Needs a unit decision: should corps-specific insignia render, or is the `PTE*` family intentional? |
-| 4 | Medal box layering and centring | See §3. Needs a visual decision on which is correct before the renderer is finalised. |
-| 5 | Fate of existing rendered output | `certificates/`, `milpac/` and `medal-box-images/boxes/` hold **614** rendered member images (343 + 184 + 87). Gitignored, so not a repo concern — but confirm whether they should be preserved to `storage/` or discarded. |
+| 1 | Fulcrum's commit email | **`crackedpotato007@users.noreply.github.com`**, ID-prefixed. Actioned in Phase 0; see §6. |
+| 2 | UnitCommander push | **Dropped entirely.** `/update`, `src/utility/get-uc-id.ts` and `src/utility/update-uc-uniform.ts` are deleted in Phase 1 and not reimplemented anywhere. Uniforms live on the site only; nothing is pushed to UnitCommander. This resolves §9 finding 7 by deletion — the code carrying the unvalidated interpolation ceases to exist, and no `UC_API_KEY` is needed by either app. |
+| 3 | Corps-specific rank insignia | **Render the corps-specific artwork.** `SIG*`, `TPR*`, `SAP*`, `GNR*` and `GM*` each draw their own PNG at their own tier. This is what §3's "the fix is deletion" already implies: the service does no rank rewriting at all, so the rank code web sends is the file it draws. Fulcrum's `PTE*` collapse and the web port's blanking both go. Corps identity now shows in the rank as well as the corps badge. |
+| 4 | Medal box layering and centring | **The original on both counts** — draw right-to-left so the *leftmost* medal overlaps its neighbour, and centre with `n*step`, ignoring medal width. The web port's left-to-right order and `(n-1)*step + width` centring are the regression, not the improvement. |
+| 5 | Fate of existing rendered output | **Keep for Phase 2, then discard.** The 614 images (343 certificates, 184 uniforms, 87 boxes) stay on disk as visual references while the canvas certificate renderer is transcribed, and are deleted once Phase 2 passes review. They are gitignored throughout, so this never touches the repository. Phase 2 records the deletion as an explicit step so they don't linger on the bind mount. |
+
+### Consequences worth carrying forward
+
+Decision 2 removes `UC_API_KEY` from the picture for both apps. The rotation
+note at the end of §6 Phase 0 still stands — the key sat in a file alongside a
+compromised credential and should be rotated regardless — but nothing in the new
+architecture consumes it, so rotation is cleanup rather than a prerequisite.
+
+Decision 3 is the reason §3's regex deletion is a behaviour change rather than a
+pure bug fix. Members whose rank codes are corps-specific have never had their
+own insignia rendered by *either* implementation, so the first correct render
+will look different from what the unit is used to. That is intended.
 
 ---
 
@@ -554,18 +574,20 @@ rediscovering them.
 | 4 | High | `/data` passes `req.headers.name` directly into `findOne({ name: … })`. A non-string header value becomes a query operator. | Phase 1 — `/data` and mongoose are both removed; the service holds no database connection. |
 | 5 | Medium | Generation failures return `JSON.stringify(err, Object.getOwnPropertyNames(err))` to the client, leaking stack traces and absolute filesystem paths. | Phase 1 — see the error-handling rule below. |
 | 6 | Medium | The session cookie sets only `maxAge` — no `httpOnly`, no `secure`, no `sameSite` — and no CSRF protection guards the state-changing routes. | Phase 1 — `express-session`, `connect-mongo` and `passport` are all removed. A stateless bearer-token service issues no cookies, so neither cookie flags nor CSRF apply. |
-| 7 | High | `utility/get-uc-id.ts` interpolates `discordID` straight into the UnitCommander API URL with no validation, and `update-uc-uniform.ts` does the same with `ucID`. A crafted value manipulates the request path against a third-party API carrying our bot credential. | **Not automatically resolved — see below.** |
+| 7 | High | `utility/get-uc-id.ts` interpolates `discordID` straight into the UnitCommander API URL with no validation, and `update-uc-uniform.ts` does the same with `ucID`. A crafted value manipulates the request path against a third-party API carrying our bot credential. | Phase 1 — §7 decision #2 drops the UnitCommander push entirely. Both files are deleted and the feature is not reimplemented on the web side, so the interpolation has nowhere to move to. |
 
-**Finding 7 is tied to open decision #2 and must not be lost.** The two files it
-concerns are the UnitCommander integration, and §7 decision #2 proposes moving
-that feature to the **web** side rather than deleting it. If it moves, the
-unvalidated interpolation moves with it unless someone stops it. Whoever
-implements decision #2 must validate `discordID` against `/^\d{17,20}$/` (a
-Discord snowflake) and `ucID` against the identifier format UnitCommander
-actually returns, rejecting anything else *before* composing the URL — and build
-the URL with `new URL()` or axios path params rather than string concatenation.
-Porting these two files across as-is would carry a live SSRF into the website,
-which holds far more sensitive credentials than this service does.
+**Finding 7 was the one finding that did not resolve itself,** because §7
+decision #2 originally proposed moving the UnitCommander push to the website
+rather than deleting it — which would have carried a live SSRF into the app
+holding far more sensitive credentials than this service does. The unit has
+since decided to drop the feature outright, so the finding closes by deletion.
+
+If that decision is ever revisited, this is the constraint that comes back with
+it: validate `discordID` against `/^\d{17,20}$/` (a Discord snowflake) and
+`ucID` against the identifier format UnitCommander actually returns, rejecting
+anything else *before* composing the URL, and build the URL with `new URL()` or
+axios path params rather than string concatenation. Do not resurrect either file
+as-is.
 
 A sixth, not flagged by the review but noted during the audit: `cert.ts:202`
 builds a shell command by string interpolation and runs it through `execSync`.
