@@ -1,6 +1,6 @@
 # Part C — Training / Tickets / SOPs / Backups API
 
-Scope: `app/api/training/**` (27), `app/api/training-docs/**` (3), `app/api/tickets/**` (11), `app/api/sops/**` (2), `app/api/backups/**` (7). 50 files total.
+Scope: `app/api/training/**` (27), `app/api/training-docs/**` (3), `app/api/tickets/**` (11), `app/api/sops/**` (2), `app/api/backups/**` (8). 51 files total.
 
 Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the admin discharge/promotion ticket workflow. It reads/writes `Db.communityTickets` and `Db.communityTicketComments`, gated by `PERMISSIONS.communityTickets.manage` and `PERMISSIONS.departmentLeads.*` — distinct from `Db.tickets` used elsewhere.
 
@@ -180,7 +180,10 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 All routes gated by `PERMISSIONS.departments.j4` (J4 department membership) and back onto two restic repositories (`storage/db-backups/`, `storage/media-backups/`) plus `lib/backups.ts` helpers rather than MongoDB — backups are deduplicating, hourly, tiered-retention restic snapshots, not a `Db.*` collection. Replaced the old full-copy-zip `/api/snapshots/**` system; retention is automatic (`restic forget --prune`), so there is no manual per-point delete route.
 
 #### /api/backups
-- **GET** — merged backup timeline (`listBackups()`, one entry per hour bucket with either/both DB and media sides present) and current operation status (`readStatus()`). Gate: `PERMISSIONS.departments.j4`. Collections: none (restic repos + JSON status file via `lib/backups`).
+- **GET** — merged backup timeline (`listBackups()`, one entry per hour bucket with either/both DB and media sides present, each carrying `dbSizeBytes`/`mediaSizeBytes` when restic reports them), current operation status (`readStatus()`), and `resticHealthy` (`checkResticHealth()` — is the restic binary present and runnable). `listBackups()` failing degrades to an empty timeline rather than a 500, so `resticHealthy` still comes through when restic itself is the thing that's broken. Gate: `PERMISSIONS.departments.j4`. Collections: none (restic repos + JSON status file via `lib/backups`).
+
+#### /api/backups/storage
+- **GET** — live vs backed-up disk usage breakdown (`getStorageUsage()`): live DB size (Mongo `db.stats()`), live `gallery`/`uploads` directory sizes, each restic repo's real on-disk size (`restic stats --mode raw-data`), and an approximate gallery/uploads split of the media repo's total (from the latest snapshot's file listing, falling back to the live directory size ratio if that can't be computed). Each probe degrades to a fallback independently rather than failing the whole response. Gate: `PERMISSIONS.departments.j4`. Collections: none.
 
 #### /api/backups/create
 - **POST** — fire-and-forget triggers `runAllBackups()` in the background (DB dump + media, sequentially); rejects (409) if an operation is already in progress. Gate: `PERMISSIONS.departments.j4`. No DB collection; writes to the two restic repos.

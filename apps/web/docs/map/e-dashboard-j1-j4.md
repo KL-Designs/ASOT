@@ -144,8 +144,8 @@ Route `/dashboard/j4/preferences` ("Website Settings"). Client component, no exp
 - `TaskLockoutPolicyPanel` — per-group (`LockoutGroup` from `lib/lockout`) toggle for whether overdue unactioned tasks lock a member out of the rest of the portal. `GET/PUT /api/admin/task-lockout-policy`.
 
 #### app/dashboard/j4/BackupsTab.tsx
-Restic-backed backup manager: merged DB/media timeline (create-now/revert/upload/download, no manual delete — retention is automatic via `restic forget`), tracks in-progress operation status and estimated duration (via localStorage history of past durations), tiered-retention auto-config settings (`keepHourly`/`keepDaily`/`keepWeekly`/`keepMonthly`).
-API calls: `GET /api/backups`, `GET/PATCH /api/backups/config`, `POST /api/backups/cancel`, `POST /api/backups/create`, `POST /api/backups/revert`, `GET /api/backups/:id/download`, `POST /api/backups/upload`.
+Restic-backed backup manager: merged DB/media timeline (create-now/revert/upload/download, no manual delete — retention is automatic via `restic forget`), a restic-binary-health chip, a live-vs-backed-up storage usage breakdown (two donut charts), tracks in-progress operation status and a size-aware estimated duration (via localStorage history of `{durationSecs, sizeBytes}` samples, deriving a rate rather than a flat average once size data exists), tiered-retention auto-config settings (`keepHourly`/`keepDaily`/`keepWeekly`/`keepMonthly`).
+API calls: `GET /api/backups`, `GET /api/backups/storage`, `GET/PATCH /api/backups/config`, `POST /api/backups/cancel`, `POST /api/backups/create`, `POST /api/backups/revert`, `GET /api/backups/:id/download`, `POST /api/backups/upload`.
 
 #### app/dashboard/j4/tabs/CommunityTicketsTab.tsx
 Community-facing ticket triage board (requests/bug-reports/missions/campaigns/unit-feedback/complaints/awards categories) with category or table view, status/department filters, search, soft-delete visibility toggle, cross-department transfer.

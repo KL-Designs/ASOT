@@ -21,9 +21,17 @@ function loadHistory(): DurationHistory {
         const parsed = JSON.parse(raw) as { create?: unknown[]; revert?: unknown[] }
         // Migrate the old bare-number-array format (no size data) — treated
         // as sizeBytes: 0 so getEstimate() falls back to a flat average for
-        // these entries instead of a bogus rate calculation.
+        // these entries instead of a bogus rate calculation. Anything that
+        // isn't a number and isn't a well-formed sample (e.g. hand-edited
+        // localStorage) is dropped rather than trusted as-is.
+        const isSample = (v: unknown): v is DurationSample =>
+            typeof v === 'object' && v !== null
+            && typeof (v as DurationSample).durationSecs === 'number'
+            && typeof (v as DurationSample).sizeBytes === 'number'
         const migrate = (arr?: unknown[]): DurationSample[] =>
-            (arr ?? []).map(v => typeof v === 'number' ? { durationSecs: v, sizeBytes: 0 } : v as DurationSample)
+            (arr ?? [])
+                .map(v => typeof v === 'number' ? { durationSecs: v, sizeBytes: 0 } : v)
+                .filter(isSample)
         return { create: migrate(parsed.create), revert: migrate(parsed.revert) }
     } catch { return { create: [], revert: [] } }
 }
@@ -162,32 +170,34 @@ function StorageDonut({ title, data }: { title: string; data: { name: string; va
                 {fmtBytes(total)}
             </Typography>
             {total > 0 ? (
-                <div style={{ width: '100%', height: 160 }}>
-                    <ResponsiveContainer>
-                        <PieChart>
-                            <Pie data={data} dataKey='value' nameKey='name' cx='50%' cy='50%' innerRadius={36} outerRadius={62} paddingAngle={3}>
-                                {data.map((e, i) => <Cell key={i} fill={e.color} />)}
-                            </Pie>
-                            <RechartsTooltip {...storageTooltipStyle} formatter={(v, name) => [fmtBytes(Number(v ?? 0)), name]} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
+                <>
+                    <div style={{ width: '100%', height: 160 }}>
+                        <ResponsiveContainer>
+                            <PieChart>
+                                <Pie data={data} dataKey='value' nameKey='name' cx='50%' cy='50%' innerRadius={36} outerRadius={62} paddingAngle={3}>
+                                    {data.map((e, i) => <Cell key={i} fill={e.color} />)}
+                                </Pie>
+                                <RechartsTooltip {...storageTooltipStyle} formatter={(v, name) => [fmtBytes(Number(v ?? 0)), name]} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                        {data.map(d => (
+                            <div key={d.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.68rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ width: 8, height: 8, background: d.color, display: 'inline-block' }} />
+                                    <span style={{ color: 'rgba(237,237,237,0.55)' }}>{d.name}</span>
+                                </div>
+                                <span style={{ color: 'rgba(237,237,237,0.7)', fontFamily: 'monospace' }}>{fmtBytes(d.value)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </>
             ) : (
                 <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.25)', padding: '20px 0' }}>
                     No data yet.
                 </Typography>
             )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                {data.map(d => (
-                    <div key={d.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.68rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ width: 8, height: 8, background: d.color, display: 'inline-block' }} />
-                            <span style={{ color: 'rgba(237,237,237,0.55)' }}>{d.name}</span>
-                        </div>
-                        <span style={{ color: 'rgba(237,237,237,0.7)', fontFamily: 'monospace' }}>{fmtBytes(d.value)}</span>
-                    </div>
-                ))}
-            </div>
         </div>
     )
 }
@@ -212,6 +222,7 @@ export default function BackupsTab() {
 
     const [resticHealthy, setResticHealthy] = useState<boolean | null>(null)
     const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null)
+    const [storageError, setStorageError] = useState<string | null>(null)
 
     const [cancelling, setCancelling] = useState(false)
 
@@ -250,9 +261,12 @@ export default function BackupsTab() {
     const fetchStorageUsage = useCallback(async () => {
         try {
             const res = await fetch('/api/backups/storage')
-            if (!res.ok) return
+            if (!res.ok) throw new Error('Failed to load')
             setStorageUsage(await res.json())
-        } catch { /* storage breakdown is supplementary — a failed fetch just leaves the section empty */ }
+            setStorageError(null)
+        } catch {
+            setStorageError('Failed to load storage usage.')
+        }
     }, [])
 
     useEffect(() => { fetchData() }, [fetchData])
@@ -286,6 +300,7 @@ export default function BackupsTab() {
         if (!busy && prevBusy.current && opStartMs.current) {
             const secs = (Date.now() - opStartMs.current) / 1000
             if (secs > 2) recordDuration(opTypeRef.current, secs, opSizeRef.current)
+            opSizeRef.current = 0 // don't let a locally-untriggered run (cron, another tab) inherit a stale size on the next transition
             fetchStorageUsage() // storage changed — refresh the breakdown now that the operation finished
         }
         prevBusy.current = busy
@@ -366,6 +381,7 @@ export default function BackupsTab() {
             async () => {
                 setUploading(true)
                 setError(null)
+                opSizeRef.current = uploadFile.size
                 try {
                     const form = new FormData()
                     form.append('backup', uploadFile)
@@ -723,6 +739,8 @@ export default function BackupsTab() {
                             { name: 'Uploads',  value: storageUsage.backups.mediaUploads, color: STORAGE_PALETTE.uploads },
                         ]} />
                     </div>
+                ) : storageError ? (
+                    <Typography fontSize='0.75rem' style={{ color: '#ff4444' }}>{storageError}</Typography>
                 ) : (
                     <div style={{ padding: '20px 0', display: 'flex', justifyContent: 'center' }}>
                         <CircularProgress size={20} style={{ color: 'rgba(219,0,29,0.6)' }} />

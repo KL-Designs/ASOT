@@ -393,24 +393,38 @@ export async function listBackups(): Promise<BackupPoint[]> {
 
 // ── Storage usage ─────────────────────────────────────────────────────────────
 
+// Tolerates a file disappearing mid-walk (ENOENT on stat, or on the readdir
+// itself) — storage/gallery and storage/uploads are live directories under
+// real traffic, same reasoning as the exit-code-3 tolerance in runRestic().
 async function dirSize(dir: string): Promise<number> {
     if (!existsSync(dir)) return 0
+    let entries
+    try {
+        entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+        return 0
+    }
     let total = 0
-    for (const entry of await readdir(dir, { withFileTypes: true })) {
+    for (const entry of entries) {
         if (entry.isSymbolicLink()) continue
         const full = join(dir, entry.name)
         if (entry.isDirectory()) total += await dirSize(full)
-        else total += (await stat(full)).size
+        else total += await stat(full).then(s => s.size).catch(() => 0)
     }
     return total
 }
 
+// storageSize + indexSize (real on-disk bytes, WiredTiger-compressed) rather
+// than dataSize (uncompressed logical BSON, excludes indexes) — this feeds
+// the "Live Storage" donut alongside gallery/uploads' real file-byte counts,
+// so it needs to be an actual disk figure to stay comparable to the other
+// two slices in the same chart.
 async function getLiveDbSize(): Promise<number> {
     const mongoClient = new MongoClient(process.env.MONGO_URI!)
     try {
         await mongoClient.connect()
         const stats = await mongoClient.db(process.env.MONGO_DB!).stats()
-        return stats.dataSize ?? 0
+        return (stats.storageSize ?? 0) + (stats.indexSize ?? 0)
     } finally {
         await mongoClient.close()
     }
@@ -446,7 +460,8 @@ async function mediaSplitRatio(): Promise<{ gallery: number; uploads: number }> 
             if (entry.path.includes(galleryMarker)) galleryBytes += entry.size
             else if (entry.path.includes(uploadsMarker)) uploadsBytes += entry.size
         }
-    } catch {
+    } catch (e) {
+        console.warn('[backups] mediaSplitRatio: restic ls failed, falling back to live directory size ratio:', e instanceof Error ? e.message : e)
         return { gallery: 0, uploads: 0 }
     }
     const total = galleryBytes + uploadsBytes
@@ -454,15 +469,43 @@ async function mediaSplitRatio(): Promise<{ gallery: number; uploads: number }> 
     return { gallery: galleryBytes / total, uploads: uploadsBytes / total }
 }
 
+// Isolates each probe so one failure (Mongo down, RESTIC_PASSWORD unset,
+// restic binary missing, a corrupt repo) degrades that one number to a
+// fallback instead of rejecting the whole storage panel — a health-check
+// feature going dark because of the exact condition it exists to surface
+// would defeat its own purpose.
+async function settledOr<T>(promise: Promise<T>, fallback: T, label: string): Promise<T> {
+    try {
+        return await promise
+    } catch (e) {
+        console.warn(`[backups] storage usage probe (${label}) failed:`, e instanceof Error ? e.message : e)
+        return fallback
+    }
+}
+
 export async function getStorageUsage(): Promise<StorageUsage> {
-    const [liveGallery, liveUploads, liveDb, dbRepoSize, mediaRepoSize, splitRatio] = await Promise.all([
-        dirSize(GALLERY_DIR),
-        dirSize(UPLOADS_DIR),
-        getLiveDbSize(),
-        resticRepoSize(DB_REPO),
-        resticRepoSize(MEDIA_REPO),
-        mediaSplitRatio(),
+    const [liveGallery, liveUploads, liveDb, dbRepoSize, mediaRepoSize, resticSplitRatio] = await Promise.all([
+        settledOr(dirSize(GALLERY_DIR), 0, 'gallery dir size'),
+        settledOr(dirSize(UPLOADS_DIR), 0, 'uploads dir size'),
+        settledOr(getLiveDbSize(), 0, 'live db size'),
+        settledOr(resticRepoSize(DB_REPO), 0, 'db repo size'),
+        settledOr(resticRepoSize(MEDIA_REPO), 0, 'media repo size'),
+        settledOr(mediaSplitRatio(), { gallery: 0, uploads: 0 }, 'media split ratio'),
     ])
+
+    // If the restic-derived ratio couldn't be computed (repo not
+    // initialized yet, no snapshot yet, or the `restic ls` call itself
+    // failed) but the repo does have a real on-disk size, fall back to the
+    // live directory size ratio rather than silently reporting the whole
+    // media total as zero — keeps the displayed total truthful even though
+    // the gallery/uploads split becomes a rougher approximation.
+    let splitRatio = resticSplitRatio
+    if (splitRatio.gallery === 0 && splitRatio.uploads === 0 && mediaRepoSize > 0) {
+        const liveTotal = liveGallery + liveUploads
+        splitRatio = liveTotal > 0
+            ? { gallery: liveGallery / liveTotal, uploads: liveUploads / liveTotal }
+            : { gallery: 1, uploads: 0 } // nothing to go on — attribute it all to one bucket rather than dropping it
+    }
 
     return {
         live: { database: liveDb, gallery: liveGallery, uploads: liveUploads },

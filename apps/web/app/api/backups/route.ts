@@ -16,6 +16,14 @@ export async function GET() {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const [points, status, resticHealthy] = await Promise.all([listBackups(), readStatus(), checkResticHealth()])
+    // listBackups() failing (e.g. the restic binary itself is broken) must
+    // not also take resticHealthy down with it — that field exists
+    // specifically to surface exactly this kind of failure, so degrade to
+    // an empty timeline instead of a 500 that hides the health signal.
+    const [points, status, resticHealthy] = await Promise.all([
+        listBackups().catch(() => []),
+        readStatus(),
+        checkResticHealth(),
+    ])
     return NextResponse.json({ points, status, resticHealthy })
 }
