@@ -792,7 +792,7 @@ git commit -m "feat(backups): add restic-backed revert, download, and upload"
 - Create: `apps/web/app/api/cron/backups/route.ts`
 - Delete: `apps/web/app/api/snapshots/` (entire directory — `route.ts`, `create/`, `revert/`, `[filename]/`, `upload/`, `cancel/`, `config/`)
 - Delete: `apps/web/app/api/cron/snapshots/route.ts`
-- Delete: `apps/web/lib/snapshots.ts`
+- **Not** deleted here: `apps/web/lib/snapshots.ts` — see Step 9, it's still imported by `SnapshotsTab.tsx` until Task 6 rewrites that file; Task 6 deletes it instead.
 
 **Interfaces:**
 - Consumes: every export from `apps/web/lib/backups.ts` (Tasks 2+3).
@@ -1161,18 +1161,19 @@ export async function GET(request: NextRequest) {
 }
 ```
 
-- [ ] **Step 9: Delete the old snapshots surface**
+- [ ] **Step 9: Delete the old snapshots routes (not the lib file yet)**
 
 ```bash
 git rm -r apps/web/app/api/snapshots
 git rm apps/web/app/api/cron/snapshots/route.ts
-git rm apps/web/lib/snapshots.ts
 ```
+
+Do **not** delete `apps/web/lib/snapshots.ts` in this task — `apps/web/app/dashboard/j4/SnapshotsTab.tsx` still imports types from it (`import type { SnapshotOptions, SnapshotConfig } from '@/lib/snapshots'`) and isn't rewritten until Task 6. Deleting it now would break `tsc --noEmit` on a file this task doesn't touch. Task 6 deletes `lib/snapshots.ts` itself, right after it removes `SnapshotsTab.tsx` (its last remaining importer).
 
 - [ ] **Step 10: Verify it compiles**
 
 Run: `cd apps/web && npx tsc --noEmit`
-Expected: no errors — in particular, no leftover references to `@/lib/snapshots` anywhere (Task 6 handles the UI's import; grep for `lib/snapshots` across `apps/web` to confirm nothing else references it before finishing this task).
+Expected: no errors. `apps/web/lib/snapshots.ts` still exists at this point (deliberately, see Step 9) and `SnapshotsTab.tsx` still imports from it — that's expected and fine here, it gets cleaned up in Task 6.
 
 - [ ] **Step 11: Commit**
 
@@ -1272,6 +1273,7 @@ git commit -m "feat(backups): wire restic into Docker, dev scheduler, and storag
 - Create: `apps/web/app/dashboard/j4/BackupsTab.tsx`
 - Modify: `apps/web/app/dashboard/j4/J4AdminPanel.tsx`
 - Delete: `apps/web/app/dashboard/j4/SnapshotsTab.tsx`
+- Delete: `apps/web/lib/snapshots.ts` (Task 4 deliberately left this in place — see its Step 9 — because this task's rewrite of `SnapshotsTab.tsx` is what removes its last importer)
 
 **Interfaces:**
 - Consumes: `GET /api/backups`, `POST /api/backups/create`, `POST /api/backups/revert`, `GET /api/backups/[id]/download`, `POST /api/backups/upload`, `POST /api/backups/cancel`, `GET`/`PATCH /api/backups/config` (Task 4).
@@ -1451,6 +1453,8 @@ In `apps/web/app/dashboard/j4/J4AdminPanel.tsx`:
 
 - [ ] **Step 3: Verify it compiles and renders**
 
+Delete `apps/web/lib/snapshots.ts` now too — this is its last importer (`SnapshotsTab.tsx`, which no longer exists once Step 1 replaces it with `BackupsTab.tsx`), so it's safe to remove here specifically (Task 4 deliberately left it in place for exactly this reason).
+
 Run: `cd apps/web && npx tsc --noEmit`
 Expected: no errors, and specifically no remaining references anywhere in `apps/web` to `SnapshotsTab`, `@/lib/snapshots`, or `/api/snapshots` — grep for all three across the whole `apps/web` tree to confirm before moving on.
 
@@ -1460,7 +1464,7 @@ Start the dev server and open the J4 dashboard's Backups tab in a browser; confi
 
 ```bash
 git add apps/web/app/dashboard/j4/BackupsTab.tsx apps/web/app/dashboard/j4/J4AdminPanel.tsx
-git rm apps/web/app/dashboard/j4/SnapshotsTab.tsx
+git rm apps/web/app/dashboard/j4/SnapshotsTab.tsx apps/web/lib/snapshots.ts
 git commit -m "feat(backups): replace SnapshotsTab with the restic-backed BackupsTab UI"
 ```
 
