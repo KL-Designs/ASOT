@@ -245,6 +245,11 @@ This map documents every file under `lib/**` (59 files), `types/**` (31 files), 
 - `categoriesOverlap(a, b): boolean` — two category-scope arrays overlap if either is empty (unscoped = matches everything) or they share an element.
 - `rolesConflict(a, b): boolean` — `{categories, tag}` conflict check used by the roles POST/PATCH routes: true only if `categoriesOverlap()` AND the two `tag`s match (untagged counts as its own "no tag" bucket). Lets two `OrbatRole` entries share a `name` either via non-overlapping `categories` (e.g. two "Section Commander" Roles scoped to different platoons) or, within an overlapping scope, via distinct `tag`s (e.g. "Section Commander" tagged "MED" vs. "VIC").
 
+### lib/orbat/member-sync.ts
+- `computeMemberSyncReport(): Promise<MemberSyncReport>` — builds the live Discord/TeamSpeak grant-drift report backing `GET /api/admin/orbat/member-sync` and the Member Sync tab; see that route's entry in `a-admin-api.md` for the full computation. Probes TS connectivity once via `getConnection()` and skips TS diffing (reporting `tsAvailable: false`) rather than false-positive drift if it's down.
+- `applyMemberSyncFixes(userIds?): Promise<MemberSyncApplyResult>` — backs `POST /api/admin/orbat/member-sync/apply`; re-runs `computeMemberSyncReport()` fresh and grants/revokes each target member's diff in batches of 5. Result counts (`discordGranted`/`discordRevoked`/`discordFailed`/`tsGranted`/`tsRevoked`/`tsFailed`) reflect actual `Promise.allSettled` outcomes, not attempts.
+- Interfaces: `MemberSyncEntry`, `MemberSyncReport`, `GrantDetail`, `MemberSyncApplyResult`.
+
 ### lib/teamspeak/cache.ts
 - Module-level in-memory caches: `offlineCache`, `onlineCache`, `groupCache` (each with `refreshedAt`), plus `offlineRefreshing`/`onlineRefreshing` guards.
 - `getConnection(): Promise<TeamSpeak>` — persistent SSH-protocol TS3 connection with manual 60s keepalive; auto-reconnects on close/error.

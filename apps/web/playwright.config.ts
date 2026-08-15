@@ -16,6 +16,12 @@ export default defineConfig({
     testDir: './tests',
     fullyParallel: false,
     workers: 1,
+    // A single retry absorbs the dev-server self-restart flake documented in
+    // tests/README.md ("Known failure mode") — under memory pressure `next
+    // dev` briefly restarts mid-run and whichever request lands in that
+    // window gets ECONNREFUSED/ECONNRESET, a different test each time, not a
+    // real regression. A genuinely broken test still fails after 2 tries.
+    retries: process.env.CI ? 2 : 1,
     timeout: 120_000,
     reporter: 'html',
     use: {
