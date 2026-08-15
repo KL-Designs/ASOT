@@ -46,3 +46,65 @@ test.describe('POST /api/admin/orbat/member-sync/apply', () => {
         expect(res.status()).not.toBe(401)
     })
 })
+
+test.describe('Member Sync tab UI', () => {
+    const SAMPLE_REPORT = {
+        onRoster: [
+            {
+                userId: 'u1', name: 'Red Member', avatarURL: '', onRoster: true, status: 'red',
+                discord: { missing: [{ id: 'd1', name: 'J4 - Administration', source: 'Department: J4 base role' }], extra: [] },
+                teamspeak: { missing: [], extra: [], linked: true },
+            },
+            {
+                userId: 'u2', name: 'Orange Member', avatarURL: '', onRoster: true, status: 'orange',
+                discord: { missing: [], extra: [{ id: 'd2', name: 'Old Role', source: 'Not expected from any current department or ORBAT role' }] },
+                teamspeak: { missing: [], extra: [], linked: true },
+            },
+            {
+                userId: 'u3', name: 'Green Member', avatarURL: '', onRoster: true, status: 'green',
+                discord: { missing: [], extra: [] },
+                teamspeak: { missing: [], extra: [], linked: false },
+            },
+        ],
+        offRoster: [
+            {
+                userId: 'u4', name: 'Stray Member', avatarURL: '', onRoster: false, status: 'orange',
+                discord: { missing: [], extra: [{ id: 'd3', name: 'Leftover Role', source: 'Not expected from any current department or ORBAT role' }] },
+                teamspeak: { missing: [], extra: [], linked: true },
+            },
+        ],
+    }
+
+    test('renders status pills and expands to show missing/extra details', async ({ adminPage }) => {
+        await adminPage.route('**/api/admin/orbat/member-sync', route => route.fulfill({ json: SAMPLE_REPORT }))
+
+        await adminPage.goto('/dashboard/orbat')
+        await adminPage.getByRole('button', { name: 'Manage Roles' }).click()
+        await adminPage.getByRole('button', { name: 'Member Sync' }).click()
+
+        await expect(adminPage.getByText('Red Member')).toBeVisible()
+        await expect(adminPage.getByText('Missing (1)')).toBeVisible()
+        await expect(adminPage.getByText('Orange Member')).toBeVisible()
+        // "Extra (1)" also appears on the off-roster "Stray Member" row, which
+        // is present in the DOM (inside a collapsed MUI Collapse) but not yet
+        // shown — .first() picks the on-roster (visible) instance, since
+        // on-roster rows render before the off-roster section in DOM order.
+        await expect(adminPage.getByText('Extra (1)').first()).toBeVisible()
+        await expect(adminPage.getByText('Green Member')).toBeVisible()
+        await expect(adminPage.getByText('TeamSpeak not linked')).toBeVisible()
+
+        // On-roster count and off-roster summary
+        await expect(adminPage.getByText('On Roster (3)')).toBeVisible()
+        await expect(adminPage.getByText('1 member(s) with stray grants')).toBeVisible()
+        await expect(adminPage.getByText('Stray Member')).not.toBeVisible()
+
+        // Expand the red member's row
+        await adminPage.getByText('Red Member').click()
+        await expect(adminPage.getByText('J4 - Administration', { exact: false })).toBeVisible()
+        await expect(adminPage.getByText('Department: J4 base role', { exact: false })).toBeVisible()
+
+        // Expand off-roster
+        await adminPage.getByRole('button', { name: 'Show' }).click()
+        await expect(adminPage.getByText('Stray Member')).toBeVisible()
+    })
+})

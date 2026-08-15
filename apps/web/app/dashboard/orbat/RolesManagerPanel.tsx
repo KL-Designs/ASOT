@@ -7,6 +7,7 @@ import ChainOfCommandPanel from './ChainOfCommandPanel'
 import OrbatRolesTab from './OrbatRolesTab'
 import DepartmentRolesTab from './DepartmentRolesTab'
 import PermissionsExplorerTab from './PermissionsExplorerTab'
+import MemberSyncTab from './MemberSyncTab'
 
 interface Props {
     open: boolean
@@ -161,7 +162,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                 {tab === 'orbat' && <OrbatRolesTab key={`orbat-${reloadKey}`} onDirtyChange={setActiveDirty} />}
                 {tab === 'department' && <DepartmentRolesTab key={`department-${reloadKey}`} onDirtyChange={setActiveDirty} />}
                 {tab === 'permissions' && <PermissionsExplorerTab key={`permissions-${reloadKey}`} />}
-                {tab === 'member-sync' && <div style={{ padding: 24, color: 'rgba(237,237,237,0.4)', fontSize: '0.8rem' }}>Loading…</div>}
+                {tab === 'member-sync' && <MemberSyncTab />}
             </DialogContent>
 
             <ChainOfCommandPanel key={`chain-${reloadKey}`} open={chainOpen} onClose={() => setChainOpen(false)} />
