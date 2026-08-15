@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         performedBy: me.id,
         performedByName,
         target: userIds ? userIds.join(',') : 'ALL',
-        details: result,
+        details: { ...result },
     }).catch(() => {})
 
     return NextResponse.json(result)
