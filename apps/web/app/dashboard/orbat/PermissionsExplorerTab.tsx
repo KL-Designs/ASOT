@@ -17,8 +17,11 @@ interface MemberOption { id: string; displayName: string }
 
 type Mode = 'system' | 'member'
 
+// No literal `border` here — it would land on the outer FormControl root and
+// double-border against MUI's own notched-outline fieldset, breaking the
+// label notch. The border color is scoped to that fieldset instead.
 const searchFieldSx = {
-    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+    background: 'rgba(255,255,255,0.04)',
     color: 'rgba(237,237,237,0.85)', fontSize: '0.75rem',
     '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' },
 }

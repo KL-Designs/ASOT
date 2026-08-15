@@ -20,14 +20,18 @@ const DEPT_LABELS: Record<string, string> = Object.fromEntries(DEPT_CODES.map(c 
 // still available as a tooltip and in the "Linked Position" dropdown.
 const SLOT_BADGE_LABEL: Record<LeadershipSlot, string> = { leader: 'LEAD', '2ic': '2IC', '3ic': '3IC' }
 
+// A literal `border` here (instead of scoping it to the notched-outline
+// fieldset below) lands on the outer FormControl root, which double-borders
+// against MUI's own internal outline and breaks the label notch — don't
+// reintroduce it.
 const inputSx = {
-    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+    background: 'rgba(255,255,255,0.04)',
     color: 'rgba(237,237,237,0.85)', fontSize: '0.75rem',
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' },
 }
 
 const searchFieldSx = {
     ...inputSx,
-    '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' },
 }
 
 const closeButtonSx = { '&:hover': { background: 'rgba(255,255,255,0.08)' } }
