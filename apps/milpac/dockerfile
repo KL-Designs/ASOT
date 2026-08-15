@@ -1,0 +1,29 @@
+# Build context is the repo root, matching apps/web and apps/bot.
+#
+# node:22-alpine, not node:bookworm. The original image carried LibreOffice,
+# ghostscript, python and the whole cairo/pango native build chain (~1.5 GB) to
+# support node-canvas and the pptx -> PDF -> PNG certificate pipeline.
+# @napi-rs/canvas ships prebuilt binaries, so none of that is needed, and Phase 2
+# replaces the pptx pipeline with canvas rendering.
+#
+# No fontconfig either: fonts are registered from assets/fonts by path at
+# startup rather than installed into the system font cache.
+
+FROM node:22-alpine
+
+WORKDIR /app
+
+COPY apps/milpac/package.json apps/milpac/package-lock.json* ./
+
+# tsx is a devDependency but is the runtime — this app runs TypeScript directly
+# rather than building, matching apps/bot. So dev dependencies are not omitted.
+RUN npm install --quiet
+
+COPY apps/milpac/tsconfig.json ./
+COPY apps/milpac/src ./src
+COPY apps/milpac/assets ./assets
+
+ENV NODE_ENV=production
+
+# No dotenv-cli here — compose supplies the environment via env_file.
+CMD ["npx", "tsx", "src/server.ts"]

@@ -1,12 +1,21 @@
 node_modules
+.env
+.DS_Store
+
+# Legacy rendered output from Fulcrum's original, kept as visual references
+# while Phase 2 transcribes the certificate renderer, then deleted.
+# See PLAN.md decision 5.
+boxes
 certificates
 milpac
-medal-box-images/boxes
-.env
-output.pptx
+assets/medal-box-images/boxes
 certs-*
+
+# Intermediate from the old pptx pipeline, removed with it in Phase 2.
+output.pptx
+assets/templates/.~lock.Bulk Template.pptx#
+
 src/.vs
 src/.vscode
 test.js
-templates/.~lock.Bulk Template.pptx#
 dist

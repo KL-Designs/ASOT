@@ -1,6 +1,8 @@
 # MilPac Generator — Import & Overhaul Plan
 
-**Status:** Phase 0 complete. Phases 1–4 not started.
+**Status:** Phases 0 and 1 complete. Phase 2 (canvas certificates), Phase 3
+(website integration) and Phase 4 (compose, menu, docs) not started — though
+parts of 4a/4b landed early, see the Phase 1 deviations.
 **Branch:** `milpac-service`, branched off `main`. Not pushed.
 **Date:** 2026-08-16
 
@@ -368,6 +370,22 @@ pseudo-auth on `/register` along with registration itself.
 Container base goes `node:bookworm` + libreoffice + ghostscript + cairo
 (~1.5 GB) → `node:22-alpine` (~200 MB).
 
+**Three deviations from this plan, decided during implementation:**
+
+1. **No build step.** This plan called for adding a `build` script and pointing
+   `main` at `dist/server.js`. `apps/bot` runs TypeScript directly through `tsx`
+   with no build, and matching the app next door beats matching a plan written
+   before that convention was checked. Scripts are `dev` (`tsx watch`), `start`
+   (`tsx`) and `typecheck` (`tsc --noEmit`), identical in shape to bot's. This
+   also removes a build stage from the container. Consequence: Phase 4c has no
+   "Build MilPac" menu item.
+2. **`Dockerfile` → `dockerfile` renamed here, not in Phase 4a.** The file was
+   being rewritten for the alpine base anyway, so renaming it in the same pass
+   avoided touching it twice and avoided a case-only rename landing separately.
+3. **Workspace registration done here, not in Phase 4b.** `apps/milpac` had to
+   be in the root `workspaces` array before its dependencies could be installed
+   and the code typechecked, so it could not wait for Phase 4.
+
 ### Phase 2 — Canvas certificate renderer
 
 1. Parse `ppt/slides/slideN.xml` out of both templates (they are zip archives) to
@@ -428,20 +446,22 @@ own tooling does not know exists — `npm run install:all` does not install it a
 2. Web gains `MILPAC_SERVICE_URL=http://milpac:42070` and
    `MILPAC_SERVICE_TOKEN`; both documented in `.env.template`, marked shared
    (web reads both, milpac reads the token and its own `PORT`).
-3. Rename `apps/milpac/Dockerfile` → `apps/milpac/dockerfile`. Both existing apps
-   use the lowercase form and the compose `dockerfile:` key is case-sensitive on
-   the Linux deploy host, where a capitalised name fails the build even though it
-   resolves fine on the Windows dev machine. Git on Windows will not record a
-   case-only rename without `git mv --force`.
+3. ~~Rename `apps/milpac/Dockerfile` → `apps/milpac/dockerfile`.~~ **Done in
+   Phase 1.** Both existing apps use the lowercase form and the compose
+   `dockerfile:` key is case-sensitive on the Linux deploy host, where a
+   capitalised name fails the build even though it resolves fine on the Windows
+   dev machine. Git on Windows records a case-only rename only via a two-step
+   `git mv` through a temporary name.
 
 Note that `apps/milpac/docker-compose.yml` needs no deletion here — Phase 0
 already moved it to `storage/milpac-design-source/`, so it never entered git
 history.
 
-#### 4b. Workspace registration
+#### 4b. Workspace registration — **done in Phase 1**
 
-`apps/milpac` is currently invisible to the root install. Register it as an npm
-workspace alongside `apps/bot`:
+`apps/milpac` was invisible to the root install, so this had to happen before
+its dependencies could be installed or its code typechecked. Registered as an
+npm workspace alongside `apps/bot`:
 
 ```jsonc
 // package.json
@@ -454,14 +474,12 @@ service has no such constraint, and being a workspace means the root
 `npm install` already inside `install:all` picks it up with **no change to the
 `install:all` script itself**.
 
-Also rename the package from `milpac-image` to `milpac` in
-`apps/milpac/package.json` — the workspace is targeted by path
-(`--workspace=apps/milpac`), so the name is cosmetic, but `milpac-image` is a
-leftover that will read as a third-party dependency in lockfile diffs.
+The package was also renamed from `milpac-image` to `milpac`, and its stale
+`package-lock.json` deleted — workspace dependencies resolve against the root
+lockfile, and a second lockfile in the workspace only drifts.
 
-Phase 1 already adds the missing `build` script; Phase 4 depends on `dev`,
-`build` and `start` all existing, since the menu items below invoke them by
-name.
+Phase 4c's menu items invoke `dev` and `start` by name; both exist. There is no
+`build` — see the Phase 1 deviations.
 
 #### 4c. Start menu
 
@@ -473,8 +491,10 @@ below shows the real port in the live header.
 |---|---|---|
 | `RUN_ITEMS` | `🎖️ MilPac` | `npm run dev --workspace=apps/milpac`, `port: MILPAC_PORT` |
 | `RUN_ITEMS` | `🔀 Both` → **`🔀 All`** | add the same command as a third entry |
-| `PRODUCTION_ITEMS` | `🏗️ Build MilPac` | `npm run build --workspace=apps/milpac` |
 | `PRODUCTION_ITEMS` | `🚀 Start MilPac` | `npm run start --workspace=apps/milpac`, `port: MILPAC_PORT` |
+
+No "Build MilPac" item — this app has no build step, matching `apps/bot`. See
+the Phase 1 deviations.
 
 The `🔀 Both` item's label no longer describes what it runs once there are three
 apps; rename it and keep it as the "everything at once" entry rather than adding
