@@ -11,6 +11,11 @@ own app directory, e.g. `apps/web` or `apps/bot`), so code reads/writes via `../
 ## Layout
 
 - `gallery/`, `milpacs/`, `uploads/`, `snapshots/` — web app user-uploaded/generated content.
+- `db-backups/`, `media-backups/` — restic repositories (deduplicating, hourly,
+  tiered retention) backing the J4 dashboard's Backups tab. `backup-meta/`
+  holds the shared status/retention-config files for both. `snapshots/` is the
+  older full-copy system these replaced — left in place, untouched, no longer
+  written to.
 - `maps/` — Arma terrain source assets (DEM/geojson) **and** the terrain tiles generated
   from them by `apps/web/scripts/generate-terrain.mjs` (`npm run menu` from the repo root →
   Setup / one-off → Generate terrain). Like everything else here, it's excluded from the

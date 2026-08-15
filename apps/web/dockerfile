@@ -11,6 +11,10 @@ FROM node:22-alpine
 # version here instead of trusting whatever the base image happens to ship.
 RUN npm install -g npm@11
 
+# restic — content-addressed backup tool used by lib/backups.ts. Alpine ships
+# it directly in its package repo.
+RUN apk add --no-cache restic
+
 WORKDIR /app
 
 # `playwright` is a real (non-dev) dependency here but is only ever used by the standalone

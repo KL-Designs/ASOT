@@ -13,6 +13,9 @@ services:
       - ./storage/milpacs:/app/storage/milpacs
       - ./storage/uploads:/app/storage/uploads
       - ./storage/snapshots:/app/storage/snapshots
+      - ./storage/db-backups:/app/storage/db-backups
+      - ./storage/media-backups:/app/storage/media-backups
+      - ./storage/backup-meta:/app/storage/backup-meta
       - ./storage/j1:/app/storage/j1
       - ./storage/j2:/app/storage/j2
       - ./storage/j3:/app/storage/j3

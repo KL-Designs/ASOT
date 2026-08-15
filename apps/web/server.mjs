@@ -791,8 +791,7 @@ async function triggerDevCheckEscalationCron() {
 setInterval(triggerDevCheckEscalationCron, 60 * 60 * 1000)
 triggerDevCheckEscalationCron()
 
-// ── Snapshot scheduler (every 2 days at 3am) ──────────────────────────────────
-
+// msUntilNext3am is still used by the TeamSpeak daily snapshot scheduler below.
 function msUntilNext3am() {
     const now = new Date()
     const next = new Date(now)
@@ -801,24 +800,23 @@ function msUntilNext3am() {
     return next.getTime() - now.getTime()
 }
 
-async function triggerScheduledSnapshot() {
-    await trackJob('cron:snapshots', async () => {
+// ── Backup scheduler (hourly) ─────────────────────────────────────────────────
+
+async function triggerScheduledBackup() {
+    await trackJob('cron:backups', async () => {
         try {
-            const res = await fetch(`http://localhost:${port}/api/cron/snapshots`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            const res = await fetch(`http://localhost:${port}/api/cron/backups`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
             const data = await res.json()
-            console.log('[snapshots] Scheduled snapshot triggered:', data)
+            console.log('[backups] Scheduled backup triggered:', data)
         } catch (e) {
-            console.error('[snapshots] Scheduled snapshot error:', e.message)
+            console.error('[backups] Scheduled backup error:', e.message)
         }
     })
 }
 
-setTimeout(() => {
-    triggerScheduledSnapshot()
-    // Check daily at 3am — the cron route decides whether to run based on config
-    setInterval(triggerScheduledSnapshot, 24 * 60 * 60 * 1000)
-}, msUntilNext3am())
-console.log(`[snapshots] Next auto-snapshot check in ${Math.round(msUntilNext3am() / 1000 / 60)} minutes`)
+triggerScheduledBackup()
+setInterval(triggerScheduledBackup, 60 * 60 * 1000)
+console.log('[backups] Auto-backup check runs hourly')
 
 // ── TeamSpeak daily snapshot (every 24h at 3am) ───────────────────────────────
 
