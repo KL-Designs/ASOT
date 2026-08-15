@@ -766,6 +766,7 @@ const PRODUCTION_ITEMS = [
 
 const SETUP_ITEMS = [
     { label: '📦 Install All Dependencies', command: 'npm', args: ['run', 'install:all'] },
+    { label: '🔐 Ensure Restic Binary', command: 'node', args: ['scripts/ensure-restic.mjs'] },
     { label: '🧙 Run First-time Setup', command: 'node', args: ['apps/web/scripts/init-db.mjs'] },
     { label: '🗺️ Generate Terrain', command: 'node', args: ['scripts/generate-terrain.mjs'], opts: { cwd: WEB } },
     { label: '🧹 Lint Website', command: 'npm', args: ['exec', '--', 'next', 'lint'], opts: { cwd: WEB } },

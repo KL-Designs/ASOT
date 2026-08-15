@@ -6,7 +6,7 @@
     "apps/bot"
   ],
   "scripts": {
-    "install:all": "npm install && npm --prefix apps/web install",
+    "install:all": "npm install && npm --prefix apps/web install && node scripts/ensure-restic.mjs",
     "start": "node scripts/start.mjs"
   },
   "devDependencies": {
