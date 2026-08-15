@@ -1,6 +1,6 @@
 import { resolve, join, basename, dirname, sep } from 'path'
 import { existsSync, mkdirSync, createWriteStream, createReadStream, readdirSync } from 'fs'
-import { readFile, writeFile, mkdir, rm, copyFile } from 'fs/promises'
+import { readFile, writeFile, mkdir, rm, copyFile, readdir, stat } from 'fs/promises'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { tmpdir } from 'os'
@@ -60,6 +60,13 @@ export type BackupPoint = {
     time: string                // same value as id — kept separate for UI clarity
     dbSnapshotId?: string
     mediaSnapshotId?: string
+    dbSizeBytes?: number        // total_bytes_processed from restic's own snapshot summary, when present
+    mediaSizeBytes?: number
+}
+
+export type StorageUsage = {
+    live:    { database: number; gallery: number; uploads: number }
+    backups: { db: number; mediaGallery: number; mediaUploads: number }
 }
 
 // ── restic binary resolution ────────────────────────────────────────────────
@@ -69,6 +76,18 @@ function resticPath(): string {
     const bundled = join(resolve('.'), 'bin', process.platform === 'win32' ? 'restic.exe' : 'restic')
     if (existsSync(bundled)) return bundled
     return 'restic'
+}
+
+// Doesn't go through runRestic()/resticEnv() deliberately — `restic version`
+// touches no repo, so it shouldn't fail just because RESTIC_PASSWORD isn't
+// set. This checks exactly one thing: is the binary present and runnable.
+export async function checkResticHealth(): Promise<boolean> {
+    try {
+        await execFileAsync(resticPath(), ['version'])
+        return true
+    } catch {
+        return false
+    }
 }
 
 function resticEnv(repo: string): NodeJS.ProcessEnv {
@@ -325,7 +344,15 @@ export async function runAllBackups(): Promise<void> {
 
 // ── List ──────────────────────────────────────────────────────────────────────
 
-interface ResticSnapshotEntry { id: string; time: string; tags?: string[] }
+interface ResticSnapshotEntry {
+    id: string
+    time: string
+    tags?: string[]
+    // Only present on snapshots that recorded their own backup summary
+    // (which all snapshots created by this app's restic version do) — treat
+    // as possibly absent rather than relying on it.
+    summary?: { total_bytes_processed?: number }
+}
 
 async function resticSnapshots(repo: string): Promise<ResticSnapshotEntry[]> {
     if (!existsSync(join(repo, 'config'))) return []
@@ -350,16 +377,101 @@ export async function listBackups(): Promise<BackupPoint[]> {
         const id = hourBucket(s.time)
         const existing = byBucket.get(id) ?? { id, time: id }
         existing.dbSnapshotId = s.id
+        existing.dbSizeBytes = s.summary?.total_bytes_processed
         byBucket.set(id, existing)
     }
     for (const s of mediaSnaps) {
         const id = hourBucket(s.time)
         const existing = byBucket.get(id) ?? { id, time: id }
         existing.mediaSnapshotId = s.id
+        existing.mediaSizeBytes = s.summary?.total_bytes_processed
         byBucket.set(id, existing)
     }
 
     return [...byBucket.values()].sort((a, b) => b.time.localeCompare(a.time))
+}
+
+// ── Storage usage ─────────────────────────────────────────────────────────────
+
+async function dirSize(dir: string): Promise<number> {
+    if (!existsSync(dir)) return 0
+    let total = 0
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+        if (entry.isSymbolicLink()) continue
+        const full = join(dir, entry.name)
+        if (entry.isDirectory()) total += await dirSize(full)
+        else total += (await stat(full)).size
+    }
+    return total
+}
+
+async function getLiveDbSize(): Promise<number> {
+    const mongoClient = new MongoClient(process.env.MONGO_URI!)
+    try {
+        await mongoClient.connect()
+        const stats = await mongoClient.db(process.env.MONGO_DB!).stats()
+        return stats.dataSize ?? 0
+    } finally {
+        await mongoClient.close()
+    }
+}
+
+async function resticRepoSize(repo: string): Promise<number> {
+    if (!existsSync(join(repo, 'config'))) return 0
+    const stdout = await runRestic(repo, ['stats', '--mode', 'raw-data', '--json'])
+    const parsed = JSON.parse(stdout) as { total_size?: number }
+    return parsed.total_size ?? 0
+}
+
+// Restic dedups the media repo's two source paths (gallery + uploads) at the
+// chunk level, so there's no cheap, exact "how much of this repo's on-disk
+// size is gallery vs uploads" answer. Approximate it: sum each file's
+// pre-dedup logical size from the latest snapshot's file listing, grouped by
+// which source directory it came from, and use that ratio to split the
+// repo's real on-disk total — so the two numbers still add up to the true
+// size shown elsewhere, instead of presenting a second, disconnected metric.
+async function mediaSplitRatio(): Promise<{ gallery: number; uploads: number }> {
+    if (!existsSync(join(MEDIA_REPO, 'config'))) return { gallery: 0, uploads: 0 }
+    const galleryMarker = `/${basename(GALLERY_DIR)}/`
+    const uploadsMarker = `/${basename(UPLOADS_DIR)}/`
+    let galleryBytes = 0
+    let uploadsBytes = 0
+    try {
+        const stdout = await runRestic(MEDIA_REPO, ['ls', 'latest', '--json', '--recursive'])
+        for (const line of stdout.split('\n')) {
+            if (!line.trim()) continue
+            let entry: { type?: string; path?: string; size?: number }
+            try { entry = JSON.parse(line) } catch { continue }
+            if (entry.type !== 'file' || !entry.size || !entry.path) continue
+            if (entry.path.includes(galleryMarker)) galleryBytes += entry.size
+            else if (entry.path.includes(uploadsMarker)) uploadsBytes += entry.size
+        }
+    } catch {
+        return { gallery: 0, uploads: 0 }
+    }
+    const total = galleryBytes + uploadsBytes
+    if (total === 0) return { gallery: 0, uploads: 0 }
+    return { gallery: galleryBytes / total, uploads: uploadsBytes / total }
+}
+
+export async function getStorageUsage(): Promise<StorageUsage> {
+    const [liveGallery, liveUploads, liveDb, dbRepoSize, mediaRepoSize, splitRatio] = await Promise.all([
+        dirSize(GALLERY_DIR),
+        dirSize(UPLOADS_DIR),
+        getLiveDbSize(),
+        resticRepoSize(DB_REPO),
+        resticRepoSize(MEDIA_REPO),
+        mediaSplitRatio(),
+    ])
+
+    return {
+        live: { database: liveDb, gallery: liveGallery, uploads: liveUploads },
+        backups: {
+            db: dbRepoSize,
+            mediaGallery: Math.round(mediaRepoSize * splitRatio.gallery),
+            mediaUploads: Math.round(mediaRepoSize * splitRatio.uploads),
+        },
+    }
 }
 
 // ── Restore helpers ──────────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Typography, Tooltip } from '@mui/material'
-import { CheckCircleOutline, Language, Storage, Forum, Headset, Warning } from '@mui/icons-material'
+import { CheckCircleOutline, Language, Storage, Backup, Forum, Headset, Warning } from '@mui/icons-material'
 import {
     DndContext, closestCenter, PointerSensor, useSensor, useSensors,
     type DragEndEvent,
@@ -54,6 +54,7 @@ type ServiceStatus = { online: boolean; devMode?: boolean }
 type StatusResponse = {
     website: ServiceStatus
     database: ServiceStatus
+    backups: ServiceStatus
     discord: ServiceStatus
     teamspeak: ServiceStatus
 }
@@ -61,6 +62,7 @@ type StatusResponse = {
 const ALL_OFFLINE: StatusResponse = {
     website: { online: false },
     database: { online: false },
+    backups: { online: false },
     discord: { online: false },
     teamspeak: { online: false },
 }
@@ -115,6 +117,7 @@ function ServiceStatusIcons() {
         <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
             <ServiceIcon name='Website' status={status.website} Icon={Language} />
             <ServiceIcon name='Database' status={status.database} Icon={Storage} />
+            <ServiceIcon name='Backups' status={status.backups} Icon={Backup} />
             <ServiceIcon name='Discord' status={status.discord} Icon={Forum} />
             <ServiceIcon name='TeamSpeak' status={status.teamspeak} Icon={Headset} />
         </div>

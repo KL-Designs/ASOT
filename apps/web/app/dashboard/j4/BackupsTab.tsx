@@ -1,43 +1,72 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Typography, CircularProgress, Dialog, DialogContent } from '@mui/material'
+import { Typography, CircularProgress, Dialog, DialogContent, Tooltip as MuiTooltip } from '@mui/material'
+import { CheckCircleOutline, ErrorOutline } from '@mui/icons-material'
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RechartsTooltip } from 'recharts'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
-import type { BackupPoint, BackupStatus, BackupConfig } from '@/lib/backups'
+import type { BackupPoint, BackupStatus, BackupConfig, StorageUsage } from '@/lib/backups'
 
 // ── Duration history (localStorage) ──────────────────────────────────────────
 
 const DURATION_KEY = 'snapshot_op_durations'
 
-type DurationHistory = { create: number[]; revert: number[] }
+type DurationSample = { durationSecs: number; sizeBytes: number }
+type DurationHistory = { create: DurationSample[]; revert: DurationSample[] }
 
 function loadHistory(): DurationHistory {
     try {
         const raw = localStorage.getItem(DURATION_KEY)
-        return raw ? JSON.parse(raw) as DurationHistory : { create: [], revert: [] }
+        if (!raw) return { create: [], revert: [] }
+        const parsed = JSON.parse(raw) as { create?: unknown[]; revert?: unknown[] }
+        // Migrate the old bare-number-array format (no size data) — treated
+        // as sizeBytes: 0 so getEstimate() falls back to a flat average for
+        // these entries instead of a bogus rate calculation.
+        const migrate = (arr?: unknown[]): DurationSample[] =>
+            (arr ?? []).map(v => typeof v === 'number' ? { durationSecs: v, sizeBytes: 0 } : v as DurationSample)
+        return { create: migrate(parsed.create), revert: migrate(parsed.revert) }
     } catch { return { create: [], revert: [] } }
 }
 
-function recordDuration(type: 'create' | 'revert', secs: number) {
+function recordDuration(type: 'create' | 'revert', secs: number, sizeBytes: number) {
     const h = loadHistory()
     if (!h.create) h.create = []
     if (!h.revert) h.revert = []
-    h[type].push(Math.round(secs))
+    h[type].push({ durationSecs: Math.round(secs), sizeBytes })
     h[type] = h[type].slice(-5)  // keep last 5
     try { localStorage.setItem(DURATION_KEY, JSON.stringify(h)) } catch {}
 }
 
-function getEstimate(type: 'create' | 'revert'): number {
+// Averages the last 3 recorded runs, weighted by size when both the history
+// and the operation about to run have size data — a backup/revert covering
+// 10x more data should take roughly 10x as long, which a flat duration
+// average completely misses. Falls back to a flat average when size data
+// isn't available yet (fresh install, or history migrated from the old
+// bare-duration format).
+function getEstimate(type: 'create' | 'revert', currentSizeBytes: number): number {
     const h = loadHistory()
-    const times = (h[type] ?? []).slice(-3)
-    if (times.length === 0) return type === 'create' ? 90 : 45
-    return times.reduce((a, b) => a + b, 0) / times.length
+    const samples = (h[type] ?? []).slice(-3)
+    if (samples.length === 0) return type === 'create' ? 90 : 45
+
+    const withSize = samples.filter(s => s.sizeBytes > 0)
+    if (withSize.length > 0 && currentSizeBytes > 0) {
+        const avgRate = withSize.reduce((sum, s) => sum + s.durationSecs / s.sizeBytes, 0) / withSize.length
+        return Math.max(5, avgRate * currentSizeBytes)
+    }
+    return samples.reduce((a, s) => a + s.durationSecs, 0) / samples.length
 }
 
 function fmtTime(secs: number): string {
     const m = Math.floor(secs / 60)
     const s = Math.floor(secs % 60)
     return `${m}:${String(s).padStart(2, '0')}`
+}
+
+function fmtBytes(bytes: number): string {
+    if (bytes <= 0) return '0 B'
+    const units = ['B', 'KB', 'MB', 'GB', 'TB']
+    const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)))
+    return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`
 }
 
 // ── Confirm dialog ────────────────────────────────────────────────────────────
@@ -113,6 +142,56 @@ function ConfirmDialog({ open, title, body, danger, onConfirm, onCancel }: {
     )
 }
 
+// ── Storage donut ─────────────────────────────────────────────────────────────
+
+const STORAGE_PALETTE = { database: '#00c3ff', gallery: '#db001d', uploads: '#f59e0b' }
+const storageTooltipStyle = {
+    contentStyle: { background: '#111', border: '1px solid rgba(219,0,29,0.32)', borderRadius: 0, fontSize: '0.78rem', color: '#ededed' },
+    cursor: { fill: 'rgba(255,255,255,0.04)' },
+}
+
+function StorageDonut({ title, data }: { title: string; data: { name: string; value: number; color: string }[] }) {
+    const total = data.reduce((sum, d) => sum + d.value, 0)
+    return (
+        <div>
+            <Typography fontSize='0.6rem' fontWeight={700} letterSpacing={2}
+                style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 4 }}>
+                {title}
+            </Typography>
+            <Typography fontSize='0.9rem' fontWeight={700} fontFamily='monospace' style={{ color: 'rgba(237,237,237,0.85)', marginBottom: 6 }}>
+                {fmtBytes(total)}
+            </Typography>
+            {total > 0 ? (
+                <div style={{ width: '100%', height: 160 }}>
+                    <ResponsiveContainer>
+                        <PieChart>
+                            <Pie data={data} dataKey='value' nameKey='name' cx='50%' cy='50%' innerRadius={36} outerRadius={62} paddingAngle={3}>
+                                {data.map((e, i) => <Cell key={i} fill={e.color} />)}
+                            </Pie>
+                            <RechartsTooltip {...storageTooltipStyle} formatter={(v, name) => [fmtBytes(Number(v ?? 0)), name]} />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+            ) : (
+                <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.25)', padding: '20px 0' }}>
+                    No data yet.
+                </Typography>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                {data.map(d => (
+                    <div key={d.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.68rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ width: 8, height: 8, background: d.color, display: 'inline-block' }} />
+                            <span style={{ color: 'rgba(237,237,237,0.55)' }}>{d.name}</span>
+                        </div>
+                        <span style={{ color: 'rgba(237,237,237,0.7)', fontFamily: 'monospace' }}>{fmtBytes(d.value)}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+}
+
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
 export default function BackupsTab() {
@@ -129,6 +208,10 @@ export default function BackupsTab() {
     const prevBusy   = useRef(false)
     const opStartMs  = useRef(0)
     const opTypeRef  = useRef<'create' | 'revert'>('create')
+    const opSizeRef  = useRef(0) // bytes "about to be processed" — captured when an operation is triggered, used for size-aware duration estimates
+
+    const [resticHealthy, setResticHealthy] = useState<boolean | null>(null)
+    const [storageUsage, setStorageUsage] = useState<StorageUsage | null>(null)
 
     const [cancelling, setCancelling] = useState(false)
 
@@ -155,6 +238,7 @@ export default function BackupsTab() {
             const data = await res.json()
             setPoints(data.points ?? [])
             setStatus(data.status ?? { state: 'idle' })
+            setResticHealthy(typeof data.resticHealthy === 'boolean' ? data.resticHealthy : null)
             setError(null)
         } catch {
             setError('Failed to load backups.')
@@ -163,7 +247,16 @@ export default function BackupsTab() {
         }
     }, [])
 
+    const fetchStorageUsage = useCallback(async () => {
+        try {
+            const res = await fetch('/api/backups/storage')
+            if (!res.ok) return
+            setStorageUsage(await res.json())
+        } catch { /* storage breakdown is supplementary — a failed fetch just leaves the section empty */ }
+    }, [])
+
     useEffect(() => { fetchData() }, [fetchData])
+    useEffect(() => { fetchStorageUsage() }, [fetchStorageUsage])
 
     useEffect(() => {
         fetch('/api/backups/config')
@@ -192,10 +285,11 @@ export default function BackupsTab() {
         }
         if (!busy && prevBusy.current && opStartMs.current) {
             const secs = (Date.now() - opStartMs.current) / 1000
-            if (secs > 2) recordDuration(opTypeRef.current, secs)
+            if (secs > 2) recordDuration(opTypeRef.current, secs, opSizeRef.current)
+            fetchStorageUsage() // storage changed — refresh the breakdown now that the operation finished
         }
         prevBusy.current = busy
-    }, [busy, status.state, status.startedAt])
+    }, [busy, status.state, status.startedAt, fetchStorageUsage])
 
     // Sub-second ticker for smooth progress bar
     useEffect(() => {
@@ -233,6 +327,11 @@ export default function BackupsTab() {
     }
 
     async function handleCreateNow() {
+        // Total live size of what's about to be backed up — used by
+        // getEstimate() for a size-aware duration estimate.
+        opSizeRef.current = storageUsage
+            ? storageUsage.live.database + storageUsage.live.gallery + storageUsage.live.uploads
+            : 0
         const res = await fetch('/api/backups/create', { method: 'POST' })
         const data = await res.json()
         if (!res.ok) setError(data.error ?? 'Failed to start')
@@ -245,6 +344,7 @@ export default function BackupsTab() {
             'Revert to Backup',
             `This will restore ${parts} from ${new Date(point.time).toLocaleString()}, overwriting the current state. The current state cannot be recovered unless you have another backup. Are you sure?`,
             async () => {
+                opSizeRef.current = (point.dbSizeBytes ?? 0) + (point.mediaSizeBytes ?? 0)
                 const res = await fetch('/api/backups/revert', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -386,9 +486,20 @@ export default function BackupsTab() {
                         style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 2, fontFamily: 'monospace' }}>
                         <span style={{ color: 'rgba(219,0,29,0.35)' }}>{'//'}</span> J4 — Administration
                     </Typography>
-                    <Typography fontWeight={700} fontSize='0.9rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
-                        Backups
-                    </Typography>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Typography fontWeight={700} fontSize='0.9rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
+                            Backups
+                        </Typography>
+                        {resticHealthy !== null && (
+                            <MuiTooltip title={resticHealthy ? 'Restic binary: OK' : 'Restic binary: not found or not runnable'}>
+                                <div style={{ display: 'inline-flex', lineHeight: 0 }}>
+                                    {resticHealthy
+                                        ? <CheckCircleOutline sx={{ fontSize: 15, color: 'rgba(34,197,94,0.85)' }} />
+                                        : <ErrorOutline sx={{ fontSize: 15, color: 'rgba(219,0,29,0.85)' }} />}
+                                </div>
+                            </MuiTooltip>
+                        )}
+                    </div>
                 </div>
                 <button
                     onClick={handleCreateNow}
@@ -416,7 +527,7 @@ export default function BackupsTab() {
             {/* Progress banner */}
             {(busy || status.error) && (() => {
                 const opType  = status.state === 'backing-up' ? 'create' : 'revert'
-                const estimate = getEstimate(opType)
+                const estimate = getEstimate(opType, opSizeRef.current)
                 const pct     = busy ? Math.min(96, (elapsed / estimate) * 100) : 0
                 const remaining = Math.max(0, Math.ceil(estimate - elapsed))
                 const almostDone = elapsed > estimate * 0.9
@@ -571,10 +682,10 @@ export default function BackupsTab() {
                                     {new Date(p.time).toLocaleString()}
                                 </span>
                                 <span style={{ fontSize: '0.68rem', color: p.dbSnapshotId ? 'rgba(0,195,100,0.85)' : 'rgba(237,237,237,0.2)' }}>
-                                    {p.dbSnapshotId ? 'Present' : 'Missing'}
+                                    {p.dbSnapshotId ? (p.dbSizeBytes ? fmtBytes(p.dbSizeBytes) : 'Present') : 'Missing'}
                                 </span>
                                 <span style={{ fontSize: '0.68rem', color: p.mediaSnapshotId ? 'rgba(0,195,100,0.85)' : 'rgba(237,237,237,0.2)' }}>
-                                    {p.mediaSnapshotId ? 'Present' : 'Missing'}
+                                    {p.mediaSnapshotId ? (p.mediaSizeBytes ? fmtBytes(p.mediaSizeBytes) : 'Present') : 'Missing'}
                                 </span>
                                 <a
                                     href={busy ? undefined : `/api/backups/${encodeURIComponent(p.id)}/download`}
@@ -589,6 +700,32 @@ export default function BackupsTab() {
                                 </button>
                             </div>
                         ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Storage usage */}
+            <div style={{ borderTop: '1px solid rgba(219,0,29,0.12)', paddingTop: 20 }}>
+                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3}
+                    style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 16 }}>
+                    Storage Usage
+                </Typography>
+                {storageUsage ? (
+                    <div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+                        <StorageDonut title='Live Storage' data={[
+                            { name: 'Database', value: storageUsage.live.database, color: STORAGE_PALETTE.database },
+                            { name: 'Gallery',  value: storageUsage.live.gallery,  color: STORAGE_PALETTE.gallery },
+                            { name: 'Uploads',  value: storageUsage.live.uploads,  color: STORAGE_PALETTE.uploads },
+                        ]} />
+                        <StorageDonut title='Backup Storage (on disk)' data={[
+                            { name: 'Database', value: storageUsage.backups.db,           color: STORAGE_PALETTE.database },
+                            { name: 'Gallery',  value: storageUsage.backups.mediaGallery, color: STORAGE_PALETTE.gallery },
+                            { name: 'Uploads',  value: storageUsage.backups.mediaUploads, color: STORAGE_PALETTE.uploads },
+                        ]} />
+                    </div>
+                ) : (
+                    <div style={{ padding: '20px 0', display: 'flex', justifyContent: 'center' }}>
+                        <CircularProgress size={20} style={{ color: 'rgba(219,0,29,0.6)' }} />
                     </div>
                 )}
             </div>

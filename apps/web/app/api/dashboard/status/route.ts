@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { getConnection } from '@/lib/teamspeak/cache'
+import { checkResticHealth } from '@/lib/backups'
 
 const CHECK_TIMEOUT_MS = 5_000
 
@@ -44,6 +45,14 @@ async function checkTeamspeak(): Promise<boolean> {
     }
 }
 
+async function checkBackups(): Promise<boolean> {
+    try {
+        return await withTimeout(checkResticHealth())
+    } catch {
+        return false
+    }
+}
+
 async function isDevModeEnabled(settingId: string): Promise<boolean> {
     const setting = await Db.siteSettings.findOne({ _id: settingId }).catch(() => null)
     return !!(setting as Record<string, unknown> | null)?.enabled
@@ -56,8 +65,9 @@ export async function GET() {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const [database, discord, teamspeak, discordDevMode, teamspeakDevMode] = await Promise.all([
+    const [database, backups, discord, teamspeak, discordDevMode, teamspeakDevMode] = await Promise.all([
         checkDatabase(),
+        checkBackups(),
         checkDiscord(),
         checkTeamspeak(),
         isDevModeEnabled('discordDevMode'),
@@ -67,6 +77,7 @@ export async function GET() {
     return NextResponse.json({
         website: { online: true },
         database: { online: database },
+        backups: { online: backups },
         discord: { online: discord, devMode: discordDevMode },
         teamspeak: { online: teamspeak, devMode: teamspeakDevMode },
     })
