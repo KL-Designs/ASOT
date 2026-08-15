@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Your Page Title</title>
+    <style>
+      .progress {
+        width: 200px;
+      }
+
+      .progress-fill {
+        height: 5px;
+        width: 0%;
+        border-radius: 5px;
+        background: #009578;
+        transition: width 0.5s;
+      }
+
+      .progress-text {
+        padding: 10px;
+        text-align: center;
+        color: #777;
+        font-size: 14px;
+        font-style: italic;
+        font-family: sans-serif;
+      }
+
+      /* Reset some default styles */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      /* Body styles */
+      body {
+        font-family: Arial, sans-serif;
+        background: linear-gradient(to right, #00b4db, #af37d0);
+        margin: 0;
+        padding: 0;
+        color: #333;
+      }
+
+      /* Header styles */
+      header {
+        background-color: #ff3333;
+        padding: 20px 0;
+        text-align: center;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 48px;
+        font-weight: bold;
+        letter-spacing: 2px;
+        background: linear-gradient(to right, #00b4db, #af37d0);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      /* Navbar styles */
+      .navbar {
+        background-color: #333;
+        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+        padding: 10px 0;
+        text-align: center;
+      }
+
+      .navbar a {
+        text-decoration: none;
+        margin: 0 20px;
+        position: relative;
+        font-size: 18px;
+        color: #fff;
+        transition: color 0.3s ease;
+      }
+
+      .navbar a:before {
+        content: "";
+        position: absolute;
+        width: 100%;
+        height: 2px;
+        bottom: -4px;
+        left: 0;
+        background-color: #ff3333;
+        transform: scaleX(0);
+        transform-origin: center;
+        transition: transform 0.3s ease;
+      }
+
+      .navbar a:hover {
+        color: #ff3333;
+      }
+
+      .navbar a:hover:before {
+        transform: scaleX(1);
+      }
+
+      /* Content container styles */
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      /* Example content styles */
+      .content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      /* Generate Button */
+      #generate {
+        background-color: #ff3333;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 10px 20px; /* Decrease the size */
+        font-size: 16px; /* Decrease the font size */
+        cursor: pointer;
+        transition:
+          background-color 0.3s ease,
+          transform 0.2s ease; /* Add hover effect */
+      }
+
+      /* Style the button on hover */
+      #generate:hover {
+        background-color: #ff5555;
+        background-color: #ff5555;
+        transform: scale(1.05); /* Add a slight scale effect on hover */
+      }
+
+      /* Footer styles */
+      footer {
+        background-color: #333;
+        color: white;
+        text-align: center;
+        padding: 10px 0;
+        position: relative; /* Position at the bottom */
+        overflow: auto;
+        width: 100%; /* Take the full width */
+        bottom: 0; /* Stick to the bottom */
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <header>
+      <h1>Australian Special Operations Taskforce</h1>
+    </header>
+
+    <!-- Navbar -->
+    <div class="navbar">
+      <div class="container">
+        <a href="/">Uniform</a>
+        <a href="/certificates">Certificates</a>
+        <a href="/box">Boxes</a>
+      </div>
+    </div>
+
+    <!-- Content container -->
+    <div class="container">
+      <div class="content">
+        <h1>Certificate Generator</h1>
+
+        <div class="button">
+          <button id="award">Award</button>
+          <button id="promotion">Promotion</button>
+        </div>
+        <div class="input">
+          <label for="date">Date, Eg - 12 October 2023</label>
+          <input type="text" name="date" id="date" onkeyup="saveValue(this);" />
+        </div>
+        <div class="input">
+          <label for="suffix">Date suffix, Eg - th, teen</label>
+          <input
+            type="text"
+            name="suffix"
+            id="suffix"
+            onkeyup="saveValue(this);"
+          />
+        </div>
+        <div class="input">
+          <label for="jddate"
+            >Join date/rotary training day(any award requiring 2 dates, like 1
+            year), Eg 23 October 2023 (Leave blank if not required)</label
+          >
+          <input
+            type="text"
+            name="jddate"
+            id="jddate"
+            onkeyup="saveValue(this);"
+          />
+        </div>
+        <div class="input">
+          <label for="jdsuffix"
+            >Join Date suffix, Eg - th, teen(leave blank if not used)</label
+          >
+          <input
+            type="text"
+            name="jdsuffix"
+            id="jdsuffix"
+            onkeyup="saveValue(this);"
+          />
+        </div>
+
+        <div class="input">
+          <label for="name"
+            >Name, Eg - Corporal Fulcrum<a
+              href="https://i.imgur.com/Bxd3MO5.png"
+            >
+              This guy</a
+            ></label
+          >
+          <input type="text" name="name" id="name" onkeyup="saveValue(this);" />
+        </div>
+        <div class="input">
+          <label for="signaturer">Signaturer, Eg - Jazz</label>
+          <input
+            type="text"
+            name="signaturer"
+            id="signaturer"
+            onkeyup="saveValue(this);"
+          />
+        </div>
+        <div class="input">
+          <label for="certType"
+            >Certificate Type<br />
+            Available promotion certificates ENLIST, RETURN, PTE, PTEP, PTEL,
+            PTES, PTESL, SAP, SAPP, SAPL, SAPS, SAPSL, GNR, GNRP, GNRL, GNRS,
+            GNRSL, TPR, TPRP, TPRL, TPRS, TPRSL, LCPLJ, LCPL, LCPLP, LCPLL,
+            LCPLS, LBDRJ, LBDR, LBDRP, LBDRL, LBDRS, LCPLJV, LCPLV, LCPLPV,
+            LCPLV, LCPLSV, CPLJ, CPL, CPLP, CPLL, CPLS, BDRJ, BDR, BDRP, BDRL,
+            BDRS, CPLJV, CPLV, CPLPV, CPLLV, CPLSV, SGT, SSGT, SAM, SSAM, PSM,
+            SGTV, SSGTV, SAMV, SSAMV, PSMV, OCDT, 2LT, LT, SLT, CLT, 2LTV, LTV,
+            SLTV, CLTV, WO2, WO1, CSM, RSM, RSMA, SCAPT, CAPT, MAJ, LTCOL, COL,
+            BRIG, MAJGEN, LTGEN, GEN, CA, AC, LAC, LM, SLM, FSGT, OCDT, POF,
+            FOF, FLT, SFLT, FLL, SQLD, WGCP, WGCO, GCPT, COM, AVM, AM, ACM,
+            SACM, SIG, SIGP, SIGL, SIGS, SIGSL, GM, GMP, GMS, GMG, GMD<br />
+            Available award certificates -
+            1year,2year,3year,longterm,atlas,architect,beyond,brokenlance,valour,diplomat,founder,galantry,groupdev,instructor,juniorleader,medical,protagnist,publicrelation<br />,rotary,seniorleadership,bronzemedallion,silvermedallion,goldmedallion,watchman,courage,campaign,campaign1,campaign2,campaign3,campaign4,campaign5,campiagn6,campaign7,campaign8,campaign9,campaign10,campaign11,campaign12,campaign13,campaign14,campaign15,campaign16.campaign17
+          </label>
+          <input
+            type="text"
+            name="certType"
+            id="certType"
+            onkeyup="saveValue(this);"
+          />
+        </div>
+        <button id="generate">Generate Certificate</button>
+        <div class="progress" id="myProgressBar">
+          <div class="progress-fill"></div>
+          <div
+            class="progress-text"
+            data-stages="0:Modifying Template,25:Generated PDF,50:Converting to images,100:Done!"
+          ></div>
+        </div>
+        <div id="imageContainer"></div>
+
+        <script>
+          function updateProgressBar(progressBar, value) {
+            const progressFill = progressBar.querySelector(".progress-fill");
+            const progressText = progressBar.querySelector(".progress-text");
+            const stages = progressText.dataset.stages
+              .split(",")
+              .map((stage) => stage.split(":"));
+
+            stages.sort((stageA, stageB) => {
+              return stageB[0] - stageA[0];
+            });
+
+            console.log(stages);
+
+            const activeStage = stages.find((stage) => {
+              return value >= stage[0];
+            });
+
+            progressFill.style.width = `${value}%`;
+            progressText.textContent = `${activeStage[1]}...`;
+          }
+
+          function saveValue(e) {
+            var id = e.id; // get the sender's id to save it .
+            var val = e.value; // get the value.
+            localStorage.setItem(id, val); // Every time user writing something, the localStorage's value will override .
+          }
+
+          //get the saved value function - return the value of "v" from localStorage.
+          function getSavedValue(v) {
+            if (!localStorage.getItem(v)) {
+              return ""; // You can change this to your defualt value.
+            }
+            return localStorage.getItem(v);
+          }
+          let type = "";
+          const generateButton = document.querySelector("#generate");
+          const certificateDiv = document.querySelector("#certificate");
+          const dateInput = document.querySelector("#date");
+          const nameInput = document.querySelector("#name");
+          const signaturerInput = document.querySelector("#signaturer");
+          const certTypeInput = document.querySelector("#certType");
+          const suffixInput = document.querySelector("#suffix");
+          const awardButton = document.querySelector("#award");
+          const promotionButton = document.querySelector("#promotion");
+          const jddateelement = document.querySelector("#jddate");
+          const jdsuffixelement = document.querySelector("#jdsuffix");
+          dateInput.value = getSavedValue("date"); // set the value to this input
+          nameInput.value = getSavedValue("name"); // set the value to this input
+          signaturerInput.value = getSavedValue("signaturer"); // set the value to this input
+          suffixInput.value = getSavedValue("suffix"); // set the value to this input
+          jddateelement.value = getSavedValue("jddate"); // set the value to this input
+          jdsuffixelement.value = getSavedValue("jdsuffix"); // set the value to this input
+
+          awardButton.addEventListener("click", () => {
+            type = "award";
+            awardButton.style.backgroundColor = "#ff5555";
+            //set promotion button to grey
+            promotionButton.style.backgroundColor = "#808080";
+          });
+          promotionButton.addEventListener("click", () => {
+            type = "promotion";
+            promotionButton.style.backgroundColor = "#ff3333";
+            awardButton.style.backgroundColor = "#808080";
+          });
+          generateButton.addEventListener("click", () => {
+            let date = dateInput.value.trim().split(" ");
+            let jddate = jddateelement?.value?.trim()?.split(" ");
+            const jdnum = jddate?.shift();
+            const jdsuffix = jdsuffixelement?.value?.trim();
+            const name = nameInput.value;
+            const dateNum = date.shift();
+            const suff = suffixInput.value;
+            const signaturer = signaturerInput.value;
+            const interval = setInterval(async () => {
+              let files = await fetch("/cert-poll").catch((err) =>
+                console.log(err)
+              );
+              files = await files.json();
+              files = files.files;
+              if (files.length == 0)
+                updateProgressBar(document.getElementById("myProgressBar"), 0);
+              else if (files.length == 2) {
+                updateProgressBar(document.getElementById("myProgressBar"), 5);
+              } else if ((files.length == 1) & files[0].endsWith(".pdf")) {
+                updateProgressBar(document.getElementById("myProgressBar"), 27);
+              } else if (files.length > 2) {
+                updateProgressBar(document.getElementById("myProgressBar"), 70);
+              }
+            }, 5000);
+
+            const certType = certTypeInput.value;
+            fetch("/create-cert", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              //  const dateNum = date.split(" ").shift()
+              body: JSON.stringify({
+                jddate: jddate?.join(" "),
+                jdsuffix: jdsuffix,
+                jdnum: jdnum,
+                dateNumber: dateNum,
+                date: date.join(" "),
+                suffix: suff,
+                name: name,
+                signaturer: signaturer,
+                cert: certType,
+                type: type,
+              }),
+            })
+              .then((response) => response.blob())
+              .then((imageBlob) => {
+                updateProgressBar(
+                  document.getElementById("myProgressBar"),
+                  100
+                );
+
+                // Create a URL for the image blob
+                var imageUrl = URL.createObjectURL(imageBlob);
+                // Create an <img> element
+                var imgElement = document.createElement("img");
+                console.log(imageUrl);
+
+                clearInterval(interval);
+                // Set the source of the image to the generated image
+                imgElement.src = imageUrl;
+
+                // Append the image element to the "imageContainer" div
+                document
+                  .getElementById("imageContainer")
+                  .appendChild(imgElement);
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+              });
+          });
+        </script>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>&copy; 2023 Australian Special Operations Taskforce</footer>
+  </body>
+</html>
