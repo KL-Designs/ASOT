@@ -16,7 +16,7 @@ that motivates the work, then §6 for what to do.
 | Commit | Author | Contents |
 |---|---|---|
 | `4e6bd956` | Fulcrum | Fulcrum's original generator, imported verbatim apart from three credential redactions. 329 files. |
-| `b422195d` | Koda | This document. |
+| `b422195d` and later | Koda | This document. Docs only — no code on top of the import yet. |
 
 Phase 0 is done — the import is committed, secrets are redacted, and the
 excluded files are preserved in `storage/milpac-design-source/`. See the table
@@ -394,17 +394,106 @@ and no `execSync` string interpolation.
 6. Once verified: delete `lib/milpac-gen/uniform.ts`, `lib/milpac-gen/box.ts`,
    and `public/milpac-assets/`. Keep `data-mapper.ts` and `maps.ts`.
 
-### Phase 4 — Compose and documentation
+### Phase 4 — Compose, monorepo tooling and documentation
 
-1. Root `docker-compose.yml` gains a `milpac` service: internal network only, no
-   published ports, healthcheck against `/health`.
+Phases 1–3 make the service work. Phase 4 makes it a first-class member of the
+monorepo: installable, runnable from the start menu, deployable with the stack,
+and documented. Until this phase lands, `apps/milpac` is a directory the repo's
+own tooling does not know exists — `npm run install:all` does not install it and
+`npm start` cannot run it.
+
+#### 4a. Compose
+
+1. Root `docker-compose.yml` gains a `milpac` service, built the same way as the
+   other two — `context: .`, `dockerfile: apps/milpac/dockerfile`:
+   - **No `ports:` key at all.** Compose puts every service on the same default
+     network, so `web` reaches `http://milpac:42070` by service name without
+     anything being published to the host. This is the §9 mitigation; do not add
+     a port mapping "just for debugging."
+   - **No `volumes:` key.** Every other service bind-mounts part of `storage/`;
+     this one deliberately does not, because §4 requires it to write nothing to
+     disk. An empty `volumes:` list is a signal, not an oversight — say so in a
+     comment so nobody "fixes" it later.
+   - `env_file: .env` and `restart: unless-stopped`, matching `web` and `bot`.
+   - `healthcheck:` against `GET /health`, and `web` gains
+     `depends_on: { milpac: { condition: service_healthy } }`.
 2. Web gains `MILPAC_SERVICE_URL=http://milpac:42070` and
-   `MILPAC_SERVICE_TOKEN`; both documented in `.env.template`.
-3. Delete `apps/milpac/docker-compose.yml` (superseded by the root stack).
-4. Write `apps/milpac/CLAUDE.md`.
-5. Update root `CLAUDE.md` — the monorepo has three apps now, not two.
-6. Update `apps/web/docs/map/` for every changed route and lib file.
-7. Update `storage/README.md` for `milpac-design-source/`.
+   `MILPAC_SERVICE_TOKEN`; both documented in `.env.template`, marked shared
+   (web reads both, milpac reads the token and its own `PORT`).
+3. Rename `apps/milpac/Dockerfile` → `apps/milpac/dockerfile`. Both existing apps
+   use the lowercase form and the compose `dockerfile:` key is case-sensitive on
+   the Linux deploy host, where a capitalised name fails the build even though it
+   resolves fine on the Windows dev machine. Git on Windows will not record a
+   case-only rename without `git mv --force`.
+
+Note that `apps/milpac/docker-compose.yml` needs no deletion here — Phase 0
+already moved it to `storage/milpac-design-source/`, so it never entered git
+history.
+
+#### 4b. Workspace registration
+
+`apps/milpac` is currently invisible to the root install. Register it as an npm
+workspace alongside `apps/bot`:
+
+```jsonc
+// package.json
+"workspaces": ["apps/bot", "apps/milpac"]
+```
+
+Workspace, not `--prefix`. `apps/web` is installed separately by `install:all`
+because Next's dependency tree does not tolerate hoisting; a small express
+service has no such constraint, and being a workspace means the root
+`npm install` already inside `install:all` picks it up with **no change to the
+`install:all` script itself**.
+
+Also rename the package from `milpac-image` to `milpac` in
+`apps/milpac/package.json` — the workspace is targeted by path
+(`--workspace=apps/milpac`), so the name is cosmetic, but `milpac-image` is a
+leftover that will read as a third-party dependency in lockfile diffs.
+
+Phase 1 already adds the missing `build` script; Phase 4 depends on `dev`,
+`build` and `start` all existing, since the menu items below invoke them by
+name.
+
+#### 4c. Start menu
+
+`scripts/start.mjs` gains milpac in three of its item lists. `MILPAC_PORT` is
+read from `ENV` next to the existing `WEB_PORT` constant so the `port:` field
+below shows the real port in the live header.
+
+| List | Item | Command |
+|---|---|---|
+| `RUN_ITEMS` | `🎖️ MilPac` | `npm run dev --workspace=apps/milpac`, `port: MILPAC_PORT` |
+| `RUN_ITEMS` | `🔀 Both` → **`🔀 All`** | add the same command as a third entry |
+| `PRODUCTION_ITEMS` | `🏗️ Build MilPac` | `npm run build --workspace=apps/milpac` |
+| `PRODUCTION_ITEMS` | `🚀 Start MilPac` | `npm run start --workspace=apps/milpac`, `port: MILPAC_PORT` |
+
+The `🔀 Both` item's label no longer describes what it runs once there are three
+apps; rename it and keep it as the "everything at once" entry rather than adding
+a fourth permutation. `runItem`'s existing multi-command handling, `taskkill /T`
+tree-kill and Esc/Ctrl-C/R keybinds all work unchanged for a third child — no
+change to `watchControlKeys`, `runOnce` or `killTree`.
+
+**Do not add a MilPac line to the banner's status block.** The three existing
+lines (Database, Discord Bot, TeamSpeak) all report services that are reachable
+regardless of what is running on this machine — that is why `checkDiscord` hits
+Discord's REST API rather than looking for a local bot process. MilPac is the
+first service that is deliberately *unreachable*: in production it has no
+published port by design, so a host-side probe would sit permanently red and
+train the reader to ignore a red status line. The `port:` field on the menu items
+above already surfaces it in the live "Running • PID • Port" header whenever it
+is actually running locally, which is the only case a host-side check could ever
+report honestly.
+
+#### 4d. Documentation
+
+1. Write `apps/milpac/CLAUDE.md` per monorepo convention.
+2. Update root `CLAUDE.md`: three apps rather than two, the shared-`.env` and
+   `storage/` sections both need milpac added (noting it reads neither Mongo nor
+   `storage/`), and the start-menu paragraph should mention the third app.
+3. Update `apps/web/docs/map/` for every changed route and lib file.
+4. Update `storage/README.md` for `milpac-design-source/`.
+5. Update `.env.template` — see 4a.2.
 
 ---
 
@@ -444,11 +533,12 @@ are recorded here so the Phase 1 rewrite can be checked against them rather than
 rediscovering them.
 
 > **The imported application must never be deployed as-is.** Every finding below
-> is live in Fulcrum's original code. `apps/milpac/docker-compose.yml` publishes
+> is live in Fulcrum's original code. Fulcrum's `docker-compose.yml` publishes
 > port 42070 with `app.use(cors())` and no authentication on any generation
 > endpoint — bringing that stack up exposes an unauthenticated image generator
-> with a Mongo connection. It is retained in the import for attribution only and
-> is deleted in Phase 4. Do not run it.
+> with a Mongo connection. Phase 0 moved it out of the app to
+> `storage/milpac-design-source/`, so it is not in git history and cannot be
+> brought up by accident from a clone. Do not run the copy that is there.
 >
 > Findings 2 and 3 **compound**: the three write sites interpolate a
 > client-controlled `name` into a filesystem path, and none of the routes
