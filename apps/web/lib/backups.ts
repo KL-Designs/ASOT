@@ -1,4 +1,4 @@
-import { resolve, join, basename } from 'path'
+import { resolve, join, basename, dirname, sep } from 'path'
 import { existsSync, mkdirSync, createWriteStream, createReadStream, readdirSync } from 'fs'
 import { readFile, writeFile, mkdir, rm, copyFile } from 'fs/promises'
 import { execFile } from 'child_process'
@@ -310,6 +310,7 @@ async function copyDirRecursive(src: string, dest: string): Promise<void> {
     await mkdir(dest, { recursive: true })
     const entries = readdirSync(src, { withFileTypes: true })
     for (const entry of entries) {
+        if (entry.isSymbolicLink()) continue // never follow symlinks out of a restored/extracted tree
         const srcPath  = join(src,  entry.name)
         const destPath = join(dest, entry.name)
         if (entry.isDirectory()) await copyDirRecursive(srcPath, destPath)
@@ -463,6 +464,45 @@ export async function buildDownloadZip(point: BackupPoint): Promise<string> {
 
 // ── Upload ────────────────────────────────────────────────────────────────────
 
+// Extracts a zip entry-by-entry via unzipper's random-access Open API rather
+// than piping through unzipper.Extract's stream: Extract's returned promise
+// was found to resolve before extracted files were actually flushed to disk
+// (a real, reproducible race — see task-3-report.md), silently causing the
+// restore below to see an empty tree and no-op while still reporting
+// success. Awaiting each entry's own write stream to 'finish' closes that
+// race, and validating each entry's path/type here also closes zip-slip and
+// symlink-based path traversal — the source zip is untrusted (staff-uploaded).
+async function safeExtractZip(zipPath: string, destDir: string): Promise<void> {
+    const destRoot = resolve(destDir) + sep
+    await mkdir(destDir, { recursive: true })
+
+    const directory = await unzipper.Open.file(zipPath)
+    for (const entry of directory.files) {
+        const destPath = resolve(destDir, entry.path)
+        if (destPath !== resolve(destDir) && !destPath.startsWith(destRoot)) {
+            throw new Error(`Refusing to extract zip entry outside target directory: ${entry.path}`)
+        }
+
+        // Zip symlinks are regular entries with the link mode bit set in the
+        // upper 16 bits of externalFileAttributes (Unix mode) — unzipper
+        // doesn't classify these separately from 'File'. Refuse them: this
+        // code only ever handles our own generated download zips or a manual
+        // admin upload, never anything that legitimately needs a symlink.
+        const unixMode = (entry.externalFileAttributes >>> 16) & 0xFFFF
+        if ((unixMode & 0xF000) === 0xA000) {
+            throw new Error(`Refusing to extract symlink entry in uploaded zip: ${entry.path}`)
+        }
+
+        if (entry.type === 'Directory') {
+            await mkdir(destPath, { recursive: true })
+            continue
+        }
+
+        await mkdir(dirname(destPath), { recursive: true })
+        await pipeline(entry.stream(), createWriteStream(destPath))
+    }
+}
+
 // Extracts an uploaded zip straight onto disk — bypasses restic entirely, does
 // not feed the upload into either repo's history. Matches buildDownloadZip's
 // { db-source/, gallery/, uploads/ } shape.
@@ -470,13 +510,7 @@ export async function applyUploadedZip(zipPath: string): Promise<void> {
     const tmp = join(tmpdir(), `asot-upload-extract-${Date.now()}`)
     await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Extracting upload…' })
     try {
-        await pipeline(
-            createReadStream(zipPath),
-            unzipper.Extract({ path: tmp })
-        ).catch((e: unknown) => {
-            if (e instanceof Error && e.message === 'Premature close') return
-            throw e
-        })
+        await safeExtractZip(zipPath, tmp)
 
         const dbDir = join(tmp, 'db-source')
         if (existsSync(dbDir)) {
