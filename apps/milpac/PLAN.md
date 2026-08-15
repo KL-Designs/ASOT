@@ -100,9 +100,11 @@ uniform with **no rank insignia at all** for:
 - Gunners above base — `GNRL`, `GNRS`, `GNRSL`
 - All Game Masters — `GMP`, `GMS`, `GMG`, `GMD` (via `/^GM.*/`)
 
-All of the corresponding `.png` files exist in
-`public/milpac-assets/imge/Rank/` and none of them can currently render. The
-`PTSG → PSM` mapping was also dropped in the port, though `PTSG.png` exists.
+None of them can currently render. An earlier draft of this section claimed all
+the corresponding `.png` files exist; **that is wrong for signallers** — there is
+no `SIG*` artwork at any tier, in either asset tree. See §10 for the full audit
+and what each group actually resolves to. The `PTSG → PSM` mapping was also
+dropped in the port, though `PTSG.png` exists.
 
 **The fix is deletion, not repair.** Under the new architecture the service does
 no rank rewriting whatsoever — web's `buildUniformData` emits the final rank
@@ -511,7 +513,11 @@ All five are settled. Nothing in this plan is blocked on a further answer.
 |---|---|---|
 | 1 | Fulcrum's commit email | **`crackedpotato007@users.noreply.github.com`**, ID-prefixed. Actioned in Phase 0; see §6. |
 | 2 | UnitCommander push | **Dropped entirely.** `/update`, `src/utility/get-uc-id.ts` and `src/utility/update-uc-uniform.ts` are deleted in Phase 1 and not reimplemented anywhere. Uniforms live on the site only; nothing is pushed to UnitCommander. This resolves §9 finding 7 by deletion — the code carrying the unvalidated interpolation ceases to exist, and no `UC_API_KEY` is needed by either app. |
-| 3 | Corps-specific rank insignia | **Render the corps-specific artwork.** `SIG*`, `TPR*`, `SAP*`, `GNR*` and `GM*` each draw their own PNG at their own tier. This is what §3's "the fix is deletion" already implies: the service does no rank rewriting at all, so the rank code web sends is the file it draws. Fulcrum's `PTE*` collapse and the web port's blanking both go. Corps identity now shows in the rank as well as the corps badge. |
+| 3 | Corps-specific rank insignia | **Render the corps-specific artwork where it exists** — `TPRL/S/SL`, `SAPL/S/SL`, `GNRL/S/SL` and `GMP/S/G/D` each draw their own PNG. This is what §3's "the fix is deletion" implies: the service does no rank rewriting at all, so the rank code web sends is the file it draws. Corps identity now shows in the rank as well as the corps badge. **Qualified by the §10 audit:** base and `P` tiers of every corps have no artwork and keep the rifleman-badge treatment, and **signallers have no artwork at any tier** — see decision 3a. |
+| 3a | Signaller ranks | **Map to the `PTE*` tier equivalents**, done web-side: `SIGL→PTEL`, `SIGS→PTES`, `SIGSL→PTESL`, `SIG`/`SIGP`→rifleman badge. No `SIG*` artwork exists, so this is the only mapping that draws anything. Signallers show generic tier insignia plus their Pronto corps badge, exactly as under Fulcrum's original. The service is unaffected — it still draws precisely the code it is handed. |
+| 3b | Duplicate `FLT` / `SQLD` artwork | **The `Airforce*` folders are authoritative.** `imge/Rank/FLT.png` and `imge/Rank/SQLD.png` are deleted; `AirforcePilot/FLT.png` and `AirforceOfficer/SQLD.png` are kept. See §10 — the two pairs are genuinely different images, and which one rendered was decided by glob order. |
+| 3c | Base `GM` rank | **Reuse `GM(P)` art** — `GM → GMP.png`. The only Game Master tier without artwork. Base and Proficient look identical on the uniform as a consequence; accepted in preference to a blank rank slot. |
+| 3d | `imge/Rank/` root | **Retired entirely**, extending 3b consistently: `GPCAPT → AirforceOfficer/GCPT.png` and `WGCO → AirforceOfficer/WGCDR.png` rather than the loose `Rank/GPCPT.png` and `Rank/WGCO.png`. Only `Pip.png` remains in the root, and it is not a rank. See §10. |
 | 4 | Medal box layering and centring | **The original on both counts** — draw right-to-left so the *leftmost* medal overlaps its neighbour, and centre with `n*step`, ignoring medal width. The web port's left-to-right order and `(n-1)*step + width` centring are the regression, not the improvement. |
 | 5 | Fate of existing rendered output | **Keep for Phase 2, then discard.** The 614 images (343 certificates, 184 uniforms, 87 boxes) stay on disk as visual references while the canvas certificate renderer is transcribed, and are deleted once Phase 2 passes review. They are gitignored throughout, so this never touches the repository. Phase 2 records the deletion as an explicit step so they don't linger on the bind mount. |
 
@@ -610,3 +616,115 @@ Phase 2 removes the shell invocation entirely.
    `Authorization` — not `Host`, not a custom `name` header.
 6. `cors()` is either removed or given an explicit origin allowlist. The service
    is called server-to-server; no browser origin needs access.
+
+---
+
+## 10. Rank asset audit
+
+Measured 2026-08-16 against **`apps/web/lib/military/ranks.ts`** — the
+authoritative rank list, 99 ranks across 19 groups — and every `.png` under
+`imge/Rank/` (109 files, 107 unique basenames).
+`apps/web/public/milpac-assets/imge/Rank/` was compared file-for-file and is
+identical, so every finding applies to both apps.
+
+> An earlier version of this section audited against the `Rank` type union in
+> Fulcrum's `src/types.ts`. That was the wrong reference and its conclusions
+> were wrong in both directions — it reported live ranks as orphaned art and
+> orphaned art as live ranks. Web's rank list is authoritative; Fulcrum's union
+> is a snapshot of a rank structure the unit has since changed. Reproduce this
+> audit with `scripts/` tooling against `ranks.ts`, never against the union.
+
+### The lookup is by name coincidence, and it mostly misses
+
+Ranks are stored on `user.milpac.currentRank` in web's display form — `PTE(S)`,
+`B/SGT`, `RSM-A`, `LT(C)`. `normaliseRank` in `lib/milpac-gen/data-mapper.ts`
+strips **parentheses only**, and the result is used directly as a filename. So
+slashes, hyphens, and any rank whose art is filed under a differently-ordered
+abbreviation all miss silently.
+
+Of 99 ranks, 3 intentionally have no insignia (`REC`, `PTE`, `PTE(P)` — the
+rifleman badge carries these), **72 match an asset by name**, and **24 do not**.
+The 72 is an upper bound on what renders: §3's regexes then destroy `GM*` and
+the corps `L`/`S`/`SL` tiers at runtime, so live output is worse still.
+
+### 12 ranks whose art exists under a different filename
+
+Nothing is missing here — the file is present and the renderer asks for a name
+nobody filed it under.
+
+| Rank | Looks for | Art is actually | Cause |
+|---|---|---|---|
+| `LBDR(S)` | `LBDRS.png` | `LBDR/LDBRS.png` | transposed letters |
+| `B/SGT` | `B/SGT.png` | `SGT/BSGT.png` | slash survives normalisation |
+| `T/SGM` | `T/SGM.png` | `SGT/TSGM.png` | slash survives normalisation |
+| `RSM-A` | `RSM-A.png` | `WO/RSMA.png` | hyphen survives normalisation |
+| `LT(S)` | `LTS.png` | `Officer/SLT.png` | art uses prefix form (Senior LT) |
+| `LT(C)` | `LTC.png` | `Officer/CLT.png` | art uses prefix form (Commanding LT) |
+| `LM(S)` | `LMS.png` | `AirforceGround/SLM.png` | art uses prefix form |
+| `FLT(S)` | `FLTS.png` | `AirforcePilot/SFLT.png` | art uses prefix form |
+| `OFFCDT` | `OFFCDT.png` | `AirforcePilot/HOCDT.png` | different abbreviation |
+| `AM` | `AM.png` | `AirforceCommand/HAM.png` | different abbreviation |
+| `GPCAPT` | `GPCAPT.png` | `AirforceOfficer/GCPT.png` | different abbreviation |
+| `CA` | `CA.png` | `Command/COA.png` | different abbreviation |
+
+The last four are inferred from rank group and name, not proven — `COA` for
+Chief of ASOT, `HAM` for Air Marshal, `HOCDT` for Aviation Officer Cadet,
+`GCPT` for Group Captain. Confirm each visually before shipping.
+
+**Do not fix this by renaming files.** An earlier draft proposed that; it is
+wrong, because the mismatch is not a typo in most cases — `SLT` and `CLT` are
+correctly-named art for a rank the unit now writes as `LT(S)` and `LT(C)`, and
+renaming would destroy the only record of the older naming. Phase 1 introduces
+an explicit `RANK_TO_ASSET` map instead, defaulting to the identity mapping and
+listing only the exceptions above. Explicit beats coincidence, and the map is
+the thing the boot-time preflight validates.
+
+### 12 ranks have no artwork at all
+
+| Group | Ranks | Resolution |
+|---|---|---|
+| Corps base and `P` tiers | `SAP`, `SAP(P)`, `GNR`, `GNR(P)`, `TPR`, `TPR(P)` | **Forced** — only the `L`/`S`/`SL` tiers of each corps were ever drawn. These keep the rifleman-badge treatment exactly as `PTE`/`PTE(P)` do. Not a decision; there is no file. |
+| All signallers | `SIG`, `SIG(P)`, `SIG(L)`, `SIG(S)`, `SIG(SL)` | **Decision 3a** — map to the `PTE*` tier equivalents web-side. |
+| Base Game Master | `GM` | **Decision 3c** — reuse `GM(P)` art, so `GM → GMP.png`. Base and Proficient are visually identical as a result; that is accepted rather than leaving base GM blank. |
+
+### `imge/Rank/` root is a superseded generation
+
+The root of `imge/Rank/` holds five loose files — `FLT`, `SQLD`, `GPCPT`,
+`WGCO`, `Pip` — that sit outside the per-branch `Airforce*/` folders every other
+airforce rank lives in. Two of them, `FLT` and `SQLD`, **collide with different
+artwork** of the same name in `AirforcePilot/` and `AirforceOfficer/`:
+
+| Code | `Rank/` | `Airforce*/` |
+|---|---|---|
+| `FLT` | 138,187 bytes | 106,418 bytes (`AirforcePilot/`) |
+| `SQLD` | 142,114 bytes | 121,589 bytes (`AirforceOfficer/`) |
+
+Both renderers glob flat and match on basename, taking whichever the glob
+returns first — so which artwork rendered was incidental and could differ
+between platforms.
+
+**Decision 3b resolves this in favour of the `Airforce*` folders**, and applying
+that rule consistently retires the entire `Rank/` root: `FLT` and `SQLD` to the
+`Airforce*` copies, `GPCPT` superseded by `AirforceOfficer/GCPT.png`, `WGCO`
+superseded by `AirforceOfficer/WGCDR.png`, leaving only `Pip.png` — a 2,458-byte
+UI fragment that is not a rank at all. That every single loose file resolves
+away is the strongest evidence the rule is correct.
+
+This is also the clearest argument for the boot-time preflight in §4: a
+duplicate basename is not a missing asset, so no amount of "does the file exist"
+checking catches it. **The preflight must assert uniqueness as well as
+presence.**
+
+### 35 of 109 files are unreachable from web's rank list
+
+The large majority are the **Victor variants** — `CPLV*`, `LCPLV*`, `SGTV`,
+`SSGTV`, `SAMV`, `SSAMV`, `PSMV`, `LTV`, `SLTV`, `CLTV`, `OCDTV`, `2LTV` — 19
+files for a `V`-suffixed rank structure web no longer has. The rest are the
+mismatch targets above (which stop being orphans once `RANK_TO_ASSET` lands),
+the retired `Rank/` root, and `PTSG.png`, which **is** live — `PTSG` is
+Platoon Technician Sergeant in web's SNCO group and matches by name today.
+
+Nothing is deleted in Phase 1 except the two colliding `Rank/` files that
+actively cause wrong output. The rest cost nothing, are already in git history,
+and the Victor art in particular may be wanted again if the rank structure
+changes back. The preflight reports them as unreferenced rather than failing.
