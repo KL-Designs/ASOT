@@ -9,7 +9,7 @@ import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import { useTabState } from '@/app/dashboard/_components/useTabState'
-import SnapshotsTab from './SnapshotsTab'
+import BackupsTab from './BackupsTab'
 import CommunityTicketsTab from './tabs/CommunityTicketsTab'
 import J4MeetingsTab from './tabs/J4MeetingsTab'
 import LogsTab from './tabs/LogsTab'
@@ -952,7 +952,7 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks }: { 
                             <Tab label={<PinTabLabel label='Mastersheet'  pinLabel='J4 — Mastersheet'  href='/dashboard/j4' tabIndex={0} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Tickets'      pinLabel='J4 — Tickets'      href='/dashboard/j4' tabIndex={1} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Meetings'     pinLabel='J4 — Meetings'     href='/dashboard/j4' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Snapshots'    pinLabel='J4 — Snapshots'    href='/dashboard/j4' tabIndex={3} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Backups'      pinLabel='J4 — Backups'      href='/dashboard/j4' tabIndex={3} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Teamspeak'    pinLabel='J4 — Teamspeak'    href='/dashboard/j4' tabIndex={4} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Tools'        pinLabel='J4 — Tools'        href='/dashboard/j4' tabIndex={5} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='AI Admin'     pinLabel='J4 — AI Admin'     href='/dashboard/j4' tabIndex={6} />} sx={tabSx} />
@@ -971,7 +971,7 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks }: { 
                             </div>
                         )}
                         {tab === 2 && <J4MeetingsTab userId={userId} />}
-                        {tab === 3 && <SnapshotsTab />}
+                        {tab === 3 && <BackupsTab />}
                         {tab === 4 && (
                             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                                 <TeamspeakTab />
