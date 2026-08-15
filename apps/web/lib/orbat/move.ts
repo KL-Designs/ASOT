@@ -20,8 +20,12 @@ export async function applyOrbatMove({
     targetUserId: string
 }) {
     if (RESERVIST_CATEGORY_IDS.includes(fromPos.category)) {
-        // FROM reservist → TO section: clear reservist slot, assign destination
-        await Db.orbatPositions.updateOne({ _id: fromPos._id }, { $set: { userId: null } })
+        // FROM reservist → TO section: remove the vacated reservist slot outright
+        // (matches the manual "Remove from pool" action) rather than nulling its
+        // userId — nothing ever reclaims or displays a null-userId reservist slot
+        // as reusable, so leaving one behind just accumulates as a permanent
+        // "Unlinked slot" row in the reservist pool.
+        await Db.orbatPositions.deleteOne({ _id: fromPos._id })
         await Db.orbatPositions.updateOne({ _id: toPos!._id }, { $set: { userId: targetUserId } })
         Promise.allSettled([
             syncOrbatDiscordRoles(targetUserId, 'remove', fromPos.category, fromPos.sectionTitle),
