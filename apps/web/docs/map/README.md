@@ -14,7 +14,7 @@ Full inventory of every page, API route, and `lib`/`types`/`components` file in 
 |---|---|---|
 | A | [a-admin-api.md](a-admin-api.md) | `app/api/admin/**` — 78 routes (activity, tickets, calendar, j1, j4 mastersheet/member-emails, meetings, members, orbat, quiz, retired) |
 | B | [b-operations-j2-api.md](b-operations-j2-api.md) | `app/api/operations/**` + `app/api/j2/**` — 52 routes (ops CRUD, campaigns, attendance, OCAP, J2 workspace, dev-checks) |
-| C | [c-training-tickets-sops-api.md](c-training-tickets-sops-api.md) | `app/api/training/**`, `training-docs/**`, `tickets/**` (community feedback), `sops/**`, `snapshots/**` — 51 routes |
+| C | [c-training-tickets-sops-api.md](c-training-tickets-sops-api.md) | `app/api/training/**`, `training-docs/**`, `tickets/**` (community feedback), `sops/**`, `backups/**` — 50 routes |
 | D | [d-misc-api.md](d-misc-api.md) | Everything else under `app/api/**` — teamspeak, cron, applications (public join flow), me, gallery, community, uploads, minigame, members, notifications, misc single-route features — 79 routes |
 | E | [e-dashboard-j1-j4.md](e-dashboard-j1-j4.md) | `app/dashboard/j1/**`–`j4/**` — recruitment, mission-making, training, administration panels |
 | F | [f-dashboard-j5-j7-other.md](f-dashboard-j5-j7-other.md) | `app/dashboard/j5/**`–`j7/**`, personnel, ORBAT manager, quiz review, retired import, tasks, unit (calendar/SOPs/tickets/training-docs), standalone meeting view, shared `_components` |
@@ -63,7 +63,7 @@ Full inventory of every page, API route, and `lib`/`types`/`components` file in 
 | Awards / certifications / ranks / promotion points | H (`lib/military/**`), D (`/api/award-request`) |
 | Gallery / Screenshot of the Month | A (`gallery/admin/*` in D's scope note — actually under D as non-admin fetch/featured/sotm; admin folder mgmt lives in E `J5Panel` tabs calling `/api/gallery/admin/**`), D (`/api/gallery/**`), E (`j5/tabs/GalleryOperationsTab.tsx` etc.) |
 | TeamSpeak (client mgmt, snapshots, dev-mode gate, TS-ORBAT sync) | D (`/api/teamspeak/**`), F (`j4/tabs/TeamspeakTab.tsx`), H (`lib/teamspeak/**`) |
-| Database / site snapshots (backup & restore) | C (`/api/snapshots/**`), F (`j4/SnapshotsTab.tsx`), H (`lib/snapshots.ts`) |
+| Database / site backups (restic-backed, deduplicating, hourly, tiered retention) | C (`/api/backups/**`, `/api/cron/backups`), E (`j4/BackupsTab.tsx`), H (`lib/backups.ts`) |
 | Minigames (physics dodger, shooting range, live leaderboard) | D (`/api/minigame/**`), H (`components/physics-game.tsx`), G (`/shoot`) |
 | Services-ASOT (driver's license tracker, `1-2` role only) | D (`/api/services-asot/**`), G (`/services-asot`) — uses raw Discord role names, not `PERMISSIONS` |
 | Optionals (mod list manager) | G (`app/optionals/**` — route handlers live directly under `app/optionals/*/route.ts`, not `app/api`) |

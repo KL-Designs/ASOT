@@ -1,6 +1,6 @@
-# Part C — Training / Tickets / SOPs / Snapshots API
+# Part C — Training / Tickets / SOPs / Backups API
 
-Scope: `app/api/training/**` (27), `app/api/training-docs/**` (3), `app/api/tickets/**` (11), `app/api/sops/**` (2), `app/api/snapshots/**` (8). 51 files total.
+Scope: `app/api/training/**` (27), `app/api/training-docs/**` (3), `app/api/tickets/**` (11), `app/api/sops/**` (2), `app/api/backups/**` (7). 50 files total.
 
 Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the admin discharge/promotion ticket workflow. It reads/writes `Db.communityTickets` and `Db.communityTicketComments`, gated by `PERMISSIONS.communityTickets.manage` and `PERMISSIONS.departmentLeads.*` — distinct from `Db.tickets` used elsewhere.
 
@@ -175,31 +175,28 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 
 ---
 
-## app/api/snapshots/**
+## app/api/backups/**
 
-All routes gated by `PERMISSIONS.departments.j4` (J4 department membership) and back onto filesystem/`lib/snapshots.ts` helpers rather than MongoDB — snapshots are full-site backup archives (DB + gallery + uploads), not a `Db.*` collection.
+All routes gated by `PERMISSIONS.departments.j4` (J4 department membership) and back onto two restic repositories (`storage/db-backups/`, `storage/media-backups/`) plus `lib/backups.ts` helpers rather than MongoDB — backups are deduplicating, hourly, tiered-retention restic snapshots, not a `Db.*` collection. Replaced the old full-copy-zip `/api/snapshots/**` system; retention is automatic (`restic forget --prune`), so there is no manual per-point delete route.
 
-#### /api/snapshots
-- **GET** — lists stored snapshot files (`listSnapshots()`) and current operation status (`readStatus()`). Gate: `PERMISSIONS.departments.j4`. Collections: none (filesystem + JSON status file via `lib/snapshots`).
+#### /api/backups
+- **GET** — merged backup timeline (`listBackups()`, one entry per hour bucket with either/both DB and media sides present) and current operation status (`readStatus()`). Gate: `PERMISSIONS.departments.j4`. Collections: none (restic repos + JSON status file via `lib/backups`).
 
-#### /api/snapshots/create
-- **POST** — fire-and-forget triggers `createSnapshot(options)` in the background (database/galleryContent/galleryFeatured/gallerySotm/uploads toggles); rejects (409) if an operation is already in progress. Gate: `PERMISSIONS.departments.j4`. No DB collection; writes to snapshots dir.
+#### /api/backups/create
+- **POST** — fire-and-forget triggers `runAllBackups()` in the background (DB dump + media, sequentially); rejects (409) if an operation is already in progress. Gate: `PERMISSIONS.departments.j4`. No DB collection; writes to the two restic repos.
 
-#### /api/snapshots/upload
-- **POST** — accepts a multipart-uploaded `.zip` (buffered fully in memory), writes it to a temp path, then fire-and-forget `revertSnapshot(tmpPath)`; rejects if not idle. Gate: `PERMISSIONS.departments.j4`. Filesystem only.
+#### /api/backups/upload
+- **POST** — accepts a multipart-uploaded `.zip` (buffered fully in memory), writes it to a temp path, then fire-and-forget `applyUploadedZip(tmpPath)`; rejects if not idle. Gate: `PERMISSIONS.departments.j4`. Filesystem only — does not feed the upload into either restic repo's history.
 
-#### /api/snapshots/revert
-- **POST** — reverts to an existing stored snapshot by filename (validated via strict regex, path-traversal-safe join), fire-and-forget `revertSnapshot()`; rejects if not idle or file missing. Gate: `PERMISSIONS.departments.j4`. Filesystem only.
+#### /api/backups/revert
+- **POST** — reverts to a merged backup point resolved server-side from a client-supplied hour-bucket `id` via `listBackups()` (never trusts the id directly), fire-and-forget `revertToPoint()`; rejects if not idle or point not found. Gate: `PERMISSIONS.departments.j4`. Restic restore + filesystem only.
 
-#### /api/snapshots/cancel
+#### /api/backups/cancel
 - **POST** — force-resets a stuck in-progress operation back to `idle` via `writeStatus()`. Gate: `PERMISSIONS.departments.j4`. Filesystem/status-file only.
 
-#### /api/snapshots/config
-- **GET** — reads snapshot config (`maxSnapshots`/`autoEnabled`/`intervalDays`). Gate: `PERMISSIONS.departments.j4`. Filesystem config file.
-- **PATCH** — updates config with clamped ranges (`maxSnapshots` 1–20, `intervalDays` 1–30). Gate: `PERMISSIONS.departments.j4`. Filesystem config file.
+#### /api/backups/config
+- **GET** — reads backup config (`autoEnabled`/`keepHourly`/`keepDaily`/`keepWeekly`/`keepMonthly`). Gate: `PERMISSIONS.departments.j4`. Filesystem config file.
+- **PATCH** — updates config with clamped ranges (`keepHourly` 1–200, `keepDaily` 1–90, `keepWeekly` 1–52, `keepMonthly` 1–60). Gate: `PERMISSIONS.departments.j4`. Filesystem config file.
 
-#### /api/snapshots/[filename]
-- **DELETE** — deletes a stored snapshot zip by validated filename. Gate: `PERMISSIONS.departments.j4`. Filesystem only.
-
-#### /api/snapshots/[filename]/download
-- **GET** — streams a snapshot zip to the browser as an attachment (Node `createReadStream` → web `ReadableStream`). Gate: `PERMISSIONS.departments.j4`. Filesystem only.
+#### /api/backups/[id]/download
+- **GET** — restores a backup point to a temp zip (`buildDownloadZip()`) and streams it to the browser as an attachment (Node `createReadStream` → web `ReadableStream`), deleting the temp zip once fully streamed. Gate: `PERMISSIONS.departments.j4`. Restic restore + filesystem only.

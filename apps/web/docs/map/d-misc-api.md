@@ -56,6 +56,9 @@ All routes gated by `verifyCronSecret(request)` from `lib/cron-auth.ts` (Bearer 
 #### /api/cron/application-reminders
 - **GET** — finds J1 applications `status: 'reviewing'` past `reviewDueAt` and not yet reminded; marks linked `application_review` task overdue, notifies assigned reviewer + assigning J1 Lead, sets `overdueReminderSentAt`. Collections: `Db.j1Applications`, `Db.tasks`. Side effects: `createNotification`, `sendDM` (Discord).
 
+#### /api/cron/backups
+- **GET** — runs both restic-backed backup repos (`runAllBackups()` — DB dump + media, sequentially) if `autoEnabled` config and no operation already in progress; each side's failure is caught independently. No DB collections directly (uses restic repos + file-based status/config via `lib/backups.ts`).
+
 #### /api/cron/calendar-reminders
 - **GET** — three-part pass: (1) fires due `Db.calendarReminders` → notification + `sendCalendarReminderDM`; (2) drains `Db.meetingNotifQueue` (meeting_started/reminder/task_chaseup/attendance_overdue), resolves per-user or per-role recipients, skips LOA members, personalises reminder body by RSVP status, sends notification + `sendMeetingDM`; (3) fires due `Db.trainingReminders` for attending members → notification + `sendTrainingReminderDM`. Collections: `Db.calendarReminders`, `Db.meetingNotifQueue`, `Db.meetings`, `Db.trainingReminders`, `Db.trainingAttendance`, `Db.users`.
 
@@ -67,9 +70,6 @@ All routes gated by `verifyCronSecret(request)` from `lib/cron-auth.ts` (Bearer 
 
 #### /api/cron/operations
 - **GET** — runs every 5 min; multi-stage operations lifecycle driver: (0) RSVP auto-open at `rsvpOpenAt`; (1) RSVP auto-close (configurable offset before op date) + notifies section leaders via `getSectionLeaders`; (1b) CHQ allocation reminder 1hr before op start if unassigned reservists exist; (2) auto-activate Upcoming→Active at op start, mirrors attendance `stage` to `op_running`; (3) confirmation auto-open when op Completed, calls `createAttendanceTasksForOperation`; (4) confirmation auto-close 24h after opened. Collections: `Db.operationAttendance`, `Db.operations`, `Db.orbatPositions`. Side effects: `createNotification`, `lib/attendance/tasks.ts` task creation.
-
-#### /api/cron/snapshots
-- **GET** — creates a full site snapshot (`lib/snapshots.ts`) if `autoEnabled` config and interval elapsed and no snapshot already in progress; fire-and-forget `createSnapshot()`. No DB collections directly (uses file-based snapshot config/status via `lib/snapshots.ts`).
 
 #### /api/cron/task-reminders
 - **GET** — runs every minute; (1) chase-up reminders for tasks past `reminderDateTime` not yet notified → notification + `sendTaskReminderDM`; (1b) one-shot "orders check maker" reminders for `orders_check` tasks; (2) due/overdue notifications for tasks past `dueDate` → sets status `overdue`, notification + `sendTaskOverdueDM`; (3) task-limit escalation — counts incomplete tasks per member against `Db.notifPolicyConfig` policy thresholds, escalates via `createNotification` + `sendTaskEscalationDM` to configured recipient roles, sets `escalationLevel`. Collections: `Db.tasks`, `Db.notifPolicyConfig`, `Db.users`.

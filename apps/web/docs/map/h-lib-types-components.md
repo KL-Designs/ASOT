@@ -282,21 +282,26 @@ This map documents every file under `lib/**` (59 files), `types/**` (31 files), 
 ### lib/diagnostics.mjs
 - Lightweight, always-on production diagnostics for event-loop stalls. Plain `.mjs` (not `.ts`) so it can be imported directly by `server.mjs`, which runs via `node server.mjs` with no build step; an ambient declaration at `types/diagnostics.d.ts` types the `@/lib/diagnostics.mjs` import for TypeScript route files.
 - `startEventLoopWatchdog(thresholdMs?, checkIntervalMs?)` — starts a `perf_hooks.monitorEventLoopDelay`-based periodic check (default threshold `EVENT_LOOP_LAG_THRESHOLD_MS` env var or 1000ms, checked every 2000ms); on a lag sample over threshold, logs `⚠ [event-loop] lag=Xms in-flight=[...]` naming every currently in-flight request/job and its running duration. Called once in `server.mjs` right before `httpServer.listen(...)`.
-- `trackJob(label, fn): Promise<T>` — wraps an async function so it's visible in the in-flight registry for its duration regardless of outcome. Used to wrap every `server.mjs` cron trigger (`cron:calendar-reminders`, `cron:task-reminders`, `cron:operations`, `cron:dev-check-escalation`, `cron:snapshots`, `cron:teamspeak-snapshots`, `cron:teamspeak-cache`, `cron:image-cleanup`) and the fire-and-forget refresh in `app/api/cron/teamspeak-cache/route.ts` (`cron:teamspeak-cache-refresh`).
+- `trackJob(label, fn): Promise<T>` — wraps an async function so it's visible in the in-flight registry for its duration regardless of outcome. Used to wrap every `server.mjs` cron trigger (`cron:calendar-reminders`, `cron:task-reminders`, `cron:operations`, `cron:dev-check-escalation`, `cron:backups`, `cron:teamspeak-snapshots`, `cron:teamspeak-cache`, `cron:image-cleanup`) and the fire-and-forget refresh in `app/api/cron/teamspeak-cache/route.ts` (`cron:teamspeak-cache-refresh`).
 - `registerInFlight(label): () => void` — registers `label` as in-flight, returns an idempotent deregister function. `server.mjs`'s `httpServer` request handler calls this per-request (`METHOD /url`), deregistering on the response's `finish`/`close` events.
 
 ### lib/billetMastersheet.ts
 - `FieldSource` type (`'website'|'imported'|'calculated'`), `FieldSourceDef` interface, `FIELD_SOURCE_MAP: FieldSourceDef[]` — documents which Billet Mastersheet fields originate from the website DB vs. are imported-only vs. calculated — used to render provenance in the mastersheet UI.
 - Interfaces: `EmailEntry`, `BilletRow` (the full flattened per-member mastersheet row shape used by the J4 Billet Mastersheet feature).
 
-### lib/snapshots.ts
-- Constants: `SNAPSHOTS_DIR`, `STATUS_FILE`, `CONFIG_FILE`, `MAX_SNAPSHOTS`, `GALLERY_DIR`, `UPLOADS_DIR`, `DEFAULT_SNAPSHOT_OPTIONS`, `DEFAULT_SNAPSHOT_CONFIG`.
-- `ensureSnapshotsDir()` — mkdir if missing.
-- `readStatus()/writeStatus(s)` — persisted `{state:'idle'|'creating'|'reverting', startedAt?, message?, error?}`; auto-resets stale (>60min) status on read (crash recovery).
-- `readConfig()/writeConfig(c)` — persisted `{maxSnapshots, autoEnabled, intervalDays}`.
-- `listSnapshots(): SnapshotInfo[]` — lists `snapshot-*.zip` files, cleans up orphaned `.tmp` files >2h old.
-- `createSnapshot(options?)` — full-DB EJSON export + gallery/uploads directory archive via `archiver`, atomic tmp→final rename, enforces retention limit (deletes oldest beyond `maxSnapshots`).
-- `revertSnapshot(zipPath)` — extracts via `unzipper`, drops+recreates every collection from EJSON, recreates the two critical `orbat_positions` indexes (unique userId, category+order compound), restores gallery/uploads directories.
+### lib/backups.ts
+Content-addressed, deduplicating backup system via [restic](https://restic.net/), shelled out through `child_process.execFile` (never `exec`). Two independent repos — `storage/db-backups/` (EJSON dumps) and `storage/media-backups/` (live `gallery`/`uploads` trees) — plus a shared `storage/backup-meta/` status/config pair. Replaces the old full-copy-zip `lib/snapshots.ts`.
+- Constants: `DB_REPO`, `MEDIA_REPO`, `META_DIR`, `STATUS_FILE`, `CONFIG_FILE`, `GALLERY_DIR`, `UPLOADS_DIR`, `DEFAULT_BACKUP_CONFIG` (`keepHourly: 48, keepDaily: 14, keepWeekly: 8, keepMonthly: 12`).
+- `resticPath()` — resolves the restic binary: `RESTIC_PATH` env override, else the bundled `apps/web/bin/restic[.exe]` (provisioned by `scripts/ensure-restic.mjs`), else bare `'restic'` on `PATH`.
+- `readStatus()/writeStatus(s)` — persisted `{state:'idle'|'backing-up'|'reverting', startedAt?, message?, error?}`; auto-resets stale (>60min) status on read (crash recovery).
+- `readConfig()/writeConfig(c)` — persisted `{autoEnabled, keepHourly, keepDaily, keepWeekly, keepMonthly}`.
+- `runDbBackup()` — streamed EJSON dump per collection to a temp dir, `restic backup` + `restic forget --prune` (tiered retention) against `DB_REPO`.
+- `runMediaBackup()` — `restic backup` straight against the live `gallery`/`uploads` dirs (no temp copy) + `forget --prune` against `MEDIA_REPO`.
+- `runAllBackups()` — runs both sequentially (shared status file), each side's failure caught independently.
+- `listBackups(): BackupPoint[]` — merges both repos' `restic snapshots --json` output into hour-bucket points; a bucket can have either or both sides present.
+- `revertToPoint(point)` — restic-restores whichever side(s) are present to temp dirs, drops+recreates every DB collection from EJSON (recreating the two critical `orbat_positions` indexes), copies restored media over `gallery`/`uploads`.
+- `buildDownloadZip(point)` — restores a point to a temp `{db-source/, gallery/, uploads/}` tree, zips it via `archiver`, returns the temp path for the route to stream then delete.
+- `applyUploadedZip(zipPath)` — validated entry-by-entry extraction (rejects zip-slip paths and symlink entries — the source is an untrusted upload) of the same `{db-source/, gallery/, uploads/}` shape, then the same restore logic as `revertToPoint`. Does not feed the upload into either restic repo's history.
 
 ### lib/training-docs/parse-gdocs-zip.ts
 - `sanitizeDocHtml(html): string` — runs `sanitize-html` with a fixed whitelist (`SANITIZE_OPTIONS`) allowing only semantic tags/styles/list classes.
@@ -618,7 +623,7 @@ See `types/README.md` at the monorepo root for the sharing convention (web is au
   2. **Recruit Session** WebSocket server on `/recruit-session` — in-memory `recruitActiveSessions` map pairs a recruiter connection and applicant connection per `sessionId` (validated against `Db.recruitSessions`), relays a large set of live-preview message types (step navigation, raised-hand, name/background/field/availability/roles preview, rules Q&A, ORBAT highlight, BCT quiz mode/slots, TS-link status, cursor position) bidirectionally; recruiter messages are cached (`mem.cache`) so a reconnecting applicant gets full current state replayed.
   3. Plain Next.js request handling for everything else.
   4. Startup side effects: creates `storage/{j1..j7,hq,all,members}` directories; runs `cleanupOperationImages()` immediately and hourly (deletes orphaned `uploads/operations/*` image files >2h old not referenced by any operation's cover image or section/page content).
-  5. Internal cron schedulers (plain `setInterval`/`setTimeout` hitting the app's own `/api/cron/*` routes with `Bearer {CRON_SECRET}`): `calendar-reminders` (1min), `task-reminders` (1min), `operations` (1min), `dev-check-escalation` (1hr), scheduled snapshot check (daily at 3am via `msUntilNext3am()`), TeamSpeak daily snapshot (daily at 3am — **note**: hits `/api/cron/teamspeak-snapshots`, not `/api/cron/snapshots`), TeamSpeak offline-client cache refresh (15min).
+  5. Internal cron schedulers (plain `setInterval`/`setTimeout` hitting the app's own `/api/cron/*` routes with `Bearer {CRON_SECRET}`): `calendar-reminders` (1min), `task-reminders` (1min), `operations` (1min), `dev-check-escalation` (1hr), backup scheduler (hourly, hits `/api/cron/backups`, no clock-time alignment needed), TeamSpeak daily snapshot (daily at 3am via `msUntilNext3am()` — **note**: hits `/api/cron/teamspeak-snapshots`, a separate untouched system, not `/api/cron/backups`), TeamSpeak offline-client cache refresh (15min).
   6. Event-loop diagnostics (`lib/diagnostics.mjs`): `startEventLoopWatchdog()` runs once, right before `httpServer.listen(...)`; every HTTP request is registered/deregistered via `registerInFlight` for the request handler's lifetime; every cron trigger above plus the image-cleanup job is wrapped in `trackJob(...)` so a stalled job/request is named in the watchdog's lag warning.
 
 ### next.config.ts
