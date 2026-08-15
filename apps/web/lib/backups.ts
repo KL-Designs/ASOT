@@ -1,13 +1,16 @@
-import { resolve, join } from 'path'
-import { existsSync, mkdirSync, createWriteStream } from 'fs'
-import { readFile, writeFile, mkdir, rm } from 'fs/promises'
+import { resolve, join, basename } from 'path'
+import { existsSync, mkdirSync, createWriteStream, createReadStream, readdirSync } from 'fs'
+import { readFile, writeFile, mkdir, rm, copyFile } from 'fs/promises'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { tmpdir } from 'os'
 import { pipeline } from 'stream/promises'
 import { Readable } from 'stream'
+import { createInterface } from 'readline'
 import { EJSON } from 'bson'
 import { MongoClient, FindCursor } from 'mongodb'
+import archiver from 'archiver'
+import unzipper from 'unzipper'
 
 const execFileAsync = promisify(execFile)
 
@@ -290,4 +293,211 @@ export async function listBackups(): Promise<BackupPoint[]> {
     }
 
     return [...byBucket.values()].sort((a, b) => b.time.localeCompare(a.time))
+}
+
+// ── Restore helpers ──────────────────────────────────────────────────────────
+
+async function readEjsonDocs(path: string): Promise<unknown[]> {
+    const rl = createInterface({ input: createReadStream(path), crlfDelay: Infinity })
+    const docs: unknown[] = []
+    for await (const line of rl) {
+        if (line.trim()) docs.push(EJSON.parse(line))
+    }
+    return docs
+}
+
+async function copyDirRecursive(src: string, dest: string): Promise<void> {
+    await mkdir(dest, { recursive: true })
+    const entries = readdirSync(src, { withFileTypes: true })
+    for (const entry of entries) {
+        const srcPath  = join(src,  entry.name)
+        const destPath = join(dest, entry.name)
+        if (entry.isDirectory()) await copyDirRecursive(srcPath, destPath)
+        else await copyFile(srcPath, destPath)
+    }
+}
+
+async function restoreDatabase(dumpDir: string): Promise<void> {
+    const mongoClient = new MongoClient(process.env.MONGO_URI!)
+    try {
+        await mongoClient.connect()
+        const db = mongoClient.db(process.env.MONGO_DB!)
+        const dbDir = join(dumpDir, 'db')
+        const collectionNames = existsSync(dbDir)
+            ? readdirSync(dbDir).filter(f => f.endsWith('.ejson')).map(f => f.slice(0, -6)).sort()
+            : []
+
+        for (const collName of collectionNames) {
+            const docs = await readEjsonDocs(join(dbDir, `${collName}.ejson`))
+            const coll = db.collection(collName)
+            await coll.drop().catch(() => {})
+            if (docs.length > 0) await coll.insertMany(docs as Parameters<typeof coll.insertMany>[0])
+        }
+
+        // Recreate critical ORBAT indexes (dropped along with the collection)
+        await db.collection('orbat_positions').createIndex(
+            { userId: 1 } as never,
+            { unique: true, partialFilterExpression: { userId: { $type: 'string' } } } as never
+        ).catch(() => {})
+        await db.collection('orbat_positions').createIndex(
+            { category: 1, sectionOrder: 1, positionOrder: 1 } as never
+        ).catch(() => {})
+    } finally {
+        await mongoClient.close()
+    }
+}
+
+async function resticRestore(repo: string, snapshotId: string, target: string): Promise<void> {
+    await runRestic(repo, ['restore', snapshotId, '--target', target])
+}
+
+// restic restore recreates the full original absolute path under `target`.
+// The DB dump always comes from the same single fixed path (DB_DUMP_DIR), so
+// the restored tree is a chain of single-entry directories down to its
+// actual contents — walk down until manifest.json is found.
+function findByMarker(root: string, marker: string): string {
+    let dir = root
+    for (let depth = 0; depth < 20; depth++) {
+        if (existsSync(join(dir, marker))) return dir
+        const entries = readdirSync(dir, { withFileTypes: true }).filter(e => e.isDirectory())
+        if (entries.length !== 1) throw new Error(`Could not locate ${marker} under restored path ${root}`)
+        dir = join(dir, entries[0].name)
+    }
+    throw new Error(`${marker} not found within expected depth under ${root}`)
+}
+
+// Media backs up TWO sibling paths (gallery + uploads) in one restic backup,
+// so the restored tree branches rather than chaining — search by directory
+// name instead of assuming a single path.
+function findDirNamed(root: string, name: string): string | null {
+    const stack = [root]
+    while (stack.length > 0) {
+        const dir = stack.pop()!
+        for (const entry of readdirSync(dir, { withFileTypes: true })) {
+            if (!entry.isDirectory()) continue
+            const full = join(dir, entry.name)
+            if (entry.name === name) return full
+            stack.push(full)
+        }
+    }
+    return null
+}
+
+// ── Revert ────────────────────────────────────────────────────────────────────
+
+export async function revertToPoint(point: BackupPoint): Promise<void> {
+    await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring…' })
+    const tmp = join(tmpdir(), `asot-revert-${Date.now()}`)
+    try {
+        if (point.dbSnapshotId) {
+            await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring database…' })
+            const dbTarget = join(tmp, 'db-restore')
+            await resticRestore(DB_REPO, point.dbSnapshotId, dbTarget)
+            const dumpRoot = findByMarker(dbTarget, 'manifest.json')
+            await restoreDatabase(dumpRoot)
+        }
+        if (point.mediaSnapshotId) {
+            await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring media files…' })
+            const mediaTarget = join(tmp, 'media-restore')
+            await resticRestore(MEDIA_REPO, point.mediaSnapshotId, mediaTarget)
+            const gallery = findDirNamed(mediaTarget, basename(GALLERY_DIR))
+            const uploads = findDirNamed(mediaTarget, basename(UPLOADS_DIR))
+            if (gallery) await copyDirRecursive(gallery, GALLERY_DIR)
+            if (uploads) await copyDirRecursive(uploads, UPLOADS_DIR)
+        }
+        await writeStatus({ state: 'idle' })
+        console.log(`[backups] Revert to ${point.id} complete`)
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        await writeStatus({ state: 'idle', error: msg })
+        console.error('[backups] Revert failed:', msg)
+        throw e
+    } finally {
+        await rm(tmp, { recursive: true, force: true }).catch(() => {})
+    }
+}
+
+// ── Download ──────────────────────────────────────────────────────────────────
+
+// Restores the point into a temp tree shaped { db-source/, gallery/, uploads/ }
+// and zips it — this exact shape is also what applyUploadedZip() below expects,
+// so a downloaded zip can be re-uploaded later and round-trip correctly.
+export async function buildDownloadZip(point: BackupPoint): Promise<string> {
+    const tmp = join(tmpdir(), `asot-download-${Date.now()}`)
+    const outDir = join(tmp, 'out')
+    const zipPath = `${tmp}.zip`
+    try {
+        await mkdir(outDir, { recursive: true })
+
+        if (point.dbSnapshotId) {
+            const dbTarget = join(tmp, 'db-restore')
+            await resticRestore(DB_REPO, point.dbSnapshotId, dbTarget)
+            const dumpRoot = findByMarker(dbTarget, 'manifest.json')
+            await copyDirRecursive(dumpRoot, join(outDir, 'db-source'))
+        }
+        if (point.mediaSnapshotId) {
+            const mediaTarget = join(tmp, 'media-restore')
+            await resticRestore(MEDIA_REPO, point.mediaSnapshotId, mediaTarget)
+            const gallery = findDirNamed(mediaTarget, basename(GALLERY_DIR))
+            const uploads = findDirNamed(mediaTarget, basename(UPLOADS_DIR))
+            if (gallery) await copyDirRecursive(gallery, join(outDir, 'gallery'))
+            if (uploads) await copyDirRecursive(uploads, join(outDir, 'uploads'))
+        }
+
+        await new Promise<void>((resolveZip, reject) => {
+            const output  = createWriteStream(zipPath)
+            const archive = archiver('zip', { zlib: { level: 1 } })
+            archive.on('error', reject)
+            output.on('close', () => resolveZip())
+            output.on('error', reject)
+            archive.pipe(output)
+            archive.directory(outDir, false)
+            archive.finalize()
+        })
+
+        return zipPath
+    } finally {
+        await rm(tmp, { recursive: true, force: true }).catch(() => {})
+    }
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────────
+
+// Extracts an uploaded zip straight onto disk — bypasses restic entirely, does
+// not feed the upload into either repo's history. Matches buildDownloadZip's
+// { db-source/, gallery/, uploads/ } shape.
+export async function applyUploadedZip(zipPath: string): Promise<void> {
+    const tmp = join(tmpdir(), `asot-upload-extract-${Date.now()}`)
+    await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Extracting upload…' })
+    try {
+        await pipeline(
+            createReadStream(zipPath),
+            unzipper.Extract({ path: tmp })
+        ).catch((e: unknown) => {
+            if (e instanceof Error && e.message === 'Premature close') return
+            throw e
+        })
+
+        const dbDir = join(tmp, 'db-source')
+        if (existsSync(dbDir)) {
+            await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring database…' })
+            await restoreDatabase(dbDir)
+        }
+
+        await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring media files…' })
+        const gallery = join(tmp, 'gallery')
+        const uploads = join(tmp, 'uploads')
+        if (existsSync(gallery)) await copyDirRecursive(gallery, GALLERY_DIR)
+        if (existsSync(uploads)) await copyDirRecursive(uploads, UPLOADS_DIR)
+
+        await writeStatus({ state: 'idle' })
+        console.log('[backups] Upload-revert complete')
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        await writeStatus({ state: 'idle', error: msg })
+        console.error('[backups] Upload-revert failed:', msg)
+        throw e
+    } finally {
+        await rm(tmp, { recursive: true, force: true }).catch(() => {})
+    }
 }
