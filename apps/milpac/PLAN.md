@@ -1,8 +1,39 @@
 # MilPac Generator — Import & Overhaul Plan
 
-**Status:** approved design, not yet executed
-**Branch:** to be created off `main`
+**Status:** Phase 0 complete. Phases 1–4 not started.
+**Branch:** `milpac-service`, branched off `main`. Not pushed.
 **Date:** 2026-08-16
+
+---
+
+## 0. Start here
+
+If you are picking this up cold, read §1 for context, then §3 for the defect
+that motivates the work, then §6 for what to do.
+
+**What already exists on this branch:**
+
+| Commit | Author | Contents |
+|---|---|---|
+| `4e6bd956` | Fulcrum | Fulcrum's original generator, imported verbatim apart from three credential redactions. 329 files. |
+| `b422195d` | Koda | This document. |
+
+Phase 0 is done — the import is committed, secrets are redacted, and the
+excluded files are preserved in `storage/milpac-design-source/`. See the table
+at the top of §6 for exactly what was moved, deleted, and redacted.
+
+**Do not start Phase 1 by editing `src/server.ts` in place.** The imported code
+is an archive of Fulcrum's work, kept for attribution. Phase 1 is a rewrite
+against the §4 layout, not a refactor of what is there.
+
+**Three decisions in §7 block implementation and are still unanswered.** #2
+(UnitCommander push) blocks Phase 3; #3 (corps-specific rank insignia) and #4
+(medal box layering and centring) block finalising the renderer in Phase 1. They
+need a person from the unit, not a technical judgement — ask before building
+past them.
+
+**Outside this repo:** the MongoDB Atlas credential and the `UC_API_KEY` JWT
+found during the import still require rotation. See the end of §6 Phase 0.
 
 ---
 
@@ -285,18 +316,25 @@ certificate templates. This matches the §5 projection exactly.
 > compromised. `UC_API_KEY` in the same file is a live JWT and is worth rotating
 > on the same pass.
 
-**Remaining steps, to run when ready:**
+**Commits — done.** Branch `milpac-service` off `main`, staged by explicit path
+list so `PLAN.md` was not swept into the import:
 
-1. Branch off `main`. Stage **by explicit path list** so `PLAN.md` is not swept
-   in, and commit:
-   ```
-   git commit --author="Fulcrum <crackedpotato007@users.noreply.github.com>"
-   ```
-   The message documents every exclusion above and the three redactions.
-2. Commit `PLAN.md` separately, authored normally.
-3. Add `.DS_Store` to `.gitignore` in the Phase 1 cleanup commit — deliberately
-   not done during Phase 0 so the import keeps Fulcrum's `.gitignore` unmodified
-   apart from nothing at all.
+```
+4e6bd956  Fulcrum <68459855+crackedpotato007@users.noreply.github.com>
+          Import the original MilPac generator by Fulcrum (@crackedpotato007)
+b422195d  Koda
+          docs(milpac): add the import and overhaul plan
+```
+
+The ID-prefixed noreply address is deliberate — GitHub resolves it to
+`crackedpotato007` reliably, where the bare `crackedpotato007@users.noreply…`
+form does not on newer accounts. He appears in the repository's Contributors
+list once this branch merges to `main`; that graph is computed from the default
+branch only.
+
+**Carried into Phase 1:** add `.DS_Store` to `.gitignore`. It was deliberately
+left out of Phase 0 so the import commit changed nothing in Fulcrum's
+`.gitignore` beyond the credential redactions elsewhere.
 
 ### Phase 1 — Strip to a stateless renderer
 
