@@ -413,7 +413,7 @@ and no `execSync` string interpolation.
 | # | Decision | Notes |
 |---|---|---|
 | 1 | Fulcrum's commit email | Defaulting to `crackedpotato007@users.noreply.github.com`, which attributes correctly on GitHub without exposing a personal address. Override if he'd prefer his real one. |
-| 2 | UnitCommander push | `/update` currently POSTs the finished uniform to UC as a profile background. Recommendation: keep the feature, but on the **web** side — web owns the member data and the UC ID lookup, and the service stays a pure renderer with no outbound credentials. |
+| 2 | UnitCommander push | `/update` currently POSTs the finished uniform to UC as a profile background. Recommendation: keep the feature, but on the **web** side — web owns the member data and the UC ID lookup, and the service stays a pure renderer with no outbound credentials. **If you action this, read §9 finding 7 first** — `get-uc-id.ts` and `update-uc-uniform.ts` interpolate unvalidated identifiers into the UC API URL, and porting them as-is would carry that flaw into the website. |
 | 3 | Corps-specific rank insignia | `TPRL/TPRS/TPRSL`, `SAPL/SAPS/SAPSL`, `GNRL/GNRS/GNRSL` assets exist, but **neither** implementation renders them — Fulcrum's substring replace mapped them onto the `PTE*` equivalents, and the web port blanks them entirely. Needs a unit decision: should corps-specific insignia render, or is the `PTE*` family intentional? |
 | 4 | Medal box layering and centring | See §3. Needs a visual decision on which is correct before the renderer is finalised. |
 | 5 | Fate of existing rendered output | `certificates/`, `milpac/` and `medal-box-images/boxes/` hold **614** rendered member images (343 + 184 + 87). Gitignored, so not a repo concern — but confirm whether they should be preserved to `storage/` or discarded. |
@@ -460,9 +460,22 @@ rediscovering them.
 |---|---|---|---|
 | 1 | Critical | `/register` gates on `req.headers.host`, a client-controlled value. Anyone can send `Host: localhost` and create an account. | Phase 1 — registration, passport, and the entire session layer are removed; the service becomes stateless with bearer-token auth. |
 | 2 | High | **Path traversal at three separate write sites**, each interpolating client-controlled `data.name` into a filesystem path: `server.ts` (`../certificates/${data.name} - ${data.cert}.png`), `index.ts:323` (`__dirname + "/../milpac/" + data.name + ".png"`), and `box.ts:86` (`../medal-box-images/boxes/${data.name}.png`). A `../` in `name` escapes the directory. | Phase 1 — the service writes **nothing** to disk. Filenames are constructed web-side from `user.id` (a Discord snowflake), never from client input. |
-| 3 | High | `/update`, `/create-cert`, `/generate-box` and `/data` have no authorization check at all — only the HTML page routes call `req.isAuthenticated()`. | Phase 1 — bearer-token middleware on every route, container on the internal Docker network with no published port. |
+| 3 | High | `/update`, `/create-cert`, `/generate-box`, `/data`, `/get-medals` and `/cert-poll` have no authorization check at all — only the HTML page routes call `req.isAuthenticated()`. | Phase 1 — bearer-token middleware on every route, container on the internal Docker network with no published port. |
 | 4 | High | `/data` passes `req.headers.name` directly into `findOne({ name: … })`. A non-string header value becomes a query operator. | Phase 1 — `/data` and mongoose are both removed; the service holds no database connection. |
 | 5 | Medium | Generation failures return `JSON.stringify(err, Object.getOwnPropertyNames(err))` to the client, leaking stack traces and absolute filesystem paths. | Phase 1 — see the error-handling rule below. |
+| 6 | Medium | The session cookie sets only `maxAge` — no `httpOnly`, no `secure`, no `sameSite` — and no CSRF protection guards the state-changing routes. | Phase 1 — `express-session`, `connect-mongo` and `passport` are all removed. A stateless bearer-token service issues no cookies, so neither cookie flags nor CSRF apply. |
+| 7 | High | `utility/get-uc-id.ts` interpolates `discordID` straight into the UnitCommander API URL with no validation, and `update-uc-uniform.ts` does the same with `ucID`. A crafted value manipulates the request path against a third-party API carrying our bot credential. | **Not automatically resolved — see below.** |
+
+**Finding 7 is tied to open decision #2 and must not be lost.** The two files it
+concerns are the UnitCommander integration, and §7 decision #2 proposes moving
+that feature to the **web** side rather than deleting it. If it moves, the
+unvalidated interpolation moves with it unless someone stops it. Whoever
+implements decision #2 must validate `discordID` against `/^\d{17,20}$/` (a
+Discord snowflake) and `ucID` against the identifier format UnitCommander
+actually returns, rejecting anything else *before* composing the URL — and build
+the URL with `new URL()` or axios path params rather than string concatenation.
+Porting these two files across as-is would carry a live SSRF into the website,
+which holds far more sensitive credentials than this service does.
 
 A sixth, not flagged by the review but noted during the audit: `cert.ts:202`
 builds a shell command by string interpolation and runs it through `execSync`.
