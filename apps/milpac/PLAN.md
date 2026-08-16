@@ -1,8 +1,10 @@
 # MilPac Generator — Import & Overhaul Plan
 
-**Status:** Phases 0 and 1 complete. Phase 2 (canvas certificates), Phase 3
-(website integration) and Phase 4 (compose, menu, docs) not started — though
-parts of 4a/4b landed early, see the Phase 1 deviations.
+**Status:** Phases 0 and 1 complete. Phase 2 (canvas certificates) is
+substantially done — the renderer is verified against both certificate formats
+and all 159 codes render; the full 158-way diff and the five broken award codes
+remain. Phase 3 (website integration) and Phase 4 (compose, menu, docs) not
+started, though parts of 4a/4b landed early — see the Phase 1 deviations.
 **Branch:** `milpac-service`, branched off `main`. Not pushed.
 **Date:** 2026-08-16
 
