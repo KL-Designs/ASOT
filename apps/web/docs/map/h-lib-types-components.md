@@ -92,8 +92,8 @@ This map documents every file under `lib/**` (59 files), `types/**` (31 files), 
 
 ### lib/milpac-gen/data-mapper.ts
 - `buildUniformData(user, orbatEntry): UniformData` — derives citations (from awards via `AWARD_TO_CITATION`, campaign clasps deduped to highest), medallions (`deriveMedallions` — positions Bronze/Silver/Gold into 1/2/3 chest slots based on count held), training medals (via `QUAL_TO_BADGE`), corps badge (via `SECTION_TO_BADGE`/`DEFAULT_BADGE`), uniform color (Blue only for Hotel/Rotary Wing section), rifleman badge (PTE vs gold PTEP based on rank tier + BCT 2 qualification).
-- `buildBoxData(user): BoxData` — `{name, medals: awardNames[]}` for the medal-box generator.
-- `computeUniformHash(uniformData, boxData): string` — MD5 of JSON-serialized inputs; used to detect stale cached milpac portraits (`user.milpac.uniformHash`).
+- `buildBoxData(user): BoxData` — `{name, medals: Citation[]}` for the medal box. Shares `resolveCitations` with the uniform, so award display names become citation codes and campaign clasps collapse to the highest held. Sending raw award names is a 400 from the service (its `assetName` schema rejects the commas in e.g. "Campaign Medallion, First Clasp"), which `BoxData.medals` being typed `Citation[]` now prevents at compile time.
+- `computeUniformHash(uniformData, boxData, fingerprint?): string` — MD5 of the JSON-serialized render inputs; stored as `user.milpac.uniformHash` to detect stale cached portraits. Hashes the *whole* payload rather than named fields, so any new field reaching the renderer is covered automatically. `fingerprint` (from `getRenderFingerprint`) covers what the payload cannot — the artwork itself, which otherwise leaves every cached image stale after an asset swap.
 
 ### lib/milpac-gen/maps.ts
 - `AWARD_TO_CITATION: Record<awardLabel, Citation>` — maps `lib/military/awards.ts` labels → citation ribbon codes (includes all 16 campaign clasp tiers).
@@ -105,14 +105,16 @@ This map documents every file under `lib/**` (59 files), `types/**` (31 files), 
 - Types: `TrainingBadge`, `Rank` (full flat union of every rank abbreviation variant used by the generator), `Medallion`, `Citation`, `Badge`.
 - Interfaces: `UniformData` (`name,displayName,rank,medallions,citations,TrainingMedals,Uniform,RifleManBadge,badge`), `BoxData` (`name,medals`).
 
-### lib/milpac-gen/uniform.ts
-- `generateUniform(rawData: UniformData): Promise<void>` — canvas-composites the full uniform PNG (`@napi-rs/canvas`) from `public/milpac-assets/`: base uniform → rifleman badge → name tag text (auto-shrinking font) → corps badge → medallions → training badges → citation ribbons (cascading fill algorithm across 8 lines with per-row capacity) → collar/border → RE badge overlay → rank insignia. Writes to `./milpacs/{userId}.png`. Internal `sanitize()` dedupes campaign clasps, collapses training-badge hierarchy (Expert > Advanced > Basic), suppresses rank insignia for PTE-tier.
+### lib/milpac-gen/client.ts
+- Typed client for the `apps/milpac` render service. `renderUniform(data)` / `renderBox(data)` / `renderCertificate(data)` → `Promise<Buffer>`; `isMilpacServiceConfigured()` for callers that prefer to degrade. Posts to `MILPAC_SERVICE_URL` with `Authorization: Bearer ${MILPAC_SERVICE_TOKEN}`, 30s timeout. Failures throw `MilpacServiceError` carrying the status and the service's JSON detail — 400 names the offending field, 422 names the missing asset, 500 carries a correlation id matching the service's log.
+- `getRenderFingerprint(): Promise<string>` — the service's artwork digest (`GET /fingerprint`), cached in-process for 60s. Folded into `computeUniformHash` so new artwork invalidates every cached render; an unreachable service reuses the last known value rather than letting the hash flap.
+- `lib/milpac-gen/uniform.ts` and `box.ts` were **deleted** — rendering moved into the `apps/milpac` service. `public/milpac-assets/` stays: it is served directly to the browser for training badges and ribbons.
 
-### lib/milpac-gen/box.ts
-- `generateBox(rawData: BoxData): Promise<void>` — canvas-composites the medal display box PNG from `public/milpac-assets/medal-box-images/`; normalizes award names via `AWARD_TO_CITATION`, dedupes campaign clasps to highest, lays out medals centered with fixed spacing, glass overlay + border. Writes `./milpacs/{userId}-medals.png`.
+### lib/milpac-gen/signatory.ts
+- Resolves who signs a rendered certificate when the award/promotion record itself names no issuing officer. `resolveUnitSignatory()` → `{signaturer, signaturerRankShort, signaturerRankFull}`; `getSignatoryPosition()` / `resolveSignatoryFor(position)` are the pieces the J4 picker reuses. `SIGNATORY_SETTING_ID = 'certificateSignatory'` in `Db.siteSettings` stores only `{positionId}` — an ORBAT position, so the holder is resolved live and a change of command needs no edit. Unset (or pointing at a deleted position) it guesses: first *occupied* `companyHQ` slot whose role matches Officer/Commanding, else first occupied CHQ slot. Deliberately ignores `isSenior` (set only at mass-import, not maintained by the ORBAT editor). Returns `EMPTY_SIGNATORY` rather than throwing when nothing resolves.
 
 ### lib/milpac-gen/generate-for-user.ts
-- `generateMilpacForUser(user: User): Promise<void>` — orchestrates: fetch ORBAT entry, build uniform+box data, generate both images in parallel, persist `milpac.uniformHash` on `Db.users`. Bypasses HTTP auth — caller responsible.
+- `generateMilpacForUser(user: User): Promise<{uniform: Buffer; medals: Buffer}>` — orchestrates: fetch ORBAT entry, build uniform+box data, generate both images in parallel, write both to `storage/milpacs/`, persist `milpac.uniformHash` on `Db.users`. **Returns the bytes as well as persisting them**, so `/api/bot/milpac` can hand them straight back without re-reading the file it just wrote. Always renders — no hash check, unlike the profile page. Bypasses HTTP auth — caller responsible.
 - `archiveMilpacImages(userId): Promise<{uniformPath, medalPath}>` — copies live milpac PNGs to immutable `-discharge` suffixed files for the discharge snapshot; swallows missing-file errors.
 
 ### lib/offensive-words.ts

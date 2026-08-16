@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
-    "apps/bot"
+    "apps/bot",
+    "apps/milpac"
   ],
   "scripts": {
     "install:all": "npm install && npm --prefix apps/web install && node scripts/ensure-restic.mjs",

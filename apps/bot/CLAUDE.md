@@ -46,6 +46,19 @@ On `ready`:
 
 Each command directory exports a `data` (`Discord.SlashCommandBuilder`) + `execute` pair, collected into `ChatCommands`/`UserContextCommands` in `app/commands/index.ts`. `handleInteractions.ts` resolves nested subcommands/subcommand groups by walking `interaction.options.data` for the subcommand path before calling `execute`. Several commands (`recruitment`, `promote`, `award`) are defined but commented out of the exported array — present in the tree, not currently registered.
 
+### `/milpac` — rendering goes through `apps/web`, not the render service
+
+`app/commands/milpac/` (`uniform`, `medals`, both with an optional `member` defaulting to the caller) posts to `apps/web`'s `/api/bot/milpac/{discordId}` and attaches the PNG that comes back. It regenerates every time, so what a member is shown is current as of the moment they asked.
+
+**Do not point this at `apps/milpac` directly.** The render payload — awards to ribbons, qualifications to badges, ORBAT section to corps badge, rank tier to rifleman badge — is derived from web's schema by web's `lib/milpac-gen/data-mapper.ts`. A second implementation here is exactly the drift `apps/milpac/PLAN.md` §3 and §4 describe, where two copies disagreed and every corps rank rendered with no insignia for months. The bot deliberately knows only a Discord id and which of two images it wants.
+
+Two config values matter and are easy to confuse:
+
+- `config.api` (`NEXT_PUBLIC_BASEURL`) — the **public** URL. Anything a member clicks.
+- `config.apiInternal` (`WEB_INTERNAL_URL`) — where to reach web **server-to-server**. `docker-compose.yml` overrides it to `http://web:3000` on the bot service so the call stays on the compose network instead of going out through the reverse proxy and back.
+
+`config.apiSecret` (`BOT_API_SECRET`) authenticates the call and must match web's. It is deliberately **not** `required()` — an unset secret leaves the bot running and the commands explain themselves, rather than taking the whole bot down over one feature.
+
 ### Interactions (`app/interactions/{buttons,modals,stringSelectMenus,mentionableSelectMenus}/`)
 
 Dispatch is by **custom ID convention**, not per-component registration: `customId` is split on `.`, the first segment is looked up in a flat handler map (e.g. `app/interactions/buttons/index.ts`), and the remaining segments are passed to the handler as a `string[]` of args. When adding a new button/modal/menu, pick a unique first segment and add it to that type's index map — there's no central registry beyond these four files.
@@ -84,3 +97,5 @@ Bot-only:
 | `DISCORD_ADMIN_ROLE_ID` | Role ID used for admin-gated logic |
 | `DISCORD_NOTIFICATION_CHANNEL_ID` | Channel for bot notifications |
 | `DISCORD_SONG_SUBMISSION_CHANNEL_ID` | Channel for the song-submission command |
+| `BOT_API_SECRET` | Shared secret for server-to-server calls to `apps/web` (`/milpac`). Must match web's value. Unset closes the route and the commands say so. |
+| `WEB_INTERNAL_URL` | Where to reach web for those calls. Defaults to `NEXT_PUBLIC_BASEURL`; compose overrides it to `http://web:3000`. Never use it in a member-facing link. |

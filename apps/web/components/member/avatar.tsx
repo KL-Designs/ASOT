@@ -8,12 +8,20 @@ import { defaultAvatarURL } from '@/lib/discord/avatar'
 
 
 
-function resolveAvatar(user?: User): string | StaticImageData {
+function resolveAvatar(user?: AvatarUser): string | StaticImageData {
     if (user?.avatarURL) return user.avatarURL
     return user?.id ? defaultAvatarURL(user.id) : Fallback
 }
 
-export default function Avatar({ user, borderRadius = '100%' }: { user?: User, borderRadius?: string }) {
+/**
+ * Only `id` and `avatarURL` are read, so the prop is narrowed to those. A full
+ * `User` still satisfies it structurally, but callers in server components can
+ * now pass just the two fields — passing the whole Mongo document sends
+ * ObjectIds across the server/client boundary, which React warns about.
+ */
+type AvatarUser = Pick<User, 'id' | 'avatarURL'>
+
+export default function Avatar({ user, borderRadius = '100%' }: { user?: AvatarUser, borderRadius?: string }) {
 
     const [image, setImage] = useState<string | StaticImageData>(() => resolveAvatar(user))
 

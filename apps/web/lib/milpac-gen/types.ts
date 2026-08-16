@@ -1,20 +1,26 @@
 // Types ported from F:\Projects\milpac-gen\src\types.ts
+//
+// Badge, Citation, TrainingBadge and Medallion moved to lib/ —
+// apps/milpac has to agree with web on them, so they are shared vocabulary
+// rather than web's private types. Re-exported here so existing `./types`
+// imports keep working.
 
-export type TrainingBadge =
-    | 'RE' | 'PT' | 'HALO' | 'JM'
-    | 'BIDF' | 'AIDF' | 'BCIDF'
-    | 'NCO' | 'Platoon' | 'Company'
-    | 'Ranger' | 'Commando' | 'SASR'
-    | 'BR' | 'AdvR' | 'ExpR'
-    | 'BF' | 'AF' | 'ExpF'
-    | 'BCQB' | 'ACQB' | 'ECQB'
-    | 'BM' | 'PR'
-    | 'Driver' | 'Gunner' | 'Commander'
-    | 'FO' | 'JTAC'
-    | 'BRifle' | 'BPistol' | 'BAT' | 'BSniper' | 'BMG' | 'BGLA'
-    | 'AdvM' | 'ExpM'
-    | 'ExpMG' | 'ExpRifle' | 'ExpPistol' | 'ExpSniper' | 'ExpAT'
+import type { Badge, Citation, Medallion, TrainingBadge } from '@asot/lib'
 
+export type { Badge, Citation, Medallion, TrainingBadge }
+
+/**
+ * Stale. This union is Fulcrum's original rank list, not the unit's current
+ * one — it still carries the Victor-suffixed ranks (`CPLV`, `SGTV`, …) that
+ * `lib/`'s RANK_GROUPS no longer has, and lacks the current
+ * parenthesised forms (`PTE(S)`, `LT(C)`). `data-mapper.ts` casts to it after
+ * stripping parentheses, so the cast asserts something untrue.
+ *
+ * Phase 3 of apps/milpac/PLAN.md replaces this with `RankAbbr` from
+ * `@asot/lib` when buildUniformData is rewritten to send the rank verbatim.
+ * Left in place until then so this change stays scoped to moving shared
+ * vocabulary rather than rewriting the uniform data path.
+ */
 export type Rank =
     | 'REC' | 'SIG' | 'SIGL' | 'SIGS' | 'SIGSL'
     | 'LCPLJ' | 'LCPL' | 'LCPLP' | 'LCPLL' | 'LCPLS' | 'LCPLJV' | 'LCPLV' | 'LCPLVL' | 'LCPLVS' | 'LCPLVP'
@@ -39,27 +45,6 @@ export type Rank =
     | 'COM' | 'AVM' | 'HAM' | 'ACM' | 'SACM'
     | ''
 
-export type Medallion =
-    | '' | 'Bronze1' | 'Silver1' | 'Gold1'
-    | 'Bronze2' | 'Silver2' | 'Gold2'
-    | 'Bronze3' | 'Silver3' | 'Gold3'
-    | 'bronzemedallion' | 'silvermedallion' | 'goldmedallion'
-
-export type Citation =
-    | 'campaign' | 'campaign1' | 'campaign2' | 'campaign3' | 'campaign4'
-    | 'campaign5' | 'campaign6' | 'campaign7' | 'campaign8' | 'campaign9'
-    | 'campaign10' | 'campaign11' | 'campaign12' | 'campaign13' | 'campaign14'
-    | 'campaign15' | 'campaign16'
-    | '1year' | '2year' | '3year' | '4year'
-    | 'aviation' | 'medical' | 'protagonist'
-    | 'juniorleadership' | 'seniorleadership'
-    | 'atlas' | 'instructor' | 'watchman' | 'architect' | 'brokenlance'
-    | 'diplomat' | 'publicrelation' | 'groupdevelopment'
-    | 'founders' | 'gallantry' | 'crossofvalour' | 'starofcourage' | 'beyond'
-
-export type Badge =
-    | 'Command' | 'Echo' | 'GM' | 'Golf' | 'Hotel' | 'Infantry' | 'Mike' | 'Pronto' | 'Victor'
-
 export interface UniformData {
     name: string        // Discord ID — used as output filename
     displayName: string // Name shown on the uniform name tag
@@ -74,5 +59,11 @@ export interface UniformData {
 
 export interface BoxData {
     name: string
-    medals: string[]
+    /**
+     * Citation codes, not award display names. The renderer matches these
+     * against medals.json and its schema rejects anything with path characters,
+     * so a display name like "Campaign Medallion, First Clasp" is a 400.
+     * Typed narrowly so that mistake cannot compile.
+     */
+    medals: Citation[]
 }

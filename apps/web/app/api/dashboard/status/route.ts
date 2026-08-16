@@ -3,6 +3,7 @@ import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { getConnection } from '@/lib/teamspeak/cache'
 import { checkResticHealth } from '@/lib/backups'
+import { isMilpacServiceConfigured } from '@/lib/milpac-gen/client'
 
 const CHECK_TIMEOUT_MS = 5_000
 
@@ -53,6 +54,21 @@ async function checkBackups(): Promise<boolean> {
     }
 }
 
+/**
+ * Hits the render service's only unauthenticated route. It publishes no port,
+ * so this is reachable from web's container and nowhere else — which is also
+ * why the dashboard is the only place its state is visible.
+ */
+async function checkMilpac(): Promise<boolean> {
+    if (!isMilpacServiceConfigured()) return false
+    try {
+        const res = await withTimeout(fetch(`${process.env.MILPAC_SERVICE_URL}/health`, { cache: 'no-store' }))
+        return res.ok
+    } catch {
+        return false
+    }
+}
+
 async function isDevModeEnabled(settingId: string): Promise<boolean> {
     const setting = await Db.siteSettings.findOne({ _id: settingId }).catch(() => null)
     return !!(setting as Record<string, unknown> | null)?.enabled
@@ -65,11 +81,12 @@ export async function GET() {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const [database, backups, discord, teamspeak, discordDevMode, teamspeakDevMode] = await Promise.all([
+    const [database, backups, discord, teamspeak, milpac, discordDevMode, teamspeakDevMode] = await Promise.all([
         checkDatabase(),
         checkBackups(),
         checkDiscord(),
         checkTeamspeak(),
+        checkMilpac(),
         isDevModeEnabled('discordDevMode'),
         isDevModeEnabled('teamspeakDevMode'),
     ])
@@ -80,5 +97,6 @@ export async function GET() {
         backups: { online: backups },
         discord: { online: discord, devMode: discordDevMode },
         teamspeak: { online: teamspeak, devMode: teamspeakDevMode },
+        milpac: { online: milpac },
     })
 }

@@ -371,7 +371,7 @@ Both explicitly marked "DEV-ONLY — delete before deploying to production" in s
 ### generate (1 file)
 
 #### /api/generate/milpac/[username]
-- **POST** — regenerates a member's MilPac uniform + box renders (`lib/milpac-gen/uniform.ts`, `lib/milpac-gen/box.ts`) from current user/ORBAT data, computes and stores `milpac.uniformHash` for change detection. Auth: `PERMISSIONS.pages.admin`. Collections: `Db.users`. Uses `getOrbatEntryByUserId`, `@napi-rs/canvas`-based generators (native binary, `serverExternalPackages`).
+- **POST** — regenerates a member's MilPac uniform + box renders from current user/ORBAT data, computes and stores `milpac.uniformHash` for change detection. Delegates to `generateMilpacForUser`, which posts to the `apps/milpac` render service via `lib/milpac-gen/client.ts` and writes the returned bytes to `storage/milpacs/`. Auth: `client.hasRoles(me, PERMISSIONS.pages.admin)` — deliberately still the legacy Discord-role gate; `pages.admin` has not migrated, and switching this route alone would have locked it to the `OVERRIDE` list (see the route's own comment). Collections: `Db.users`. Returns 502 when the render service is unreachable.
 
 ---
 
@@ -393,3 +393,15 @@ Both explicitly marked "DEV-ONLY — delete before deploying to production" in s
 
 #### /api/auth/collab
 - **GET** — Hocuspocus collab-auth endpoint; reads `x-collab-token` header (not the `token` cookie) and `?doc=` query param to resolve document-specific permission: `sop-*` docs → any member (`hasPermission(user, 'pages.member')`); `ws-*` docs → J2 member/lead/admin; all others (operation briefings) → `hasPermission(user, 'auth.collab')`. Auth: bespoke per-document logic, no single gate. Returns `{authorized, userId, userName, userAvatar}` consumed by the Hocuspocus WS server on each connection.
+
+## /api/milpac/certificate/[username]
+
+- **GET** `?type=promotion|award&cert={code}` — renders a member's certificate on demand via the `apps/milpac` service and returns `image/png` inline. Nothing is persisted: unlike uniforms there is no staleness to track. Auth: any logged-in member (`client.fetchMe()`). Verifies the member actually holds the award, or has ever held the rank (any entry in `milpac.promotions`, plus `currentRank` for CSV-imported members with no history), before rendering — so the route can't be used to mint a citation for an arbitrary code. Signing officer is the officer who issued that award/promotion (`issuedByName` + `issuedByRank` on the record), falling back to `resolveUnitSignatory()` (`lib/milpac-gen/signatory.ts`) when the record names nobody. The member's own `{name}` is rendered rank-first ("MAJ Thomas") — for an award, the rank held on the award's date derived from the promotion history; for a promotion, the rank being granted. Returns 404 for a code the member doesn't hold or that has no slide, 502 if the render service is unreachable. Collections: `Db.users`.
+
+## /api/bot/milpac/[discordId]
+
+- **POST** `?type=uniform|medals` — regenerates that member's milpac images and returns the requested one as `image/png`. Auth: `Authorization: Bearer ${BOT_API_SECRET}` (**not** cookie auth — this is the Discord bot calling server-to-server; an unset secret closes the route rather than opening it). Always re-renders rather than serving the cached PNG, because the bot's contract is that the image is current as of the request. Exists so the bot never derives a render payload itself — that mapping is web's and duplicating it is the drift `apps/milpac/PLAN.md` §3/§4 describes. Returns 404 for a member with no record, 422 when their data names missing artwork, 502 when the render service is down. Collections: `Db.users` (also writes `milpac.uniformHash` via `generateMilpacForUser`). Consumed by `apps/bot`'s `/milpac uniform` and `/milpac medals`.
+
+## /api/admin/certificate-signatory
+
+- **GET** — returns `{positionId, activePositionId, signatory, positions[]}` for the J4 Website Settings → Certificates picker: the chosen CHQ position (null when unset), the one actually in use, the resolved signature block, and every `companyHQ` ORBAT slot with its current holder. **PUT** `{positionId}` — sets or (with null) clears the choice; rejects an id that isn't a real `companyHQ` position, so a bad id can't silently unsign every certificate. Auth: `client.hasRoles(me, PERMISSIONS.departments.j4)`. Stores only the position id in `Db.siteSettings` `_id: 'certificateSignatory'`, never a name. Logs `orbat.certificateSignatory.set`. Collections: `Db.siteSettings`, `Db.orbatPositions`, `Db.users`.

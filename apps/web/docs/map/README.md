@@ -59,7 +59,7 @@ Full inventory of every page, API route, and `lib`/`types`/`components` file in 
 | Notifications (in-app + Discord DM, SSE push, preferences policy) | D (`/api/notifications/**`, `/api/preferences`), H (`lib/notifications/**`, `types/notification.d.ts`, `types/preferences.d.ts`) |
 | Mastersheet (billet, leaving-history, denied-applications, discipline, recycle bin) | A (`/api/admin/j4/mastersheet/**`), E (J4 `MasterSheetTab.tsx`, `BilletMastersheetTab.tsx`), H (`lib/billetMastersheet.ts`, `types/mastersheet.d.ts`) |
 | J1 recruitment (applications, recruit wizard, live recruit session, TFAR plugin) | A (`/api/admin/j1/**`), D (`/api/applications/**` public join flow, `/api/recruit-session/**`, `/api/tfar/download`), E (`j1/tabs/**`), G (`join/JoinForm.tsx`, `recruit-session/**`) |
-| Milpac generation (uniform/medal PNGs) | D (`/api/generate/milpac/[username]`, `/api/milpacs/[name]`), H (`lib/milpac-gen/**`) |
+| Milpac generation (uniform/medal/certificate PNGs) | D (`/api/generate/milpac/[username]`, `/api/milpac/certificate/[username]`, `/api/milpacs/[name]`, `/api/bot/milpac/[discordId]` — the Discord bot's `/milpac` commands), H (`lib/milpac-gen/**` — rendering itself lives in `apps/milpac`) |
 | Awards / certifications / ranks / promotion points | H (`lib/military/**`), D (`/api/award-request`) |
 | Gallery / Screenshot of the Month | A (`gallery/admin/*` in D's scope note — actually under D as non-admin fetch/featured/sotm; admin folder mgmt lives in E `J5Panel` tabs calling `/api/gallery/admin/**`), D (`/api/gallery/**`), E (`j5/tabs/GalleryOperationsTab.tsx` etc.) |
 | TeamSpeak (client mgmt, snapshots, dev-mode gate, TS-ORBAT sync) | D (`/api/teamspeak/**`), F (`j4/tabs/TeamspeakTab.tsx`), H (`lib/teamspeak/**`) |

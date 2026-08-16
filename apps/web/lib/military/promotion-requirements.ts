@@ -4,8 +4,17 @@
  * Mike = Infantry.
  */
 
+import type { RankAbbr } from '@asot/lib'
+
 export interface RankThreshold {
-    abbr:    string
+    /**
+     * Typed against the authoritative rank list in lib/ rather
+     * than `string`. This file previously carried tracks for `SLT` and `CLT`
+     * long after those ranks were renamed `LT(S)` and `LT(C)`, so two tracks
+     * pointed at ranks that no longer existed and two real ranks had no
+     * promotion path. Nothing caught it because the field was a bare string.
+     */
+    abbr:    RankAbbr
     minPts:  number | null  // null = billet assignment only
 }
 
@@ -130,8 +139,8 @@ export const RANK_TRACKS: RankTrack[] = [
         { abbr: 'OCDT', minPts: null },
         { abbr: '2LT',  minPts: 451  },
         { abbr: 'LT',   minPts: 526  },
-        { abbr: 'SLT',  minPts: 601  },
-        { abbr: 'CLT',  minPts: 751  },
+        { abbr: 'LT(S)', minPts: 601 },
+        { abbr: 'LT(C)', minPts: 751 },
     ]},
 
     // Warrant Officer billet

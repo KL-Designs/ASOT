@@ -6,10 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Community management platform for the **Australian Special Operations Taskforce (ASOT)** — an ARMA 3 milsim unit. Staff portal and public-facing site: operations management, member milpacs, an ORBAT, ticketing, training, attendance tracking, and more.
 
-This is a monorepo with two deployable apps sharing a `types/` directory and a bind-mounted `storage/` directory. **Each app has its own `CLAUDE.md` with architecture detail — read it before working in that app:**
+This is a monorepo with three deployable apps sharing a `types/` directory, a `lib/` directory, and a bind-mounted `storage/` directory. **Each app has its own `CLAUDE.md` with architecture detail — read it before working in that app:**
 
 - **`apps/web`** ([CLAUDE.md](apps/web/CLAUDE.md)) — Next.js 15 App Router site. Staff dashboard, public pages, operations board, all API routes, and a Hocuspocus WebSocket server for the real-time collaborative document editor.
 - **`apps/bot`** ([CLAUDE.md](apps/bot/CLAUDE.md)) — Discord bot (discord.js v14): slash commands, interactions, guild event handling, scheduled member/role sync.
+- **`apps/milpac`** ([CLAUDE.md](apps/milpac/CLAUDE.md)) — stateless MilPac image renderer: composites uniforms, medal boxes and certificates from layered PNGs and returns bytes over HTTP. Holds no database connection and writes nothing to disk — `apps/web` builds the payload and persists the result. [PLAN.md](apps/milpac/PLAN.md) additionally records *why* it looks the way it does: the original it replaces, the bugs that motivated the rewrite, and the asset audits.
 
 This file only covers what's shared across both.
 
@@ -36,6 +37,25 @@ For lint/typecheck commands, see each app's own `CLAUDE.md` — they're not unif
 ### `types/` — shared MongoDB document shapes
 
 Ambient global type declarations used by **both** apps against the same collections (`User`, `Role`, `Optional`, `Reminder`). Both apps' `tsconfig.json` include this directory alongside their own local `types/`, and both Dockerfiles `COPY types/` into the image. **`apps/web`'s shape is authoritative** when the two apps' concepts diverge — see `types/README.md` for the full sharing convention before adding or editing a file here.
+
+### `lib/` — shared domain model
+
+Ranks, corps badges, awards and qualifications — the unit vocabulary more than
+one app has to agree on. Imported as `@asot/lib` via a tsconfig path alias, the
+same convention `types/` uses. **Read `lib/README.md` before adding to it** — it
+documents what belongs there and, as importantly, what doesn't (asset filenames
+stay with the app that owns the assets; unit policy stays with the app that
+applies it).
+
+Adding a consumer takes three steps and two of them fail quietly if skipped: the
+tsconfig `paths` + `include` entries, and a `COPY lib/ ./lib/` in that app's
+`dockerfile`. Miss the first and the editor resolves it but the build fails;
+miss the second and it builds locally and fails in the container.
+
+`RANK_GROUPS` is declared `as const` so `RankAbbr` is a real union of the 99
+abbreviations rather than `string`. That is the point: web previously carried a
+second rank list in `lib/military/promotion-requirements.ts` that had drifted
+out of step, and typing the field made the divergence a compile error.
 
 ### `.env` — one file, both apps
 

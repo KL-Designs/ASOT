@@ -34,27 +34,59 @@ function deriveMedallions(awardNames: string[]): Medallion[] {
     return ['Bronze1', 'Silver2', 'Gold3']
 }
 
-/** Strip parentheses so DB ranks like "PTE(S)" become asset-compatible "PTES" */
-function normaliseRank(rank: string): string {
-    return rank.replace(/[()]/g, '')
-}
-
-// Non-P private-equivalent ranks — BCT 2 holders at these ranks show PTE embellishment.
-// All other ranks (PTEP tier and higher) show the gold PTEP embellishment.
-// Ranks at or below PTE(P) show standard PTE badge; PTE(S)/SL and above show gold PTEP badge.
-// Rank order within the private tier: base → L → P → S → SL
-const PTE_BASIC_RANKS = new Set([
-    'PTE', 'PTEL',
-    'SIG', 'SIGL',
-    'TPR', 'TPRL',
-    'SAP', 'SAPL',
-    'GNR', 'GNRL',
-    'LBDR', 'LBDRL', 'LBDRJ',
-    'BDR', 'BDRL', 'BDRJ',
+// Non-P private-equivalent ranks — BCT 2 holders at these ranks show the PTE
+// embellishment; every higher rank shows the gold PTEP one. Rank order within
+// the private tier: base → L → P → S → SL.
+//
+// These are the abbreviations exactly as `lib/military/ranks.ts` writes them.
+// They used to be listed in a parenthesis-stripped form to match asset
+// filenames, which is no longer this app's concern — the renderer owns the
+// mapping from rank to artwork, so nothing here rewrites a rank any more.
+const PTE_BASIC_RANKS = new Set<string>([
+    'PTE', 'PTE(L)',
+    'SIG', 'SIG(L)',
+    'TPR', 'TPR(L)',
+    'SAP', 'SAP(L)',
+    'GNR', 'GNR(L)',
+    'LBDR', 'LBDR(L)', 'LBDR(J)',
+    'BDR', 'BDR(L)', 'BDR(J)',
 ])
 
+/** Campaign medallions are tiered — a member wears only their highest clasp. */
+const CAMPAIGN_RANK: Citation[] = [
+    'campaign', 'campaign1', 'campaign2', 'campaign3', 'campaign4',
+    'campaign5', 'campaign6', 'campaign7', 'campaign8', 'campaign9',
+    'campaign10', 'campaign11', 'campaign12', 'campaign13', 'campaign14',
+    'campaign15', 'campaign16',
+]
+
+/**
+ * Award display names → ribbon citation codes, with campaign clasps collapsed
+ * to the highest held.
+ *
+ * Both the uniform and the medal box need this. The renderer matches against
+ * the codes in medals.json and its request schema rejects anything containing
+ * path characters, so sending a display name like
+ * "Campaign Medallion, First Clasp" is both meaningless to it and a 400.
+ */
+function resolveCitations(awardNames: string[]): Citation[] {
+    const all = awardNames
+        .filter(n => !MEDALLION_AWARDS.has(n))
+        .map(n => AWARD_TO_CITATION[n])
+        .filter((c): c is Citation => Boolean(c))
+
+    const highestCampaign = CAMPAIGN_RANK.filter(c => all.includes(c)).at(-1)
+    return all
+        .filter(c => !CAMPAIGN_RANK.includes(c))
+        .concat(highestCampaign ? [highestCampaign] : [])
+}
+
 export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): UniformData {
-    const rank = normaliseRank(user.milpac?.currentRank ?? '')
+    // Sent verbatim. The render service resolves rank → artwork through its own
+    // RANK_TO_ASSET table, which is the fix for apps/milpac/PLAN.md §3: the
+    // greedy regexes that used to collapse every corps rank to a bare PTE and
+    // then blank it are gone, and nothing replaced them here.
+    const rank = user.milpac?.currentRank ?? ''
     const awardNames = user.milpac?.awards?.map(a => a.name) ?? []
 
     // Resolve display name from Discord nickname (strip rank prefix and tag decorations),
@@ -65,23 +97,7 @@ export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): Uni
     const parsedName = parts.length > 1 ? parts.slice(1).join(' ') : rawDisplay
     const resolvedDisplayName = user.name || parsedName
 
-    const allCitations = awardNames
-        .filter(n => !MEDALLION_AWARDS.has(n))
-        .map(n => AWARD_TO_CITATION[n])
-        .filter((c): c is Citation => Boolean(c))
-
-    // Campaign medallions are tiered — only render the highest clasp the member holds.
-    const CAMPAIGN_RANK: Citation[] = [
-        'campaign', 'campaign1', 'campaign2', 'campaign3', 'campaign4',
-        'campaign5', 'campaign6', 'campaign7', 'campaign8', 'campaign9',
-        'campaign10', 'campaign11', 'campaign12', 'campaign13', 'campaign14',
-        'campaign15', 'campaign16',
-    ]
-    const heldCampaigns = CAMPAIGN_RANK.filter(c => allCitations.includes(c))
-    const highestCampaign = heldCampaigns.at(-1)
-    const citations = allCitations
-        .filter(c => !CAMPAIGN_RANK.includes(c))
-        .concat(highestCampaign ? [highestCampaign] : [])
+    const citations = resolveCitations(awardNames)
 
     const medallions = deriveMedallions(awardNames)
 
@@ -118,11 +134,28 @@ export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): Uni
 
 export function buildBoxData(user: User): BoxData {
     const awardNames = user.milpac?.awards?.map(a => a.name) ?? []
-    return { name: user.id, medals: awardNames }
+    // Citation codes, not display names — see resolveCitations.
+    return { name: user.id, medals: resolveCitations(awardNames) }
 }
 
-export function computeUniformHash(uniformData: UniformData, boxData: BoxData): string {
+/**
+ * The cache key for a member's rendered uniform and medal box.
+ *
+ * Hashing the whole payload rather than a hand-picked field list is the point:
+ * anything that reaches the renderer is covered, so a new award, a promotion, a
+ * section move or a name change all invalidate without anyone remembering to
+ * add a field here.
+ *
+ * `fingerprint` covers what the payload cannot — the artwork itself. Without it
+ * a swapped base uniform PNG leaves every cached image stale forever, because
+ * no member's data changed. See `getRenderFingerprint`.
+ */
+export function computeUniformHash(
+    uniformData: UniformData,
+    boxData: BoxData,
+    fingerprint = '',
+): string {
     return createHash('md5')
-        .update(JSON.stringify({ uniformData, boxData }))
+        .update(JSON.stringify({ uniformData, boxData, fingerprint }))
         .digest('hex')
 }

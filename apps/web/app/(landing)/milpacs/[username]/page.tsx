@@ -2,11 +2,12 @@ import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { existsSync } from 'fs'
-import { join } from 'path'
-import { generateUniform } from '@/lib/milpac-gen/uniform'
-import { generateBox } from '@/lib/milpac-gen/box'
+import { mkdir, writeFile } from 'fs/promises'
+import { dirname, join } from 'path'
+import { renderUniform, renderBox, getRenderFingerprint } from '@/lib/milpac-gen/client'
 import { buildUniformData, buildBoxData, computeUniformHash } from '@/lib/milpac-gen/data-mapper'
 import { AWARD_TO_CITATION, QUAL_TO_BADGE } from '@/lib/milpac-gen/maps'
+import { certificateCodeForCitation, MEDALLION_CERTIFICATE_CODES, rankAbbrFromName } from '@asot/lib'
 import { RANK_TRACKS } from '@/lib/military/promotion-requirements'
 import { calculateOpPoints } from '@/lib/military/points'
 import Image from 'next/image'
@@ -20,6 +21,7 @@ import { CoverUpload } from './cover-upload'
 import { BiographyEditor } from './bio-editor'
 import { RequestAwardButton } from './RequestAwardButton'
 import { ImageLightbox } from './image-lightbox'
+import { CertificateViewer } from './certificate-link'
 
 
 // ── Training badge → asset subfolder ─────────────────────────────────────────
@@ -45,6 +47,77 @@ function trainingBadgeUrl(code: string): string | null {
 	const subfolder = BADGE_SUBFOLDER[code]
 	if (!subfolder) return null
 	return `/milpac-assets/imge/Training%20Badges/${subfolder}/${code}.png`
+}
+
+/**
+ * The certificate slide code for an award, or undefined if it has none.
+ *
+ * Medallions are looked up by award name because several of them map onto the
+ * same ribbon; everything else goes through the citation the ribbon is drawn
+ * from. The render service rejects a code with no slide, so an award that
+ * resolves to nothing here simply isn't clickable.
+ */
+function certificateCodeForAward(name: string): string | undefined {
+	const citation = AWARD_TO_CITATION[name]
+	return MEDALLION_CERTIFICATE_CODES[name]
+		?? (citation ? certificateCodeForCitation(citation) : undefined)
+}
+
+/**
+ * Promotion certificate code for a stored rank.
+ *
+ * Promotions hold the rank's full name, but CSV-imported rows can hold the
+ * abbreviation already — hence the fallback. The certificate assets drop the
+ * parentheses: `PTE(S)` is `PTES`.
+ */
+function promotionCertCode(rank: string): string {
+	return (rankAbbrFromName(rank) || rank).replace(/[()]/g, '')
+}
+
+// ── Soldiers Medallions ──────────────────────────────────────────────────────
+
+/**
+ * The three Soldiers Medallions are chest medallions, not ribbons, so they have
+ * no `AWARD_TO_CITATION` entry and the awards list drew an empty box for them.
+ *
+ * Their only artwork is a full-canvas 1398x1000 uniform layer with the medallion
+ * sitting in one of three chest slots — there is no standalone icon anywhere in
+ * the asset tree. Rather than add one (a generated asset to keep in step with
+ * the layer it was cut from), the layer is cropped to the medallion in CSS. The
+ * `2` variant is the centre slot; the suffix only shifts X, so which one is used
+ * is arbitrary as long as the offset matches.
+ */
+const MEDALLION_ART: Record<string, string> = {
+	'Bronze Soldiers Medallion': 'Bronze2',
+	'Silver Soldiers Medallion': 'Silver2',
+	'Gold Soldiers Medallion':   'Gold2',
+}
+
+/** Where the medallion sits in the 1398x1000 layer, measured off its alpha channel. */
+const MEDALLION_CROP = { x: 510, y: 356, w: 36, h: 35, canvasW: 1398, canvasH: 1000 }
+
+function MedallionIcon({ art, alt, size }: { art: string; alt: string; size: number }) {
+	const scale = size / MEDALLION_CROP.h
+	return (
+		<span style={{
+			display: 'block', width: size, height: size, flexShrink: 0,
+			position: 'relative', overflow: 'hidden',
+		}}>
+			<img
+				src={`/milpac-assets/imge/Medallions/${art}.png`}
+				alt={alt}
+				title={alt}
+				style={{
+					position: 'absolute',
+					width: MEDALLION_CROP.canvasW * scale,
+					height: MEDALLION_CROP.canvasH * scale,
+					left: -(MEDALLION_CROP.x + (MEDALLION_CROP.w - MEDALLION_CROP.h) / 2) * scale,
+					top: -MEDALLION_CROP.y * scale,
+					maxWidth: 'none',
+				}}
+			/>
+		</span>
+	)
 }
 
 // ── Promotion progress helper ─────────────────────────────────────────────────
@@ -116,23 +189,38 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const uniformPath = join(process.cwd(), '..', '..', 'storage', 'milpacs', `${member.id}.png`)
 	const medalsPath  = join(process.cwd(), '..', '..', 'storage', 'milpacs', `${member.id}-medals.png`)
 	try {
-		const currentHash = computeUniformHash(uniformData, boxData)
+		// The fingerprint covers the artwork; the payload covers the member. A
+		// change to either redraws — see computeUniformHash.
+		const currentHash = computeUniformHash(uniformData, boxData, await getRenderFingerprint())
 		const needsRegen  = currentHash !== member.milpac?.uniformHash
 			|| !existsSync(uniformPath)
 			|| !existsSync(medalsPath)
 
 		if (needsRegen) {
-			await Promise.all([generateUniform(uniformData), generateBox(boxData)])
+			const [uniformPng, medalsPng] = await Promise.all([
+				renderUniform(uniformData),
+				renderBox(boxData),
+			])
+			await mkdir(dirname(uniformPath), { recursive: true })
+			await Promise.all([
+				writeFile(uniformPath, uniformPng),
+				writeFile(medalsPath, medalsPng),
+			])
 			await Db.users.updateOne({ username }, { $set: { 'milpac.uniformHash': currentHash } })
 		}
 	} catch (err) {
-		console.error('[milpac-gen] generation failed for', username, err)
+		// A page view should never 500 because the render service is down — the
+		// previously generated images below are still served if they exist.
+		console.error('[milpac] render failed for', username, err)
 	}
 
 	const hasUniform = existsSync(uniformPath)
 	const hasMedals  = existsSync(medalsPath)
 
 	const me = await client.fetchMe().catch(() => null)
+	// /api/milpac/certificate is gated to logged-in members, so the click
+	// targets below are only offered to someone who can actually load one.
+	const canViewCertificates = me !== null
 	const canEdit         = me ? client.hasRoles(me, ['J5-Media']) : false
 	const isOwn           = me?.id === member.id
 	const canRequestAward = me !== null && me.id !== member.id && !member.isSkeletonAccount
@@ -265,7 +353,9 @@ export default async function Page({ params }: { params: Promise<{ username: str
 						{/* Avatar */}
 						<div style={{ position: 'relative', width: 100, height: 100, borderRadius: '50%', padding: 3, background: `linear-gradient(135deg, ${accent}cc, rgba(237,237,237,0.08))`, flexShrink: 0 }}>
 							<div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: 'rgb(13,13,13)' }}>
-								<Avatar user={member} />
+								{/* Only what Avatar reads — passing the whole document sends
+								    ObjectIds into a client component, which React warns about. */}
+								<Avatar user={{ id: member.id, avatarURL: member.avatarURL }} />
 							</div>
 						</div>
 
@@ -356,7 +446,10 @@ export default async function Page({ params }: { params: Promise<{ username: str
 					<div className='milpac-sidebar'>
 						{hasUniform && (
 							<div style={{ borderRadius: 6, border: `1px solid rgba(255,255,255,0.06)`, borderTop: `2px solid ${accent}60`, background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
-								<div style={{ padding: '0.75rem 1rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+								{/* Bottom padding here rather than on the image: the medals card
+								    below gets its gap from the image's own inset, which the
+								    uniform deliberately does not have — it runs edge to edge. */}
+								<div style={{ padding: '0.75rem 1rem 0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 									<span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: `${accent}99` }}>Uniform</span>
 								</div>
 								<ImageLightbox
@@ -402,7 +495,29 @@ export default async function Page({ params }: { params: Promise<{ username: str
 								<tbody>
 									<Row label='Status' value='Active' />
 									<Row label='Enlisted' value={enlistedDate} />
-									<Row label='Rank' value={fullRank || '—'} />
+									{/* Every promotion in the history below is its own click
+									    target, so this one only appears when nothing down there
+									    already offers it — a CSV-imported member with a rank and
+									    no history behind it. */}
+									<Row label='Rank' value={fullRank || '—'} action={(() => {
+										const rankCode = (member.milpac?.currentRank ?? '').replace(/[()]/g, '')
+										if (!canViewCertificates || !rankCode) return null
+										const inHistory = (member.milpac?.promotions ?? [])
+											.some(p => promotionCertCode(p.rank) === rankCode)
+										if (inHistory) return null
+										return (
+											<CertificateViewer
+												inline
+												label={`Promotion — ${fullRank || rankCode}`}
+												accent={accent}
+												href={`/api/milpac/certificate/${username}?type=promotion&cert=${encodeURIComponent(rankCode)}`}
+											>
+												<span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: `${accent}bb`, padding: '1px 7px', border: `1px solid ${accent}40`, background: `${accent}10` }}>
+													Certificate ⤢
+												</span>
+											</CertificateViewer>
+										)
+									})()} />
 									<Row label='Points' value={promotionPts > 0 ? String(promotionPts) : '—'} />
 								</tbody>
 							</table>
@@ -422,6 +537,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 													<th style={thStyle}>Rank</th>
 													<th style={thStyle}>Role</th>
 													{showIssuedBy && <th style={thStyle}>Issued By</th>}
+													{canViewCertificates && <th style={{ ...thStyle, width: 28 }}></th>}
 												</tr>
 											</thead>
 											<tbody>
@@ -431,6 +547,23 @@ export default async function Page({ params }: { params: Promise<{ username: str
 														<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{p.rank}</td>
 														<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.5)' }}>{p.role}</td>
 														{showIssuedBy && <td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.3)', fontSize: '0.75rem' }}>{p.issuedByName || '—'}</td>}
+														{/* A trigger cell rather than a clickable row: a <tr> cannot
+														    live inside a <button>, and the awards list is a flex
+														    column precisely because it can. A rank with no
+														    certificate slide fails its first render and the viewer
+														    drops back to plain text. */}
+														{canViewCertificates && (
+															<td style={{ padding: '7px 0', textAlign: 'right' }}>
+																<CertificateViewer
+																	inline
+																	label={`Promotion — ${p.rank}`}
+																	accent={accent}
+																	href={`/api/milpac/certificate/${username}?type=promotion&cert=${encodeURIComponent(promotionCertCode(p.rank))}`}
+																>
+																	<span title='View certificate' style={{ fontSize: '0.7rem', color: `${accent}88`, padding: '0 2px' }}>⤢</span>
+																</CertificateViewer>
+															</td>
+														)}
 													</tr>
 												))}
 											</tbody>
@@ -482,14 +615,24 @@ export default async function Page({ params }: { params: Promise<{ username: str
 							)}
 						</Section>
 
-						{/* Awards & Citations */}
+						{/* Awards & Citations — each row that has a matching certificate
+						    slide opens it full-screen. The certificate is rendered on
+						    demand by the milpac service and never persisted, so nothing
+						    is fetched until the viewer actually clicks a row. */}
 						<Section accent={accent} title='Awards & Citations'>
 							{member.milpac?.awards && member.milpac.awards.length > 0 ? (
 								<div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
 									{member.milpac.awards.map((a, i) => {
 										const citation = AWARD_TO_CITATION[a.name]
-										return (
-											<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+										const medallion = MEDALLION_ART[a.name]
+										const certCode = certificateCodeForAward(a.name)
+										// Certificates are for logged-in members (the route is
+										// gated), so an anonymous visitor gets the plain row
+										// rather than a click target that 401s.
+										const canOpen  = canViewCertificates && Boolean(certCode)
+
+										const row = (
+											<div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
 												{citation ? (
 													<img
 														src={`/milpac-assets/imge/Ribbons/${citation}.png`}
@@ -497,6 +640,12 @@ export default async function Page({ params }: { params: Promise<{ username: str
 														title={a.name}
 														style={{ width: 64, height: 20, objectFit: 'contain', flexShrink: 0, imageRendering: 'pixelated' }}
 													/>
+												) : medallion ? (
+													// Centred in a 64-wide slot so medallions line up with
+													// the ribbons above and below them in the list.
+													<span style={{ width: 64, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+														<MedallionIcon art={medallion} alt={a.name} size={26} />
+													</span>
 												) : (
 													<div style={{ width: 64, height: 20, flexShrink: 0, background: `${accent}18`, border: `1px solid ${accent}30`, borderRadius: 2 }} />
 												)}
@@ -516,7 +665,23 @@ export default async function Page({ params }: { params: Promise<{ username: str
 												{a.date && (
 													<span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}>{a.date}</span>
 												)}
+												{canOpen && (
+													<span title='View certificate' style={{ fontSize: '0.7rem', color: `${accent}88`, flexShrink: 0 }}>⤢</span>
+												)}
 											</div>
+										)
+
+										return canOpen ? (
+											<CertificateViewer
+												key={i}
+												label={a.name}
+												accent={accent}
+												href={`/api/milpac/certificate/${username}?type=award&cert=${encodeURIComponent(certCode!)}`}
+											>
+												{row}
+											</CertificateViewer>
+										) : (
+											<div key={i}>{row}</div>
 										)
 									})}
 								</div>
@@ -630,14 +795,17 @@ function Section({ accent, title, children }: { accent: string; title: string; c
 	)
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, action }: { label: string; value: string; action?: React.ReactNode }) {
 	return (
 		<tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
 			<td style={{ padding: '8px 0', color: 'rgba(237,237,237,0.35)', width: 140, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.68rem' }}>
 				{label}
 			</td>
 			<td style={{ padding: '8px 0', color: 'rgba(237,237,237,0.75)' }}>
-				{value}
+				<span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+					{value}
+					{action}
+				</span>
 			</td>
 		</tr>
 	)

@@ -33,3 +33,17 @@ own app directory, e.g. `apps/web` or `apps/bot`), so code reads/writes via `../
 
 `docker-compose.yml` bind-mounts each subfolder individually (rather than mounting all of
 `storage/` at once) so container paths stay explicit.
+
+## `milpac-design-source/`
+
+Design source files for the MilPac renderer that are deliberately **not** in git:
+
+| File | Why it's here |
+|---|---|
+| `Milpac 2024.xcf` | 27 MB GIMP working file for the uniform, superseded by its own exported PNGs. |
+| `save.pptx` | Abandoned partial certificate template. |
+| `docker-compose.yml` | Fulcrum's original compose file. It published port 42070 with no authentication on any generation endpoint — kept for reference only. **Do not run it.** See `apps/milpac/PLAN.md` section 9. |
+
+Excluded from the import commit rather than deleted afterwards, because git
+history is permanent: anything that lands in a commit stays in the repository
+forever even if a later commit removes it. See `apps/milpac/PLAN.md` section 2.

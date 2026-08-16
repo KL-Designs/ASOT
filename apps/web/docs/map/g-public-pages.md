@@ -197,8 +197,9 @@ Sets page metadata ("MILPACS").
 The MILPACs index/roster: hero banner, sticky `<MilpacsNav/>` jump-nav, then sections for India
 Company HQ, 1st/2nd/Support Platoon (from `fetchORBAT()`), Reservists — each member rendered via
 `<Card/>`. Section colours/patches come from `Db.orbatSectionMeta`. Shows "⚙ Manage ORBAT" link
-to `/dashboard/orbat` for users with `PERMISSIONS.admin.manageOrbat`. Gated by `WIP_PAGES` env var
-and also intercepted by middleware `WIP_PATHS` (`/milpacs`). Public read.
+to `/dashboard/orbat` for users with `PERMISSIONS.admin.manageOrbat`. **Live** — both WIP gates were
+removed (the `WIP_PAGES` check here and `/milpacs` in middleware's `WIP_PATHS`, which also covered
+`/milpacs/[username]`). Public read.
 
 #### app/(landing)/milpacs/card.tsx
 Client member card: tilt-on-hover 3D effect, links to `/milpacs/[username]`. Displays avatar
@@ -218,10 +219,16 @@ Client `TacticalLoader` reading the `username` route param for its label.
 #### app/(landing)/milpacs/[username]/page.tsx
 The full individual MILPAC profile page (largest file in this group, ~650 lines). Resolves the
 member via `client.fetchAllMembers()` + `resolveMilpacProfile`, **auto-regenerates** the uniform
-PNG/medal-box PNG (`generateUniform`/`generateBox` from `@/lib/milpac-gen/*`) on the server when a
+PNG/medal-box PNG (`renderUniform`/`renderBox` from `@/lib/milpac-gen/client`, rendered by the `apps/milpac` service) on the server when a
 content hash mismatches (`member.milpac.uniformHash`), computes promotion progress, enlisted date,
 and confirmed-operation history grouped by campaign, displays Service Record / Promotions /
-Qualifications / Awards / Operation History sections. Edit affordances: "Edit" link to
+Qualifications / Awards / Operation History sections. **Certificates**: for a logged-in viewer,
+each award row that maps to a certificate slide, and every row of the promotion history, is a click
+target that opens the certificate full-screen (`<CertificateViewer/>` → `GET
+/api/milpac/certificate/[username]`); nothing is fetched until a row is clicked. Awards are a flex
+column so the whole row is the button; promotions are a `<table>` (a `<tr>` cannot sit inside a
+`<button>`) so each row gets a trailing trigger cell instead. The Service Record rank row carries the
+same trigger, but only when the promotion history does not already offer that rank. Edit affordances: "Edit" link to
 `/members/[username]` shown to `J5-Media`; biography editable inline by the profile owner
 (`<BiographyEditor/>` posts to `/api/me`); cover photo upload by owner (`<CoverUpload/>` posts to
 `/api/uploads/cover`); `<RequestAwardButton/>` lets any other logged-in member nominate an award
@@ -239,6 +246,14 @@ rendered for the profile owner (`isOwn`).
 #### app/(landing)/milpacs/[username]/cover-upload.tsx
 Client `CoverUpload`: file input to upload (`POST /api/uploads/cover`, multipart) or remove
 (`DELETE /api/uploads/cover`) the profile's cover banner image. Owner-only.
+
+#### app/(landing)/milpacs/[username]/certificate-link.tsx
+Client `CertificateViewer`: wraps arbitrary content (an award row, or a chip on the rank row) in a
+click target that opens that member's certificate full-screen, with a download link. Renders no
+`<img>` until opened — certificates are drawn on demand and never persisted, so a member with 30
+awards would otherwise trigger 30 renders per profile view. A failed render drops back to the plain
+content rather than leaving a dead click target. `inline` switches it from a full-width row trigger
+to an inline chip.
 
 #### app/(landing)/milpacs/[username]/image-lightbox.tsx
 Generic client `ImageLightbox`: click-to-zoom full-screen overlay for an `<img>`, closes on
@@ -318,8 +333,12 @@ Resolves the target member, fetches confirmed-attendance-derived operation histo
 Large client staff-editing form for a member's MILPAC record: rank (drag-reorderable via
 `@dnd-kit`), promotions/awards/qualifications history (with duplicate-detection colour coding),
 promotion-point calculation (`calculatePromotionPoints`/`calculateOpPoints` from
-`@/lib/military/points`), suggested-rank helper (`getSuggestedRank`). This is the internal
-counterpart to the public read-only `/milpacs/[username]` profile page.
+`@/lib/military/points`), suggested-rank helper (`getSuggestedRank`). Promotions and awards each
+carry an **Issued By** rank + name (`issuedByRank` stores the full rank name, `RankSelect`'s value
+contract) — that pair signs the member's rendered certificate, so it is a record of who authorised
+the award, not just a note. `PUT /api/members/[username]` stamps both from the editing staffer when
+a new row leaves them blank. This is the internal counterpart to the public read-only
+`/milpacs/[username]` profile page.
 
 ---
 
@@ -616,10 +635,11 @@ for `middleware.ts`'s `WIP_PATHS` list (`/community/orbat`, `/milpacs`, `/commun
   `/operations/[id]` themselves are public-read with extra content/actions unlocked once logged
   in (`isLoggedIn`, `isHQ`, `isJ6`, `isAllStaff`, `isSectionLeader` flags computed per-request).
 - **WIP gate**: `WIP_PAGES` env var (checked inside individual page components) and
-  `middleware.ts`'s `WIP_PATHS` rewrite are two *independent* mechanisms both currently targeting
-  milpacs/orbat/retired/bios — don't assume one implies the other is wired up.
-  `community/bios/page.tsx` and `milpacs/page.tsx` check `WIP_PAGES` explicitly;
-  `community/retired/page.tsx` also checks it via its child render.
+  `middleware.ts`'s `WIP_PATHS` rewrite are two *independent* mechanisms — don't assume one implies
+  the other is wired up. They now target orbat/retired/bios only; **milpacs was released and needed
+  both removed**, since the middleware rewrite alone would still have hidden the whole tree.
+  `community/bios/page.tsx` checks `WIP_PAGES` explicitly; `community/retired/page.tsx` checks it
+  via its child render.
 - **Operation theming**: `pageTheme` (`modern` | `oldfashioned` | `scifi`) is threaded through
   almost every operations component (`doc-body.tsx`, `paged-view.tsx`, `section-nav.tsx`,
   `PageNavClient.tsx`, the main `[id]/page.tsx`) — any new operation-page component should accept

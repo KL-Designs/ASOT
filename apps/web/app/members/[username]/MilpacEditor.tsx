@@ -77,8 +77,10 @@ function todayStr() {
     return new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-type Promotion = { _key: string; date: string; rank: string; role: string; issuedById?: string; issuedByName?: string }
-type Award = { _key: string; date: string; name: string; type: string; issuedById?: string; issuedByName?: string }
+// `issuedByRank` is the full rank name (RankSelect's value contract), and it
+// signs the rendered certificate — see types/user.d.ts.
+type Promotion = { _key: string; date: string; rank: string; role: string; issuedById?: string; issuedByName?: string; issuedByRank?: string }
+type Award = { _key: string; date: string; name: string; type: string; issuedById?: string; issuedByName?: string; issuedByRank?: string }
 type Qualification = { _key: string; date: string; qualification: string; issuedById?: string; issuedByName?: string }
 
 
@@ -1082,8 +1084,19 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                                     </div>
                                                     <DeleteBtn onClick={() => removePromotion(i)} />
                                                 </div>
+                                                {/* Issuing officer — signs this promotion's certificate. */}
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 28 }}>
                                                     <Label>Issued By</Label>
+                                                    <div style={{ width: 200, flexShrink: 0 }}>
+                                                        <RankSelect
+                                                            value={p.issuedByRank ?? ''}
+                                                            onChange={v => {
+                                                                markDirty()
+                                                                setPromotions(prev => prev.map((x, idx) => idx === i ? { ...x, issuedByRank: v } : x))
+                                                            }}
+                                                            placeholder='— Signing Rank —'
+                                                        />
+                                                    </div>
                                                     <input
                                                         value={p.issuedByName ?? ''}
                                                         onChange={e => {
@@ -1294,8 +1307,19 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                                     </div>
                                                     <DeleteBtn onClick={() => removeAward(i)} />
                                                 </div>
+                                                {/* Issuing officer — signs this award's certificate. */}
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, paddingLeft: 28 }}>
                                                     <Label>Issued By</Label>
+                                                    <div style={{ width: 200, flexShrink: 0 }}>
+                                                        <RankSelect
+                                                            value={a.issuedByRank ?? ''}
+                                                            onChange={v => {
+                                                                markDirty()
+                                                                setAwards(prev => prev.map((x, idx) => idx === i ? { ...x, issuedByRank: v } : x))
+                                                            }}
+                                                            placeholder='— Signing Rank —'
+                                                        />
+                                                    </div>
                                                     <input
                                                         value={a.issuedByName ?? ''}
                                                         onChange={e => {

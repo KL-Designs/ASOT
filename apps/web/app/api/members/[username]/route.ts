@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { setGuildNickname } from '@/lib/discord/bot'
 import { buildNickname } from '@/lib/buildNickname'
+import { rankNameFromAbbr } from '@asot/lib'
 
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
@@ -40,8 +41,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const editorName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
-    const stamp = <T extends { issuedById?: string; issuedByName?: string }>(entries: T[]): T[] =>
-        entries.map(e => e.issuedById ? e : { ...e, issuedById: me.id, issuedByName: editorName })
+    // Stored as the full rank name to match promotions[].rank and the editor's
+    // rank picker; milpac.currentRank is the abbreviation.
+    const editorRank = rankNameFromAbbr(me.milpac?.currentRank ?? '')
+    const stamp = <T extends { issuedById?: string; issuedByName?: string; issuedByRank?: string }>(entries: T[]): T[] =>
+        entries.map(e => e.issuedById
+            ? e
+            : { ...e, issuedById: me.id, issuedByName: editorName, issuedByRank: e.issuedByRank || editorRank })
 
     const update: Record<string, any> = {}
 

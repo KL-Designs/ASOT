@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const WIP_PATHS = ['/community/orbat', '/milpacs', '/community/retired', '/community/bios']
+const WIP_PATHS = ['/community/orbat', '/community/retired', '/community/bios']
 
 /**
  * Injects the current pathname as an `x-pathname` header so that server
