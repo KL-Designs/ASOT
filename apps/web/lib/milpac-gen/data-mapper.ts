@@ -52,6 +52,35 @@ const PTE_BASIC_RANKS = new Set<string>([
     'BDR', 'BDR(L)', 'BDR(J)',
 ])
 
+/** Campaign medallions are tiered — a member wears only their highest clasp. */
+const CAMPAIGN_RANK: Citation[] = [
+    'campaign', 'campaign1', 'campaign2', 'campaign3', 'campaign4',
+    'campaign5', 'campaign6', 'campaign7', 'campaign8', 'campaign9',
+    'campaign10', 'campaign11', 'campaign12', 'campaign13', 'campaign14',
+    'campaign15', 'campaign16',
+]
+
+/**
+ * Award display names → ribbon citation codes, with campaign clasps collapsed
+ * to the highest held.
+ *
+ * Both the uniform and the medal box need this. The renderer matches against
+ * the codes in medals.json and its request schema rejects anything containing
+ * path characters, so sending a display name like
+ * "Campaign Medallion, First Clasp" is both meaningless to it and a 400.
+ */
+function resolveCitations(awardNames: string[]): Citation[] {
+    const all = awardNames
+        .filter(n => !MEDALLION_AWARDS.has(n))
+        .map(n => AWARD_TO_CITATION[n])
+        .filter((c): c is Citation => Boolean(c))
+
+    const highestCampaign = CAMPAIGN_RANK.filter(c => all.includes(c)).at(-1)
+    return all
+        .filter(c => !CAMPAIGN_RANK.includes(c))
+        .concat(highestCampaign ? [highestCampaign] : [])
+}
+
 export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): UniformData {
     // Sent verbatim. The render service resolves rank → artwork through its own
     // RANK_TO_ASSET table, which is the fix for apps/milpac/PLAN.md §3: the
@@ -68,23 +97,7 @@ export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): Uni
     const parsedName = parts.length > 1 ? parts.slice(1).join(' ') : rawDisplay
     const resolvedDisplayName = user.name || parsedName
 
-    const allCitations = awardNames
-        .filter(n => !MEDALLION_AWARDS.has(n))
-        .map(n => AWARD_TO_CITATION[n])
-        .filter((c): c is Citation => Boolean(c))
-
-    // Campaign medallions are tiered — only render the highest clasp the member holds.
-    const CAMPAIGN_RANK: Citation[] = [
-        'campaign', 'campaign1', 'campaign2', 'campaign3', 'campaign4',
-        'campaign5', 'campaign6', 'campaign7', 'campaign8', 'campaign9',
-        'campaign10', 'campaign11', 'campaign12', 'campaign13', 'campaign14',
-        'campaign15', 'campaign16',
-    ]
-    const heldCampaigns = CAMPAIGN_RANK.filter(c => allCitations.includes(c))
-    const highestCampaign = heldCampaigns.at(-1)
-    const citations = allCitations
-        .filter(c => !CAMPAIGN_RANK.includes(c))
-        .concat(highestCampaign ? [highestCampaign] : [])
+    const citations = resolveCitations(awardNames)
 
     const medallions = deriveMedallions(awardNames)
 
@@ -121,7 +134,8 @@ export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): Uni
 
 export function buildBoxData(user: User): BoxData {
     const awardNames = user.milpac?.awards?.map(a => a.name) ?? []
-    return { name: user.id, medals: awardNames }
+    // Citation codes, not display names — see resolveCitations.
+    return { name: user.id, medals: resolveCitations(awardNames) }
 }
 
 export function computeUniformHash(uniformData: UniformData, boxData: BoxData): string {

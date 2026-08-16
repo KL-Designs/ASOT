@@ -277,7 +277,9 @@ export default async function Page({ params }: { params: Promise<{ username: str
 						{/* Avatar */}
 						<div style={{ position: 'relative', width: 100, height: 100, borderRadius: '50%', padding: 3, background: `linear-gradient(135deg, ${accent}cc, rgba(237,237,237,0.08))`, flexShrink: 0 }}>
 							<div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: 'rgb(13,13,13)' }}>
-								<Avatar user={member} />
+								{/* Only what Avatar reads — passing the whole document sends
+								    ObjectIds into a client component, which React warns about. */}
+								<Avatar user={{ id: member.id, avatarURL: member.avatarURL }} />
 							</div>
 						</div>
 

@@ -59,5 +59,11 @@ export interface UniformData {
 
 export interface BoxData {
     name: string
-    medals: string[]
+    /**
+     * Citation codes, not award display names. The renderer matches these
+     * against medals.json and its schema rejects anything with path characters,
+     * so a display name like "Campaign Medallion, First Clasp" is a 400.
+     * Typed narrowly so that mistake cannot compile.
+     */
+    medals: Citation[]
 }
