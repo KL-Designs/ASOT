@@ -107,6 +107,13 @@ declare global {
                 role: string
                 issuedById?: string
                 issuedByName?: string
+                /**
+                 * Full rank *name* of the issuing officer (matching `rank` above,
+                 * not the abbreviation used by `currentRank`). Signs the rendered
+                 * certificate; falls back to the unit signatory when absent, which
+                 * is the case for every record predating this field.
+                 */
+                issuedByRank?: string
             }[]
             awards?: {
                 date: string
@@ -114,6 +121,8 @@ declare global {
                 type: string
                 issuedById?: string
                 issuedByName?: string
+                /** Full rank name of the issuing officer — see promotions above. */
+                issuedByRank?: string
             }[]
             operations?: {
                 startToEndDate: string

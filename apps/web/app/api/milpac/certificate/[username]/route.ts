@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
-import { AWARD_TO_CITATION, certificateCodeForCitation, MEDALLION_CERTIFICATE_CODES } from '@asot/lib'
+import { AWARD_TO_CITATION, certificateCodeForCitation, MEDALLION_CERTIFICATE_CODES, rankAbbrFromName } from '@asot/lib'
 import { renderCertificate, MilpacServiceError } from '@/lib/milpac-gen/client'
 
 /**
@@ -16,11 +16,32 @@ import { renderCertificate, MilpacServiceError } from '@/lib/milpac-gen/client'
  *   GET /api/milpac/certificate/{username}?type=promotion&cert=CPL
  */
 
-/** The signing officer shown on every certificate. */
-const SIGNATORY = {
+/**
+ * The unit's default signing officer — used when the record itself names
+ * nobody, which is the case for every award and promotion filed before
+ * `issuedByRank` existed.
+ */
+const DEFAULT_SIGNATORY = {
     signaturer:          process.env.MILPAC_SIGNATORY_NAME ?? '',
     signaturerRankShort: process.env.MILPAC_SIGNATORY_RANK_SHORT ?? '',
     signaturerRankFull:  process.env.MILPAC_SIGNATORY_RANK_FULL ?? '',
+}
+
+/**
+ * Who signs this certificate: the officer who issued the award or promotion.
+ *
+ * Both halves have to be present to use the record — a name with no rank would
+ * render "{signaturerRankShort} Thomas" with an empty rank, which reads worse
+ * than the unit default. `issuedByRank` is stored as the full rank name, so the
+ * short form is derived rather than stored twice.
+ */
+function signatoryFor(record: { issuedByName?: string; issuedByRank?: string } | undefined) {
+    if (!record?.issuedByName || !record.issuedByRank) return DEFAULT_SIGNATORY
+    return {
+        signaturer:          record.issuedByName,
+        signaturerRankShort: rankAbbrFromName(record.issuedByRank) || record.issuedByRank,
+        signaturerRankFull:  record.issuedByRank,
+    }
 }
 
 /** "1st", "2nd", "3rd", "4th" — the templates split the number and its suffix. */
@@ -65,7 +86,8 @@ export async function GET(
     // Only issue a certificate the member actually holds — otherwise this route
     // would render an award citation for anyone who guessed its code.
     const awards = user.milpac?.awards ?? []
-    let awardDate: string | undefined
+    let issuedDate: string | undefined
+    let signatory = DEFAULT_SIGNATORY
 
     if (type === 'award') {
         const held = awards.find(a => {
@@ -74,12 +96,24 @@ export async function GET(
             return code === cert
         })
         if (!held) return NextResponse.json({ error: 'Member does not hold that award' }, { status: 404 })
-        awardDate = held.date
+        issuedDate = held.date
+        signatory  = signatoryFor(held)
     } else if (cert !== (user.milpac?.currentRank ?? '').replace(/[()]/g, '')) {
         return NextResponse.json({ error: 'Not the member\'s current rank' }, { status: 404 })
+    } else {
+        // The promotion that awarded the rank being certified. The editor stores
+        // the rank's full name, but CSV-imported rows can hold the abbreviation
+        // directly, so accept either rather than silently falling back to the
+        // unit signatory. `cert` is the abbreviation with parentheses stripped.
+        const bare = (value: string) => value.replace(/[()]/g, '')
+        const promotion = (user.milpac?.promotions ?? [])
+            .filter(p => bare(rankAbbrFromName(p.rank)) === cert || bare(p.rank) === cert)
+            .at(-1)
+        issuedDate = promotion?.date
+        signatory  = signatoryFor(promotion)
     }
 
-    const { dateNumber, suffix, date } = splitDate(awardDate)
+    const { dateNumber, suffix, date } = splitDate(issuedDate)
 
     try {
         const png = await renderCertificate({
@@ -88,7 +122,7 @@ export async function GET(
             name: user.name || user.username,
             date, dateNumber, suffix,
             jddate: date, jdnum: dateNumber, jdsuffix: suffix,
-            ...SIGNATORY,
+            ...signatory,
         })
         return new NextResponse(new Uint8Array(png), {
             headers: {

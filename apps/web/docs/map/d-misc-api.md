@@ -371,7 +371,7 @@ Both explicitly marked "DEV-ONLY — delete before deploying to production" in s
 ### generate (1 file)
 
 #### /api/generate/milpac/[username]
-- **POST** — regenerates a member's MilPac uniform + box renders from current user/ORBAT data, computes and stores `milpac.uniformHash` for change detection. Delegates to `generateMilpacForUser`, which posts to the `apps/milpac` render service via `lib/milpac-gen/client.ts` and writes the returned bytes to `storage/milpacs/`. Auth: `hasPermission(me, 'pages.admin')` (migrated off the legacy `PERMISSIONS.pages.admin` role array). Collections: `Db.users`. Returns 502 when the render service is unreachable.
+- **POST** — regenerates a member's MilPac uniform + box renders from current user/ORBAT data, computes and stores `milpac.uniformHash` for change detection. Delegates to `generateMilpacForUser`, which posts to the `apps/milpac` render service via `lib/milpac-gen/client.ts` and writes the returned bytes to `storage/milpacs/`. Auth: `client.hasRoles(me, PERMISSIONS.pages.admin)` — deliberately still the legacy Discord-role gate; `pages.admin` has not migrated, and switching this route alone would have locked it to the `OVERRIDE` list (see the route's own comment). Collections: `Db.users`. Returns 502 when the render service is unreachable.
 
 ---
 
@@ -396,4 +396,4 @@ Both explicitly marked "DEV-ONLY — delete before deploying to production" in s
 
 ## /api/milpac/certificate/[username]
 
-- **GET** `?type=promotion|award&cert={code}` — renders a member's certificate on demand via the `apps/milpac` service and returns `image/png` inline. Nothing is persisted: unlike uniforms there is no staleness to track. Auth: any logged-in member (`client.fetchMe()`). Verifies the member actually holds the award (or that the code is their current rank) before rendering, so the route can't be used to mint a citation for an arbitrary code. Signing officer comes from `MILPAC_SIGNATORY_*` env vars. Returns 404 for a code the member doesn't hold or that has no slide, 502 if the render service is unreachable. Collections: `Db.users`.
+- **GET** `?type=promotion|award&cert={code}` — renders a member's certificate on demand via the `apps/milpac` service and returns `image/png` inline. Nothing is persisted: unlike uniforms there is no staleness to track. Auth: any logged-in member (`client.fetchMe()`). Verifies the member actually holds the award (or that the code is their current rank) before rendering, so the route can't be used to mint a citation for an arbitrary code. Signing officer is the officer who issued that award/promotion (`issuedByName` + `issuedByRank` on the record), falling back to the `MILPAC_SIGNATORY_*` env vars when the record names nobody. Returns 404 for a code the member doesn't hold or that has no slide, 502 if the render service is unreachable. Collections: `Db.users`.

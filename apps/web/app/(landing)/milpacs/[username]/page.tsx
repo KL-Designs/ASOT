@@ -21,7 +21,7 @@ import { CoverUpload } from './cover-upload'
 import { BiographyEditor } from './bio-editor'
 import { RequestAwardButton } from './RequestAwardButton'
 import { ImageLightbox } from './image-lightbox'
-import { CertificateLink } from './certificate-link'
+import { CertificateViewer } from './certificate-link'
 
 
 // ── Training badge → asset subfolder ─────────────────────────────────────────
@@ -47,6 +47,20 @@ function trainingBadgeUrl(code: string): string | null {
 	const subfolder = BADGE_SUBFOLDER[code]
 	if (!subfolder) return null
 	return `/milpac-assets/imge/Training%20Badges/${subfolder}/${code}.png`
+}
+
+/**
+ * The certificate slide code for an award, or undefined if it has none.
+ *
+ * Medallions are looked up by award name because several of them map onto the
+ * same ribbon; everything else goes through the citation the ribbon is drawn
+ * from. The render service rejects a code with no slide, so an award that
+ * resolves to nothing here simply isn't clickable.
+ */
+function certificateCodeForAward(name: string): string | undefined {
+	const citation = AWARD_TO_CITATION[name]
+	return MEDALLION_CERTIFICATE_CODES[name]
+		?? (citation ? certificateCodeForCitation(citation) : undefined)
 }
 
 // ── Promotion progress helper ─────────────────────────────────────────────────
@@ -145,6 +159,9 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const hasMedals  = existsSync(medalsPath)
 
 	const me = await client.fetchMe().catch(() => null)
+	// /api/milpac/certificate is gated to logged-in members, so the click
+	// targets below are only offered to someone who can actually load one.
+	const canViewCertificates = me !== null
 	const canEdit         = me ? client.hasRoles(me, ['J5-Media']) : false
 	const isOwn           = me?.id === member.id
 	const canRequestAward = me !== null && me.id !== member.id && !member.isSkeletonAccount
@@ -416,7 +433,25 @@ export default async function Page({ params }: { params: Promise<{ username: str
 								<tbody>
 									<Row label='Status' value='Active' />
 									<Row label='Enlisted' value={enlistedDate} />
-									<Row label='Rank' value={fullRank || '—'} />
+									{/* The promotion certificate only exists for the rank the
+									    member currently holds — the route refuses any other,
+									    so historical promotions below are not click targets. */}
+									<Row label='Rank' value={fullRank || '—'} action={(() => {
+										const rankCode = (member.milpac?.currentRank ?? '').replace(/[()]/g, '')
+										if (!canViewCertificates || !rankCode) return null
+										return (
+											<CertificateViewer
+												inline
+												label={`Promotion — ${fullRank || rankCode}`}
+												accent={accent}
+												href={`/api/milpac/certificate/${username}?type=promotion&cert=${encodeURIComponent(rankCode)}`}
+											>
+												<span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: `${accent}bb`, padding: '1px 7px', border: `1px solid ${accent}40`, background: `${accent}10` }}>
+													Certificate ⤢
+												</span>
+											</CertificateViewer>
+										)
+									})()} />
 									<Row label='Points' value={promotionPts > 0 ? String(promotionPts) : '—'} />
 								</tbody>
 							</table>
@@ -496,14 +531,23 @@ export default async function Page({ params }: { params: Promise<{ username: str
 							)}
 						</Section>
 
-						{/* Awards & Citations */}
+						{/* Awards & Citations — each row that has a matching certificate
+						    slide opens it full-screen. The certificate is rendered on
+						    demand by the milpac service and never persisted, so nothing
+						    is fetched until the viewer actually clicks a row. */}
 						<Section accent={accent} title='Awards & Citations'>
 							{member.milpac?.awards && member.milpac.awards.length > 0 ? (
 								<div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
 									{member.milpac.awards.map((a, i) => {
 										const citation = AWARD_TO_CITATION[a.name]
-										return (
-											<div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+										const certCode = certificateCodeForAward(a.name)
+										// Certificates are for logged-in members (the route is
+										// gated), so an anonymous visitor gets the plain row
+										// rather than a click target that 401s.
+										const canOpen  = canViewCertificates && Boolean(certCode)
+
+										const row = (
+											<div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
 												{citation ? (
 													<img
 														src={`/milpac-assets/imge/Ribbons/${citation}.png`}
@@ -530,7 +574,23 @@ export default async function Page({ params }: { params: Promise<{ username: str
 												{a.date && (
 													<span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}>{a.date}</span>
 												)}
+												{canOpen && (
+													<span title='View certificate' style={{ fontSize: '0.7rem', color: `${accent}88`, flexShrink: 0 }}>⤢</span>
+												)}
 											</div>
+										)
+
+										return canOpen ? (
+											<CertificateViewer
+												key={i}
+												label={a.name}
+												accent={accent}
+												href={`/api/milpac/certificate/${username}?type=award&cert=${encodeURIComponent(certCode!)}`}
+											>
+												{row}
+											</CertificateViewer>
+										) : (
+											<div key={i}>{row}</div>
 										)
 									})}
 								</div>
@@ -538,35 +598,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 								<Placeholder text='No awards on record.' />
 							)}
 						</Section>
-
-						{/* Certificates — rendered on demand by the milpac service, not
-						    stored, so each row fetches only when opened. */}
-						{(() => {
-							const rankCode = (member.milpac?.currentRank ?? '').replace(/[()]/g, '')
-							const certs: { label: string; cert: string; type: 'promotion' | 'award' }[] = []
-							if (rankCode) certs.push({ label: `Promotion — ${fullRank || rankCode}`, cert: rankCode, type: 'promotion' })
-							for (const a of member.milpac?.awards ?? []) {
-								const citation = AWARD_TO_CITATION[a.name]
-								const code = MEDALLION_CERTIFICATE_CODES[a.name]
-									?? (citation ? certificateCodeForCitation(citation) : undefined)
-								if (code) certs.push({ label: a.name, cert: code, type: 'award' })
-							}
-							if (certs.length === 0) return null
-							return (
-								<Section accent={accent} title='Certificates'>
-									<div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-										{certs.map((c, i) => (
-											<CertificateLink
-												key={i}
-												label={c.label}
-												accent={accent}
-												href={`/api/milpac/certificate/${username}?type=${c.type}&cert=${encodeURIComponent(c.cert)}`}
-											/>
-										))}
-									</div>
-								</Section>
-							)
-						})()}
 
 						{/* Operation History */}
 						{(() => {
@@ -673,14 +704,17 @@ function Section({ accent, title, children }: { accent: string; title: string; c
 	)
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, action }: { label: string; value: string; action?: React.ReactNode }) {
 	return (
 		<tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
 			<td style={{ padding: '8px 0', color: 'rgba(237,237,237,0.35)', width: 140, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontSize: '0.68rem' }}>
 				{label}
 			</td>
 			<td style={{ padding: '8px 0', color: 'rgba(237,237,237,0.75)' }}>
-				{value}
+				<span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+					{value}
+					{action}
+				</span>
 			</td>
 		</tr>
 	)

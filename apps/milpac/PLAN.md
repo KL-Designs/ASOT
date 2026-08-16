@@ -990,10 +990,39 @@ judgement call for the unit.
 
 ### Worth doing before this merges
 
-**Confirm the signing officer.** `MILPAC_SIGNATORY_NAME`,
+**Confirm the fallback signing officer.** `MILPAC_SIGNATORY_NAME`,
 `MILPAC_SIGNATORY_RANK_SHORT` and `MILPAC_SIGNATORY_RANK_FULL` were seeded from
-a reference render (`Six` / `MAJGEN` / `Major General`). Every certificate prints
-them.
+a reference render (`Six` / `MAJGEN` / `Major General`).
+
+They are no longer what every certificate prints. **Decision 6** settled the
+signing officer: a certificate is signed by the officer who actually issued that
+award or promotion, taken from the record's own `issuedByName` +
+`issuedByRank`. The env vars are the fallback for records that name nobody —
+which is every record filed before `issuedByRank` existed, so they still matter
+until the back catalogue is filled in.
+
+### Decision 6 — who signs a certificate
+
+The templates print `{signaturerRankShort} {signaturer}` above a static
+"Officer Commanding / Australian Special Operations Taskforce HQ" line, so the
+payload supplies a name and a rank in two forms.
+
+Three options were on the table: a per-record issuing officer, a single unit
+signatory held on a member's own document, or resolving the issuer's rank live
+from their user record at render time. The unit chose **per-record**.
+
+The reason it matters: an officer's rank moves. Resolving live would reprint a
+2021 certificate with the issuer's 2026 rank, quietly rewriting a historical
+record every time someone opened it. Storing the rank on the award freezes it at
+issue, which is what a certificate is *for*.
+
+`issuedByRank` holds the **full rank name**, matching `promotions[].rank` and
+the editor's `RankSelect` value contract — not the abbreviation that
+`milpac.currentRank` uses. The short form is derived with `rankAbbrFromName`
+rather than stored twice, so the two cannot drift.
+
+A record with a name but no rank falls back to the unit signatory rather than
+printing an empty rank next to a real name.
 
 ### Deliberately deferred
 
