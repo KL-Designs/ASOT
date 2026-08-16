@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Typography, Tooltip } from '@mui/material'
-import { CheckCircleOutline, Language, Storage, Backup, Forum, Headset, Warning } from '@mui/icons-material'
+import { CheckCircleOutline, Language, Storage, Backup, Forum, Headset, MilitaryTech, Warning } from '@mui/icons-material'
 import {
     DndContext, closestCenter, PointerSensor, useSensor, useSensors,
     type DragEndEvent,
@@ -57,6 +57,7 @@ type StatusResponse = {
     backups: ServiceStatus
     discord: ServiceStatus
     teamspeak: ServiceStatus
+    milpac: ServiceStatus
 }
 
 const ALL_OFFLINE: StatusResponse = {
@@ -65,6 +66,7 @@ const ALL_OFFLINE: StatusResponse = {
     backups: { online: false },
     discord: { online: false },
     teamspeak: { online: false },
+    milpac: { online: false },
 }
 
 function statusColor(status: ServiceStatus): string {
@@ -120,6 +122,9 @@ function ServiceStatusIcons() {
             <ServiceIcon name='Backups' status={status.backups} Icon={Backup} />
             <ServiceIcon name='Discord' status={status.discord} Icon={Forum} />
             <ServiceIcon name='TeamSpeak' status={status.teamspeak} Icon={Headset} />
+            {/* The render service publishes no port, so this is the only place its
+                state is visible — nothing outside the compose network can reach it. */}
+            <ServiceIcon name='MilPac Renderer' status={status.milpac} Icon={MilitaryTech} />
         </div>
     )
 }

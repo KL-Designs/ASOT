@@ -29,6 +29,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # Overrides the .env value, which points at localhost for local `npm start`.
+      # Inside compose the service is only addressable by name — it publishes no port.
+      MILPAC_SERVICE_URL: http://milpac:42070
     depends_on:
       milpac:
         condition: service_healthy

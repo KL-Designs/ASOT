@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
-import { hasPermission } from '@/lib/orbat/hasPermission'
+import PERMISSIONS from '@/lib/permissions'
 import { generateMilpacForUser } from '@/lib/milpac-gen/generate-for-user'
 import { MilpacServiceError } from '@/lib/milpac-gen/client'
 
@@ -13,9 +13,18 @@ export async function POST(
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    // Migrated off the legacy client.hasRoles(me, PERMISSIONS.pages.admin)
-    // Discord-role array, per apps/web/CLAUDE.md's permission-system note.
-    if (!(await hasPermission(me, 'pages.admin'))) {
+    // Still the legacy Discord-role gate, deliberately.
+    //
+    // apps/milpac/PLAN.md Phase 3 called for migrating this to
+    // hasPermission(me, 'pages.admin'), but `pages.admin` has not actually been
+    // migrated — its JSDoc carries no migration note and every other route that
+    // gates on it still uses hasRoles. hasPermission deliberately does not fall
+    // back to Discord role names and does not carry hasRoles' hardcoded
+    // J4-Administration bypass, so switching this one route would have locked it
+    // to the OVERRIDE list alone.
+    //
+    // When `pages.admin` migrates, it should migrate everywhere at once.
+    if (!client.hasRoles(me, PERMISSIONS.pages.admin)) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
