@@ -204,7 +204,7 @@ function StorageDonut({ title, data }: { title: string; data: { name: string; va
 
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
-export default function BackupsTab() {
+export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
     const [points, setPoints]       = useState<BackupPoint[]>([])
     const [status, setStatus]       = useState<BackupStatus>({ state: 'idle' })
     const [loading, setLoading]     = useState(true)
@@ -464,9 +464,10 @@ export default function BackupsTab() {
         justifyContent: 'center',
     })
 
-    // Same stepper JSX shape four times, once per retention tier — the ranges
-    // match the clamps /api/backups/config applies server-side so the UI never
-    // lets a value drift from what would actually get saved.
+    // `min` is the currently saved value, not 1: PATCH /api/backups/config
+    // rejects any reduction (issue #55 requirement 6), so offering a lower
+    // number in the stepper would only produce a 400. Retention is raised
+    // from here and lowered only in storage/backup-meta/.config.json.
     const RETENTION_FIELDS: {
         key: keyof Pick<BackupConfig, 'keepHourly' | 'keepDaily' | 'keepWeekly' | 'keepMonthly'>
         label: string
@@ -474,10 +475,10 @@ export default function BackupsTab() {
         min: number
         max: number
     }[] = [
-        { key: 'keepHourly',  label: 'Keep Hourly',  description: 'How many hourly backups to keep before thinning to daily',    min: 1, max: 200 },
-        { key: 'keepDaily',   label: 'Keep Daily',    description: 'How many daily backups to keep before thinning to weekly',    min: 1, max: 90 },
-        { key: 'keepWeekly',  label: 'Keep Weekly',   description: 'How many weekly backups to keep before thinning to monthly',  min: 1, max: 52 },
-        { key: 'keepMonthly', label: 'Keep Monthly',  description: 'How many monthly backups to keep before they age out',        min: 1, max: 60 },
+        { key: 'keepHourly',  label: 'Keep Hourly',  description: 'How many hourly backups to keep before thinning to daily',    min: config.keepHourly,  max: 200 },
+        { key: 'keepDaily',   label: 'Keep Daily',    description: 'How many daily backups to keep before thinning to weekly',    min: config.keepDaily,   max: 90 },
+        { key: 'keepWeekly',  label: 'Keep Weekly',   description: 'How many weekly backups to keep before thinning to monthly',  min: config.keepWeekly,  max: 52 },
+        { key: 'keepMonthly', label: 'Keep Monthly',  description: 'How many monthly backups to keep before they age out',        min: config.keepMonthly, max: 60 },
     ]
 
     return (
@@ -703,6 +704,21 @@ export default function BackupsTab() {
                                 <span style={{ fontSize: '0.68rem', color: p.mediaSnapshotId ? 'rgba(0,195,100,0.85)' : 'rgba(237,237,237,0.2)' }}>
                                     {p.mediaSnapshotId ? (p.mediaSizeBytes ? fmtBytes(p.mediaSizeBytes) : 'Present') : 'Missing'}
                                 </span>
+                                {p.isSafety && (
+                                    <span
+                                        title='Taken automatically before a restore — exempt from retention'
+                                        style={{
+                                            fontSize: '0.6rem',
+                                            letterSpacing: 1,
+                                            padding: '2px 6px',
+                                            border: '1px solid rgba(219,166,0,0.5)',
+                                            color: 'rgba(219,166,0,0.85)',
+                                            textTransform: 'uppercase',
+                                        }}
+                                    >
+                                        Pre-restore
+                                    </span>
+                                )}
                                 <a
                                     href={busy ? undefined : `/api/backups/${encodeURIComponent(p.id)}/download`}
                                     download={`backup-${p.id}.zip`}
@@ -711,9 +727,11 @@ export default function BackupsTab() {
                                 >
                                     Download
                                 </a>
-                                <button onClick={() => handleRevert(p)} disabled={busy} style={rowBtnSx()}>
-                                    Revert
-                                </button>
+                                {canRestore && (
+                                    <button onClick={() => handleRevert(p)} disabled={busy} style={rowBtnSx()}>
+                                        Revert
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -748,61 +766,63 @@ export default function BackupsTab() {
                 )}
             </div>
 
-            {/* Upload & revert */}
-            <div style={{ borderTop: '1px solid rgba(219,0,29,0.12)', paddingTop: 20 }}>
-                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3}
-                    style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 12 }}>
-                    Upload & Revert
-                </Typography>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <label style={{
-                        border: '1px solid rgba(219,0,29,0.25)',
-                        padding: '6px 14px',
-                        cursor: 'pointer',
-                        fontSize: '0.7rem',
-                        letterSpacing: 1,
-                        color: uploadFile ? '#ededed' : 'rgba(237,237,237,0.35)',
-                        background: 'rgba(255,255,255,0.03)',
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        whiteSpace: 'nowrap',
-                    }}>
-                        {uploadFile ? uploadFile.name : 'Choose File (.zip)'}
-                        <input
-                            ref={fileInputRef}
-                            type='file'
-                            accept='.zip'
-                            style={{ display: 'none' }}
-                            onChange={e => setUploadFile(e.target.files?.[0] ?? null)}
-                        />
-                    </label>
-
-                    <button
-                        onClick={handleUploadRevert}
-                        disabled={!uploadFile || busy || uploading}
-                        style={{
-                            fontSize: '0.68rem',
-                            fontWeight: 700,
-                            letterSpacing: '0.12em',
+            {/* Upload & revert — backups.restore only */}
+            {canRestore && (
+                <div style={{ borderTop: '1px solid rgba(219,0,29,0.12)', paddingTop: 20 }}>
+                    <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3}
+                        style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 12 }}>
+                        Upload & Revert
+                    </Typography>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <label style={{
+                            border: '1px solid rgba(219,0,29,0.25)',
+                            padding: '6px 14px',
+                            cursor: 'pointer',
+                            fontSize: '0.7rem',
+                            letterSpacing: 1,
+                            color: uploadFile ? '#ededed' : 'rgba(237,237,237,0.35)',
+                            background: 'rgba(255,255,255,0.03)',
+                            fontWeight: 600,
                             textTransform: 'uppercase',
-                            padding: '6px 18px',
-                            background: (!uploadFile || busy || uploading) ? 'none' : 'rgba(219,0,29,0.2)',
-                            border: '1px solid rgba(219,0,29,0.4)',
-                            color: (!uploadFile || busy || uploading) ? 'rgba(237,237,237,0.25)' : '#ededed',
-                            cursor: (!uploadFile || busy || uploading) ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 8,
-                        }}
-                    >
-                        {uploading && <CircularProgress size={12} style={{ color: 'rgba(237,237,237,0.4)' }} />}
-                        {uploading ? 'Uploading…' : 'Upload & Revert'}
-                    </button>
+                            whiteSpace: 'nowrap',
+                        }}>
+                            {uploadFile ? uploadFile.name : 'Choose File (.zip)'}
+                            <input
+                                ref={fileInputRef}
+                                type='file'
+                                accept='.zip'
+                                style={{ display: 'none' }}
+                                onChange={e => setUploadFile(e.target.files?.[0] ?? null)}
+                            />
+                        </label>
+
+                        <button
+                            onClick={handleUploadRevert}
+                            disabled={!uploadFile || busy || uploading}
+                            style={{
+                                fontSize: '0.68rem',
+                                fontWeight: 700,
+                                letterSpacing: '0.12em',
+                                textTransform: 'uppercase',
+                                padding: '6px 18px',
+                                background: (!uploadFile || busy || uploading) ? 'none' : 'rgba(219,0,29,0.2)',
+                                border: '1px solid rgba(219,0,29,0.4)',
+                                color: (!uploadFile || busy || uploading) ? 'rgba(237,237,237,0.25)' : '#ededed',
+                                cursor: (!uploadFile || busy || uploading) ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                            }}
+                        >
+                            {uploading && <CircularProgress size={12} style={{ color: 'rgba(237,237,237,0.4)' }} />}
+                            {uploading ? 'Uploading…' : 'Upload & Revert'}
+                        </button>
+                    </div>
+                    <Typography fontSize='0.68rem' style={{ color: 'rgba(237,237,237,0.25)', marginTop: 8 }}>
+                        Upload a previously downloaded backup ZIP to restore the website to that state.
+                    </Typography>
                 </div>
-                <Typography fontSize='0.68rem' style={{ color: 'rgba(237,237,237,0.25)', marginTop: 8 }}>
-                    Upload a previously downloaded backup ZIP to restore the website to that state.
-                </Typography>
-            </div>
+            )}
 
             {/* Settings */}
             <div style={{ borderTop: '1px solid rgba(219,0,29,0.12)', paddingTop: 20 }}>
@@ -895,6 +915,11 @@ export default function BackupsTab() {
                             </div>
                         </div>
                     ))}
+
+                    <Typography fontSize='0.6rem'
+                        style={{ color: 'rgba(237,237,237,0.3)', marginTop: 8, letterSpacing: 1 }}>
+                        Retention can be extended, but not reduced — lower it in the server config.
+                    </Typography>
 
                     {/* Save row */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>

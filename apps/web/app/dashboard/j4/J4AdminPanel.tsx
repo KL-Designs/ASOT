@@ -820,7 +820,7 @@ function TestNotificationModal({ open, onClose, selfId }: { open: boolean; onClo
     )
 }
 
-export default function J4AdminPanel({ userId, displayName, canManageLinks }: { userId: string; displayName: string; canManageLinks: boolean }) {
+export default function J4AdminPanel({ userId, displayName, canManageLinks, canBackupManage, canBackupRestore }: { userId: string; displayName: string; canManageLinks: boolean; canBackupManage: boolean; canBackupRestore: boolean }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
@@ -949,13 +949,15 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks }: { 
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Mastersheet'  pinLabel='J4 — Mastersheet'  href='/dashboard/j4' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tickets'      pinLabel='J4 — Tickets'      href='/dashboard/j4' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'     pinLabel='J4 — Meetings'     href='/dashboard/j4' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Backups'      pinLabel='J4 — Backups'      href='/dashboard/j4' tabIndex={3} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Teamspeak'    pinLabel='J4 — Teamspeak'    href='/dashboard/j4' tabIndex={4} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tools'        pinLabel='J4 — Tools'        href='/dashboard/j4' tabIndex={5} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='AI Admin'     pinLabel='J4 — AI Admin'     href='/dashboard/j4' tabIndex={6} />} sx={tabSx} />
+                            <Tab value={0} label={<PinTabLabel label='Mastersheet'  pinLabel='J4 — Mastersheet'  href='/dashboard/j4' tabIndex={0} />} sx={tabSx} />
+                            <Tab value={1} label={<PinTabLabel label='Tickets'      pinLabel='J4 — Tickets'      href='/dashboard/j4' tabIndex={1} />} sx={tabSx} />
+                            <Tab value={2} label={<PinTabLabel label='Meetings'     pinLabel='J4 — Meetings'     href='/dashboard/j4' tabIndex={2} />} sx={tabSx} />
+                            {canBackupManage && (
+                                <Tab value={3} label={<PinTabLabel label='Backups' pinLabel='J4 — Backups' href='/dashboard/j4' tabIndex={3} />} sx={tabSx} />
+                            )}
+                            <Tab value={4} label={<PinTabLabel label='Teamspeak'    pinLabel='J4 — Teamspeak'    href='/dashboard/j4' tabIndex={4} />} sx={tabSx} />
+                            <Tab value={5} label={<PinTabLabel label='Tools'        pinLabel='J4 — Tools'        href='/dashboard/j4' tabIndex={5} />} sx={tabSx} />
+                            <Tab value={6} label={<PinTabLabel label='AI Admin'     pinLabel='J4 — AI Admin'     href='/dashboard/j4' tabIndex={6} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -971,7 +973,7 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks }: { 
                             </div>
                         )}
                         {tab === 2 && <J4MeetingsTab userId={userId} />}
-                        {tab === 3 && <BackupsTab />}
+                        {tab === 3 && canBackupManage && <BackupsTab canRestore={canBackupRestore} />}
                         {tab === 4 && (
                             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
                                 <TeamspeakTab />
