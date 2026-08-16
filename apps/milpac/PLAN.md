@@ -860,10 +860,15 @@ sketch's layer list is wrong in three ways. The actual mapping:
 | 5. Text | — | Blackletter title, Times body, Brush Script signature over a ruled line. |
 | 6. Wax seal | `WaxSealGold.png` | Red wax with a gold unit emblem, bottom left, despite the "Gold" in the name. |
 
-`logo.png` (528 × 546) is the unit emblem as a grey-and-red roundel and does
-**not** appear on a promotion certificate at all — the emblem visible in the
-output is the gold one embossed into `WaxSealGold.png`. Check whether the award
-layout uses it before assuming it is dead.
+`logo.png` (528 × 546) is the unit emblem as a grey-and-red roundel. It does
+**not** appear on a promotion certificate — the emblem there is the gold one
+embossed into `WaxSealGold.png` — but it **is** used on awards, bottom left,
+opposite the wax seal. Confirmed against a rendered award reference.
+
+None of this matters at runtime any more: the renderer draws the artwork
+unpacked from `ppt/media/` rather than these loose files, so each layer is
+whatever the slide says it is. The table above is a reading aid, not a
+dependency.
 
 So the §4 sketch — `Background.jpg` → `Frame.png` → text → `WaxSealGold.png` →
 `logo.png` — has the frame *under* the parchment rather than outside it, names
@@ -890,53 +895,38 @@ cannot have worked.** Phase 2 needs an explicit certificate-code map rather than
 a lowercase-and-strip heuristic, and it belongs next to the other award mapping
 in `lib/maps.ts` since web will be choosing the code.
 
-### Phase 2 status — text engine done, art placement provisional
+### Phase 2 status — renderer verified against both formats
 
-The text engine is verified. Rendering `RETURN` against its reference render
-(`certificates/- RETURN.png`) reproduces the wrapping, line breaks, font
-switches, italics and the three-line signature block essentially exactly, at
-906 × 1233 against the reference's 906 × 1232.
+Both certificate formats now match their reference renders.
 
-**The art placement in `render/certificate.ts` is guesswork and is known wrong.**
-It positions the five art layers with hardcoded fractions of the canvas
-(`FRAME_INSET`, `SUN_WIDTH`, `SEAL_LEFT` …). Two visible consequences:
+- **Promotions** (906 × 1233, portrait). `RETURN` reproduces the frame,
+  parchment, scrollwork, Rising Sun, wax seal, every text block, and the
+  superscript date.
+- **Awards** (1535 × 925, landscape). `1year` reproduces the frame, parchment,
+  medal art, unit roundel, wax seal and text. Remaining differences are only the
+  test data's dates.
+- **All 159 certificate codes render without error.**
 
-- The parchment's Australian flag is far too prominent.
-- The wooden frame is much too thin, and thinner at the sides than the top,
-  because `Frame.png` is landscape and gets squeezed horizontally when stretched
-  to a portrait canvas.
+Three things had to be taken from the slides rather than assumed, each found by
+comparing against a reference rather than by reading the spec:
 
-**The fix is to stop guessing.** The slides carry `<p:pic>` elements with exact
-`a:off`/`a:ext` placements, which the extractor currently skips because it only
-walks `<p:sp>`. Slide 2 has four of them:
+1. **Artwork is placed by the slide.** `<p:pic>` elements *and* `<p:sp>` shapes
+   carrying an `<a:blipFill>` are both pictures — the parchment is a shape, not
+   a picture — and their `<a:xfrm>` gives exact position and size.
+2. **`rot="5400000"` is a 90° rotation.** The parchment and wooden frame are
+   landscape images rotated onto the portrait canvas, not stretched onto it.
+3. **`<a:srcRect>` crops the frame** by ~10% horizontally and 12.5%/20%
+   vertically. `Frame.png` has transparent padding baked in, and that crop is
+   what makes the moulding bleed to the edge rather than float inside the
+   certificate.
 
-| Media | Offset (EMU) | Extent (EMU) | Layer |
-|---|---|---|---|
-| `image2.png` | −1521845, 1469005 | 11419340 × 8401049 | parchment |
-| `image3.png` | 729378, 738891 | 6821645 × 9877373 | scrollwork |
-| `image4.png` | 3001715, 1602206 | 2279880 × 1599480 | Rising Sun |
-| `image5.png` | 1814400, 8354520 | 1436400 × 1252440 | wax seal |
+Run `baseline` is also extracted, so `31st` renders with a raised suffix.
 
-The parchment's negative offset and 11419340 EMU width — against a slide only
-8280400 wide — is the whole explanation for the flag discrepancy: it is scaled
-to ~1.38× and cropped, so the reference shows only its middle. No opacity trick
-is involved.
+Remaining Phase 2 work:
 
-Note there are only **four** pictures and no wooden frame among them, so the
-frame comes from the slide background, layout or master and needs to be found
-there rather than assumed to be `Frame.png`.
-
-Remaining Phase 2 work, in order:
-
-1. Extend the extractor to walk `<p:pic>`, resolve `r:embed` through
-   `ppt/slides/_rels/slideN.xml.rels`, and record placements alongside the text
-   shapes. Unzip `ppt/media/*` into the assets tree at the same time, so the
-   renderer draws exactly the art the template used and the "which file is which
-   layer" question disappears.
-2. Locate the wooden frame in the slide background/layout/master.
-3. Extract run `baseline` (superscript) — `31st` should render as `31ˢᵗ`; the
-   attribute is present and currently ignored.
-4. Replace the hardcoded fractions in `render/certificate.ts` with the extracted
-   placements.
-5. Diff all 158 against the references and delete the legacy renders (§7
-   decision #5).
+1. Diff the full 158 against the 343 references rather than the two spot checks
+   done so far, then delete the references (§7 decision #5).
+2. Fix the five award codes §11 records as never having resolved —
+   `longterm`, `valour`, `founder`, `rotary`, `courage`. The map belongs in
+   `lib/maps.ts`, because web chooses the code and the service only draws what
+   it is handed.
