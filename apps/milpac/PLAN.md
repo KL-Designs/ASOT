@@ -848,20 +848,28 @@ which is not obvious from names and dimensions alone:
 | `logo.png` | 528 × 546 | — |
 | `1011-10110075_decorative-frame-border…png` | 5250 × 7849 | **portrait** |
 
-Only the long-named decorative border is portrait, and it is plainly layer 3.
-`Background.jpg` at 612 × 359 is a *texture* — the parchment field, stretched to
-fill, which is why its own dimensions do not matter. `Frame.png` being landscape
-while the frame in the output is portrait is the one genuine open question:
-either it is rotated at draw time, or the wooden frame comes from elsewhere and
-`Frame.png` is something else. Open each file and confirm before drawing; do not
-infer the mapping from filenames.
+**Resolved by opening them.** The filenames are actively misleading and the §4
+sketch's layer list is wrong in three ways. The actual mapping:
 
-Note also that the §4 sketch's layer list — `Background.jpg` → `Frame.png` →
-text → `WaxSealGold.png` → `logo.png` — has the wooden frame drawn *second*,
-under the text. The reference render shows it outermost with the parchment
-inside it, and puts the decorative scrollwork and the Rising Sun badge in a list
-that sketch omits entirely. Treat the reference renders as the specification and
-that list as a first guess.
+| Layer | File | Notes |
+|---|---|---|
+| 1. Wooden frame | `Frame.png` | Stretched to fill the canvas. Landscape at 1843 × 1306, but it is a plain rectangular moulding whose grain runs along each edge, so it survives being stretched to portrait. Neither output aspect matches it exactly, so it is stretched in *both* orientations regardless — no rotation. |
+| 2. Parchment field | `Background.jpg` | A 612 × 359 *texture* — aged paper with a very faint Australian flag — stretched to fill inside the frame. Its own dimensions are irrelevant. |
+| 3. Gold scrollwork | `1011-10110075_decorative-frame-border…png` | 5250 × 7849 portrait, and the only art that already matches the promotion aspect. |
+| 4. Rising Sun badge | **`Untitled2.png`** | The "THE AUSTRALIAN ARMY" rising sun, centred at the top. **Not `logo.png`.** |
+| 5. Text | — | Blackletter title, Times body, Brush Script signature over a ruled line. |
+| 6. Wax seal | `WaxSealGold.png` | Red wax with a gold unit emblem, bottom left, despite the "Gold" in the name. |
+
+`logo.png` (528 × 546) is the unit emblem as a grey-and-red roundel and does
+**not** appear on a promotion certificate at all — the emblem visible in the
+output is the gold one embossed into `WaxSealGold.png`. Check whether the award
+layout uses it before assuming it is dead.
+
+So the §4 sketch — `Background.jpg` → `Frame.png` → text → `WaxSealGold.png` →
+`logo.png` — has the frame *under* the parchment rather than outside it, names
+`logo.png` as a layer it is not, and omits the scrollwork and the Rising Sun
+entirely. **Treat the reference renders as the specification and that list as a
+first guess.**
 
 **2. Award certificate codes are a different namespace from ribbon citation
 codes.** Five differ outright:
@@ -881,3 +889,54 @@ undefined and the page index became `NaN`. **Certificates for those five awards
 cannot have worked.** Phase 2 needs an explicit certificate-code map rather than
 a lowercase-and-strip heuristic, and it belongs next to the other award mapping
 in `lib/maps.ts` since web will be choosing the code.
+
+### Phase 2 status — text engine done, art placement provisional
+
+The text engine is verified. Rendering `RETURN` against its reference render
+(`certificates/- RETURN.png`) reproduces the wrapping, line breaks, font
+switches, italics and the three-line signature block essentially exactly, at
+906 × 1233 against the reference's 906 × 1232.
+
+**The art placement in `render/certificate.ts` is guesswork and is known wrong.**
+It positions the five art layers with hardcoded fractions of the canvas
+(`FRAME_INSET`, `SUN_WIDTH`, `SEAL_LEFT` …). Two visible consequences:
+
+- The parchment's Australian flag is far too prominent.
+- The wooden frame is much too thin, and thinner at the sides than the top,
+  because `Frame.png` is landscape and gets squeezed horizontally when stretched
+  to a portrait canvas.
+
+**The fix is to stop guessing.** The slides carry `<p:pic>` elements with exact
+`a:off`/`a:ext` placements, which the extractor currently skips because it only
+walks `<p:sp>`. Slide 2 has four of them:
+
+| Media | Offset (EMU) | Extent (EMU) | Layer |
+|---|---|---|---|
+| `image2.png` | −1521845, 1469005 | 11419340 × 8401049 | parchment |
+| `image3.png` | 729378, 738891 | 6821645 × 9877373 | scrollwork |
+| `image4.png` | 3001715, 1602206 | 2279880 × 1599480 | Rising Sun |
+| `image5.png` | 1814400, 8354520 | 1436400 × 1252440 | wax seal |
+
+The parchment's negative offset and 11419340 EMU width — against a slide only
+8280400 wide — is the whole explanation for the flag discrepancy: it is scaled
+to ~1.38× and cropped, so the reference shows only its middle. No opacity trick
+is involved.
+
+Note there are only **four** pictures and no wooden frame among them, so the
+frame comes from the slide background, layout or master and needs to be found
+there rather than assumed to be `Frame.png`.
+
+Remaining Phase 2 work, in order:
+
+1. Extend the extractor to walk `<p:pic>`, resolve `r:embed` through
+   `ppt/slides/_rels/slideN.xml.rels`, and record placements alongside the text
+   shapes. Unzip `ppt/media/*` into the assets tree at the same time, so the
+   renderer draws exactly the art the template used and the "which file is which
+   layer" question disappears.
+2. Locate the wooden frame in the slide background/layout/master.
+3. Extract run `baseline` (superscript) — `31st` should render as `31ˢᵗ`; the
+   attribute is present and currently ignored.
+4. Replace the hardcoded fractions in `render/certificate.ts` with the extracted
+   placements.
+5. Diff all 158 against the references and delete the legacy renders (§7
+   decision #5).

@@ -44,5 +44,32 @@ export const boxSchema = z.object({
     medals: z.array(assetName).max(64),
 })
 
+/**
+ * Certificate fields. These are the ten placeholders the .pptx templates
+ * actually use, confirmed by extraction across all 158 slides — no more, no
+ * fewer. `cert` selects the layout and `type` selects which template's layout
+ * set it comes from, exactly as the original picked a template and a slide.
+ *
+ * Every field is free text rather than a constrained code because these are
+ * names and dates, not asset references — nothing here is interpolated into a
+ * path. `cert` is the exception and is constrained accordingly.
+ */
+export const certificateSchema = z.object({
+    type: z.enum(['promotion', 'award']),
+    cert: assetName.min(1),
+
+    name: z.string().max(120),
+    date: z.string().max(60).default(''),
+    dateNumber: z.string().max(8).default(''),
+    suffix: z.string().max(8).default(''),
+    signaturer: z.string().max(120).default(''),
+    signaturerRankShort: z.string().max(40).default(''),
+    signaturerRankFull: z.string().max(80).default(''),
+    jddate: z.string().max(60).default(''),
+    jdnum: z.string().max(8).default(''),
+    jdsuffix: z.string().max(8).default(''),
+})
+
 export type UniformPayload = z.infer<typeof uniformSchema>
 export type BoxPayload = z.infer<typeof boxSchema>
+export type CertificatePayload = z.infer<typeof certificateSchema>

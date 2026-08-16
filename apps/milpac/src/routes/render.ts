@@ -9,10 +9,11 @@
  */
 
 import { Router } from 'express'
-import type { ZodType } from 'zod'
-import { boxSchema, uniformSchema } from '../schema'
+import type { ZodType, ZodTypeDef } from 'zod'
+import { boxSchema, certificateSchema, uniformSchema } from '../schema'
 import { renderUniform } from '../render/uniform'
 import { renderBox } from '../render/box'
+import { renderCertificate } from '../render/certificate'
 import { MissingAssetError } from '../render/layers'
 import { fail } from '../errors'
 
@@ -22,7 +23,13 @@ export const renderRouter = Router()
  * Shared shape for a render endpoint: validate, draw, send PNG. Keeps the
  * error contract identical across routes rather than repeated per handler.
  */
-function renderRoute<T>(schema: ZodType<T>, render: (payload: T) => Promise<Buffer>) {
+// The input type is left open because schemas using .default() parse a wider
+// input than they produce — the certificate schema's optional fields are
+// required on the way out.
+function renderRoute<Out>(
+    schema: ZodType<Out, ZodTypeDef, unknown>,
+    render: (payload: Out) => Promise<Buffer>,
+) {
     return async (req: import('express').Request, res: import('express').Response) => {
         const parsed = schema.safeParse(req.body)
         if (!parsed.success) {
@@ -49,6 +56,4 @@ function renderRoute<T>(schema: ZodType<T>, render: (payload: T) => Promise<Buff
 
 renderRouter.post('/uniform', renderRoute(uniformSchema, renderUniform))
 renderRouter.post('/box', renderRoute(boxSchema, renderBox))
-
-// POST /render/certificate is added in Phase 2, once the canvas certificate
-// renderer replaces the pptx -> LibreOffice -> PDF -> ImageMagick pipeline.
+renderRouter.post('/certificate', renderRoute(certificateSchema, renderCertificate))
