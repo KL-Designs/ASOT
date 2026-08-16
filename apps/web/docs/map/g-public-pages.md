@@ -223,9 +223,12 @@ PNG/medal-box PNG (`renderUniform`/`renderBox` from `@/lib/milpac-gen/client`, r
 content hash mismatches (`member.milpac.uniformHash`), computes promotion progress, enlisted date,
 and confirmed-operation history grouped by campaign, displays Service Record / Promotions /
 Qualifications / Awards / Operation History sections. **Certificates**: for a logged-in viewer,
-each award row that maps to a certificate slide, plus the current-rank row in Service Record,
-is a click target that opens the certificate full-screen (`<CertificateViewer/>` → `GET
-/api/milpac/certificate/[username]`); nothing is fetched until a row is clicked. Edit affordances: "Edit" link to
+each award row that maps to a certificate slide, and every row of the promotion history, is a click
+target that opens the certificate full-screen (`<CertificateViewer/>` → `GET
+/api/milpac/certificate/[username]`); nothing is fetched until a row is clicked. Awards are a flex
+column so the whole row is the button; promotions are a `<table>` (a `<tr>` cannot sit inside a
+`<button>`) so each row gets a trailing trigger cell instead. The Service Record rank row carries the
+same trigger, but only when the promotion history does not already offer that rank. Edit affordances: "Edit" link to
 `/members/[username]` shown to `J5-Media`; biography editable inline by the profile owner
 (`<BiographyEditor/>` posts to `/api/me`); cover photo upload by owner (`<CoverUpload/>` posts to
 `/api/uploads/cover`); `<RequestAwardButton/>` lets any other logged-in member nominate an award

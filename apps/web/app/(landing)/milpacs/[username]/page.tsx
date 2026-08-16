@@ -7,7 +7,7 @@ import { dirname, join } from 'path'
 import { renderUniform, renderBox, getRenderFingerprint } from '@/lib/milpac-gen/client'
 import { buildUniformData, buildBoxData, computeUniformHash } from '@/lib/milpac-gen/data-mapper'
 import { AWARD_TO_CITATION, QUAL_TO_BADGE } from '@/lib/milpac-gen/maps'
-import { certificateCodeForCitation, MEDALLION_CERTIFICATE_CODES } from '@asot/lib'
+import { certificateCodeForCitation, MEDALLION_CERTIFICATE_CODES, rankAbbrFromName } from '@asot/lib'
 import { RANK_TRACKS } from '@/lib/military/promotion-requirements'
 import { calculateOpPoints } from '@/lib/military/points'
 import Image from 'next/image'
@@ -61,6 +61,17 @@ function certificateCodeForAward(name: string): string | undefined {
 	const citation = AWARD_TO_CITATION[name]
 	return MEDALLION_CERTIFICATE_CODES[name]
 		?? (citation ? certificateCodeForCitation(citation) : undefined)
+}
+
+/**
+ * Promotion certificate code for a stored rank.
+ *
+ * Promotions hold the rank's full name, but CSV-imported rows can hold the
+ * abbreviation already — hence the fallback. The certificate assets drop the
+ * parentheses: `PTE(S)` is `PTES`.
+ */
+function promotionCertCode(rank: string): string {
+	return (rankAbbrFromName(rank) || rank).replace(/[()]/g, '')
 }
 
 // ── Promotion progress helper ─────────────────────────────────────────────────
@@ -435,12 +446,16 @@ export default async function Page({ params }: { params: Promise<{ username: str
 								<tbody>
 									<Row label='Status' value='Active' />
 									<Row label='Enlisted' value={enlistedDate} />
-									{/* The promotion certificate only exists for the rank the
-									    member currently holds — the route refuses any other,
-									    so historical promotions below are not click targets. */}
+									{/* Every promotion in the history below is its own click
+									    target, so this one only appears when nothing down there
+									    already offers it — a CSV-imported member with a rank and
+									    no history behind it. */}
 									<Row label='Rank' value={fullRank || '—'} action={(() => {
 										const rankCode = (member.milpac?.currentRank ?? '').replace(/[()]/g, '')
 										if (!canViewCertificates || !rankCode) return null
+										const inHistory = (member.milpac?.promotions ?? [])
+											.some(p => promotionCertCode(p.rank) === rankCode)
+										if (inHistory) return null
 										return (
 											<CertificateViewer
 												inline
@@ -473,6 +488,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 													<th style={thStyle}>Rank</th>
 													<th style={thStyle}>Role</th>
 													{showIssuedBy && <th style={thStyle}>Issued By</th>}
+													{canViewCertificates && <th style={{ ...thStyle, width: 28 }}></th>}
 												</tr>
 											</thead>
 											<tbody>
@@ -482,6 +498,23 @@ export default async function Page({ params }: { params: Promise<{ username: str
 														<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.75)', fontWeight: 600 }}>{p.rank}</td>
 														<td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.5)' }}>{p.role}</td>
 														{showIssuedBy && <td style={{ padding: '7px 0', color: 'rgba(237,237,237,0.3)', fontSize: '0.75rem' }}>{p.issuedByName || '—'}</td>}
+														{/* A trigger cell rather than a clickable row: a <tr> cannot
+														    live inside a <button>, and the awards list is a flex
+														    column precisely because it can. A rank with no
+														    certificate slide fails its first render and the viewer
+														    drops back to plain text. */}
+														{canViewCertificates && (
+															<td style={{ padding: '7px 0', textAlign: 'right' }}>
+																<CertificateViewer
+																	inline
+																	label={`Promotion — ${p.rank}`}
+																	accent={accent}
+																	href={`/api/milpac/certificate/${username}?type=promotion&cert=${encodeURIComponent(promotionCertCode(p.rank))}`}
+																>
+																	<span title='View certificate' style={{ fontSize: '0.7rem', color: `${accent}88`, padding: '0 2px' }}>⤢</span>
+																</CertificateViewer>
+															</td>
+														)}
 													</tr>
 												))}
 											</tbody>

@@ -126,16 +126,27 @@ export async function GET(
         issuedDate = held.date
         signatory  = signatoryFor(held)
         memberRank = rankAbbrAt(user as unknown as User, held.date)
-    } else if (cert !== (user.milpac?.currentRank ?? '').replace(/[()]/g, '')) {
-        return NextResponse.json({ error: 'Not the member\'s current rank' }, { status: 404 })
     } else {
-        // The promotion that awarded the rank being certified. The editor stores
-        // the rank's full name, but CSV-imported rows can hold the abbreviation
-        // directly, so accept either rather than silently falling back to the
-        // unit signatory. `cert` is the abbreviation with parentheses stripped.
+        // The promotion that awarded the rank being certified. Any rank in the
+        // member's history qualifies, not just their current one: a promotion
+        // certificate records an event, and being promoted again does not
+        // un-issue the earlier one.
+        //
+        // The editor stores the rank's full name, but CSV-imported rows can hold
+        // the abbreviation directly, so accept either rather than silently
+        // falling back to the unit signatory. `cert` is the abbreviation with
+        // parentheses stripped.
         const promotion = (user.milpac?.promotions ?? [])
             .filter(p => bare(rankAbbrFromName(p.rank)) === cert || bare(p.rank) === cert)
             .at(-1)
+
+        // The current rank still qualifies without a matching promotion row —
+        // CSV-imported members have a rank and no history behind it.
+        const isCurrentRank = cert === bare(user.milpac?.currentRank ?? '')
+        if (!promotion && !isCurrentRank) {
+            return NextResponse.json({ error: 'Member has never held that rank' }, { status: 404 })
+        }
+
         issuedDate = promotion?.date
         signatory  = signatoryFor(promotion)
         // A promotion certificate announces the rank it grants, so it is named

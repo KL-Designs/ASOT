@@ -116,7 +116,13 @@ test.describe('/api/milpac/certificate/[username]', () => {
         expect(res.status()).toBe(404)
     })
 
-    test('refuses a rank that is not the member\'s current one', async ({ memberPage }) => {
+    /**
+     * The rule is "has ever held", not "currently holds": a promotion
+     * certificate records an event, and being promoted again does not un-issue
+     * the earlier one, so every rank in the promotion history is claimable.
+     * What stays refused is a rank that never appears in it.
+     */
+    test('refuses a rank the member has never held', async ({ memberPage }) => {
         const res = await memberPage.request.get(
             `/api/milpac/certificate/${J3}?type=promotion&cert=GEN`,
         )
