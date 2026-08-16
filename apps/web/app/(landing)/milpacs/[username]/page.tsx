@@ -74,6 +74,52 @@ function promotionCertCode(rank: string): string {
 	return (rankAbbrFromName(rank) || rank).replace(/[()]/g, '')
 }
 
+// ── Soldiers Medallions ──────────────────────────────────────────────────────
+
+/**
+ * The three Soldiers Medallions are chest medallions, not ribbons, so they have
+ * no `AWARD_TO_CITATION` entry and the awards list drew an empty box for them.
+ *
+ * Their only artwork is a full-canvas 1398x1000 uniform layer with the medallion
+ * sitting in one of three chest slots — there is no standalone icon anywhere in
+ * the asset tree. Rather than add one (a generated asset to keep in step with
+ * the layer it was cut from), the layer is cropped to the medallion in CSS. The
+ * `2` variant is the centre slot; the suffix only shifts X, so which one is used
+ * is arbitrary as long as the offset matches.
+ */
+const MEDALLION_ART: Record<string, string> = {
+	'Bronze Soldiers Medallion': 'Bronze2',
+	'Silver Soldiers Medallion': 'Silver2',
+	'Gold Soldiers Medallion':   'Gold2',
+}
+
+/** Where the medallion sits in the 1398x1000 layer, measured off its alpha channel. */
+const MEDALLION_CROP = { x: 510, y: 356, w: 36, h: 35, canvasW: 1398, canvasH: 1000 }
+
+function MedallionIcon({ art, alt, size }: { art: string; alt: string; size: number }) {
+	const scale = size / MEDALLION_CROP.h
+	return (
+		<span style={{
+			display: 'block', width: size, height: size, flexShrink: 0,
+			position: 'relative', overflow: 'hidden',
+		}}>
+			<img
+				src={`/milpac-assets/imge/Medallions/${art}.png`}
+				alt={alt}
+				title={alt}
+				style={{
+					position: 'absolute',
+					width: MEDALLION_CROP.canvasW * scale,
+					height: MEDALLION_CROP.canvasH * scale,
+					left: -(MEDALLION_CROP.x + (MEDALLION_CROP.w - MEDALLION_CROP.h) / 2) * scale,
+					top: -MEDALLION_CROP.y * scale,
+					maxWidth: 'none',
+				}}
+			/>
+		</span>
+	)
+}
+
 // ── Promotion progress helper ─────────────────────────────────────────────────
 function getPromotionProgress(currentRankAbbr: string | undefined, points: number) {
 	if (!currentRankAbbr) return null
@@ -578,6 +624,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 								<div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
 									{member.milpac.awards.map((a, i) => {
 										const citation = AWARD_TO_CITATION[a.name]
+										const medallion = MEDALLION_ART[a.name]
 										const certCode = certificateCodeForAward(a.name)
 										// Certificates are for logged-in members (the route is
 										// gated), so an anonymous visitor gets the plain row
@@ -593,6 +640,12 @@ export default async function Page({ params }: { params: Promise<{ username: str
 														title={a.name}
 														style={{ width: 64, height: 20, objectFit: 'contain', flexShrink: 0, imageRendering: 'pixelated' }}
 													/>
+												) : medallion ? (
+													// Centred in a 64-wide slot so medallions line up with
+													// the ribbons above and below them in the list.
+													<span style={{ width: 64, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+														<MedallionIcon art={medallion} alt={a.name} size={26} />
+													</span>
 												) : (
 													<div style={{ width: 64, height: 20, flexShrink: 0, background: `${accent}18`, border: `1px solid ${accent}30`, borderRadius: 2 }} />
 												)}
