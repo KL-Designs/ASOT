@@ -6,13 +6,13 @@
  * file, and threw away all but one page. That cost 3–6 seconds per certificate
  * and raced on a single shared `output.pptx`; see PLAN.md §11.
  *
- * Here the templates have already been reduced to `certificate-layouts.json` by
- * scripts/extract-certificate-layouts.ts at build time, so this draws text onto
- * art and nothing else. No .pptx is opened at runtime and no shell is invoked.
- *
- * Layer order is taken from the 343 existing reference renders, not from the
- * sketch in §4 — which had the frame under the parchment, named a file that
- * does not appear, and omitted two layers entirely.
+ * Nothing here is positioned by hand. Both the artwork and the text come from
+ * `certificate-layouts.json`, which scripts/extract-certificate-layouts.ts
+ * derives from the templates at build time — including each element's rotation,
+ * which matters because the parchment and the wooden frame are landscape images
+ * rotated 90° onto the portrait canvas rather than stretched onto it. An
+ * earlier pass placed them with hand-tuned fractions of the canvas and got a
+ * squashed frame and an overbearing flag for its trouble.
  */
 
 import { createCanvas, GlobalFonts, type SKRSContext2D } from '@napi-rs/canvas'
@@ -24,9 +24,8 @@ import type { CertificatePayload } from '../schema'
 
 // ── Fonts ────────────────────────────────────────────────────────────────────
 // Registered under the exact typeface names the slides ask for, so a run's
-// `font` can be used verbatim. All three bundled faces are in use: Times New
-// Roman for body copy, Old English Text MT for titles, Brush Script MT for the
-// signature.
+// `font` is used verbatim. All three bundled faces are in use: Times New Roman
+// for body copy, Old English Text MT for titles, Brush Script MT for signatures.
 
 const FONT_FILES: Record<string, string> = {
     'Times New Roman': 'times.ttf',
@@ -39,34 +38,6 @@ for (const [family, file] of Object.entries(FONT_FILES)) {
     if (fs.existsSync(full)) GlobalFonts.registerFromPath(full, family)
 }
 
-// ── Art ──────────────────────────────────────────────────────────────────────
-
-const CERT_ART = path.join(ASSETS, 'imge', 'Certificates')
-
-const art = {
-    frame: path.join(CERT_ART, 'Frame.png'),
-    parchment: path.join(CERT_ART, 'Background.jpg'),
-    scrollwork: path.join(CERT_ART, '1011-10110075_decorative-frame-border-png-clip-art-image-gallery.png'),
-    risingSun: path.join(CERT_ART, 'Untitled2.png'),
-    waxSeal: path.join(CERT_ART, 'WaxSealGold.png'),
-} as const
-
-/**
- * How far the parchment field is inset from the canvas edge, as a fraction of
- * the canvas — i.e. how much of the frame moulding shows. Measured off the
- * reference renders.
- */
-const FRAME_INSET = 0.055
-
-/** Rising Sun badge: width as a fraction of the canvas, and its top margin. */
-const SUN_WIDTH = 0.24
-const SUN_TOP = 0.105
-
-/** Wax seal: width as a fraction of the canvas, and its bottom-left position. */
-const SEAL_WIDTH = 0.16
-const SEAL_LEFT = 0.16
-const SEAL_BOTTOM = 0.115
-
 // ── Layouts ──────────────────────────────────────────────────────────────────
 
 interface Run {
@@ -74,56 +45,71 @@ interface Run {
     size: number
     bold: boolean
     italic: boolean
+    /** Percent of em to raise the baseline. Positive is superscript. */
+    baseline: number
     color: string
     font: string
 }
 interface Paragraph { align: string; runs: Run[] }
-interface Shape {
+
+interface Frame {
     x: number; y: number; width: number; height: number
+    rotation: number; flipH: boolean; flipV: boolean
+}
+interface PictureElement extends Frame {
+    kind: 'picture'
+    media: string
+    /** Source crop as fractions of the image, applied before the fit. */
+    crop: { left: number; top: number; right: number; bottom: number } | null
+}
+interface TextElement extends Frame {
+    kind: 'text'
     anchor: string
     insets: { left: number; top: number; right: number; bottom: number }
     paragraphs: Paragraph[]
 }
-interface SlideLayout { slide: number; width: number; height: number; shapes: Shape[] }
+type Element = PictureElement | TextElement
+
+interface SlideLayout { slide: number; width: number; height: number; elements: Element[] }
 interface TypeLayouts {
     template: string
-    emu: { width: number; height: number }
-    pixels: { w: number; h: number }
+    pixelsPerPoint: number
+    mediaDir: string
     certificates: Record<string, SlideLayout>
 }
 
-const layouts = JSON.parse(
-    fs.readFileSync(path.join(ASSETS, 'templates', 'certificate-layouts.json'), 'utf-8'),
-) as { promotion: TypeLayouts; award: TypeLayouts }
+const TEMPLATES = path.join(ASSETS, 'templates')
 
-/**
- * Pixels per point for a template. Slide coordinates were scaled to the output
- * width at extraction time, but font sizes were left in points, so they need
- * the same scale applied here. 12700 EMU per point.
- */
-function pixelsPerPoint(type: 'promotion' | 'award'): number {
-    const spec = layouts[type]
-    return (spec.pixels.w * 12700) / spec.emu.width
-}
+const layouts = JSON.parse(
+    fs.readFileSync(path.join(TEMPLATES, 'certificate-layouts.json'), 'utf-8'),
+) as { promotion: TypeLayouts; award: TypeLayouts }
 
 // ── Text layout ──────────────────────────────────────────────────────────────
 
-/** Line height as a multiple of font size. The templates all use 100% line spacing. */
+/** Line height as a multiple of font size. The templates all use 100% spacing. */
 const LINE_HEIGHT = 1.2
 
+/** Superscript runs are drawn at this fraction of their nominal size. */
+const SUPERSCRIPT_SCALE = 0.65
+
 interface Piece { text: string; run: Run; width: number }
+
+function pointSize(run: Run, pxPerPt: number): number {
+    const base = run.size * pxPerPt
+    return run.baseline !== 0 ? base * SUPERSCRIPT_SCALE : base
+}
 
 function fontSpec(run: Run, pxPerPt: number): string {
     const style = run.italic ? 'italic ' : ''
     const weight = run.bold ? 'bold ' : ''
-    return `${style}${weight}${(run.size * pxPerPt).toFixed(1)}px "${run.font}"`
+    return `${style}${weight}${pointSize(run, pxPerPt).toFixed(1)}px "${run.font}"`
 }
 
 /**
- * Breaks a paragraph into drawable lines, honouring both explicit line breaks
- * (the `\n` the extractor preserves from `<a:br/>`) and word wrapping at the
- * shape's content width. Runs are kept intact within a line so each keeps its
- * own font, size and colour.
+ * Breaks a paragraph into drawable lines, honouring both explicit breaks (the
+ * `\n` the extractor preserves from `<a:br/>`) and word wrapping at the shape's
+ * content width. Runs stay intact within a line so each keeps its own face,
+ * size and colour.
  */
 function layoutParagraph(
     ctx: SKRSContext2D,
@@ -142,20 +128,18 @@ function layoutParagraph(
     }
 
     for (const run of paragraph.runs) {
-        ctx.font = fontSpec(run, pxPerPt)
-
-        // Split on explicit breaks first, then wrap each segment on whitespace.
         const segments = run.text.split('\n')
         for (const [index, segment] of segments.entries()) {
             if (index > 0) push()
             if (segment === '') continue
 
-            // Keep the trailing space with its word so widths stay accurate.
+            // Keep each trailing space with its word so measured widths line up
+            // with what is actually drawn.
             const words = segment.match(/\S+\s*|\s+/g) ?? []
             for (const word of words) {
+                ctx.font = fontSpec(run, pxPerPt)
                 const width = ctx.measureText(word).width
                 if (lineWidth > 0 && lineWidth + width > maxWidth) push()
-                ctx.font = fontSpec(run, pxPerPt)
                 line.push({ text: word, run, width })
                 lineWidth += width
             }
@@ -166,17 +150,16 @@ function layoutParagraph(
     return lines
 }
 
-function drawShape(ctx: SKRSContext2D, shape: Shape, pxPerPt: number) {
-    const contentWidth = shape.width - shape.insets.left - shape.insets.right
-    const left = shape.x + shape.insets.left
-    let y = shape.y + shape.insets.top
+function drawText(ctx: SKRSContext2D, element: TextElement, pxPerPt: number) {
+    const contentWidth = element.width - element.insets.left - element.insets.right
+    const left = element.x + element.insets.left
+    let y = element.y + element.insets.top
 
-    for (const paragraph of shape.paragraphs) {
-        const lines = layoutParagraph(ctx, paragraph, contentWidth, pxPerPt)
-
-        for (const line of lines) {
-            // Trailing whitespace should not count toward centring.
+    for (const paragraph of element.paragraphs) {
+        for (const line of layoutParagraph(ctx, paragraph, contentWidth, pxPerPt)) {
             const width = line.reduce((sum, piece) => sum + piece.width, 0)
+            // Line height follows the nominal size, so a superscript run does
+            // not shrink the line it sits on.
             const tallest = line.reduce((max, piece) => Math.max(max, piece.run.size), 0) * pxPerPt
             y += tallest
 
@@ -189,7 +172,10 @@ function drawShape(ctx: SKRSContext2D, shape: Shape, pxPerPt: number) {
                 ctx.fillStyle = `#${piece.run.color}`
                 ctx.textAlign = 'left'
                 ctx.textBaseline = 'alphabetic'
-                ctx.fillText(piece.text, x, y)
+                const rise = piece.run.baseline !== 0
+                    ? (piece.run.size * pxPerPt * piece.run.baseline) / 100
+                    : 0
+                ctx.fillText(piece.text, x, y - rise)
                 x += piece.width
             }
 
@@ -198,12 +184,50 @@ function drawShape(ctx: SKRSContext2D, shape: Shape, pxPerPt: number) {
     }
 }
 
+// ── Picture drawing ──────────────────────────────────────────────────────────
+
+/**
+ * Draws a picture honouring its transform and source crop.
+ *
+ * OOXML gives the *unrotated* bounding box and rotates about its centre, which
+ * is why this translates to the centre before rotating and draws the image
+ * centred on the origin.
+ *
+ * The crop matters more than it looks: the wooden frame art carries about 12%
+ * transparent padding, and the slide trims it with a `srcRect` so the moulding
+ * bleeds to the edge. Ignoring the crop renders the frame floating inside the
+ * certificate with parchment visible around it.
+ */
+async function drawPicture(ctx: SKRSContext2D, element: PictureElement, mediaDir: string) {
+    const file = path.join(mediaDir, element.media)
+    if (!fs.existsSync(file)) throw new MissingAssetError(`certificate-media/${element.media}`)
+
+    const image = await load(file)
+
+    const crop = element.crop
+    const sx = crop ? image.width * crop.left : 0
+    const sy = crop ? image.height * crop.top : 0
+    const sw = crop ? image.width * (1 - crop.left - crop.right) : image.width
+    const sh = crop ? image.height * (1 - crop.top - crop.bottom) : image.height
+
+    ctx.save()
+    ctx.translate(element.x + element.width / 2, element.y + element.height / 2)
+    if (element.rotation !== 0) ctx.rotate((element.rotation * Math.PI) / 180)
+    if (element.flipH || element.flipV) ctx.scale(element.flipH ? -1 : 1, element.flipV ? -1 : 1)
+    ctx.drawImage(
+        image,
+        sx, sy, sw, sh,
+        -element.width / 2, -element.height / 2, element.width, element.height,
+    )
+    ctx.restore()
+}
+
 // ── Placeholder substitution ─────────────────────────────────────────────────
 
 /**
- * Fills `{name}`, `{date}` and friends. Unknown placeholders are left as-is
- * rather than blanked, so a template gaining a field shows up as visible text
- * in a review render instead of silently disappearing.
+ * Fills `{name}`, `{date}` and friends. An unrecognised placeholder is left
+ * as-is rather than blanked, so a template gaining a field shows up as visible
+ * text in a review render instead of silently vanishing.
  */
 function fill(text: string, payload: CertificatePayload): string {
     return text.replace(/\{(\w+)\}/g, (whole, key: string) => {
@@ -219,50 +243,30 @@ export async function renderCertificate(payload: CertificatePayload): Promise<Bu
     const layout = spec.certificates[payload.cert]
     if (!layout) throw new MissingAssetError(`certificate/${payload.type}/${payload.cert}`)
 
-    const width = layout.width
-    const height = layout.height
-    const canvas = createCanvas(width, height)
+    const canvas = createCanvas(layout.width, layout.height)
     const ctx = canvas.getContext('2d')
+    const mediaDir = path.join(TEMPLATES, spec.mediaDir)
 
-    // 1. Wooden frame, stretched to the canvas. Neither output aspect matches
-    //    the source exactly, so it is stretched in both orientations; the
-    //    moulding's grain runs along each edge and survives it.
-    ctx.drawImage(await load(art.frame), 0, 0, width, height)
+    // Elements are already in back-to-front order, so this is just the slide's
+    // own z-order replayed.
+    for (const element of layout.elements) {
+        if (element.kind === 'picture') {
+            await drawPicture(ctx, element, mediaDir)
+            continue
+        }
 
-    // 2. Parchment field inside the moulding.
-    const inset = Math.round(Math.min(width, height) * FRAME_INSET)
-    ctx.drawImage(await load(art.parchment), inset, inset, width - inset * 2, height - inset * 2)
-
-    // 3. Gold scrollwork, inset the same amount.
-    ctx.drawImage(await load(art.scrollwork), inset, inset, width - inset * 2, height - inset * 2)
-
-    // 4. Rising Sun badge, centred at the top.
-    const sun = await load(art.risingSun)
-    const sunWidth = width * SUN_WIDTH
-    const sunHeight = sunWidth * (sun.height / sun.width)
-    ctx.drawImage(sun, (width - sunWidth) / 2, height * SUN_TOP, sunWidth, sunHeight)
-
-    // 5. Text.
-    const pxPerPt = pixelsPerPoint(payload.type)
-    for (const shape of layout.shapes) {
-        drawShape(
+        drawText(
             ctx,
             {
-                ...shape,
-                paragraphs: shape.paragraphs.map(p => ({
+                ...element,
+                paragraphs: element.paragraphs.map(p => ({
                     ...p,
                     runs: p.runs.map(r => ({ ...r, text: fill(r.text, payload) })),
                 })),
             },
-            pxPerPt,
+            spec.pixelsPerPoint,
         )
     }
-
-    // 6. Wax seal, bottom left.
-    const seal = await load(art.waxSeal)
-    const sealWidth = width * SEAL_WIDTH
-    const sealHeight = sealWidth * (seal.height / seal.width)
-    ctx.drawImage(seal, width * SEAL_LEFT - sealWidth / 2, height * (1 - SEAL_BOTTOM) - sealHeight, sealWidth, sealHeight)
 
     return canvas.toBuffer('image/png')
 }
@@ -274,6 +278,3 @@ export function certificateCodes(): { promotion: string[]; award: string[] } {
         award: Object.keys(layouts.award.certificates),
     }
 }
-
-/** Art files the certificate renderer needs. Checked at boot alongside the rest. */
-export const certificateArt = Object.values(art)
