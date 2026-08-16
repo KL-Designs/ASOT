@@ -1,10 +1,8 @@
 # MilPac Generator — Import & Overhaul Plan
 
-**Status:** Phases 0–4 essentially complete. The service is built, containerised,
-wired into compose and the start menu, called by the website, and documented.
-Two things remain, both listed at the end of §6: a **UI affordance for
-certificates** on the milpac profile (the API route exists, nothing links to it),
-and **deleting the 614 legacy renders** once someone has reviewed the output.
+**Status:** Phases 0–4 complete. The service is built, containerised, wired into
+compose and the start menu, called by the website, tested and documented.
+Nothing in §6 remains. See §12 for what is outstanding outside this plan.
 
 **Branch:** `milpac-service`, branched off `main`. Not pushed.
 **Date:** 2026-08-16
@@ -974,37 +972,43 @@ parchment, scrollwork, insignia, seal and text all match.
 
 ## 12. What is left
 
-Everything in §6 has landed except the two items below. Both are deliberate
-stopping points rather than unfinished work.
+Nothing in §6 remains. Everything below is either outside this repository or a
+judgement call for the unit.
 
-### A UI affordance for certificates
+### Outside the repo
 
-`GET /api/milpac/certificate/[username]?type=&cert=` renders any certificate a
-member actually holds, verified against their award list. **Nothing links to it
-yet.** The route was built first because it is the part with security
-consequences — it names a person and carries the OC's signature, so it checks
-entitlement and requires a logged-in member.
+**Rotate the MongoDB Atlas credential.** It sat in plaintext across three tracked
+source files and a build artefact before Phase 0 redacted it. Treat it as
+compromised. The `UC_API_KEY` JWT in the same file is now unused — decision #2
+dropped the UnitCommander integration entirely — so that one is hygiene rather
+than a prerequisite.
 
-Where the link belongs is a design question rather than a technical one: beside
-each award in the profile's awards list, as a separate "Certificates" section,
-or only on the member's own profile. That is worth deciding with someone who
-uses the page rather than inferring it.
+**Confirm the signing officer.** `MILPAC_SIGNATORY_NAME`,
+`MILPAC_SIGNATORY_RANK_SHORT` and `MILPAC_SIGNATORY_RANK_FULL` were seeded from
+a reference render (`Six` / `MAJGEN` / `Major General`). Every certificate prints
+them.
 
-### Deleting the 614 legacy renders
+### Not yet exercised against real data
 
-§7 decision #5 says discard them once Phase 2 passes review. Phase 2 has passed
-*verification* — 159/159 render, both formats match their references, mean art
-difference 2.07% — but not human review.
+Every test so far has used synthetic payloads. Bringing the stack up and loading
+one real milpac profile is the first time `buildUniformData`'s output meets the
+renderer with live member records. Worth doing before this merges.
 
-They are also the only reference for the **95 certificate codes the unit has
-never issued**, which the systematic diff could not check. Deleting them
-forecloses ever checking those. They are gitignored, so keeping them costs
-nothing but disk.
+### Known gaps, none blocking
 
-### Outside the repo, still outstanding
+**Four rank mappings are inferred, not proven** — `CA → COA`, `AM → HAM`,
+`OFFCDT → HOCDT`, `GPCAPT → GCPT`. Reasoned from rank group and full name in
+§10. Cheap to confirm by rendering those four and looking at them.
 
-The MongoDB Atlas credential and the `UC_API_KEY` JWT found during the import
-still want rotating. Decision #2 means nothing consumes `UC_API_KEY` any more,
-so that one is hygiene rather than a prerequisite — but the Atlas credential sat
-in plaintext across three tracked files and a build artefact, and should be
-treated as compromised.
+**The auth migration has no test coverage.** `/api/generate/milpac/[username]`
+moved from `client.hasRoles(me, PERMISSIONS.pages.admin)` to
+`hasPermission(me, 'pages.admin')`. No Playwright spec covers that route — there
+was nothing to update, but equally nothing catches it if the two gates differ.
+
+**`/api/milpacs/[name]` still uses a legacy role array** —
+`PERMISSIONS.members.editStandard` on its upload POST. Pre-existing, unrelated to
+this work, and a candidate for the same migration.
+
+**`apps/bot` does not consume `@asot/lib`.** Its `config/ranks.json` is a
+one-entry stub, so there is nothing to migrate yet; it should import the shared
+list if it ever grows real rank handling. See `lib/README.md`.
