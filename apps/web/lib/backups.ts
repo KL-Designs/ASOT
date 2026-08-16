@@ -62,6 +62,7 @@ export type BackupPoint = {
     mediaSnapshotId?: string
     dbSizeBytes?: number        // total_bytes_processed from restic's own snapshot summary, when present
     mediaSizeBytes?: number
+    isSafety?: boolean          // carries the 'pre-restore' tag — taken automatically before a restore, never pruned
 }
 
 export type StorageUsage = {
@@ -237,11 +238,12 @@ interface ResticBackupSummary { message_type: 'summary'; snapshot_id: string }
 // regardless of hostname.
 const RESTIC_HOST = 'asot-backups'
 
-async function resticBackup(repo: string, paths: string[], tag: string): Promise<string> {
+async function resticBackup(repo: string, paths: string[], tag: string, extraTags: string[] = []): Promise<string> {
     await ensureRepoInitialized(repo)
+    const tagArgs = ['--tag', tag, ...extraTags.flatMap(t => ['--tag', t])]
     const stdout = await runRestic(
         repo,
-        ['backup', ...paths, '--tag', tag, '--host', RESTIC_HOST, '--json'],
+        ['backup', ...paths, ...tagArgs, '--host', RESTIC_HOST, '--json'],
         [3], // "completed with some source files unreadable" — routine on a live directory, not a failure
     )
     const summary = stdout.trim().split('\n').filter(Boolean)
@@ -262,6 +264,12 @@ async function resticForget(repo: string, cfg: BackupConfig): Promise<void> {
         // grouping would otherwise start a fresh never-pruned group every
         // time, silently defeating retention entirely.
         '--group-by', 'tags',
+        // Safety backups (taken automatically before every restore) are
+        // exempt from every tier and are never pruned — a pre-restore copy
+        // that ages out on the hourly schedule defeats its own purpose. They
+        // are created only when a human actually restores, and dedup makes
+        // each one cost close to nothing. See issue #55 requirement 5.
+        '--keep-tag', 'pre-restore',
         '--keep-hourly',  String(cfg.keepHourly),
         '--keep-daily',   String(cfg.keepDaily),
         '--keep-weekly',  String(cfg.keepWeekly),
@@ -311,6 +319,35 @@ export async function runMediaBackup(): Promise<void> {
         console.error('[backups] Media backup failed:', msg)
         throw e
     }
+}
+
+// Taken automatically at the head of every restore path — issue #55's
+// "a backup must be made before a backup is loaded". Deliberately NOT
+// runAllBackups(): that writes { state: 'backing-up' } and owns the
+// backupInProgress guard, which would move the status out of 'reverting'
+// mid-operation and confuse both the UI poll and every route's in-progress
+// check. This keeps the whole restore looking like one continuous operation.
+//
+// Tagged 'pre-restore' in addition to the repo's usual tag, which is what
+// resticForget()'s --keep-tag exempts from retention.
+//
+// Throws on any failure. Callers MUST let it propagate — a restore that
+// cannot be undone is exactly what this exists to prevent.
+export async function runSafetyBackup(): Promise<void> {
+    await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Creating safety backup…' })
+
+    try {
+        await dumpDatabase(DB_DUMP_DIR)
+        await resticBackup(DB_REPO, [DB_DUMP_DIR], 'db', ['pre-restore'])
+    } finally {
+        await rm(DB_DUMP_DIR, { recursive: true, force: true }).catch(() => {})
+    }
+
+    await ensureRepoInitialized(MEDIA_REPO)
+    const paths = [GALLERY_DIR, UPLOADS_DIR].filter(existsSync)
+    if (paths.length > 0) await resticBackup(MEDIA_REPO, paths, 'media', ['pre-restore'])
+
+    console.log('[backups] Safety backup complete')
 }
 
 // In-process guard against overlapping runs. Every route already checks
@@ -378,6 +415,7 @@ export async function listBackups(): Promise<BackupPoint[]> {
         const existing = byBucket.get(id) ?? { id, time: id }
         existing.dbSnapshotId = s.id
         existing.dbSizeBytes = s.summary?.total_bytes_processed
+        if (s.tags?.includes('pre-restore')) existing.isSafety = true
         byBucket.set(id, existing)
     }
     for (const s of mediaSnaps) {
@@ -385,6 +423,7 @@ export async function listBackups(): Promise<BackupPoint[]> {
         const existing = byBucket.get(id) ?? { id, time: id }
         existing.mediaSnapshotId = s.id
         existing.mediaSizeBytes = s.summary?.total_bytes_processed
+        if (s.tags?.includes('pre-restore')) existing.isSafety = true
         byBucket.set(id, existing)
     }
 
@@ -612,6 +651,10 @@ export async function revertToPoint(point: BackupPoint): Promise<void> {
     await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring…' })
     const tmp = join(tmpdir(), `asot-revert-${Date.now()}`)
     try {
+        // Must come first and must be allowed to throw — if this fails there
+        // is no undo for what follows, so the restore does not happen.
+        await runSafetyBackup()
+
         if (point.dbSnapshotId) {
             await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring database…' })
             const dbTarget = join(tmp, 'db-restore')
@@ -738,6 +781,9 @@ export async function applyUploadedZip(zipPath: string): Promise<void> {
     const tmp = join(tmpdir(), `asot-upload-extract-${Date.now()}`)
     await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Extracting upload…' })
     try {
+        // Same rule as revertToPoint(): no safety backup, no restore.
+        await runSafetyBackup()
+
         await safeExtractZip(zipPath, tmp)
 
         const dbDir = join(tmp, 'db-source')

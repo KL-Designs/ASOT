@@ -1,0 +1,94 @@
+/**
+ * Unit coverage for the pre-restore safety backup (issue #55, requirement 5).
+ *
+ * No mocking is needed to force the safety backup to fail: resticEnv() throws
+ * when RESTIC_PASSWORD is unset, which is the first thing every restic call
+ * touches. That makes "safety backup failed" reachable with a real in-memory
+ * mongod standing in for the live database, so the assertion that actually
+ * matters — the live data is untouched — can be made directly.
+ */
+import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { MongoMemoryServer } from 'mongodb-memory-server'
+import { MongoClient } from 'mongodb'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs'
+import { join } from 'path'
+import { tmpdir } from 'os'
+
+let mongod: MongoMemoryServer
+let mongo: MongoClient
+let storageRoot: string
+
+// Imported lazily inside tests: lib/backups.ts reads BACKUPS_STORAGE_ROOT at
+// module load, so the env var has to be set before the first import.
+type BackupsModule = typeof import('./backups')
+let backups: BackupsModule
+
+beforeAll(async () => {
+    mongod = await MongoMemoryServer.create()
+    process.env.MONGO_URI = mongod.getUri()
+    process.env.MONGO_DB = 'asot-test'
+
+    storageRoot = mkdtempSync(join(tmpdir(), 'asot-backup-test-'))
+    mkdirSync(join(storageRoot, 'gallery'), { recursive: true })
+    mkdirSync(join(storageRoot, 'uploads'), { recursive: true })
+    process.env.BACKUPS_STORAGE_ROOT = storageRoot
+
+    mongo = new MongoClient(process.env.MONGO_URI)
+    await mongo.connect()
+
+    backups = await import('./backups')
+})
+
+afterAll(async () => {
+    await mongo.close()
+    await mongod.stop()
+})
+
+beforeEach(async () => {
+    // A sentinel the restore would destroy if it ever ran: restoreDatabase()
+    // drops each collection before re-inserting.
+    await mongo.db('asot-test').collection('sentinel').deleteMany({})
+    await mongo.db('asot-test').collection('sentinel').insertOne({ marker: 'untouched' })
+    writeFileSync(join(storageRoot, 'gallery', 'sentinel.txt'), 'untouched', 'utf-8')
+    delete process.env.RESTIC_PASSWORD
+})
+
+describe('revertToPoint', () => {
+    test('aborts without touching live data when the safety backup fails', async () => {
+        const point = {
+            id: '2026-08-17T14:00:00.000Z',
+            time: '2026-08-17T14:00:00.000Z',
+            dbSnapshotId: 'deadbeef',
+            mediaSnapshotId: 'cafebabe',
+        }
+
+        await expect(backups.revertToPoint(point)).rejects.toThrow(/RESTIC_PASSWORD/)
+
+        // The live database is intact — restoreDatabase() never ran.
+        const docs = await mongo.db('asot-test').collection('sentinel').find({}).toArray()
+        expect(docs).toHaveLength(1)
+        expect(docs[0].marker).toBe('untouched')
+
+        // The live media tree is intact — copyDirRecursive() never ran.
+        expect(readFileSync(join(storageRoot, 'gallery', 'sentinel.txt'), 'utf-8')).toBe('untouched')
+
+        // The failure is surfaced, not swallowed.
+        const status = await backups.readStatus()
+        expect(status.state).toBe('idle')
+        expect(status.error).toMatch(/RESTIC_PASSWORD/)
+    })
+})
+
+describe('applyUploadedZip', () => {
+    test('aborts before extracting when the safety backup fails', async () => {
+        const zipPath = join(storageRoot, 'irrelevant.zip')
+        writeFileSync(zipPath, 'not really a zip', 'utf-8')
+
+        await expect(backups.applyUploadedZip(zipPath)).rejects.toThrow(/RESTIC_PASSWORD/)
+
+        const docs = await mongo.db('asot-test').collection('sentinel').find({}).toArray()
+        expect(docs).toHaveLength(1)
+        expect(docs[0].marker).toBe('untouched')
+        expect(existsSync(join(storageRoot, 'gallery', 'sentinel.txt'))).toBe(true)
+    })
+})

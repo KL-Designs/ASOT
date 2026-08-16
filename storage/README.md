@@ -13,7 +13,9 @@ own app directory, e.g. `apps/web` or `apps/bot`), so code reads/writes via `../
 - `gallery/`, `milpacs/`, `uploads/`, `snapshots/` — web app user-uploaded/generated content.
 - `db-backups/`, `media-backups/` — restic repositories (deduplicating, hourly,
   tiered retention) backing the J4 dashboard's Backups tab. `backup-meta/`
-  holds the shared status/retention-config files for both. `snapshots/` is the
+  holds the shared status/retention-config files for both. Snapshots tagged
+  `pre-restore` are safety copies taken automatically before every restore and
+  are exempt from retention — they are never pruned. `snapshots/` is the
   older full-copy system these replaced — left in place, untouched, no longer
   written to.
 - `maps/` — Arma terrain source assets (DEM/geojson) **and** the terrain tiles generated
