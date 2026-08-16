@@ -549,6 +549,223 @@ const CPU_PROFILE_DURATIONS: { value: number; label: string }[] = [
     { value: 1800, label: '30 min' },
 ]
 
+type ActiveCapture = { filename: string; startedAt: string; durationS: number }
+type CpuProfileFile = { filename: string; capturedAt: string; sizeBytes: number }
+
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatRemaining(seconds: number): string {
+    if (seconds <= 0) return 'finishing up…'
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return mins > 0 ? `${mins}m ${secs}s remaining` : `${secs}s remaining`
+}
+
+/**
+ * Capture and download CPU profiles.
+ *
+ * The capture itself is tracked server-side (GET reports whether one is
+ * running), so closing this dialog or reloading the page does not abandon it —
+ * reopening re-attaches to the run in progress.
+ */
+function CpuProfileModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+    const [active, setActive] = useState<ActiveCapture | null>(null)
+    const [profiles, setProfiles] = useState<CpuProfileFile[]>([])
+    const [serverError, setServerError] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [starting, setStarting] = useState(false)
+    const [duration, setDuration] = useState(30)
+    const [now, setNow] = useState(() => Date.now())
+
+    async function load() {
+        try {
+            const res = await fetch('/api/admin/diagnostics/cpu-profile')
+            if (!res.ok) throw new Error(`Status check failed (${res.status})`)
+            const data = await res.json()
+            setActive(data.active ?? null)
+            setProfiles(data.profiles ?? [])
+            setServerError(data.lastError ?? null)
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Could not load profile status')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    // Poll while the dialog is open: picks up a capture that finished while it
+    // was closed, and refreshes the list the moment one completes.
+    useEffect(() => {
+        if (!open) return
+        const id = setInterval(load, 4000)
+        return () => clearInterval(id)
+    }, [open])
+
+    // Separate 1s ticker so the countdown moves between polls.
+    useEffect(() => {
+        if (!open || !active) return
+        const id = setInterval(() => setNow(Date.now()), 1000)
+        return () => clearInterval(id)
+    }, [open, active])
+
+    async function start() {
+        if (starting || active) return
+        setStarting(true)
+        setError(null)
+        try {
+            const res = await fetch(`/api/admin/diagnostics/cpu-profile?duration=${duration}`, { method: 'POST' })
+            const data = await res.json().catch(() => null)
+            if (!res.ok) {
+                // Every failure used to collapse into "back to idle", which was
+                // indistinguishable from the button doing nothing at all.
+                throw new Error(data?.error ?? `Capture failed to start (${res.status})`)
+            }
+            setActive(data)
+            setServerError(null)
+            setNow(Date.now())
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Capture failed to start')
+        } finally {
+            setStarting(false)
+        }
+    }
+
+    const remaining = active
+        ? Math.ceil(active.durationS - (now - new Date(active.startedAt).getTime()) / 1000)
+        : 0
+
+    return (
+        <Dialog
+            open={open}
+            onClose={onClose}
+            TransitionProps={{ onEntered: load }}
+            PaperProps={{
+                style: {
+                    background: '#111',
+                    border: '1px solid rgba(219,0,29,0.32)',
+                    borderTop: '2px solid var(--red)',
+                    borderRadius: 0,
+                    minWidth: 480,
+                    maxWidth: 620,
+                    color: '#ededed',
+                },
+            }}
+        >
+            <DialogContent style={{ padding: '28px 28px 24px' }}>
+                <Typography fontSize='0.6rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
+                    J4 — Administration
+                </Typography>
+                <Typography fontWeight={700} fontSize='0.9rem' letterSpacing={3} style={{ textTransform: 'uppercase', marginBottom: 20 }}>
+                    CPU Profile
+                </Typography>
+
+                {loading ? (
+                    <TacticalSkeleton rows={3} />
+                ) : active ? (
+                    <div style={{ padding: '14px 16px', background: 'rgba(219,0,29,0.06)', border: '1px solid rgba(219,0,29,0.28)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <CircularProgress size={14} style={{ color: 'var(--red)' }} />
+                            <Typography fontSize='0.8rem' fontWeight={600}>
+                                Capturing — {formatRemaining(remaining)}
+                            </Typography>
+                        </div>
+                        <Typography fontSize='0.68rem' style={{ color: 'rgba(237,237,237,0.4)', marginTop: 8 }}>
+                            Runs on the server. You can close this window or reload the page — the profile will be waiting here when it finishes.
+                        </Typography>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.55)' }}>Duration</Typography>
+                        <select
+                            value={duration}
+                            onChange={e => setDuration(Number(e.target.value))}
+                            disabled={starting}
+                            style={{ background: '#1a1a1a', color: '#ededed', border: '1px solid rgba(237,237,237,0.2)', fontSize: '0.72rem', padding: '5px 8px', borderRadius: 2 }}
+                        >
+                            {CPU_PROFILE_DURATIONS.map(d => (
+                                <option key={d.value} value={d.value}>{d.label}</option>
+                            ))}
+                        </select>
+                        <button
+                            onClick={start}
+                            disabled={starting}
+                            style={{
+                                background: 'rgba(219,0,29,0.14)', border: '1px solid rgba(219,0,29,0.4)',
+                                color: starting ? 'rgba(237,237,237,0.3)' : '#ededed',
+                                padding: '6px 16px', cursor: starting ? 'not-allowed' : 'pointer',
+                                fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase',
+                            }}
+                        >
+                            {starting ? 'Starting…' : 'Start Capture'}
+                        </button>
+                    </div>
+                )}
+
+                {(error || serverError) && (
+                    <Typography fontSize='0.72rem' style={{ color: '#ff4444', marginTop: 12 }}>
+                        {error ?? `Last capture failed: ${serverError}`}
+                    </Typography>
+                )}
+
+                <Typography fontSize='0.6rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', margin: '24px 0 10px' }}>
+                    Captured Profiles
+                </Typography>
+
+                {profiles.length === 0 ? (
+                    <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.3)', fontStyle: 'italic' }}>
+                        No profiles captured yet.
+                    </Typography>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto' }}>
+                        {profiles.map(p => (
+                            <a
+                                key={p.filename}
+                                href={`/api/admin/diagnostics/cpu-profile/${encodeURIComponent(p.filename)}`}
+                                download={p.filename}
+                                style={{
+                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+                                    padding: '9px 12px', textDecoration: 'none',
+                                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                                }}
+                            >
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontSize: '0.76rem', color: 'rgba(237,237,237,0.9)' }}>
+                                        {new Date(p.capturedAt).toLocaleString()}
+                                    </div>
+                                    <div style={{ fontSize: '0.64rem', color: 'rgba(237,237,237,0.35)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {p.filename}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                                    <span style={{ fontSize: '0.66rem', color: 'rgba(237,237,237,0.35)' }}>{formatBytes(p.sizeBytes)}</span>
+                                    <span style={{ fontSize: '0.66rem', fontWeight: 700, letterSpacing: 1, color: 'rgb(0,195,100)', textTransform: 'uppercase' }}>Download</span>
+                                </div>
+                            </a>
+                        ))}
+                    </div>
+                )}
+
+                <Typography fontSize='0.64rem' style={{ color: 'rgba(237,237,237,0.28)', marginTop: 16 }}>
+                    Load a downloaded .cpuprofile in Chrome DevTools → Performance → Load profile.
+                </Typography>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+                    <button
+                        onClick={onClose}
+                        style={{ background: 'none', border: '1px solid rgba(237,237,237,0.15)', color: 'rgba(237,237,237,0.6)', padding: '7px 18px', cursor: 'pointer', fontSize: '0.78rem', letterSpacing: 1 }}
+                    >
+                        CLOSE
+                    </button>
+                </div>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 const NOTIF_TYPES: { value: string; label: string }[] = [
     { value: 'system',                     label: 'System' },
     { value: 'task_assigned',              label: 'Task Assigned' },
@@ -831,8 +1048,7 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
     const [devModeLoading, setDevModeLoading] = useState(false)
     const [tsDevMode, setTsDevMode]       = useState<boolean | null>(null)
     const [tsDevModeLoading, setTsDevModeLoading] = useState(false)
-    const [cpuProfile, setCpuProfile] = useState<'idle' | 'capturing' | { filename: string }>('idle')
-    const [cpuProfileDuration, setCpuProfileDuration] = useState(30)
+    const [cpuProfileOpen, setCpuProfileOpen] = useState(false)
 
     useEffect(() => {
         fetch('/api/admin/discord-devmode')
@@ -866,22 +1082,6 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
             setTsDevMode(!!data.enabled)
         } finally {
             setTsDevModeLoading(false)
-        }
-    }
-
-    async function captureCpuProfile() {
-        if (cpuProfile === 'capturing') return
-        setCpuProfile('capturing')
-        try {
-            const res = await fetch(`/api/admin/diagnostics/cpu-profile?duration=${cpuProfileDuration}`, { method: 'POST' })
-            const data = await res.json()
-            if (res.ok && data.filename) {
-                setCpuProfile({ filename: data.filename })
-            } else {
-                setCpuProfile('idle')
-            }
-        } catch {
-            setCpuProfile('idle')
         }
     }
 
@@ -1177,54 +1377,23 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
                                 </button>
 
                                 {/* CPU Profile capture — for production event-loop stall investigation */}
-                                {typeof cpuProfile === 'object' ? (
-                                    <a
-                                        href={`/api/admin/diagnostics/cpu-profile/${encodeURIComponent(cpuProfile.filename)}`}
-                                        download={cpuProfile.filename}
-                                        className='flex-1 min-w-[160px]'
-                                        style={{ textDecoration: 'none' }}
-                                    >
-                                        <div
-                                            className='flex flex-col justify-center items-center gap-3 p-6 h-[160px] transition-colors duration-200'
-                                            style={{ background: 'rgba(0,195,100,0.06)', border: '1px solid rgba(0,195,100,0.3)', borderTop: '2px solid rgb(0,195,100)', cursor: 'pointer' }}
-                                        >
-                                            <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase', color: 'rgba(0,195,100,0.85)' }}>
-                                                Download<br />CPU Profile
-                                            </Typography>
-                                            <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: 'rgba(0,195,100,0.6)', textTransform: 'uppercase' }}>
-                                                Ready — click to save
-                                            </Typography>
-                                        </div>
-                                    </a>
-                                ) : (
+                                <button
+                                    onClick={() => setCpuProfileOpen(true)}
+                                    className='flex-1 min-w-[160px]'
+                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+                                >
                                     <div
-                                        className='flex-1 min-w-[160px] flex flex-col justify-center items-center gap-3 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', opacity: cpuProfile === 'capturing' ? 0.6 : 1 }}
+                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
+                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
                                     >
                                         <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
                                             CPU Profile
                                         </Typography>
-                                        <select
-                                            value={cpuProfileDuration}
-                                            onChange={e => setCpuProfileDuration(Number(e.target.value))}
-                                            disabled={cpuProfile === 'capturing'}
-                                            style={{ background: '#1a1a1a', color: '#ededed', border: '1px solid rgba(237,237,237,0.2)', fontSize: '0.65rem', padding: '3px 6px', borderRadius: 2 }}
-                                        >
-                                            {CPU_PROFILE_DURATIONS.map(d => (
-                                                <option key={d.value} value={d.value}>{d.label}</option>
-                                            ))}
-                                        </select>
-                                        <button
-                                            onClick={captureCpuProfile}
-                                            disabled={cpuProfile === 'capturing'}
-                                            style={{ background: 'none', border: 'none', padding: 0, cursor: cpuProfile === 'capturing' ? 'default' : 'pointer' }}
-                                        >
-                                            <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: 'rgba(237,237,237,0.25)', textTransform: 'uppercase' }}>
-                                                {cpuProfile === 'capturing' ? 'Capturing…' : 'Click to start capture'}
-                                            </Typography>
-                                        </button>
+                                        <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: 'rgba(237,237,237,0.25)', textTransform: 'uppercase', textAlign: 'center' }}>
+                                            Capture · Download
+                                        </Typography>
                                     </div>
-                                )}
+                                </button>
 
                             </div>
                         </div>
@@ -1258,6 +1427,7 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
             <ReinstateModal open={reinstateOpen} onClose={() => setReinstateOpen(false)} />
             <TestNotificationModal open={testNotifOpen} onClose={() => setTestNotifOpen(false)} selfId={userId} />
             <RolesManagerPanel open={rolesManagerOpen} onClose={() => setRolesManagerOpen(false)} />
+            <CpuProfileModal open={cpuProfileOpen} onClose={() => setCpuProfileOpen(false)} />
         </div>
     )
 }

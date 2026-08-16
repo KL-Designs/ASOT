@@ -281,6 +281,13 @@ This map documents every file under `lib/**` (59 files), `types/**` (31 files), 
 ### lib/cron-auth.ts
 - `verifyCronSecret(request: NextRequest): boolean` — checks `Authorization: Bearer {CRON_SECRET}` header. Used by every route under `app/api/cron/`.
 
+### lib/diagnostics/cpu-profiles.ts
+- Shared file store for captured CPU profiles, used by both `app/api/admin/diagnostics/cpu-profile/route.ts` and its `[filename]/` download route so the name a capture writes cannot drift from the name a download will serve (they were two hand-copied regexes before). Storage root overridable via `DIAGNOSTICS_STORAGE_ROOT` for unit tests — same pattern as `BACKUPS_STORAGE_ROOT` in `lib/backups.ts`. Covered by `lib/diagnostics/cpu-profiles.test.ts`.
+- `DIAGNOSTICS_DIR` — absolute path to `storage/diagnostics/`.
+- `cpuProfileFilename(date): string` — `cpu-<ISO with : and . replaced by ->.cpuprofile`.
+- `isValidCpuProfileFilename(name): boolean` / `cpuProfilePath(name): string | null` — anchored pattern match; doubles as the download route's path-traversal guard, since nothing containing `/`, `\` or `..` can match.
+- `listCpuProfiles(): CpuProfileFile[]` — every profile on disk, newest first, with `capturedAt` decoded out of the filename and `sizeBytes`. Returns `[]` when the directory does not exist yet (normal before the first capture).
+
 ### lib/diagnostics.mjs
 - Lightweight, always-on production diagnostics for event-loop stalls. Plain `.mjs` (not `.ts`) so it can be imported directly by `server.mjs`, which runs via `node server.mjs` with no build step; an ambient declaration at `types/diagnostics.d.ts` types the `@/lib/diagnostics.mjs` import for TypeScript route files.
 - `startEventLoopWatchdog(thresholdMs?, checkIntervalMs?)` — starts a `perf_hooks.monitorEventLoopDelay`-based periodic check (default threshold `EVENT_LOOP_LAG_THRESHOLD_MS` env var or 1000ms, checked every 2000ms); on a lag sample over threshold, logs `⚠ [event-loop] lag=Xms in-flight=[...]` naming every currently in-flight request/job and its running duration. Called once in `server.mjs` right before `httpServer.listen(...)`.
