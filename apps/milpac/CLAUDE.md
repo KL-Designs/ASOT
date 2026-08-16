@@ -112,6 +112,20 @@ The extractor's summary line counts each element kind. There is exactly **one li
 
 **The JSON is read once at module scope.** A running service will not pick up a re-extract until it is restarted, which is easy to mistake for the extractor not having worked.
 
+### Canva-exported PNGs need their private chunks stripped
+
+Canva stamps a ~24KB `caBX` private chunk into every export, and `@napi-rs`'s **buffer** decoder rejects the entire file over it — while its *file-path* decoder reads the same bytes without complaint. The result is a PNG that opens in every image viewer and every other tool, and fails only here, reported as `Invalid SVG image` with no filename.
+
+`load()` in `src/render/layers.ts` retries once with private ancillary chunks removed, so this is handled. It is worth knowing anyway, because the symptom points nowhere near the cause.
+
+`load()` also names the file and its byte count when a decode fails. Keep that: without it the stack trace lands in `load-image.js` with no indication which of forty layers was at fault.
+
+### Uniform artwork must keep the 1398x1000 aspect ratio
+
+Every overlay — collars, rank borders, ribbons, badges — is authored against `UNIFORM_WIDTH` x `UNIFORM_HEIGHT` and drawn at fixed coordinates. The base uniform is scaled to fill that canvas, so a base whose aspect ratio differs shifts the artwork underneath while every overlay stays put: the collar overlay lands beside the lapel instead of on it.
+
+A larger base at the same aspect is fine (it scales down cleanly). A different aspect is not, and nothing detects it — the render succeeds and simply looks wrong.
+
 ### `medals.json` ordering is mutable state waiting to happen
 
 The original reversed the imported JSON arrays **in place at module scope**, which mutated the same objects the uniform renderer read from and made ribbon order depend on which module was imported first. `loadLines()` returns fresh arrays for this reason. Don't reverse them in place.
