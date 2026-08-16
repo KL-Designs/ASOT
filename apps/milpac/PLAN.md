@@ -975,40 +975,43 @@ parchment, scrollwork, insignia, seal and text all match.
 Nothing in §6 remains. Everything below is either outside this repository or a
 judgement call for the unit.
 
-### Outside the repo
-
-**Rotate the MongoDB Atlas credential.** It sat in plaintext across three tracked
-source files and a build artefact before Phase 0 redacted it. Treat it as
-compromised. The `UC_API_KEY` JWT in the same file is now unused — decision #2
-dropped the UnitCommander integration entirely — so that one is hygiene rather
-than a prerequisite.
+### Worth doing before this merges
 
 **Confirm the signing officer.** `MILPAC_SIGNATORY_NAME`,
 `MILPAC_SIGNATORY_RANK_SHORT` and `MILPAC_SIGNATORY_RANK_FULL` were seeded from
 a reference render (`Six` / `MAJGEN` / `Major General`). Every certificate prints
 them.
 
-### Not yet exercised against real data
-
-Every test so far has used synthetic payloads. Bringing the stack up and loading
-one real milpac profile is the first time `buildUniformData`'s output meets the
-renderer with live member records. Worth doing before this merges.
-
-### Known gaps, none blocking
-
-**Four rank mappings are inferred, not proven** — `CA → COA`, `AM → HAM`,
+**Confirm four inferred rank mappings** — `CA → COA`, `AM → HAM`,
 `OFFCDT → HOCDT`, `GPCAPT → GCPT`. Reasoned from rank group and full name in
-§10. Cheap to confirm by rendering those four and looking at them.
+§10 rather than proven. Rendering those four and looking settles it.
 
-**The auth migration has no test coverage.** `/api/generate/milpac/[username]`
-moved from `client.hasRoles(me, PERMISSIONS.pages.admin)` to
-`hasPermission(me, 'pages.admin')`. No Playwright spec covers that route — there
-was nothing to update, but equally nothing catches it if the two gates differ.
+### Deliberately deferred
 
-**`/api/milpacs/[name]` still uses a legacy role array** —
-`PERMISSIONS.members.editStandard` on its upload POST. Pre-existing, unrelated to
-this work, and a candidate for the same migration.
+**`PERMISSIONS.pages.admin` and `members.editStandard` are still legacy
+Discord-role gates.** Phase 3 called for migrating the first, and that migration
+was made and then **reverted**: neither key has actually migrated,
+`hasPermission` does not fall back to Discord role names, and it does not carry
+`hasRoles`' hardcoded `J4-Administration` bypass — so converting a single route
+would have locked it to the `OVERRIDE` list alone. Both keys should migrate
+everywhere at once, as a permission-system task rather than a milpac one.
+`tests/milpac.spec.ts` pins the current behaviour so a partial migration fails
+loudly.
+
+**The MongoDB Atlas credential.** Recorded in §6 Phase 0; the unit has chosen
+not to action it here. `UC_API_KEY` is unused either way — decision #2 dropped
+the UnitCommander integration entirely.
 
 **`apps/bot` does not consume `@asot/lib`.** Its `config/ranks.json` is a
-one-entry stub, so there is nothing to migrate yet; it should import the shared
-list if it ever grows real rank handling. See `lib/README.md`.
+one-entry stub, so there is nothing to migrate yet. See `lib/README.md`.
+
+### Test coverage as it stands
+
+35 unit tests in `apps/milpac` (`npm test --workspace=apps/milpac`) covering rank
+resolution, the ribbon cascade, the asset preflight and the generated
+certificate layouts. 18 Playwright specs in `apps/web/tests/milpac.spec.ts`
+covering who can reach each endpoint, the certificate entitlement check, and the
+dashboard status probe.
+
+Two pre-existing flakes elsewhere in the E2E suite — `backups.spec.ts` and
+`devmode.spec.ts` — pass on retry and are unrelated to this work.
