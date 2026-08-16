@@ -393,3 +393,7 @@ Both explicitly marked "DEV-ONLY — delete before deploying to production" in s
 
 #### /api/auth/collab
 - **GET** — Hocuspocus collab-auth endpoint; reads `x-collab-token` header (not the `token` cookie) and `?doc=` query param to resolve document-specific permission: `sop-*` docs → any member (`hasPermission(user, 'pages.member')`); `ws-*` docs → J2 member/lead/admin; all others (operation briefings) → `hasPermission(user, 'auth.collab')`. Auth: bespoke per-document logic, no single gate. Returns `{authorized, userId, userName, userAvatar}` consumed by the Hocuspocus WS server on each connection.
+
+## /api/milpac/certificate/[username]
+
+- **GET** `?type=promotion|award&cert={code}` — renders a member's certificate on demand via the `apps/milpac` service and returns `image/png` inline. Nothing is persisted: unlike uniforms there is no staleness to track. Auth: any logged-in member (`client.fetchMe()`). Verifies the member actually holds the award (or that the code is their current rank) before rendering, so the route can't be used to mint a citation for an arbitrary code. Signing officer comes from `MILPAC_SIGNATORY_*` env vars. Returns 404 for a code the member doesn't hold or that has no slide, 502 if the render service is unreachable. Collections: `Db.users`.
