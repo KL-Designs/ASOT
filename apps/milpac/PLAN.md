@@ -388,11 +388,18 @@ Container base goes `node:bookworm` + libreoffice + ghostscript + cairo
 
 ### Phase 2 — Canvas certificate renderer
 
+**Read §11 first** — the original pipeline has been reverse-engineered and the
+slide mapping recovered from git history, and two of its findings change what
+this phase has to do.
+
 1. Parse `ppt/slides/slideN.xml` out of both templates (they are zip archives) to
    extract text content, positions, and font sizes per slide.
-2. Emit `certificate-layouts.json` keyed by cert code.
-3. Implement `render/certificate.ts`: `Background.jpg` → `Frame.png` → text →
-   `WaxSealGold.png` → `logo.png`.
+2. Emit `certificate-layouts.json` keyed by cert code, using the recovered
+   `assets/templates/slide-map.json` to resolve code → template + slide.
+3. Implement `render/certificate.ts`. **The layer list in the original §4 sketch
+   — `Background.jpg` → `Frame.png` → text → `WaxSealGold.png` → `logo.png` —
+   does not survive contact with the artwork; see §11.** Resolve the canvas
+   geometry question before writing the renderer.
 4. Render all 158 and diff against pptx-produced references. Nothing replaces the
    old pipeline until this passes review.
 5. Once it passes: delete the 614 legacy renders in `certificates/`, `milpac/`
@@ -748,3 +755,129 @@ Nothing is deleted in Phase 1 except the two colliding `Rank/` files that
 actively cause wrong output. The rest cost nothing, are already in git history,
 and the Victor art in particular may be wanted again if the rank structure
 changes back. The preflight reports them as unreferenced rather than failing.
+
+---
+
+## 11. The certificate pipeline, recovered
+
+Phase 1 deleted `src/cert.ts` and `src/server.ts`, which between them held the
+only record of how certificates were produced and which slide belonged to which
+rank or award. Both were recovered from commit `4e6bd956` and are documented
+here so Phase 2 does not have to re-derive them.
+
+### How the original worked
+
+1. `sanitize_certificate` normalised the award or rank into a `cert` code and
+   stamped the signatory from `SIGNATURER*` environment variables.
+2. `cert.ts` loaded **one of two templates**, chosen by `data.type`:
+   `promotion` → `Bulk Template.pptx` (116 slides), anything else →
+   `awards.pptx` (42 slides).
+3. docxtemplater filled `{name}`, `{date}`, `{signaturer}` and friends across
+   **every slide in the template**, and wrote the result to a single shared
+   `output.pptx` at the app root.
+4. LibreOffice converted that whole file to PDF.
+5. ImageMagick extracted one page:
+   `convert -density 100 <pdf>[N] output.png`, where `N` is the slide number
+   minus one.
+
+Steps 3–5 are why a certificate took 3–6 seconds, why two concurrent requests
+clobbered each other (one shared `output.pptx`), and why §9's `execSync` note
+matters. Rendering 158 slides to extract one is the whole cost.
+
+### The slide mapping — recovered to `assets/templates/slide-map.json`
+
+The original `SlideNumbers` object held **159 entries in one flat map**, with the
+template disambiguated only by `data.type` at the call site. Ranks had quoted
+string values and awards had bare numeric ones, which is the only textual clue
+that they index different files.
+
+| Type | Template | Codes | Distinct slides |
+|---|---|---|---|
+| `promotion` | `Bulk Template.pptx` | 117 | 116 |
+| `award` | `awards.pptx` | 42 | 42 |
+
+117 codes over 116 slides because **`PSM` and `PTSG` share slide 57** — the same
+`PTSG → PSM` equivalence §3 records as dropped during the web port. It was
+deliberate here.
+
+### Slide geometry
+
+Slides are `8280400 × 11268075` EMU (914400 EMU per inch, so ~9.06 × 12.32
+inches, portrait). Text lives in `<p:sp>` shapes carrying
+`<a:xfrm><a:off x y/><a:ext cx cy/></a:xfrm>`; each `<a:p>` has an alignment on
+`<a:pPr algn>`, and each `<a:r>` run carries `sz` (hundredths of a point), `b`,
+`i`, an `<a:srgbClr>` fill and a `<a:latin typeface>`.
+
+Placeholders are routinely **split across runs** — `{dateNumber}` appears as
+three separate `<a:t>` elements, `{`, `dateNumber`, `}` — so the extractor has to
+reassemble runs before matching placeholders, and take formatting from the first
+run of each.
+
+### Two problems Phase 2 must resolve
+
+**1. Identify which art file is which layer.** An earlier draft of this section
+claimed the runtime art "does not match the slide geometry" and called for a
+visual decision. That was wrong, and the answer was already on disk: the 343
+reference renders §7 decision #5 keeps are the finished article. Measured, they
+are **906 × 1232** — aspect 0.7354 against the slides' 0.7348, an exact match.
+So the slide geometry maps to the output directly, and the EMU → pixel scale is
+simply `906 / 8280400`.
+
+What a reference render shows, outermost first:
+
+1. A **portrait wooden frame** around the whole certificate.
+2. A **parchment field** inside it.
+3. **Gold decorative scrollwork** insetting each corner and edge.
+4. The **Rising Sun badge**, centred at the top.
+5. **Text** — a blackletter title (`fonts/OLDENGL.TTF`), a Times New Roman body,
+   and a Brush Script signature (`fonts/brushsci.ttf`) over a ruled line.
+6. A **red wax seal**, bottom left.
+
+All three bundled fonts are therefore in use, which is why `assets/fonts/` has
+to ship. The remaining Phase 2 task is mapping each of those layers onto a file,
+which is not obvious from names and dimensions alone:
+
+| File | Size | Orientation |
+|---|---|---|
+
+| File | Size | Orientation |
+|---|---|---|
+| `Background.jpg` | 612 × 359 | landscape |
+| `Frame.png` | 1843 × 1306 | landscape |
+| `WaxSealGold.png` | 880 × 768 | — |
+| `logo.png` | 528 × 546 | — |
+| `1011-10110075_decorative-frame-border…png` | 5250 × 7849 | **portrait** |
+
+Only the long-named decorative border is portrait, and it is plainly layer 3.
+`Background.jpg` at 612 × 359 is a *texture* — the parchment field, stretched to
+fill, which is why its own dimensions do not matter. `Frame.png` being landscape
+while the frame in the output is portrait is the one genuine open question:
+either it is rotated at draw time, or the wooden frame comes from elsewhere and
+`Frame.png` is something else. Open each file and confirm before drawing; do not
+infer the mapping from filenames.
+
+Note also that the §4 sketch's layer list — `Background.jpg` → `Frame.png` →
+text → `WaxSealGold.png` → `logo.png` — has the wooden frame drawn *second*,
+under the text. The reference render shows it outermost with the parchment
+inside it, and puts the decorative scrollwork and the Rising Sun badge in a list
+that sketch omits entirely. Treat the reference renders as the specification and
+that list as a first guess.
+
+**2. Award certificate codes are a different namespace from ribbon citation
+codes.** Five differ outright:
+
+| Certificate code | Citation code |
+|---|---|
+| `longterm` | `4year` |
+| `valour` | `crossofvalour` |
+| `founder` | `founders` |
+| `rotary` | `aviation` |
+| `courage` | `starofcourage` |
+
+`sanitize_certificate` derived its code by lowercasing the award label and
+stripping spaces, which produces the *citation* spelling — `starofcourage`, not
+`courage`. Those five never matched a slide, so `SlideNumbers[cert]` returned
+undefined and the page index became `NaN`. **Certificates for those five awards
+cannot have worked.** Phase 2 needs an explicit certificate-code map rather than
+a lowercase-and-strip heuristic, and it belongs next to the other award mapping
+in `lib/maps.ts` since web will be choosing the code.
