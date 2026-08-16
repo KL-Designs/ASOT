@@ -4,5 +4,6 @@
         "milpacs",
         "orbat",
         "SSAM"
-    ]
+    ],
+    "codeQL.githubDatabase.download": "never"
 }

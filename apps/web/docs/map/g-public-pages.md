@@ -197,8 +197,9 @@ Sets page metadata ("MILPACS").
 The MILPACs index/roster: hero banner, sticky `<MilpacsNav/>` jump-nav, then sections for India
 Company HQ, 1st/2nd/Support Platoon (from `fetchORBAT()`), Reservists — each member rendered via
 `<Card/>`. Section colours/patches come from `Db.orbatSectionMeta`. Shows "⚙ Manage ORBAT" link
-to `/dashboard/orbat` for users with `PERMISSIONS.admin.manageOrbat`. Gated by `WIP_PAGES` env var
-and also intercepted by middleware `WIP_PATHS` (`/milpacs`). Public read.
+to `/dashboard/orbat` for users with `PERMISSIONS.admin.manageOrbat`. **Live** — both WIP gates were
+removed (the `WIP_PAGES` check here and `/milpacs` in middleware's `WIP_PATHS`, which also covered
+`/milpacs/[username]`). Public read.
 
 #### app/(landing)/milpacs/card.tsx
 Client member card: tilt-on-hover 3D effect, links to `/milpacs/[username]`. Displays avatar
@@ -631,10 +632,11 @@ for `middleware.ts`'s `WIP_PATHS` list (`/community/orbat`, `/milpacs`, `/commun
   `/operations/[id]` themselves are public-read with extra content/actions unlocked once logged
   in (`isLoggedIn`, `isHQ`, `isJ6`, `isAllStaff`, `isSectionLeader` flags computed per-request).
 - **WIP gate**: `WIP_PAGES` env var (checked inside individual page components) and
-  `middleware.ts`'s `WIP_PATHS` rewrite are two *independent* mechanisms both currently targeting
-  milpacs/orbat/retired/bios — don't assume one implies the other is wired up.
-  `community/bios/page.tsx` and `milpacs/page.tsx` check `WIP_PAGES` explicitly;
-  `community/retired/page.tsx` also checks it via its child render.
+  `middleware.ts`'s `WIP_PATHS` rewrite are two *independent* mechanisms — don't assume one implies
+  the other is wired up. They now target orbat/retired/bios only; **milpacs was released and needed
+  both removed**, since the middleware rewrite alone would still have hidden the whole tree.
+  `community/bios/page.tsx` checks `WIP_PAGES` explicitly; `community/retired/page.tsx` checks it
+  via its child render.
 - **Operation theming**: `pageTheme` (`modern` | `oldfashioned` | `scifi`) is threaded through
   almost every operations component (`doc-body.tsx`, `paged-view.tsx`, `section-nav.tsx`,
   `PageNavClient.tsx`, the main `[id]/page.tsx`) — any new operation-page component should accept
