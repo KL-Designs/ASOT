@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "dotenv -e ../../.env -- tsx watch src/server.ts",
     "start": "dotenv -e ../../.env -- tsx src/server.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "extract-layouts": "tsx scripts/extract-certificate-layouts.ts"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.65",
@@ -17,6 +18,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^20",
     "dotenv-cli": "^7.4.4",
+    "pizzip": "^3.2.0",
     "tsx": "^4.19.2",
     "typescript": "^5"
   }
