@@ -199,7 +199,7 @@ All routes gated by `backups.manage` or `backups.restore` (new-system-only permi
 
 #### /api/backups/config
 - **GET** — reads backup config (`autoEnabled`/`keepHourly`/`keepDaily`/`keepWeekly`/`keepMonthly`). Gate: `backups.manage`. Filesystem config file.
-- **PATCH** — updates config with clamped ranges (`keepHourly` 1–200, `keepDaily` 1–90, `keepWeekly` 1–52, `keepMonthly` 1–60). Gate: `backups.manage`. Filesystem config file.
+- **PATCH** — updates config. Retention is one-way from the browser: each tier (`keepHourly`/`keepDaily`/`keepWeekly`/`keepMonthly`) can only be extended, never reduced — any value below the currently stored one is rejected with 400, and the accepted value is clamped to a fixed per-tier ceiling (`keepHourly` 200, `keepDaily` 90, `keepWeekly` 52, `keepMonthly` 60). Lowering a tier is a host-side act (edit `storage/backup-meta/.config.json` and restart), not an API one. Gate: `backups.manage`. Filesystem config file.
 
 #### /api/backups/[id]/download
 - **GET** — restores a backup point to a temp zip (`buildDownloadZip()`) and streams it to the browser as an attachment (Node `createReadStream` → web `ReadableStream`), deleting the temp zip once fully streamed. Gate: `backups.manage`. Restic restore + filesystem only.

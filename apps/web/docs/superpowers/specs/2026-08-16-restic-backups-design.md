@@ -211,8 +211,13 @@ Backup Now").
 
 ## Permissions
 
-Unchanged: `PERMISSIONS.departments.j4` gates every route, same as the
-current snapshot routes.
+~~Unchanged: `PERMISSIONS.departments.j4` gates every route, same as the
+current snapshot routes.~~
+
+**Superseded** by `2026-08-17-backup-hardening-design.md`: the routes now gate
+on `backups.manage` / `backups.restore` via `hasPermission()`. See that
+document for why, and for the two other issue #55 requirements this design
+left unmet.
 
 ## Out of Scope
 
