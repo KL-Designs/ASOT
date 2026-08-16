@@ -257,12 +257,14 @@ async function resticBackup(repo: string, paths: string[], tag: string, extraTag
 async function resticForget(repo: string, cfg: BackupConfig): Promise<void> {
     await runRestic(repo, [
         'forget', '--prune',
-        // Group by tag, not the default host+paths: each repo carries exactly
-        // one constant tag ('db' or 'media'), so this collapses to a single
-        // group regardless of hostname — the container's real hostname is
-        // its container ID, which changes on every deploy, and the default
-        // grouping would otherwise start a fresh never-pruned group every
-        // time, silently defeating retention entirely.
+        // Group by tag, not the default host+paths: the container's real
+        // hostname is its container ID, which changes on every deploy, and
+        // the default grouping would otherwise start a fresh never-pruned
+        // group every time, silently defeating retention entirely. Ordinary
+        // snapshots carry just 'db'/'media' and form one group; safety
+        // snapshots additionally carry 'pre-restore' and so form a second,
+        // separate group — that's fine, since --keep-tag below unions every
+        // 'pre-restore'-tagged snapshot into every tier regardless of group.
         '--group-by', 'tags',
         // Safety backups (taken automatically before every restore) are
         // exempt from every tier and are never pruned — a pre-restore copy
@@ -788,11 +790,11 @@ async function safeExtractZip(zipPath: string, destDir: string): Promise<void> {
 // { db-source/, gallery/, uploads/ } shape.
 export async function applyUploadedZip(zipPath: string): Promise<void> {
     const tmp = join(tmpdir(), `asot-upload-extract-${Date.now()}`)
-    await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Extracting upload…' })
     try {
         // Same rule as revertToPoint(): no safety backup, no restore.
         await runSafetyBackup()
 
+        await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Extracting upload…' })
         await safeExtractZip(zipPath, tmp)
 
         const dbDir = join(tmp, 'db-source')

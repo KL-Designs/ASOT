@@ -3,14 +3,20 @@
  *
  * No mocking is needed to force the safety backup to fail: resticEnv() throws
  * when RESTIC_PASSWORD is unset, which is the first thing every restic call
- * touches. That makes "safety backup failed" reachable with a real in-memory
- * mongod standing in for the live database, so the assertion that actually
- * matters — the live data is untouched — can be made directly.
+ * touches. runSafetyBackup() rethrows that failure prefixed with "Safety
+ * backup failed: ", so the assertions below match on
+ * /Safety backup failed: .*RESTIC_PASSWORD/ — pinning both that the safety
+ * backup is what blocked the restore (the ordering) and why it failed (the
+ * mechanism), rather than a bare /Safety backup failed/ that would also
+ * match an unrelated dumpDatabase hiccup. That makes it possible to assert
+ * directly on what matters most — the live data is untouched — with a real
+ * in-memory mongod standing in for the live database.
  */
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import { MongoClient } from 'mongodb'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs'
+import { rm } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
@@ -42,6 +48,7 @@ beforeAll(async () => {
 afterAll(async () => {
     await mongo.close()
     await mongod.stop()
+    await rm(storageRoot, { recursive: true, force: true }).catch(() => {})
 })
 
 beforeEach(async () => {
@@ -62,7 +69,7 @@ describe('revertToPoint', () => {
             mediaSnapshotId: 'cafebabe',
         }
 
-        await expect(backups.revertToPoint(point)).rejects.toThrow(/Safety backup failed/)
+        await expect(backups.revertToPoint(point)).rejects.toThrow(/Safety backup failed: .*RESTIC_PASSWORD/)
 
         // The live database is intact — restoreDatabase() never ran.
         const docs = await mongo.db('asot-test').collection('sentinel').find({}).toArray()
@@ -75,7 +82,7 @@ describe('revertToPoint', () => {
         // The failure is surfaced, not swallowed.
         const status = await backups.readStatus()
         expect(status.state).toBe('idle')
-        expect(status.error).toMatch(/Safety backup failed/)
+        expect(status.error).toMatch(/Safety backup failed: .*RESTIC_PASSWORD/)
     })
 })
 
@@ -84,7 +91,7 @@ describe('applyUploadedZip', () => {
         const zipPath = join(storageRoot, 'irrelevant.zip')
         writeFileSync(zipPath, 'not really a zip', 'utf-8')
 
-        await expect(backups.applyUploadedZip(zipPath)).rejects.toThrow(/Safety backup failed/)
+        await expect(backups.applyUploadedZip(zipPath)).rejects.toThrow(/Safety backup failed: .*RESTIC_PASSWORD/)
 
         const docs = await mongo.db('asot-test').collection('sentinel').find({}).toArray()
         expect(docs).toHaveLength(1)
