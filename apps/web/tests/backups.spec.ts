@@ -154,4 +154,34 @@ test.describe('PATCH /api/backups/config', () => {
         expect(res.status()).not.toBe(403)
         expect(res.status()).not.toBe(401)
     })
+
+    test('rejects lowering a retention tier', async ({ adminPage }) => {
+        const current = await (await adminPage.request.get('/api/backups/config')).json()
+        const res = await adminPage.request.patch('/api/backups/config', {
+            data: { keepHourly: current.keepHourly - 1 },
+        })
+        expect(res.status()).toBe(400)
+        expect((await res.json()).error).toMatch(/keepHourly/)
+
+        // Nothing was written.
+        const after = await (await adminPage.request.get('/api/backups/config')).json()
+        expect(after.keepHourly).toBe(current.keepHourly)
+    })
+
+    test('accepts raising a retention tier', async ({ adminPage }) => {
+        const current = await (await adminPage.request.get('/api/backups/config')).json()
+        const res = await adminPage.request.patch('/api/backups/config', {
+            data: { keepDaily: current.keepDaily + 1 },
+        })
+        expect(res.status()).toBe(200)
+        expect((await res.json()).keepDaily).toBe(current.keepDaily + 1)
+    })
+
+    test('still allows disabling auto-backups', async ({ adminPage }) => {
+        const res = await adminPage.request.patch('/api/backups/config', { data: { autoEnabled: false } })
+        expect(res.status()).toBe(200)
+        expect((await res.json()).autoEnabled).toBe(false)
+        // Restore the default so later specs see a normal config.
+        await adminPage.request.patch('/api/backups/config', { data: { autoEnabled: true } })
+    })
 })
