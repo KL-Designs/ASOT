@@ -705,9 +705,22 @@ nobody filed it under.
 | `GPCAPT` | `GPCAPT.png` | `AirforceOfficer/GCPT.png` | different abbreviation |
 | `CA` | `CA.png` | `Command/COA.png` | different abbreviation |
 
-The last four are inferred from rank group and name, not proven — `COA` for
-Chief of ASOT, `HAM` for Air Marshal, `HOCDT` for Aviation Officer Cadet,
-`GCPT` for Group Captain. Confirm each visually before shipping.
+The last four were inferred from rank group and name rather than proven —
+`COA` for Chief of ASOT, `HAM` for Air Marshal, `HOCDT` for Aviation Officer
+Cadet, `GCPT` for Group Captain. **All four are now confirmed** by rendering
+each insignia beside its neighbours in the same seniority ladder:
+
+- `COA` carries the most elaborate insignia in the Command ladder
+  (MAJGEN → LTGEN → GEN → COA), consistent with Chief of ASOT.
+- `HAM` sits third by stripe count in COM → AVM → HAM → ACM → SACM, which is
+  exactly where `ranks.ts` puts Air Marshal.
+- `HOCDT` is plain boards with no rank stripes — a cadet, and the most junior
+  rank in the pilot ladder, matching Aviation Officer Cadet.
+- `GCPT` carries the most stripes in the HOTEL Officer ladder, where
+  `ranks.ts` puts Group Captain last.
+
+The same sheet confirms decision 3d: `WGCDR` sits between `WGCP` and `GCPT`,
+which is where `ranks.ts` puts Wing Commander.
 
 **Do not fix this by renaming files.** An earlier draft proposed that; it is
 wrong, because the mismatch is not a typo in most cases — `SLT` and `CLT` are
@@ -981,10 +994,6 @@ judgement call for the unit.
 `MILPAC_SIGNATORY_RANK_SHORT` and `MILPAC_SIGNATORY_RANK_FULL` were seeded from
 a reference render (`Six` / `MAJGEN` / `Major General`). Every certificate prints
 them.
-
-**Confirm four inferred rank mappings** — `CA → COA`, `AM → HAM`,
-`OFFCDT → HOCDT`, `GPCAPT → GCPT`. Reasoned from rank group and full name in
-§10 rather than proven. Rendering those four and looking settles it.
 
 ### Deliberately deferred
 
