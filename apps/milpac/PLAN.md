@@ -924,11 +924,37 @@ comparing against a reference rather than by reading the spec:
 
 Run `baseline` is also extracted, so `31st` renders with a raised suffix.
 
-Remaining Phase 2 work:
+### The systematic diff
 
-1. Diff the full 158 against the 343 references rather than the two spot checks
-   done so far, then delete the references (§7 decision #5).
-2. Fix the five award codes §11 records as never having resolved —
+A raw pixel diff is meaningless here — the references carry real member data and
+a fresh render carries test data — so the comparison masks every text rectangle
+from the layout and compares only the artwork. Of the 159 codes, **64 have a
+reference**; the other 95 are certificates the unit has never issued.
+
+| Metric | Result |
+|---|---|
+| Mean art difference | **2.07%** |
+| Under 2% | 17 |
+| 2–5% | 46 |
+| Over 5% | 1 |
+
+There is a ~2.5% floor across the whole set that is not a placement error: the
+render is 906 × 1233 against the references' 906 × 1232, so everything sits a
+sub-pixel out vertically, and antialiasing differs between a canvas rasteriser
+and Ghostscript. High-contrast artwork amplifies it.
+
+The single outlier, `FLL` at 6.77%, was checked visually and is **correct** —
+its rank insignia is a large, dark, high-contrast image, which is exactly the
+content that turns a sub-pixel offset into a large pixel count. Frame,
+parchment, scrollwork, insignia, seal and text all match.
+
+### Remaining Phase 2 work
+
+1. **Fix the five award codes** §11 records as never having resolved —
    `longterm`, `valour`, `founder`, `rotary`, `courage`. The map belongs in
    `lib/maps.ts`, because web chooses the code and the service only draws what
-   it is handed.
+   it is handed. This is really Phase 3 work.
+2. **Delete the 614 legacy renders** (§7 decision #5) — *after* someone reviews
+   the output, not before. They are the only reference for the 95 codes that
+   have never been issued, so deleting them early forecloses ever checking
+   those. They are gitignored, so they cost nothing to keep meanwhile.
