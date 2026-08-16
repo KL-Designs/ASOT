@@ -62,7 +62,7 @@ describe('revertToPoint', () => {
             mediaSnapshotId: 'cafebabe',
         }
 
-        await expect(backups.revertToPoint(point)).rejects.toThrow(/RESTIC_PASSWORD/)
+        await expect(backups.revertToPoint(point)).rejects.toThrow(/Safety backup failed/)
 
         // The live database is intact — restoreDatabase() never ran.
         const docs = await mongo.db('asot-test').collection('sentinel').find({}).toArray()
@@ -75,7 +75,7 @@ describe('revertToPoint', () => {
         // The failure is surfaced, not swallowed.
         const status = await backups.readStatus()
         expect(status.state).toBe('idle')
-        expect(status.error).toMatch(/RESTIC_PASSWORD/)
+        expect(status.error).toMatch(/Safety backup failed/)
     })
 })
 
@@ -84,7 +84,7 @@ describe('applyUploadedZip', () => {
         const zipPath = join(storageRoot, 'irrelevant.zip')
         writeFileSync(zipPath, 'not really a zip', 'utf-8')
 
-        await expect(backups.applyUploadedZip(zipPath)).rejects.toThrow(/RESTIC_PASSWORD/)
+        await expect(backups.applyUploadedZip(zipPath)).rejects.toThrow(/Safety backup failed/)
 
         const docs = await mongo.db('asot-test').collection('sentinel').find({}).toArray()
         expect(docs).toHaveLength(1)

@@ -337,15 +337,24 @@ export async function runSafetyBackup(): Promise<void> {
     await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Creating safety backup…' })
 
     try {
-        await dumpDatabase(DB_DUMP_DIR)
-        await resticBackup(DB_REPO, [DB_DUMP_DIR], 'db', ['pre-restore'])
-    } finally {
-        await rm(DB_DUMP_DIR, { recursive: true, force: true }).catch(() => {})
-    }
+        try {
+            await dumpDatabase(DB_DUMP_DIR)
+            await resticBackup(DB_REPO, [DB_DUMP_DIR], 'db', ['pre-restore'])
+        } finally {
+            await rm(DB_DUMP_DIR, { recursive: true, force: true }).catch(() => {})
+        }
 
-    await ensureRepoInitialized(MEDIA_REPO)
-    const paths = [GALLERY_DIR, UPLOADS_DIR].filter(existsSync)
-    if (paths.length > 0) await resticBackup(MEDIA_REPO, paths, 'media', ['pre-restore'])
+        await ensureRepoInitialized(MEDIA_REPO)
+        const paths = [GALLERY_DIR, UPLOADS_DIR].filter(existsSync)
+        if (paths.length > 0) await resticBackup(MEDIA_REPO, paths, 'media', ['pre-restore'])
+    } catch (e: unknown) {
+        // Prefixed so callers, the status file and the tests can all tell a
+        // failed safety backup apart from a failure in the restore that
+        // follows it — they otherwise surface identical restic errors, and an
+        // operator needs to know the restore never started.
+        const msg = e instanceof Error ? e.message : String(e)
+        throw new Error(`Safety backup failed: ${msg}`)
+    }
 
     console.log('[backups] Safety backup complete')
 }
