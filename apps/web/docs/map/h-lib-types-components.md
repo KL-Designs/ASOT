@@ -105,11 +105,9 @@ This map documents every file under `lib/**` (59 files), `types/**` (31 files), 
 - Types: `TrainingBadge`, `Rank` (full flat union of every rank abbreviation variant used by the generator), `Medallion`, `Citation`, `Badge`.
 - Interfaces: `UniformData` (`name,displayName,rank,medallions,citations,TrainingMedals,Uniform,RifleManBadge,badge`), `BoxData` (`name,medals`).
 
-### lib/milpac-gen/uniform.ts
-- `generateUniform(rawData: UniformData): Promise<void>` — canvas-composites the full uniform PNG (`@napi-rs/canvas`) from `public/milpac-assets/`: base uniform → rifleman badge → name tag text (auto-shrinking font) → corps badge → medallions → training badges → citation ribbons (cascading fill algorithm across 8 lines with per-row capacity) → collar/border → RE badge overlay → rank insignia. Writes to `./milpacs/{userId}.png`. Internal `sanitize()` dedupes campaign clasps, collapses training-badge hierarchy (Expert > Advanced > Basic), suppresses rank insignia for PTE-tier.
-
-### lib/milpac-gen/box.ts
-- `generateBox(rawData: BoxData): Promise<void>` — canvas-composites the medal display box PNG from `public/milpac-assets/medal-box-images/`; normalizes award names via `AWARD_TO_CITATION`, dedupes campaign clasps to highest, lays out medals centered with fixed spacing, glass overlay + border. Writes `./milpacs/{userId}-medals.png`.
+### lib/milpac-gen/client.ts
+- Typed client for the `apps/milpac` render service. `renderUniform(data)` / `renderBox(data)` / `renderCertificate(data)` → `Promise<Buffer>`; `isMilpacServiceConfigured()` for callers that prefer to degrade. Posts to `MILPAC_SERVICE_URL` with `Authorization: Bearer ${MILPAC_SERVICE_TOKEN}`, 30s timeout. Failures throw `MilpacServiceError` carrying the status and the service's JSON detail — 400 names the offending field, 422 names the missing asset, 500 carries a correlation id matching the service's log.
+- `lib/milpac-gen/uniform.ts` and `box.ts` were **deleted** — rendering moved into the `apps/milpac` service. `public/milpac-assets/` stays: it is served directly to the browser for training badges and ribbons.
 
 ### lib/milpac-gen/generate-for-user.ts
 - `generateMilpacForUser(user: User): Promise<void>` — orchestrates: fetch ORBAT entry, build uniform+box data, generate both images in parallel, persist `milpac.uniformHash` on `Db.users`. Bypasses HTTP auth — caller responsible.

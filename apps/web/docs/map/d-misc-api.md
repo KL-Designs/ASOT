@@ -371,7 +371,7 @@ Both explicitly marked "DEV-ONLY — delete before deploying to production" in s
 ### generate (1 file)
 
 #### /api/generate/milpac/[username]
-- **POST** — regenerates a member's MilPac uniform + box renders (`lib/milpac-gen/uniform.ts`, `lib/milpac-gen/box.ts`) from current user/ORBAT data, computes and stores `milpac.uniformHash` for change detection. Auth: `PERMISSIONS.pages.admin`. Collections: `Db.users`. Uses `getOrbatEntryByUserId`, `@napi-rs/canvas`-based generators (native binary, `serverExternalPackages`).
+- **POST** — regenerates a member's MilPac uniform + box renders from current user/ORBAT data, computes and stores `milpac.uniformHash` for change detection. Delegates to `generateMilpacForUser`, which posts to the `apps/milpac` render service via `lib/milpac-gen/client.ts` and writes the returned bytes to `storage/milpacs/`. Auth: `hasPermission(me, 'pages.admin')` (migrated off the legacy `PERMISSIONS.pages.admin` role array). Collections: `Db.users`. Returns 502 when the render service is unreachable.
 
 ---
 

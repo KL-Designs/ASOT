@@ -218,7 +218,7 @@ Client `TacticalLoader` reading the `username` route param for its label.
 #### app/(landing)/milpacs/[username]/page.tsx
 The full individual MILPAC profile page (largest file in this group, ~650 lines). Resolves the
 member via `client.fetchAllMembers()` + `resolveMilpacProfile`, **auto-regenerates** the uniform
-PNG/medal-box PNG (`generateUniform`/`generateBox` from `@/lib/milpac-gen/*`) on the server when a
+PNG/medal-box PNG (`renderUniform`/`renderBox` from `@/lib/milpac-gen/client`, rendered by the `apps/milpac` service) on the server when a
 content hash mismatches (`member.milpac.uniformHash`), computes promotion progress, enlisted date,
 and confirmed-operation history grouped by campaign, displays Service Record / Promotions /
 Qualifications / Awards / Operation History sections. Edit affordances: "Edit" link to

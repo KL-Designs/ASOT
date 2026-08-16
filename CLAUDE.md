@@ -10,7 +10,7 @@ This is a monorepo with three deployable apps sharing a `types/` directory, a `l
 
 - **`apps/web`** ([CLAUDE.md](apps/web/CLAUDE.md)) — Next.js 15 App Router site. Staff dashboard, public pages, operations board, all API routes, and a Hocuspocus WebSocket server for the real-time collaborative document editor.
 - **`apps/bot`** ([CLAUDE.md](apps/bot/CLAUDE.md)) — Discord bot (discord.js v14): slash commands, interactions, guild event handling, scheduled member/role sync.
-- **`apps/milpac`** ([PLAN.md](apps/milpac/PLAN.md)) — stateless MilPac image renderer: composites uniforms, medal boxes and certificates from layered PNGs. Holds no database connection and writes nothing to disk — `apps/web` builds the payload and persists the returned bytes. Still mid-rewrite; `PLAN.md` is the authority until it has its own `CLAUDE.md`.
+- **`apps/milpac`** ([CLAUDE.md](apps/milpac/CLAUDE.md)) — stateless MilPac image renderer: composites uniforms, medal boxes and certificates from layered PNGs and returns bytes over HTTP. Holds no database connection and writes nothing to disk — `apps/web` builds the payload and persists the result. [PLAN.md](apps/milpac/PLAN.md) additionally records *why* it looks the way it does: the original it replaces, the bugs that motivated the rewrite, and the asset audits.
 
 This file only covers what's shared across both.
 
