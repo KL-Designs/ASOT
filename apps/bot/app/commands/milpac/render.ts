@@ -19,6 +19,20 @@ const LABEL = {
     medals: { noun: 'medal display', title: 'Medals' },
 } as const
 
+/**
+ * Reports a failure to the caller alone.
+ *
+ * The reply is deferred publicly because the successful case is the point of
+ * the command, and Discord fixes a reply's visibility at deferral. So a failure
+ * withdraws the public placeholder and follows up privately instead — nobody
+ * else needs to watch someone else's command not work.
+ */
+async function fail(interaction: Discord.ChatInputCommandInteraction, message: string) {
+    // Best-effort: if the placeholder is already gone, the follow-up still matters.
+    await interaction.deleteReply().catch(() => { })
+    return interaction.followUp({ content: message, ephemeral: true })
+}
+
 export async function renderMilpac(
     interaction: Discord.ChatInputCommandInteraction,
     type: 'uniform' | 'medals',
@@ -27,9 +41,7 @@ export async function renderMilpac(
     await interaction.deferReply()
 
     if (!config.apiSecret) {
-        return interaction.editReply(
-            'The milpac renderer is not configured on this bot — `BOT_API_SECRET` is unset.',
-        )
+        return fail(interaction, 'The milpac renderer is not configured on this bot — `BOT_API_SECRET` is unset.')
     }
 
     const target = interaction.options.getUser('member') ?? interaction.user
@@ -43,10 +55,14 @@ export async function renderMilpac(
             signal: AbortSignal.timeout(TIMEOUT_MS),
         })
     } catch (err) {
-        console.error('[milpac] bot render request failed', err)
-        return interaction.editReply(
-            `Could not reach the milpac renderer. Try again in a moment.`,
-        )
+        console.error('[milpac] bot render request failed', config.apiInternal, err)
+        // The reason is worth showing, not just logging: this message is private
+        // to whoever ran the command, and "timed out" and "refused" point at
+        // completely different problems.
+        const reason = (err as Error)?.name === 'TimeoutError'
+            ? `it did not respond within ${TIMEOUT_MS / 1000}s`
+            : `the connection failed (\`${(err as Error)?.message ?? 'unknown'}\`)`
+        return fail(interaction, `Could not reach the milpac renderer at \`${config.apiInternal}\` — ${reason}.`)
     }
 
     if (!response.ok) {
@@ -55,9 +71,9 @@ export async function renderMilpac(
         const message =
             response.status === 404 ? `**${target.displayName}** has no milpac on record.`
             : response.status === 422 ? `**${target.displayName}**'s milpac names artwork that does not exist — a staff member needs to look at their record.`
-            : response.status === 401 ? 'The milpac renderer rejected this bot\'s credentials.'
-            : 'The milpac renderer is unavailable right now.'
-        return interaction.editReply(message)
+            : response.status === 401 ? 'The milpac renderer rejected this bot\'s credentials — `BOT_API_SECRET` does not match the website\'s.'
+            : `The milpac renderer is unavailable right now (${response.status}).`
+        return fail(interaction, message)
     }
 
     const png = Buffer.from(await response.arrayBuffer())
