@@ -7,6 +7,7 @@ import { dirname, join } from 'path'
 import { renderUniform, renderBox } from '@/lib/milpac-gen/client'
 import { buildUniformData, buildBoxData, computeUniformHash } from '@/lib/milpac-gen/data-mapper'
 import { AWARD_TO_CITATION, QUAL_TO_BADGE } from '@/lib/milpac-gen/maps'
+import { certificateCodeForCitation, MEDALLION_CERTIFICATE_CODES } from '@asot/lib'
 import { RANK_TRACKS } from '@/lib/military/promotion-requirements'
 import { calculateOpPoints } from '@/lib/military/points'
 import Image from 'next/image'
@@ -20,6 +21,7 @@ import { CoverUpload } from './cover-upload'
 import { BiographyEditor } from './bio-editor'
 import { RequestAwardButton } from './RequestAwardButton'
 import { ImageLightbox } from './image-lightbox'
+import { CertificateLink } from './certificate-link'
 
 
 // ── Training badge → asset subfolder ─────────────────────────────────────────
@@ -534,6 +536,35 @@ export default async function Page({ params }: { params: Promise<{ username: str
 								<Placeholder text='No awards on record.' />
 							)}
 						</Section>
+
+						{/* Certificates — rendered on demand by the milpac service, not
+						    stored, so each row fetches only when opened. */}
+						{(() => {
+							const rankCode = (member.milpac?.currentRank ?? '').replace(/[()]/g, '')
+							const certs: { label: string; cert: string; type: 'promotion' | 'award' }[] = []
+							if (rankCode) certs.push({ label: `Promotion — ${fullRank || rankCode}`, cert: rankCode, type: 'promotion' })
+							for (const a of member.milpac?.awards ?? []) {
+								const citation = AWARD_TO_CITATION[a.name]
+								const code = MEDALLION_CERTIFICATE_CODES[a.name]
+									?? (citation ? certificateCodeForCitation(citation) : undefined)
+								if (code) certs.push({ label: a.name, cert: code, type: 'award' })
+							}
+							if (certs.length === 0) return null
+							return (
+								<Section accent={accent} title='Certificates'>
+									<div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+										{certs.map((c, i) => (
+											<CertificateLink
+												key={i}
+												label={c.label}
+												accent={accent}
+												href={`/api/milpac/certificate/${username}?type=${c.type}&cert=${encodeURIComponent(c.cert)}`}
+											/>
+										))}
+									</div>
+								</Section>
+							)
+						})()}
 
 						{/* Operation History */}
 						{(() => {
