@@ -65,6 +65,9 @@ export const PERMISSION_DESCRIPTIONS: Record<string, string> = {
 
     'deptLinks.manage': "Add, edit, delete, reorder, and control who can see a department's quick links.",
 
+    'backups.manage': 'View the backup timeline and storage usage, trigger a backup, download a backup point, and extend retention.',
+    'backups.restore': 'Revert to a backup point, or upload a ZIP and restore from it. Destructive — always takes a safety backup first.',
+
     'quiz.assign': 'Assign the BCT quiz to a recruit and view training records.',
     'quiz.review': 'Review a submitted quiz attempt — pass it, fail it, or escalate it.',
     'quiz.reviewEscalated': 'Handle quiz reviews escalated up from a trainer or department lead.',

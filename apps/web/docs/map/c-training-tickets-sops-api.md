@@ -177,29 +177,29 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 
 ## app/api/backups/**
 
-All routes gated by `PERMISSIONS.departments.j4` (J4 department membership) and back onto two restic repositories (`storage/db-backups/`, `storage/media-backups/`) plus `lib/backups.ts` helpers rather than MongoDB — backups are deduplicating, hourly, tiered-retention restic snapshots, not a `Db.*` collection. Replaced the old full-copy-zip `/api/snapshots/**` system; retention is automatic (`restic forget --prune`), so there is no manual per-point delete route.
+All routes gated by `backups.manage` or `backups.restore` (new-system-only permission keys — see `lib/orbat/hasPermission.ts`; no Discord-role bypass) and back onto two restic repositories (`storage/db-backups/`, `storage/media-backups/`) plus `lib/backups.ts` helpers rather than MongoDB — backups are deduplicating, hourly, tiered-retention restic snapshots, not a `Db.*` collection. Replaced the old full-copy-zip `/api/snapshots/**` system; retention is automatic (`restic forget --prune`), so there is no manual per-point delete route.
 
 #### /api/backups
-- **GET** — merged backup timeline (`listBackups()`, one entry per hour bucket with either/both DB and media sides present, each carrying `dbSizeBytes`/`mediaSizeBytes` when restic reports them), current operation status (`readStatus()`), and `resticHealthy` (`checkResticHealth()` — is the restic binary present and runnable). `listBackups()` failing degrades to an empty timeline rather than a 500, so `resticHealthy` still comes through when restic itself is the thing that's broken. Gate: `PERMISSIONS.departments.j4`. Collections: none (restic repos + JSON status file via `lib/backups`).
+- **GET** — merged backup timeline (`listBackups()`, one entry per hour bucket with either/both DB and media sides present, each carrying `dbSizeBytes`/`mediaSizeBytes` when restic reports them), current operation status (`readStatus()`), and `resticHealthy` (`checkResticHealth()` — is the restic binary present and runnable). `listBackups()` failing degrades to an empty timeline rather than a 500, so `resticHealthy` still comes through when restic itself is the thing that's broken. Gate: `backups.manage`. Collections: none (restic repos + JSON status file via `lib/backups`).
 
 #### /api/backups/storage
-- **GET** — live vs backed-up disk usage breakdown (`getStorageUsage()`): live DB size (Mongo `db.stats()`), live `gallery`/`uploads` directory sizes, each restic repo's real on-disk size (`restic stats --mode raw-data`), and an approximate gallery/uploads split of the media repo's total (from the latest snapshot's file listing, falling back to the live directory size ratio if that can't be computed). Each probe degrades to a fallback independently rather than failing the whole response. Gate: `PERMISSIONS.departments.j4`. Collections: none.
+- **GET** — live vs backed-up disk usage breakdown (`getStorageUsage()`): live DB size (Mongo `db.stats()`), live `gallery`/`uploads` directory sizes, each restic repo's real on-disk size (`restic stats --mode raw-data`), and an approximate gallery/uploads split of the media repo's total (from the latest snapshot's file listing, falling back to the live directory size ratio if that can't be computed). Each probe degrades to a fallback independently rather than failing the whole response. Gate: `backups.manage`. Collections: none.
 
 #### /api/backups/create
-- **POST** — fire-and-forget triggers `runAllBackups()` in the background (DB dump + media, sequentially); rejects (409) if an operation is already in progress. Gate: `PERMISSIONS.departments.j4`. No DB collection; writes to the two restic repos.
+- **POST** — fire-and-forget triggers `runAllBackups()` in the background (DB dump + media, sequentially); rejects (409) if an operation is already in progress. Gate: `backups.manage`. No DB collection; writes to the two restic repos.
 
 #### /api/backups/upload
-- **POST** — accepts a multipart-uploaded `.zip` (buffered fully in memory), writes it to a temp path, then fire-and-forget `applyUploadedZip(tmpPath)`; rejects if not idle. Gate: `PERMISSIONS.departments.j4`. Filesystem only — does not feed the upload into either restic repo's history.
+- **POST** — accepts a multipart-uploaded `.zip` (buffered fully in memory), writes it to a temp path, then fire-and-forget `applyUploadedZip(tmpPath)`; rejects if not idle. Gate: `backups.restore`. Filesystem only — does not feed the upload into either restic repo's history.
 
 #### /api/backups/revert
-- **POST** — reverts to a merged backup point resolved server-side from a client-supplied hour-bucket `id` via `listBackups()` (never trusts the id directly), fire-and-forget `revertToPoint()`; rejects if not idle or point not found. Gate: `PERMISSIONS.departments.j4`. Restic restore + filesystem only.
+- **POST** — reverts to a merged backup point resolved server-side from a client-supplied hour-bucket `id` via `listBackups()` (never trusts the id directly), fire-and-forget `revertToPoint()`; rejects if not idle or point not found. Gate: `backups.restore`. Restic restore + filesystem only.
 
 #### /api/backups/cancel
-- **POST** — force-resets a stuck in-progress operation back to `idle` via `writeStatus()`. Gate: `PERMISSIONS.departments.j4`. Filesystem/status-file only.
+- **POST** — force-resets a stuck in-progress operation back to `idle` via `writeStatus()`. Gate: `backups.manage`. Filesystem/status-file only.
 
 #### /api/backups/config
-- **GET** — reads backup config (`autoEnabled`/`keepHourly`/`keepDaily`/`keepWeekly`/`keepMonthly`). Gate: `PERMISSIONS.departments.j4`. Filesystem config file.
-- **PATCH** — updates config with clamped ranges (`keepHourly` 1–200, `keepDaily` 1–90, `keepWeekly` 1–52, `keepMonthly` 1–60). Gate: `PERMISSIONS.departments.j4`. Filesystem config file.
+- **GET** — reads backup config (`autoEnabled`/`keepHourly`/`keepDaily`/`keepWeekly`/`keepMonthly`). Gate: `backups.manage`. Filesystem config file.
+- **PATCH** — updates config. Retention is one-way from the browser: each tier (`keepHourly`/`keepDaily`/`keepWeekly`/`keepMonthly`) can only be extended, never reduced — any value below the currently stored one is rejected with 400, and the accepted value is clamped to a fixed per-tier ceiling (`keepHourly` 200, `keepDaily` 90, `keepWeekly` 52, `keepMonthly` 60). Lowering a tier is a host-side act (edit `storage/backup-meta/.config.json` and restart), not an API one. Gate: `backups.manage`. Filesystem config file.
 
 #### /api/backups/[id]/download
-- **GET** — restores a backup point to a temp zip (`buildDownloadZip()`) and streams it to the browser as an attachment (Node `createReadStream` → web `ReadableStream`), deleting the temp zip once fully streamed. Gate: `PERMISSIONS.departments.j4`. Restic restore + filesystem only.
+- **GET** — restores a backup point to a temp zip (`buildDownloadZip()`) and streams it to the browser as an attachment (Node `createReadStream` → web `ReadableStream`), deleting the temp zip once fully streamed. Gate: `backups.manage`. Restic restore + filesystem only.

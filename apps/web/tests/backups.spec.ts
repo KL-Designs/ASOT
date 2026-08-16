@@ -154,4 +154,65 @@ test.describe('PATCH /api/backups/config', () => {
         expect(res.status()).not.toBe(403)
         expect(res.status()).not.toBe(401)
     })
+
+    test('rejects lowering a retention tier', async ({ adminPage }) => {
+        const current = await (await adminPage.request.get('/api/backups/config')).json()
+        const res = await adminPage.request.patch('/api/backups/config', {
+            data: { keepHourly: current.keepHourly - 1 },
+        })
+        expect(res.status()).toBe(400)
+        expect((await res.json()).error).toMatch(/keepHourly/)
+
+        // Nothing was written.
+        const after = await (await adminPage.request.get('/api/backups/config')).json()
+        expect(after.keepHourly).toBe(current.keepHourly)
+    })
+
+    test('accepts raising a retention tier', async ({ adminPage }) => {
+        const current = await (await adminPage.request.get('/api/backups/config')).json()
+        const res = await adminPage.request.patch('/api/backups/config', {
+            data: { keepDaily: current.keepDaily + 1 },
+        })
+        expect(res.status()).toBe(200)
+        expect((await res.json()).keepDaily).toBe(current.keepDaily + 1)
+    })
+
+    test('still allows disabling auto-backups', async ({ adminPage }) => {
+        const res = await adminPage.request.patch('/api/backups/config', { data: { autoEnabled: false } })
+        expect(res.status()).toBe(200)
+        expect((await res.json()).autoEnabled).toBe(false)
+        // Restore the default so later specs see a normal config.
+        await adminPage.request.patch('/api/backups/config', { data: { autoEnabled: true } })
+    })
+})
+
+/**
+ * The manage/restore split (issue #55 requirement 4). The `j4` persona holds
+ * `backups.manage` via the seeded J4 base department role but NOT
+ * `backups.restore` — it is the only persona that can distinguish the two
+ * gates. `override` bypasses both; `j3` holds neither.
+ */
+test.describe('backups.manage vs backups.restore', () => {
+    test('a manage-only holder can read the timeline', async ({ pageAs }) => {
+        const page = await pageAs('j4')
+        const res = await page.request.get('/api/backups')
+        expect(res.status()).not.toBe(403)
+        expect(res.status()).not.toBe(401)
+    })
+
+    test('a manage-only holder cannot revert', async ({ pageAs }) => {
+        const page = await pageAs('j4')
+        const res = await page.request.post('/api/backups/revert', { data: { id: '2026-08-17T14:00:00.000Z' } })
+        expect(res.status()).toBe(403)
+    })
+
+    test('a manage-only holder cannot upload-restore', async ({ pageAs }) => {
+        const page = await pageAs('j4')
+        expect((await page.request.post('/api/backups/upload')).status()).toBe(403)
+    })
+
+    test('a holder of neither key is refused the timeline', async ({ pageAs }) => {
+        const page = await pageAs('plainMember')
+        expect((await page.request.get('/api/backups')).status()).toBe(403)
+    })
 })

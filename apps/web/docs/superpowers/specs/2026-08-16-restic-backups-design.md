@@ -126,8 +126,9 @@ These are starting defaults, stored in `storage/backup-meta/.config.json`
 `app/api/snapshots/**` is deleted wholesale and replaced by
 `app/api/backups/**` with the same shape (`route.ts` for list,
 `create/route.ts`, `revert/route.ts`, `[id]/download/route.ts`,
-`upload/route.ts`, `cancel/route.ts`, `config/route.ts`) and the same
-permission gate (`PERMISSIONS.departments.j4`, unchanged from today).
+`upload/route.ts`, `cancel/route.ts`, `config/route.ts`) and ~~the same
+permission gate (`PERMISSIONS.departments.j4`, unchanged from today)~~
+— **superseded**, see the Permissions section below.
 `app/api/cron/snapshots/route.ts` → `app/api/cron/backups/route.ts`,
 triggering both `runDbBackup()` and `runMediaBackup()` (independently —
 one failing doesn't block the other), gated by `verifyCronSecret` exactly
@@ -211,8 +212,13 @@ Backup Now").
 
 ## Permissions
 
-Unchanged: `PERMISSIONS.departments.j4` gates every route, same as the
-current snapshot routes.
+~~Unchanged: `PERMISSIONS.departments.j4` gates every route, same as the
+current snapshot routes.~~
+
+**Superseded** by `2026-08-17-backup-hardening-design.md`: the routes now gate
+on `backups.manage` / `backups.restore` via `hasPermission()`. See that
+document for why, and for the two other issue #55 requirements this design
+left unmet.
 
 ## Out of Scope
 

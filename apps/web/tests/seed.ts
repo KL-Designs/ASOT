@@ -114,7 +114,9 @@ export async function seedDatabase(): Promise<void> {
                 isBase: true,
                 discordRoleIds: [ROLE_IDS.j4DepartmentName],
                 tsGroupIds: [],
-                permissions: ['pages.dashboard', 'departmentLeads.j4'],
+                // backups.manage but deliberately NOT backups.restore — this
+                // role is what makes the manage/restore split testable.
+                permissions: ['pages.dashboard', 'departmentLeads.j4', 'backups.manage'],
                 linkedSlot: null,
                 createdAt: new Date('2026-01-01'),
                 createdBy: '0',

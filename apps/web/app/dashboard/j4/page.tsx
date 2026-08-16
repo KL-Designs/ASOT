@@ -16,5 +16,18 @@ export default async function Page() {
 
     const canManageLinks = (await hasPermission(me, 'departmentLeads.j4')) || await hasDepartmentPermission(me, 'j4', DEPT_LINKS_MANAGE_KEY)
 
-    return <J4AdminPanel userId={me.id} displayName={me.name ?? me.globalName ?? me.id} canManageLinks={canManageLinks} />
+    const [canBackupManage, canBackupRestore] = await Promise.all([
+        hasPermission(me, 'backups.manage'),
+        hasPermission(me, 'backups.restore'),
+    ])
+
+    return (
+        <J4AdminPanel
+            userId={me.id}
+            displayName={me.name ?? me.globalName ?? me.id}
+            canManageLinks={canManageLinks}
+            canBackupManage={canBackupManage}
+            canBackupRestore={canBackupRestore}
+        />
+    )
 }

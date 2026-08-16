@@ -715,6 +715,28 @@ const PERMISSIONS = {
         manage: [],
     },
 
+    // ── Backups ───────────────────────────────────────────────────────────────
+    //
+    // Two new-system-only keys (empty arrays; the real gate is always
+    // `await hasPermission(user, 'backups.x')` — lib/orbat/hasPermission.ts).
+    // Split so everyday visibility and the destructive actions can be granted
+    // separately: restoring overwrites the live database and media tree
+    // wholesale. See docs/superpowers/specs/2026-08-17-backup-hardening-design.md.
+    //
+    // Moving these routes onto hasPermission() removes the hardcoded
+    // `J4-Administration` bypass that client.hasRoles() grants — that is the
+    // point (issue #55 requirement 4), but it means the grant migration
+    // (scripts/migrate-backups-permissions.mjs) must be applied before this
+    // deploys or J4 locks itself out.
+
+    backups: {
+        /** View the backup timeline and storage usage, trigger a backup on demand, download a backup point, extend retention. New-system-only key. */
+        manage: [],
+
+        /** Revert to a backup point, or upload a ZIP and restore from it. Destructive — always takes a safety backup first. New-system-only key. */
+        restore: [],
+    },
+
     // ── Quiz / Training ───────────────────────────────────────────────────────
 
     quiz: {

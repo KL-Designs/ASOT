@@ -1,6 +1,6 @@
 import { resolve, join, basename, dirname, sep } from 'path'
 import { existsSync, mkdirSync, createWriteStream, createReadStream, readdirSync } from 'fs'
-import { readFile, writeFile, mkdir, rm, copyFile, readdir, stat } from 'fs/promises'
+import { readFile, writeFile, mkdir, mkdtemp, rm, copyFile, readdir, stat } from 'fs/promises'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { tmpdir } from 'os'
@@ -62,6 +62,7 @@ export type BackupPoint = {
     mediaSnapshotId?: string
     dbSizeBytes?: number        // total_bytes_processed from restic's own snapshot summary, when present
     mediaSizeBytes?: number
+    isSafety?: boolean          // carries the 'pre-restore' tag — taken automatically before a restore, never pruned
 }
 
 export type StorageUsage = {
@@ -197,10 +198,16 @@ async function* ndjsonLines(cursor: FindCursor): AsyncGenerator<string> {
     }
 }
 
-// Always the same fixed path (not timestamped) — restic restores recreate the
-// full original absolute path under the restore target, so a stable source
-// path here is what makes that restored location predictable later (see
-// findByMarker in Task 3). Cleared and recreated fresh on every dump.
+// The ordinary hourly DB dump. A single fixed path is fine here because only
+// runAllBackups() reaches it and that path is serialised by operationInProgress.
+// Cleared and recreated fresh on every dump.
+//
+// It does NOT need to be fixed for restores to work: restic recreates the full
+// original absolute path under the restore target, and findByMarker() walks
+// down that single-entry chain looking for manifest.json rather than assuming a
+// name — which is what lets runSafetyBackup() use a per-run mkdtemp'd directory
+// instead. (An earlier version of this comment claimed the fixed path was what
+// made restores predictable. It isn't, and safety backups rely on that.)
 const DB_DUMP_DIR = join(tmpdir(), 'asot-db-dump')
 
 async function dumpDatabase(destDir: string): Promise<void> {
@@ -237,11 +244,12 @@ interface ResticBackupSummary { message_type: 'summary'; snapshot_id: string }
 // regardless of hostname.
 const RESTIC_HOST = 'asot-backups'
 
-async function resticBackup(repo: string, paths: string[], tag: string): Promise<string> {
+async function resticBackup(repo: string, paths: string[], tag: string, extraTags: string[] = []): Promise<string> {
     await ensureRepoInitialized(repo)
+    const tagArgs = ['--tag', tag, ...extraTags.flatMap(t => ['--tag', t])]
     const stdout = await runRestic(
         repo,
-        ['backup', ...paths, '--tag', tag, '--host', RESTIC_HOST, '--json'],
+        ['backup', ...paths, ...tagArgs, '--host', RESTIC_HOST, '--json'],
         [3], // "completed with some source files unreadable" — routine on a live directory, not a failure
     )
     const summary = stdout.trim().split('\n').filter(Boolean)
@@ -255,13 +263,21 @@ async function resticBackup(repo: string, paths: string[], tag: string): Promise
 async function resticForget(repo: string, cfg: BackupConfig): Promise<void> {
     await runRestic(repo, [
         'forget', '--prune',
-        // Group by tag, not the default host+paths: each repo carries exactly
-        // one constant tag ('db' or 'media'), so this collapses to a single
-        // group regardless of hostname — the container's real hostname is
-        // its container ID, which changes on every deploy, and the default
-        // grouping would otherwise start a fresh never-pruned group every
-        // time, silently defeating retention entirely.
+        // Group by tag, not the default host+paths: the container's real
+        // hostname is its container ID, which changes on every deploy, and
+        // the default grouping would otherwise start a fresh never-pruned
+        // group every time, silently defeating retention entirely. Ordinary
+        // snapshots carry just 'db'/'media' and form one group; safety
+        // snapshots additionally carry 'pre-restore' and so form a second,
+        // separate group — that's fine, since --keep-tag below unions every
+        // 'pre-restore'-tagged snapshot into every tier regardless of group.
         '--group-by', 'tags',
+        // Safety backups (taken automatically before every restore) are
+        // exempt from every tier and are never pruned — a pre-restore copy
+        // that ages out on the hourly schedule defeats its own purpose. They
+        // are created only when a human actually restores, and dedup makes
+        // each one cost close to nothing. See issue #55 requirement 5.
+        '--keep-tag', 'pre-restore',
         '--keep-hourly',  String(cfg.keepHourly),
         '--keep-daily',   String(cfg.keepDaily),
         '--keep-weekly',  String(cfg.keepWeekly),
@@ -313,13 +329,68 @@ export async function runMediaBackup(): Promise<void> {
     }
 }
 
-// In-process guard against overlapping runs. Every route already checks
-// readStatus().state !== 'idle' before calling this, but that's a
-// check-then-act race across separate HTTP requests (two callers can both
-// observe 'idle' before either has written 'backing-up') — this flag closes
-// it synchronously within this one Node process, which is all of them
-// (server.mjs's cron trigger and every API route run in the same process).
-let backupInProgress = false
+// Taken automatically at the head of every restore path — issue #55's
+// "a backup must be made before a backup is loaded". Deliberately NOT
+// runAllBackups(): that writes { state: 'backing-up' } and owns the
+// backupInProgress guard, which would move the status out of 'reverting'
+// mid-operation and confuse both the UI poll and every route's in-progress
+// check. This keeps the whole restore looking like one continuous operation.
+//
+// Tagged 'pre-restore' in addition to the repo's usual tag, which is what
+// resticForget()'s --keep-tag exempts from retention.
+//
+// Throws on any failure. Callers MUST let it propagate — a restore that
+// cannot be undone is exactly what this exists to prevent.
+export async function runSafetyBackup(): Promise<void> {
+    await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Creating safety backup…' })
+
+    try {
+        // A unique dir, NOT the shared DB_DUMP_DIR runDbBackup() uses. Those two
+        // can genuinely overlap: the revert route reads status 'idle', then spends
+        // seconds in listBackups() before revertToPoint() writes 'reverting', and
+        // the hourly cron can start runAllBackups() inside that window. Sharing one
+        // fixed path would mean both dumping into it while each also rm -rf's it —
+        // and because resticBackup() tolerates exit code 3 ("some source files
+        // unreadable"), the safety backup would report SUCCESS on a partial
+        // snapshot and the restore would proceed with an undo that isn't one.
+        // operationInProgress below closes the same race from the other side; this
+        // makes the two paths independent even if that guard is ever bypassed.
+        const dumpDir = await mkdtemp(join(tmpdir(), 'asot-safety-dump-'))
+        try {
+            await dumpDatabase(dumpDir)
+            await resticBackup(DB_REPO, [dumpDir], 'db', ['pre-restore'])
+        } finally {
+            await rm(dumpDir, { recursive: true, force: true }).catch(() => {})
+        }
+
+        await ensureRepoInitialized(MEDIA_REPO)
+        const paths = [GALLERY_DIR, UPLOADS_DIR].filter(existsSync)
+        if (paths.length > 0) await resticBackup(MEDIA_REPO, paths, 'media', ['pre-restore'])
+    } catch (e: unknown) {
+        // Prefixed so callers, the status file and the tests can all tell a
+        // failed safety backup apart from a failure in the restore that
+        // follows it — they otherwise surface identical restic errors, and an
+        // operator needs to know the restore never started.
+        const msg = e instanceof Error ? e.message : String(e)
+        throw new Error(`Safety backup failed: ${msg}`)
+    }
+
+    console.log('[backups] Safety backup complete')
+}
+
+// In-process guard against overlapping runs — backups AND restores, which all
+// share one status file and (for the DB side) the same repo. Every route already
+// checks readStatus().state !== 'idle' first, but that's a check-then-act race
+// across separate HTTP requests: two callers can both observe 'idle' before
+// either has written its own state, and the revert route in particular spends
+// seconds in listBackups() in between. This flag closes the window synchronously
+// within this one Node process, which is all of them (server.mjs's cron trigger
+// and every API route run in the same process).
+//
+// Backups skip when it's set; restores throw (see below) — a restore that
+// silently no-ops would report success to a caller who then believes their data
+// was rolled back.
+let operationInProgress = false
 
 // Runs both sequentially (see Global Constraints — they share one status
 // file). Each side's failure is caught independently so DB issues don't
@@ -327,18 +398,18 @@ let backupInProgress = false
 // error is what's left in status once both have finished (even though each
 // function already wrote its own transient status/error along the way).
 export async function runAllBackups(): Promise<void> {
-    if (backupInProgress) {
-        console.warn('[backups] runAllBackups() called while a run is already in progress — skipping')
+    if (operationInProgress) {
+        console.warn('[backups] runAllBackups() called while an operation is already in progress — skipping')
         return
     }
-    backupInProgress = true
+    operationInProgress = true
     try {
         const errors: string[] = []
         try { await runDbBackup() } catch (e) { errors.push(`DB: ${e instanceof Error ? e.message : String(e)}`) }
         try { await runMediaBackup() } catch (e) { errors.push(`Media: ${e instanceof Error ? e.message : String(e)}`) }
         if (errors.length > 0) await writeStatus({ state: 'idle', error: errors.join(' | ') })
     } finally {
-        backupInProgress = false
+        operationInProgress = false
     }
 }
 
@@ -378,6 +449,7 @@ export async function listBackups(): Promise<BackupPoint[]> {
         const existing = byBucket.get(id) ?? { id, time: id }
         existing.dbSnapshotId = s.id
         existing.dbSizeBytes = s.summary?.total_bytes_processed
+        if (s.tags?.includes('pre-restore')) existing.isSafety = true
         byBucket.set(id, existing)
     }
     for (const s of mediaSnaps) {
@@ -385,6 +457,7 @@ export async function listBackups(): Promise<BackupPoint[]> {
         const existing = byBucket.get(id) ?? { id, time: id }
         existing.mediaSnapshotId = s.id
         existing.mediaSizeBytes = s.summary?.total_bytes_processed
+        if (s.tags?.includes('pre-restore')) existing.isSafety = true
         byBucket.set(id, existing)
     }
 
@@ -609,9 +682,21 @@ function findDirNamed(root: string, name: string): string | null {
 // ── Revert ────────────────────────────────────────────────────────────────────
 
 export async function revertToPoint(point: BackupPoint): Promise<void> {
-    await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring…' })
+    // Claimed before anything else, including the safety backup. Throws rather
+    // than returning quietly: the caller is about to be told its restore began.
+    if (operationInProgress) throw new Error('Another backup or restore operation is already in progress')
+    operationInProgress = true
+
     const tmp = join(tmpdir(), `asot-revert-${Date.now()}`)
     try {
+        // Inside the try, so a writeStatus failure releases the guard via the
+        // finally rather than wedging every later operation on a set flag.
+        await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring…' })
+
+        // Must come first and must be allowed to throw — if this fails there
+        // is no undo for what follows, so the restore does not happen.
+        await runSafetyBackup()
+
         if (point.dbSnapshotId) {
             await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring database…' })
             const dbTarget = join(tmp, 'db-restore')
@@ -637,6 +722,7 @@ export async function revertToPoint(point: BackupPoint): Promise<void> {
         throw e
     } finally {
         await rm(tmp, { recursive: true, force: true }).catch(() => {})
+        operationInProgress = false
     }
 }
 
@@ -735,9 +821,16 @@ async function safeExtractZip(zipPath: string, destDir: string): Promise<void> {
 // not feed the upload into either repo's history. Matches buildDownloadZip's
 // { db-source/, gallery/, uploads/ } shape.
 export async function applyUploadedZip(zipPath: string): Promise<void> {
+    // Same claim-first rule as revertToPoint().
+    if (operationInProgress) throw new Error('Another backup or restore operation is already in progress')
+    operationInProgress = true
+
     const tmp = join(tmpdir(), `asot-upload-extract-${Date.now()}`)
-    await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Extracting upload…' })
     try {
+        // Same rule as revertToPoint(): no safety backup, no restore.
+        await runSafetyBackup()
+
+        await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Extracting upload…' })
         await safeExtractZip(zipPath, tmp)
 
         const dbDir = join(tmp, 'db-source')
@@ -781,5 +874,6 @@ export async function applyUploadedZip(zipPath: string): Promise<void> {
         throw e
     } finally {
         await rm(tmp, { recursive: true, force: true }).catch(() => {})
+        operationInProgress = false
     }
 }
