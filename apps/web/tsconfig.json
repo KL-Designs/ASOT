@@ -24,6 +24,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@asot/lib": [
+        "../../lib/index.ts"
       ]
     },
     "target": "ES2017"
@@ -33,6 +36,7 @@
     "**/*.ts",
     "**/*.tsx",
     "../../types/**/*.ts",
+    "../../lib/**/*.ts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],

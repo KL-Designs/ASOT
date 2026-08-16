@@ -10,12 +10,9 @@
  */
 
 import { z } from 'zod'
+import { BADGES } from '@asot/lib'
 
 const UNIFORM_COLOURS = ['Blue', 'Brown'] as const
-
-const CORPS_BADGES = [
-    'Command', 'Echo', 'GM', 'Golf', 'Hotel', 'Infantry', 'Mike', 'Pronto', 'Victor',
-] as const
 
 const RIFLEMAN_BADGES = ['PTE', 'PTEP', ''] as const
 
@@ -36,7 +33,7 @@ export const uniformSchema = z.object({
     displayName: z.string().min(1).max(64),
     rank: rankName,
     Uniform: z.enum(UNIFORM_COLOURS),
-    badge: z.enum(CORPS_BADGES),
+    badge: z.enum(BADGES),
     RifleManBadge: z.enum(RIFLEMAN_BADGES),
     medallions: z.array(assetName).max(3),
     citations: z.array(assetName).max(64),

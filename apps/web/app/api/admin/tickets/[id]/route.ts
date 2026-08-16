@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { RANK_GROUPS } from '@/lib/military/ranks'
+import { RANKS_FLAT } from '@/lib/military/ranks'
 import { applyOrbatMove } from '@/lib/orbat/move'
 import { generateMilpacForUser, archiveMilpacImages } from '@/lib/milpac-gen/generate-for-user'
 
@@ -134,8 +134,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
         }
 
-        const allRanks = RANK_GROUPS.flatMap(g => g.ranks)
-        const rankEntry = allRanks.find(r => r.name === ticket.proposedRank)
+        const rankEntry = RANKS_FLAT.find(r => r.name === ticket.proposedRank)
         const abbr = rankEntry?.abbr ?? ticket.proposedRank!
 
         await Db.users.updateOne({ id: ticket.targetUserId }, {

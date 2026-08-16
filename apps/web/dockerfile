@@ -42,6 +42,11 @@ RUN --mount=type=cache,target=/root/.npm \
 # apps/web/tsconfig.json's "../../types/**/*.ts" include — see types/README.md), then build.
 COPY apps/web/ ./apps/web/
 COPY types/ ./types/
+# Shared unit domain model (ranks, corps badges, awards), resolved through the
+# "@asot/lib" path alias in apps/web/tsconfig.json. Same deal as types/:
+# referenced by relative path, so it has to exist in the image.
+# See lib/README.md.
+COPY lib/ ./lib/
 COPY .env ./.env
 
 WORKDIR /app/apps/web
