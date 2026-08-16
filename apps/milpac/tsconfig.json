@@ -16,5 +16,5 @@
             "@asot/lib": ["../../lib/index.ts"]
         }
     },
-    "include": ["src/**/*.ts", "scripts/**/*.ts", "../../lib/**/*.ts"]
+    "include": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts", "../../lib/**/*.ts"]
 }

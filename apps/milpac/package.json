@@ -2,12 +2,13 @@
   "name": "milpac",
   "version": "1.0.0",
   "private": true,
-  "description": "Stateless MilPac image renderer — uniforms, medal boxes and certificates",
+  "description": "Stateless MilPac image renderer \u2014 uniforms, medal boxes and certificates",
   "scripts": {
     "dev": "dotenv -e ../../.env -- tsx watch src/server.ts",
     "start": "dotenv -e ../../.env -- tsx src/server.ts",
     "typecheck": "tsc --noEmit",
-    "extract-layouts": "tsx scripts/extract-certificate-layouts.ts"
+    "extract-layouts": "tsx scripts/extract-certificate-layouts.ts",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.65",

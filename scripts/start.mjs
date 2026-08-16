@@ -789,6 +789,8 @@ const TESTING_ITEMS = [
     { label: '🖥️ Run E2E Suite (headed)', command: 'npm', args: ['run', 'test:e2e:headed'], opts: { cwd: WEB } },
     { label: '🕹️ Run E2E Suite (UI mode)', command: 'npm', args: ['run', 'test:e2e:ui'], opts: { cwd: WEB } },
     { label: '📊 Open Last E2E Report', command: 'npm', args: ['run', 'test:e2e:report'], opts: { cwd: WEB } },
+    // apps/milpac's own unit tests (node:test via tsx) — no server, no DB, fast.
+    { label: '🎖️ Run MilPac Tests', command: 'npm', args: ['run', 'test', '--workspace=apps/milpac'] },
 ]
 
 const MIGRATION_ITEMS = [

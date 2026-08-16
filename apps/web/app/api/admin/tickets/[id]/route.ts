@@ -8,6 +8,24 @@ import { applyOrbatMove } from '@/lib/orbat/move'
 import { generateMilpacForUser, archiveMilpacImages } from '@/lib/milpac-gen/generate-for-user'
 
 // PATCH /api/admin/tickets/[id] — approve or reject a ticket
+/**
+ * Re-render a member's MilPac after a change that affects how it looks.
+ *
+ * Deliberately non-fatal. The ticket action has already been applied and
+ * committed by this point, so a renderer outage must not fail the request or
+ * leave an approval half-done. The milpac profile page regenerates on a hash
+ * mismatch regardless, so the worst case is a stale image until someone opens
+ * the profile — this just means they usually won't have to.
+ */
+async function regenerateMilpac(userId: string) {
+    try {
+        const fresh = await Db.users.findOne({ id: userId })
+        if (fresh) await generateMilpacForUser(fresh as unknown as User)
+    } catch (err) {
+        console.error('[milpac] re-render after ticket action failed for', userId, err)
+    }
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     let me: User
     try {
@@ -106,6 +124,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         await Db.users.updateOne({ id: ticket.targetUserId }, {
             $set: { 'milpac.qualifications': updatedQuals },
         })
+        // Qualifications drive the training badges on the uniform.
+        await regenerateMilpac(ticket.targetUserId)
     } else if (ticket.type === 'j4-award') {
         const member = await Db.users.findOne({ id: ticket.targetUserId })
         if (!member) {
@@ -127,6 +147,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
                     } as any,
                 },
             })
+            // Awards drive the ribbon block and the medal box.
+            await regenerateMilpac(ticket.targetUserId)
         }
     } else if (ticket.type === 'j3-promotion') {
         const member = await Db.users.findOne({ id: ticket.targetUserId })
@@ -149,6 +171,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
                 } as any,
             },
         })
+        // Rank drives the insignia, and generals get a different corps badge.
+        await regenerateMilpac(ticket.targetUserId)
     } else if (ticket.type === 'j4-discharge') {
         const member = await Db.users.findOne({ id: ticket.targetUserId })
         if (!member) return NextResponse.json({ error: 'Target member not found' }, { status: 404 })

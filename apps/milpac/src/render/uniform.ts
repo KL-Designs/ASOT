@@ -76,8 +76,13 @@ export async function renderUniform(payload: UniformPayload): Promise<Buffer> {
     // 3. Name tag
     drawNameTag(ctx, payload.displayName)
 
-    // 4. Corps badge
-    const badgeName = HIGH_RANKS.has(payload.rank) ? `${payload.badge}2` : payload.badge
+    // 4. Corps badge. High ranks use a more ornate variant, but only Command2
+    // was ever drawn — every other corps has just the plain badge. High ranks
+    // sit in India Company HQ in practice, so this rarely comes up, but a
+    // general posted to another section should get their corps badge rather
+    // than a failed render.
+    const ornate = `${payload.badge}2`
+    const badgeName = HIGH_RANKS.has(payload.rank) && corpsIndex.has(ornate) ? ornate : payload.badge
     await drawUniformLayer(ctx, requireAsset(corpsIndex, badgeName, 'corps-badge'))
 
     // 5. Medallions
