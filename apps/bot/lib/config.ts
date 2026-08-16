@@ -17,6 +17,10 @@ const config: Config = {
     },
 
     api: process.env.NEXT_PUBLIC_BASEURL ?? 'http://localhost:3000',
+    apiInternal: process.env.WEB_INTERNAL_URL || process.env.NEXT_PUBLIC_BASEURL || 'http://localhost:3000',
+    // Not required(): the bot must still start without it. The commands that
+    // need it say so when invoked instead of taking the whole bot down.
+    apiSecret: process.env.BOT_API_SECRET ?? '',
 
     mongo: {
         uri: required('MONGO_URI'),

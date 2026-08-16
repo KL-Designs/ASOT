@@ -400,7 +400,10 @@ export default async function Page({ params }: { params: Promise<{ username: str
 					<div className='milpac-sidebar'>
 						{hasUniform && (
 							<div style={{ borderRadius: 6, border: `1px solid rgba(255,255,255,0.06)`, borderTop: `2px solid ${accent}60`, background: 'rgba(255,255,255,0.02)', overflow: 'hidden' }}>
-								<div style={{ padding: '0.75rem 1rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+								{/* Bottom padding here rather than on the image: the medals card
+								    below gets its gap from the image's own inset, which the
+								    uniform deliberately does not have — it runs edge to edge. */}
+								<div style={{ padding: '0.75rem 1rem 0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 									<span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: `${accent}99` }}>Uniform</span>
 								</div>
 								<ImageLightbox

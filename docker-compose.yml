@@ -71,3 +71,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # Server-to-server calls to web (the /milpac render commands) stay on the
+      # compose network instead of going out through the public URL and back in
+      # via the reverse proxy. NEXT_PUBLIC_BASEURL is still the public URL and
+      # is what member-facing links use — these are two different addresses for
+      # the same app and both are needed.
+      WEB_INTERNAL_URL: http://web:3000

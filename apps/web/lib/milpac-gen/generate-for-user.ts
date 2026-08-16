@@ -17,7 +17,7 @@ const MILPACS_DIR = join(process.cwd(), '..', '..', 'storage', 'milpacs')
  * apps/milpac/PLAN.md §9 finding 2, which was an arbitrary file write precisely
  * because the original built its output path from client-controlled input.
  */
-export async function generateMilpacForUser(user: User): Promise<void> {
+export async function generateMilpacForUser(user: User): Promise<{ uniform: Buffer; medals: Buffer }> {
     const orbatEntry  = await getOrbatEntryByUserId(user.id)
     const uniformData = buildUniformData(user, orbatEntry)
     const boxData     = buildBoxData(user)
@@ -38,6 +38,11 @@ export async function generateMilpacForUser(user: User): Promise<void> {
         { _id: user._id },
         { $set: { 'milpac.uniformHash': hash } }
     )
+
+    // Returned as well as persisted, so a caller that wants to hand the bytes
+    // straight back (the bot's /milpac commands) does not have to read the file
+    // it just watched being written.
+    return { uniform: uniformPng, medals: boxPng }
 }
 
 /**
