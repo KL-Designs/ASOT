@@ -134,4 +134,22 @@ describe('concurrent operations', () => {
         expect(docs).toHaveLength(1)
         expect(docs[0].marker).toBe('untouched')
     })
+
+    // Guards that are taken but never released wedge every later operation
+    // permanently — a failure mode the test above cannot see, because it only
+    // proves the flag was HELD. This proves it was given back.
+    test('releases the guard after a failed restore, so a later one can proceed', async () => {
+        const point = {
+            id: '2026-08-17T16:00:00.000Z',
+            time: '2026-08-17T16:00:00.000Z',
+            dbSnapshotId: 'deadbeef',
+        }
+
+        // First attempt fails at the safety backup and must release on its way out.
+        await expect(backups.revertToPoint(point)).rejects.toThrow(/Safety backup failed/)
+
+        // The second gets as far as the safety backup too. If the guard had
+        // leaked, this would reject with 'already in progress' instead.
+        await expect(backups.revertToPoint(point)).rejects.toThrow(/Safety backup failed/)
+    })
 })

@@ -198,10 +198,16 @@ async function* ndjsonLines(cursor: FindCursor): AsyncGenerator<string> {
     }
 }
 
-// Always the same fixed path (not timestamped) — restic restores recreate the
-// full original absolute path under the restore target, so a stable source
-// path here is what makes that restored location predictable later (see
-// findByMarker in Task 3). Cleared and recreated fresh on every dump.
+// The ordinary hourly DB dump. A single fixed path is fine here because only
+// runAllBackups() reaches it and that path is serialised by operationInProgress.
+// Cleared and recreated fresh on every dump.
+//
+// It does NOT need to be fixed for restores to work: restic recreates the full
+// original absolute path under the restore target, and findByMarker() walks
+// down that single-entry chain looking for manifest.json rather than assuming a
+// name — which is what lets runSafetyBackup() use a per-run mkdtemp'd directory
+// instead. (An earlier version of this comment claimed the fixed path was what
+// made restores predictable. It isn't, and safety backups rely on that.)
 const DB_DUMP_DIR = join(tmpdir(), 'asot-db-dump')
 
 async function dumpDatabase(destDir: string): Promise<void> {
