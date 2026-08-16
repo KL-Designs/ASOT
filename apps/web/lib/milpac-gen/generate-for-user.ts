@@ -1,14 +1,21 @@
 import { join } from 'path'
-import { copyFile } from 'fs/promises'
+import { copyFile, mkdir, writeFile } from 'fs/promises'
 import Db from '@/lib/mongo'
 import { getOrbatEntryByUserId } from '@/lib/orbat'
-import { generateUniform } from './uniform'
-import { generateBox } from './box'
+import { renderBox, renderUniform } from './client'
 import { buildUniformData, buildBoxData, computeUniformHash } from './data-mapper'
+
+const MILPACS_DIR = join(process.cwd(), '..', '..', 'storage', 'milpacs')
 
 /**
  * Generate MilPac uniform + medal box images for a user and update the stored hash.
  * Bypasses the HTTP endpoint's auth/active-only check — caller is responsible for auth.
+ *
+ * The rendering itself happens in the `apps/milpac` service; this app builds the
+ * payload and persists the bytes. Filenames are always derived from the user's
+ * Discord ID here, never from anything the renderer or a caller supplied — see
+ * apps/milpac/PLAN.md §9 finding 2, which was an arbitrary file write precisely
+ * because the original built its output path from client-controlled input.
  */
 export async function generateMilpacForUser(user: User): Promise<void> {
     const orbatEntry  = await getOrbatEntryByUserId(user.id)
@@ -16,7 +23,16 @@ export async function generateMilpacForUser(user: User): Promise<void> {
     const boxData     = buildBoxData(user)
     const hash        = computeUniformHash(uniformData, boxData)
 
-    await Promise.all([generateUniform(uniformData), generateBox(boxData)])
+    const [uniformPng, boxPng] = await Promise.all([
+        renderUniform(uniformData),
+        renderBox(boxData),
+    ])
+
+    await mkdir(MILPACS_DIR, { recursive: true })
+    await Promise.all([
+        writeFile(join(MILPACS_DIR, `${user.id}.png`), uniformPng),
+        writeFile(join(MILPACS_DIR, `${user.id}-medals.png`), boxPng),
+    ])
 
     await Db.users.updateOne(
         { _id: user._id },
@@ -30,11 +46,10 @@ export async function generateMilpacForUser(user: User): Promise<void> {
  * Failures are swallowed — a missing image does not block the discharge.
  */
 export async function archiveMilpacImages(userId: string): Promise<{ uniformPath: string; medalPath: string }> {
-    const milpacsDir = join(process.cwd(), '..', '..', 'storage', 'milpacs')
-    const srcUniform = join(milpacsDir, `${userId}.png`)
-    const srcMedals  = join(milpacsDir, `${userId}-medals.png`)
-    const dstUniform = join(milpacsDir, `${userId}-discharge.png`)
-    const dstMedals  = join(milpacsDir, `${userId}-discharge-medals.png`)
+    const srcUniform = join(MILPACS_DIR, `${userId}.png`)
+    const srcMedals  = join(MILPACS_DIR, `${userId}-medals.png`)
+    const dstUniform = join(MILPACS_DIR, `${userId}-discharge.png`)
+    const dstMedals  = join(MILPACS_DIR, `${userId}-discharge-medals.png`)
 
     try { await copyFile(srcUniform, dstUniform) } catch { /* image may not exist yet */ }
     try { await copyFile(srcMedals,  dstMedals)  } catch { /* image may not exist yet */ }

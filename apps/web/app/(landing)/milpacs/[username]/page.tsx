@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { existsSync } from 'fs'
-import { join } from 'path'
-import { generateUniform } from '@/lib/milpac-gen/uniform'
-import { generateBox } from '@/lib/milpac-gen/box'
+import { mkdir, writeFile } from 'fs/promises'
+import { dirname, join } from 'path'
+import { renderUniform, renderBox } from '@/lib/milpac-gen/client'
 import { buildUniformData, buildBoxData, computeUniformHash } from '@/lib/milpac-gen/data-mapper'
 import { AWARD_TO_CITATION, QUAL_TO_BADGE } from '@/lib/milpac-gen/maps'
 import { RANK_TRACKS } from '@/lib/military/promotion-requirements'
@@ -122,11 +122,21 @@ export default async function Page({ params }: { params: Promise<{ username: str
 			|| !existsSync(medalsPath)
 
 		if (needsRegen) {
-			await Promise.all([generateUniform(uniformData), generateBox(boxData)])
+			const [uniformPng, medalsPng] = await Promise.all([
+				renderUniform(uniformData),
+				renderBox(boxData),
+			])
+			await mkdir(dirname(uniformPath), { recursive: true })
+			await Promise.all([
+				writeFile(uniformPath, uniformPng),
+				writeFile(medalsPath, medalsPng),
+			])
 			await Db.users.updateOne({ username }, { $set: { 'milpac.uniformHash': currentHash } })
 		}
 	} catch (err) {
-		console.error('[milpac-gen] generation failed for', username, err)
+		// A page view should never 500 because the render service is down — the
+		// previously generated images below are still served if they exist.
+		console.error('[milpac] render failed for', username, err)
 	}
 
 	const hasUniform = existsSync(uniformPath)

@@ -92,3 +92,34 @@ export const DEFAULT_BADGE: Badge = 'Infantry'
 
 // Uniform colour is determined by ORBAT section in data-mapper.ts:
 // only '1-3 HOTEL - ROTARY WING' → Blue; all other sections → Brown.
+
+// ── Citation code → certificate code ─────────────────────────────────────────
+// The certificate templates use a *different* namespace from the ribbons for
+// five awards. The original derived a certificate code by lowercasing the award
+// label and stripping spaces, which yields the citation spelling — so those five
+// never matched a slide, `SlideNumbers[cert]` came back undefined, and the page
+// index became NaN. Certificates for them cannot ever have worked.
+// See apps/milpac/PLAN.md §11.
+const CERTIFICATE_CODE_OVERRIDES: Record<string, string> = {
+    '4year':         'longterm',
+    'crossofvalour': 'valour',
+    'founders':      'founder',
+    'aviation':      'rotary',
+    'starofcourage': 'courage',
+}
+
+/**
+ * Resolves the certificate code for a citation. Identity for all but the five
+ * above, which is why this is a lookup with a fallback rather than a full table
+ * that would have to be kept in step with every new award.
+ */
+export function certificateCodeForCitation(citation: string): string {
+    return CERTIFICATE_CODE_OVERRIDES[citation] ?? citation
+}
+
+/** Medallion awards have their own certificates, keyed off the award name. */
+export const MEDALLION_CERTIFICATE_CODES: Record<string, string> = {
+    'Bronze Soldiers Medallion': 'bronzemedallion',
+    'Silver Soldiers Medallion': 'silvermedallion',
+    'Gold Soldiers Medallion':   'goldmedallion',
+}

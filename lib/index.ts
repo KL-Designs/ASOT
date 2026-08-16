@@ -34,4 +34,6 @@ export {
     QUAL_TO_BADGE,
     SECTION_TO_BADGE,
     DEFAULT_BADGE,
+    certificateCodeForCitation,
+    MEDALLION_CERTIFICATE_CODES,
 } from './maps'

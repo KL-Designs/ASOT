@@ -34,27 +34,30 @@ function deriveMedallions(awardNames: string[]): Medallion[] {
     return ['Bronze1', 'Silver2', 'Gold3']
 }
 
-/** Strip parentheses so DB ranks like "PTE(S)" become asset-compatible "PTES" */
-function normaliseRank(rank: string): string {
-    return rank.replace(/[()]/g, '')
-}
-
-// Non-P private-equivalent ranks — BCT 2 holders at these ranks show PTE embellishment.
-// All other ranks (PTEP tier and higher) show the gold PTEP embellishment.
-// Ranks at or below PTE(P) show standard PTE badge; PTE(S)/SL and above show gold PTEP badge.
-// Rank order within the private tier: base → L → P → S → SL
-const PTE_BASIC_RANKS = new Set([
-    'PTE', 'PTEL',
-    'SIG', 'SIGL',
-    'TPR', 'TPRL',
-    'SAP', 'SAPL',
-    'GNR', 'GNRL',
-    'LBDR', 'LBDRL', 'LBDRJ',
-    'BDR', 'BDRL', 'BDRJ',
+// Non-P private-equivalent ranks — BCT 2 holders at these ranks show the PTE
+// embellishment; every higher rank shows the gold PTEP one. Rank order within
+// the private tier: base → L → P → S → SL.
+//
+// These are the abbreviations exactly as `lib/military/ranks.ts` writes them.
+// They used to be listed in a parenthesis-stripped form to match asset
+// filenames, which is no longer this app's concern — the renderer owns the
+// mapping from rank to artwork, so nothing here rewrites a rank any more.
+const PTE_BASIC_RANKS = new Set<string>([
+    'PTE', 'PTE(L)',
+    'SIG', 'SIG(L)',
+    'TPR', 'TPR(L)',
+    'SAP', 'SAP(L)',
+    'GNR', 'GNR(L)',
+    'LBDR', 'LBDR(L)', 'LBDR(J)',
+    'BDR', 'BDR(L)', 'BDR(J)',
 ])
 
 export function buildUniformData(user: User, orbatEntry: OrbatEntry | null): UniformData {
-    const rank = normaliseRank(user.milpac?.currentRank ?? '')
+    // Sent verbatim. The render service resolves rank → artwork through its own
+    // RANK_TO_ASSET table, which is the fix for apps/milpac/PLAN.md §3: the
+    // greedy regexes that used to collapse every corps rank to a bare PTE and
+    // then blank it are gone, and nothing replaced them here.
+    const rank = user.milpac?.currentRank ?? ''
     const awardNames = user.milpac?.awards?.map(a => a.name) ?? []
 
     // Resolve display name from Discord nickname (strip rank prefix and tag decorations),

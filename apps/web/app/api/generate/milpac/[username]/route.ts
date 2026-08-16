@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { getOrbatEntryByUserId } from '@/lib/orbat'
-import { generateUniform } from '@/lib/milpac-gen/uniform'
-import { generateBox } from '@/lib/milpac-gen/box'
-import { buildUniformData, buildBoxData, computeUniformHash } from '@/lib/milpac-gen/data-mapper'
+import { hasPermission } from '@/lib/orbat/hasPermission'
+import { generateMilpacForUser } from '@/lib/milpac-gen/generate-for-user'
+import { MilpacServiceError } from '@/lib/milpac-gen/client'
 
 export async function POST(
     _req: NextRequest,
@@ -15,25 +13,27 @@ export async function POST(
 
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.pages.admin)) {
+    // Migrated off the legacy client.hasRoles(me, PERMISSIONS.pages.admin)
+    // Discord-role array, per apps/web/CLAUDE.md's permission-system note.
+    if (!(await hasPermission(me, 'pages.admin'))) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const user = await Db.users.findOne({ username, discharged: { $exists: false } })
     if (!user) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
 
-    const orbatEntry = await getOrbatEntryByUserId(user.id)
-    const uniformData = buildUniformData(user as unknown as User, orbatEntry)
-    const boxData     = buildBoxData(user as unknown as User)
-    const hash        = computeUniformHash(uniformData, boxData)
-
-    await generateUniform(uniformData)
-    await generateBox(boxData)
-
-    await Db.users.updateOne(
-        { username },
-        { $set: { 'milpac.uniformHash': hash } }
-    )
+    try {
+        await generateMilpacForUser(user as unknown as User)
+    } catch (err) {
+        if (err instanceof MilpacServiceError) {
+            console.error('[milpac] render failed for', username, err.status, err.detail)
+            return NextResponse.json(
+                { error: 'Render service unavailable' },
+                { status: 502 },
+            )
+        }
+        throw err
+    }
 
     return NextResponse.json({ success: true })
 }

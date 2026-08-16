@@ -426,8 +426,18 @@ and no `execSync` string interpolation.
    `client.hasRoles(me, PERMISSIONS.pages.admin)` to `hasPermission`, per
    `apps/web/CLAUDE.md`.
 5. Surface certificates on milpac profiles.
-6. Once verified: delete `lib/milpac-gen/uniform.ts`, `lib/milpac-gen/box.ts`,
-   and `public/milpac-assets/`. Keep `data-mapper.ts` and `maps.ts`.
+6. Once verified: delete `lib/milpac-gen/uniform.ts` and `lib/milpac-gen/box.ts`.
+   Keep `data-mapper.ts` and `maps.ts`.
+
+   **Do not delete `public/milpac-assets/`** — an earlier draft of this step
+   said to, and that is wrong. Three pages serve it straight to the browser:
+   `app/(landing)/milpacs/[username]/page.tsx` and
+   `app/(landing)/community/retired/RetiredWall.tsx` build `<img>` URLs for
+   training badges and ribbons out of it, and `app/tickets/new/page.tsx` shows
+   an example ribbon and medal. Removing it breaks badge and ribbon display on
+   all three. It duplicates the service's copy, but the duplication is the point:
+   one copy is composited server-side by the renderer, the other is fetched by
+   the browser, and only the first moved.
 
 ### Phase 4 — Compose, monorepo tooling and documentation
 
