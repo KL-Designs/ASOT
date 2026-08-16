@@ -169,10 +169,18 @@ await runRestic(repo, [
 ])
 ```
 
-Safety backups are then exempt from every tier and are never pruned. Unbounded
-growth is not a practical concern: they are created only when a human actually
-restores, which is rare, and restic's deduplication means each one stores only
-the chunks that changed since the last hourly — near zero.
+Safety backups are then exempt from every tier and are never pruned.
+
+Their cost is bounded by how often people restore, **not** by deduplication.
+Dedup makes each new safety snapshot cheap to *write* — it stores only the
+chunks that changed since the last hourly — but a snapshot that is never pruned
+also permanently pins every chunk it references. Media deleted after a restore
+can therefore never be reclaimed from `media-backups`, because a `pre-restore`
+snapshot still points at it. That is the correct trade (an undo you cannot lose
+is the entire point), but it should not be described as free: each restore
+permanently raises the floor on repository size. Restores are rare enough that
+this is acceptable; if they ever become routine, revisit `--keep-tag` in favour
+of a bounded `--keep-last N` within the `pre-restore` group.
 
 `--group-by tags` already places the two-tag snapshots in their own group;
 `--keep-tag` keeps that group whole, so the grouping and the exemption do not

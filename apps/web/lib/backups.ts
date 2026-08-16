@@ -1,6 +1,6 @@
 import { resolve, join, basename, dirname, sep } from 'path'
 import { existsSync, mkdirSync, createWriteStream, createReadStream, readdirSync } from 'fs'
-import { readFile, writeFile, mkdir, rm, copyFile, readdir, stat } from 'fs/promises'
+import { readFile, writeFile, mkdir, mkdtemp, rm, copyFile, readdir, stat } from 'fs/promises'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { tmpdir } from 'os'
@@ -339,11 +339,22 @@ export async function runSafetyBackup(): Promise<void> {
     await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Creating safety backup…' })
 
     try {
+        // A unique dir, NOT the shared DB_DUMP_DIR runDbBackup() uses. Those two
+        // can genuinely overlap: the revert route reads status 'idle', then spends
+        // seconds in listBackups() before revertToPoint() writes 'reverting', and
+        // the hourly cron can start runAllBackups() inside that window. Sharing one
+        // fixed path would mean both dumping into it while each also rm -rf's it —
+        // and because resticBackup() tolerates exit code 3 ("some source files
+        // unreadable"), the safety backup would report SUCCESS on a partial
+        // snapshot and the restore would proceed with an undo that isn't one.
+        // operationInProgress below closes the same race from the other side; this
+        // makes the two paths independent even if that guard is ever bypassed.
+        const dumpDir = await mkdtemp(join(tmpdir(), 'asot-safety-dump-'))
         try {
-            await dumpDatabase(DB_DUMP_DIR)
-            await resticBackup(DB_REPO, [DB_DUMP_DIR], 'db', ['pre-restore'])
+            await dumpDatabase(dumpDir)
+            await resticBackup(DB_REPO, [dumpDir], 'db', ['pre-restore'])
         } finally {
-            await rm(DB_DUMP_DIR, { recursive: true, force: true }).catch(() => {})
+            await rm(dumpDir, { recursive: true, force: true }).catch(() => {})
         }
 
         await ensureRepoInitialized(MEDIA_REPO)
@@ -361,13 +372,19 @@ export async function runSafetyBackup(): Promise<void> {
     console.log('[backups] Safety backup complete')
 }
 
-// In-process guard against overlapping runs. Every route already checks
-// readStatus().state !== 'idle' before calling this, but that's a
-// check-then-act race across separate HTTP requests (two callers can both
-// observe 'idle' before either has written 'backing-up') — this flag closes
-// it synchronously within this one Node process, which is all of them
-// (server.mjs's cron trigger and every API route run in the same process).
-let backupInProgress = false
+// In-process guard against overlapping runs — backups AND restores, which all
+// share one status file and (for the DB side) the same repo. Every route already
+// checks readStatus().state !== 'idle' first, but that's a check-then-act race
+// across separate HTTP requests: two callers can both observe 'idle' before
+// either has written its own state, and the revert route in particular spends
+// seconds in listBackups() in between. This flag closes the window synchronously
+// within this one Node process, which is all of them (server.mjs's cron trigger
+// and every API route run in the same process).
+//
+// Backups skip when it's set; restores throw (see below) — a restore that
+// silently no-ops would report success to a caller who then believes their data
+// was rolled back.
+let operationInProgress = false
 
 // Runs both sequentially (see Global Constraints — they share one status
 // file). Each side's failure is caught independently so DB issues don't
@@ -375,18 +392,18 @@ let backupInProgress = false
 // error is what's left in status once both have finished (even though each
 // function already wrote its own transient status/error along the way).
 export async function runAllBackups(): Promise<void> {
-    if (backupInProgress) {
-        console.warn('[backups] runAllBackups() called while a run is already in progress — skipping')
+    if (operationInProgress) {
+        console.warn('[backups] runAllBackups() called while an operation is already in progress — skipping')
         return
     }
-    backupInProgress = true
+    operationInProgress = true
     try {
         const errors: string[] = []
         try { await runDbBackup() } catch (e) { errors.push(`DB: ${e instanceof Error ? e.message : String(e)}`) }
         try { await runMediaBackup() } catch (e) { errors.push(`Media: ${e instanceof Error ? e.message : String(e)}`) }
         if (errors.length > 0) await writeStatus({ state: 'idle', error: errors.join(' | ') })
     } finally {
-        backupInProgress = false
+        operationInProgress = false
     }
 }
 
@@ -659,9 +676,17 @@ function findDirNamed(root: string, name: string): string | null {
 // ── Revert ────────────────────────────────────────────────────────────────────
 
 export async function revertToPoint(point: BackupPoint): Promise<void> {
-    await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring…' })
+    // Claimed before anything else, including the safety backup. Throws rather
+    // than returning quietly: the caller is about to be told its restore began.
+    if (operationInProgress) throw new Error('Another backup or restore operation is already in progress')
+    operationInProgress = true
+
     const tmp = join(tmpdir(), `asot-revert-${Date.now()}`)
     try {
+        // Inside the try, so a writeStatus failure releases the guard via the
+        // finally rather than wedging every later operation on a set flag.
+        await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring…' })
+
         // Must come first and must be allowed to throw — if this fails there
         // is no undo for what follows, so the restore does not happen.
         await runSafetyBackup()
@@ -691,6 +716,7 @@ export async function revertToPoint(point: BackupPoint): Promise<void> {
         throw e
     } finally {
         await rm(tmp, { recursive: true, force: true }).catch(() => {})
+        operationInProgress = false
     }
 }
 
@@ -789,6 +815,10 @@ async function safeExtractZip(zipPath: string, destDir: string): Promise<void> {
 // not feed the upload into either repo's history. Matches buildDownloadZip's
 // { db-source/, gallery/, uploads/ } shape.
 export async function applyUploadedZip(zipPath: string): Promise<void> {
+    // Same claim-first rule as revertToPoint().
+    if (operationInProgress) throw new Error('Another backup or restore operation is already in progress')
+    operationInProgress = true
+
     const tmp = join(tmpdir(), `asot-upload-extract-${Date.now()}`)
     try {
         // Same rule as revertToPoint(): no safety backup, no restore.
@@ -838,5 +868,6 @@ export async function applyUploadedZip(zipPath: string): Promise<void> {
         throw e
     } finally {
         await rm(tmp, { recursive: true, force: true }).catch(() => {})
+        operationInProgress = false
     }
 }

@@ -99,3 +99,39 @@ describe('applyUploadedZip', () => {
         expect(existsSync(join(storageRoot, 'gallery', 'sentinel.txt'))).toBe(true)
     })
 })
+
+describe('concurrent operations', () => {
+    // The status file is a check-then-act guard across HTTP requests: the revert
+    // route reads 'idle', then spends seconds in listBackups() before
+    // revertToPoint() writes 'reverting'. The hourly cron checks status the same
+    // way and can start a backup inside that window — both would then dump the
+    // database concurrently. The in-process operationInProgress flag is what
+    // actually closes that window, and a second restore must be REFUSED rather
+    // than quietly no-op, because its caller is told the restore began.
+    test('refuses a second restore while one is already running', async () => {
+        const point = {
+            id: '2026-08-17T15:00:00.000Z',
+            time: '2026-08-17T15:00:00.000Z',
+            dbSnapshotId: 'deadbeef',
+        }
+
+        // Both launched before either is awaited — whichever loses the race must
+        // be rejected with the in-progress error, not with the safety-backup one.
+        const [first, second] = await Promise.allSettled([
+            backups.revertToPoint(point),
+            backups.applyUploadedZip(join(storageRoot, 'irrelevant.zip')),
+        ])
+
+        expect(first.status).toBe('rejected')
+        expect(second.status).toBe('rejected')
+
+        const reasons = [first, second].map(r => (r as PromiseRejectedResult).reason.message)
+        expect(reasons.filter(m => /already in progress/.test(m))).toHaveLength(1)
+        expect(reasons.filter(m => /Safety backup failed/.test(m))).toHaveLength(1)
+
+        // And the loser touched nothing on its way out.
+        const docs = await mongo.db('asot-test').collection('sentinel').find({}).toArray()
+        expect(docs).toHaveLength(1)
+        expect(docs[0].marker).toBe('untouched')
+    })
+})

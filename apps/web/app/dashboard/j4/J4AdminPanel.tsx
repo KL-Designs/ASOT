@@ -1038,7 +1038,14 @@ function TestNotificationModal({ open, onClose, selfId }: { open: boolean; onClo
 }
 
 export default function J4AdminPanel({ userId, displayName, canManageLinks, canBackupManage, canBackupRestore }: { userId: string; displayName: string; canManageLinks: boolean; canBackupManage: boolean; canBackupRestore: boolean }) {
-    const { tab, setTab, view, setView } = useTabState(0, 'dept')
+    const { tab: requestedTab, setTab, view, setView } = useTabState(0, 'dept')
+    // Backups is tab 3, but its <Tab> is only rendered for backups.manage
+    // holders. The active tab comes straight off the URL (?tab=3), which
+    // survives in bookmarks and pinned sidebar links, so a viewer without the
+    // permission can land on a tab with no matching child — MUI warns about a
+    // Tabs value that matches nothing and the body renders empty. Fall back to
+    // the first tab instead.
+    const tab = requestedTab === 3 && !canBackupManage ? 0 : requestedTab
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
     const [testNotifOpen, setTestNotifOpen] = useState(false)
