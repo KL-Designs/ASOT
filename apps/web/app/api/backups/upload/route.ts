@@ -3,10 +3,10 @@ import { writeFile, unlink, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { readStatus, applyUploadedZip } from '@/lib/backups'
 
-// POST /api/backups/upload — upload a backup ZIP and revert to it (J4 only)
+// POST /api/backups/upload — upload a backup ZIP and revert to it (backups.restore)
 // Note: large uploads are buffered in memory via arrayBuffer(). Ensure the
 // server runs with --max-old-space-size set appropriately for expected sizes.
 export async function POST(request: NextRequest) {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) {
+    if (!await hasPermission(me, 'backups.restore')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

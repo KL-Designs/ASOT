@@ -84,7 +84,7 @@ if (!client.hasRoles(me, PERMISSIONS.pages.admin)) return NextResponse.json({ er
 - `pages.*` — top-level page gates (`dashboard`, `admin`, `members`, `operationsEdit`)
 - `departments.*` — J1–J7 department membership (`j1`–`j7`)
 - `departmentLeads.*` — per-department lead roles (distinct from member roles)
-- `operations.*`, `uploads.*`, `members.*`, `admin.*`, `gallery.*`, `attendance.*`, `auth.*`, `tickets.*`, `meetings.*`, `quiz.*`, `trainingDocs.*`, `sops.*`, `training.*`, `masterSheet.*`, `communityTickets.*`, `optionals.*`, `feedback.*`, `deptLinks.*`, `intel.*`, `ai.*`
+- `operations.*`, `uploads.*`, `members.*`, `admin.*`, `gallery.*`, `attendance.*`, `auth.*`, `tickets.*`, `meetings.*`, `quiz.*`, `trainingDocs.*`, `sops.*`, `training.*`, `masterSheet.*`, `communityTickets.*`, `optionals.*`, `feedback.*`, `deptLinks.*`, `backups.*`, `intel.*`, `ai.*`
 
 **A migration off the hardcoded Discord-role arrays above and onto dynamic, DB-stored grants is in progress** (`docs/superpowers/specs/2026-08-11-permission-system-migration-phase*-design.md`). Many keys have already moved — their `PERMISSIONS.x.y` array is now dead code kept only so the Permissions Explorer can still display it, and the real gate is one of:
 - `await hasPermission(user, 'x.y')` (`lib/orbat/hasPermission.ts`) — dot-path key, e.g. `'pages.dashboard'`, `'gallery.manage'`, `'quiz.assign'`

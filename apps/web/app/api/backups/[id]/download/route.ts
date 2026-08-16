@@ -3,12 +3,12 @@ import { statSync, createReadStream } from 'fs'
 import { unlink } from 'fs/promises'
 import { Readable } from 'stream'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { listBackups, buildDownloadZip } from '@/lib/backups'
 
 const ID_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:00:00\.000Z$/
 
-// GET /api/backups/[id]/download — restore a backup point to a temp zip and stream it (J4 only)
+// GET /api/backups/[id]/download — restore a backup point to a temp zip and stream it (backups.manage)
 export async function GET(
     _request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -20,7 +20,7 @@ export async function GET(
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) {
+    if (!await hasPermission(me, 'backups.manage')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

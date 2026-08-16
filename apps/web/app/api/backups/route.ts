@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { listBackups, readStatus, checkResticHealth } from '@/lib/backups'
 
-// GET /api/backups — merged backup timeline + current operation status (J4 only)
+// GET /api/backups — merged backup timeline + current operation status (backups.manage)
 export async function GET() {
     let me: User
     try {
@@ -12,7 +12,7 @@ export async function GET() {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) {
+    if (!await hasPermission(me, 'backups.manage')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

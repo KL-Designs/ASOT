@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { writeStatus } from '@/lib/backups'
 
-// POST /api/backups/cancel — force-reset a stuck in-progress operation (J4 only)
+// POST /api/backups/cancel — force-reset a stuck in-progress operation (backups.manage)
 export async function POST() {
     let me: User
     try {
@@ -12,7 +12,7 @@ export async function POST() {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) {
+    if (!await hasPermission(me, 'backups.manage')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

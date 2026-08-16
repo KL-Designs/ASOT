@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { readStatus, revertToPoint, listBackups } from '@/lib/backups'
 
 const ID_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:00:00\.000Z$/
 
-// POST /api/backups/revert — revert to a merged backup point (J4 only)
+// POST /api/backups/revert — revert to a merged backup point (backups.restore)
 // Body: { id: string } — an hour-bucket ISO string from GET /api/backups
 export async function POST(request: NextRequest) {
     let me: User
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) {
+    if (!await hasPermission(me, 'backups.restore')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

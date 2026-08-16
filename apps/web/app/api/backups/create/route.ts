@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { readStatus, runAllBackups } from '@/lib/backups'
 
-// POST /api/backups/create — trigger a background backup of both repos (J4 only)
+// POST /api/backups/create — trigger a background backup of both repos (backups.manage)
 export async function POST() {
     let me: User
     try {
@@ -12,7 +12,7 @@ export async function POST() {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) {
+    if (!await hasPermission(me, 'backups.manage')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

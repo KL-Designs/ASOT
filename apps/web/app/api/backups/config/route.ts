@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { hasPermission } from '@/lib/orbat/hasPermission'
 import { readConfig, writeConfig } from '@/lib/backups'
 import type { BackupConfig } from '@/lib/backups'
 
-// GET /api/backups/config — read current backup config (J4 only)
+// GET /api/backups/config — read current backup config (backups.manage)
 export async function GET() {
     let me: User
     try {
@@ -13,7 +13,7 @@ export async function GET() {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) {
+    if (!await hasPermission(me, 'backups.manage')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -21,7 +21,7 @@ export async function GET() {
     return NextResponse.json(config)
 }
 
-// PATCH /api/backups/config — update backup config (J4 only)
+// PATCH /api/backups/config — update backup config (backups.manage)
 export async function PATCH(req: NextRequest) {
     let me: User
     try {
@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.departments.j4)) {
+    if (!await hasPermission(me, 'backups.manage')) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
