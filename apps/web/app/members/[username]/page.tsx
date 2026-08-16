@@ -48,9 +48,16 @@ export default async function Page({ params }: { params: Promise<{ username: str
         }]
     })
 
+    // Mongo documents carry ObjectId instances (departmentRoleIds), which React
+    // refuses to pass across the server/client boundary — they arrive as
+    // {buffer: ...} and log a warning on every view. The editor reads only plain
+    // fields, so a JSON round-trip hands it the same shape with the class
+    // instances flattened to strings.
+    const memberProps = JSON.parse(JSON.stringify(member)) as User
+
     return (
         <MilpacEditor
-            member={member}
+            member={memberProps}
             confirmedOps={confirmedOps}
             canEditRestricted={canEditRestricted}
             canEditStandard={canEditStandard}

@@ -17,6 +17,7 @@
  * mapping this service knows how to draw is checked before the port opens.
  */
 
+import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 
@@ -233,4 +234,53 @@ export function preflight(): PreflightResult {
     // question can only be answered web-side. PLAN.md section 10 has the audit.
 
     return { errors, warnings }
+}
+
+// ── Render fingerprint ───────────────────────────────────────────────────────
+
+/**
+ * An opaque digest of everything this service draws with.
+ *
+ * apps/web caches uniform and medal-box renders and only redraws them when the
+ * member's data changes. That misses the other half: swap a base uniform PNG or
+ * change the layer order and every cached image is silently stale forever, with
+ * no member-data change to trigger a redraw. Web folds this digest into its
+ * cache key so new artwork invalidates the whole estate at once.
+ *
+ * Path plus byte size rather than content hash: it is computed from the stat
+ * calls the index already makes, and any real edit to a PNG changes its size.
+ * Deliberately *not* mtime, which every container rebuild resets — that would
+ * re-render every member on each deploy for no reason.
+ *
+ * `RENDERER_REVISION` covers the rest: bump it when the drawing code changes in
+ * a way that alters output without any asset changing.
+ */
+const RENDERER_REVISION = 1
+
+let fingerprint: string | null = null
+
+export function assetFingerprint(): string {
+    if (fingerprint) return fingerprint
+
+    const indexes = [
+        rankIndex, ribbonIndex, badgeIndex, medallionIndex,
+        corpsIndex, embellishIndex, boxMedalIndex,
+    ]
+
+    const entries: string[] = []
+    for (const index of indexes) {
+        for (const full of index.values()) entries.push(full)
+    }
+    entries.push(...Object.values(files))
+    entries.push(path.join(ASSETS, 'templates', 'certificate-layouts.json'))
+
+    const hash = crypto.createHash('md5').update(`r${RENDERER_REVISION}`)
+    for (const full of entries.sort()) {
+        let size = -1
+        try { size = fs.statSync(full).size } catch { /* absent — preflight reports it */ }
+        hash.update(`${path.relative(ASSETS, full)}:${size}\n`)
+    }
+
+    fingerprint = hash.digest('hex')
+    return fingerprint
 }

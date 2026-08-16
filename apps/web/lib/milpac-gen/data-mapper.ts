@@ -138,8 +138,24 @@ export function buildBoxData(user: User): BoxData {
     return { name: user.id, medals: resolveCitations(awardNames) }
 }
 
-export function computeUniformHash(uniformData: UniformData, boxData: BoxData): string {
+/**
+ * The cache key for a member's rendered uniform and medal box.
+ *
+ * Hashing the whole payload rather than a hand-picked field list is the point:
+ * anything that reaches the renderer is covered, so a new award, a promotion, a
+ * section move or a name change all invalidate without anyone remembering to
+ * add a field here.
+ *
+ * `fingerprint` covers what the payload cannot — the artwork itself. Without it
+ * a swapped base uniform PNG leaves every cached image stale forever, because
+ * no member's data changed. See `getRenderFingerprint`.
+ */
+export function computeUniformHash(
+    uniformData: UniformData,
+    boxData: BoxData,
+    fingerprint = '',
+): string {
     return createHash('md5')
-        .update(JSON.stringify({ uniformData, boxData }))
+        .update(JSON.stringify({ uniformData, boxData, fingerprint }))
         .digest('hex')
 }

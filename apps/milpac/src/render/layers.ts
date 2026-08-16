@@ -29,9 +29,24 @@ export class MissingAssetError extends Error {
 /**
  * loadImage does not accept Windows drive-letter paths, so files are read to a
  * buffer first. Same workaround the web port uses; it costs nothing on Linux.
+ *
+ * The decode is wrapped because @napi-rs reports a failed PNG decode as
+ * "Invalid SVG image" — it falls back to parsing the bytes as SVG — and names
+ * no file. A half-written PNG therefore surfaced as an SVG error pointing at
+ * load-image.js, with nothing to say which of forty layers was at fault. The
+ * path goes to the server log only: it reaches the caller as a 500 with a
+ * correlation id, never in the response body (PLAN.md §9 rule 4).
  */
 export async function load(filePath: string) {
-    return loadImage(await fs.readFile(filePath))
+    const bytes = await fs.readFile(filePath)
+    try {
+        return await loadImage(bytes)
+    } catch (err) {
+        throw new Error(
+            `failed to decode ${filePath} (${bytes.length} bytes): ${(err as Error).message}`,
+            { cause: err },
+        )
+    }
 }
 
 /** Draws a full-canvas layer over the current composite. */

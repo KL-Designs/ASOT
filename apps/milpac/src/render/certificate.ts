@@ -68,7 +68,13 @@ interface TextElement extends Frame {
     insets: { left: number; top: number; right: number; bottom: number }
     paragraphs: Paragraph[]
 }
-type Element = PictureElement | TextElement
+/** A stroked connector — the rule beneath the signature. */
+interface LineElement extends Frame {
+    kind: 'line'
+    thickness: number
+    color: string
+}
+type Element = PictureElement | TextElement | LineElement
 
 interface SlideLayout { slide: number; width: number; height: number; elements: Element[] }
 interface TypeLayouts {
@@ -222,6 +228,32 @@ async function drawPicture(ctx: SKRSContext2D, element: PictureElement, mediaDir
     ctx.restore()
 }
 
+// ── Lines ────────────────────────────────────────────────────────────────────
+
+/**
+ * Draws a connector across its bounding box.
+ *
+ * A `straightConnector1` runs corner to corner of its frame, so a horizontal
+ * rule is a box a few EMU tall — `flipV` swaps which corners, which is the only
+ * part of the transform that changes anything for a straight stroke.
+ */
+function drawLine(ctx: SKRSContext2D, element: LineElement): void {
+    ctx.save()
+    ctx.strokeStyle = `#${element.color}`
+    ctx.lineWidth = element.thickness
+
+    const x2 = element.x + element.width
+    const [y1, y2] = element.flipV
+        ? [element.y + element.height, element.y]
+        : [element.y, element.y + element.height]
+
+    ctx.beginPath()
+    ctx.moveTo(element.x, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+    ctx.restore()
+}
+
 // ── Placeholder substitution ─────────────────────────────────────────────────
 
 /**
@@ -252,6 +284,11 @@ export async function renderCertificate(payload: CertificatePayload): Promise<Bu
     for (const element of layout.elements) {
         if (element.kind === 'picture') {
             await drawPicture(ctx, element, mediaDir)
+            continue
+        }
+
+        if (element.kind === 'line') {
+            drawLine(ctx, element)
             continue
         }
 

@@ -2,7 +2,7 @@ import { join } from 'path'
 import { copyFile, mkdir, writeFile } from 'fs/promises'
 import Db from '@/lib/mongo'
 import { getOrbatEntryByUserId } from '@/lib/orbat'
-import { renderBox, renderUniform } from './client'
+import { getRenderFingerprint, renderBox, renderUniform } from './client'
 import { buildUniformData, buildBoxData, computeUniformHash } from './data-mapper'
 
 const MILPACS_DIR = join(process.cwd(), '..', '..', 'storage', 'milpacs')
@@ -21,7 +21,7 @@ export async function generateMilpacForUser(user: User): Promise<void> {
     const orbatEntry  = await getOrbatEntryByUserId(user.id)
     const uniformData = buildUniformData(user, orbatEntry)
     const boxData     = buildBoxData(user)
-    const hash        = computeUniformHash(uniformData, boxData)
+    const hash        = computeUniformHash(uniformData, boxData, await getRenderFingerprint())
 
     const [uniformPng, boxPng] = await Promise.all([
         renderUniform(uniformData),

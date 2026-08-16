@@ -41,8 +41,11 @@ The practical consequence: **if you find yourself wanting a `MONGO_URI` here, th
 POST /render/uniform      →  compose ~40 full-canvas PNG layers      →  image/png
 POST /render/box          →  compose the medal case                  →  image/png
 POST /render/certificate  →  draw art + text from extracted layouts  →  image/png
+GET  /fingerprint         →  {fingerprint} — digest of the artwork
 GET  /health              →  200 {ok:true}   (the only unauthenticated route)
 ```
+
+`/fingerprint` exists for one reason: web caches uniform and medal-box renders against a hash of the member's data, which cannot notice new *artwork*. Swap a base uniform PNG and every cached image would be stale forever. Web folds this digest into its cache key, so new art redraws the whole estate. It is path + byte size per asset, plus a `RENDERER_REVISION` constant in `src/assets.ts` — **bump that constant when a drawing change alters output without any asset changing**, or the change will not reach members who already have a cached render. Deliberately not mtime, which every container rebuild resets.
 
 Every route except `/health` requires `Authorization: Bearer ${MILPAC_SERVICE_TOKEN}`, enforced by shared middleware in `src/middleware/auth.ts` — not per route.
 
@@ -103,7 +106,11 @@ The medal box draws **right to left** so the leftmost medal overlaps its neighbo
 
 `assets/templates/certificate-layouts.json` is generated from the templates by `npm run extract-layouts`, and the artwork is unpacked alongside it into `assets/templates/media/`. The templates stay in the repo as the source that JSON derives from and as the regression baseline.
 
-Re-run the extractor if a template changes. Its header comments document the four OOXML details that make a naive parse wrong — split placeholder runs, `<a:br/>`, picture placement on both `<p:pic>` and `<p:sp>`, and rotation/`srcRect`.
+Re-run the extractor if a template changes. Its header comments document the five OOXML details that make a naive parse wrong — split placeholder runs, `<a:br/>`, picture placement on both `<p:pic>` and `<p:sp>`, rotation/`srcRect`, and the signature rule being a `<p:cxnSp>` connector rather than a shape.
+
+The extractor's summary line counts each element kind. There is exactly **one line element per certificate** (the signature rule) — if that count drops, a connector has stopped being parsed.
+
+**The JSON is read once at module scope.** A running service will not pick up a re-extract until it is restarted, which is easy to mistake for the extractor not having worked.
 
 ### `medals.json` ordering is mutable state waiting to happen
 

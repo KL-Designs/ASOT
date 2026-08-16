@@ -814,7 +814,133 @@ function RecruitmentSettingsPanel() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type ActivePanel = 'notifications' | 'task-limits' | 'task-lockout' | 'recruitment'
+// ── Certificate signatory panel ──────────────────────────────────────────────
+
+interface SignatoryPosition { _id: string; role: string; holder: string | null }
+
+/**
+ * Picks the ORBAT position whose current holder signs rendered certificates.
+ *
+ * Deliberately a *position*, not a person: the holder is resolved at render
+ * time, so a change of command needs no edit here. Awards and promotions that
+ * record their own issuing officer are signed by them instead — this only
+ * covers records that name nobody.
+ */
+function CertificateSignatoryPanel() {
+    const [positions, setPositions] = useState<SignatoryPosition[]>([])
+    const [positionId, setPositionId] = useState<string | null>(null)
+    const [activeId, setActiveId] = useState<string | null>(null)
+    const [signatory, setSignatory] = useState<{ signaturer: string; signaturerRankShort: string } | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    const load = useCallback(() => {
+        fetch('/api/admin/certificate-signatory')
+            .then(r => r.ok ? r.json() : Promise.reject(new Error('Failed to load')))
+            .then(d => {
+                setPositions(d.positions ?? [])
+                setPositionId(d.positionId ?? null)
+                setActiveId(d.activePositionId ?? null)
+                setSignatory(d.signatory ?? null)
+            })
+            .catch(e => setError(e.message))
+            .finally(() => setLoading(false))
+    }, [])
+
+    useEffect(load, [load])
+
+    async function save(next: string | null) {
+        setSaving(true)
+        setError(null)
+        const res = await fetch('/api/admin/certificate-signatory', {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ positionId: next }),
+        })
+        setSaving(false)
+        if (!res.ok) { setError((await res.json().catch(() => ({}))).error || 'Save failed'); return }
+        setPositionId(next)
+        load()
+    }
+
+    if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><CircularProgress size={22} /></div>
+
+    const lbl: React.CSSProperties = { fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 6, display: 'block' }
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(219,0,29,0.18)' }}>
+                <span style={lbl}>Currently signing</span>
+                {signatory?.signaturer ? (
+                    <div style={{ fontSize: '0.95rem', fontWeight: 700, letterSpacing: '0.04em' }}>
+                        {signatory.signaturerRankShort} {signatory.signaturer}
+                    </div>
+                ) : (
+                    <div style={{ fontSize: '0.8rem', color: 'rgba(255,180,0,0.8)' }}>
+                        Nobody — certificates without an issuing officer of record will print an
+                        empty signature line.
+                    </div>
+                )}
+            </div>
+
+            <div>
+                <span style={lbl}>India Company HQ position</span>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {positions.length === 0 && (
+                        <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.35)', fontStyle: 'italic' }}>
+                            No Company HQ positions exist in the ORBAT.
+                        </div>
+                    )}
+                    {positions.map(p => {
+                        const selected = positionId === p._id
+                        const isDefault = !positionId && activeId === p._id
+                        return (
+                            <button
+                                key={p._id}
+                                disabled={saving}
+                                onClick={() => save(selected ? null : p._id)}
+                                style={{
+                                    all: 'unset', cursor: saving ? 'default' : 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: 10,
+                                    padding: '9px 12px',
+                                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                    background: selected ? 'rgba(219,0,29,0.10)' : 'transparent',
+                                    boxShadow: selected ? 'inset 2px 0 0 var(--red)' : 'none',
+                                }}
+                            >
+                                <span style={{ flex: 1, fontSize: '0.82rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)' }}>
+                                    {p.role}
+                                </span>
+                                <span style={{ fontSize: '0.72rem', color: p.holder ? 'rgba(237,237,237,0.45)' : 'rgba(237,237,237,0.2)' }}>
+                                    {p.holder ?? 'vacant'}
+                                </span>
+                                {isDefault && (
+                                    <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 6px' }}>
+                                        Auto
+                                    </span>
+                                )}
+                                {selected && (
+                                    <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--red)' }}>
+                                        Signatory
+                                    </span>
+                                )}
+                            </button>
+                        )
+                    })}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', marginTop: 8, lineHeight: 1.6 }}>
+                    Click the selected position again to clear the choice — the Officer Commanding
+                    slot is then picked automatically.
+                </div>
+            </div>
+
+            {error && <div style={{ fontSize: '0.75rem', color: 'var(--red)' }}>{error}</div>}
+        </div>
+    )
+}
+
+
+type ActivePanel = 'notifications' | 'task-limits' | 'task-lockout' | 'recruitment' | 'certificates'
 
 export default function J4WebsiteSettingsPage() {
     const [activePanel, setActivePanel] = useState<ActivePanel>('notifications')
@@ -845,6 +971,7 @@ export default function J4WebsiteSettingsPage() {
                 <button style={tabStyle(activePanel === 'task-limits')} onClick={() => setActivePanel('task-limits')}>Task Limits</button>
                 <button style={tabStyle(activePanel === 'task-lockout')} onClick={() => setActivePanel('task-lockout')}>Overdue Lockout</button>
                 <button style={tabStyle(activePanel === 'recruitment')} onClick={() => setActivePanel('recruitment')}>Recruitment Settings</button>
+                <button style={tabStyle(activePanel === 'certificates')} onClick={() => setActivePanel('certificates')}>Certificates</button>
             </div>
 
             <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)', lineHeight: 1.5, padding: '10px 14px', background: 'rgba(219,0,29,0.04)', border: '1px solid rgba(219,0,29,0.18)' }}>
@@ -852,12 +979,14 @@ export default function J4WebsiteSettingsPage() {
                 {activePanel === 'task-limits' && 'Task limit escalation notifies higher staff when a member accumulates too many incomplete tasks.'}
                 {activePanel === 'task-lockout' && 'Overdue task lockout blocks members from accessing the rest of the portal until they action their overdue tasks.'}
                 {activePanel === 'recruitment' && 'Control the public-facing recruitment flow, including optional pages shown to applicants before they reach the application form.'}
+                {activePanel === 'certificates' && 'Award and promotion certificates are signed by the officer recorded against that award in the member’s milpac. Records that name nobody — anything filed before that was tracked — fall back to the position chosen here.'}
             </div>
 
             {activePanel === 'notifications' && <NotificationPolicyPanel />}
             {activePanel === 'task-limits' && <TaskLimitPolicyPanel />}
             {activePanel === 'task-lockout' && <TaskLockoutPolicyPanel />}
             {activePanel === 'recruitment' && <RecruitmentSettingsPanel />}
+            {activePanel === 'certificates' && <CertificateSignatoryPanel />}
         </div>
     )
 }

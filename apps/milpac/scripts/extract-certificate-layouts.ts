@@ -10,7 +10,7 @@
  * This script is the only thing that reads them; nothing at runtime opens a
  * .pptx.
  *
- * Four details of the OOXML make a naive parse wrong, each found by comparing
+ * Five details of the OOXML make a naive parse wrong, each found by comparing
  * output against the reference renders rather than by reading the spec:
  *
  *   1. A placeholder is routinely split across runs. `{dateNumber}` arrives as
@@ -26,6 +26,9 @@
  *      parchment and the wooden frame are landscape images *rotated* onto the
  *      portrait canvas, not stretched onto it. Ignoring the rotation is what
  *      made an earlier pass render a squashed frame and an overbearing flag.
+ *   5. The rule under the signature is a <p:cxnSp> connector, not a shape.
+ *      Walking only sp and pic left every certificate's signature floating
+ *      over nothing.
  */
 
 import fs from 'fs'
@@ -100,7 +103,19 @@ interface TextElement extends Frame {
     paragraphs: Paragraph[]
 }
 
-type Element = PictureElement | TextElement
+/**
+ * A stroked connector — in practice the rule beneath the signature, which is a
+ * <p:cxnSp> rather than a <p:sp> and so was skipped entirely by the first
+ * pass, leaving the signature floating with nothing under it.
+ */
+interface LineElement extends Frame {
+    kind: 'line'
+    /** Stroke width in pixels at output scale. */
+    thickness: number
+    color: string
+}
+
+type Element = PictureElement | TextElement | LineElement
 
 interface SlideLayout {
     slide: number
@@ -249,10 +264,29 @@ function parseTextBody(txBody: string, frame: Frame, scale: number): TextElement
 }
 
 /**
+ * Reads a connector's stroke. `<a:ln w="…">` is in EMU; a missing width is
+ * PowerPoint's 0.75pt hairline default, and `<a:noFill/>` means the shape has
+ * a geometry but draws nothing.
+ */
+function readStroke(body: string, scale: number): { thickness: number; color: string } | null {
+    const ln = /<a:ln[^>]*>[\s\S]*?<\/a:ln>|<a:ln[^>]*\/>/.exec(body)?.[0]
+    if (!ln || /<a:noFill\s*\/>/.test(ln)) return null
+
+    const width = Number(attr(ln, 'w') ?? EMU_PER_POINT * 0.75)
+    return {
+        // Sub-pixel strokes still have to be visible; the rule is a 1pt line
+        // that lands just under one output pixel at award scale.
+        thickness: Math.max(1, Math.round(width * scale)),
+        color: /<a:srgbClr val="([0-9A-Fa-f]{6})"\/>/.exec(ln)?.[1] ?? '000000',
+    }
+}
+
+/**
  * Walks a slide's top-level drawing elements in document order, which is also
  * back-to-front draw order. A <p:sp> can be either a text box or a picture —
  * the parchment is a shape with a blipFill — so both element types are checked
- * for both kinds of content.
+ * for both kinds of content. <p:cxnSp> is a connector, and only ever a line
+ * here.
  */
 function parseSlide(
     xml: string,
@@ -263,10 +297,16 @@ function parseSlide(
 ): SlideLayout {
     const elements: Element[] = []
 
-    for (const match of xml.matchAll(/<p:(sp|pic)>([\s\S]*?)<\/p:\1>/g)) {
+    for (const match of xml.matchAll(/<p:(sp|pic|cxnSp)>([\s\S]*?)<\/p:\1>/g)) {
         const body = match[2] ?? ''
         const frame = readFrame(body, scale)
         if (!frame) continue
+
+        if (match[1] === 'cxnSp') {
+            const stroke = readStroke(body, scale)
+            if (stroke) elements.push({ kind: 'line', ...frame, ...stroke })
+            continue
+        }
 
         const embed = /<a:blip[^>]*r:embed="([^"]+)"/.exec(body)?.[1]
         if (embed) {
@@ -397,7 +437,7 @@ function main() {
                 for (const el of l.elements) acc[el.kind]++
                 return acc
             },
-            { picture: 0, text: 0 },
+            { picture: 0, text: 0, line: 0 },
         )
         const rotated = Object.values(byCode).reduce(
             (n, l) => n + l.elements.filter(e => e.rotation !== 0).length,
@@ -407,7 +447,7 @@ function main() {
         console.log(
             `${type.padEnd(9)} ${spec.template.padEnd(20)} ` +
             `${Object.keys(extracted.layouts).length} slides, ${Object.keys(byCode).length} codes, ` +
-            `${counts.text} text + ${counts.picture} picture elements (${rotated} rotated), ` +
+            `${counts.text} text + ${counts.picture} picture (${rotated} rotated) + ${counts.line} line elements, ` +
             `${extracted.usedMedia.size} media files, ${extracted.pixels.w}x${extracted.pixels.h}px`,
         )
         if (missing.length) console.warn(`  codes with no slide: ${missing.join(', ')}`)

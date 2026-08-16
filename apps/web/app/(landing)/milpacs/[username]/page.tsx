@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { existsSync } from 'fs'
 import { mkdir, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
-import { renderUniform, renderBox } from '@/lib/milpac-gen/client'
+import { renderUniform, renderBox, getRenderFingerprint } from '@/lib/milpac-gen/client'
 import { buildUniformData, buildBoxData, computeUniformHash } from '@/lib/milpac-gen/data-mapper'
 import { AWARD_TO_CITATION, QUAL_TO_BADGE } from '@/lib/milpac-gen/maps'
 import { certificateCodeForCitation, MEDALLION_CERTIFICATE_CODES } from '@asot/lib'
@@ -132,7 +132,9 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const uniformPath = join(process.cwd(), '..', '..', 'storage', 'milpacs', `${member.id}.png`)
 	const medalsPath  = join(process.cwd(), '..', '..', 'storage', 'milpacs', `${member.id}-medals.png`)
 	try {
-		const currentHash = computeUniformHash(uniformData, boxData)
+		// The fingerprint covers the artwork; the payload covers the member. A
+		// change to either redraws — see computeUniformHash.
+		const currentHash = computeUniformHash(uniformData, boxData, await getRenderFingerprint())
 		const needsRegen  = currentHash !== member.milpac?.uniformHash
 			|| !existsSync(uniformPath)
 			|| !existsSync(medalsPath)

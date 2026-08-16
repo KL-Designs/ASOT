@@ -12,7 +12,7 @@
 
 import express from 'express'
 import { config } from './config'
-import { preflight } from './assets'
+import { assetFingerprint, preflight } from './assets'
 import { requireBearer } from './middleware/auth'
 import { renderRouter } from './routes/render'
 
@@ -33,6 +33,16 @@ app.get('/health', (_req, res) => {
 })
 
 app.use(requireBearer)
+
+/**
+ * The artwork digest apps/web folds into its render cache key, so new art
+ * invalidates every cached uniform. Behind the bearer token rather than on
+ * /health, which stays liveness-only by design.
+ */
+app.get('/fingerprint', (_req, res) => {
+    res.json({ fingerprint: assetFingerprint() })
+})
+
 app.use('/render', renderRouter)
 
 app.use((_req, res) => {

@@ -114,3 +114,44 @@ export interface CertificateRequest {
 export function renderCertificate(data: CertificateRequest): Promise<Buffer> {
     return post('/render/certificate', data)
 }
+
+// ── Render fingerprint ───────────────────────────────────────────────────────
+
+/** How long a fetched fingerprint is trusted before re-asking the service. */
+const FINGERPRINT_TTL_MS = 60_000
+
+let cached: { value: string; at: number } | null = null
+
+/**
+ * The service's artwork digest, folded into the cached-render key.
+ *
+ * Uniform and medal-box images are only redrawn when the member's data
+ * changes, which misses new artwork entirely: swap a base uniform PNG and every
+ * cached image is stale with nothing to notice it. Including this in the hash
+ * makes new art invalidate the estate — each member redraws once, on next view.
+ *
+ * Cached in-process with a short TTL so a restarted service is picked up
+ * without restarting web, and so a profile view is not gated on a second round
+ * trip. An unreachable service reuses the last known value, or contributes
+ * nothing at all if there has never been one: no render can succeed in that
+ * state anyway, so the alternative is a hash that flaps while it is down.
+ */
+export async function getRenderFingerprint(): Promise<string> {
+    if (cached && Date.now() - cached.at < FINGERPRINT_TTL_MS) return cached.value
+    if (!BASE || !TOKEN) return cached?.value ?? ''
+
+    try {
+        const res = await fetch(`${BASE}/fingerprint`, {
+            headers: { Authorization: `Bearer ${TOKEN}` },
+            signal: AbortSignal.timeout(5_000),
+            cache: 'no-store',
+        })
+        if (!res.ok) return cached?.value ?? ''
+        const { fingerprint } = await res.json() as { fingerprint?: string }
+        if (!fingerprint) return cached?.value ?? ''
+        cached = { value: fingerprint, at: Date.now() }
+        return fingerprint
+    } catch {
+        return cached?.value ?? ''
+    }
+}

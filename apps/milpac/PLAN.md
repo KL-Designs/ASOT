@@ -990,16 +990,10 @@ judgement call for the unit.
 
 ### Worth doing before this merges
 
-**Confirm the fallback signing officer.** `MILPAC_SIGNATORY_NAME`,
-`MILPAC_SIGNATORY_RANK_SHORT` and `MILPAC_SIGNATORY_RANK_FULL` were seeded from
-a reference render (`Six` / `MAJGEN` / `Major General`).
-
-They are no longer what every certificate prints. **Decision 6** settled the
-signing officer: a certificate is signed by the officer who actually issued that
-award or promotion, taken from the record's own `issuedByName` +
-`issuedByRank`. The env vars are the fallback for records that name nobody —
-which is every record filed before `issuedByRank` existed, so they still matter
-until the back catalogue is filled in.
+**Fill in the back catalogue.** Every award and promotion filed before
+`issuedByRank` existed names no issuing officer, so all of them fall back to the
+unit signatory. Nothing is broken by that; it just means historical certificates
+are signed by the current OC rather than the officer who actually issued them.
 
 ### Decision 6 — who signs a certificate
 
@@ -1007,14 +1001,24 @@ The templates print `{signaturerRankShort} {signaturer}` above a static
 "Officer Commanding / Australian Special Operations Taskforce HQ" line, so the
 payload supplies a name and a rank in two forms.
 
-Three options were on the table: a per-record issuing officer, a single unit
-signatory held on a member's own document, or resolving the issuer's rank live
-from their user record at render time. The unit chose **per-record**.
+**A certificate is signed by the officer who issued it**, taken from that
+award's or promotion's own `issuedByName` + `issuedByRank` in the member's
+milpac. `MILPAC_SIGNATORY_NAME`, `_RANK_SHORT` and `_RANK_FULL` — seeded from a
+reference render as `Six` / `MAJGEN` / `Major General` — **have been removed**.
 
-The reason it matters: an officer's rank moves. Resolving live would reprint a
-2021 certificate with the issuer's 2026 rank, quietly rewriting a historical
-record every time someone opened it. Storing the rank on the award freezes it at
-issue, which is what a certificate is *for*.
+The fallback, for records that name nobody, is whoever currently holds a
+nominated ORBAT position, chosen in the dashboard under **J4 → Website Settings
+→ Certificates** and resolved at render time. Storing the *position* rather than
+the person means a change of command needs no edit anywhere. Left unset it
+guesses: the first occupied India Company HQ slot whose role matches
+"Officer/Commanding", else the first occupied CHQ slot. It deliberately does not
+use `isSenior`, which `lib/orbat` documents as set only during mass-import and
+not maintained by the ORBAT editor.
+
+Why per-record rather than always the current OC: an officer's rank moves.
+Resolving live would reprint a 2021 certificate with the issuer's 2026 rank,
+quietly rewriting a historical record every time someone opened it. Storing the
+rank on the award freezes it at issue, which is what a certificate is *for*.
 
 `issuedByRank` holds the **full rank name**, matching `promotions[].rank` and
 the editor's `RankSelect` value contract — not the abbreviation that
@@ -1023,6 +1027,27 @@ rather than stored twice, so the two cannot drift.
 
 A record with a name but no rank falls back to the unit signatory rather than
 printing an empty rank next to a real name.
+
+**The member's own name carries their rank too** — `{name}` renders as
+"MAJ Thomas", not "Thomas". For an award that is the rank held on the award's
+date, derived from the promotion history (the most recent promotion dated on or
+before it), falling back to the current rank when no promotion date parses. For
+a promotion certificate it is the rank being granted, since that is what the
+certificate announces.
+
+### The signature rule
+
+The line under the signature is a `<p:cxnSp>` connector, not a `<p:sp>`, and the
+first extractor pass walked only `sp` and `pic` — so all 159 certificates
+rendered with the signature floating over nothing. `<p:cxnSp>` is now a third
+element kind (`line`), carrying the stroke width and colour from its `<a:ln>`.
+A `straightConnector1` runs corner to corner of its frame, so the rule is a box
+a few EMU tall and `flipV` is the only part of the transform that changes
+anything for it.
+
+The extractor's summary line now counts line elements alongside text and
+pictures, so losing them again is visible at a glance: expect one per
+certificate.
 
 ### Deliberately deferred
 
