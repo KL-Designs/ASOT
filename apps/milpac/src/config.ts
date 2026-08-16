@@ -19,7 +19,12 @@ function required(name: string): string {
 }
 
 export const config = {
-    port: Number(process.env.PORT) || 42070,
+    /**
+     * MILPAC_PORT, not PORT. Both apps read the same root .env, and PORT is
+     * already web's (3000) — a service reading it here would silently listen on
+     * the wrong port and never match MILPAC_SERVICE_URL.
+     */
+    port: Number(process.env.MILPAC_PORT) || 42070,
 
     /**
      * Shared secret for the Bearer token every route except /health requires.

@@ -741,6 +741,8 @@ async function runItem(item) {
 // ─── Menu items ─────────────────────────────────────────────────────────────
 
 const WEB_PORT = Number(ENV.PORT) || 3000
+// MILPAC_PORT, not PORT — both apps read the same root .env and PORT is web's.
+const MILPAC_PORT = Number(ENV.MILPAC_PORT) || 42070
 
 const DOCKER_ITEMS = [
     { label: '🏗️  Build & Start', command: 'docker', args: ['compose', 'up', '-d', '--build', '--remove-orphans'] },
@@ -750,10 +752,12 @@ const DOCKER_ITEMS = [
 const RUN_ITEMS = [
     { label: '🌏 Website', command: 'npm', args: ['--prefix', 'apps/web', 'run', 'dev-collab'], port: WEB_PORT },
     { label: '🤖 Discord', command: 'npm', args: ['run', 'dev', '--workspace=apps/bot'] },
+    { label: '🎖️ MilPac', command: 'npm', args: ['run', 'dev', '--workspace=apps/milpac'], port: MILPAC_PORT },
     {
-        label: '🔀 Both', port: WEB_PORT, commands: [
+        label: '🔀 All', port: WEB_PORT, commands: [
             ['npm', ['--prefix', 'apps/web', 'run', 'dev-collab']],
             ['npm', ['run', 'dev', '--workspace=apps/bot']],
+            ['npm', ['run', 'dev', '--workspace=apps/milpac']],
         ],
     },
 ]
@@ -762,6 +766,8 @@ const PRODUCTION_ITEMS = [
     { label: '🏗️ Build Website', command: 'npm', args: ['--prefix', 'apps/web', 'run', 'build'] },
     { label: '🚀 Start Website', command: 'npm', args: ['--prefix', 'apps/web', 'run', 'start'], port: WEB_PORT },
     { label: '🚀 Start Discord', command: 'npm', args: ['run', 'start', '--workspace=apps/bot'] },
+    // No 'Build MilPac' — that app runs TypeScript directly via tsx, like apps/bot.
+    { label: '🚀 Start MilPac', command: 'npm', args: ['run', 'start', '--workspace=apps/milpac'], port: MILPAC_PORT },
 ]
 
 const SETUP_ITEMS = [

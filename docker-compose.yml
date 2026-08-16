@@ -29,6 +29,33 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    depends_on:
+      milpac:
+        condition: service_healthy
+
+  milpac:
+    build:
+      context: .
+      dockerfile: apps/milpac/dockerfile
+    container_name: milpac
+    # Deliberately no `ports:` — web reaches this by service name on compose's
+    # default network. Publishing it would expose an image generator to the
+    # internet, which is what made the original's own compose file dangerous.
+    # See apps/milpac/PLAN.md section 9.
+    #
+    # Deliberately no `volumes:` either. Every other service bind-mounts part of
+    # storage/; this one writes nothing to disk by design and returns bytes for
+    # web to persist. That absence is a design decision, not an oversight.
+    restart: unless-stopped
+    env_file:
+      - .env
+    healthcheck:
+      # node:22-alpine ships neither curl nor wget, but node 22 has global fetch.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.MILPAC_PORT||42070)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   bot:
     build:
