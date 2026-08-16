@@ -3,6 +3,7 @@ import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { readConfig, writeConfig } from '@/lib/backups'
 import type { BackupConfig } from '@/lib/backups'
+import { logAction } from '@/lib/logAction'
 
 // GET /api/backups/config — read current backup config (backups.manage)
 export async function GET() {
@@ -68,5 +69,15 @@ export async function PATCH(req: NextRequest) {
     }
 
     await writeConfig(updated)
+
+    await logAction({
+        action: 'backup.config_change',
+        category: 'system',
+        performedBy: me.id,
+        performedByName: me.name ?? me.id,
+        before: current,
+        after: updated,
+    })
+
     return NextResponse.json(updated)
 }

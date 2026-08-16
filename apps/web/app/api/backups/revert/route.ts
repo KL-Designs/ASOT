@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { readStatus, revertToPoint, listBackups } from '@/lib/backups'
+import { logAction } from '@/lib/logAction'
 
 const ID_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:00:00\.000Z$/
 
@@ -38,6 +39,15 @@ export async function POST(request: NextRequest) {
 
     // Fire and forget
     revertToPoint(point).catch(e => console.error('[backups] Revert error:', e.message))
+
+    await logAction({
+        action: 'backup.revert',
+        category: 'system',
+        performedBy: me.id,
+        performedByName: me.name ?? me.id,
+        entityType: 'backup',
+        entityId: point.id,
+    })
 
     return NextResponse.json({ message: 'Revert started' }, { status: 202 })
 }

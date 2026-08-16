@@ -5,6 +5,7 @@ import { tmpdir } from 'os'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { readStatus, applyUploadedZip } from '@/lib/backups'
+import { logAction } from '@/lib/logAction'
 
 // POST /api/backups/upload — upload a backup ZIP and revert to it (backups.restore)
 // Note: large uploads are buffered in memory via arrayBuffer(). Ensure the
@@ -49,6 +50,14 @@ export async function POST(request: NextRequest) {
     applyUploadedZip(tmpPath)
         .finally(() => unlink(tmpPath).catch(() => {}))
         .catch(e => console.error('[backups] Upload-revert error:', e.message))
+
+    await logAction({
+        action: 'backup.upload_restore',
+        category: 'system',
+        performedBy: me.id,
+        performedByName: me.name ?? me.id,
+        details: { filename: file.name },
+    })
 
     return NextResponse.json({ message: 'Upload received, revert started' }, { status: 202 })
 }

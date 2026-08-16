@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { readStatus, runAllBackups } from '@/lib/backups'
+import { logAction } from '@/lib/logAction'
 
 // POST /api/backups/create — trigger a background backup of both repos (backups.manage)
 export async function POST() {
@@ -23,6 +24,13 @@ export async function POST() {
 
     // Fire and forget — returns immediately, backup runs in background
     runAllBackups().catch(e => console.error('[backups] Manual create error:', e.message))
+
+    await logAction({
+        action: 'backup.create',
+        category: 'system',
+        performedBy: me.id,
+        performedByName: me.name ?? me.id,
+    })
 
     return NextResponse.json({ message: 'Backup started' }, { status: 202 })
 }
