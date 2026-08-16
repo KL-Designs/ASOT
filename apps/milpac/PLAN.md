@@ -1,10 +1,11 @@
 # MilPac Generator — Import & Overhaul Plan
 
-**Status:** Phases 0 and 1 complete. Phase 2 (canvas certificates) is
-substantially done — the renderer is verified against both certificate formats
-and all 159 codes render; the full 158-way diff and the five broken award codes
-remain. Phase 3 (website integration) and Phase 4 (compose, menu, docs) not
-started, though parts of 4a/4b landed early — see the Phase 1 deviations.
+**Status:** Phases 0–4 essentially complete. The service is built, containerised,
+wired into compose and the start menu, called by the website, and documented.
+Two things remain, both listed at the end of §6: a **UI affordance for
+certificates** on the milpac profile (the API route exists, nothing links to it),
+and **deleting the 614 legacy renders** once someone has reviewed the output.
+
 **Branch:** `milpac-service`, branched off `main`. Not pushed.
 **Date:** 2026-08-16
 
@@ -968,3 +969,42 @@ parchment, scrollwork, insignia, seal and text all match.
    the output, not before. They are the only reference for the 95 codes that
    have never been issued, so deleting them early forecloses ever checking
    those. They are gitignored, so they cost nothing to keep meanwhile.
+
+---
+
+## 12. What is left
+
+Everything in §6 has landed except the two items below. Both are deliberate
+stopping points rather than unfinished work.
+
+### A UI affordance for certificates
+
+`GET /api/milpac/certificate/[username]?type=&cert=` renders any certificate a
+member actually holds, verified against their award list. **Nothing links to it
+yet.** The route was built first because it is the part with security
+consequences — it names a person and carries the OC's signature, so it checks
+entitlement and requires a logged-in member.
+
+Where the link belongs is a design question rather than a technical one: beside
+each award in the profile's awards list, as a separate "Certificates" section,
+or only on the member's own profile. That is worth deciding with someone who
+uses the page rather than inferring it.
+
+### Deleting the 614 legacy renders
+
+§7 decision #5 says discard them once Phase 2 passes review. Phase 2 has passed
+*verification* — 159/159 render, both formats match their references, mean art
+difference 2.07% — but not human review.
+
+They are also the only reference for the **95 certificate codes the unit has
+never issued**, which the systematic diff could not check. Deleting them
+forecloses ever checking those. They are gitignored, so keeping them costs
+nothing but disk.
+
+### Outside the repo, still outstanding
+
+The MongoDB Atlas credential and the `UC_API_KEY` JWT found during the import
+still want rotating. Decision #2 means nothing consumes `UC_API_KEY` any more,
+so that one is hygiene rather than a prerequisite — but the Atlas credential sat
+in plaintext across three tracked files and a build artefact, and should be
+treated as compromised.
