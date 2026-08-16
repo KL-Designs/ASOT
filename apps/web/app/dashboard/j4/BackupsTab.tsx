@@ -695,30 +695,34 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                                 alignItems: 'center', padding: '8px 12px',
                                 background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
                             }}>
-                                <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.85)' }}>
-                                    {new Date(p.time).toLocaleString()}
-                                </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                                    <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.85)' }}>
+                                        {new Date(p.time).toLocaleString()}
+                                    </span>
+                                    {p.isSafety && (
+                                        <span
+                                            title='Taken automatically before a restore — exempt from retention'
+                                            style={{
+                                                fontSize: '0.6rem',
+                                                letterSpacing: 1,
+                                                padding: '2px 6px',
+                                                border: '1px solid rgba(219,166,0,0.5)',
+                                                color: 'rgba(219,166,0,0.85)',
+                                                textTransform: 'uppercase',
+                                                whiteSpace: 'nowrap',
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            Pre-restore
+                                        </span>
+                                    )}
+                                </div>
                                 <span style={{ fontSize: '0.68rem', color: p.dbSnapshotId ? 'rgba(0,195,100,0.85)' : 'rgba(237,237,237,0.2)' }}>
                                     {p.dbSnapshotId ? (p.dbSizeBytes ? fmtBytes(p.dbSizeBytes) : 'Present') : 'Missing'}
                                 </span>
                                 <span style={{ fontSize: '0.68rem', color: p.mediaSnapshotId ? 'rgba(0,195,100,0.85)' : 'rgba(237,237,237,0.2)' }}>
                                     {p.mediaSnapshotId ? (p.mediaSizeBytes ? fmtBytes(p.mediaSizeBytes) : 'Present') : 'Missing'}
                                 </span>
-                                {p.isSafety && (
-                                    <span
-                                        title='Taken automatically before a restore — exempt from retention'
-                                        style={{
-                                            fontSize: '0.6rem',
-                                            letterSpacing: 1,
-                                            padding: '2px 6px',
-                                            border: '1px solid rgba(219,166,0,0.5)',
-                                            color: 'rgba(219,166,0,0.85)',
-                                            textTransform: 'uppercase',
-                                        }}
-                                    >
-                                        Pre-restore
-                                    </span>
-                                )}
                                 <a
                                     href={busy ? undefined : `/api/backups/${encodeURIComponent(p.id)}/download`}
                                     download={`backup-${p.id}.zip`}
