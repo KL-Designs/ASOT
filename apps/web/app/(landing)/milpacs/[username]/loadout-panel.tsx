@@ -106,28 +106,32 @@ export function LoadoutPanel({ loadout, actions }: { loadout: MemberLoadout; act
         <div className={s.kit}>
             {actions && <div className={s.kitActions}>{actions}</div>}
 
-            <div className={s.kitWeapons}>
-                <Weapon label='Primary' weapon={kit.primary} slot='primary' />
-                <Weapon label='Launcher' weapon={kit.launcher} slot='launcher' />
-                <Weapon label='Sidearm' weapon={kit.handgun} slot='handgun' />
-            </div>
-
-            <div className={s.kitBags}>
-                <Bag label='Uniform' container={kit.uniform} slot='uniform' />
-                <Bag label='Vest' container={kit.vest} slot='vest' />
-                <Bag label='Backpack' container={kit.backpack} slot='backpack' />
-            </div>
-
-            <div className={s.kitWorn}>
-                {worn.map(([label, slot, cls]) => (
-                    <div key={label} className={s.kitWornItem}>
-                        <LoadoutIcon icon={iconFor(cls ?? '', slot)} size={15} />
-                        <div>
-                            <div className={s.lbl}>{label}</div>
-                            <div className={s.kitWornName}>{cls ? resolveItemName(cls) : '—'}</div>
+            <div className={s.kitBody}>
+                <div className={s.kitWorn}>
+                    {worn.map(([label, slot, cls]) => (
+                        <div key={label} className={s.kitWornItem}>
+                            <LoadoutIcon icon={iconFor(cls ?? '', slot)} size={30} />
+                            <div>
+                                <div className={s.lbl}>{label}</div>
+                                <div className={s.kitWornName}>{cls ? resolveItemName(cls) : '—'}</div>
+                            </div>
                         </div>
+                    ))}
+                </div>
+
+                <div className={s.kitMain}>
+                    <div className={s.kitWeapons}>
+                        <Weapon label='Primary' weapon={kit.primary} slot='primary' />
+                        <Weapon label='Launcher' weapon={kit.launcher} slot='launcher' />
+                        <Weapon label='Sidearm' weapon={kit.handgun} slot='handgun' />
                     </div>
-                ))}
+
+                    <div className={s.kitBags}>
+                        <Bag label='Uniform' container={kit.uniform} slot='uniform' />
+                        <Bag label='Vest' container={kit.vest} slot='vest' />
+                        <Bag label='Backpack' container={kit.backpack} slot='backpack' />
+                    </div>
+                </div>
             </div>
         </div>
     )

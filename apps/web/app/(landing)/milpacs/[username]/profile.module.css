@@ -729,18 +729,33 @@
 .kitItemName { flex: 1 1 auto; min-width: 0; }
 .kitCount { font-family: var(--mono); font-size: 11px; color: var(--acc); }
 
+.kitBody { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.kitMain { display: flex; flex-direction: column; gap: 18px; }
+
 .kitWorn {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 10px;
-    border-top: 1px solid var(--line);
-    padding-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    border-right: 1px solid var(--line);
+    padding-right: 16px;
 }
-.kitWornItem { display: flex; align-items: center; gap: 9px; color: var(--ink-2); }
-.kitWornName { font-size: 12px; color: var(--ink); }
+.kitWornItem { display: flex; align-items: center; gap: 12px; color: var(--ink-2); }
+.kitWornItem > div { flex: 1 1 auto; min-width: 0; }
+.kitWornName { font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
 
 @media (max-width: 900px) {
     .kitWeapons, .kitBags { grid-template-columns: 1fr; }
+    .kitBody { grid-template-columns: 1fr; }
+    .kitWorn {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 10px;
+        border-right: none;
+        border-top: 1px solid var(--line);
+        padding-right: 0;
+        padding-top: 14px;
+    }
+    .kitWorn .kitWornItem { flex: 1 1 140px; }
 }
 
 .kitImport {

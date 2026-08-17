@@ -9,13 +9,27 @@ import s from './profile.module.css'
  * The import box states plainly that importing publishes the kit. That wording
  * is a requirement, not a nicety: the share toggle governs one-click copying,
  * not confidentiality, and a member who reads it as privacy has been misled.
+ *
+ * Renders a fragment, not a wrapping div — `LoadoutPanel` already supplies the
+ * `.kitActions` row this content lives in.
  */
 
 type Summary = { id: string; name: string; isDefault: boolean; shared: boolean; raw: string }
 
-function copyText(text: string): boolean {
-    // Mirrors copy-link.tsx: the Clipboard API needs a secure context, which a
-    // dev server reached over a LAN IP is not.
+/**
+ * Mirrors copy-link.tsx: prefer the Clipboard API in a secure context, and fall
+ * back to an off-screen-textarea `execCommand('copy')` for a dev server reached
+ * over a LAN IP (not a secure context) or a browser without the API.
+ */
+async function copyText(text: string): Promise<boolean> {
+    try {
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text)
+            return true
+        }
+    } catch {
+        // Fall through to the legacy path below on a rejected clipboard write.
+    }
     const field = document.createElement('textarea')
     field.value = text
     field.setAttribute('readonly', '')
@@ -54,24 +68,47 @@ export function LoadoutManager({ loadouts, isOwn, activeId }: {
     }
 
     const patch = async (id: string, body: Record<string, unknown>) => {
-        setBusy(true)
-        await fetch(`/api/loadouts/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-        })
-        window.location.reload()
+        setBusy(true); setError(null)
+        try {
+            const res = await fetch(`/api/loadouts/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+            if (!res.ok) {
+                const json = await res.json().catch(() => ({}))
+                setError(json.error ?? 'That change could not be saved.')
+                setBusy(false)
+                return
+            }
+            window.location.reload()
+        } catch {
+            // A thrown fetch would otherwise leave busy set and every control dead.
+            setError('Could not reach the server. Try again.')
+            setBusy(false)
+        }
     }
 
     const remove = async (id: string) => {
         if (!confirm('Delete this loadout?')) return
-        setBusy(true)
-        await fetch(`/api/loadouts/${id}`, { method: 'DELETE' })
-        window.location.reload()
+        setBusy(true); setError(null)
+        try {
+            const res = await fetch(`/api/loadouts/${id}`, { method: 'DELETE' })
+            if (!res.ok) {
+                const json = await res.json().catch(() => ({}))
+                setError(json.error ?? 'That loadout could not be deleted.')
+                setBusy(false)
+                return
+            }
+            window.location.reload()
+        } catch {
+            setError('Could not reach the server. Try again.')
+            setBusy(false)
+        }
     }
 
     return (
-        <div className={s.kitActions}>
+        <>
             {loadouts.length > 1 && (
                 <select
                     className={s.btn}
@@ -87,7 +124,7 @@ export function LoadoutManager({ loadouts, isOwn, activeId }: {
                 <button
                     type='button'
                     className={s.btn}
-                    onClick={() => { setCopied(copyText(active.raw)); setTimeout(() => setCopied(false), 1800) }}
+                    onClick={async () => { setCopied(await copyText(active.raw)); setTimeout(() => setCopied(false), 1800) }}
                 >
                     {copied ? 'Copied' : 'Copy loadout'}
                 </button>
@@ -109,6 +146,8 @@ export function LoadoutManager({ loadouts, isOwn, activeId }: {
                     {importing ? 'Cancel' : 'Import loadout'}
                 </button>
             )}
+
+            {error && !importing && <p className={s.kitImportError}>{error}</p>}
 
             {isOwn && importing && (
                 <div className={s.kitImport}>
@@ -137,6 +176,6 @@ export function LoadoutManager({ loadouts, isOwn, activeId }: {
                     </button>
                 </div>
             )}
-        </div>
+        </>
     )
 }
