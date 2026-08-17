@@ -123,6 +123,18 @@
 .btnAcc { border-color: rgba(var(--acc-rgb), 0.5); color: var(--acc); background: rgba(var(--acc-rgb), 0.08); }
 .btnAcc:hover { background: rgba(var(--acc-rgb), 0.16); color: var(--acc); }
 
+/* Sits directly on the banner photo, so it needs its own ground rather than the
+   surface colour a button in the chrome can borrow. */
+.btnOnImage {
+    background: rgba(8, 9, 10, 0.6);
+    backdrop-filter: blur(6px);
+    border-color: var(--line-2);
+}
+.btnOnImage:hover { background: rgba(8, 9, 10, 0.82); }
+.btnDanger { color: var(--crit); border-color: rgba(192, 90, 72, 0.4); }
+.btnDanger:hover { border-color: rgba(192, 90, 72, 0.75); color: var(--crit); background: rgba(192, 90, 72, 0.14); }
+.btnBusy { opacity: 0.5; pointer-events: none; }
+
 /* ── hero ────────────────────────────────────────────────────────────────── */
 
 .hero { position: relative; width: 100%; isolation: isolate; }
