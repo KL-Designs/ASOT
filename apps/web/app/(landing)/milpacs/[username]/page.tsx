@@ -485,26 +485,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 					<Panel title='Awards & Decorations' tag={awards.length > 0 ? String(awards.length) : undefined} delay='.13s'>
 						{awards.length === 0 ? <Empty text='No awards on record.' /> : (
 							<>
-								{/* The rack first — the mockup's signature — then the
-								    detail list, which carries the type, issuer and date
-								    the rack alone cannot show. */}
-								<div className={s.rack}>
-									{awards.map((a, i) => {
-										const citation = AWARD_TO_CITATION[a.name]
-										const medallion = MEDALLION_ART[a.name]
-										if (citation) return (
-											<img
-												key={i}
-												src={`/milpac-assets/imge/Ribbons/${citation}.png`}
-												alt={a.name}
-												title={a.name}
-												style={{ width: 58, height: 18, objectFit: 'contain', imageRendering: 'pixelated' }}
-											/>
-										)
-										if (medallion) return <MedallionIcon key={i} art={medallion} alt={a.name} size={20} />
-										return null
-									})}
-								</div>
 								{hasMedals && (
 									<div style={{ marginTop: 14 }}>
 										<ImageLightbox
@@ -518,9 +498,27 @@ export default async function Page({ params }: { params: Promise<{ username: str
 									{awards.map((a, i) => {
 										const certCode = certificateCodeForAward(a.name)
 										const canOpen  = canViewCertificates && Boolean(certCode)
+										const citation = AWARD_TO_CITATION[a.name]
+										const medallion = MEDALLION_ART[a.name]
 										const row = (
-											<div className={s.rw} style={{ alignItems: 'flex-start' }}>
-												<span style={{ minWidth: 0 }}>
+											<div className={s.rw} style={{ alignItems: 'center' }}>
+												{/* Fixed-width slot so ribbons, medallions and
+												    awards with no artwork all line up down the
+												    left edge rather than ragging. */}
+												<span style={{ width: 58, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+													{citation
+														? (
+															<img
+																src={`/milpac-assets/imge/Ribbons/${citation}.png`}
+																alt=''
+																style={{ width: 58, height: 18, objectFit: 'contain', imageRendering: 'pixelated' }}
+															/>
+														)
+														: medallion
+															? <MedallionIcon art={medallion} alt='' size={22} />
+															: null}
+												</span>
+												<span style={{ flex: 1, minWidth: 0 }}>
 													<span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--ink)' }}>{a.name}</span>
 													<span className={s.cmdType} style={{ marginLeft: 8 }}>{a.type}</span>
 													{a.issuedByName && (
