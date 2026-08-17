@@ -96,7 +96,7 @@ export function iconFor(className: string, slot: SlotContext = 'content'): IconK
 
     if (slot === 'primary') {
         if (/sniper|_LRR|m107|awm/i.test(className)) return 'sniper'
-        if (/(^|_)(l|h)?mg(_|$)|minimi|maximi|m249|m240|pkp/i.test(className)) return 'mg'
+        if (/(^|_)[lhm]?mg(_|$)|minimi|maximi|m249|m240|pkp/i.test(className)) return 'mg'
         if (/dmr|marksman|sr25|mk11/i.test(className)) return 'dmr'
         if (/carbine|_c8|mk18|shorty/i.test(className)) return 'carbine'
         return 'rifle'
@@ -106,7 +106,12 @@ export function iconFor(className: string, slot: SlotContext = 'content'): IconK
     if (meta?.root === 'CfgGlasses') return 'facewear'
     if (meta?.root === 'CfgVehicles') return 'backpack'
 
-    if (meta?.root === 'CfgMagazines' && !THROWABLE.test(className)) return 'magazine'
+    // Belts are magazines too, but the belt icon says more than the magazine one,
+    // so it gets first refusal before the short-circuit below.
+    if (meta?.root === 'CfgMagazines') {
+        if (/belt|linked/i.test(className)) return 'belt'
+        if (!THROWABLE.test(className)) return 'magazine'
+    }
 
     for (const [re, key] of BY_NAME) if (re.test(className)) return key
 

@@ -63,8 +63,7 @@ describe('iconFor', () => {
     test('flavour words in a classname do not beat what the item actually is', () => {
         // Each of these matched a rule meant for something else. See the comments
         // in classify.ts — all four were found in the real dictionary, not imagined.
-        expect(iconFor('SMG_01_F', 'primary')).not.toBe('mg')
-        expect(iconFor('kat_ketamine')).not.toBe('explosive')
+        expect(iconFor('kat_ketamine')).toBe('item')
         expect(iconFor('UAS_BASE_762N_DSG_GPS_5Rnd')).toBe('magazine')
         expect(iconFor('UAS_BASE_762N_ABC_Explosive_5Rnd')).toBe('magazine')
         expect(iconFor('UAS_BASE_PLASMA_XAR15')).toBe('magazine')
@@ -75,5 +74,17 @@ describe('iconFor', () => {
         expect(iconFor('SmokeShell')).toBe('smoke')
         expect(iconFor('ACE_M84')).toBe('flashbang')
         expect(iconFor('CUP_HandGrenade_M67')).toBe('grenade')
+    })
+
+    test('weapon and ammo families keep their own icons', () => {
+        // Round 1 fixed SMG by narrowing the MG rule and broke MMG; the belt
+        // short-circuit fixed UAS ammo and broke 110 linked belts. Both directions
+        // are pinned here so neither can come back.
+        expect(iconFor('MMG_01_hex_F', 'primary')).toBe('mg')
+        expect(iconFor('LMG_Zafir_F', 'primary')).toBe('mg')
+        expect(iconFor('SMG_01_F', 'primary')).toBe('rifle')
+        expect(iconFor('200Rnd_65x39_Belt')).toBe('belt')
+        expect(iconFor('1000Rnd_65x39_Belt')).toBe('belt')
+        expect(iconFor('CUP_30Rnd_556x45_X95_Tracer_Green')).toBe('magazine')
     })
 })
