@@ -190,4 +190,72 @@ describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
         expect(status.state).toBe('idle')
         expect(status.error).toBeUndefined()
     }, 300000)
+
+    // A restore left the database clean (collections are dropped and reinserted)
+    // but the media tree merged — copyDirRecursive() only ever writes, so a file
+    // added after the backup survived a restore of it. The two halves of one
+    // operation disagreed about what "restore" means.
+    test('a clean restore removes media the backup does not contain', async () => {
+        await seed('clean-original')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        const stray = join(storageRoot, 'gallery', 'added-after-the-backup.txt')
+        writeFileSync(stray, 'never in the backup', 'utf-8')
+
+        await backups.revertToPoint(point, ['gallery'], { wipeMedia: true })
+
+        expect(existsSync(stray)).toBe(false)
+        expect(readFileSync(join(storageRoot, 'gallery', 'photo.txt'), 'utf-8')).toBe('clean-original')
+    }, 300000)
+
+    test('the default restore still merges, leaving newer files alone', async () => {
+        await seed('merge-original')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        const stray = join(storageRoot, 'gallery', 'kept-by-merge.txt')
+        writeFileSync(stray, 'still here', 'utf-8')
+
+        await backups.revertToPoint(point, ['gallery'])
+
+        expect(readFileSync(stray, 'utf-8')).toBe('still here')
+        expect(readFileSync(join(storageRoot, 'gallery', 'photo.txt'), 'utf-8')).toBe('merge-original')
+    }, 300000)
+
+    // The wipe is scoped to the parts being restored. Emptying a tree the
+    // operator did not ask to restore would delete files with nothing queued
+    // to put back.
+    test('a clean gallery restore does not empty uploads', async () => {
+        await seed('scoped-clean')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        const strayUpload = join(storageRoot, 'uploads', 'not-my-part.txt')
+        writeFileSync(strayUpload, 'survives', 'utf-8')
+
+        await backups.revertToPoint(point, ['gallery'], { wipeMedia: true })
+
+        expect(readFileSync(strayUpload, 'utf-8')).toBe('survives')
+    }, 300000)
+
+    test('an uploaded zip can also restore cleanly', async () => {
+        await seed('zip-clean')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        const zipPath = join(tempRoot, 'clean-restore.zip')
+        const stream = await backups.openDownloadZipStream(point, ['gallery']) as unknown as NodeWebReadableStream
+        await pipeline(Readable.fromWeb(stream), createWriteStream(zipPath))
+
+        const stray = join(storageRoot, 'gallery', 'added-after-the-zip.txt')
+        writeFileSync(stray, 'never in the zip', 'utf-8')
+
+        await backups.applyUploadedZip(zipPath, ['gallery'], { wipeMedia: true })
+
+        expect(existsSync(stray)).toBe(false)
+        expect(readFileSync(join(storageRoot, 'gallery', 'photo.txt'), 'utf-8')).toBe('zip-clean')
+
+        await rm(zipPath, { force: true }).catch(() => {})
+    }, 300000)
 })

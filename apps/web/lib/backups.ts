@@ -888,6 +888,25 @@ async function copyDirRecursive(src: string, dest: string): Promise<void> {
     }
 }
 
+// Empties a directory's contents, leaving the directory itself in place.
+//
+// Not `rm(dir)` then recreate: GALLERY_DIR and UPLOADS_DIR live inside the
+// `storage/` tree bind-mounted by docker-compose.yml, and removing a mount
+// point detaches it — every later write would land on a path inside the
+// container that nothing outside can see, and the failure would look like
+// "uploads silently stopped appearing" rather than anything about a restore.
+//
+// A missing directory is not an error. A restore into a tree that does not
+// exist yet has nothing to clear, and copyDirRecursive() creates it next.
+async function emptyDir(dir: string): Promise<void> {
+    if (!existsSync(dir)) return
+    for (const entry of readdirSync(dir)) {
+        // rm removes a symlink itself, never what it points at — the same
+        // rule copyDirRecursive() follows in the other direction.
+        await rm(join(dir, entry), { recursive: true, force: true })
+    }
+}
+
 async function restoreDatabase(dumpDir: string): Promise<void> {
     const mongoClient = new MongoClient(process.env.MONGO_URI!)
     try {
@@ -1008,6 +1027,12 @@ function findDirNamed(root: string, name: string): string | null {
 export async function revertToPoint(
     point: BackupPoint,
     parts: readonly BackupPart[] = ALL_BACKUP_PARTS,
+    // `wipeMedia` clears each restored media tree before copying into it, so
+    // the result matches the backup rather than being the union of the two.
+    // Off by default: merging is what this has always done, and the operator
+    // opts in. The database half has always been clean — restoreDatabase()
+    // drops each collection — so this only closes the gap between the two.
+    opts: { wipeMedia?: boolean } = {},
 ): Promise<void> {
     // Claimed before anything else, including the safety backup. Throws rather
     // than returning quietly: the caller is about to be told its restore began.
@@ -1051,8 +1076,18 @@ export async function revertToPoint(
             })
             const gallery = parts.includes('gallery') ? findDirNamed(mediaTarget, basename(GALLERY_DIR)) : null
             const uploads = parts.includes('uploads') ? findDirNamed(mediaTarget, basename(UPLOADS_DIR)) : null
-            if (gallery) await copyDirRecursive(gallery, GALLERY_DIR)
-            if (uploads) await copyDirRecursive(uploads, UPLOADS_DIR)
+            // The wipe sits INSIDE each guard deliberately. `gallery` is
+            // non-null only once findDirNamed() has located a tree to copy
+            // from, so a snapshot that turns out to hold no gallery cannot
+            // empty the live one and leave nothing to put back.
+            if (gallery) {
+                if (opts.wipeMedia) await emptyDir(GALLERY_DIR)
+                await copyDirRecursive(gallery, GALLERY_DIR)
+            }
+            if (uploads) {
+                if (opts.wipeMedia) await emptyDir(UPLOADS_DIR)
+                await copyDirRecursive(uploads, UPLOADS_DIR)
+            }
         }
         await writeOwnedStatus(token, { state: 'idle' })
         console.log(`[backups] Revert to ${point.id} complete`)
@@ -1261,6 +1296,8 @@ export async function safeExtractZip(zipPath: string, destDir: string): Promise<
 export async function applyUploadedZip(
     zipPath: string,
     parts: readonly BackupPart[] = ALL_BACKUP_PARTS,
+    // See revertToPoint() — same flag, same default, same reasoning.
+    opts: { wipeMedia?: boolean } = {},
 ): Promise<void> {
     // Same claim-first rule as revertToPoint().
     const token = beginOperation('upload-revert')
@@ -1331,8 +1368,17 @@ export async function applyUploadedZip(
         }
 
         await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring media files…', stage: 'media-restore' })
-        if (hasGallery) await copyDirRecursive(gallery, GALLERY_DIR)
-        if (hasUploads) await copyDirRecursive(uploads, UPLOADS_DIR)
+        // Guarded by hasGallery/hasUploads, which already mean "in the archive
+        // AND asked for" — so, as in revertToPoint(), nothing is emptied
+        // unless there is a tree ready to replace it.
+        if (hasGallery) {
+            if (opts.wipeMedia) await emptyDir(GALLERY_DIR)
+            await copyDirRecursive(gallery, GALLERY_DIR)
+        }
+        if (hasUploads) {
+            if (opts.wipeMedia) await emptyDir(UPLOADS_DIR)
+            await copyDirRecursive(uploads, UPLOADS_DIR)
+        }
 
         await writeOwnedStatus(token, { state: 'idle' })
         console.log('[backups] Upload-revert complete')

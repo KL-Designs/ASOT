@@ -245,6 +245,11 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
     // everything; this is the caret beside them.
     const [scopeMenu, setScopeMenu] = useState<{ point: BackupPoint; action: 'download' | 'revert'; anchor: HTMLElement } | null>(null)
     const [scopeSel, setScopeSel] = useState<Record<BackupPart, boolean>>({ database: true, gallery: true, uploads: true })
+    // Off by default. A restore has always merged media into what is already
+    // there; this makes the clean version available without changing what the
+    // button does for anyone who does not ask for it.
+    const [wipeMedia, setWipeMedia] = useState(false)
+    const [uploadWipe, setUploadWipe] = useState(false)
 
     // Which parts a given point can offer at all.
     const availableParts = (p: BackupPoint): BackupPart[] => [
@@ -440,7 +445,10 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
         downloadTimers.current.add(timer)
     }
 
-    async function handleRevert(point: BackupPoint, parts: BackupPart[] = availableParts(point)) {
+    // `wipe` is a parameter rather than read from state so the quick
+    // revert-everything button cannot inherit a tick left behind in the scope
+    // menu. Opting into deletion happens in the same place you opt into it.
+    async function handleRevert(point: BackupPoint, parts: BackupPart[] = availableParts(point), wipe = false) {
         const label: Record<BackupPart, string> = { database: 'the database', gallery: 'the gallery', uploads: 'uploaded files' }
         const what = parts.map(p => label[p]).join(', ').replace(/, ([^,]*)$/, ' and $1')
         // A partial restore is a sharper tool than the all-or-nothing one: the
@@ -454,6 +462,9 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
             + (partial
                 ? `Everything else is left exactly as it is now — which can leave the database and the media out of step with each other, since records reference files by path. `
                 : '')
+            + (wipe
+                ? `Media files added since that backup will be DELETED, not merged — the gallery and uploads will match the backup exactly. `
+                : '')
             + `The current state cannot be recovered unless you have another backup. Are you sure?`,
             async () => {
                 opSizeRef.current = (point.dbSizeBytes ?? 0) + (point.mediaSizeBytes ?? 0)
@@ -465,7 +476,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                     const res = await fetch('/api/backups/revert', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: point.id, parts }),
+                        body: JSON.stringify({ id: point.id, parts, wipeMedia: wipe }),
                     })
                     const data = await res.json()
                     if (!res.ok) setError(data.error ?? 'Failed to start revert')
@@ -484,11 +495,16 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
         if (chosen.length === 0) { setError('Choose at least one part to restore from the upload.'); return }
         const labels: Record<BackupPart, string> = { database: 'the database', gallery: 'the gallery', uploads: 'uploaded files' }
         const what = chosen.map(p => labels[p]).join(', ').replace(/, ([^,]*)$/, ' and $1')
+        // Only meaningful when a media part is actually being restored.
+        const wipesMedia = uploadWipe && (chosen.includes('gallery') || chosen.includes('uploads'))
         openConfirm(
             'Upload & Revert',
             `Upload "${uploadFile.name}" and restore ${what} from it? This DROPS the current copy of ${chosen.length === 3 ? 'all of it' : 'those parts'} and cannot be undone.`
             + (chosen.length < 3
                 ? ` Everything else is left as it is, which can leave the database and the media out of step with each other.`
+                : '')
+            + (wipesMedia
+                ? ` Media files not in the archive will be DELETED rather than kept alongside it.`
                 : ''),
             async () => {
                 setUploading(true)
@@ -498,6 +514,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                     const form = new FormData()
                     form.append('backup', uploadFile)
                     form.append('parts', chosen.join(','))
+                    form.append('wipeMedia', String(wipesMedia))
                     const res = await fetch('/api/backups/upload', { method: 'POST', body: form })
                     const data = await res.json()
                     if (!res.ok) setError(data.error ?? 'Upload failed')
@@ -1067,6 +1084,26 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                                 {part}
                             </label>
                         ))}
+                        {(uploadParts.gallery || uploadParts.uploads) && (
+                            <label style={{
+                                display: 'flex', alignItems: 'flex-start', gap: 6, cursor: 'pointer',
+                                fontSize: '0.68rem', color: 'rgba(237,237,237,0.75)',
+                                borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8, marginTop: 2,
+                            }}>
+                                <input
+                                    type='checkbox'
+                                    checked={uploadWipe}
+                                    onChange={e => setUploadWipe(e.target.checked)}
+                                    style={{ accentColor: '#db001d', width: 13, height: 13, cursor: 'pointer', marginTop: 2 }}
+                                />
+                                <span style={{ flex: 1 }}>
+                                    Remove files not in the archive
+                                    <span style={{ display: 'block', fontSize: '0.55rem', color: 'rgba(237,237,237,0.35)', marginTop: 2 }}>
+                                        Media only. A safety backup is taken first.
+                                    </span>
+                                </span>
+                            </label>
+                        )}
                     </div>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                         <label style={{
@@ -1324,12 +1361,41 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                                 </span>
                             )}
 
+                            {/* Only for a restore, and only when a media part is
+                                actually selected — a download writes nothing over
+                                live files, and a database-only restore has no
+                                media tree to clear. */}
+                            {!isDownload && (chosen.includes('gallery') || chosen.includes('uploads')) && (
+                                <label style={{
+                                    display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
+                                    fontSize: '0.68rem', color: 'rgba(237,237,237,0.8)',
+                                    borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8, marginTop: 2,
+                                }}>
+                                    <input
+                                        type='checkbox'
+                                        checked={wipeMedia}
+                                        onChange={e => setWipeMedia(e.target.checked)}
+                                        style={{ accentColor: '#db001d', width: 13, height: 13, cursor: 'pointer', marginTop: 2 }}
+                                    />
+                                    <span style={{ flex: 1 }}>
+                                        Remove files not in this backup
+                                        <span style={{ display: 'block', fontSize: '0.55rem', color: 'rgba(237,237,237,0.35)', marginTop: 2 }}>
+                                            Media only. Deleted files stay recoverable from the
+                                            safety backup taken before restoring.
+                                        </span>
+                                    </span>
+                                </label>
+                            )}
+
                             <button
                                 disabled={chosen.length === 0}
                                 onClick={() => {
                                     setScopeMenu(null)
                                     if (isDownload) triggerDownload(point, chosen)
-                                    else handleRevert(point, chosen)
+                                    // The tick only ever means anything for the
+                                    // media parts, so it is dropped when neither
+                                    // is being restored.
+                                    else handleRevert(point, chosen, wipeMedia && (chosen.includes('gallery') || chosen.includes('uploads')))
                                 }}
                                 style={{
                                     ...rowBtnSx(isDownload ? 'green' : 'red', `${point.id}:scope-go`),
