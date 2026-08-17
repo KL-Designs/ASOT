@@ -185,6 +185,12 @@ This map documents every file under `lib/**` (59 files), `types/**` (31 files), 
 - `canonicalSegment(member, index)` — the member's name slug if they hold it, else their Discord username.
 - `resolveSegment(segment, members)` — `{member, canonical}` or null. Username first (unique by construction, and verified never to shadow another member's name slug), then name slug. Used by the milpac page and its `opengraph-image.tsx`. Unit-tested in `milpac-slug.test.ts`.
 
+### lib/loadout/names.ts
+- `resolveItemName(className)` — Arma classname to readable name: hand overrides, then the generated dictionary, then `prettifyClassName`. Never returns empty.
+- `prettifyClassName(className)` — the fallback: strips vendor prefix and type infix, splits camelCase, title-cases. Unit-tested in `names.test.ts`.
+- `itemMeta(className)` — `{name, root, type, mod}` from the dictionary, or null. The classifier's input.
+- `generated/arma-items.json` — 31,583 entries, `{class: [name, root, ItemInfo.type, sourceMod]}`, ~2.7MB, **server-side only**. Rebuild with `node scripts/build-item-dictionary.mjs` from `generated/itemdump.txt`, which itself comes from running `lib/loadout/dump-items.sqf` in-game and extracting the `ITEMDUMP` block from the `.rpt`.
+
 ### lib/military/milpac-cover.ts
 - `coverPath(memberId)` / `hasCover(memberId)` — the member's uploaded cover photo at `storage/uploads/cover/{id}.png`. Used by the milpac page (banner) and its `opengraph-image.tsx` (share-card ground). `app/api/uploads/cover/route.ts` still writes via its own cwd-relative string.
 - `fitCover(srcW, srcH, boxW, boxH): CropRect` — `object-fit: cover` as a centred source rectangle. Pure; unit-tested in `milpac-cover.test.ts`.
