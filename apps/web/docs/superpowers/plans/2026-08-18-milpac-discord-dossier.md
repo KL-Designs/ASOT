@@ -457,9 +457,12 @@ describe('formatKitLine', () => {
     })
 
     test('a very long kit name is truncated with an ellipsis, not wrapped', () => {
-        const line = formatKitLine('A'.repeat(80), summary())
-        expect(line.length).toBeLessThanOrEqual(96)
-        expect(line).toContain('…')
+        // Asserted on the name portion alone. The rest of the line is built
+        // from the real item dictionary, so asserting a total length would
+        // make this test fail whenever someone renames a vest.
+        const name = formatKitLine('A'.repeat(80), summary()).split(' — ')[0]
+        expect(name).toHaveLength(28)
+        expect(name.endsWith('…')).toBe(true)
     })
 })
 ```
@@ -1036,7 +1039,15 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `buildDossierData`, `DOSSIER_SIZE` (Task 5), `DossierCard` (Task 6).
 - Produces: `POST /api/bot/milpac/{discordId}?type=dossier` → `image/png` + `X-Milpac-Links: <JSON array of {label, path}>`
 
-- [ ] **Step 1: Widen the type guard**
+- [ ] **Step 1: Rename the file first, so it may contain JSX**
+
+The branch added below returns JSX, which a `.ts` file cannot hold. Rename before editing rather than after, so the file never passes through a state that fails lint:
+
+```bash
+git mv "apps/web/app/api/bot/milpac/[discordId]/route.ts" "apps/web/app/api/bot/milpac/[discordId]/route.tsx"
+```
+
+- [ ] **Step 2: Widen the type guard**
 
 In `apps/web/app/api/bot/milpac/[discordId]/route.ts`, replace the validation at lines 41-44:
 
@@ -1047,7 +1058,7 @@ In `apps/web/app/api/bot/milpac/[discordId]/route.ts`, replace the validation at
     }
 ```
 
-- [ ] **Step 2: Add the dossier branch**
+- [ ] **Step 3: Add the dossier branch**
 
 Insert immediately after the `if (!user)` 404 check (currently line 50), before the existing `try`:
 
@@ -1081,14 +1092,6 @@ import { ImageResponse } from 'next/og'
 import client from '@/lib/discord'
 import { buildDossierData, DOSSIER_SIZE } from '@/lib/military/dossier-data'
 import { DossierCard } from '@/lib/military/dossier-card'
-```
-
-- [ ] **Step 3: Rename the file so it may contain JSX**
-
-The branch above returns JSX, which a `.ts` file cannot hold.
-
-```bash
-git mv "apps/web/app/api/bot/milpac/[discordId]/route.ts" "apps/web/app/api/bot/milpac/[discordId]/route.tsx"
 ```
 
 - [ ] **Step 4: Verify it builds**
