@@ -102,6 +102,18 @@
     white-space: nowrap;
 }
 
+/* Centred on the viewport rather than placed by the flex row, so the back
+   button and the crumb can change width without dragging it off centre.
+   The sticky topbar is a positioned element, so it is the containing block. */
+.topbarActions {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .btn {
     display: inline-flex;
     align-items: center;
@@ -134,6 +146,41 @@
 .btnDanger { color: var(--crit); border-color: rgba(192, 90, 72, 0.4); }
 .btnDanger:hover { border-color: rgba(192, 90, 72, 0.75); color: var(--crit); background: rgba(192, 90, 72, 0.14); }
 .btnBusy { opacity: 0.5; pointer-events: none; }
+
+/* The topbar's centred action. Deliberately not a .btn: a chip in the middle of
+   the bar reads as a third piece of chrome competing with the back button and
+   the crumb, where lit type reads as the one thing on offer. Blue rather than
+   --acc, so it stays legible as an action against any member's accent. */
+.topbarAction {
+    border: 0;
+    background: none;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #63b3ff;
+    text-shadow: 0 0 14px rgba(99, 179, 255, 0.55);
+    /* Underlined so it reads as an action without a chip's border to say so.
+       Offset clear of the descenders and dimmer than the type, so it supports
+       the word rather than competing with it. */
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 5px;
+    text-decoration-color: rgba(99, 179, 255, 0.55);
+    transition: 0.18s color, 0.18s text-shadow, 0.18s text-decoration-color;
+}
+.topbarAction:hover {
+    color: #9bd0ff;
+    text-shadow: 0 0 20px rgba(155, 208, 255, 0.9), 0 0 42px rgba(99, 179, 255, 0.45);
+    text-decoration-color: rgba(155, 208, 255, 0.95);
+}
+.topbarAction:focus-visible { outline: 2px solid rgba(99, 179, 255, 0.85); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .topbarAction { transition: none; }
+}
 
 /* ── hero ────────────────────────────────────────────────────────────────── */
 
@@ -323,12 +370,87 @@
     padding: clamp(22px, 3vw, 38px) var(--pad) 70px;
     display: grid;
     gap: clamp(18px, 2vw, 26px);
-    /* Left: progress and activity. Middle: the record. Right: the artwork.
-       The right column is sized by what it holds — a portrait and a medal box —
-       rather than by the text columns beside it. */
-    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 0.8fr);
     align-items: start;
 }
+
+/* Each tab sets its own measure rather than forcing one grid on all three.
+   Overview leads with the member and keeps the service data beside them; the
+   record reads as two even columns of lists; the kit takes the full width,
+   which the uniform artwork has wanted since it was a narrow rail. */
+.pageLead { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.pageEven { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pageFull { grid-template-columns: minmax(0, 1fr); }
+
+/* ── section tabs ────────────────────────────────────────────────────────── */
+
+.tabs {
+    display: flex;
+    gap: clamp(20px, 3.5vw, 48px);
+    padding: 0 var(--pad);
+    border-bottom: 1px solid var(--line);
+}
+.tab {
+    position: relative;
+    padding: 17px 0 15px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    white-space: nowrap;
+    transition: 0.18s color;
+}
+.tab:hover { color: var(--ink-2); }
+.tab:focus-visible { outline: 2px solid rgba(var(--acc-rgb), 0.8); outline-offset: 3px; }
+.tabOn { color: var(--ink); text-shadow: 0 0 18px rgba(var(--acc-rgb), 0.35); }
+
+/* Light thrown upward off the tick, spotlighting the active label. Without it
+   the tabs read as three equally quiet words — the tick alone is too fine a
+   mark to carry the whole state at a glance. Painted behind the text via a
+   negative z-index, so it lifts the label rather than washing over it. */
+.tabOn::before {
+    content: "";
+    position: absolute;
+    left: -18%;
+    right: -18%;
+    bottom: 0;
+    height: 46px;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+        ellipse at bottom,
+        rgba(var(--acc-rgb), 0.42) 0%,
+        rgba(var(--acc-rgb), 0.16) 45%,
+        transparent 74%
+    );
+    animation: tabGlow 0.5s ease-out both;
+}
+
+@keyframes tabGlow {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* The same accent mark the panels carry at their corners, drawn in under the
+   active tab rather than simply appearing. One moving thing on the page. */
+.tabOn::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--acc);
+    box-shadow: 0 0 12px rgba(var(--acc-rgb), 0.55);
+    transform-origin: left center;
+    animation: tabTick 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes tabTick {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+}
+
 .stack { display: grid; gap: clamp(18px, 2vw, 26px); min-width: 0; }
 
 .panel {
@@ -476,35 +598,6 @@
     min-height: 15px;
 }
 
-/* ── loadout / kit rows ──────────────────────────────────────────────────── */
-
-.kit { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); }
-.kRow { background: #0b0d10; display: flex; align-items: center; gap: 12px; padding: 10px 13px; }
-.kIco {
-    flex: 0 0 auto;
-    width: 26px;
-    height: 26px;
-    border: 1px solid var(--line-2);
-    border-radius: 2px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #101419;
-}
-.kIco svg { width: 15px; height: 15px; stroke: var(--acc); fill: none; stroke-width: 1.5; opacity: 0.9; }
-.kTxt { min-width: 0; flex: 1 1 auto; }
-.kSlot { display: block; font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3); }
-.kItem {
-    display: block;
-    font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--ink);
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 /* ── commendations ───────────────────────────────────────────────────────── */
 
 .feed { display: grid; gap: 12px; }
@@ -630,16 +723,24 @@
 @media (prefers-reduced-motion: reduce) {
     .rise { animation: none; }
     .lnk:hover { transform: none; }
+    /* The tick still marks the active tab — it just does not draw itself in. */
+    .tabOn::after { animation: none; }
 }
 
 /* ── responsive ──────────────────────────────────────────────────────────── */
 
 @media (max-width: 1500px) {
-    .page { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+    /* Two columns is already the widest any tab goes, so only the artwork pair
+       needs help here — a uniform rendered at half of a narrow window is small. */
+    .pageLead { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
 }
 
 @media (max-width: 1080px) {
-    .page { grid-template-columns: 1fr; }
+    .pageLead, .pageEven { grid-template-columns: 1fr; }
+
+    /* Tabs scroll rather than wrap: a wrapped second row reads as two bars. */
+    .tabs { overflow-x: auto; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
     .strip { grid-template-columns: repeat(3, 1fr); }
     .cell:nth-child(3) { border-right: none; }
     .cell:nth-child(n + 4) { border-top: 1px solid var(--line); }
@@ -670,3 +771,452 @@
     .cell { border-right: none; border-top: 1px solid var(--line); }
     .cell:first-child { border-top: none; }
 }
+
+/* ── loadout ─────────────────────────────────────────────────────────────── */
+
+
+.kit { display: flex; flex-direction: column; gap: 18px; }
+
+/* A column now, not a row: the switcher sits on its own line above the buttons
+   that act on whatever it selected. */
+.kitActions { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+/* Everything that acts on the kit currently on screen, in one row: what it is
+   published as, its export, and removing it. Import is not here — it makes a
+   new kit rather than touching this one, and lives at the end of the kit row. */
+.kitControls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Published state, in green rather than the member's accent — every reader
+   should decode "this is public" the same way, whatever colour their file is. */
+.kitPublic { padding-left: 11px; }
+
+/* Lit, not merely tinted. `--good` is the palette's muted olive, which reads as
+   a status dot on a dark panel but not as something switched on; the brighter
+   green below is scoped to this one control so the rest of the file's greens
+   stay as they were. Declared on the button so the dot inside can inherit it. */
+.kitPublicOn {
+    --pub: #8fd85f;
+    --pub-rgb: 143, 216, 95;
+    color: var(--pub);
+    border-color: rgba(var(--pub-rgb), 0.6);
+    background: rgba(var(--pub-rgb), 0.12);
+    text-shadow: 0 0 14px rgba(var(--pub-rgb), 0.6);
+    /* Outward bloom plus an inner wash, so the button looks lit from within
+       rather than outlined in green. */
+    box-shadow:
+        0 0 16px rgba(var(--pub-rgb), 0.26),
+        inset 0 0 14px rgba(var(--pub-rgb), 0.09);
+}
+.kitPublicOn:hover {
+    color: var(--pub);
+    border-color: rgba(var(--pub-rgb), 0.9);
+    background: rgba(var(--pub-rgb), 0.2);
+    box-shadow:
+        0 0 22px rgba(var(--pub-rgb), 0.38),
+        inset 0 0 16px rgba(var(--pub-rgb), 0.14);
+}
+.kitDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 100%;
+    border: 1px solid currentColor;
+    flex-shrink: 0;
+    opacity: 0.65;
+}
+/* Green in its own right rather than inheriting `currentColor`, and glowing in
+   two stops — a tight core and a wider halo, which is what makes a 6px circle
+   read as emitting light instead of just being a pale dot. */
+.kitDotOn {
+    background: var(--pub, var(--good));
+    border-color: var(--pub, var(--good));
+    opacity: 1;
+    box-shadow:
+        0 0 6px rgba(var(--pub-rgb, 127, 174, 92), 0.95),
+        0 0 13px rgba(var(--pub-rgb, 127, 174, 92), 0.55);
+}
+
+/* The selected kit's own line, under the picker. Sized as prose rather than as
+   a mono label — it is the member's sentence about the kit, not a field. */
+.kitBlurb {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ink-2);
+    max-width: 78ch;
+}
+/* The owner's prompt when there is nothing to read yet. Only they ever see it —
+   a visitor gets no line at all rather than a note about its absence. */
+.kitBlurbNone { color: var(--ink-3); font-style: italic; }
+
+/* Sits at the end of the sentence rather than in the control row: it edits this
+   line, and putting it with Delete would make it look like it edits the kit. */
+.kitDescBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 10px;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    background: none;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    vertical-align: 1px;
+    transition: 0.18s color, 0.18s border-color;
+}
+.kitDescBtn:hover { color: var(--acc); border-bottom-color: rgba(var(--acc-rgb), 0.5); }
+.kitDescBtn:focus-visible { outline: 2px solid rgba(var(--acc-rgb), 0.8); outline-offset: 3px; }
+
+.kitDescEdit { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kitDescInput { flex: 1 1 280px; min-width: 0; }
+
+/* The inline editor for a kit's presentation — its badge and its line of prose.
+   Bordered like the import form because it is the same kind of thing: a panel
+   that opened inside the page, not a new region of it. */
+.kitEdit {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    border: 1px solid var(--line-2);
+    background: var(--s1);
+    border-radius: var(--r);
+    padding: 14px;
+}
+
+/* Auto-fill rather than a fixed column count: the set is 19 marks today and may
+   not be tomorrow, and the grid should reflow rather than need re-counting. */
+.kitIconGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+    gap: 6px;
+    max-width: 460px;
+}
+.kitIconOpt {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    border: 1px solid var(--line-2);
+    background: var(--s2);
+    border-radius: var(--r);
+    color: var(--ink-3);
+    cursor: pointer;
+    transition: 0.16s color, 0.16s border-color, 0.16s background;
+}
+.kitIconOpt:hover { color: var(--ink); border-color: rgba(var(--acc-rgb), 0.45); background: var(--s3); }
+.kitIconOpt:focus-visible { outline: 2px solid rgba(var(--acc-rgb), 0.8); outline-offset: 2px; }
+.kitIconOptOn,
+.kitIconOptOn:hover {
+    color: var(--acc);
+    border-color: rgba(var(--acc-rgb), 0.65);
+    background: rgba(var(--acc-rgb), 0.12);
+    box-shadow: 0 0 12px rgba(var(--acc-rgb), 0.2);
+}
+
+
+/* The loadout switcher. Chips rather than a <select>: a member's kits are the
+   subject of this tab, and a dropdown hides all but one of them behind a click.
+   Each chip pairs a link (the panel is server-rendered, so switching kit is a
+   navigation) with a star that nominates the default — two different actions,
+   so two separate targets rather than one control doing both. */
+/* The rule belongs to the picker rather than to the controls below it, so a
+   member with one kit — who gets no picker — does not get a line drawn under
+   nothing. Padding matches `.kitActions`'s gap, leaving equal air either side. */
+.kitPicks {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+}
+/* The chips wrap among themselves without dragging the add button along. */
+.kitPickList { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 auto; min-width: 0; }
+
+/* Square, and sized to the chips beside it rather than to its own content, so
+   the row reads as one strip: [+][kit][kit] rather than a button and a list. */
+.kitAdd {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--line-2);
+    background: var(--s2);
+    border-radius: var(--r);
+    color: var(--ink-3);
+    cursor: pointer;
+    transition: 0.18s color, 0.18s border-color, 0.18s background;
+}
+.kitAdd:hover {
+    color: var(--acc);
+    border-color: rgba(var(--acc-rgb), 0.55);
+    background: rgba(var(--acc-rgb), 0.1);
+}
+.kitAdd:focus-visible { outline: 2px solid rgba(var(--acc-rgb), 0.8); outline-offset: 2px; }
+
+.kitPick {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--line-2);
+    background: var(--s2);
+    border-radius: var(--r);
+    overflow: hidden;
+    transition: 0.18s border-color, 0.18s background, 0.18s box-shadow;
+}
+.kitPick:hover { border-color: rgba(var(--acc-rgb), 0.45); background: var(--s3); }
+
+.kitPickName {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    white-space: nowrap;
+    transition: 0.18s color;
+}
+.kitPick:hover .kitPickName { color: var(--ink); }
+.kitPickName:focus-visible { outline: 2px solid rgba(var(--acc-rgb), 0.8); outline-offset: -2px; }
+
+/* The selected kit carries the accent and the soft glow the section tabs use,
+   so "which one am I looking at" reads the same way in both places. */
+.kitPickOn {
+    border-color: rgba(var(--acc-rgb), 0.55);
+    background: rgba(var(--acc-rgb), 0.1);
+    box-shadow: 0 0 18px rgba(var(--acc-rgb), 0.18);
+}
+.kitPickOn .kitPickName,
+.kitPickOn:hover .kitPickName { color: var(--acc); }
+
+/* Divided off the name by a hairline: pressing this changes which kit the
+   member's file opens on, not what is currently on screen, and the two must
+   not feel like one button. */
+.kitStar {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 9px;
+    border: 0;
+    border-left: 1px solid var(--line);
+    background: none;
+    color: var(--ink-3);
+    cursor: pointer;
+    transition: 0.18s color, 0.18s background;
+}
+.kitStar:hover { color: var(--acc); background: rgba(var(--acc-rgb), 0.12); }
+.kitStar:focus-visible { outline: 2px solid rgba(var(--acc-rgb), 0.8); outline-offset: -2px; }
+.kitStar:disabled { opacity: 0.4; }
+.kitStar:disabled:hover { color: var(--ink-3); background: none; }
+
+/* The nominated one is a span, not a button — there is nothing to set. */
+.kitStarOn { color: var(--acc); cursor: default; filter: drop-shadow(0 0 6px rgba(var(--acc-rgb), 0.5)); }
+.kitStarOn:hover { color: var(--acc); background: none; }
+
+/* Read out but not drawn. The lit star means "default" to anyone who can see
+   it, and nothing at all to anyone who cannot. */
+.srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+.kitWeapons, .kitBags {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+.kitSlot, .kitBag {
+    border: 1px solid var(--line);
+    background: var(--s1);
+    border-radius: var(--r);
+    padding: 12px 14px;
+}
+.kitSlotLabel { margin-bottom: 8px; }
+.kitPrimary { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--ink); }
+.kitMag, .kitAttachment {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10px; color: var(--ink-2);
+}
+.kitMag { margin-top: 7px; }
+.kitAttachments { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 7px; }
+.kitEmpty { color: var(--ink-3); font-family: var(--mono); font-size: 12px; }
+
+.kitBagName { display: flex; align-items: center; gap: 9px; font-size: 13px; margin-bottom: 10px; }
+.kitList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.kitList li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-2);
+}
+.kitItemName { flex: 1 1 auto; min-width: 0; }
+.kitCount { font-family: var(--mono); font-size: 11px; color: var(--acc); }
+
+.kitBody { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.kitMain { display: flex; flex-direction: column; gap: 18px; }
+
+.kitWorn {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    border-right: 1px solid var(--line);
+    padding-right: 16px;
+}
+.kitWornItem { display: flex; align-items: flex-start; gap: 12px; color: var(--ink-2); }
+/* Aligning to flex-start pins every icon's top edge to its row's top edge,
+   so the column stays straight regardless of how many lines the value wraps
+   to — align-items: center instead would float a wrapped row's icon toward
+   its (taller) block's vertical middle, out of line with single-line rows.
+   The icon then wants a few pixels of its own nudge: flush against the row
+   top it reads as floating above the label rather than beside it. */
+.kitWornItem > svg { margin-top: 3px; flex-shrink: 0; }
+.kitWornItem > div { flex: 1 1 auto; min-width: 0; }
+.kitWornName { font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
+
+@media (max-width: 900px) {
+    .kitWeapons, .kitBags { grid-template-columns: 1fr; }
+    .kitBody { grid-template-columns: 1fr; }
+    .kitWorn {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 10px;
+        border-right: none;
+        border-top: 1px solid var(--line);
+        padding-right: 0;
+        padding-top: 14px;
+    }
+    .kitWorn .kitWornItem { flex: 1 1 140px; }
+}
+
+/* ── import dialog ───────────────────────────────────────────────────────── */
+
+/* Fixed, and rendered inside `.shell` rather than portalled to document.body —
+   the whole palette (and the member's accent) are custom properties declared on
+   `.shell`, so a portalled dialog would inherit none of them. Nothing between
+   here and the root sets transform/filter/contain, so `fixed` still resolves
+   against the viewport. The z-index clears the sticky topbar (40), the site
+   navbar (50) and the shell's own film grain (9). */
+.modalBack {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(4, 5, 6, 0.72);
+    backdrop-filter: blur(4px);
+    animation: modalFade 0.18s ease-out both;
+}
+.modal {
+    position: relative;
+    width: min(560px, 100%);
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    background: linear-gradient(180deg, var(--s1) 0%, #0a0c0e 100%);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+    animation: modalRise 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/* The same accent tick every panel carries, so the dialog reads as part of the
+   file rather than as browser furniture dropped on top of it. */
+.modal::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 36px;
+    height: 2px;
+    background: var(--acc);
+    opacity: 0.75;
+}
+.modalHead {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+}
+.modalHead h2 {
+    margin: 0;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--ink);
+}
+.modalClose {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid transparent;
+    border-radius: var(--r);
+    background: none;
+    color: var(--ink-3);
+    cursor: pointer;
+    transition: 0.18s color, 0.18s border-color, 0.18s background;
+}
+.modalClose:hover { color: var(--ink); border-color: var(--line-2); background: var(--s2); }
+.modalClose:focus-visible { outline: 2px solid rgba(var(--acc-rgb), 0.8); outline-offset: 2px; }
+
+/* The body scrolls, not the dialog: the header and the action row stay put on a
+   short window rather than sliding out of reach above and below the fold. */
+.modalBody {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px;
+}
+.modalFoot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 18px;
+    border-top: 1px solid var(--line);
+    flex-shrink: 0;
+}
+/* Pushes the two buttons to the right, and keeps a long message on its own left
+   edge rather than centred between them. */
+.modalFoot .kitImportError { margin-right: auto; }
+
+@keyframes modalFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modalRise {
+    from { opacity: 0; transform: translateY(10px) scale(0.99); }
+    to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .modalBack, .modal { animation: none; }
+}
+
+.kitImportHelp { margin: 0; font-size: 12px; color: var(--ink-2); line-height: 1.6; }
+
+/* A labelled field. The form asks four separate things now (name, description,
+   visibility, export) where it used to ask two, and an unlabelled stack of
+   inputs leaves the member guessing which box is which. */
+.kitField { display: flex; flex-direction: column; gap: 6px; }
+.kitFieldNote { margin: 2px 0 0; font-size: 11.5px; color: var(--ink-3); line-height: 1.55; }
+.kitImportName, .kitImportBox {
+    background: var(--bg); border: 1px solid var(--line-2); border-radius: var(--r);
+    color: var(--ink); padding: 8px 10px; font-family: var(--mono); font-size: 11px;
+}
+.kitImportBox { resize: vertical; }
+.kitImportError { margin: 0; font-size: 12px; color: var(--crit); }

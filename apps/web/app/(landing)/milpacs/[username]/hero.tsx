@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
+import { CopyLinkButton } from './copy-link'
 import { type MemberStatus, type StatusKey } from '@/lib/military/milpac-status'
 import s from './profile.module.css'
 
@@ -90,7 +91,10 @@ export type HeroStat = { value: string; unit?: string; label: string }
 
 export type HeroProps = {
     memberId: string
+    /** The Discord username — shown in the crumb, not necessarily the URL. */
     username: string
+    /** The path this profile should be shared as, e.g. `/milpacs/koda`. */
+    canonicalPath: string
     name: string
     /** Matches User.avatarURL, which is a required string on the document. */
     avatarURL: string
@@ -105,7 +109,9 @@ export type HeroProps = {
     discordId: string
     steamId64?: string
     stats: HeroStat[]
-    /** Rendered into the top bar — the page owns which links a viewer may see. */
+    /** Centred in the top bar — the page owns which links a viewer may see.
+     *  Pass null rather than an empty fragment when there are none, so the
+     *  centring wrapper is not rendered empty. */
     topbarActions?: React.ReactNode
     /** Rendered over the banner, e.g. the owner's cover upload control. */
     bannerActions?: React.ReactNode
@@ -115,7 +121,7 @@ export type HeroProps = {
 
 export function Hero(props: HeroProps) {
     const {
-        memberId, username, name, avatarURL, rankAbbr, fullRank, role, section,
+        memberId, username, canonicalPath, name, avatarURL, rankAbbr, fullRank, role, section,
         platoon, timezone, status, hasCover, discordId, steamId64, stats,
         topbarActions, bannerActions, identActions,
     } = props
@@ -130,8 +136,9 @@ export function Hero(props: HeroProps) {
             <div className={s.topbar}>
                 <Link href='/milpacs' className={s.btn}>← Milpacs</Link>
                 {unitLine && <span className={s.topbarUnit}>{unitLine}</span>}
-                {topbarActions}
-                <span className={s.crumb}>PERSONNEL / {username.toUpperCase()}</span>
+                {topbarActions && <div className={s.topbarActions}>{topbarActions}</div>}
+                <span className={s.crumb}>PERSONNEL / {name.toUpperCase()}</span>
+                <CopyLinkButton path={canonicalPath} />
             </div>
 
             <div className={s.hero}>

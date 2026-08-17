@@ -1,15 +1,15 @@
 # Part H — lib, types, components, root config
 
-This map documents every file under `lib/**` (59 files), `types/**` (31 files), and the requested
+This map documents every file under `lib/**` (60 files), `types/**` (32 files), and the requested
 `components/**` subset, plus root-level config files (`server.mjs`, `next.config.ts`, `middleware.ts`,
 `themes/unit.ts`). Use it to find existing helpers before writing new ones.
 
 ---
 
-## 1. `lib/**`: reusable server logic (59 files)
+## 1. `lib/**`: reusable server logic (60 files)
 
 ### lib/mongo.ts
-- Default export `Db`: singleton `MongoClient` cached on `global._mongoClient` (survives Next.js HMR). One typed `MongoCollection<T>` property per collection. Full list of ~57 collections including `users`, `roles`, `milpacs`, `optionals`, `operations`, `operationActivity`, `minigameScores`, `minigameLive`, `orbatPositions`, `orbatSectionMeta`, `orbatRoles`, `orbatRoleGroups`, `boardColumns`, `boardCards`, `departmentLinks`, `operationAttendance`, `operationDocAcks`, `j1Applications`, `tickets`, `calendarEvents`, `siteSettings`, `operationTemplates`, `operationCampaigns`, `campaignMissions`, `notifications`, `tasks`, `calendarReminders`, `meetings`, `actionLogs`, `errorLogs`, `discordLogs`, `driversLicense`, `mapPresets`, `retiredMembers`, `quizAttempts`, `communityTickets` (→ `feedback` collection), `communityTicketComments` (→ `feedback_comments`), `meetingNotifQueue`, `userPreferences`, `notifPolicyConfig`, `sops`, `trainingDocs`, `teamspeakSnapshots`, `recruitSessions`, `tfarPlugins`, `inProgressRecruitments`, `workspaceFiles`, `workspaceDocs`, `workspaceVersions`, `leavingHistory`, `deniedApplicationsHQ`, `disciplineRecords`, `billetExtras`, `memberEmails`, `mastersheetRecycleBin`, `dischargeSnapshots`, `trainingTypes`, `trainingEvents`, `trainingAttendance`, `trainingTypeDocs`, `trainingRequests`, `trainingTickets`, `trainingReminders`, `trainingImportRecords`, `eraOptions`.
+- Default export `Db`: singleton `MongoClient` cached on `global._mongoClient` (survives Next.js HMR). One typed `MongoCollection<T>` property per collection. Full list of ~58 collections including `users`, `roles`, `milpacs`, `optionals`, `operations`, `operationActivity`, `minigameScores`, `minigameLive`, `orbatPositions`, `orbatSectionMeta`, `orbatRoles`, `orbatRoleGroups`, `boardColumns`, `boardCards`, `departmentLinks`, `operationAttendance`, `operationDocAcks`, `j1Applications`, `tickets`, `calendarEvents`, `siteSettings`, `operationTemplates`, `operationCampaigns`, `campaignMissions`, `notifications`, `loadouts`, `tasks`, `calendarReminders`, `meetings`, `actionLogs`, `errorLogs`, `discordLogs`, `driversLicense`, `mapPresets`, `retiredMembers`, `quizAttempts`, `communityTickets` (→ `feedback` collection), `communityTicketComments` (→ `feedback_comments`), `meetingNotifQueue`, `userPreferences`, `notifPolicyConfig`, `sops`, `trainingDocs`, `teamspeakSnapshots`, `recruitSessions`, `tfarPlugins`, `inProgressRecruitments`, `workspaceFiles`, `workspaceDocs`, `workspaceVersions`, `leavingHistory`, `deniedApplicationsHQ`, `disciplineRecords`, `billetExtras`, `memberEmails`, `mastersheetRecycleBin`, `dischargeSnapshots`, `trainingTypes`, `trainingEvents`, `trainingAttendance`, `trainingTypeDocs`, `trainingRequests`, `trainingTickets`, `trainingReminders`, `trainingImportRecords`, `eraOptions`.
 - `Db.stats()` — prints DB stats via `console.table`.
 
 ### lib/permissions.ts
@@ -177,6 +177,48 @@ This map documents every file under `lib/**` (59 files), `types/**` (31 files), 
 
 ### lib/military/milpac-profile.ts
 - `resolveMilpacProfile(member: User, orbatEntry: OrbatEntry|null)` — central name/rank/accent resolver reused across milpac page, credits, ORBAT: strips `[...]` decorations from Discord nickname, parses rank-prefix vs display name, resolves `fullRank` via `rankNameFromAbbr` (falling back through promotion history), computes `accent` via `ensureVisible(member.hexAccentColor)`. Returns `{accent, displayName, name, rankAbbr, fullRank, callsign, orbatEntry}`.
+
+### lib/military/milpac-slug.ts
+- `milpacSlug(name)` — the URL form of an ASOT name: NFKD-fold accents, lowercase, non-alphanumerics to single hyphens, trimmed. `''` means the member claims no name URL.
+- `toSlugCandidate(member)` / `SlugCandidate` — the minimal shape a member exposes to claim a slug. Uses `resolveMilpacProfile(member, null).name`; the ORBAT entry only affects `callsign`, so the lookup is skipped.
+- `buildSlugIndex(candidates)` — `slug -> member id`, **only for slugs claimed by exactly one serving member**. Discharged and skeleton accounts never claim. On the live roster 37 slugs are contested and 14 are contested by two or more serving members (`goose` is three people), so a contested name deliberately resolves to nobody rather than guessing.
+- `canonicalSegment(member, index)` — the member's name slug if they hold it, else their Discord username.
+- `resolveSegment(segment, members)` — `{member, canonical}` or null. Username first (unique by construction, and verified never to shadow another member's name slug), then name slug. Used by the milpac page and its `opengraph-image.tsx`. Unit-tested in `milpac-slug.test.ts`.
+
+### lib/loadout/parse.ts
+- `parseLoadout(raw): ParsedLoadout` — parses an ACE arsenal export (ARMA's *positional* `getUnitLoadout` array — slot 6 is headgear because it is sixth — but valid JSON, so no SQF parser needed) into a render-ready shape: `primary`/`launcher`/`handgun`/`binocular` (`WeaponSlot`: className + muzzle/pointer/optic/bipod + up to 2 magazines), `uniform`/`vest`/`backpack` (`Container`: className + `Stack[]` contents), `headgear`/`facewear` (className or null), `assigned` (map/gps/radio/compass/watch/nvg). Throws `LoadoutParseError` (with a user-facing message) on invalid JSON, non-array input, or a slot count other than 10. Nothing here is stored — `MemberLoadout.raw` is the record; this runs at render, so improving the parser improves every existing loadout with no migration.
+- `LoadoutParseError` — `Error` subclass, `name: 'LoadoutParseError'`.
+
+### lib/loadout/select.ts
+- `pickLoadoutId(raw, loadouts): string | null` — which kit a `?kit=` value selects, falling back to the member's default and then to the first of the list for anything unrecognised, absent or repeated; `null` only when the member has none. Viewing is deliberately separate from the default — the old `<select>` switcher set `isDefault` just to change what was on screen. Kept in `lib/` so it can be unit-tested; `select.test.ts`.
+
+### lib/loadout/limits.ts
+- `MAX_NAME` (40), `MAX_DESCRIPTION` (160), `MAX_RAW_BYTES` (65536), `MAX_PER_MEMBER` (12) — bounds on what a member may store per kit, imported by both loadout API routes and the import form so the field that stops typing and the value the server truncates cannot drift. Replaces two separate copies of `MAX_NAME` that lived in the two route files.
+
+### lib/loadout/kit-icons.ts
+- `KIT_ICON_PATHS` — 19 role-shaped badges a member can pick for a kit (`kit`, `rifle`, `crosshair`, `medic`, `radio`, `explosive`, `grenade`, `binoculars`, `wrench`, `rocket`, `shield`, `star`, `chevron`, `parachute`, `wings`, `skull`, `compass`, `flag`, `helmet`), as 24x24 `currentColor` path data — same grid and convention as `components/loadout/icons.tsx`. Path data lives in `lib/` rather than beside the component because both loadout API routes validate against it and must not pull JSX into a route handler.
+- `KitIconKey`, `KIT_ICON_KEYS`, `DEFAULT_KIT_ICON` (`kit`) — the key type, the picker's order, and what an absent or unrecognised value renders.
+- `isKitIcon(v)` / `kitIcon(v)` — narrow, or resolve-with-fallback. The check is against the **key list**, not `key in KIT_ICON_PATHS`: the value arrives in a JSON body and becomes a `Record` lookup on a public page, so `__proto__`/`constructor` must fall through to the default rather than resolve. Unit-tested in `kit-icons.test.ts`.
+
+### lib/loadout/summary.ts
+- `summariseLoadout(kit: ParsedLoadout): KitSummary` — the headline of a kit for the `/community/kits` shelf: primary weapon + its attachments in arsenal order, headgear/uniform/vest/backpack classnames, and `itemCount`. Stacks count by multiplicity (six magazines is six items, not one) and worn/held gear counts too, so a kit that is all worn gear and no cargo does not read as empty; a non-finite stack count is skipped rather than turning the card's count into `NaN`. Pure; unit-tested in `summary.test.ts`.
+
+### lib/military/milpac-tabs.ts
+- `MILPAC_TABS` — the three sections a milpac is split into (`overview`, `record`, `kits`) with their labels. The split is conceptual: who the member is, what they have earned, what they carry. "Kits" is the unit's word for the third; the code beneath it still says loadout (the collection, the API routes, `lib/loadout/`), which is ARMA's own term for the exported array — renaming those would mean a data migration for no reader-facing gain.
+- `MilpacTab` — union of the keys.
+- `resolveTab(raw)` — the tab a `?tab=` value selects, falling back to the first for anything unrecognised, absent, wrongly-cased or repeated. Kept in `lib/` rather than beside the component so it can be unit-tested; `milpac-tabs.test.ts`.
+
+### lib/loadout/names.ts
+- `resolveItemName(className)` — Arma classname to readable name: hand overrides, then the generated dictionary, then `prettifyClassName`. Never returns empty.
+- `prettifyClassName(className)` — the fallback: strips vendor prefix and type infix, splits camelCase, title-cases. Unit-tested in `names.test.ts`.
+- `itemMeta(className)` — `{name, root, type, mod}` from the dictionary, or null. The classifier's input.
+- `components/loadout/kit-icons.tsx` — `KitIcon` (renders a `KitIconKey` from the paths above) and `UiIcon` (marks for the kit controls: copy, trash, import, check, close, pencil, eye, open). Both stroke `currentColor`, so a button's own colour — including the danger red and the published green — carries into its icon without the icon knowing about it.
+- `generated/arma-items.json` — 31,582 entries, `{class: [name, root, ItemInfo.type, sourceMod]}`, ~2.7MB, **server-side only**. Rebuild with `node scripts/build-item-dictionary.mjs` from `generated/itemdump.txt`, which itself comes from running `lib/loadout/dump-items.sqf` in-game and extracting the `ITEMDUMP` block from the `.rpt`.
+
+### lib/military/milpac-cover.ts
+- `coverPath(memberId)` / `hasCover(memberId)` — the member's uploaded cover photo at `storage/uploads/cover/{id}.png`. Used by the milpac page (banner) and its `opengraph-image.tsx` (share-card ground). `app/api/uploads/cover/route.ts` still writes via its own cwd-relative string.
+- `fitCover(srcW, srcH, boxW, boxH): CropRect` — `object-fit: cover` as a centred source rectangle. Pure; unit-tested in `milpac-cover.test.ts`.
+- `readCoverImage(memberId, box?): Promise<string|null>` — decodes the cover with `@napi-rs/canvas` (which sniffs the real format, since the upload route names every file `.png` whatever it was), crops via `fitCover`, re-encodes to a JPEG data URI at the card's 1300×630. Data URI because satori resolves neither relative paths nor `background-image: url()`; re-encoded because covers are stored unresized and base64 inflates by a third. Returns `null` on any failure — the OG route must degrade to its drawn card, never 500. `MAX_COVER_BYTES` (25MB) bounds what reaches the decoder.
 
 ### lib/military/points.ts
 - `OP_POINTS` / `DEPT_POINTS` — point-value constants for operation attendance types and department actions.
@@ -354,7 +396,7 @@ Content-addressed, deduplicating backup system via [restic](https://restic.net/)
 
 ---
 
-## 2. `types/**`: global ambient type declarations (31 files)
+## 2. `types/**`: global ambient type declarations (32 files)
 
 All declare into `declare global { ... }` (imports become no-ops via `export {}`), so no imports needed anywhere in the app.
 
@@ -376,6 +418,9 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 ### types/gallery.d.ts
 - `ScreenshotOfMonth` — `{filename, dateTaken, credit, setAt, setBy, operationId?, operationTitle?}`.
 - `GalleryAPI` — the shape returned by the gallery listing API: `{info, updated, featured[], years[{year, operations[{operation, stages[{stage, media[]}]}]}]}`.
+
+### types/loadout.d.ts
+- `MemberLoadout` — `{_id, userId, name, description?, icon?, isDefault, shared, raw, createdAt, updatedAt}`. `icon` is a `KitIconKey` (`lib/loadout/kit-icons.ts`); absent or unrecognised renders `DEFAULT_KIT_ICON`. `shared` is the collection's whole privacy boundary: a shared ("public") kit appears on the owner's milpac and on `/community/kits` for anyone to copy, an unshared one is only ever sent to the owner's own browser — so **every read of another member's kits must filter on it**. Only `raw` (the ACE arsenal export, verbatim) is stored — `lib/loadout/parse.ts` parses at render, so improving the parser needs no migration. Web-only (not in the monorepo-root `types/`): `User` is shared with apps/bot and an unbounded per-member list has no business bloating every bot fetch of it.
 
 ### types/meetingNotifQueue.d.ts
 - `MeetingNotifQueueRecord` — time-delayed meeting notification queue entry (`fireAt`, `firedAt?`, `recipientUserId` xor `recipientRole`).
@@ -629,6 +674,9 @@ See `types/README.md` at the monorepo root for the sharing convention (web is au
 
 #### components/editor/SimpleEditor.tsx
 - Default export `SimpleEditor({initialContent='', onChange?, readOnly=false, minHeight=300}: Props)` — a non-collaborative (local-state only) TipTap editor for simpler HTML content editing (training docs etc.), reusing `ImageNodeView`. Custom extensions: `MarginLeftExtension` (preserves Google-Docs-imported paragraph/heading/list indentation), `ListClassExtension` (preserves `lst-kix_*` custom-bullet classes), `HeadingIdExtension` (preserves heading `id` for TOC anchors), `TabIndentExtension` (Tab/Shift-Tab → list-item sink/lift or margin-left indent step for non-list blocks). `splitStyleBlock(html)` — extracts a leading `<style>` block (Google Docs list CSS) so it survives editor round-trips; re-prepended on save.
+
+### components/loadout/icons.tsx
+- `<LoadoutIcon icon size?>` — 24×24 `currentColor` SVG mark per `IconKey`. `PATHS` is a total `Record<IconKey, string>` on purpose: adding a key to `ICON_KEYS` without drawing it is a compile error rather than a blank square. Our own marks, not Arma's — real `.paa` artwork is out of scope.
 
 ---
 

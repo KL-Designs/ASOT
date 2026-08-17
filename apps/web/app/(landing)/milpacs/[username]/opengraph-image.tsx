@@ -6,6 +6,8 @@ import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 import { deriveStatus, platoonLabel } from '@/lib/military/milpac-status'
 import { ensureVisible } from '@/lib/discord/color'
 import { defaultAvatarURL } from '@/lib/discord/avatar'
+import { readCoverImage } from '@/lib/military/milpac-cover'
+import { resolveSegment } from '@/lib/military/milpac-slug'
 
 export const size = { width: 1300, height: 630 }
 export const contentType = 'image/png'
@@ -18,12 +20,19 @@ export const contentType = 'image/png'
  * repeating-linear-gradient). The accent is threaded through by hand instead,
  * and passed through ensureVisible() so a near-black Discord accent does not
  * vanish into the card.
+ *
+ * A member who has uploaded a cover photo gets it as the card's ground, under a
+ * scrim; everyone else gets the drawn ridgeline, the same fallback the profile
+ * page makes. The two are never stacked — a photograph and a drawn dusk fighting
+ * over the same 1300x630 is mud.
  */
 export default async function Image({ params }: { params: Promise<{ username: string }> }) {
     const { username } = await params
 
+    // The same resolver the page uses, so a name-slug URL and a username URL
+    // produce the same card rather than this route 404-ing on the pretty form.
     const allMembers = await client.fetchAllMembers()
-    const member = allMembers.find(m => m.username === username)
+    const member = resolveSegment(username, allMembers)?.member
 
     if (!member) {
         return new ImageResponse(
@@ -53,6 +62,10 @@ export default async function Image({ params }: { params: Promise<{ username: st
     // Enlisted year alone: a full date earns no room at this size.
     const enlisted = member.milpac?.enlistedDate?.match(/\d{4}/)?.[0]
         ?? (member.guild?.joinedTimestamp ? String(new Date(member.guild.joinedTimestamp).getFullYear()) : '—')
+
+    // Never throws and returns null when there is no cover, so the drawn card
+    // below stays the guaranteed floor for this route.
+    const cover = await readCoverImage(member.id)
 
     const avatarUrl = member.avatar
         ? `https://cdn.discordapp.com/avatars/${member.id}/${member.avatar}.${member.avatar.startsWith('a_') ? 'gif' : 'png'}?size=256`
@@ -88,6 +101,44 @@ export default async function Image({ params }: { params: Promise<{ username: st
                 position: 'relative',
             }}
         >
+            {cover && (
+                <>
+                    {/* Already cropped and re-encoded to exactly 1300x630, so it
+                        needs no objectFit — satori's support for that is thin. */}
+                    <img src={cover} width={1300} height={630} style={{ position: 'absolute', top: 0, left: 0 }} />
+
+                    {/* Three scrims, each with its own job, because one flat wash
+                        heavy enough for the stat strip would drown the photo
+                        entirely. A share card is read at thumbnail size in a
+                        Discord embed — the type has to win. */}
+
+                    {/* Base wash: the floor of contrast, whatever was uploaded.
+                        Tuned against a bright daylight photo rather than a dark
+                        one — a fixed scrim cannot flatter both, and only one of
+                        the two can make the type unreadable. */}
+                    <div style={{
+                        position: 'absolute', top: 0, left: 0, width: 1300, height: 630,
+                        background: '#08090aad', display: 'flex',
+                    }} />
+
+                    {/* Vertical: lifts off the middle so the photo shows through
+                        behind the name, and sinks hard into the stat strip. */}
+                    <div style={{
+                        position: 'absolute', top: 0, left: 0, width: 1300, height: 630,
+                        background: 'linear-gradient(180deg, #08090a47 0%, #08090a1f 40%, #08090ad1 100%)',
+                        display: 'flex',
+                    }} />
+
+                    {/* Horizontal: the rank, name and unit line are all flush
+                        left, and this is what they sit against. */}
+                    <div style={{
+                        position: 'absolute', top: 0, left: 0, width: 1300, height: 630,
+                        background: 'linear-gradient(90deg, #08090acc 0%, #08090a4d 45%, #08090a00 72%)',
+                        display: 'flex',
+                    }} />
+                </>
+            )}
+
             {/* A single low sun in the accent, echoing the profile's banner. The
                 only colour on the card besides the accent itself. */}
             <div style={{
@@ -100,11 +151,14 @@ export default async function Image({ params }: { params: Promise<{ username: st
             {/* The dossier's panel tick, at the card's own top-left corner. */}
             <div style={{ position: 'absolute', top: 0, left: 0, width: 96, height: 5, background: accent, display: 'flex' }} />
 
-            {/* Ridgeline, bottom third, well under the type. */}
-            <svg width={1300} height={200} viewBox='0 0 1300 200' style={{ position: 'absolute', left: 0, bottom: 96 }}>
-                <path d='M0 120 L150 88 L300 124 L450 84 L600 128 L760 92 L920 130 L1080 88 L1240 126 L1300 104 V200 H0 Z' fill='#101319' />
-                <path d='M0 156 L200 138 L400 166 L600 142 L800 170 L1000 146 L1200 172 L1300 152 V200 H0 Z' fill='#0b0e12' />
-            </svg>
+            {/* Ridgeline, bottom third, well under the type — the stand-in for a
+                cover, so it yields to a real one. */}
+            {!cover && (
+                <svg width={1300} height={200} viewBox='0 0 1300 200' style={{ position: 'absolute', left: 0, bottom: 96 }}>
+                    <path d='M0 120 L150 88 L300 124 L450 84 L600 128 L760 92 L920 130 L1080 88 L1240 126 L1300 104 V200 H0 Z' fill='#101319' />
+                    <path d='M0 156 L200 138 L400 166 L600 142 L800 170 L1000 146 L1200 172 L1300 152 V200 H0 Z' fill='#0b0e12' />
+                </svg>
+            )}
 
             {/* Top bar */}
             <div style={{

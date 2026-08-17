@@ -82,6 +82,25 @@ Hall of Fame banner/container layout.
 Hall of Fame — currently **hardcoded example data** (5 fake members), TODO comment says to swap
 for a real `Db.users` query keyed on a HOF Discord role. Public, static for now.
 
+#### app/(landing)/community/kits/page.tsx
+The unit's shared-kit shelf, reached from the navbar's "Our Orbat" menu. Server component: reads
+`Db.loadouts.find({shared: true})` (newest first) and `client.fetchAllMembers()`, then renders one
+card per kit — its chosen badge beside the name, the owner's `description` when they wrote one, the primary weapon with its
+attachments, headgear/uniform/vest/pack, and an item count from `summariseLoadout`
+(`@/lib/loadout/summary`). Server-side for the same reason
+`loadout-panel.tsx` is: `resolveItemName` reads a ~2.7MB dictionary that must never reach the
+browser. A kit whose owner is no longer on the roster is skipped, as is one that fails to parse —
+neither may take down everyone else's shelf. Cards link to `/milpacs/<canonical>?tab=kits&kit=<id>`
+(canonical segment via `buildSlugIndex`/`canonicalSegment`, so no click goes through a redirect) and
+carry a copy button. Borrows the milpac's design system wholesale — `profile.module.css` supplies
+`.shell`/`.panel`/`.btn` and the custom properties they define, `kits.module.css` only the shelf and
+card layout. `--acc` is per card, set to the owner's own Discord accent; the page chrome uses the
+unit red. Public, no login required.
+
+#### app/(landing)/community/kits/copy-kit.tsx
+Client `CopyKitButton`: copies a shared kit's raw ACE arsenal export via `copyText`
+(`@/lib/clipboard`), showing "Copied" for 1.8s. Borrows `.btn` from `profile.module.css`.
+
 #### app/(landing)/community/orbat/loading.tsx
 `TacticalLoader` Suspense fallback ("LOADING ORBAT DATA").
 
@@ -202,7 +221,9 @@ removed (the `WIP_PAGES` check here and `/milpacs` in middleware's `WIP_PATHS`, 
 `/milpacs/[username]`). Public read.
 
 #### app/(landing)/milpacs/card.tsx
-Client member card: tilt-on-hover 3D effect, links to `/milpacs/[username]`. Displays avatar
+Client member card: tilt-on-hover 3D effect, links to the member's canonical milpac path via an
+optional `href` prop (the index builds these with `buildSlugIndex`/`canonicalSegment` so cards skip
+the redirect); falls back to `/milpacs/[username]`. Displays avatar
 (`Avatar` from `@/components/member/avatar`), rank abbreviation, name, role. Used by both the
 milpacs index and (indirectly via similar pattern) other roster pages.
 
@@ -216,9 +237,22 @@ Clears default OG/Twitter images (overridden per-profile by `opengraph-image.tsx
 #### app/(landing)/milpacs/[username]/loading.tsx
 Client `TacticalLoader` reading the `username` route param for its label.
 
+#### app/(landing)/milpacs/[username]/tabs.tsx
+Server component rendering the profile's section tabs (Overview / Service Record / Kits) on the rule beneath the hero stat strip. Real `<Link>`s carrying `?tab=`, not client state — the server renders the requested section so there is no flash of the wrong tab and `?tab=kits` is shareable. "Kits" is the unit's word; the code below the surface still says loadout (collection, API routes, `lib/loadout/`), ARMA's own term for the exported array. `scroll={false}` keeps the reader where they are. A soft navigation remounts the panels, so their `.rise` entrance stagger replays and each tab lays itself out. Tab keys resolve via `resolveTab` (`lib/military/milpac-tabs.ts`).
+
+#### app/(landing)/milpacs/[username]/copy-link.tsx
+Client button in the top bar beside the crumb: copies the profile's canonical absolute URL. Uses
+`navigator.clipboard` when the page is a secure context, otherwise an off-screen-textarea
+`execCommand('copy')` fallback; shows "Copied" for 1.8s, or "Press Ctrl+C" if both paths fail.
+
 #### app/(landing)/milpacs/[username]/page.tsx
-The full individual MILPAC profile page (largest file in this group, ~650 lines). Resolves the
-member via `client.fetchAllMembers()` + `resolveMilpacProfile`, **auto-regenerates** the uniform
+The full individual MILPAC profile page (largest file in this group, ~650 lines). **The `[username]`
+segment is resolved by `resolveSegment` (`lib/military/milpac-slug.ts`) — Discord username first,
+then name slug — and the page `redirect()`s to the canonical segment when reached by the other form,
+so `/milpacs/itskodas` lands on `/milpacs/koda`.** Note the redirect is temporary, not permanent: a
+nickname change moves the canonical slug. Everything downstream (the `uniformHash` write, the
+`/api/milpac/certificate/*` links, the editor's `/api/members/*` calls) keys on `member.username`,
+**not** the URL segment. Then `resolveMilpacProfile`, **auto-regenerates** the uniform
 PNG/medal-box PNG (`renderUniform`/`renderBox` from `@/lib/milpac-gen/client`, rendered by the `apps/milpac` service) on the server when a
 content hash mismatches (`member.milpac.uniformHash`), computes promotion progress, enlisted date,
 and confirmed-operation history grouped by campaign, displays Service Record / Promotions /
@@ -254,6 +288,57 @@ click target that opens that member's certificate full-screen, with a download l
 awards would otherwise trigger 30 renders per profile view. A failed render drops back to the plain
 content rather than leaving a dead click target. `inline` switches it from a full-width row trigger
 to an inline chip.
+
+#### app/(landing)/milpacs/[username]/loadout-panel.tsx
+Server `LoadoutPanel`: renders a member's imported ACE arsenal loadout in the arsenal's own
+arrangement — weapons (primary/launcher/sidearm, each with its magazine and attachments) across the
+top, the three containers (uniform/vest/backpack) with their contents below, then what is worn and
+carried (headgear, facewear, binoculars, map/GPS/radio/compass/watch/NVG). Calls `parseLoadout`
+(`@/lib/loadout/parse`) and `resolveItemName` (`@/lib/loadout/names`) — kept server-side because the
+name dictionary the latter reads is ~2.7MB and must never reach the browser; only the resolved
+strings are sent. A parse failure (e.g. an old row a parser change now rejects) renders a fallback
+message rather than taking down the whole profile. Empty slots render as "—" rather than being
+omitted. Accepts an `actions` slot (rendered above the kit) — `page.tsx` passes `<LoadoutManager/>`
+into it.
+
+#### app/(landing)/milpacs/[username]/loadout-manager.tsx
+Client `LoadoutManager`: the picker (a row of chips when a member has more than one loadout, shown to
+every visitor — each chip is a `<Link>` to `?tab=kits&kit=<id>`, since `LoadoutPanel` is a
+server component and switching kit has to be a navigation; `pickLoadoutId` in `@/lib/loadout/select`
+resolves the param server-side). Each chip carries a star: lit and non-interactive on the member's
+default, and for the owner only, pressable on the others to nominate a new default via `PATCH
+/api/loadouts/[id]` with `{isDefault:true}`. Viewing and nominating are separate actions — the
+`<select>` this replaced set `isDefault` purely to change what was on screen, so a member could not
+look at a second loadout without demoting their first. The selected kit's `description`, when it has
+one, renders as a line of prose under the picker.
+
+The kit row doubles as the panel header: chips on the left, **Import kit** pinned to the far right,
+and it renders for the owner even with no kits at all — that is exactly when Import is the only thing
+to do there. Each chip carries the kit's chosen badge (`KitIcon`, `lib/loadout/kit-icons.ts`).
+
+Controls are grouped by consequence, not by permission: the **Public/Private** toggle (`PATCH
+{shared}`, green with a lit dot when public — `--good`, not the member's accent, so every reader
+decodes the state the same way whatever colour their file is) and **Copy kit** on the left, with
+**Delete** pushed right via `margin-left:auto` so it does not sit in misclick range of the visibility
+toggle. Copy is offered to the owner for a private kit too — it is their own export; visitors only
+ever hold public ones. It uses the same off-screen-textarea `execCommand('copy')` fallback as
+`copy-link.tsx`. Every control carries a `UiIcon`; the visibility toggle's glyph is its status dot.
+
+The owner can edit a kit's **icon and description at any time** from the inline editor behind the
+`Edit` link on the description line (`PATCH {description, icon}`) — not only at import, which
+otherwise made a typo permanent-until-reimport. Saving an empty description removes it.
+
+The owner-only import form (`POST /api/loadouts` with `{raw, name, description, shared}`) asks four
+labelled things: name, badge (a radiogroup over `KIT_ICON_KEYS`), optional one-line description,
+visibility (defaulting to **private**, with the consequence stated beside the toggle rather than as a
+blanket warning above the form), and the export itself. `MAX_NAME`/`MAX_DESCRIPTION` come from `lib/loadout/limits.ts`, the same module the route
+truncates with.
+
+Every action reloads the page on success rather than patching local state, keeping this component free
+of any loadout-shape knowledge. **Privacy is enforced in `page.tsx`, not here** — it filters
+`isOwn || l.shared` before building the summaries, so another member's private kit never reaches the
+browser as a name, a description or an export string, and `?kit=<private id>` cannot reach it either
+because everything downstream reads that filtered list.
 
 #### app/(landing)/milpacs/[username]/image-lightbox.tsx
 Generic client `ImageLightbox`: click-to-zoom full-screen overlay for an `<img>`, closes on

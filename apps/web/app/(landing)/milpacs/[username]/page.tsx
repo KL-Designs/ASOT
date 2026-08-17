@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { existsSync } from 'fs'
 import { mkdir, writeFile } from 'fs/promises'
@@ -17,6 +17,8 @@ import Db from '@/lib/mongo'
 import PERMISSIONS from '@/lib/permissions'
 import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
+import { hasCover as memberHasCover } from '@/lib/military/milpac-cover'
+import { resolveSegment } from '@/lib/military/milpac-slug'
 import { CoverUpload } from './cover-upload'
 import { BiographyEditor } from './bio-editor'
 import { RequestAwardButton } from './RequestAwardButton'
@@ -25,6 +27,12 @@ import { CertificateViewer } from './certificate-link'
 import { Hero, type HeroStat } from './hero'
 import { EditMilpacButton } from './edit-milpac'
 import { Panel, Rows, Row, Empty, MedallionIcon, MEDALLION_ART, MonthChart, bucketByMonth } from './panels'
+import { LoadoutPanel } from './loadout-panel'
+import { MilpacTabs } from './tabs'
+import { resolveTab } from '@/lib/military/milpac-tabs'
+import { pickLoadoutId } from '@/lib/loadout/select'
+import { kitIcon } from '@/lib/loadout/kit-icons'
+import { LoadoutManager } from './loadout-manager'
 import s from './profile.module.css'
 
 
@@ -101,12 +109,16 @@ function durationSince(raw?: string | null): string | null {
 }
 
 
-async function resolveProfile(username: string) {
+async function resolveProfile(segment: string) {
 	const allMembers = await client.fetchAllMembers()
-	const member = allMembers.find(m => m.username === username) ?? null
-	if (!member) return null
-	const orbatEntry = await getOrbatEntryByUserId(member.id)
-	return { member, ...resolveMilpacProfile(member, orbatEntry) }
+	const target = resolveSegment(segment, allMembers)
+	if (!target) return null
+	const orbatEntry = await getOrbatEntryByUserId(target.member.id)
+	return {
+		member: target.member,
+		canonical: target.canonical,
+		...resolveMilpacProfile(target.member, orbatEntry),
+	}
 }
 
 
@@ -134,13 +146,31 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
 }
 
 
-export default async function Page({ params }: { params: Promise<{ username: string }> }) {
-	const { username } = await params
+export default async function Page({ params, searchParams }: {
+	params: Promise<{ username: string }>
+	searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+	const { username: segment } = await params
+	const query = await searchParams
 
-	const profile = await resolveProfile(username)
+	// Which section of the file to show. Resolved server-side, so a link to
+	// ?tab=kits renders that tab directly rather than flashing the default first.
+	const tab = resolveTab(query.tab)
+
+	const profile = await resolveProfile(segment)
 	if (!profile) notFound()
 
+	// Temporary, not permanent: the canonical segment is derived from a Discord
+	// nickname, so it moves when the nickname does. A 308 would be cached by
+	// browsers indefinitely with no way to invalidate it.
+	if (profile.canonical !== segment) redirect(`/milpacs/${profile.canonical}`)
+
 	const { member, orbatEntry, accent, name, fullRank } = profile
+
+	// The URL segment may now be a name slug, but everything below keys on the
+	// Discord username — the uniformHash write, the certificate routes and the
+	// editor's /api/members calls all look members up by it.
+	const username = member.username
 
 	// Build uniform/box data (also used for the corps badge)
 	const uniformData = buildUniformData(member, orbatEntry)
@@ -190,7 +220,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const canEdit           = canEditStandard
 	const isOwn           = me?.id === member.id
 	const canRequestAward = me !== null && me.id !== member.id && !member.isSkeletonAccount
-	const hasCover        = existsSync(join(process.cwd(), '..', '..', 'storage', 'uploads', 'cover', `${member.id}.png`))
+	const hasCover        = memberHasCover(member.id)
 
 	// Fetch confirmed attendance for operation history + stat bar count
 	const attendanceDocs = await Db.operationAttendance.find({
@@ -261,6 +291,30 @@ export default async function Page({ params }: { params: Promise<{ username: str
 		{ sort: { _id: -1 }, projection: { steamId64: 1 } },
 	).catch(() => null)
 
+	const allLoadouts = await Db.loadouts.find({ userId: member.id }).sort({ updatedAt: -1 }).toArray()
+
+	// A private kit is the member's own business. It is filtered out here rather
+	// than hidden in the component, so another visitor's browser never receives
+	// its name, its description or its export string — and `?kit=<private id>`
+	// cannot reach it either, because everything downstream reads this list.
+	const loadouts = allLoadouts.filter(l => isOwn || l.shared)
+
+	// `raw` is the ACE export the copy button hands out. Every row here is either
+	// public or the viewer's own, so it travels for all of them.
+	const loadoutList = loadouts.map(l => ({
+		id: String(l._id),
+		name: l.name,
+		description: l.description ?? '',
+		icon: kitIcon(l.icon),
+		isDefault: l.isDefault,
+		shared: l.shared,
+		raw: l.raw,
+	}))
+
+	// ?kit= picks which one to render; without it, the member's default.
+	const activeLoadoutId = pickLoadoutId(query.kit, loadoutList)
+	const activeLoadout = loadouts.find(l => String(l._id) === activeLoadoutId) ?? null
+
 	const awards = member.milpac?.awards ?? []
 	const quals  = member.milpac?.qualifications ?? []
 	const promotions = member.milpac?.promotions ?? []
@@ -295,6 +349,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 			<Hero
 				memberId={member.id}
 				username={username}
+				canonicalPath={`/milpacs/${profile.canonical}`}
 				name={name}
 				avatarURL={member.avatarURL}
 				rankAbbr={member.milpac?.currentRank}
@@ -308,17 +363,15 @@ export default async function Page({ params }: { params: Promise<{ username: str
 				discordId={member.id}
 				steamId64={steamApp?.steamId64}
 				stats={stats}
-				topbarActions={
-					<>
-						{canEdit && (
-							<EditMilpacButton
-								username={username}
-								canEditRestricted={canEditRestricted}
-								canEditStandard={canEditStandard}
-							/>
-						)}
-					</>
-				}
+				topbarActions={canEdit
+					? (
+						<EditMilpacButton
+							username={username}
+							canEditRestricted={canEditRestricted}
+							canEditStandard={canEditStandard}
+						/>
+					)
+					: null}
 				bannerActions={isOwn ? <CoverUpload hasCover={hasCover} /> : null}
 				identActions={canRequestAward
 					? (
@@ -332,260 +385,294 @@ export default async function Page({ params }: { params: Promise<{ username: str
 					: null}
 			/>
 
-			<div className={s.page}>
-				{/* Left: how this member is doing — progress, who they are, activity. */}
-				<div className={s.stack}>
-					{progress && !progress.atMax && !progress.billetOnly && (
-						<div>
-							<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
-								<span className={s.lbl} style={{ color: 'var(--acc)' }}>{member.milpac?.currentRank}</span>
-								<span className={s.crumb} style={{ margin: 0 }}>{progress.current} / {progress.required} pts</span>
-								<span className={s.lbl}>{progress.nextRank}</span>
-							</div>
-							<div style={{ height: 6, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-								<div style={{
-									height: '100%',
-									width: `${progress.pct}%`,
-									minWidth: progress.pct > 0 ? 6 : 0,
-									background: 'var(--acc)',
-									boxShadow: '0 0 8px rgba(var(--acc-rgb),0.6)',
-								}} />
-							</div>
-						</div>
-					)}
-					<Panel title='Personnel Summary' tag={`${member.milpac?.currentRank ?? ''} ${name}`.trim()} delay='.05s'>
-						{isOwn
-							? <BiographyEditor initial={member.bio?.content ?? null} accent={accent} />
-							: member.bio?.content
-								? <p className={s.bio}>{member.bio.content}</p>
-								: <Empty text='No biography on record.' />}
-					</Panel>
-					<Panel title='Combat Record' tag='Operations attended · last 12 months' delay='.1s'>
-						<MonthChart months={months} />
-						<div className={s.substats}>
-							<div>
-								<div className={s.substatV}>{confirmedOps.length}</div>
-								<div className={`${s.lbl} ${s.substatK}`}>Ops attended</div>
-							</div>
-							<div>
-								<div className={s.substatV}>{citations}</div>
-								<div className={`${s.lbl} ${s.substatK}`}>Citations</div>
-							</div>
-							<div>
-								<div className={s.substatV}>{durationSince(lastPromotion?.date) ?? '—'}</div>
-								<div className={`${s.lbl} ${s.substatK}`}>Time in grade</div>
-							</div>
-							<div>
-								<div className={s.substatV}>{promotionPts}</div>
-								<div className={`${s.lbl} ${s.substatK}`}>Promotion points</div>
-							</div>
-						</div>
-					</Panel>
-					<Panel title='Recent Operations' tag={confirmedOps.length > 0 ? `${confirmedOps.length} confirmed` : undefined} delay='.15s'>
-						{confirmedOps.length === 0
-							? <Empty text='No operations on record.' />
-							: (
-								<ul className={s.tl}>
-									{[...confirmedOps]
-										.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0))
-										.slice(0, 8)
-										.map(op => (
-											<li key={op.operationId} className={op.ocap ? s.tlHi : undefined}>
-												<div className={s.tlD}>{op.date ? fmtDate(op.date) : 'Date unknown'}</div>
-												<div className={s.tlT}>
-													<Link href={`/operations/${op.operationId}`}>{op.name}</Link>
-												</div>
-												{/* The member's posting as at that operation, not now. */}
-												{(op.section || op.role) && (
-													<div className={s.tlX}>{[op.unit, op.section, op.role].filter(Boolean).join(' · ')}</div>
-												)}
-											</li>
-										))}
-								</ul>
-							)}
-					</Panel>
-					<Panel title='Commendations & Remarks' delay='.2s'>
-						<Empty text='No commendations on record. Staff write these at the end of an operation.' />
-					</Panel>
-					<Panel title={`Operation History (${confirmedOps.length})`} delay='.25s'>
-						<OperationHistory ops={confirmedOps} />
-					</Panel>
-				</div>
+			<MilpacTabs active={tab} basePath={`/milpacs/${profile.canonical}`} />
 
-				{/* Middle: the record itself — the facts and the paperwork. */}
-				<div className={s.stack}>
-					<Panel title='Service Data' delay='.08s'>
-						<Rows>
-							<Row label='Status' value={status.label} />
-							<Row label='Enlisted' value={enlistedDate} />
-							<Row label='Time in service' value={durationSince(enlistedDate)} />
-							<Row label='Time in grade' value={durationSince(lastPromotion?.date)} />
-							<Row label='Rank' value={fullRank || null}>
-								{(() => {
-									const rankCode = (member.milpac?.currentRank ?? '').replace(/[()]/g, '')
-									// Every promotion below is its own click target, so this
-									// only appears when nothing down there already offers it.
-									const inHistory = promotions.some(p => promotionCertCode(p.rank) === rankCode)
-									if (!canViewCertificates || !rankCode || inHistory) return undefined
-									return (
-										<CertificateViewer
-											inline
-											label={`Promotion — ${fullRank || rankCode}`}
-											accent={accent}
-											href={`/api/milpac/certificate/${username}?type=promotion&cert=${encodeURIComponent(rankCode)}`}
-										>
-											<span>{fullRank} ⤢</span>
-										</CertificateViewer>
-									)
-								})()}
-							</Row>
-							<Row label='Corps' value={badge} />
-							<Row label='Platoon' value={platoon} />
-							<Row label='Element' value={orbatEntry?.section} />
-							<Row label='Billet' value={orbatEntry?.role} />
-							<Row label='Timezone' value={member.timezone} />
-							<Row label='Promotion points' value={promotionPts > 0 ? promotionPts : null} />
-						</Rows>
-					</Panel>
-					<Panel title='Awards & Decorations' tag={awards.length > 0 ? String(awards.length) : undefined} delay='.13s'>
-						{awards.length === 0 ? <Empty text='No awards on record.' /> : (
-							<>
-								<div style={{ marginTop: 16, display: 'grid', gap: 8 }}>
-									{awards.map((a, i) => {
-										const certCode = certificateCodeForAward(a.name)
-										const canOpen  = canViewCertificates && Boolean(certCode)
-										const citation = AWARD_TO_CITATION[a.name]
-										const medallion = MEDALLION_ART[a.name]
-										const row = (
-											<div className={s.rw} style={{ alignItems: 'center' }}>
-												{/* Fixed-width slot so ribbons, medallions and
-												    awards with no artwork all line up down the
-												    left edge rather than ragging. */}
-												<span style={{ width: 58, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
-													{citation
-														? (
-															<img
-																src={`/milpac-assets/imge/Ribbons/${citation}.png`}
-																alt=''
-																style={{ width: 58, height: 18, objectFit: 'contain', imageRendering: 'pixelated' }}
-															/>
-														)
-														: medallion
-															? <MedallionIcon art={medallion} alt='' size={22} />
-															: null}
-												</span>
-												<span style={{ flex: 1, minWidth: 0 }}>
-													<span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--ink)' }}>{a.name}</span>
-													<span className={s.cmdType} style={{ marginLeft: 8 }}>{a.type}</span>
-													{a.issuedByName && (
-														<span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--ink-3)', marginTop: 2 }}>
-															Issued by {a.issuedByName}
-														</span>
-													)}
-												</span>
-												<span className={s.rwV} style={{ whiteSpace: 'nowrap' }}>
-													{a.date ?? ''}{canOpen ? ' ⤢' : ''}
-												</span>
-											</div>
-										)
-										return canOpen ? (
-											<CertificateViewer
-												key={i}
-												label={a.name}
-												accent={accent}
-												href={`/api/milpac/certificate/${username}?type=award&cert=${encodeURIComponent(certCode!)}`}
-											>
-												{row}
-											</CertificateViewer>
-										) : <div key={i}>{row}</div>
-									})}
+			{/* Who this member is, and what they have been doing lately. */}
+			{tab === 'overview' && (
+				<div className={`${s.page} ${s.pageLead}`}>
+					<div className={s.stack}>
+						{progress && !progress.atMax && !progress.billetOnly && (
+							<div>
+								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+									<span className={s.lbl} style={{ color: 'var(--acc)' }}>{member.milpac?.currentRank}</span>
+									<span className={s.crumb} style={{ margin: 0 }}>{progress.current} / {progress.required} pts</span>
+									<span className={s.lbl}>{progress.nextRank}</span>
 								</div>
-							</>
-						)}
-					</Panel>
-					<Panel title='Qualifications' tag={quals.length > 0 ? String(quals.length) : undefined} delay='.18s'>
-						{quals.length === 0 ? <Empty text='No qualifications on record.' /> : (
-							<div style={{ display: 'grid', gap: 8 }}>
-								{quals.map((q, i) => (
-									<div key={i} className={s.rw} style={{ alignItems: 'baseline' }}>
-										<span style={{ minWidth: 0 }}>
-											<span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--ink)' }}>{q.qualification}</span>
-											{q.issuedByName && (
-												<span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--ink-3)', marginTop: 2 }}>
-													Issued by {q.issuedByName}
-												</span>
-											)}
-										</span>
-										{/* Omitted rather than dashed when absent: a column of
-										    em-dashes is noise, and the name is what matters here. */}
-										{q.date && <span className={s.rwV} style={{ whiteSpace: 'nowrap' }}>{q.date}</span>}
-									</div>
-								))}
+								<div style={{ height: 6, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+									<div style={{
+										height: '100%',
+										width: `${progress.pct}%`,
+										minWidth: progress.pct > 0 ? 6 : 0,
+										background: 'var(--acc)',
+										boxShadow: '0 0 8px rgba(var(--acc-rgb),0.6)',
+									}} />
+								</div>
 							</div>
 						)}
-					</Panel>
-					<Panel title='Promotion History' tag={promotions.length > 0 ? String(promotions.length) : undefined} delay='.2s'>
-						{promotions.length === 0 ? <Empty text='No promotion history on record.' /> : (
+						<Panel title='Personnel Summary' tag={`${member.milpac?.currentRank ?? ''} ${name}`.trim()} delay='.05s'>
+							{isOwn
+								? <BiographyEditor initial={member.bio?.content ?? null} accent={accent} />
+								: member.bio?.content
+									? <p className={s.bio}>{member.bio.content}</p>
+									: <Empty text='No biography on record.' />}
+						</Panel>
+						<Panel title='Combat Record' tag='Operations attended · last 12 months' delay='.1s'>
+							<MonthChart months={months} />
+							<div className={s.substats}>
+								<div>
+									<div className={s.substatV}>{confirmedOps.length}</div>
+									<div className={`${s.lbl} ${s.substatK}`}>Ops attended</div>
+								</div>
+								<div>
+									<div className={s.substatV}>{citations}</div>
+									<div className={`${s.lbl} ${s.substatK}`}>Citations</div>
+								</div>
+								<div>
+									<div className={s.substatV}>{durationSince(lastPromotion?.date) ?? '—'}</div>
+									<div className={`${s.lbl} ${s.substatK}`}>Time in grade</div>
+								</div>
+								<div>
+									<div className={s.substatV}>{promotionPts}</div>
+									<div className={`${s.lbl} ${s.substatK}`}>Promotion points</div>
+								</div>
+							</div>
+						</Panel>
+						<Panel title='Recent Operations' tag={confirmedOps.length > 0 ? `${confirmedOps.length} confirmed` : undefined} delay='.15s'>
+							{confirmedOps.length === 0
+								? <Empty text='No operations on record.' />
+								: (
+									<ul className={s.tl}>
+										{[...confirmedOps]
+											.sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0))
+											.slice(0, 8)
+											.map(op => (
+												<li key={op.operationId} className={op.ocap ? s.tlHi : undefined}>
+													<div className={s.tlD}>{op.date ? fmtDate(op.date) : 'Date unknown'}</div>
+													<div className={s.tlT}>
+														<Link href={`/operations/${op.operationId}`}>{op.name}</Link>
+													</div>
+													{/* The member's posting as at that operation, not now. */}
+													{(op.section || op.role) && (
+														<div className={s.tlX}>{[op.unit, op.section, op.role].filter(Boolean).join(' · ')}</div>
+													)}
+												</li>
+											))}
+									</ul>
+								)}
+						</Panel>
+					</div>
+
+					<div className={s.stack}>
+						<Panel title='Service Data' delay='.08s'>
 							<Rows>
-								{promotions.map((p, i) => (
-									<div key={i} className={s.rw} style={{ alignItems: 'flex-start' }}>
-										<span style={{ minWidth: 0 }}>
-											<span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--ink)' }}>{p.rank}</span>
-											{p.role && (
-												<span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--ink-2)', marginTop: 2 }}>{p.role}</span>
-											)}
-											{p.issuedByName && (
-												<span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--ink-3)', marginTop: 2 }}>
-													Issued by {p.issuedByName}
-												</span>
-											)}
-										</span>
-										<span className={s.rwV} style={{ whiteSpace: 'nowrap' }}>
-											{canViewCertificates ? (
-												<CertificateViewer
-													inline
-													label={`Promotion — ${p.rank}`}
-													accent={accent}
-													href={`/api/milpac/certificate/${username}?type=promotion&cert=${encodeURIComponent(promotionCertCode(p.rank))}`}
-												>
-													<span title='View certificate'>{p.date} ⤢</span>
-												</CertificateViewer>
-											) : p.date}
-										</span>
-									</div>
-								))}
+								<Row label='Status' value={status.label} />
+								<Row label='Enlisted' value={enlistedDate} />
+								<Row label='Time in service' value={durationSince(enlistedDate)} />
+								<Row label='Time in grade' value={durationSince(lastPromotion?.date)} />
+								<Row label='Rank' value={fullRank || null}>
+									{(() => {
+										const rankCode = (member.milpac?.currentRank ?? '').replace(/[()]/g, '')
+										// Every promotion below is its own click target, so this
+										// only appears when nothing down there already offers it.
+										const inHistory = promotions.some(p => promotionCertCode(p.rank) === rankCode)
+										if (!canViewCertificates || !rankCode || inHistory) return undefined
+										return (
+											<CertificateViewer
+												inline
+												label={`Promotion — ${fullRank || rankCode}`}
+												accent={accent}
+												href={`/api/milpac/certificate/${username}?type=promotion&cert=${encodeURIComponent(rankCode)}`}
+											>
+												<span>{fullRank} ⤢</span>
+											</CertificateViewer>
+										)
+									})()}
+								</Row>
+								<Row label='Corps' value={badge} />
+								<Row label='Platoon' value={platoon} />
+								<Row label='Element' value={orbatEntry?.section} />
+								<Row label='Billet' value={orbatEntry?.role} />
+								<Row label='Timezone' value={member.timezone} />
+								<Row label='Promotion points' value={promotionPts > 0 ? promotionPts : null} />
 							</Rows>
+						</Panel>
+
+						{/* Under the service data rather than beside it: the uniform is
+						    the picture the facts above describe. */}
+						{hasUniform && (
+							<Panel title='Service Dress' delay='.1s' flush>
+								<ImageLightbox
+									src={`/api/milpacs/${member.id}`}
+									alt={`${name} uniform`}
+									style={{ width: '100%', height: 'auto', display: 'block' }}
+								/>
+							</Panel>
 						)}
+
+						{hasMedals && (
+							<Panel title='Medal Box' delay='.14s' flush>
+								<ImageLightbox
+									src={`/api/milpacs/${member.id}?type=medals`}
+									alt={`${name} medals`}
+									style={{ width: '100%', height: 'auto', display: 'block' }}
+								/>
+							</Panel>
+						)}
+					</div>
+				</div>
+			)}
+
+			{/* What they have earned, and the paperwork behind it. */}
+			{tab === 'record' && (
+				<div className={`${s.page} ${s.pageEven}`}>
+					<div className={s.stack}>
+						<Panel title='Awards & Decorations' tag={awards.length > 0 ? String(awards.length) : undefined} delay='.13s'>
+							{awards.length === 0 ? <Empty text='No awards on record.' /> : (
+								<>
+									<div style={{ marginTop: 16, display: 'grid', gap: 8 }}>
+										{awards.map((a, i) => {
+											const certCode = certificateCodeForAward(a.name)
+											const canOpen  = canViewCertificates && Boolean(certCode)
+											const citation = AWARD_TO_CITATION[a.name]
+											const medallion = MEDALLION_ART[a.name]
+											const row = (
+												<div className={s.rw} style={{ alignItems: 'center' }}>
+													{/* Fixed-width slot so ribbons, medallions and
+													    awards with no artwork all line up down the
+													    left edge rather than ragging. */}
+													<span style={{ width: 58, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+														{citation
+															? (
+																<img
+																	src={`/milpac-assets/imge/Ribbons/${citation}.png`}
+																	alt=''
+																	style={{ width: 58, height: 18, objectFit: 'contain', imageRendering: 'pixelated' }}
+																/>
+															)
+															: medallion
+																? <MedallionIcon art={medallion} alt='' size={22} />
+																: null}
+													</span>
+													<span style={{ flex: 1, minWidth: 0 }}>
+														<span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--ink)' }}>{a.name}</span>
+														<span className={s.cmdType} style={{ marginLeft: 8 }}>{a.type}</span>
+														{a.issuedByName && (
+															<span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--ink-3)', marginTop: 2 }}>
+																Issued by {a.issuedByName}
+															</span>
+														)}
+													</span>
+													<span className={s.rwV} style={{ whiteSpace: 'nowrap' }}>
+														{a.date ?? ''}{canOpen ? ' ⤢' : ''}
+													</span>
+												</div>
+											)
+											return canOpen ? (
+												<CertificateViewer
+													key={i}
+													label={a.name}
+													accent={accent}
+													href={`/api/milpac/certificate/${username}?type=award&cert=${encodeURIComponent(certCode!)}`}
+												>
+													{row}
+												</CertificateViewer>
+											) : <div key={i}>{row}</div>
+										})}
+									</div>
+								</>
+							)}
+						</Panel>
+						<Panel title='Commendations & Remarks' delay='.18s'>
+							<Empty text='No commendations on record. Staff write these at the end of an operation.' />
+						</Panel>
+						<Panel title='Qualifications' tag={quals.length > 0 ? String(quals.length) : undefined} delay='.23s'>
+							{quals.length === 0 ? <Empty text='No qualifications on record.' /> : (
+								<div style={{ display: 'grid', gap: 8 }}>
+									{quals.map((q, i) => (
+										<div key={i} className={s.rw} style={{ alignItems: 'baseline' }}>
+											<span style={{ minWidth: 0 }}>
+												<span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--ink)' }}>{q.qualification}</span>
+												{q.issuedByName && (
+													<span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--ink-3)', marginTop: 2 }}>
+														Issued by {q.issuedByName}
+													</span>
+												)}
+											</span>
+											{/* Omitted rather than dashed when absent: a column of
+											    em-dashes is noise, and the name is what matters here. */}
+											{q.date && <span className={s.rwV} style={{ whiteSpace: 'nowrap' }}>{q.date}</span>}
+										</div>
+									))}
+								</div>
+							)}
+						</Panel>
+					</div>
+
+					<div className={s.stack}>
+						<Panel title='Promotion History' tag={promotions.length > 0 ? String(promotions.length) : undefined} delay='.2s'>
+							{promotions.length === 0 ? <Empty text='No promotion history on record.' /> : (
+								<Rows>
+									{promotions.map((p, i) => (
+										<div key={i} className={s.rw} style={{ alignItems: 'flex-start' }}>
+											<span style={{ minWidth: 0 }}>
+												<span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--ink)' }}>{p.rank}</span>
+												{p.role && (
+													<span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--ink-2)', marginTop: 2 }}>{p.role}</span>
+												)}
+												{p.issuedByName && (
+													<span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--ink-3)', marginTop: 2 }}>
+														Issued by {p.issuedByName}
+													</span>
+												)}
+											</span>
+											<span className={s.rwV} style={{ whiteSpace: 'nowrap' }}>
+												{canViewCertificates ? (
+													<CertificateViewer
+														inline
+														label={`Promotion — ${p.rank}`}
+														accent={accent}
+														href={`/api/milpac/certificate/${username}?type=promotion&cert=${encodeURIComponent(promotionCertCode(p.rank))}`}
+													>
+														<span title='View certificate'>{p.date} ⤢</span>
+													</CertificateViewer>
+												) : p.date}
+											</span>
+										</div>
+									))}
+								</Rows>
+							)}
+						</Panel>
+						<Panel title={`Operation History (${confirmedOps.length})`} delay='.25s'>
+							<OperationHistory ops={confirmedOps} />
+						</Panel>
+					</div>
+				</div>
+			)}
+
+			{/* What they wear and carry. The artwork and the kit belong together. */}
+			{tab === 'kits' && (
+				<div className={`${s.page} ${s.pageFull}`}>
+					<Panel title={`${name}'s Kits`} tag={activeLoadout?.name} delay='.23s'>
+						{activeLoadout
+							? (
+								<LoadoutPanel
+									loadout={activeLoadout}
+									actions={
+										<LoadoutManager
+											isOwn={isOwn}
+											activeId={activeLoadoutId}
+											basePath={`/milpacs/${profile.canonical}`}
+											loadouts={loadoutList}
+										/>
+									}
+								/>
+							)
+							: isOwn
+								? <LoadoutManager isOwn activeId={null} loadouts={[]} basePath={`/milpacs/${profile.canonical}`} />
+								: <Empty text='No kit on record. Kits are imported from Arma.' />}
 					</Panel>
 				</div>
-
-				{/* Right: what the member looks like on parade. */}
-				<div className={s.stack}>
-					{hasUniform && (
-						<Panel title='Service Dress' delay='.1s' flush>
-							<ImageLightbox
-								src={`/api/milpacs/${member.id}`}
-								alt={`${name} uniform`}
-								style={{ width: '100%', height: 'auto', display: 'block' }}
-							/>
-						</Panel>
-					)}
-
-					{hasMedals && (
-						<Panel title='Medal Box' delay='.14s' flush>
-							<ImageLightbox
-								src={`/api/milpacs/${member.id}?type=medals`}
-								alt={`${name} medals`}
-								style={{ width: '100%', height: 'auto', display: 'block' }}
-							/>
-						</Panel>
-					)}
-					<Panel title='Assigned Loadout' tag='Standard' delay='.23s'>
-						<Empty text='No loadout on record. Kit is imported from Arma.' />
-					</Panel>
-				</div>
-			</div>
-
+			)}
 			<div className={s.foot}>
 				<span>Unclassified // For unit use only</span>
 				<span>{username}</span>

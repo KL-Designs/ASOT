@@ -1,5 +1,6 @@
 ﻿import type { Metadata } from 'next'
 import Image from 'next/image'
+import type { Route } from 'next'
 import Link from 'next/link'
 import { connection } from 'next/server'
 
@@ -15,6 +16,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 
 import Card from './card'
+import { buildSlugIndex, canonicalSegment, toSlugCandidate } from '@/lib/military/milpac-slug'
 import MilpacsNav from './nav'
 
 
@@ -47,6 +49,14 @@ export default async function Page() {
 	// can't cross the Server->Client Component boundary as-is (Card below is
 	// 'use client'), so strip it down to a plain-JSON-safe shape first.
 	const lookup = client.buildOrbatLookup(JSON.parse(JSON.stringify(allMembers)))
+
+	// Link each card at the member's canonical URL rather than their username,
+	// so the index does not send every click through a redirect. Built once for
+	// the whole page — a claim can only be judged against the full roster.
+	const slugIndex = buildSlugIndex(allMembers.map(toSlugCandidate))
+	const milpacPaths = new Map<string, Route>(
+		allMembers.map(m => [m.id, `/milpacs/${canonicalSegment(m, slugIndex)}` as Route]),
+	)
 
 	const navSections = [
 		{
@@ -114,7 +124,7 @@ export default async function Page() {
 						<div className='flex flex-wrap gap-4 justify-center'>
 							{[orbat.companyHQ.senior, ...orbat.companyHQ.members].map(m => {
 								const member = lookup(m.name)
-								return member ? <Card key={member.id} member={member} role={m.role} /> : null
+								return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} /> : null
 							})}
 						</div>
 					</SubSection>
@@ -130,7 +140,7 @@ export default async function Page() {
 								<div className='flex flex-wrap gap-4 justify-center'>
 									{section.members.map(m => {
 										const member = lookup(m.name)
-										return member ? <Card key={member.id} member={member} role={m.role} /> : null
+										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} /> : null
 									})}
 								</div>
 							</SubSection>
@@ -148,7 +158,7 @@ export default async function Page() {
 								<div className='flex flex-wrap gap-4 justify-center'>
 									{section.members.map(m => {
 										const member = lookup(m.name)
-										return member ? <Card key={member.id} member={member} role={m.role} /> : null
+										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} /> : null
 									})}
 								</div>
 							</SubSection>
@@ -166,7 +176,7 @@ export default async function Page() {
 								<div className='flex flex-wrap gap-4 justify-center'>
 									{section.members.map(m => {
 										const member = lookup(m.name)
-										return member ? <Card key={member.id} member={member} role={m.role} /> : null
+										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} /> : null
 									})}
 								</div>
 							</SubSection>
@@ -181,7 +191,7 @@ export default async function Page() {
 							<div className='flex flex-wrap gap-4 justify-center'>
 								{orbat.activeReservists.map(name => {
 									const member = lookup(name)
-									return member ? <Card key={member.id} member={member} role='Active Reservist' /> : null
+									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role='Active Reservist' /> : null
 								})}
 							</div>
 						</SubSection>
@@ -191,7 +201,7 @@ export default async function Page() {
 							<div className='flex flex-wrap gap-4 justify-center' style={{ opacity: 0.5 }}>
 								{orbat.inactiveReservists.map(name => {
 									const member = lookup(name)
-									return member ? <Card key={member.id} member={member} role='Inactive Reservist' /> : null
+									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role='Inactive Reservist' /> : null
 								})}
 							</div>
 						</SubSection>

@@ -1,6 +1,6 @@
 # Part D — Misc API
 
-Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,minigame,members,notifications,upload,services-asot,recruit-session,maps,map-presets,dev,tfar,shoot,preferences,ping,orbat,milpacs,membercount,logout,generate,credits,award-request,auth,dashboard}/**/route.ts` (excludes `gallery/admin/**`, which belongs to the admin catalog). 80 route files.
+Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,minigame,members,notifications,upload,services-asot,recruit-session,maps,map-presets,loadouts,dev,tfar,shoot,preferences,ping,orbat,milpacs,membercount,logout,generate,credits,award-request,auth,dashboard}/**/route.ts` (excludes `gallery/admin/**`, which belongs to the admin catalog). 82 route files.
 
 ### dashboard (1 file)
 
@@ -295,6 +295,18 @@ Driver's license tracker (India Company specific feature, role-gated by raw Disc
 
 #### /api/map-presets/[id]
 - **DELETE** — deletes a preset scoped to the caller (`userId` match required). Auth: any authenticated user. Collections: `Db.mapPresets`.
+
+---
+
+### loadouts (2 files)
+
+#### /api/loadouts
+- **POST** — creates a loadout for the authenticated member from `{raw, name, description?, shared?, icon?}`. `icon` is checked against `isKitIcon` (`lib/loadout/kit-icons.ts`) and dropped if unknown, so a stored value is always renderable. Validates by parsing (`lib/loadout/parse.ts`); stores `raw` only. Bounds come from `lib/loadout/limits.ts` (64KB, 12 per member, 40-char name, 160-char description) — shared with the import form so the field that stops typing and the value the server truncates agree. `shared` defaults to **false**: publication is the one thing here that cannot be undone after the fact, so it is never inferred. First loadout becomes the default. Auth: any logged-in member, own records only.
+
+#### /api/loadouts/[id]
+- **PATCH** — rename, edit `description` or `icon` (same key-list check as create), `shared` toggle, or `isDefault: true` (which clears the member's other defaults first). `description` is accepted with no UI behind it yet, so a line written at import time is correctable rather than permanent-until-reimport.
+- **DELETE** — removes it; deleting the default promotes the most recently updated survivor.
+- Both scope every query by `userId` from `fetchMe()`, never the URL id alone.
 
 ---
 

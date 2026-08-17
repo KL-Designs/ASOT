@@ -1,12 +1,15 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import type { Route } from 'next'
 import Link from 'next/link'
 import Avatar from '@/components/member/avatar'
 import { ensureVisible } from '@/lib/discord/color'
 
 
-export default function Card({ member, role }: { member: User; role?: string }) {
+/** `href` is the member's canonical milpac path; without it the username URL
+ *  still works, it just costs a redirect. */
+export default function Card({ member, role, href }: { member: User; role?: string; href?: Route }) {
 
 	const accent = ensureVisible(member.hexAccentColor || '#db001d')
 
@@ -40,7 +43,7 @@ export default function Card({ member, role }: { member: User; role?: string }) 
 
 	return (
 		<Link
-			href={`/milpacs/${member.username}`}
+			href={href ?? `/milpacs/${member.username}`}
 			style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignSelf: 'stretch', flexShrink: 0 }}
 		>
 			<div

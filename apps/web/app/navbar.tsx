@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse, Switch } from '@mui/material'
-import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, Dashboard as DashboardIcon, Api, Tune, MapOutlined, Mouse } from '@mui/icons-material'
+import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, Dashboard as DashboardIcon, Api, Tune, MapOutlined, Mouse, Backpack } from '@mui/icons-material'
 
 import Navigation from '@/styles/navigation.module.css'
 import { rankNameFromAbbr } from '@/lib/military/ranks'
@@ -67,6 +67,7 @@ export default function Navbar() {
             subLinks: [
                 { name: 'ORBAT', link: '/community/orbat', icon: <Group />, description: "ASOT's Callsign Structure" },
                 { name: 'MILPACS', link: '/milpacs', icon: <MilitaryTech />, description: 'Military Personnel Accounting Centre' },
+                { name: 'Kits', link: '/community/kits', icon: <Backpack />, description: 'Kits members have shared with the unit' },
                 { name: 'Retired Members', link: '/community/retired', icon: <EmojiEvents />, description: 'Members who have served with ASOT' },
                 { name: 'Biographies', link: '/community/bios', icon: <Badge />, description: 'Meet our Staff' },
                 // { name: 'Hall of Fame', link: '/community/hof', icon: <EmojiEvents />, description: 'Honoured unit members' },
