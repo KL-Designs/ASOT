@@ -1,7 +1,7 @@
 import { resolve, join, basename, dirname, sep } from 'path'
 import { existsSync, mkdirSync, createWriteStream, createReadStream, readdirSync } from 'fs'
 import { readFile, writeFile, mkdir, mkdtemp, rm, copyFile, readdir, stat } from 'fs/promises'
-import { execFile } from 'child_process'
+import { execFile, type ChildProcess } from 'child_process'
 import { promisify } from 'util'
 import { tmpdir } from 'os'
 import { pipeline } from 'stream/promises'
@@ -105,27 +105,77 @@ function resticEnv(repo: string): NodeJS.ProcessEnv {
     }
 }
 
+// Every restic child currently running in this process, so cancelOperation()
+// can actually stop one — a backup wedged on an unobtainable repo lock is
+// unreachable any other way, and rewriting the status file alone leaves it
+// running and holding the guard (which is precisely what made Force Reset a
+// no-op before).
+const runningRestic = new Set<ChildProcess>()
+
 // Exit codes restic can return that don't mean the operation actually failed
 // overall, per call site. Currently just `backup`'s 3 ("completed with some
 // source files unreadable, e.g. deleted mid-run on a live directory") — that
 // is routine on storage/gallery|uploads and should not read as a hard error.
 async function runRestic(repo: string, args: string[], tolerableExitCodes: number[] = []): Promise<string> {
-    try {
+    const env = resticEnv(repo) // throws before anything is spawned
+    return await new Promise<string>((resolveRun, reject) => {
         // --retry-lock: `forget --prune` takes an exclusive repo lock; without
         // this, any backup/restore/snapshots call that lands mid-prune fails
-        // immediately instead of waiting its turn.
-        const { stdout } = await execFileAsync(resticPath(), ['--retry-lock', '5m', ...args], {
-            env: resticEnv(repo),
-            maxBuffer: 1024 * 1024 * 64, // 64MB — snapshot lists / backup summaries can be large
-        })
-        return stdout
+        // immediately instead of waiting its turn. Note this only helps
+        // against locks that will actually be released — clearStaleLocks()
+        // below is what deals with locks whose owner is already gone.
+        const child = execFile(
+            resticPath(),
+            ['--retry-lock', '5m', ...args],
+            {
+                env,
+                maxBuffer: 1024 * 1024 * 64, // 64MB — snapshot lists / backup summaries can be large
+            },
+            (error, stdout, stderr) => {
+                runningRestic.delete(child)
+                if (!error) return resolveRun(stdout)
+
+                const err = error as Error & { code?: number | string; killed?: boolean }
+                if (typeof err.code === 'number' && tolerableExitCodes.includes(err.code)) {
+                    console.warn(`[backups] restic exited ${err.code} (tolerated):`, stderr?.trim() || err.message)
+                    return resolveRun(stdout)
+                }
+                // Killed by cancelOperation() rather than failed on its own —
+                // restic reports no stderr in that case, so without this the
+                // operator would see a bare "Command failed".
+                if (err.killed) return reject(new Error('Operation cancelled — restic was stopped mid-run.'))
+                reject(new Error(stderr?.trim() || err.message || 'restic command failed'))
+            },
+        )
+        // Registered after execFile returns, which is safe because a child
+        // process never calls back synchronously.
+        runningRestic.add(child)
+    })
+}
+
+// restic clears stale locks ONLY in its `unlock` command — never while
+// acquiring one. That matters here because a lock records the hostname and
+// PID of whatever created it, and in Docker that hostname is the container
+// ID: once a container dies mid-run (a deploy, a restart, an OOM kill), no
+// later container can ever prove the owning process is gone, so the lock sits
+// there and `forget --prune` — the only operation here that needs an
+// EXCLUSIVE lock — blocks on it indefinitely. With --retry-lock that presents
+// as the backup hanging at "Pruning old backups…" rather than failing.
+//
+// Plain `unlock`, deliberately NOT `unlock --remove-all`: it removes only the
+// locks restic itself judges stale (older than the refresh window it keeps up
+// while running, or a dead process on this host), so it can never delete the
+// lock of an operation that is genuinely still in flight elsewhere.
+async function clearStaleLocks(repo: string): Promise<void> {
+    if (!existsSync(join(repo, 'config'))) return
+    try {
+        await runRestic(repo, ['unlock'])
     } catch (e: unknown) {
-        const err = e as { code?: number; stdout?: string; stderr?: string; message?: string }
-        if (typeof err.code === 'number' && tolerableExitCodes.includes(err.code)) {
-            console.warn(`[backups] restic exited ${err.code} (tolerated):`, err.stderr?.trim() || err.message)
-            return err.stdout ?? ''
-        }
-        throw new Error(err.stderr?.trim() || err.message || 'restic command failed')
+        // Not fatal by itself — if the repo is genuinely unusable, the
+        // operation this precedes fails next with the real reason. Swallowing
+        // it here keeps a transient unlock hiccup from cancelling a backup
+        // that would otherwise have succeeded.
+        console.warn(`[backups] could not clear stale locks on ${repo}:`, e instanceof Error ? e.message : e)
     }
 }
 
@@ -199,7 +249,7 @@ async function* ndjsonLines(cursor: FindCursor): AsyncGenerator<string> {
 }
 
 // The ordinary hourly DB dump. A single fixed path is fine here because only
-// runAllBackups() reaches it and that path is serialised by operationInProgress.
+// runAllBackups() reaches it and that path is serialised by currentOperation.
 // Cleared and recreated fresh on every dump.
 //
 // It does NOT need to be fixed for restores to work: restic recreates the full
@@ -261,6 +311,11 @@ async function resticBackup(repo: string, paths: string[], tag: string, extraTag
 }
 
 async function resticForget(repo: string, cfg: BackupConfig): Promise<void> {
+    // The one exclusive-lock operation in this file, and so the one that a
+    // lock orphaned by a dead container blocks. Everything else restic does
+    // here (backup, snapshots, restore, ls, stats) takes a shared lock and is
+    // unaffected — which is why this was the only step that ever hung.
+    await clearStaleLocks(repo)
     await runRestic(repo, [
         'forget', '--prune',
         // Group by tag, not the default host+paths: the container's real
@@ -286,19 +341,22 @@ async function resticForget(repo: string, cfg: BackupConfig): Promise<void> {
 }
 
 export async function runDbBackup(): Promise<void> {
+    // Captured at entry so every status write below belongs to THIS run — see
+    // writeOwnedStatus(). Null when called outside runAllBackups().
+    const token = currentOperation
     const cfg = await readConfig()
-    await writeStatus({ state: 'backing-up', startedAt: new Date().toISOString(), message: 'Dumping database…' })
+    await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Dumping database…' })
     try {
         await dumpDatabase(DB_DUMP_DIR)
-        await writeStatus({ state: 'backing-up', startedAt: new Date().toISOString(), message: 'Backing up to restic…' })
+        await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Backing up to restic…' })
         await resticBackup(DB_REPO, [DB_DUMP_DIR], 'db')
-        await writeStatus({ state: 'backing-up', startedAt: new Date().toISOString(), message: 'Pruning old backups…' })
+        await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Pruning old backups…' })
         await resticForget(DB_REPO, cfg)
-        await writeStatus({ state: 'idle' })
+        await writeOwnedStatus(token, { state: 'idle' })
         console.log('[backups] DB backup complete')
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
-        await writeStatus({ state: 'idle', error: msg })
+        await writeOwnedStatus(token, { state: 'idle', error: msg })
         console.error('[backups] DB backup failed:', msg)
         throw e
     } finally {
@@ -307,8 +365,9 @@ export async function runDbBackup(): Promise<void> {
 }
 
 export async function runMediaBackup(): Promise<void> {
+    const token = currentOperation // see runDbBackup()
     const cfg = await readConfig()
-    await writeStatus({ state: 'backing-up', startedAt: new Date().toISOString(), message: 'Backing up media…' })
+    await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Backing up media…' })
     try {
         // Always ensure the repo exists, even if there's nothing to back up
         // yet (a fresh clone has neither storage/gallery nor storage/uploads
@@ -317,13 +376,13 @@ export async function runMediaBackup(): Promise<void> {
         await ensureRepoInitialized(MEDIA_REPO)
         const paths = [GALLERY_DIR, UPLOADS_DIR].filter(existsSync)
         if (paths.length > 0) await resticBackup(MEDIA_REPO, paths, 'media')
-        await writeStatus({ state: 'backing-up', startedAt: new Date().toISOString(), message: 'Pruning old backups…' })
+        await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Pruning old backups…' })
         await resticForget(MEDIA_REPO, cfg)
-        await writeStatus({ state: 'idle' })
+        await writeOwnedStatus(token, { state: 'idle' })
         console.log('[backups] Media backup complete')
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
-        await writeStatus({ state: 'idle', error: msg })
+        await writeOwnedStatus(token, { state: 'idle', error: msg })
         console.error('[backups] Media backup failed:', msg)
         throw e
     }
@@ -332,7 +391,7 @@ export async function runMediaBackup(): Promise<void> {
 // Taken automatically at the head of every restore path — issue #55's
 // "a backup must be made before a backup is loaded". Deliberately NOT
 // runAllBackups(): that writes { state: 'backing-up' } and owns the
-// backupInProgress guard, which would move the status out of 'reverting'
+// currentOperation guard, which would move the status out of 'reverting'
 // mid-operation and confuse both the UI poll and every route's in-progress
 // check. This keeps the whole restore looking like one continuous operation.
 //
@@ -342,7 +401,8 @@ export async function runMediaBackup(): Promise<void> {
 // Throws on any failure. Callers MUST let it propagate — a restore that
 // cannot be undone is exactly what this exists to prevent.
 export async function runSafetyBackup(): Promise<void> {
-    await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Creating safety backup…' })
+    const token = currentOperation // see runDbBackup()
+    await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Creating safety backup…' })
 
     try {
         // A unique dir, NOT the shared DB_DUMP_DIR runDbBackup() uses. Those two
@@ -353,7 +413,7 @@ export async function runSafetyBackup(): Promise<void> {
         // and because resticBackup() tolerates exit code 3 ("some source files
         // unreadable"), the safety backup would report SUCCESS on a partial
         // snapshot and the restore would proceed with an undo that isn't one.
-        // operationInProgress below closes the same race from the other side; this
+        // currentOperation below closes the same race from the other side; this
         // makes the two paths independent even if that guard is ever bypassed.
         const dumpDir = await mkdtemp(join(tmpdir(), 'asot-safety-dump-'))
         try {
@@ -383,14 +443,63 @@ export async function runSafetyBackup(): Promise<void> {
 // checks readStatus().state !== 'idle' first, but that's a check-then-act race
 // across separate HTTP requests: two callers can both observe 'idle' before
 // either has written its own state, and the revert route in particular spends
-// seconds in listBackups() in between. This flag closes the window synchronously
+// seconds in listBackups() in between. This closes the window synchronously
 // within this one Node process, which is all of them (server.mjs's cron trigger
 // and every API route run in the same process).
 //
-// Backups skip when it's set; restores throw (see below) — a restore that
+// Backups skip when it's held; restores throw (see below) — a restore that
 // silently no-ops would report success to a caller who then believes their data
 // was rolled back.
-let operationInProgress = false
+//
+// It holds an identity token rather than a boolean because cancelOperation()
+// drops the guard while the operation it cancelled is still unwinding: the
+// killed restic call has to travel back up through that operation's catch and
+// finally, and a boolean would let those clobber the status of — and release
+// the guard held by — whatever the operator started next. Comparing tokens
+// makes every write from a superseded operation a no-op.
+let currentOperation: symbol | null = null
+
+// Returns null when another operation already holds the guard.
+function beginOperation(label: string): symbol | null {
+    if (currentOperation) return null
+    currentOperation = Symbol(label)
+    return currentOperation
+}
+
+function endOperation(token: symbol): void {
+    if (currentOperation === token) currentOperation = null
+}
+
+// Status write scoped to one operation. A null token means "not running under
+// the guard at all" (runDbBackup()/runMediaBackup() called directly rather
+// than through runAllBackups()), which always writes.
+async function writeOwnedStatus(token: symbol | null, s: BackupStatus): Promise<void> {
+    if (token !== null && currentOperation !== token) return
+    await writeStatus(s)
+}
+
+// What the J4 Backups tab's Force Reset button is for. Kills the restic child
+// the operation is blocked in, which unwinds it through its own catch/finally,
+// and drops the guard immediately so the operator's next attempt is not
+// silently skipped.
+//
+// Returns how many children were actually stopped: zero means the guard was
+// held by something outside restic (a database dump, say) or by nothing at
+// all — either way the guard is released, since this is the operator's
+// deliberate escape hatch from a wedged operation.
+export async function cancelOperation(): Promise<{ aborted: number }> {
+    const children = [...runningRestic]
+    runningRestic.clear()
+    for (const child of children) {
+        try { child.kill() } catch { /* already exited between the copy and here */ }
+    }
+
+    currentOperation = null
+    await writeStatus({ state: 'idle', error: 'Operation cancelled by user.' })
+
+    console.warn(`[backups] operation cancelled by user — stopped ${children.length} restic process(es)`)
+    return { aborted: children.length }
+}
 
 // Runs both sequentially (see Global Constraints — they share one status
 // file). Each side's failure is caught independently so DB issues don't
@@ -398,18 +507,25 @@ let operationInProgress = false
 // error is what's left in status once both have finished (even though each
 // function already wrote its own transient status/error along the way).
 export async function runAllBackups(): Promise<void> {
-    if (operationInProgress) {
+    const token = beginOperation('backup')
+    if (!token) {
         console.warn('[backups] runAllBackups() called while an operation is already in progress — skipping')
         return
     }
-    operationInProgress = true
     try {
         const errors: string[] = []
         try { await runDbBackup() } catch (e) { errors.push(`DB: ${e instanceof Error ? e.message : String(e)}`) }
+        // Cancelled while the DB half was running: stop here rather than
+        // starting the media half of an operation the operator has already
+        // aborted (and which may by now be racing a fresh run).
+        if (currentOperation !== token) {
+            console.warn('[backups] run was cancelled — not starting the media backup')
+            return
+        }
         try { await runMediaBackup() } catch (e) { errors.push(`Media: ${e instanceof Error ? e.message : String(e)}`) }
-        if (errors.length > 0) await writeStatus({ state: 'idle', error: errors.join(' | ') })
+        if (errors.length > 0) await writeOwnedStatus(token, { state: 'idle', error: errors.join(' | ') })
     } finally {
-        operationInProgress = false
+        endOperation(token)
     }
 }
 
@@ -684,28 +800,28 @@ function findDirNamed(root: string, name: string): string | null {
 export async function revertToPoint(point: BackupPoint): Promise<void> {
     // Claimed before anything else, including the safety backup. Throws rather
     // than returning quietly: the caller is about to be told its restore began.
-    if (operationInProgress) throw new Error('Another backup or restore operation is already in progress')
-    operationInProgress = true
+    const token = beginOperation('revert')
+    if (!token) throw new Error('Another backup or restore operation is already in progress')
 
     const tmp = join(tmpdir(), `asot-revert-${Date.now()}`)
     try {
         // Inside the try, so a writeStatus failure releases the guard via the
-        // finally rather than wedging every later operation on a set flag.
-        await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring…' })
+        // finally rather than wedging every later operation on a held guard.
+        await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring…' })
 
         // Must come first and must be allowed to throw — if this fails there
         // is no undo for what follows, so the restore does not happen.
         await runSafetyBackup()
 
         if (point.dbSnapshotId) {
-            await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring database…' })
+            await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring database…' })
             const dbTarget = join(tmp, 'db-restore')
             await resticRestore(DB_REPO, point.dbSnapshotId, dbTarget)
             const dumpRoot = findByMarker(dbTarget, 'manifest.json')
             await restoreDatabase(dumpRoot)
         }
         if (point.mediaSnapshotId) {
-            await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring media files…' })
+            await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring media files…' })
             const mediaTarget = join(tmp, 'media-restore')
             await resticRestore(MEDIA_REPO, point.mediaSnapshotId, mediaTarget)
             const gallery = findDirNamed(mediaTarget, basename(GALLERY_DIR))
@@ -713,16 +829,16 @@ export async function revertToPoint(point: BackupPoint): Promise<void> {
             if (gallery) await copyDirRecursive(gallery, GALLERY_DIR)
             if (uploads) await copyDirRecursive(uploads, UPLOADS_DIR)
         }
-        await writeStatus({ state: 'idle' })
+        await writeOwnedStatus(token, { state: 'idle' })
         console.log(`[backups] Revert to ${point.id} complete`)
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
-        await writeStatus({ state: 'idle', error: msg })
+        await writeOwnedStatus(token, { state: 'idle', error: msg })
         console.error('[backups] Revert failed:', msg)
         throw e
     } finally {
         await rm(tmp, { recursive: true, force: true }).catch(() => {})
-        operationInProgress = false
+        endOperation(token)
     }
 }
 
@@ -822,15 +938,15 @@ async function safeExtractZip(zipPath: string, destDir: string): Promise<void> {
 // { db-source/, gallery/, uploads/ } shape.
 export async function applyUploadedZip(zipPath: string): Promise<void> {
     // Same claim-first rule as revertToPoint().
-    if (operationInProgress) throw new Error('Another backup or restore operation is already in progress')
-    operationInProgress = true
+    const token = beginOperation('upload-revert')
+    if (!token) throw new Error('Another backup or restore operation is already in progress')
 
     const tmp = join(tmpdir(), `asot-upload-extract-${Date.now()}`)
     try {
         // Same rule as revertToPoint(): no safety backup, no restore.
         await runSafetyBackup()
 
-        await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Extracting upload…' })
+        await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Extracting upload…' })
         await safeExtractZip(zipPath, tmp)
 
         const dbDir = join(tmp, 'db-source')
@@ -857,23 +973,23 @@ export async function applyUploadedZip(zipPath: string): Promise<void> {
         }
 
         if (hasDbSource) {
-            await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring database…' })
+            await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring database…' })
             await restoreDatabase(dbDir)
         }
 
-        await writeStatus({ state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring media files…' })
+        await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring media files…' })
         if (hasGallery) await copyDirRecursive(gallery, GALLERY_DIR)
         if (hasUploads) await copyDirRecursive(uploads, UPLOADS_DIR)
 
-        await writeStatus({ state: 'idle' })
+        await writeOwnedStatus(token, { state: 'idle' })
         console.log('[backups] Upload-revert complete')
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
-        await writeStatus({ state: 'idle', error: msg })
+        await writeOwnedStatus(token, { state: 'idle', error: msg })
         console.error('[backups] Upload-revert failed:', msg)
         throw e
     } finally {
         await rm(tmp, { recursive: true, force: true }).catch(() => {})
-        operationInProgress = false
+        endOperation(token)
     }
 }

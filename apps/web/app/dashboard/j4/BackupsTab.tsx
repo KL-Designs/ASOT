@@ -325,7 +325,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
     async function handleForceReset() {
         openConfirm(
             'Force Reset Status',
-            'This will reset the in-progress status immediately. If a background operation is still running, it keeps running and may overwrite this reset once it finishes — temp files it created are always cleaned up regardless. Only use this if the operation appears stuck.',
+            'This aborts the running operation: any restic process it started is stopped, the status resets to idle immediately, and a new backup can be started straight away. Temp files it created are always cleaned up. A backup stopped this way simply leaves no snapshot behind; a restore stopped partway through may leave data half-restored, so prefer letting a restore finish. Only use this if the operation appears stuck.',
             async () => {
                 setCancelling(true)
                 try {

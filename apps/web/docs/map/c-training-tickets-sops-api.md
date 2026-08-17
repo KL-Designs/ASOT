@@ -195,7 +195,7 @@ All routes gated by `backups.manage` or `backups.restore` (new-system-only permi
 - **POST** — reverts to a merged backup point resolved server-side from a client-supplied hour-bucket `id` via `listBackups()` (never trusts the id directly), fire-and-forget `revertToPoint()`; rejects if not idle or point not found. Gate: `backups.restore`. Restic restore + filesystem only.
 
 #### /api/backups/cancel
-- **POST** — force-resets a stuck in-progress operation back to `idle` via `writeStatus()`. Gate: `backups.manage`. Filesystem/status-file only.
+- **POST** — aborts a stuck in-progress operation via `cancelOperation()`: kills the in-flight restic child, releases the in-process guard, resets the status file to `idle`. Responds with `{message, aborted}` where `aborted` is the number of restic processes stopped. Gate: `backups.manage`. Filesystem/status-file + process control only.
 
 #### /api/backups/config
 - **GET** — reads backup config (`autoEnabled`/`keepHourly`/`keepDaily`/`keepWeekly`/`keepMonthly`). Gate: `backups.manage`. Filesystem config file.
