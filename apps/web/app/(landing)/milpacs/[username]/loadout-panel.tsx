@@ -85,7 +85,8 @@ export function LoadoutPanel({ loadout, actions }: { loadout: MemberLoadout; act
     let kit
     try {
         kit = parseLoadout(loadout.raw)
-    } catch {
+    } catch (err) {
+        console.error('[loadout] could not parse stored loadout', loadout._id, err)
         return <p className={s.empty}>This loadout could not be read. Re-import it from ACE arsenal.</p>
     }
 
