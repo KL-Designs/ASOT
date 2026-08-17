@@ -52,4 +52,20 @@ describe('formatKitLine', () => {
         expect(name).toHaveLength(28)
         expect(name.endsWith('…')).toBe(true)
     })
+
+    test('an unrecognised classname cannot run long enough to push the count off the card', () => {
+        // Classnames come from a pasted arsenal export, so an unknown one is
+        // member-supplied text of unbounded length arriving mid-line.
+        const line = formatKitLine('Kit', summary({ primary: { className: 'X'.repeat(200), attachments: [] } }))
+        expect(line).toContain('64 items')
+        expect(line.length).toBeLessThan(120)
+    })
+
+    test('a name whose cut lands on whitespace still ends in an ellipsis', () => {
+        // trimEnd() before the ellipsis means this one is allowed to come in
+        // under MAX_NAME — what must hold is that it is bounded and marked.
+        const name = formatKitLine(`${'A'.repeat(26)} ${'B'.repeat(50)}`, summary()).split(' — ')[0]
+        expect(name.length).toBeLessThanOrEqual(28)
+        expect(name.endsWith('…')).toBe(true)
+    })
 })
