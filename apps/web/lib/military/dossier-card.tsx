@@ -108,6 +108,30 @@ export function DossierCard({ data }: { data: DossierData }) {
                             {data.meta}
                         </span>
                     )}
+                    {/* Progress toward the next rank, sitting with the identity
+                        it describes rather than as a band across the card. The
+                        column is narrower than the card, so the labels carry the
+                        row and the bar is a rule beneath them. */}
+                    {data.progress && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 18 }}>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <span style={{ ...LABEL, color: accent, display: 'flex', flex: 1 }}>
+                                    {data.progress.from}
+                                </span>
+                                <span style={{ ...LABEL, color: '#6b7480', display: 'flex', flex: 1, justifyContent: 'center' }}>
+                                    {data.progress.caption}
+                                </span>
+                                <span style={{ ...LABEL, color: accent, display: 'flex', flex: 1, justifyContent: 'flex-end' }}>
+                                    {data.progress.to ?? ''}
+                                </span>
+                            </div>
+                            {data.progress.pct !== null && (
+                                <div style={{ display: 'flex', width: '100%', height: 6, background: '#1e232b' }}>
+                                    <div style={{ display: 'flex', width: `${data.progress.pct}%`, background: accent }} />
+                                </div>
+                            )}
+                        </div>
+                    )}
                     {data.medals && (
                         <img src={data.medals} width={700} height={250} style={{ marginTop: 22, borderRadius: 3 }} />
                     )}
@@ -129,33 +153,6 @@ export function DossierCard({ data }: { data: DossierData }) {
                     </div>
                 ))}
             </div>
-
-            {/* Progress toward the next rank, the same bar the profile page
-                leads with. Omitted entirely for a member on no rank track —
-                an empty bar reads as "no progress" rather than "not applicable". */}
-            {data.progress && (
-                <div style={{
-                    display: 'flex', flexDirection: 'column', gap: 10,
-                    borderTop: RULE, padding: `18px ${PAD}px 20px`,
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <span style={{ ...LABEL, color: accent, display: 'flex', flex: 1 }}>
-                            {data.progress.from}
-                        </span>
-                        <span style={{ ...LABEL, color: '#6b7480', display: 'flex', flex: 1, justifyContent: 'center' }}>
-                            {data.progress.caption}
-                        </span>
-                        <span style={{ ...LABEL, color: accent, display: 'flex', flex: 1, justifyContent: 'flex-end' }}>
-                            {data.progress.to ?? ''}
-                        </span>
-                    </div>
-                    {data.progress.pct !== null && (
-                        <div style={{ display: 'flex', width: '100%', height: 6, background: '#1e232b' }}>
-                            <div style={{ display: 'flex', width: `${data.progress.pct}%`, background: accent }} />
-                        </div>
-                    )}
-                </div>
-            )}
 
             {/* Kit line — omitted entirely when there is no public kit, so the
                 strip above becomes the card's foot rather than leaving a gap. */}
