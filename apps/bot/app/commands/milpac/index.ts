@@ -1,5 +1,6 @@
 import { ApplicationCommandType } from 'discord.js'
 
+import profile from './profile.ts'
 import uniform from './uniform.ts'
 import medals from './medals.ts'
 
@@ -10,6 +11,7 @@ export default {
     type: ApplicationCommandType.ChatInput,
 
     options: [
+        profile,
         uniform,
         medals,
     ]
