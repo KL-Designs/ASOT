@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Typography, CircularProgress, Dialog, DialogContent, Tooltip as MuiTooltip } from '@mui/material'
 import { CheckCircleOutline, ErrorOutline } from '@mui/icons-material'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RechartsTooltip } from 'recharts'
@@ -226,6 +226,18 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
 
     const [cancelling, setCancelling] = useState(false)
 
+    // Per-button pointer feedback. Inline styles can't express :hover/:active,
+    // and these buttons had neither — a click produced no visible reaction at
+    // all, which on the download is a ~3 second wait before the browser's own
+    // download UI appears. Keyed by `${point.id}:${button}`.
+    const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
+    const [pressedBtn, setPressedBtn] = useState<string | null>(null)
+
+    // The point whose download has been asked for but hasn't started arriving
+    // yet, and the one whose revert request is in flight.
+    const [startingDownload, setStartingDownload] = useState<string | null>(null)
+    const [revertPending, setRevertPending] = useState<string | null>(null)
+
     const [config, setConfig] = useState<BackupConfig>({ autoEnabled: true, keepHourly: 48, keepDaily: 14, keepWeekly: 8, keepMonthly: 12 })
     const [configDraft, setConfigDraft] = useState<BackupConfig>({ autoEnabled: true, keepHourly: 48, keepDaily: 14, keepWeekly: 8, keepMonthly: 12 })
     const [configDirty, setConfigDirty] = useState(false)
@@ -353,6 +365,38 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
         else fetchData()
     }
 
+    // A download is a plain browser navigation, so the page cannot observe it
+    // directly — and the server spends a few seconds opening the restic stream
+    // before the first byte, during which nothing visible happens anywhere.
+    // The route echoes this one-shot nonce back as a cookie the moment it
+    // starts responding, which is the earliest truthful signal that the
+    // download is actually underway rather than a guessed timeout.
+    const downloadNonces = useMemo(
+        () => new Map(points.map(p => [p.id, Math.random().toString(36).slice(2, 12).replace(/[^a-z0-9]/g, '') || 'dl'])),
+        [points],
+    )
+
+    const downloadTimers = useRef<Set<number>>(new Set())
+    useEffect(() => () => { downloadTimers.current.forEach(t => window.clearInterval(t)) }, [])
+
+    function watchForDownloadStart(pointId: string, nonce: string) {
+        setStartingDownload(pointId)
+        const deadline = Date.now() + 90_000
+        const timer = window.setInterval(() => {
+            const started = document.cookie.split('; ').some(c => c === `backup-dl=${nonce}`)
+            if (started) document.cookie = 'backup-dl=; Path=/; Max-Age=0'
+            // Also give up at the deadline: if the request failed outright the
+            // cookie never arrives, and an indicator that never clears is
+            // worse than one that clears early.
+            if (started || Date.now() > deadline) {
+                window.clearInterval(timer)
+                downloadTimers.current.delete(timer)
+                setStartingDownload(prev => (prev === pointId ? null : prev))
+            }
+        }, 250)
+        downloadTimers.current.add(timer)
+    }
+
     async function handleRevert(point: BackupPoint) {
         const parts = [point.dbSnapshotId && 'database', point.mediaSnapshotId && 'media files'].filter(Boolean).join(' and ')
         openConfirm(
@@ -360,14 +404,22 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
             `This will restore ${parts} from ${new Date(point.time).toLocaleString()}, overwriting the current state. The current state cannot be recovered unless you have another backup. Are you sure?`,
             async () => {
                 opSizeRef.current = (point.dbSizeBytes ?? 0) + (point.mediaSizeBytes ?? 0)
-                const res = await fetch('/api/backups/revert', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: point.id }),
-                })
-                const data = await res.json()
-                if (!res.ok) setError(data.error ?? 'Failed to start revert')
-                else fetchData()
+                // Held until the request returns, so the row shows the restore
+                // was accepted rather than looking inert until the next status
+                // poll flips `busy`.
+                setRevertPending(point.id)
+                try {
+                    const res = await fetch('/api/backups/revert', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: point.id }),
+                    })
+                    const data = await res.json()
+                    if (!res.ok) setError(data.error ?? 'Failed to start revert')
+                    else fetchData()
+                } finally {
+                    setRevertPending(prev => (prev === point.id ? null : prev))
+                }
             },
             true
         )
@@ -441,27 +493,52 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
         }
     }
 
-    const rowBtnSx = (accent?: 'red' | 'green'): React.CSSProperties => ({
-        fontSize: '0.62rem',
-        fontWeight: 700,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        padding: '3px 16px',
-        cursor: busy ? 'not-allowed' : 'pointer',
-        border: `1px solid ${accent === 'red' ? 'rgba(219,0,29,0.3)' : accent === 'green' ? 'rgba(0,195,100,0.3)' : 'rgba(219,0,29,0.25)'}`,
-        color: busy
-            ? 'rgba(237,237,237,0.2)'
-            : accent === 'red'
-                ? 'rgba(219,0,29,0.8)'
-                : accent === 'green'
-                    ? 'rgba(0,195,100,0.8)'
-                    : 'rgba(237,237,237,0.75)',
-        background: 'none',
-        whiteSpace: 'nowrap' as const,
-        width: '100%',
-        display: 'inline-flex' as const,
-        alignItems: 'center',
-        justifyContent: 'center',
+    // `key` opts the button into pointer feedback: pass the same key to the
+    // element's mouse handlers. Omit it and the button renders exactly as it
+    // always did (used by the disabled/static cases).
+    const rowBtnSx = (accent?: 'red' | 'green', key?: string): React.CSSProperties => {
+        const interactive = !busy && key !== undefined
+        const hovered = interactive && hoveredBtn === key
+        const pressed = interactive && pressedBtn === key
+
+        // Border and text are tinted independently: the neutral button has a
+        // red border but light text, which the original styling established.
+        const edge = accent === 'green' ? '0,195,100' : '219,0,29'
+        const ink  = accent === 'green' ? '0,195,100' : accent === 'red' ? '219,0,29' : '237,237,237'
+
+        return {
+            fontSize: '0.62rem',
+            fontWeight: 700,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            padding: '3px 16px',
+            cursor: busy ? 'not-allowed' : 'pointer',
+            border: `1px solid rgba(${edge},${hovered || pressed ? 0.6 : accent ? 0.3 : 0.25})`,
+            color: busy
+                ? 'rgba(237,237,237,0.2)'
+                : `rgba(${ink},${hovered || pressed ? 1 : accent ? 0.8 : 0.75})`,
+            background: pressed ? `rgba(${edge},0.2)` : hovered ? `rgba(${edge},0.09)` : 'none',
+            // A real displacement on press, so the click registers even when
+            // the resulting work is server-side and invisible for seconds.
+            transform: pressed ? 'translateY(1px)' : 'none',
+            transition: 'background 0.12s ease, color 0.12s ease, border-color 0.12s ease, transform 0.06s ease',
+            whiteSpace: 'nowrap' as const,
+            width: '100%',
+            display: 'inline-flex' as const,
+            alignItems: 'center',
+            justifyContent: 'center',
+        }
+    }
+
+    // Wired onto every row button that has a `key`.
+    const btnPointerProps = (key: string) => ({
+        onMouseEnter: () => setHoveredBtn(key),
+        onMouseLeave: () => {
+            setHoveredBtn(prev => (prev === key ? null : prev))
+            setPressedBtn(prev => (prev === key ? null : prev))
+        },
+        onMouseDown: () => setPressedBtn(key),
+        onMouseUp:   () => setPressedBtn(prev => (prev === key ? null : prev)),
     })
 
     // `min` is the currently saved value, not 1: PATCH /api/backups/config
@@ -741,16 +818,38 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                                     {p.mediaSnapshotId ? (p.mediaSizeBytes ? fmtBytes(p.mediaSizeBytes) : 'Present') : 'Missing'}
                                 </span>
                                 <a
-                                    href={busy ? undefined : `/api/backups/${encodeURIComponent(p.id)}/download`}
+                                    href={busy ? undefined : `/api/backups/${encodeURIComponent(p.id)}/download?dl=${downloadNonces.get(p.id) ?? 'dl'}`}
                                     download={`backup-${p.id}.zip`}
-                                    onClick={e => { if (busy) e.preventDefault() }}
-                                    style={{ ...rowBtnSx('green'), textDecoration: 'none', textAlign: 'center', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}
+                                    {...btnPointerProps(`${p.id}:download`)}
+                                    onClick={e => {
+                                        if (busy || startingDownload === p.id) { e.preventDefault(); return }
+                                        watchForDownloadStart(p.id, downloadNonces.get(p.id) ?? 'dl')
+                                    }}
+                                    title={startingDownload === p.id
+                                        ? 'Preparing the archive — the browser takes over once it starts arriving'
+                                        : undefined}
+                                    style={{
+                                        ...rowBtnSx('green', `${p.id}:download`),
+                                        textDecoration: 'none', textAlign: 'center', display: 'inline-flex',
+                                        alignItems: 'center', justifyContent: 'center', gap: 6, fontFamily: 'inherit',
+                                    }}
                                 >
-                                    Download
+                                    {startingDownload === p.id && (
+                                        <CircularProgress size={9} thickness={6} style={{ color: 'rgba(0,195,100,0.85)' }} />
+                                    )}
+                                    {startingDownload === p.id ? 'Starting' : 'Download'}
                                 </a>
                                 {canRestore && (
-                                    <button onClick={() => handleRevert(p)} disabled={busy} style={rowBtnSx()}>
-                                        Revert
+                                    <button
+                                        onClick={() => handleRevert(p)}
+                                        disabled={busy || revertPending === p.id}
+                                        {...btnPointerProps(`${p.id}:revert`)}
+                                        style={{ ...rowBtnSx(undefined, `${p.id}:revert`), gap: 6 }}
+                                    >
+                                        {revertPending === p.id && (
+                                            <CircularProgress size={9} thickness={6} style={{ color: 'rgba(237,237,237,0.6)' }} />
+                                        )}
+                                        {revertPending === p.id ? 'Starting' : 'Revert'}
                                     </button>
                                 )}
                             </div>

@@ -11,7 +11,7 @@ const ID_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
 
 // GET /api/backups/[id]/download — restore a backup point and stream a zip of it (backups.manage)
 export async function GET(
-    _request: NextRequest,
+    request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     let me: User
@@ -52,12 +52,23 @@ export async function GET(
     // stops an nginx in front of this from buffering the whole body to add a
     // Content-Length of its own, which would reinstate exactly the wait this
     // removes.
-    return new NextResponse(body, {
-        headers: {
-            'Content-Type': 'application/zip',
-            'Content-Disposition': `attachment; filename="backup-${id.replace(/:/g, '-')}.zip"`,
-            'Cache-Control': 'no-store',
-            'X-Accel-Buffering': 'no',
-        },
-    })
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename="backup-${id.replace(/:/g, '-')}.zip"`,
+        'Cache-Control': 'no-store',
+        'X-Accel-Buffering': 'no',
+    }
+
+    // A download is a browser navigation, so the page that started it can't see
+    // when it begins — and opening the stream takes a few seconds. Echoing the
+    // caller's nonce straight back lets the tab clear its "Starting" indicator
+    // the moment the response headers land, instead of guessing with a timer.
+    // Strictly validated: this value is interpolated into a response header,
+    // and anything outside [A-Za-z0-9] could inject one.
+    const nonce = request.nextUrl.searchParams.get('dl')
+    if (nonce && /^[A-Za-z0-9]{1,32}$/.test(nonce)) {
+        headers['Set-Cookie'] = `backup-dl=${nonce}; Path=/; Max-Age=120; SameSite=Lax`
+    }
+
+    return new NextResponse(body, { headers })
 }
