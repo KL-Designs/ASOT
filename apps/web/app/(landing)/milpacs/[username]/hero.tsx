@@ -1,7 +1,5 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import Avatar from '@/components/member/avatar'
-import Banner from '@/public/images/home/Droneteam7.png'
 import { type MemberStatus, type StatusKey } from '@/lib/military/milpac-status'
 import s from './profile.module.css'
 
@@ -22,6 +20,50 @@ const STATUS_CLASS: Record<StatusKey, string> = {
     reservistActive: s.pReservist,
     reservistInactive: s.pInactive,
     discharged: s.pDischarged,
+}
+
+/**
+ * The mockup's own banner: a dusk ridgeline with a low sun, drawn rather than
+ * photographed. It replaces the shared unit photo that every member without a
+ * cover used to get — a drawn scene reads as the file's own furniture, where a
+ * repeated photograph reads as a missing upload.
+ *
+ * `slice` rather than `meet` so it fills the banner at any aspect ratio, and
+ * inline so it costs no request and inherits nothing to load.
+ */
+function BannerScene() {
+    return (
+        <svg className={s.scene} viewBox='0 0 1600 420' preserveAspectRatio='xMidYMid slice' aria-hidden='true'>
+            <defs>
+                <linearGradient id='milpac-sky' x1='0' y1='0' x2='0' y2='1'>
+                    <stop offset='0%' stopColor='#1b2028' />
+                    <stop offset='52%' stopColor='#2b2b28' />
+                    <stop offset='78%' stopColor='#3a2f22' />
+                    <stop offset='100%' stopColor='#12130f' />
+                </linearGradient>
+                <radialGradient id='milpac-sun' cx='72%' cy='74%' r='34%'>
+                    <stop offset='0%' stopColor='#e0a94e' stopOpacity='.55' />
+                    <stop offset='60%' stopColor='#c07a35' stopOpacity='.13' />
+                    <stop offset='100%' stopColor='#000' stopOpacity='0' />
+                </radialGradient>
+            </defs>
+            <rect width='1600' height='420' fill='url(#milpac-sky)' />
+            <rect width='1600' height='420' fill='url(#milpac-sun)' />
+            <circle cx='1152' cy='311' r='26' fill='#e8b45c' opacity='.5' />
+            <path d='M0 300 L180 246 L330 292 L470 232 L620 288 L780 244 L930 296 L1090 250 L1250 300 L1420 258 L1600 302 V420 H0 Z' fill='#20242a' opacity='.85' />
+            <path d='M0 330 L150 300 L300 340 L450 296 L600 342 L760 306 L920 346 L1080 302 L1240 344 L1400 308 L1600 348 V420 H0 Z' fill='#161a1f' />
+            <path d='M0 372 L200 352 L400 382 L600 356 L800 386 L1000 358 L1200 388 L1400 360 L1600 386 V420 H0 Z' fill='#0d1013' />
+            <g fill='#0a0c0e'>
+                <path d='M300 372 l7 -22 l7 22 z' />
+                <path d='M1180 380 l6 -18 l6 18 z' />
+                <path d='M640 378 l5 -15 l5 15 z' />
+            </g>
+            <g opacity='.55' fill='none' stroke='#0a0c0e' strokeWidth='3'>
+                <path d='M1320 120 h60 M1350 120 v14 M1338 134 h24' />
+                <path d='M1300 116 q50 -14 100 0' />
+            </g>
+        </svg>
+    )
 }
 
 // ── Link chips ───────────────────────────────────────────────────────────────
@@ -101,9 +143,7 @@ export function Hero(props: HeroProps) {
                         ? { backgroundImage: `url(/api/uploads/cover?id=${memberId}&t=${Date.now()})` }
                         : undefined}
                 >
-                    {!hasCover && (
-                        <Image src={Banner} alt='' fill priority style={{ objectFit: 'cover', objectPosition: 'center' }} />
-                    )}
+                    {!hasCover && <BannerScene />}
                     <div className={s.vig} />
                     <div className={s.bannerbadge}>
                         <span className={`${s.pill} ${STATUS_CLASS[status.key]}`}>{status.label}</span>
