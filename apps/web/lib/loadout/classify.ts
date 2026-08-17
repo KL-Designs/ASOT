@@ -72,7 +72,8 @@ const BY_NAME: [RegExp, IconKey][] = [
     [/smokeshell|smokegrenade|_smoke/i, 'smoke'],
     [/M84|flashbang|stun/i, 'flashbang'],
     [/grenade|_HandGrenade|_frag/i, 'grenade'],
-    [/mine|satchel|demo|explosive|charge/i, 'explosive'],
+    [/minedetector/i, 'tool'],
+    [/(^|_)mine|satchel|demo(_|$)|explosive|(^|_)charge/i, 'explosive'],
     [/strobe/i, 'strobe'],
     [/microdagr|_GPS|terminal/i, 'gps'],
     [/maptools|_map/i, 'map'],
@@ -82,6 +83,11 @@ const BY_NAME: [RegExp, IconKey][] = [
     [/belt|linked/i, 'belt'],
 ]
 
+// Ammo magazines carry flavour words — "GPS", "Explosive", "PLASMA" — that
+// collide with the instrument and medical rules below. Only a magazine whose
+// name actually reads as a throwable should reach those.
+const THROWABLE = /smoke|grenade|m84|flashbang|(^|_)mine|satchel|demo(_|$)|(^|_)charge|flare|chemlight/i
+
 export function iconFor(className: string, slot: SlotContext = 'content'): IconKey {
     const bySlot = BY_SLOT[slot]
     if (bySlot) return bySlot
@@ -90,7 +96,7 @@ export function iconFor(className: string, slot: SlotContext = 'content'): IconK
 
     if (slot === 'primary') {
         if (/sniper|_LRR|m107|awm/i.test(className)) return 'sniper'
-        if (/mg|minimi|maximi|m249|m240|pkp/i.test(className)) return 'mg'
+        if (/(^|_)(l|h)?mg(_|$)|minimi|maximi|m249|m240|pkp/i.test(className)) return 'mg'
         if (/dmr|marksman|sr25|mk11/i.test(className)) return 'dmr'
         if (/carbine|_c8|mk18|shorty/i.test(className)) return 'carbine'
         return 'rifle'
@@ -99,6 +105,8 @@ export function iconFor(className: string, slot: SlotContext = 'content'): IconK
     if (meta && BY_TYPE[meta.type]) return BY_TYPE[meta.type]
     if (meta?.root === 'CfgGlasses') return 'facewear'
     if (meta?.root === 'CfgVehicles') return 'backpack'
+
+    if (meta?.root === 'CfgMagazines' && !THROWABLE.test(className)) return 'magazine'
 
     for (const [re, key] of BY_NAME) if (re.test(className)) return key
 

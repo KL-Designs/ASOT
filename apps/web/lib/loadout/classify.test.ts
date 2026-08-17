@@ -59,4 +59,21 @@ describe('iconFor', () => {
         const samples = ['ACE_tourniquet', 'SmokeShell', 'ItemMap', 'ASOT_adfrc_uniform_amcu', 'zzz_unknown']
         for (const s of samples) expect(ICON_KEYS).toContain(iconFor(s))
     })
+
+    test('flavour words in a classname do not beat what the item actually is', () => {
+        // Each of these matched a rule meant for something else. See the comments
+        // in classify.ts — all four were found in the real dictionary, not imagined.
+        expect(iconFor('SMG_01_F', 'primary')).not.toBe('mg')
+        expect(iconFor('kat_ketamine')).not.toBe('explosive')
+        expect(iconFor('UAS_BASE_762N_DSG_GPS_5Rnd')).toBe('magazine')
+        expect(iconFor('UAS_BASE_762N_ABC_Explosive_5Rnd')).toBe('magazine')
+        expect(iconFor('UAS_BASE_PLASMA_XAR15')).toBe('magazine')
+        expect(iconFor('MineDetector')).toBe('tool')
+    })
+
+    test('genuine throwables still classify as throwables', () => {
+        expect(iconFor('SmokeShell')).toBe('smoke')
+        expect(iconFor('ACE_M84')).toBe('flashbang')
+        expect(iconFor('CUP_HandGrenade_M67')).toBe('grenade')
+    })
 })
