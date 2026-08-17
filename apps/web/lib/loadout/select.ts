@@ -36,3 +36,33 @@ export function pickLoadoutId(
     const asked = wanted ? loadouts.find(l => l.id === wanted) : undefined
     return (asked ?? loadouts.find(l => l.isDefault) ?? loadouts[0]).id
 }
+
+export type CardKitCandidate = { isDefault: boolean; shared: boolean; updatedAt: Date }
+
+/**
+ * The one kit a shareable card may show, or null.
+ *
+ * Anyone may run `/milpac profile` on anyone and the reply can land in a public
+ * channel, so a kit the member did not publish must never be shown by someone
+ * else's command — `shared` is the whole privacy boundary for the collection.
+ * That is why an unshared default loses to a shared non-default rather than
+ * simply being unlabelled.
+ *
+ * Sorted here rather than trusted from the caller: this is also the predicate
+ * that decides whether the reply carries a Kits button, and a rule that depends
+ * on query order is a rule that changes when someone adds an index.
+ */
+export function pickCardKit<T extends CardKitCandidate>(kits: readonly T[]): T | null {
+    const publicKits = kits.filter(k => k.shared)
+    if (publicKits.length === 0) return null
+
+    // One sort over both keys rather than find-then-sort. Two rows can each
+    // claim isDefault — the loadouts PATCH route documents that race as
+    // tolerated — and `.find()` would resolve that by array order, which is the
+    // exact query-order dependence this function exists to avoid.
+    return [...publicKits].sort((a, b) =>
+        Number(b.isDefault) - Number(a.isDefault)
+        || b.updatedAt.getTime() - a.updatedAt.getTime()
+        || JSON.stringify(a).localeCompare(JSON.stringify(b))
+    )[0]
+}

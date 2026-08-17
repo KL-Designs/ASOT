@@ -1,4 +1,4 @@
-import Discord, { AttachmentBuilder } from 'discord.js'
+import Discord, { AttachmentBuilder, MessageFlags } from 'discord.js'
 import config from 'lib/config.ts'
 
 /**
@@ -17,31 +17,49 @@ const TIMEOUT_MS = 60_000
 const LABEL = {
     uniform: { noun: 'uniform', title: 'Uniform' },
     medals: { noun: 'medal display', title: 'Medals' },
+    dossier: { noun: 'personnel file', title: 'Personnel File' },
+} as const
+
+/** The private-reply toggle. Read before deferring — see renderMilpac. */
+export const hiddenOption = {
+    name: 'hidden',
+    description: 'Show the reply only to you',
+    type: Discord.ApplicationCommandOptionType.Boolean,
+    required: false,
 } as const
 
 /**
  * Reports a failure to the caller alone.
  *
- * The reply is deferred publicly because the successful case is the point of
- * the command, and Discord fixes a reply's visibility at deferral. So a failure
- * withdraws the public placeholder and follows up privately instead — nobody
- * else needs to watch someone else's command not work.
+ * A public reply is deferred publicly because the successful case is the point
+ * of the command, and Discord fixes a reply's visibility at deferral. So a
+ * failure withdraws the public placeholder and follows up privately instead —
+ * nobody else needs to watch someone else's command not work.
+ *
+ * An already-private reply has no placeholder to withdraw, so it is simply
+ * edited. Deleting it first would leave the caller with nothing on screen
+ * between the two calls.
  */
-async function fail(interaction: Discord.ChatInputCommandInteraction, message: string) {
+async function fail(interaction: Discord.ChatInputCommandInteraction, message: string, hidden: boolean) {
+    if (hidden) return interaction.editReply({ content: message })
     // Best-effort: if the placeholder is already gone, the follow-up still matters.
     await interaction.deleteReply().catch(() => { })
-    return interaction.followUp({ content: message, ephemeral: true })
+    return interaction.followUp({ content: message, flags: MessageFlags.Ephemeral })
 }
 
 export async function renderMilpac(
     interaction: Discord.ChatInputCommandInteraction,
-    type: 'uniform' | 'medals',
+    type: 'uniform' | 'medals' | 'dossier',
 ) {
-    // Public by design — the point of the command is to show the unit.
-    await interaction.deferReply()
+    // Read before deferring: Discord fixes a reply's visibility at deferral,
+    // so this cannot be consulted afterwards.
+    const hidden = interaction.options.getBoolean('hidden') ?? false
+
+    // Public by default — the point of the command is to show the unit.
+    await interaction.deferReply({ flags: hidden ? MessageFlags.Ephemeral : undefined })
 
     if (!config.apiSecret) {
-        return fail(interaction, 'The milpac renderer is not configured on this bot — `BOT_API_SECRET` is unset.')
+        return fail(interaction, 'The milpac renderer is not configured on this bot — `BOT_API_SECRET` is unset.', hidden)
     }
 
     const target = interaction.options.getUser('member') ?? interaction.user
@@ -62,7 +80,7 @@ export async function renderMilpac(
         const reason = (err as Error)?.name === 'TimeoutError'
             ? `it did not respond within ${TIMEOUT_MS / 1000}s`
             : `the connection failed (\`${(err as Error)?.message ?? 'unknown'}\`)`
-        return fail(interaction, `Could not reach the milpac renderer at \`${config.apiInternal}\` — ${reason}.`)
+        return fail(interaction, `Could not reach the milpac renderer at \`${config.apiInternal}\` — ${reason}.`, hidden)
     }
 
     if (!response.ok) {
@@ -73,16 +91,87 @@ export async function renderMilpac(
             : response.status === 422 ? `**${target.displayName}**'s milpac names artwork that does not exist — a staff member needs to look at their record.`
             : response.status === 401 ? 'The milpac renderer rejected this bot\'s credentials — `BOT_API_SECRET` does not match the website\'s.'
             : `The milpac renderer is unavailable right now (${response.status}).`
-        return fail(interaction, message)
+        return fail(interaction, message, hidden)
     }
 
     const png = Buffer.from(await response.arrayBuffer())
     const file = new AttachmentBuilder(png, { name: `${target.username}-${type}.png` })
 
     return interaction.editReply({
-        content: `**${target.displayName}** — ${label.title}`,
+        content: `**${memberTitle(response) ?? target.displayName}** - ${label.title}`,
         files: [file],
+        components: linkRow(response),
     })
+}
+
+/**
+ * The member's rank and name as web renders them, or null.
+ *
+ * Rank lives in web's schema, so the bot is told rather than deriving it —
+ * the same reason the section buttons arrive as a header. Absent for
+ * `uniform` and `medals`, which fall back to the Discord display name.
+ */
+function memberTitle(response: Response): string | null {
+    try {
+        const raw = response.headers.get('x-milpac-member')
+        if (!raw) return null
+        const title = JSON.parse(raw)
+        return typeof title === 'string' && title.trim() !== '' ? title : null
+    } catch {
+        return null
+    }
+}
+
+/**
+ * The section buttons, built from what web sent back.
+ *
+ * Web owns the URL structure — it decides which sections exist and which are
+ * worth offering, so a member with no public kit gets no Kits button without
+ * the bot knowing what a kit is. A fourth section added to the site produces a
+ * fourth button here with no change to this file.
+ *
+ * `config.api`, never `config.apiInternal`: this URL is clicked by a member.
+ */
+function linkRow(response: Response): Discord.ActionRowBuilder<Discord.ButtonBuilder>[] {
+    try {
+        const parsed = JSON.parse(response.headers.get('x-milpac-links') ?? '[]')
+        if (!Array.isArray(parsed)) return []
+
+        // Length, not just type. ButtonBuilder throws on an empty label or one
+        // over 80 characters, and this runs inside editReply's argument list —
+        // a throw here would reject before the reply is ever edited, leaving the
+        // caller on a "thinking" placeholder until Discord times it out.
+        const base = config.api.replace(/\/+$/, '')
+        const links = parsed.filter(l =>
+            typeof l?.label === 'string' && l.label.length > 0 && l.label.length <= 80
+            && typeof l?.path === 'string' && l.path.startsWith('/')
+            && base.length + l.path.length <= 512)
+
+        if (links.length === 0) return []
+
+        // Built inside the try as well: the constraint checks above should make
+        // this unreachable, but the cost of being wrong is the whole reply.
+        return [new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+            links.slice(0, 5).map(l => {
+                const button = new Discord.ButtonBuilder()
+                    .setStyle(Discord.ButtonStyle.Link)
+                    .setLabel(l.label)
+                    .setURL(`${base}${l.path}`)
+                // setEmoji throws on an invalid emoji, so it gets the same
+                // untrusted treatment as label above — except the cost of being
+                // wrong here is scoped to this one button's icon: a malformed
+                // emoji falls through to a plain button rather than losing the
+                // button (or, since this sits inside the outer try, the row).
+                if (typeof l?.emoji === 'string' && l.emoji.length > 0) {
+                    try { button.setEmoji(l.emoji) } catch { /* icon-less button is fine */ }
+                }
+                return button
+            }),
+        )]
+    } catch (err) {
+        console.error('[milpac] discarding malformed section links', err)
+        return []
+    }
 }
 
 /** The optional member picker both subcommands share. */

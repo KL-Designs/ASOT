@@ -24,12 +24,30 @@
 export const MILPAC_TABS = [
     // The default section owns the bare `/milpacs/<name>` URL, so its segment
     // is empty — there is no `/overview` to keep in step with it.
-    { key: 'overview', label: 'Overview', segment: '' },
-    { key: 'record', label: 'Service Record', segment: 'record' },
-    { key: 'kits', label: 'Kits', segment: 'kits' },
+    //
+    // `shareLabel` and `emoji` are for the Discord buttons only. The site's own
+    // tab bar uses `label`, so the two can differ: "Overview" reads correctly
+    // beside the other tabs on the page, but a button sitting alone in a Discord
+    // reply has no such context and wants the document's name.
+    { key: 'overview', label: 'Overview', shareLabel: 'MILPAC', segment: '', emoji: '🪖' },
+    { key: 'record', label: 'Service Record', segment: 'record', emoji: '🎖️' },
+    { key: 'kits', label: 'Kits', segment: 'kits', emoji: '🎒' },
 ] as const
 
 export type MilpacTab = (typeof MILPAC_TABS)[number]['key']
+
+/**
+ * The label a Discord button should carry for this tab.
+ *
+ * Only the overview entry sets `shareLabel` — the array is `as const`, so
+ * TypeScript narrows access to it to the entries that actually declare it.
+ * Reading it through this helper (rather than casting) keeps that check live:
+ * a future tab that also wants a distinct share label just adds the field,
+ * with no change needed here.
+ */
+export function shareLabelFor(tab: (typeof MILPAC_TABS)[number]): string {
+    return 'shareLabel' in tab ? tab.shareLabel : tab.label
+}
 
 /** The path a tab lives at, relative to `/milpacs/<segment>`. */
 export function tabPath(tab: MilpacTab): string {

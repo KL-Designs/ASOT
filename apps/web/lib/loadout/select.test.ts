@@ -3,7 +3,7 @@
  * resolver has to survive anything typed into it and still put a kit on screen.
  */
 import { describe, test, expect } from 'vitest'
-import { pickLoadoutId } from './select'
+import { pickLoadoutId, pickCardKit } from './select'
 
 const LIST = [
     { id: 'aaaaaaaaaaaaaaaaaaaaaaaa', isDefault: false },
@@ -57,5 +57,49 @@ describe('pickLoadoutId', () => {
     test('matching is exact', () => {
         expect(pickLoadoutId('CCCCCCCCCCCCCCCCCCCCCCCC', LIST)).toBe('bbbbbbbbbbbbbbbbbbbbbbbb')
         expect(pickLoadoutId(' cccccccccccccccccccccccc', LIST)).toBe('bbbbbbbbbbbbbbbbbbbbbbbb')
+    })
+})
+
+describe('pickCardKit', () => {
+    const kit = (name: string, isDefault: boolean, shared: boolean, day: number) =>
+        ({ name, isDefault, shared, updatedAt: new Date(2026, 0, day) })
+
+    test('prefers the default kit when it is public', () => {
+        const kits = [kit('recent', false, true, 20), kit('fave', true, true, 1)]
+        expect(pickCardKit(kits)?.name).toBe('fave')
+    })
+
+    test('a private default never wins — the newest public kit does', () => {
+        const kits = [kit('fave', true, false, 1), kit('older', false, true, 5), kit('newer', false, true, 20)]
+        expect(pickCardKit(kits)?.name).toBe('newer')
+    })
+
+    test('no public kit at all yields null', () => {
+        expect(pickCardKit([kit('fave', true, false, 1), kit('other', false, false, 2)])).toBeNull()
+    })
+
+    test('an empty list yields null', () => {
+        expect(pickCardKit([])).toBeNull()
+    })
+
+    test('input order does not decide the fallback', () => {
+        // The caller may or may not have sorted. The rule is newest, not first.
+        const kits = [kit('newer', false, true, 20), kit('older', false, true, 5)]
+        const reversed = [kit('older', false, true, 5), kit('newer', false, true, 20)]
+        expect(pickCardKit(kits)?.name).toBe('newer')
+        expect(pickCardKit(reversed)?.name).toBe('newer')
+    })
+
+    test('two kits both claiming default resolve by recency, not array order', () => {
+        // The loadouts PATCH route tolerates a race that can leave two rows
+        // claiming default, so this is a real state, not a hypothetical.
+        const kits = [kit('stale', true, true, 1), kit('fresh', true, true, 20)]
+        expect(pickCardKit(kits)?.name).toBe('fresh')
+        expect(pickCardKit([...kits].reverse())?.name).toBe('fresh')
+    })
+
+    test('kits tied on updatedAt resolve identically whichever order they arrive in', () => {
+        const kits = [kit('a', false, true, 7), kit('b', false, true, 7)]
+        expect(pickCardKit(kits)?.name).toBe(pickCardKit([...kits].reverse())?.name)
     })
 })

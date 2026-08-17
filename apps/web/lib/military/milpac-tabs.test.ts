@@ -5,7 +5,7 @@
  * a member-supplied kit id straight back out in a Location header.
  */
 import { describe, test, expect } from 'vitest'
-import { MILPAC_TABS, tabPath, tabSuffix } from './milpac-tabs'
+import { MILPAC_TABS, tabPath, tabSuffix, shareLabelFor } from './milpac-tabs'
 
 describe('MILPAC_TABS', () => {
     test('every tab has a key and a label, and keys are unique', () => {
@@ -14,6 +14,24 @@ describe('MILPAC_TABS', () => {
         for (const tab of MILPAC_TABS) {
             expect(tab.label.length).toBeGreaterThan(0)
         }
+    })
+
+    test('every tab has a non-empty emoji for the Discord buttons', () => {
+        for (const tab of MILPAC_TABS) {
+            expect(tab.emoji.length).toBeGreaterThan(0)
+        }
+    })
+
+    test("the site's own tab bar keeps saying Overview", () => {
+        // This is the thing the Discord share-label change must not break —
+        // the on-site tab bar reads `label`, not `shareLabel`.
+        expect(MILPAC_TABS[0].label).toBe('Overview')
+    })
+
+    test('shareLabelFor renames only the overview tab, for Discord buttons', () => {
+        expect(shareLabelFor(MILPAC_TABS[0])).toBe('MILPAC')
+        expect(shareLabelFor(MILPAC_TABS[1])).toBe(MILPAC_TABS[1].label)
+        expect(shareLabelFor(MILPAC_TABS[2])).toBe(MILPAC_TABS[2].label)
     })
 
     test('exactly one tab owns the bare profile URL', () => {

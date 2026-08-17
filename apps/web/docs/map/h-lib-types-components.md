@@ -203,6 +203,9 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/loadout/summary.ts
 - `summariseLoadout(kit: ParsedLoadout): KitSummary` — the headline of a kit for the `/community/kits` shelf: primary weapon + its attachments in arsenal order, headgear/uniform/vest/backpack classnames, and `itemCount`. Stacks count by multiplicity (six magazines is six items, not one) and worn/held gear counts too, so a kit that is all worn gear and no cargo does not read as empty; a non-finite stack count is skipped rather than turning the card's count into `NaN`. Pure; unit-tested in `summary.test.ts`.
 
+### lib/loadout/kit-line.ts
+- `formatKitLine(name, summary: KitSummary): string` — a kit compressed to the Discord dossier card's single foot line: kit name, primary weapon, vest, item count, `·`-joined, each segment truncated on its own bound (`MAX_CARD_NAME` 28, `MAX_ITEM` 32) and the assembled line clamped again at `MAX_LINE` (100, derived from the card's own pixel width) so an unbounded pasted item name or a huge item count can't push the line off the card. Pure; unit-tested in `kit-line.test.ts`.
+
 ### lib/military/milpac-dates.ts
 - `parseMilpacDate(raw): Date | null` — the one parser for the free-form dates on a milpac (`enlistedDate`, `promotions[].date`, `awards[].date`). They arrive as "15 August 2020", "04 October 2024", "27/09/2024" and "27-09-2024"; the day-first forms are parsed explicitly because `new Date('04/10/2024')` reads that as **10 April**, not 4 October. An impossible day (`31/02`) is rejected rather than rolled forward, and anything unusable returns null — never today's date, because these are printed on certificates as historical fact. Used by the certificate route and the profile's `durationSince`; unit-tested in `milpac-dates.test.ts`.
 
@@ -230,6 +233,22 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `calculateOpPoints(ops: {date, confirmedAt}[]): number` — ISO-week-grouped op scoring (1 op/week = 2pts, 2+ = 3pts cap); undated ops score 2pts independently.
 - `MilpacImportCounts` interface — full shape of raw counts used for point calculation (ops, dept actions, awards, quals, manual J4 adjustment, discipline deductions).
 - `calculatePromotionPoints(counts: MilpacImportCounts): number` — sums op points + dept action points (with per-3/per-5 floor divisions for J1 interviews / J5 milpacs/PR) + award/cert point lookups + manual J4 points − discipline deductions, floored at 0.
+
+### lib/military/milpac-stats.ts
+- `loadConfirmedOps(memberId): Promise<ConfirmedOp[]>` — a member's confirmed attendance records joined to their (non-soft-deleted) operations, deduped by operation id. Imports `lib/mongo` lazily so the pure helpers below (and the tests that exercise them) don't require `MONGO_URI` — same reason `milpac-cover.ts` defers `@napi-rs/canvas`.
+- `resolvePromotionPoints(member, confirmedOps): number` — promotion points recalculated live from stored billet counts + confirmed op attendance, matching the editor's own arithmetic; falls back to the stored `milpac.promotionPoints` for members with no billet counts on record.
+- `resolveEnlistedDate(member): string | null` — stored `milpac.enlistedDate`, else the Discord guild join date, else null.
+- `durationSince(raw): string | null` — a free-form milpac date to `2.4Y` / `7M` service duration via `parseMilpacDate`; unparseable or future dates yield null rather than `NaN`. Extracted from the profile page for reuse by the Discord dossier card; unit-tested in `milpac-stats.test.ts`.
+
+### lib/military/card-images.ts
+- `toCardImage(bytes, box: ImageBox): Promise<string | null>` — decodes a rendered uniform/medal-box PNG, cover-crops it to `box` via `fitCover`, re-encodes as a PNG data URI for satori (which takes images only as data URIs). Re-encoding at draw size, not full size, is what keeps a dossier card's embedded strings small. Returns null on any failure — the dossier degrades to no artwork rather than failing the whole card. Unit-tested in `card-images.test.ts`.
+
+### lib/military/dossier-data.ts
+- `DOSSIER_SIZE` (`{width: 1400, height: 860}`) — the Discord dossier card's canvas size.
+- `buildDossierData(member, allMembers): Promise<DossierData>` — assembles everything the dossier card draws: identity/accent via `resolveMilpacProfile`, status via `deriveStatus`, the five stat-strip figures via `milpac-stats.ts`, uniform/medal-box artwork via `generateMilpacForUser` + `toCardImage` (optional — a render-service outage still yields a card), cover photo via `readCoverImage`, kit line via `pickCardKit` + `formatKitLine` (only the member's own **shared** loadouts are queried, never private ones), and the card's link buttons — one per `MILPAC_TABS` entry, Kits dropped when there's no public kit, paths built off `canonicalSegment` against a slug index built from `allMembers`. Separate from the `DossierCard` component so the card stays a pure function of data — satori can't await.
+
+### lib/military/dossier-card.tsx
+- `DossierCard({data: DossierData})` — the Discord dossier card itself, drawn for satori (`next/og`'s `ImageResponse`): cover + three scrims + accent sun + corner tick shared with the OpenGraph share card, a ridgeline fallback when there's no cover, identity block (name size steps down as the name gets longer), uniform/medals artwork, the five-stat strip, and an optional kit-line foot. Not a widening of `opengraph-image.tsx`, which is the link preview for every milpac URL pasted anywhere — this is a separate layout for a separate consumer.
 
 ### lib/minigame/emitter.ts
 - Default export: global `EventEmitter` singleton (`global.__minigameEmitter`, maxListeners 500) — survives per-route module isolation in Next.js.
