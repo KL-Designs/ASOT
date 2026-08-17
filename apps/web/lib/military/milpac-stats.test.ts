@@ -4,7 +4,8 @@
  * worth pinning rather than trusting to two copies staying in step.
  */
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest'
-import { durationSince, resolveEnlistedDate } from './milpac-stats'
+import { durationSince, resolveEnlistedDate, getPromotionProgress } from './milpac-stats'
+import { RANK_TRACKS } from './promotion-requirements'
 
 describe('durationSince', () => {
     beforeEach(() => {
@@ -59,5 +60,38 @@ describe('resolveEnlistedDate', () => {
 
     test('null when neither exists', () => {
         expect(resolveEnlistedDate({ milpac: {} } as unknown as User)).toBeNull()
+    })
+})
+
+describe('getPromotionProgress', () => {
+    test('reports progress through the current tier, not from zero', () => {
+        // The bar spans from the *previous* rank's threshold (PTE(L), 151) to
+        // the next rank's (PTE(SL), 451) — not 0 to 451 — so 280 points is 129
+        // into a 300-point span, i.e. 43%. It is not measured from the current
+        // rank's own threshold (PTE(S), 251); that would give 14.5%, which is
+        // what this test originally asserted until the real arithmetic in
+        // getPromotionProgress (ported verbatim from milpac-file.tsx) was
+        // checked against it.
+        const p = getPromotionProgress('PTE(S)', 280)
+        expect(p).toMatchObject({ atMax: false, nextRank: 'PTE(SL)', required: 451, current: 280 })
+        expect((p as { pct: number }).pct).toBeCloseTo(43, 1)
+    })
+
+    test('the top of a track has no next rank', () => {
+        const track = RANK_TRACKS[0]
+        const top = track.ranks[track.ranks.length - 1].abbr
+        expect(getPromotionProgress(top, 9999)).toEqual({ atMax: true })
+    })
+
+    test('a rank on no track, or none at all, yields null', () => {
+        expect(getPromotionProgress('NOT-A-RANK', 100)).toBeNull()
+        expect(getPromotionProgress(undefined, 100)).toBeNull()
+    })
+
+    test('progress is clamped to the bar, never past it', () => {
+        const over = getPromotionProgress('PTE(S)', 100000)
+        const under = getPromotionProgress('PTE(S)', 0)
+        expect((over as { pct: number }).pct).toBe(100)
+        expect((under as { pct: number }).pct).toBe(0)
     })
 })

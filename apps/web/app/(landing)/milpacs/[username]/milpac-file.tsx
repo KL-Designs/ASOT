@@ -8,7 +8,6 @@ import { renderUniform, renderBox, getRenderFingerprint } from '@/lib/milpac-gen
 import { buildUniformData, buildBoxData, computeUniformHash } from '@/lib/milpac-gen/data-mapper'
 import { AWARD_TO_CITATION } from '@/lib/milpac-gen/maps'
 import { certificateCodeForCitation, MEDALLION_CERTIFICATE_CODES, rankAbbrFromName } from '@asot/lib'
-import { RANK_TRACKS } from '@/lib/military/promotion-requirements'
 import { deriveStatus, platoonLabel } from '@/lib/military/milpac-status'
 import { ensureVisible, hexToRgbTriplet } from '@/lib/discord/color'
 import client from '@/lib/discord'
@@ -18,7 +17,7 @@ import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 import { hasCover as memberHasCover } from '@/lib/military/milpac-cover'
 import { resolveSegment } from '@/lib/military/milpac-slug'
-import { loadConfirmedOps, resolvePromotionPoints, resolveEnlistedDate, durationSince } from '@/lib/military/milpac-stats'
+import { loadConfirmedOps, resolvePromotionPoints, resolveEnlistedDate, durationSince, getPromotionProgress } from '@/lib/military/milpac-stats'
 import { CoverUpload } from './cover-upload'
 import { BiographyEditor } from './bio-editor'
 import { RequestAwardButton } from './RequestAwardButton'
@@ -67,23 +66,6 @@ function certificateCodeForAward(name: string): string | undefined {
  */
 function promotionCertCode(rank: string): string {
 	return (rankAbbrFromName(rank) || rank).replace(/[()]/g, '')
-}
-
-// ── Promotion progress helper ─────────────────────────────────────────────────
-function getPromotionProgress(currentRankAbbr: string | undefined, points: number) {
-	if (!currentRankAbbr) return null
-	const track = RANK_TRACKS.find(t => t.ranks.some(r => r.abbr === currentRankAbbr))
-	if (!track) return null
-	const idx = track.ranks.findIndex(r => r.abbr === currentRankAbbr)
-	const next = track.ranks[idx + 1]
-	if (!next) return { atMax: true as const }
-	if (next.minPts === null) return { atMax: false as const, nextRank: next.abbr, billetOnly: true as const }
-	// Use the previous rank's threshold as the start of the bar so it shows
-	// progress through the current tier, not from 0 to next.minPts.
-	const prev = idx > 0 ? track.ranks[idx - 1] : null
-	const from = prev?.minPts ?? 0
-	const pct = Math.min(100, Math.max(0, ((points - from) / (next.minPts - from)) * 100))
-	return { atMax: false as const, nextRank: next.abbr, required: next.minPts, current: points, pct, billetOnly: false as const }
 }
 
 async function resolveProfile(segment: string) {

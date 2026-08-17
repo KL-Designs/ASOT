@@ -1,5 +1,6 @@
 import { calculateOpPoints, calculatePromotionPoints } from '@/lib/military/points'
 import { parseMilpacDate } from '@/lib/military/milpac-dates'
+import { RANK_TRACKS } from '@/lib/military/promotion-requirements'
 
 /**
  * The figures a member's service is summarised by.
@@ -107,4 +108,21 @@ export function durationSince(raw?: string | null): string | null {
     const months = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
     if (months < 0) return null
     return months < 12 ? `${Math.max(0, Math.round(months))}M` : `${(months / 12).toFixed(1)}Y`
+}
+
+// ── Promotion progress helper ─────────────────────────────────────────────────
+export function getPromotionProgress(currentRankAbbr: string | undefined, points: number) {
+    if (!currentRankAbbr) return null
+    const track = RANK_TRACKS.find(t => t.ranks.some(r => r.abbr === currentRankAbbr))
+    if (!track) return null
+    const idx = track.ranks.findIndex(r => r.abbr === currentRankAbbr)
+    const next = track.ranks[idx + 1]
+    if (!next) return { atMax: true as const }
+    if (next.minPts === null) return { atMax: false as const, nextRank: next.abbr, billetOnly: true as const }
+    // Use the previous rank's threshold as the start of the bar so it shows
+    // progress through the current tier, not from 0 to next.minPts.
+    const prev = idx > 0 ? track.ranks[idx - 1] : null
+    const from = prev?.minPts ?? 0
+    const pct = Math.min(100, Math.max(0, ((points - from) / (next.minPts - from)) * 100))
+    return { atMax: false as const, nextRank: next.abbr, required: next.minPts, current: points, pct, billetOnly: false as const }
 }
