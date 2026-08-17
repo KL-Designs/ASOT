@@ -1,15 +1,15 @@
 # Part H — lib, types, components, root config
 
-This map documents every file under `lib/**` (59 files), `types/**` (31 files), and the requested
+This map documents every file under `lib/**` (60 files), `types/**` (32 files), and the requested
 `components/**` subset, plus root-level config files (`server.mjs`, `next.config.ts`, `middleware.ts`,
 `themes/unit.ts`). Use it to find existing helpers before writing new ones.
 
 ---
 
-## 1. `lib/**`: reusable server logic (59 files)
+## 1. `lib/**`: reusable server logic (60 files)
 
 ### lib/mongo.ts
-- Default export `Db`: singleton `MongoClient` cached on `global._mongoClient` (survives Next.js HMR). One typed `MongoCollection<T>` property per collection. Full list of ~57 collections including `users`, `roles`, `milpacs`, `optionals`, `operations`, `operationActivity`, `minigameScores`, `minigameLive`, `orbatPositions`, `orbatSectionMeta`, `orbatRoles`, `orbatRoleGroups`, `boardColumns`, `boardCards`, `departmentLinks`, `operationAttendance`, `operationDocAcks`, `j1Applications`, `tickets`, `calendarEvents`, `siteSettings`, `operationTemplates`, `operationCampaigns`, `campaignMissions`, `notifications`, `tasks`, `calendarReminders`, `meetings`, `actionLogs`, `errorLogs`, `discordLogs`, `driversLicense`, `mapPresets`, `retiredMembers`, `quizAttempts`, `communityTickets` (→ `feedback` collection), `communityTicketComments` (→ `feedback_comments`), `meetingNotifQueue`, `userPreferences`, `notifPolicyConfig`, `sops`, `trainingDocs`, `teamspeakSnapshots`, `recruitSessions`, `tfarPlugins`, `inProgressRecruitments`, `workspaceFiles`, `workspaceDocs`, `workspaceVersions`, `leavingHistory`, `deniedApplicationsHQ`, `disciplineRecords`, `billetExtras`, `memberEmails`, `mastersheetRecycleBin`, `dischargeSnapshots`, `trainingTypes`, `trainingEvents`, `trainingAttendance`, `trainingTypeDocs`, `trainingRequests`, `trainingTickets`, `trainingReminders`, `trainingImportRecords`, `eraOptions`.
+- Default export `Db`: singleton `MongoClient` cached on `global._mongoClient` (survives Next.js HMR). One typed `MongoCollection<T>` property per collection. Full list of ~58 collections including `users`, `roles`, `milpacs`, `optionals`, `operations`, `operationActivity`, `minigameScores`, `minigameLive`, `orbatPositions`, `orbatSectionMeta`, `orbatRoles`, `orbatRoleGroups`, `boardColumns`, `boardCards`, `departmentLinks`, `operationAttendance`, `operationDocAcks`, `j1Applications`, `tickets`, `calendarEvents`, `siteSettings`, `operationTemplates`, `operationCampaigns`, `campaignMissions`, `notifications`, `loadouts`, `tasks`, `calendarReminders`, `meetings`, `actionLogs`, `errorLogs`, `discordLogs`, `driversLicense`, `mapPresets`, `retiredMembers`, `quizAttempts`, `communityTickets` (→ `feedback` collection), `communityTicketComments` (→ `feedback_comments`), `meetingNotifQueue`, `userPreferences`, `notifPolicyConfig`, `sops`, `trainingDocs`, `teamspeakSnapshots`, `recruitSessions`, `tfarPlugins`, `inProgressRecruitments`, `workspaceFiles`, `workspaceDocs`, `workspaceVersions`, `leavingHistory`, `deniedApplicationsHQ`, `disciplineRecords`, `billetExtras`, `memberEmails`, `mastersheetRecycleBin`, `dischargeSnapshots`, `trainingTypes`, `trainingEvents`, `trainingAttendance`, `trainingTypeDocs`, `trainingRequests`, `trainingTickets`, `trainingReminders`, `trainingImportRecords`, `eraOptions`.
 - `Db.stats()` — prints DB stats via `console.table`.
 
 ### lib/permissions.ts
@@ -184,6 +184,10 @@ This map documents every file under `lib/**` (59 files), `types/**` (31 files), 
 - `buildSlugIndex(candidates)` — `slug -> member id`, **only for slugs claimed by exactly one serving member**. Discharged and skeleton accounts never claim. On the live roster 37 slugs are contested and 14 are contested by two or more serving members (`goose` is three people), so a contested name deliberately resolves to nobody rather than guessing.
 - `canonicalSegment(member, index)` — the member's name slug if they hold it, else their Discord username.
 - `resolveSegment(segment, members)` — `{member, canonical}` or null. Username first (unique by construction, and verified never to shadow another member's name slug), then name slug. Used by the milpac page and its `opengraph-image.tsx`. Unit-tested in `milpac-slug.test.ts`.
+
+### lib/loadout/parse.ts
+- `parseLoadout(raw): ParsedLoadout` — parses an ACE arsenal export (ARMA's *positional* `getUnitLoadout` array — slot 6 is headgear because it is sixth — but valid JSON, so no SQF parser needed) into a render-ready shape: `primary`/`launcher`/`handgun`/`binocular` (`WeaponSlot`: className + muzzle/pointer/optic/bipod + up to 2 magazines), `uniform`/`vest`/`backpack` (`Container`: className + `Stack[]` contents), `headgear`/`facewear` (className or null), `assigned` (map/gps/radio/compass/watch/nvg). Throws `LoadoutParseError` (with a user-facing message) on invalid JSON, non-array input, or a slot count other than 10. Nothing here is stored — `MemberLoadout.raw` is the record; this runs at render, so improving the parser improves every existing loadout with no migration.
+- `LoadoutParseError` — `Error` subclass, `name: 'LoadoutParseError'`.
 
 ### lib/loadout/names.ts
 - `resolveItemName(className)` — Arma classname to readable name: hand overrides, then the generated dictionary, then `prettifyClassName`. Never returns empty.
@@ -372,7 +376,7 @@ Content-addressed, deduplicating backup system via [restic](https://restic.net/)
 
 ---
 
-## 2. `types/**`: global ambient type declarations (31 files)
+## 2. `types/**`: global ambient type declarations (32 files)
 
 All declare into `declare global { ... }` (imports become no-ops via `export {}`), so no imports needed anywhere in the app.
 
@@ -394,6 +398,9 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 ### types/gallery.d.ts
 - `ScreenshotOfMonth` — `{filename, dateTaken, credit, setAt, setBy, operationId?, operationTitle?}`.
 - `GalleryAPI` — the shape returned by the gallery listing API: `{info, updated, featured[], years[{year, operations[{operation, stages[{stage, media[]}]}]}]}`.
+
+### types/loadout.d.ts
+- `MemberLoadout` — `{_id, userId, name, isDefault, shared, raw, createdAt, updatedAt}`. Only `raw` (the ACE arsenal export, verbatim) is stored — `lib/loadout/parse.ts` parses at render, so improving the parser needs no migration. Web-only (not in the monorepo-root `types/`): `User` is shared with apps/bot and an unbounded per-member list has no business bloating every bot fetch of it.
 
 ### types/meetingNotifQueue.d.ts
 - `MeetingNotifQueueRecord` — time-delayed meeting notification queue entry (`fireAt`, `firedAt?`, `recipientUserId` xor `recipientRole`).

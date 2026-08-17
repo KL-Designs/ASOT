@@ -1,6 +1,6 @@
 # Part D — Misc API
 
-Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,minigame,members,notifications,upload,services-asot,recruit-session,maps,map-presets,dev,tfar,shoot,preferences,ping,orbat,milpacs,membercount,logout,generate,credits,award-request,auth,dashboard}/**/route.ts` (excludes `gallery/admin/**`, which belongs to the admin catalog). 80 route files.
+Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,minigame,members,notifications,upload,services-asot,recruit-session,maps,map-presets,loadouts,dev,tfar,shoot,preferences,ping,orbat,milpacs,membercount,logout,generate,credits,award-request,auth,dashboard}/**/route.ts` (excludes `gallery/admin/**`, which belongs to the admin catalog). 82 route files.
 
 ### dashboard (1 file)
 
@@ -295,6 +295,18 @@ Driver's license tracker (India Company specific feature, role-gated by raw Disc
 
 #### /api/map-presets/[id]
 - **DELETE** — deletes a preset scoped to the caller (`userId` match required). Auth: any authenticated user. Collections: `Db.mapPresets`.
+
+---
+
+### loadouts (2 files)
+
+#### /api/loadouts
+- **POST** — creates a loadout for the authenticated member from `{raw, name}`. Validates by parsing (`lib/loadout/parse.ts`); stores `raw` only. Caps: 64KB, 12 per member, 40-char name. First loadout becomes the default. Auth: any logged-in member, own records only.
+
+#### /api/loadouts/[id]
+- **PATCH** — rename, `shared` toggle, or `isDefault: true` (which clears the member's other defaults first).
+- **DELETE** — removes it; deleting the default promotes the most recently updated survivor.
+- Both scope every query by `userId` from `fetchMe()`, never the URL id alone.
 
 ---
 

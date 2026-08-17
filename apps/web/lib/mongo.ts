@@ -43,6 +43,7 @@ const DbInterface = {
     operationCampaigns: db.collection('operation_campaigns') as MongoCollection<OperationCampaign>,
     campaignMissions: db.collection('campaign_missions') as MongoCollection<CampaignMission>,
     notifications: db.collection('notifications') as MongoCollection<Notification>,
+    loadouts: db.collection('loadouts') as MongoCollection<MemberLoadout>,
     tasks: db.collection('tasks') as MongoCollection<Task>,
     calendarReminders: db.collection('calendar_reminders') as MongoCollection<CalendarReminder>,
     reminders: db.collection('reminders') as MongoCollection<Reminder>,
