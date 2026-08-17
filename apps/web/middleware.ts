@@ -1,27 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const WIP_PATHS = ['/community/orbat', '/community/retired', '/community/bios']
-
 /**
- * Injects the current pathname as an `x-pathname` header so that server
- * components (like the dashboard layout) can read it without relying on
- * unreliable internal Next.js headers.
+ * Hides the work-in-progress pages behind `/wip`.
+ *
+ * **The matcher is deliberately narrow.** It used to run on every request in the
+ * app (`/((?!_next/static|_next/image|favicon.ico|api/).*)`), which is a
+ * documented cause of intermittent App Router navigation failures: middleware
+ * also executes on the internal `_rsc` requests a client-side navigation makes,
+ * and a broad matcher makes some of those navigations fail silently — the
+ * payload arrives with a 200 and the router discards it (vercel/next.js#91723).
+ *
+ * That is what the milpac profile's section tabs were hitting: the first click
+ * fetched and committed nothing, the second committed instantly from cache.
+ * They were the only place it showed because they are the only navigation in
+ * the app that keeps a layout mounted and swaps a child segment.
+ *
+ * It also used to set an `x-pathname` response header "so server components can
+ * read the current path". Nothing in the app has ever read it, and a *response*
+ * header could not be read from a server component in any case — that needs
+ * `NextResponse.next({ request: { headers } })`. Removed rather than repaired,
+ * since there was no consumer to keep working.
  */
 export function middleware(req: NextRequest) {
-    const { pathname } = req.nextUrl
-
-    const bypassWip = req.nextUrl.searchParams.has('bypass_wip')
-    if (!bypassWip && WIP_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))) {
-        return NextResponse.rewrite(new URL('/wip', req.url))
-    }
-
-    const res = NextResponse.next()
-    res.headers.set('x-pathname', pathname)
-    return res
+    // An escape hatch for previewing a WIP page without shipping it.
+    if (req.nextUrl.searchParams.has('bypass_wip')) return NextResponse.next()
+    return NextResponse.rewrite(new URL('/wip', req.url))
 }
 
 export const config = {
-    // Skip API routes (body clone limit would truncate large uploads),
-    // Next.js internals, and static assets. API routes don't use x-pathname.
-    matcher: ['/((?!_next/static|_next/image|favicon.ico|api/).*)'],
+    // The WIP list lives here rather than in a constant: `matcher` only accepts
+    // literals, so a second copy in code could drift out of step with it.
+    // `:path*` matches zero or more segments, so the bare path matches too.
+    matcher: [
+        '/community/orbat/:path*',
+        '/community/retired/:path*',
+        '/community/bios/:path*',
+    ],
 }
