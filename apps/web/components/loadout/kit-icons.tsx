@@ -32,6 +32,7 @@ export function KitIcon({ icon, size = 14 }: { icon: KitIconKey; size?: number }
 const UI_PATHS = {
     plus: 'M12 5v14M5 12h14',
     copy: 'M9 9h11v11H9zM5 15H4V4h11v1',
+    link: 'M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1',
     trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6m4-6v6',
     import: 'M12 3v10m0 0-4-4m4 4 4-4M4 17v3h16v-3',
     check: 'M4 12l5 5L20 6',

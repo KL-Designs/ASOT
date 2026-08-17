@@ -104,6 +104,7 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
     const [error, setError] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [copied, setCopied] = useState(false)
+    const [linked, setLinked] = useState(false)
 
     const active = loadouts.find(l => l.id === activeId) ?? null
 
@@ -184,6 +185,139 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
         document.addEventListener('keydown', onKey)
         return () => document.removeEventListener('keydown', onKey)
     }, [importing])
+
+    /* A dialog rather than a panel that grows out of the kit row: the form
+       asks five things, and unfolding that much below the kits pushed
+       everything the member was looking at off the screen. Rendered in place
+       rather than through a portal — the palette and the member's accent are
+       custom properties on `.shell`, and a portal to document.body would
+       leave every one of them unresolved.
+
+       Hoisted into a variable because both the blank slate and the populated
+       panel below render it, and it must not be duplicated between them. */
+    const importDialog = isOwn && importing && (
+                <div
+                    className={s.modalBack}
+                    // mousedown, not click: a drag-select that starts inside the
+                    // dialog and ends on the backdrop must not close it.
+                    onMouseDown={e => { if (e.target === e.currentTarget) setImporting(false) }}
+                >
+                <div className={s.modal} role='dialog' aria-modal='true' aria-labelledby='kit-import-heading'>
+                    <header className={s.modalHead}>
+                        <h2 id='kit-import-heading'>Import a kit</h2>
+                        <button type='button' className={s.modalClose} aria-label='Close'
+                            onClick={() => setImporting(false)}>
+                            <UiIcon icon='close' size={14} />
+                        </button>
+                    </header>
+
+                    <div className={s.modalBody}>
+                    <p className={s.kitImportHelp}>
+                        In game, open ACE arsenal, load the kit you want to record, then click
+                        <strong> Export </strong> at the bottom of the arsenal screen and paste it below.
+                    </p>
+
+                    <label className={s.kitField}>
+                        <span className={s.lbl}>Name</span>
+                        <input
+                            className={s.kitImportName}
+                            placeholder='e.g. Section Medic'
+                            maxLength={MAX_NAME}
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                        />
+                    </label>
+
+                    <div className={s.kitField}>
+                        <span className={s.lbl}>Icon</span>
+                        <IconPicker value={importIcon} onPick={setImportIcon} />
+                    </div>
+
+                    <label className={s.kitField}>
+                        <span className={s.lbl}>Description — optional</span>
+                        <input
+                            className={s.kitImportName}
+                            placeholder='One line on what this kit is for'
+                            maxLength={MAX_DESCRIPTION}
+                            value={description}
+                            onChange={e => setDescription(e.target.value)}
+                        />
+                    </label>
+
+                    <div className={s.kitField}>
+                        <span className={s.lbl}>Visibility</span>
+                        <div>
+                            <button
+                                type='button'
+                                className={makePublic ? `${s.btn} ${s.kitPublic} ${s.kitPublicOn}` : `${s.btn} ${s.kitPublic}`}
+                                aria-pressed={makePublic}
+                                onClick={() => setMakePublic(v => !v)}
+                            >
+                                <Dot on={makePublic} />
+                                {makePublic ? 'Public' : 'Private'}
+                            </button>
+                        </div>
+                        {/* Stated at the moment of the decision rather than in a
+                            blanket warning above it: publishing is the one part of
+                            this form that other people can act on. */}
+                        <p className={s.kitFieldNote}>
+                            {makePublic
+                                ? 'Anyone can see this kit on your milpac and copy it from the unit kit shelf.'
+                                : 'Only you can see this kit. You can publish it later.'}
+                        </p>
+                    </div>
+
+                    <label className={s.kitField}>
+                        <span className={s.lbl}>ACE arsenal export</span>
+                        <textarea
+                            className={s.kitImportBox}
+                            rows={5}
+                            placeholder='Paste your ACE arsenal export'
+                            value={raw}
+                            onChange={e => setRaw(e.target.value)}
+                        />
+                    </label>
+                    </div>
+
+                    <footer className={s.modalFoot}>
+                        {error && <p className={s.kitImportError}>{error}</p>}
+                        <button type='button' className={s.btn} disabled={busy}
+                            onClick={() => setImporting(false)}>
+                            <UiIcon icon='close' />Cancel
+                        </button>
+                        <button type='button' className={`${s.btn} ${s.btnAcc}`} disabled={busy || !raw.trim()} onClick={submit}>
+                            <UiIcon icon='import' />{busy ? 'Importing' : 'Import'}
+                        </button>
+                    </footer>
+                </div>
+                </div>
+    )
+
+    // A file with no kits gets a blank slate instead of the picker and controls:
+    // a bare `+` above an empty panel collapses the tab to a single row, and the
+    // import dialog then opens over a strip of page with the footer beneath it.
+    // One clear invitation reads better than a toolbar for nothing.
+    const blank = isOwn && loadouts.length === 0
+
+    if (blank) {
+        return (
+            <>
+                <div className={`${s.kitBlank} ${s.kitBlankOwn}`}>
+                    <KitIcon icon='kit' size={30} />
+                    <p className={s.kitBlankTitle}>No kits recorded</p>
+                    <p className={s.kitBlankNote}>
+                        Import a kit from ACE arsenal to record what you carry. Kits stay
+                        private until you publish them.
+                    </p>
+                    <button type='button' className={`${s.btn} ${s.btnAcc}`} onClick={() => setImporting(true)}>
+                        <UiIcon icon='import' />Import a kit
+                    </button>
+                    {error && <p className={s.kitImportError}>{error}</p>}
+                </div>
+                {importDialog}
+            </>
+        )
+    }
 
     return (
         <>
@@ -335,11 +469,36 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
                 {active && (isOwn || active.shared) && (
                     <button
                         type='button'
-                        className={s.btn}
+                        className={`${s.btn} ${s.kitCopy}`}
+                        aria-live='polite'
+                        title='Copy the ACE arsenal export, to paste into the arsenal'
                         onClick={async () => { setCopied(await copyText(active.raw)); setTimeout(() => setCopied(false), 1800) }}
                     >
                         <UiIcon icon={copied ? 'check' : 'copy'} />
                         {copied ? 'Copied' : 'Copy kit'}
+                    </button>
+                )}
+
+                {/* Only for a published kit: the link would land anyone else on
+                    this member's default kit instead, since a private one is
+                    filtered out of the page before it is ever rendered. */}
+                {active?.shared && (
+                    <button
+                        type='button'
+                        className={s.btn}
+                        aria-live='polite'
+                        title='Copy a link straight to this kit'
+                        onClick={async () => {
+                            // Built from the canonical basePath rather than
+                            // window.location, so it is right even on a URL that
+                            // has not been redirected to the name slug yet.
+                            const url = `${window.location.origin}${basePath}?tab=kits&kit=${active.id}`
+                            setLinked(await copyText(url))
+                            setTimeout(() => setLinked(false), 1800)
+                        }}
+                    >
+                        <UiIcon icon={linked ? 'check' : 'link'} />
+                        {linked ? 'Link copied' : 'Share'}
                     </button>
                 )}
 
@@ -353,109 +512,7 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
 
             {error && !importing && <p className={s.kitImportError}>{error}</p>}
 
-            {/* A dialog rather than a panel that grows out of the kit row: the
-                form asks five things, and unfolding that much below the kits
-                pushed everything the member was looking at off the screen.
-                Rendered in place rather than through a portal — the palette and
-                the member's accent are custom properties on `.shell`, and a
-                portal to document.body would leave every one of them unresolved. */}
-            {isOwn && importing && (
-                <div
-                    className={s.modalBack}
-                    // mousedown, not click: a drag-select that starts inside the
-                    // dialog and ends on the backdrop must not close it.
-                    onMouseDown={e => { if (e.target === e.currentTarget) setImporting(false) }}
-                >
-                <div className={s.modal} role='dialog' aria-modal='true' aria-labelledby='kit-import-heading'>
-                    <header className={s.modalHead}>
-                        <h2 id='kit-import-heading'>Import a kit</h2>
-                        <button type='button' className={s.modalClose} aria-label='Close'
-                            onClick={() => setImporting(false)}>
-                            <UiIcon icon='close' size={14} />
-                        </button>
-                    </header>
-
-                    <div className={s.modalBody}>
-                    <p className={s.kitImportHelp}>
-                        In game, open ACE arsenal, load the kit you want to record, then click
-                        <strong> Export </strong> at the bottom of the arsenal screen and paste it below.
-                    </p>
-
-                    <label className={s.kitField}>
-                        <span className={s.lbl}>Name</span>
-                        <input
-                            className={s.kitImportName}
-                            placeholder='e.g. Section Medic'
-                            maxLength={MAX_NAME}
-                            value={name}
-                            onChange={e => setName(e.target.value)}
-                        />
-                    </label>
-
-                    <div className={s.kitField}>
-                        <span className={s.lbl}>Icon</span>
-                        <IconPicker value={importIcon} onPick={setImportIcon} />
-                    </div>
-
-                    <label className={s.kitField}>
-                        <span className={s.lbl}>Description — optional</span>
-                        <input
-                            className={s.kitImportName}
-                            placeholder='One line on what this kit is for'
-                            maxLength={MAX_DESCRIPTION}
-                            value={description}
-                            onChange={e => setDescription(e.target.value)}
-                        />
-                    </label>
-
-                    <div className={s.kitField}>
-                        <span className={s.lbl}>Visibility</span>
-                        <div>
-                            <button
-                                type='button'
-                                className={makePublic ? `${s.btn} ${s.kitPublic} ${s.kitPublicOn}` : `${s.btn} ${s.kitPublic}`}
-                                aria-pressed={makePublic}
-                                onClick={() => setMakePublic(v => !v)}
-                            >
-                                <Dot on={makePublic} />
-                                {makePublic ? 'Public' : 'Private'}
-                            </button>
-                        </div>
-                        {/* Stated at the moment of the decision rather than in a
-                            blanket warning above it: publishing is the one part of
-                            this form that other people can act on. */}
-                        <p className={s.kitFieldNote}>
-                            {makePublic
-                                ? 'Anyone can see this kit on your milpac and copy it from the unit kit shelf.'
-                                : 'Only you can see this kit. You can publish it later.'}
-                        </p>
-                    </div>
-
-                    <label className={s.kitField}>
-                        <span className={s.lbl}>ACE arsenal export</span>
-                        <textarea
-                            className={s.kitImportBox}
-                            rows={5}
-                            placeholder='Paste your ACE arsenal export'
-                            value={raw}
-                            onChange={e => setRaw(e.target.value)}
-                        />
-                    </label>
-                    </div>
-
-                    <footer className={s.modalFoot}>
-                        {error && <p className={s.kitImportError}>{error}</p>}
-                        <button type='button' className={s.btn} disabled={busy}
-                            onClick={() => setImporting(false)}>
-                            <UiIcon icon='close' />Cancel
-                        </button>
-                        <button type='button' className={`${s.btn} ${s.btnAcc}`} disabled={busy || !raw.trim()} onClick={submit}>
-                            <UiIcon icon='import' />{busy ? 'Importing' : 'Import'}
-                        </button>
-                    </footer>
-                </div>
-                </div>
-            )}
+            {importDialog}
         </>
     )
 }

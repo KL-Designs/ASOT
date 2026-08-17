@@ -814,6 +814,29 @@
         0 0 22px rgba(var(--pub-rgb), 0.38),
         inset 0 0 16px rgba(var(--pub-rgb), 0.14);
 }
+/* Copying a kit is the one thing a visitor came to this tab to do, and on
+   someone else's file it is the *only* thing — so it is lit in the member's own
+   accent rather than left as a grey chip among grey chips. On the community
+   shelf each card sets `--acc` to its owner's colour, so the button there
+   belongs to the kit it sits under. Green stays reserved for published state. */
+.kitCopy {
+    border-color: rgba(var(--acc-rgb), 0.55);
+    color: var(--acc);
+    background: rgba(var(--acc-rgb), 0.12);
+    text-shadow: 0 0 12px rgba(var(--acc-rgb), 0.45);
+    box-shadow:
+        0 0 16px rgba(var(--acc-rgb), 0.2),
+        inset 0 0 14px rgba(var(--acc-rgb), 0.07);
+}
+.kitCopy:hover {
+    color: var(--acc);
+    border-color: rgba(var(--acc-rgb), 0.9);
+    background: rgba(var(--acc-rgb), 0.2);
+    box-shadow:
+        0 0 22px rgba(var(--acc-rgb), 0.34),
+        inset 0 0 16px rgba(var(--acc-rgb), 0.12);
+}
+
 .kitDot {
     width: 6px;
     height: 6px;
@@ -1097,6 +1120,44 @@
         padding-top: 14px;
     }
     .kitWorn .kitWornItem { flex: 1 1 140px; }
+}
+
+/* ── nothing on file ─────────────────────────────────────────────────────── */
+
+/* A file with no kits still has to occupy roughly the space one with kits does.
+   Without a floor the tab collapses to a single line above the page footer, and
+   the import dialog then opens over a strip of page rather than over content. */
+.kitBlank {
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 30px 20px;
+    text-align: center;
+    color: var(--ink-3);
+}
+/* Dashed only for the owner: it reads as a slot waiting to be filled, which is
+   an invitation. A visitor has nothing to fill it with, so they get the message
+   without the affordance. */
+.kitBlankOwn {
+    border: 1px dashed var(--line-2);
+    border-radius: var(--r);
+}
+.kitBlankTitle {
+    margin: 4px 0 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+}
+.kitBlankNote {
+    margin: 0 0 6px;
+    max-width: 46ch;
+    font-size: 12.5px;
+    line-height: 1.65;
 }
 
 /* ── import dialog ───────────────────────────────────────────────────────── */

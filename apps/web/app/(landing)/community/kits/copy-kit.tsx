@@ -19,8 +19,9 @@ export function CopyKitButton({ raw, name }: { raw: string; name: string }) {
     return (
         <button
             type='button'
-            className={s.btn}
+            className={`${s.btn} ${s.kitCopy}`}
             aria-label={`Copy the ${name} kit export`}
+            aria-live='polite'
             onClick={async () => {
                 setCopied(await copyText(raw))
                 setTimeout(() => setCopied(false), 1800)

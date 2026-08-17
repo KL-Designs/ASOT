@@ -669,7 +669,14 @@ export default async function Page({ params, searchParams }: {
 							)
 							: isOwn
 								? <LoadoutManager isOwn activeId={null} loadouts={[]} basePath={`/milpacs/${profile.canonical}`} />
-								: <Empty text='No kit on record. Kits are imported from Arma.' />}
+									: (
+										// Wrapped so an empty file holds the same floor an
+										// occupied one does, rather than collapsing to a
+										// single line of text above the page footer.
+										<div className={s.kitBlank}>
+											<Empty text='No kit on record. Kits are imported from Arma.' />
+										</div>
+									)}
 					</Panel>
 				</div>
 			)}
