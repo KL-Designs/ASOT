@@ -40,6 +40,9 @@ export function DossierCard({ data }: { data: DossierData }) {
             width: '100%', height: '100%', background: '#08090a',
             display: 'flex', flexDirection: 'column',
             fontFamily: 'sans-serif', position: 'relative',
+            borderRadius: 20,
+            border: '3px solid #2f353d',
+            overflow: 'hidden',
         }}>
             {data.cover && (
                 <>
