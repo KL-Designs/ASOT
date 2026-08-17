@@ -9,7 +9,6 @@ import { buildUniformData, buildBoxData, computeUniformHash } from '@/lib/milpac
 import { AWARD_TO_CITATION } from '@/lib/milpac-gen/maps'
 import { certificateCodeForCitation, MEDALLION_CERTIFICATE_CODES, rankAbbrFromName } from '@asot/lib'
 import { RANK_TRACKS } from '@/lib/military/promotion-requirements'
-import { calculateOpPoints } from '@/lib/military/points'
 import { deriveStatus, platoonLabel } from '@/lib/military/milpac-status'
 import { ensureVisible, hexToRgbTriplet } from '@/lib/discord/color'
 import client from '@/lib/discord'
@@ -19,7 +18,7 @@ import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 import { hasCover as memberHasCover } from '@/lib/military/milpac-cover'
 import { resolveSegment } from '@/lib/military/milpac-slug'
-import { parseMilpacDate } from '@/lib/military/milpac-dates'
+import { loadConfirmedOps, resolvePromotionPoints, resolveEnlistedDate, durationSince } from '@/lib/military/milpac-stats'
 import { CoverUpload } from './cover-upload'
 import { BiographyEditor } from './bio-editor'
 import { RequestAwardButton } from './RequestAwardButton'
@@ -86,21 +85,6 @@ function getPromotionProgress(currentRankAbbr: string | undefined, points: numbe
 	const pct = Math.min(100, Math.max(0, ((points - from) / (next.minPts - from)) * 100))
 	return { atMax: false as const, nextRank: next.abbr, required: next.minPts, current: points, pct, billetOnly: false as const }
 }
-
-/** Rough duration between a stored date string and now, as `2.4Y` / `7M`.
- *
- *  Parsing lives in `lib/military/milpac-dates` because the certificate route
- *  reads the same free-form fields, and two parsers for one format drift.
- *  Anything unparseable yields null and the row renders an em-dash, not `NaN`.
- */
-function durationSince(raw?: string | null): string | null {
-	const d = parseMilpacDate(raw)
-	if (!d) return null
-	const months = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
-	if (months < 0) return null
-	return months < 12 ? `${Math.max(0, Math.round(months))}M` : `${(months / 12).toFixed(1)}Y`
-}
-
 
 async function resolveProfile(segment: string) {
 	const allMembers = await client.fetchAllMembers()
@@ -223,66 +207,13 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 	const canRequestAward = me !== null && me.id !== member.id && !member.isSkeletonAccount
 	const hasCover        = memberHasCover(member.id)
 
-	// Fetch confirmed attendance for operation history + stat bar count
-	const attendanceDocs = await Db.operationAttendance.find({
-		records: { $elemMatch: { userId: member.id, confirmed: true } },
-	}).toArray()
-	const operationIds = attendanceDocs.map(d => d.operationId)
-	const operationsData = operationIds.length > 0
-		// Soft-deleted operations were previously shown in public op history.
-		? await Db.operations.find({ _id: { $in: operationIds }, deletedAt: { $exists: false } }).toArray()
-		: []
-	const opMap    = new Map(operationsData.map(o => [String(o._id), o]))
-	const seenOpIds = new Set<string>()
-	const confirmedOps = attendanceDocs.flatMap(doc => {
-		const opId = String(doc.operationId)
-		if (seenOpIds.has(opId)) return []
-		seenOpIds.add(opId)
-		const rec = doc.records.find(r => r.userId === member.id && r.confirmed)
-		if (!rec) return []
-		const op = opMap.get(opId)
-		if (!op) return []
-		return [{
-			operationId: opId,
-			name:        op.title ?? 'Unknown Operation',
-			date:        op.date ? new Date(op.date) : null,
-			confirmedAt: rec.confirmedAt ? new Date(rec.confirmedAt) : null,
-			// Snapshotted per record: where this member sat AT THAT OPERATION,
-			// which is what makes the Recent Operations line show progression
-			// rather than repeating their current posting.
-			unit:        rec.unit ?? null,
-			section:     rec.orbatSection ?? null,
-			role:        rec.orbatRole ?? null,
-			ocap:        op.ocap ?? null,
-		}]
-	})
+	// Confirmed attendance drives both the operation history panel and the stat bar.
+	const confirmedOps = await loadConfirmedOps(member.id)
 
-	// Promotion points — recalculate live (matches editor logic):
-	// non-op points from stored billetCounts + live op points from confirmed attendance
-	const liveOpPts = calculateOpPoints(confirmedOps)
-	const billetCounts = member.milpac?.billetCounts
-	let promotionPts: number
-	if (billetCounts) {
-		const { calculatePromotionPoints } = await import('@/lib/military/points')
-		promotionPts = calculatePromotionPoints({
-			...billetCounts,
-			primaryNightOps:   0,
-			secondaryNightOps: 0,
-			awards:         (member.milpac?.awards        ?? []).map(a => ({ name: a.name })),
-			qualifications: (member.milpac?.qualifications ?? []).map(q => ({ qualification: q.qualification })),
-			j4Points:             member.milpac?.j4Points             ?? 0,
-			disciplineDeductions: member.milpac?.disciplineDeductions  ?? 0,
-		}) + liveOpPts
-	} else {
-		promotionPts = (member.milpac?.promotionPoints ?? 0)
-	}
+	const promotionPts = resolvePromotionPoints(member, confirmedOps)
 	const progress = getPromotionProgress(member.milpac?.currentRank, promotionPts)
 
-	// Enlisted date — prefer stored milpac date, fall back to Discord guild join
-	const enlistedDate = member.milpac?.enlistedDate
-		|| (member.guild?.joinedTimestamp
-			? new Date(member.guild.joinedTimestamp).toLocaleDateString('en-AU', { year: 'numeric', month: 'short', day: 'numeric' })
-			: null)
+	const enlistedDate = resolveEnlistedDate(member)
 
 	// The SteamID64 is not on the user document; the public join flow stamps the
 	// Discord id onto the application that carries it, so it is recoverable for
