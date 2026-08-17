@@ -1,12 +1,24 @@
 import { ImageResponse } from 'next/og'
 import client from '@/lib/discord'
+import Db from '@/lib/mongo'
 import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
+import { deriveStatus, platoonLabel } from '@/lib/military/milpac-status'
+import { ensureVisible } from '@/lib/discord/color'
 import { defaultAvatarURL } from '@/lib/discord/avatar'
 
 export const size = { width: 1300, height: 630 }
 export const contentType = 'image/png'
 
+/**
+ * The share card, in the same personnel-file language as the profile itself.
+ *
+ * Everything is inline style because this renders through satori, not a browser:
+ * no stylesheet, no CSS custom properties, no film grain (satori has no
+ * repeating-linear-gradient). The accent is threaded through by hand instead,
+ * and passed through ensureVisible() so a near-black Discord accent does not
+ * vanish into the card.
+ */
 export default async function Image({ params }: { params: Promise<{ username: string }> }) {
     const { username } = await params
 
@@ -15,9 +27,9 @@ export default async function Image({ params }: { params: Promise<{ username: st
 
     if (!member) {
         return new ImageResponse(
-            <div style={{ width: '100%', height: '100%', background: 'rgb(10,10,10)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ color: 'rgba(237,237,237,0.3)', fontSize: 32, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                    Member Not Found
+            <div style={{ width: '100%', height: '100%', background: '#08090a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ color: '#6b7480', fontSize: 30, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase' }}>
+                    No personnel file
                 </span>
             </div>,
             { ...size }
@@ -25,114 +37,147 @@ export default async function Image({ params }: { params: Promise<{ username: st
     }
 
     const orbatEntry = await getOrbatEntryByUserId(member.id)
+    const { accent: rawAccent, name, fullRank } = resolveMilpacProfile(member, orbatEntry)
+    const accent = ensureVisible(rawAccent)
 
-    const { accent, name, fullRank } = resolveMilpacProfile(member, orbatEntry)
+    const status  = deriveStatus(Boolean(member.discharged), orbatEntry?.category)
+    const platoon = platoonLabel(orbatEntry?.category)
 
-    const nameFontSize = name.length > 18 ? 52 : name.length > 14 ? 64 : name.length > 10 ? 78 : 96
+    const attendance = await Db.operationAttendance.countDocuments({
+        records: { $elemMatch: { userId: member.id, confirmed: true } },
+    }).catch(() => 0)
 
-    const enlistedDate = member.milpac?.enlistedDate
-        || (member.guild?.joinedTimestamp ? new Date(member.guild.joinedTimestamp).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) : null)
+    const awards = member.milpac?.awards?.length ?? 0
+    const quals  = member.milpac?.qualifications?.length ?? 0
+
+    // Enlisted year alone: a full date earns no room at this size.
+    const enlisted = member.milpac?.enlistedDate?.match(/\d{4}/)?.[0]
+        ?? (member.guild?.joinedTimestamp ? String(new Date(member.guild.joinedTimestamp).getFullYear()) : '—')
 
     const avatarUrl = member.avatar
         ? `https://cdn.discordapp.com/avatars/${member.id}/${member.avatar}.${member.avatar.startsWith('a_') ? 'gif' : 'png'}?size=256`
         : defaultAvatarURL(member.id)
+
+    const nameSize = name.length > 20 ? 62 : name.length > 15 ? 76 : name.length > 10 ? 92 : 106
+    const meta = [platoon, orbatEntry?.section, orbatEntry?.role].filter(Boolean).join('  ·  ')
+
+    const LABEL = {
+        fontSize: 17,
+        letterSpacing: '0.22em',
+        textTransform: 'uppercase' as const,
+        color: '#6b7480',
+        fontWeight: 600,
+    }
+
+    const stats: [string, string, boolean][] = [
+        [String(attendance), 'Operations', true],
+        [enlisted, 'Enlisted', true],
+        [String(awards), 'Awards', false],
+        [String(quals), 'Qualifications', false],
+    ]
 
     return new ImageResponse(
         <div
             style={{
                 width: '100%',
                 height: '100%',
-                background: 'rgb(8,8,8)',
-                borderTop: `4px solid ${accent}`,
-                borderRadius: 24,
-                overflow: 'hidden',
+                background: '#08090a',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'center',
-                padding: '52px 80px',
                 fontFamily: 'sans-serif',
+                position: 'relative',
             }}
         >
-            {/* Gradient overlay */}
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: `linear-gradient(160deg, ${accent}22 0%, ${accent}0a 45%, transparent 100%)`, display: 'flex' }} />
+            {/* A single low sun in the accent, echoing the profile's banner. The
+                only colour on the card besides the accent itself. */}
+            <div style={{
+                position: 'absolute', top: -140, right: -60, width: 720, height: 720,
+                borderRadius: 720,
+                background: `radial-gradient(circle, ${accent}2e 0%, ${accent}0d 45%, #08090a00 70%)`,
+                display: 'flex',
+            }} />
 
-            {/* Content row */}
-            <div style={{ display: 'flex', gap: 64, alignItems: 'center', flex: 1 }}>
-                {/* Avatar */}
-                <div
-                    style={{
-                        width: 240,
-                        height: 240,
-                        borderRadius: '50%',
-                        overflow: 'hidden',
-                        flexShrink: 0,
-                        border: `4px solid ${accent}80`,
-                        display: 'flex',
-                    }}
-                >
-                    <img src={avatarUrl} width={240} height={240} style={{ objectFit: 'cover' }} alt='' />
-                </div>
+            {/* The dossier's panel tick, at the card's own top-left corner. */}
+            <div style={{ position: 'absolute', top: 0, left: 0, width: 96, height: 5, background: accent, display: 'flex' }} />
 
-                {/* Info */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 18, flex: 1 }}>
-                    {fullRank && (
-                        <span style={{ fontSize: 24, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: `${accent}cc` }}>
-                            {fullRank}
-                        </span>
-                    )}
+            {/* Ridgeline, bottom third, well under the type. */}
+            <svg width={1300} height={200} viewBox='0 0 1300 200' style={{ position: 'absolute', left: 0, bottom: 96 }}>
+                <path d='M0 120 L150 88 L300 124 L450 84 L600 128 L760 92 L920 130 L1080 88 L1240 126 L1300 104 V200 H0 Z' fill='#101319' />
+                <path d='M0 156 L200 138 L400 166 L600 142 L800 170 L1000 146 L1200 172 L1300 152 V200 H0 Z' fill='#0b0e12' />
+            </svg>
 
-                    <span style={{ fontSize: nameFontSize, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.95)', lineHeight: 1 }}>
-                        {name}
-                    </span>
+            {/* Top bar */}
+            <div style={{
+                display: 'flex', alignItems: 'center', height: 76,
+                padding: '0 64px', borderBottom: '1px solid #1e232b',
+            }}>
+                <span style={{ ...LABEL, color: '#a8b0ba' }}>Australian Special Operations Taskforce</span>
+                <span style={{ ...LABEL, marginLeft: 'auto', color: status.key === 'discharged' ? '#c05a48' : '#7fae5c' }}>
+                    {status.label}
+                </span>
+            </div>
 
-                    {orbatEntry && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 4 }}>
-                            <span style={{
-                                padding: '8px 22px',
-                                border: `1px solid ${accent}50`,
-                                background: `${accent}18`,
-                                fontSize: 22,
-                                fontWeight: 700,
-                                letterSpacing: '0.14em',
-                                textTransform: 'uppercase',
-                                color: `${accent}ee`,
-                            }}>
-                                {orbatEntry.role}
-                            </span>
-                            <span style={{
-                                padding: '8px 22px',
-                                border: '1px solid rgba(237,237,237,0.1)',
-                                background: 'rgba(237,237,237,0.04)',
-                                fontSize: 22,
-                                fontWeight: 600,
-                                letterSpacing: '0.14em',
-                                textTransform: 'uppercase',
-                                color: 'rgba(237,237,237,0.4)',
-                            }}>
-                                {orbatEntry.section}
-                            </span>
+            {/* Identity */}
+            <div style={{ display: 'flex', alignItems: 'center', padding: '0 64px', flex: 1 }}>
+                <div style={{ display: 'flex', position: 'relative', marginRight: 52 }}>
+                    <img
+                        src={avatarUrl}
+                        width={228}
+                        height={228}
+                        style={{ borderRadius: 4, border: '1px solid #2a3038', objectFit: 'cover' }}
+                    />
+                    {/* Accent ring, inset — the same framing the page gives it. */}
+                    <div style={{
+                        position: 'absolute', top: 0, left: 0, width: 228, height: 228,
+                        border: `1px solid ${accent}66`, borderRadius: 4, display: 'flex',
+                    }} />
+                    {member.milpac?.currentRank && (
+                        <div style={{
+                            position: 'absolute', left: 0, bottom: 0,
+                            display: 'flex', padding: '6px 12px',
+                            background: '#08090ae0', borderTop: '1px solid #2a3038', borderRight: '1px solid #2a3038',
+                            fontSize: 20, letterSpacing: '0.12em', color: accent,
+                        }}>
+                            {member.milpac.currentRank}
                         </div>
                     )}
+                </div>
 
-                    <div style={{ display: 'flex', gap: 20, alignItems: 'center', marginTop: 4 }}>
-                        <span style={{ fontSize: 26, color: 'rgba(237,237,237,0.25)', letterSpacing: '0.12em' }}>
-                            @{member.username}
+                <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                    <span style={{ fontSize: 21, letterSpacing: '0.26em', textTransform: 'uppercase', color: accent }}>
+                        {fullRank || 'Serving member'}
+                    </span>
+                    <span style={{
+                        fontSize: nameSize, fontWeight: 800, letterSpacing: '-0.01em',
+                        textTransform: 'uppercase', color: '#e8eaed', lineHeight: 1.04, marginTop: 6,
+                    }}>
+                        {name}
+                    </span>
+                    {meta && (
+                        <span style={{ fontSize: 23, color: '#a8b0ba', letterSpacing: '0.04em', marginTop: 14 }}>
+                            {meta}
                         </span>
-                        {enlistedDate && (
-                            <span style={{ fontSize: 22, color: 'rgba(237,237,237,0.15)', letterSpacing: '0.1em' }}>
-                                Enlisted {enlistedDate}
-                            </span>
-                        )}
-                    </div>
+                    )}
                 </div>
             </div>
 
-            {/* Footer */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 32 }}>
-                <div style={{ width: 3, height: 3, borderRadius: '50%', background: `${accent}60` }} />
-                <span style={{ fontSize: 20, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.15)' }}>
-                    Australian Special Operations Task Force
-                </span>
+            {/* Stat strip — the same four figures the profile leads with. */}
+            <div style={{ display: 'flex', borderTop: '1px solid #1e232b' }}>
+                {stats.map(([value, label, isAccent], i) => (
+                    <div
+                        key={label}
+                        style={{
+                            display: 'flex', flexDirection: 'column', flex: 1,
+                            padding: '22px 64px 26px',
+                            borderRight: i < stats.length - 1 ? '1px solid #1e232b' : 'none',
+                        }}
+                    >
+                        <span style={{ fontSize: 46, fontWeight: 600, color: isAccent ? accent : '#e8eaed', lineHeight: 1 }}>
+                            {value}
+                        </span>
+                        <span style={{ ...LABEL, fontSize: 15, marginTop: 9 }}>{label}</span>
+                    </div>
+                ))}
             </div>
         </div>,
         { ...size }
