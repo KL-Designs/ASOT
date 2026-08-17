@@ -23,3 +23,18 @@ export function ensureVisible(hex: string, minLuminance = 0.25): string {
     const toHex = (v: number) => clamp(v).toString(16).padStart(2, '0')
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`
 }
+
+/** The channel triplet of an accent hex, as `"212,160,58"`.
+ *
+ *  For CSS custom properties: the milpac profile tints with
+ *  `rgba(var(--acc-rgb), .12)` throughout, which needs the channels separately
+ *  rather than a colour. Returns mid-grey for anything unparseable so a bad
+ *  stored value degrades to a readable page rather than an invalid rule that
+ *  takes every tint with it.
+ */
+export function hexToRgbTriplet(hex: string): string {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+    if (!m) return '136,136,136'
+    const n = parseInt(m[1], 16)
+    return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`
+}
