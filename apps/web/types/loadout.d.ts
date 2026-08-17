@@ -17,8 +17,18 @@ declare global {
         /** Discord id, as every other member-scoped collection keys on. */
         userId: string
         name: string
+        /** A line on what the kit is for. Optional; shown on the unit's shelf. */
+        description?: string
+        /** A `KitIconKey` from lib/loadout/kit-icons. Absent/unknown renders the default. */
+        icon?: string
         isDefault: boolean
-        /** Opt-in: may other members copy the export string? */
+        /**
+         * Opt-in publication. A shared ("public") kit appears on the owner's
+         * milpac and on /community/kits for anyone to copy; an unshared one is
+         * only ever sent to the owner's own browser. This is the whole privacy
+         * boundary for the collection — every read of another member's kits
+         * must filter on it.
+         */
         shared: boolean
         /** The ACE arsenal export as pasted, whitespace-trimmed. The source of truth. */
         raw: string

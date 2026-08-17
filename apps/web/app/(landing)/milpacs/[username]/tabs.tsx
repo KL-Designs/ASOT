@@ -7,7 +7,7 @@ import s from './profile.module.css'
  * The file's section tabs, sitting on the rule under the hero's stat strip.
  *
  * Real links, not client state. The server renders the requested tab, so there
- * is no flash of the wrong section and a link to `?tab=kit` works when pasted
+ * is no flash of the wrong section and a link to `?tab=kits` works when pasted
  * into Discord. It also buys the entrance stagger for free: a soft navigation
  * remounts the panels, so their `.rise` animation replays and each tab lays
  * itself out rather than appearing all at once.

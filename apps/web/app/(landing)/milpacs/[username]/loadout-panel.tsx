@@ -87,7 +87,7 @@ export function LoadoutPanel({ loadout, actions }: { loadout: MemberLoadout; act
         kit = parseLoadout(loadout.raw)
     } catch (err) {
         console.error('[loadout] could not parse stored loadout', loadout._id, err)
-        return <p className={s.empty}>This loadout could not be read. Re-import it from ACE arsenal.</p>
+        return <p className={s.empty}>This kit could not be read. Re-import it from ACE arsenal.</p>
     }
 
     const worn: [string, Slot, string | null][] = [

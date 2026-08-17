@@ -3,11 +3,8 @@ import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logAction'
 import { parseLoadout, LoadoutParseError } from '@/lib/loadout/parse'
-
-/** Bounds, not preferences — see the plan's Global Constraints. */
-const MAX_RAW_BYTES = 65536
-const MAX_PER_MEMBER = 12
-const MAX_NAME = 40
+import { MAX_NAME, MAX_DESCRIPTION, MAX_RAW_BYTES, MAX_PER_MEMBER } from '@/lib/loadout/limits'
+import { isKitIcon } from '@/lib/loadout/kit-icons'
 
 export async function POST(req: Request) {
     const me = await client.fetchMe().catch(() => null)
@@ -16,10 +13,20 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null)
     const raw = typeof body?.raw === 'string' ? body.raw.trim() : ''
     const name = (typeof body?.name === 'string' ? body.name : '').trim().slice(0, MAX_NAME) || 'Standard'
+    const description = (typeof body?.description === 'string' ? body.description : '')
+        .trim().slice(0, MAX_DESCRIPTION)
+
+    // Private unless the member said otherwise. Publication is the one thing
+    // here that cannot be quietly undone — a kit copied off the shelf is copied.
+    const shared = body?.shared === true
+
+    // Validated against the key list, not merely typed: it becomes a Record
+    // lookup on a public page. An unknown value is dropped, not stored.
+    const icon = isKitIcon(body?.icon) ? body.icon : undefined
 
     if (!raw) return NextResponse.json({ error: 'Paste your ACE arsenal export first.' }, { status: 400 })
     if (Buffer.byteLength(raw) > MAX_RAW_BYTES) {
-        return NextResponse.json({ error: 'That export is too large to be a loadout.' }, { status: 400 })
+        return NextResponse.json({ error: 'That export is too large to be a kit.' }, { status: 400 })
     }
 
     // Parse to validate only — the parsed form is never stored.
@@ -33,7 +40,7 @@ export async function POST(req: Request) {
     const existing = await Db.loadouts.countDocuments({ userId: me.id })
     if (existing >= MAX_PER_MEMBER) {
         return NextResponse.json(
-            { error: `You already have ${MAX_PER_MEMBER} loadouts — delete one first.` },
+            { error: `You already have ${MAX_PER_MEMBER} kits — delete one first.` },
             { status: 400 },
         )
     }
@@ -42,10 +49,12 @@ export async function POST(req: Request) {
     const result = await Db.loadouts.insertOne({
         userId: me.id,
         name,
+        ...(description ? { description } : {}),
+        ...(icon ? { icon } : {}),
         // The first loadout a member imports is their default; there is no
         // sensible alternative and it saves them a second click.
         isDefault: existing === 0,
-        shared: false,
+        shared,
         raw,
         createdAt: now,
         updatedAt: now,
@@ -58,7 +67,7 @@ export async function POST(req: Request) {
     if (await Db.loadouts.countDocuments({ userId: me.id }) > MAX_PER_MEMBER) {
         await Db.loadouts.deleteOne({ _id: result.insertedId, userId: me.id })
         return NextResponse.json(
-            { error: `You already have ${MAX_PER_MEMBER} loadouts — delete one first.` },
+            { error: `You already have ${MAX_PER_MEMBER} kits — delete one first.` },
             { status: 400 },
         )
     }

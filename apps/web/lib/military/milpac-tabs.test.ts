@@ -20,23 +20,25 @@ describe('resolveTab', () => {
     })
 
     test('an unrecognised value falls back rather than rendering nothing', () => {
+        // 'loadout' was this tab's key before the unit's own word replaced it.
+        expect(resolveTab('loadout')).toBe('overview')
         expect(resolveTab('kit')).toBe('overview')
         expect(resolveTab('../../etc/passwd')).toBe('overview')
         expect(resolveTab('__proto__')).toBe('overview')
     })
 
     test('a repeated query param takes the first value', () => {
-        // ?tab=loadout&tab=record arrives as an array; picking one beats throwing.
-        expect(resolveTab(['loadout', 'record'])).toBe('loadout')
-        expect(resolveTab(['nonsense', 'loadout'])).toBe('overview')
+        // ?tab=kits&tab=record arrives as an array; picking one beats throwing.
+        expect(resolveTab(['kits', 'record'])).toBe('kits')
+        expect(resolveTab(['nonsense', 'kits'])).toBe('overview')
         expect(resolveTab([])).toBe('overview')
     })
 
     test('matching is exact, not case-insensitive or trimmed', () => {
         // The links this app generates are always lowercase, so anything else
         // is hand-typed and better served by the default than by a guess.
-        expect(resolveTab('LOADOUT')).toBe('overview')
-        expect(resolveTab(' loadout')).toBe('overview')
+        expect(resolveTab('KITS')).toBe('overview')
+        expect(resolveTab(' kits')).toBe('overview')
     })
 
     test('every tab has a key and a label, and keys are unique', () => {

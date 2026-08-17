@@ -1,0 +1,208 @@
+/*
+ * The community kit index.
+ *
+ * The design system itself — the tokens, the shell, the grain, the panel with
+ * its corner tick — is `profile.module.css`, and this page wears it directly:
+ * `.shell` and `.panel` come from there, and the custom properties they define
+ * inherit down into everything classed from this file. Only what is genuinely
+ * new to a shelf of other people's kits lives here.
+ *
+ * `--acc` is set per card to the owner's own Discord accent, the same colour
+ * their milpac uses. The page chrome falls back to the unit red.
+ */
+
+/* ── header ──────────────────────────────────────────────────────────────── */
+
+.head {
+    padding: clamp(30px, 6vw, 62px) var(--pad) clamp(22px, 3vw, 34px);
+    border-bottom: 1px solid var(--line);
+    background: radial-gradient(ellipse at 20% 0%, rgba(var(--acc-rgb), 0.09) 0%, transparent 62%);
+}
+.headTitle {
+    margin: 0;
+    font-size: clamp(26px, 5.5vw, 46px);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.05;
+}
+.headRule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0 0;
+    max-width: 420px;
+}
+.headRule::before {
+    content: "";
+    width: 44px;
+    height: 2px;
+    background: var(--acc);
+    flex-shrink: 0;
+}
+.headRule::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--line-2);
+}
+.headNote {
+    margin: 16px 0 0;
+    max-width: 66ch;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink-2);
+}
+
+/* ── the shelf ───────────────────────────────────────────────────────────── */
+
+/* Wide enough for a full ASOT item name on one line. They are long by
+   convention — "[ASOT] ADF Patrol Pack Bullock [Medic] (AMCU)" — and a card
+   sized to the shortest of them wraps most of the list to two lines, which
+   makes four gear rows look like eight.
+   `min(100%, …)` rather than a bare 440px so a phone gets one column that fits
+   its screen instead of a column wider than the viewport. */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr));
+    gap: 16px;
+    padding: clamp(20px, 3vw, 30px) var(--pad);
+    align-items: stretch;
+}
+
+/* A column so the footer sits on the floor of every card regardless of how
+   many attachments the rifle above it carries — a ragged row of buttons would
+   undo the grid. */
+.card {
+    display: flex;
+    flex-direction: column;
+    transition: 0.2s border-color, 0.2s transform, 0.2s box-shadow;
+}
+.card:hover {
+    border-color: rgba(var(--acc-rgb), 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.cardHead {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+}
+.cardAvatar {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border: 1px solid var(--line-2);
+    border-radius: 100%;
+    overflow: hidden;
+}
+.cardWho { flex: 1 1 auto; min-width: 0; }
+
+/* The kit is the subject here and the member is the byline — the reverse of
+   the milpac, where the member is the subject. */
+.cardName {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+.cardName > svg { flex-shrink: 0; }
+.card:hover .cardName { color: var(--acc); }
+.cardOwner {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cardMain {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    padding: 15px 16px;
+}
+
+/* The owner's sentence about the kit. Prose, unlike everything else on the card,
+   because that is what it is — the one line here a person wrote rather than a
+   classname the dictionary resolved. */
+.cardBlurb {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ink-2);
+}
+
+.cardWeapon { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink); }
+.cardWeapon > svg { flex-shrink: 0; }
+.cardWeaponName { min-width: 0; overflow-wrap: anywhere; }
+
+.cardAtt { display: flex; flex-wrap: wrap; gap: 5px 11px; }
+.cardAttItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+}
+
+.gear { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.gearRow { display: flex; align-items: flex-start; gap: 9px; font-size: 12px; color: var(--ink-2); }
+/* Aligned to the first line rather than the block, so a name that wraps to two
+   lines does not float its icon into the gap between them. */
+.gearRow > svg { flex-shrink: 0; margin-top: 2px; }
+.gearLabel {
+    flex-shrink: 0;
+    width: 50px;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding-top: 2px;
+}
+.gearName { min-width: 0; overflow-wrap: anywhere; }
+
+.cardFoot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--line);
+}
+.cardCount {
+    margin-right: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--acc);
+    white-space: nowrap;
+}
+
+/* ── nothing to show ─────────────────────────────────────────────────────── */
+
+.none {
+    margin: 0;
+    padding: clamp(40px, 8vw, 90px) var(--pad);
+    text-align: center;
+    color: var(--ink-3);
+    font-size: 13px;
+    line-height: 1.8;
+}
+.none strong { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .card:hover { transform: none; }
+}

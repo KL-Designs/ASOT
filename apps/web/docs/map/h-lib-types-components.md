@@ -189,8 +189,22 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `parseLoadout(raw): ParsedLoadout` — parses an ACE arsenal export (ARMA's *positional* `getUnitLoadout` array — slot 6 is headgear because it is sixth — but valid JSON, so no SQF parser needed) into a render-ready shape: `primary`/`launcher`/`handgun`/`binocular` (`WeaponSlot`: className + muzzle/pointer/optic/bipod + up to 2 magazines), `uniform`/`vest`/`backpack` (`Container`: className + `Stack[]` contents), `headgear`/`facewear` (className or null), `assigned` (map/gps/radio/compass/watch/nvg). Throws `LoadoutParseError` (with a user-facing message) on invalid JSON, non-array input, or a slot count other than 10. Nothing here is stored — `MemberLoadout.raw` is the record; this runs at render, so improving the parser improves every existing loadout with no migration.
 - `LoadoutParseError` — `Error` subclass, `name: 'LoadoutParseError'`.
 
+### lib/loadout/select.ts
+- `pickLoadoutId(raw, loadouts): string | null` — which kit a `?kit=` value selects, falling back to the member's default and then to the first of the list for anything unrecognised, absent or repeated; `null` only when the member has none. Viewing is deliberately separate from the default — the old `<select>` switcher set `isDefault` just to change what was on screen. Kept in `lib/` so it can be unit-tested; `select.test.ts`.
+
+### lib/loadout/limits.ts
+- `MAX_NAME` (40), `MAX_DESCRIPTION` (160), `MAX_RAW_BYTES` (65536), `MAX_PER_MEMBER` (12) — bounds on what a member may store per kit, imported by both loadout API routes and the import form so the field that stops typing and the value the server truncates cannot drift. Replaces two separate copies of `MAX_NAME` that lived in the two route files.
+
+### lib/loadout/kit-icons.ts
+- `KIT_ICON_PATHS` — 19 role-shaped badges a member can pick for a kit (`kit`, `rifle`, `crosshair`, `medic`, `radio`, `explosive`, `grenade`, `binoculars`, `wrench`, `rocket`, `shield`, `star`, `chevron`, `parachute`, `wings`, `skull`, `compass`, `flag`, `helmet`), as 24x24 `currentColor` path data — same grid and convention as `components/loadout/icons.tsx`. Path data lives in `lib/` rather than beside the component because both loadout API routes validate against it and must not pull JSX into a route handler.
+- `KitIconKey`, `KIT_ICON_KEYS`, `DEFAULT_KIT_ICON` (`kit`) — the key type, the picker's order, and what an absent or unrecognised value renders.
+- `isKitIcon(v)` / `kitIcon(v)` — narrow, or resolve-with-fallback. The check is against the **key list**, not `key in KIT_ICON_PATHS`: the value arrives in a JSON body and becomes a `Record` lookup on a public page, so `__proto__`/`constructor` must fall through to the default rather than resolve. Unit-tested in `kit-icons.test.ts`.
+
+### lib/loadout/summary.ts
+- `summariseLoadout(kit: ParsedLoadout): KitSummary` — the headline of a kit for the `/community/kits` shelf: primary weapon + its attachments in arsenal order, headgear/uniform/vest/backpack classnames, and `itemCount`. Stacks count by multiplicity (six magazines is six items, not one) and worn/held gear counts too, so a kit that is all worn gear and no cargo does not read as empty; a non-finite stack count is skipped rather than turning the card's count into `NaN`. Pure; unit-tested in `summary.test.ts`.
+
 ### lib/military/milpac-tabs.ts
-- `MILPAC_TABS` — the three sections a milpac is split into (`overview`, `record`, `loadout`) with their labels. The split is conceptual: who the member is, what they have earned, what they carry.
+- `MILPAC_TABS` — the three sections a milpac is split into (`overview`, `record`, `kits`) with their labels. The split is conceptual: who the member is, what they have earned, what they carry. "Kits" is the unit's word for the third; the code beneath it still says loadout (the collection, the API routes, `lib/loadout/`), which is ARMA's own term for the exported array — renaming those would mean a data migration for no reader-facing gain.
 - `MilpacTab` — union of the keys.
 - `resolveTab(raw)` — the tab a `?tab=` value selects, falling back to the first for anything unrecognised, absent, wrongly-cased or repeated. Kept in `lib/` rather than beside the component so it can be unit-tested; `milpac-tabs.test.ts`.
 
@@ -198,6 +212,7 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `resolveItemName(className)` — Arma classname to readable name: hand overrides, then the generated dictionary, then `prettifyClassName`. Never returns empty.
 - `prettifyClassName(className)` — the fallback: strips vendor prefix and type infix, splits camelCase, title-cases. Unit-tested in `names.test.ts`.
 - `itemMeta(className)` — `{name, root, type, mod}` from the dictionary, or null. The classifier's input.
+- `components/loadout/kit-icons.tsx` — `KitIcon` (renders a `KitIconKey` from the paths above) and `UiIcon` (marks for the kit controls: copy, trash, import, check, close, pencil, eye, open). Both stroke `currentColor`, so a button's own colour — including the danger red and the published green — carries into its icon without the icon knowing about it.
 - `generated/arma-items.json` — 31,582 entries, `{class: [name, root, ItemInfo.type, sourceMod]}`, ~2.7MB, **server-side only**. Rebuild with `node scripts/build-item-dictionary.mjs` from `generated/itemdump.txt`, which itself comes from running `lib/loadout/dump-items.sqf` in-game and extracting the `ITEMDUMP` block from the `.rpt`.
 
 ### lib/military/milpac-cover.ts
@@ -405,7 +420,7 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 - `GalleryAPI` — the shape returned by the gallery listing API: `{info, updated, featured[], years[{year, operations[{operation, stages[{stage, media[]}]}]}]}`.
 
 ### types/loadout.d.ts
-- `MemberLoadout` — `{_id, userId, name, isDefault, shared, raw, createdAt, updatedAt}`. Only `raw` (the ACE arsenal export, verbatim) is stored — `lib/loadout/parse.ts` parses at render, so improving the parser needs no migration. Web-only (not in the monorepo-root `types/`): `User` is shared with apps/bot and an unbounded per-member list has no business bloating every bot fetch of it.
+- `MemberLoadout` — `{_id, userId, name, description?, icon?, isDefault, shared, raw, createdAt, updatedAt}`. `icon` is a `KitIconKey` (`lib/loadout/kit-icons.ts`); absent or unrecognised renders `DEFAULT_KIT_ICON`. `shared` is the collection's whole privacy boundary: a shared ("public") kit appears on the owner's milpac and on `/community/kits` for anyone to copy, an unshared one is only ever sent to the owner's own browser — so **every read of another member's kits must filter on it**. Only `raw` (the ACE arsenal export, verbatim) is stored — `lib/loadout/parse.ts` parses at render, so improving the parser needs no migration. Web-only (not in the monorepo-root `types/`): `User` is shared with apps/bot and an unbounded per-member list has no business bloating every bot fetch of it.
 
 ### types/meetingNotifQueue.d.ts
 - `MeetingNotifQueueRecord` — time-delayed meeting notification queue entry (`fireAt`, `firedAt?`, `recipientUserId` xor `recipientRole`).

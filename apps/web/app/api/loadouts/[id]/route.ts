@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
-
-const MAX_NAME = 40
+import { MAX_NAME, MAX_DESCRIPTION } from '@/lib/loadout/limits'
+import { isKitIcon } from '@/lib/loadout/kit-icons'
 
 /**
  * Both handlers scope every query by `userId: me.id`. The id in the URL is
@@ -31,6 +31,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     if (typeof body?.name === 'string' && body.name.trim()) set.name = body.name.trim().slice(0, MAX_NAME)
     if (typeof body?.shared === 'boolean') set.shared = body.shared
+    // Accepted with no UI behind it yet, so a description written at import time
+    // is correctable rather than permanent-until-reimport.
+    if (typeof body?.description === 'string') set.description = body.description.trim().slice(0, MAX_DESCRIPTION)
+    // Same key-list check the create route uses — an unknown icon is ignored
+    // rather than written, so a stored value is always renderable.
+    if (isKitIcon(body?.icon)) set.icon = body.icon
 
     if (body?.isDefault === true) {
         // Exactly one default per member: clear the others first.

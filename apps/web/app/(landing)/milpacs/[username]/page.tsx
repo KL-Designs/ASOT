@@ -30,6 +30,8 @@ import { Panel, Rows, Row, Empty, MedallionIcon, MEDALLION_ART, MonthChart, buck
 import { LoadoutPanel } from './loadout-panel'
 import { MilpacTabs } from './tabs'
 import { resolveTab } from '@/lib/military/milpac-tabs'
+import { pickLoadoutId } from '@/lib/loadout/select'
+import { kitIcon } from '@/lib/loadout/kit-icons'
 import { LoadoutManager } from './loadout-manager'
 import s from './profile.module.css'
 
@@ -149,10 +151,11 @@ export default async function Page({ params, searchParams }: {
 	searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
 	const { username: segment } = await params
+	const query = await searchParams
 
 	// Which section of the file to show. Resolved server-side, so a link to
-	// ?tab=loadout renders that tab directly rather than flashing the default first.
-	const tab = resolveTab((await searchParams).tab)
+	// ?tab=kits renders that tab directly rather than flashing the default first.
+	const tab = resolveTab(query.tab)
 
 	const profile = await resolveProfile(segment)
 	if (!profile) notFound()
@@ -288,8 +291,29 @@ export default async function Page({ params, searchParams }: {
 		{ sort: { _id: -1 }, projection: { steamId64: 1 } },
 	).catch(() => null)
 
-	const loadouts = await Db.loadouts.find({ userId: member.id }).sort({ updatedAt: -1 }).toArray()
-	const activeLoadout = loadouts.find(l => l.isDefault) ?? loadouts[0] ?? null
+	const allLoadouts = await Db.loadouts.find({ userId: member.id }).sort({ updatedAt: -1 }).toArray()
+
+	// A private kit is the member's own business. It is filtered out here rather
+	// than hidden in the component, so another visitor's browser never receives
+	// its name, its description or its export string — and `?kit=<private id>`
+	// cannot reach it either, because everything downstream reads this list.
+	const loadouts = allLoadouts.filter(l => isOwn || l.shared)
+
+	// `raw` is the ACE export the copy button hands out. Every row here is either
+	// public or the viewer's own, so it travels for all of them.
+	const loadoutList = loadouts.map(l => ({
+		id: String(l._id),
+		name: l.name,
+		description: l.description ?? '',
+		icon: kitIcon(l.icon),
+		isDefault: l.isDefault,
+		shared: l.shared,
+		raw: l.raw,
+	}))
+
+	// ?kit= picks which one to render; without it, the member's default.
+	const activeLoadoutId = pickLoadoutId(query.kit, loadoutList)
+	const activeLoadout = loadouts.find(l => String(l._id) === activeLoadoutId) ?? null
 
 	const awards = member.milpac?.awards ?? []
 	const quals  = member.milpac?.qualifications ?? []
@@ -626,9 +650,9 @@ export default async function Page({ params, searchParams }: {
 			)}
 
 			{/* What they wear and carry. The artwork and the kit belong together. */}
-			{tab === 'loadout' && (
+			{tab === 'kits' && (
 				<div className={`${s.page} ${s.pageFull}`}>
-					<Panel title='Assigned Loadout' tag={activeLoadout?.name} delay='.23s'>
+					<Panel title={`${name}'s Kits`} tag={activeLoadout?.name} delay='.23s'>
 						{activeLoadout
 							? (
 								<LoadoutPanel
@@ -636,21 +660,16 @@ export default async function Page({ params, searchParams }: {
 									actions={
 										<LoadoutManager
 											isOwn={isOwn}
-											activeId={String(activeLoadout._id)}
-											loadouts={loadouts.map(l => ({
-												id: String(l._id),
-												name: l.name,
-												isDefault: l.isDefault,
-												shared: l.shared,
-												raw: l.shared ? l.raw : '',
-											}))}
+											activeId={activeLoadoutId}
+											basePath={`/milpacs/${profile.canonical}`}
+											loadouts={loadoutList}
 										/>
 									}
 								/>
 							)
 							: isOwn
-								? <LoadoutManager isOwn activeId={null} loadouts={[]} />
-								: <Empty text='No loadout on record. Kit is imported from Arma.' />}
+								? <LoadoutManager isOwn activeId={null} loadouts={[]} basePath={`/milpacs/${profile.canonical}`} />
+								: <Empty text='No kit on record. Kits are imported from Arma.' />}
 					</Panel>
 				</div>
 			)}
