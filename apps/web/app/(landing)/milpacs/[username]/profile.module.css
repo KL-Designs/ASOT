@@ -102,6 +102,18 @@
     white-space: nowrap;
 }
 
+/* Centred on the viewport rather than placed by the flex row, so the back
+   button and the crumb can change width without dragging it off centre.
+   The sticky topbar is a positioned element, so it is the containing block. */
+.topbarActions {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .btn {
     display: inline-flex;
     align-items: center;
@@ -134,6 +146,41 @@
 .btnDanger { color: var(--crit); border-color: rgba(192, 90, 72, 0.4); }
 .btnDanger:hover { border-color: rgba(192, 90, 72, 0.75); color: var(--crit); background: rgba(192, 90, 72, 0.14); }
 .btnBusy { opacity: 0.5; pointer-events: none; }
+
+/* The topbar's centred action. Deliberately not a .btn: a chip in the middle of
+   the bar reads as a third piece of chrome competing with the back button and
+   the crumb, where lit type reads as the one thing on offer. Blue rather than
+   --acc, so it stays legible as an action against any member's accent. */
+.topbarAction {
+    border: 0;
+    background: none;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #63b3ff;
+    text-shadow: 0 0 14px rgba(99, 179, 255, 0.55);
+    /* Underlined so it reads as an action without a chip's border to say so.
+       Offset clear of the descenders and dimmer than the type, so it supports
+       the word rather than competing with it. */
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 5px;
+    text-decoration-color: rgba(99, 179, 255, 0.55);
+    transition: 0.18s color, 0.18s text-shadow, 0.18s text-decoration-color;
+}
+.topbarAction:hover {
+    color: #9bd0ff;
+    text-shadow: 0 0 20px rgba(155, 208, 255, 0.9), 0 0 42px rgba(99, 179, 255, 0.45);
+    text-decoration-color: rgba(155, 208, 255, 0.95);
+}
+.topbarAction:focus-visible { outline: 2px solid rgba(99, 179, 255, 0.85); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .topbarAction { transition: none; }
+}
 
 /* ── hero ────────────────────────────────────────────────────────────────── */
 
@@ -324,9 +371,11 @@
     display: grid;
     gap: clamp(18px, 2vw, 26px);
     /* Left: progress and activity. Middle: the record. Right: the artwork.
-       The right column is sized by what it holds — a portrait and a medal box —
-       rather than by the text columns beside it. */
-    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 0.8fr);
+       Widest on the right: the service dress and medal box are the things a
+       member actually wants looked at, and unlike the text columns they only
+       get better with room. The combat record is narrowest — a twelve-bar chart
+       and a list of operation names both read fine in a narrow measure. */
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.25fr) minmax(0, 1.5fr);
     align-items: start;
 }
 .stack { display: grid; gap: clamp(18px, 2vw, 26px); min-width: 0; }

@@ -13,7 +13,12 @@ export default defineConfig({
         hookTimeout: 120_000,
     },
     resolve: {
-        // Mirrors tsconfig.json's `@/*` -> project root path alias.
-        alias: { '@': resolve(__dirname, '.') },
+        // Mirrors tsconfig.json's path aliases. `@asot/lib` is the monorepo-root
+        // shared domain model — anything under lib/military reaches it through
+        // ranks.ts, so a test that imports one of those fails to resolve without it.
+        alias: {
+            '@asot/lib': resolve(__dirname, '../../lib/index.ts'),
+            '@': resolve(__dirname, '.'),
+        },
     },
 })

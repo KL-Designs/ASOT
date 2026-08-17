@@ -202,7 +202,9 @@ removed (the `WIP_PAGES` check here and `/milpacs` in middleware's `WIP_PATHS`, 
 `/milpacs/[username]`). Public read.
 
 #### app/(landing)/milpacs/card.tsx
-Client member card: tilt-on-hover 3D effect, links to `/milpacs/[username]`. Displays avatar
+Client member card: tilt-on-hover 3D effect, links to the member's canonical milpac path via an
+optional `href` prop (the index builds these with `buildSlugIndex`/`canonicalSegment` so cards skip
+the redirect); falls back to `/milpacs/[username]`. Displays avatar
 (`Avatar` from `@/components/member/avatar`), rank abbreviation, name, role. Used by both the
 milpacs index and (indirectly via similar pattern) other roster pages.
 
@@ -216,9 +218,19 @@ Clears default OG/Twitter images (overridden per-profile by `opengraph-image.tsx
 #### app/(landing)/milpacs/[username]/loading.tsx
 Client `TacticalLoader` reading the `username` route param for its label.
 
+#### app/(landing)/milpacs/[username]/copy-link.tsx
+Client button in the top bar beside the crumb: copies the profile's canonical absolute URL. Uses
+`navigator.clipboard` when the page is a secure context, otherwise an off-screen-textarea
+`execCommand('copy')` fallback; shows "Copied" for 1.8s, or "Press Ctrl+C" if both paths fail.
+
 #### app/(landing)/milpacs/[username]/page.tsx
-The full individual MILPAC profile page (largest file in this group, ~650 lines). Resolves the
-member via `client.fetchAllMembers()` + `resolveMilpacProfile`, **auto-regenerates** the uniform
+The full individual MILPAC profile page (largest file in this group, ~650 lines). **The `[username]`
+segment is resolved by `resolveSegment` (`lib/military/milpac-slug.ts`) — Discord username first,
+then name slug — and the page `redirect()`s to the canonical segment when reached by the other form,
+so `/milpacs/itskodas` lands on `/milpacs/koda`.** Note the redirect is temporary, not permanent: a
+nickname change moves the canonical slug. Everything downstream (the `uniformHash` write, the
+`/api/milpac/certificate/*` links, the editor's `/api/members/*` calls) keys on `member.username`,
+**not** the URL segment. Then `resolveMilpacProfile`, **auto-regenerates** the uniform
 PNG/medal-box PNG (`renderUniform`/`renderBox` from `@/lib/milpac-gen/client`, rendered by the `apps/milpac` service) on the server when a
 content hash mismatches (`member.milpac.uniformHash`), computes promotion progress, enlisted date,
 and confirmed-operation history grouped by campaign, displays Service Record / Promotions /

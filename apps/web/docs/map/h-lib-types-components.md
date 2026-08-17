@@ -178,6 +178,18 @@ This map documents every file under `lib/**` (59 files), `types/**` (31 files), 
 ### lib/military/milpac-profile.ts
 - `resolveMilpacProfile(member: User, orbatEntry: OrbatEntry|null)` — central name/rank/accent resolver reused across milpac page, credits, ORBAT: strips `[...]` decorations from Discord nickname, parses rank-prefix vs display name, resolves `fullRank` via `rankNameFromAbbr` (falling back through promotion history), computes `accent` via `ensureVisible(member.hexAccentColor)`. Returns `{accent, displayName, name, rankAbbr, fullRank, callsign, orbatEntry}`.
 
+### lib/military/milpac-slug.ts
+- `milpacSlug(name)` — the URL form of an ASOT name: NFKD-fold accents, lowercase, non-alphanumerics to single hyphens, trimmed. `''` means the member claims no name URL.
+- `toSlugCandidate(member)` / `SlugCandidate` — the minimal shape a member exposes to claim a slug. Uses `resolveMilpacProfile(member, null).name`; the ORBAT entry only affects `callsign`, so the lookup is skipped.
+- `buildSlugIndex(candidates)` — `slug -> member id`, **only for slugs claimed by exactly one serving member**. Discharged and skeleton accounts never claim. On the live roster 37 slugs are contested and 14 are contested by two or more serving members (`goose` is three people), so a contested name deliberately resolves to nobody rather than guessing.
+- `canonicalSegment(member, index)` — the member's name slug if they hold it, else their Discord username.
+- `resolveSegment(segment, members)` — `{member, canonical}` or null. Username first (unique by construction, and verified never to shadow another member's name slug), then name slug. Used by the milpac page and its `opengraph-image.tsx`. Unit-tested in `milpac-slug.test.ts`.
+
+### lib/military/milpac-cover.ts
+- `coverPath(memberId)` / `hasCover(memberId)` — the member's uploaded cover photo at `storage/uploads/cover/{id}.png`. Used by the milpac page (banner) and its `opengraph-image.tsx` (share-card ground). `app/api/uploads/cover/route.ts` still writes via its own cwd-relative string.
+- `fitCover(srcW, srcH, boxW, boxH): CropRect` — `object-fit: cover` as a centred source rectangle. Pure; unit-tested in `milpac-cover.test.ts`.
+- `readCoverImage(memberId, box?): Promise<string|null>` — decodes the cover with `@napi-rs/canvas` (which sniffs the real format, since the upload route names every file `.png` whatever it was), crops via `fitCover`, re-encodes to a JPEG data URI at the card's 1300×630. Data URI because satori resolves neither relative paths nor `background-image: url()`; re-encoded because covers are stored unresized and base64 inflates by a third. Returns `null` on any failure — the OG route must degrade to its drawn card, never 500. `MAX_COVER_BYTES` (25MB) bounds what reaches the decoder.
+
 ### lib/military/points.ts
 - `OP_POINTS` / `DEPT_POINTS` — point-value constants for operation attendance types and department actions.
 - `calculateOpPoints(ops: {date, confirmedAt}[]): number` — ISO-week-grouped op scoring (1 op/week = 2pts, 2+ = 3pts cap); undated ops score 2pts independently.

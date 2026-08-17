@@ -136,7 +136,7 @@ export function EditMilpacButton({ username, canEditRestricted, canEditStandard 
 
     return (
         <>
-            <button onClick={() => setOpen(true)} className={s.btn}>Edit</button>
+            <button onClick={() => setOpen(true)} className={s.topbarAction}>Edit</button>
             {open && mounted && createPortal(overlay, document.body)}
         </>
     )

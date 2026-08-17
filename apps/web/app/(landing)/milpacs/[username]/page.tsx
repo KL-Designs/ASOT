@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { existsSync } from 'fs'
 import { mkdir, writeFile } from 'fs/promises'
@@ -17,6 +17,8 @@ import Db from '@/lib/mongo'
 import PERMISSIONS from '@/lib/permissions'
 import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
+import { hasCover as memberHasCover } from '@/lib/military/milpac-cover'
+import { resolveSegment } from '@/lib/military/milpac-slug'
 import { CoverUpload } from './cover-upload'
 import { BiographyEditor } from './bio-editor'
 import { RequestAwardButton } from './RequestAwardButton'
@@ -101,12 +103,16 @@ function durationSince(raw?: string | null): string | null {
 }
 
 
-async function resolveProfile(username: string) {
+async function resolveProfile(segment: string) {
 	const allMembers = await client.fetchAllMembers()
-	const member = allMembers.find(m => m.username === username) ?? null
-	if (!member) return null
-	const orbatEntry = await getOrbatEntryByUserId(member.id)
-	return { member, ...resolveMilpacProfile(member, orbatEntry) }
+	const target = resolveSegment(segment, allMembers)
+	if (!target) return null
+	const orbatEntry = await getOrbatEntryByUserId(target.member.id)
+	return {
+		member: target.member,
+		canonical: target.canonical,
+		...resolveMilpacProfile(target.member, orbatEntry),
+	}
 }
 
 
@@ -135,12 +141,22 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
 
 
 export default async function Page({ params }: { params: Promise<{ username: string }> }) {
-	const { username } = await params
+	const { username: segment } = await params
 
-	const profile = await resolveProfile(username)
+	const profile = await resolveProfile(segment)
 	if (!profile) notFound()
 
+	// Temporary, not permanent: the canonical segment is derived from a Discord
+	// nickname, so it moves when the nickname does. A 308 would be cached by
+	// browsers indefinitely with no way to invalidate it.
+	if (profile.canonical !== segment) redirect(`/milpacs/${profile.canonical}`)
+
 	const { member, orbatEntry, accent, name, fullRank } = profile
+
+	// The URL segment may now be a name slug, but everything below keys on the
+	// Discord username — the uniformHash write, the certificate routes and the
+	// editor's /api/members calls all look members up by it.
+	const username = member.username
 
 	// Build uniform/box data (also used for the corps badge)
 	const uniformData = buildUniformData(member, orbatEntry)
@@ -190,7 +206,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	const canEdit           = canEditStandard
 	const isOwn           = me?.id === member.id
 	const canRequestAward = me !== null && me.id !== member.id && !member.isSkeletonAccount
-	const hasCover        = existsSync(join(process.cwd(), '..', '..', 'storage', 'uploads', 'cover', `${member.id}.png`))
+	const hasCover        = memberHasCover(member.id)
 
 	// Fetch confirmed attendance for operation history + stat bar count
 	const attendanceDocs = await Db.operationAttendance.find({
@@ -295,6 +311,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 			<Hero
 				memberId={member.id}
 				username={username}
+				canonicalPath={`/milpacs/${profile.canonical}`}
 				name={name}
 				avatarURL={member.avatarURL}
 				rankAbbr={member.milpac?.currentRank}
@@ -308,17 +325,15 @@ export default async function Page({ params }: { params: Promise<{ username: str
 				discordId={member.id}
 				steamId64={steamApp?.steamId64}
 				stats={stats}
-				topbarActions={
-					<>
-						{canEdit && (
-							<EditMilpacButton
-								username={username}
-								canEditRestricted={canEditRestricted}
-								canEditStandard={canEditStandard}
-							/>
-						)}
-					</>
-				}
+				topbarActions={canEdit
+					? (
+						<EditMilpacButton
+							username={username}
+							canEditRestricted={canEditRestricted}
+							canEditStandard={canEditStandard}
+						/>
+					)
+					: null}
 				bannerActions={isOwn ? <CoverUpload hasCover={hasCover} /> : null}
 				identActions={canRequestAward
 					? (
