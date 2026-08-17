@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Typography, CircularProgress, Dialog, DialogContent, Menu, Tooltip as MuiTooltip } from '@mui/material'
+import { Typography, CircularProgress, LinearProgress, Dialog, DialogContent, Menu, Tooltip as MuiTooltip } from '@mui/material'
 import { CheckCircleOutline, ErrorOutline } from '@mui/icons-material'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RechartsTooltip } from 'recharts'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
@@ -231,6 +231,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
     // and these buttons had neither — a click produced no visible reaction at
     // all, which on the download is a ~3 second wait before the browser's own
     // download UI appears. Keyed by `${point.id}:${button}`.
+    const [hoveredRow, setHoveredRow] = useState<string | null>(null)
     const [hoveredBtn, setHoveredBtn] = useState<string | null>(null)
     const [pressedBtn, setPressedBtn] = useState<string | null>(null)
 
@@ -685,6 +686,10 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                 const pct     = busy ? Math.min(96, (elapsed / estimate) * 100) : 0
                 const remaining = Math.max(0, Math.ceil(estimate - elapsed))
                 const almostDone = elapsed > estimate * 0.9
+                const plan = status.plan ?? []
+                // -1 (nothing matched) still reads correctly: no segment is
+                // marked done and none is marked running.
+                const stageIndex = plan.findIndex(s => s.id === status.stage)
 
                 return status.error ? (
                     <div style={{
@@ -702,15 +707,59 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                         border: '1px solid rgba(255,200,0,0.15)',
                         overflow: 'hidden',
                     }}>
-                        {/* Progress bar */}
-                        <div style={{ position: 'relative', height: 3, background: 'rgba(255,255,255,0.06)' }}>
-                            <div style={{
-                                position: 'absolute', left: 0, top: 0, bottom: 0,
-                                width: `${pct}%`,
-                                background: almostDone ? 'rgba(0,200,80,0.7)' : 'rgba(219,160,0,0.8)',
-                                transition: 'width 0.4s ease, background 0.6s ease',
-                            }} />
-                        </div>
+                        {/* Stage checkpoints. The operation declares its own
+                            plan, so this shows what is done, what is running
+                            and what is still to come — rather than one bar
+                            that restarts at every stage. Falls back to the
+                            single bar when a status predates the plan. */}
+                        {plan.length > 0 ? (
+                            <div style={{ display: 'flex', gap: 3, padding: '10px 14px 0' }}>
+                                {plan.map((s, i) => {
+                                    const done    = i < stageIndex
+                                    const running = i === stageIndex
+                                    return (
+                                        <div key={s.id} style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ height: 3, background: 'rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                                                {done && <div style={{ height: '100%', background: 'rgba(0,200,80,0.65)' }} />}
+                                                {running && (
+                                                    <LinearProgress
+                                                        variant='indeterminate'
+                                                        style={{ height: 3, background: 'transparent' }}
+                                                        sx={{ '& .MuiLinearProgress-bar': { backgroundColor: 'rgba(219,160,0,0.9)' } }}
+                                                    />
+                                                )}
+                                            </div>
+                                            <div style={{
+                                                marginTop: 5,
+                                                fontSize: '0.55rem',
+                                                fontWeight: 700,
+                                                letterSpacing: '0.08em',
+                                                textTransform: 'uppercase',
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                color: done
+                                                    ? 'rgba(0,200,80,0.7)'
+                                                    : running
+                                                        ? 'rgba(219,160,0,0.95)'
+                                                        : 'rgba(237,237,237,0.22)',
+                                            }}>
+                                                {done ? '✓ ' : ''}{s.label}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        ) : (
+                            <div style={{ position: 'relative', height: 3, background: 'rgba(255,255,255,0.06)' }}>
+                                <div style={{
+                                    position: 'absolute', left: 0, top: 0, bottom: 0,
+                                    width: `${pct}%`,
+                                    background: almostDone ? 'rgba(0,200,80,0.7)' : 'rgba(219,160,0,0.8)',
+                                    transition: 'width 0.4s ease, background 0.6s ease',
+                                }} />
+                            </div>
+                        )}
 
                         <div style={{
                             display: 'flex',
@@ -760,8 +809,15 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                                     color: almostDone ? 'rgba(0,200,80,0.75)' : 'rgba(219,160,0,0.85)',
                                     minWidth: 44,
                                     textAlign: 'right',
+                                    whiteSpace: 'nowrap',
                                 }}>
-                                    {Math.round(pct)}%
+                                    {/* Stage counts are known; a percentage was
+                                        only ever the time estimate wearing a
+                                        disguise, and it read 96% while the
+                                        operation was wedged. */}
+                                    {plan.length > 0 && stageIndex >= 0
+                                        ? `${stageIndex + 1}/${plan.length}`
+                                        : `${Math.round(pct)}%`}
                                 </div>
                                 <button
                                     onClick={handleForceReset}
@@ -829,11 +885,21 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                         </div>
 
                         {points.map(p => (
-                            <div key={p.id} style={{
-                                display: 'grid', gridTemplateColumns: '1fr 90px 90px 80px 22px 65px 22px', gap: 8,
-                                alignItems: 'center', padding: '8px 12px',
-                                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
-                            }}>
+                            <div
+                                key={p.id}
+                                onMouseEnter={() => setHoveredRow(p.id)}
+                                onMouseLeave={() => setHoveredRow(prev => (prev === p.id ? null : prev))}
+                                style={{
+                                    display: 'grid', gridTemplateColumns: '1fr 90px 90px 80px 22px 65px 22px', gap: 8,
+                                    alignItems: 'center', padding: '8px 12px',
+                                    // Rows are otherwise indistinguishable at a
+                                    // glance, and picking the wrong one here
+                                    // means restoring the wrong backup.
+                                    background: hoveredRow === p.id ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)',
+                                    border: `1px solid ${hoveredRow === p.id ? 'rgba(219,0,29,0.35)' : 'rgba(255,255,255,0.05)'}`,
+                                    transition: 'background 0.12s ease, border-color 0.12s ease',
+                                }}
+                            >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                                     <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.85)' }}>
                                         {new Date(p.time).toLocaleString()}

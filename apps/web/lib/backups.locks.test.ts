@@ -33,6 +33,8 @@ import { tmpdir } from 'os'
 // vi.hoisted is what makes this state reachable from inside it.
 const restic = vi.hoisted(() => ({
     calls: [] as { repo: string; sub: string; args: string[] }[],
+    /** Status file contents observed part-way through the operation. */
+    statuses: [] as { startedAt?: string; stage?: string; planLength?: number }[],
     /** A lock left behind by a dead container: only `unlock` clears it. */
     locked: true,
     /** Makes `unlock` itself fail, to prove a backup doesn't hinge on it. */
@@ -60,9 +62,21 @@ vi.mock('child_process', async importOriginal => {
 
     type Outcome = { ok: true; stdout: string } | { ok: false; code: number; stderr: string }
 
+    const { readFileSync } = await import('fs')
+
     const respond = (repo: string, args: string[]): Outcome => {
         const sub = subcommandOf(args)
         restic.calls.push({ repo, sub, args })
+
+        // Snapshot the status file as the operation passes through each stage.
+        // Reading it from in here is the only way to see the intermediate
+        // states — by the time the call returns, the status is already 'idle'.
+        try {
+            const root = process.env.BACKUPS_STORAGE_ROOT ?? ''
+            const raw = readFileSync(joinPath(root, 'backup-meta', '.status.json'), 'utf-8')
+            const s = JSON.parse(raw) as { startedAt?: string; stage?: string; plan?: { id: string }[] }
+            restic.statuses.push({ startedAt: s.startedAt, stage: s.stage, planLength: s.plan?.length })
+        } catch { /* not written yet */ }
 
         switch (sub) {
             case 'init':
@@ -178,6 +192,7 @@ afterAll(async () => {
 
 beforeEach(() => {
     restic.calls.length = 0
+    restic.statuses.length = 0
     restic.locked = true
     restic.unlockFails = false
     restic.hangOn = null
@@ -266,5 +281,40 @@ describe('cancelOperation', () => {
         const status = await backups.readStatus()
         expect(status.state).toBe('idle')
         expect(status.error).toBeUndefined()
+    })
+})
+
+describe('operation progress', () => {
+    // The progress bar restarted several times per backup because every stage
+    // wrote a fresh startedAt, resetting the elapsed time it is derived from.
+    // The clock belongs to the operation, not to any one stage.
+    test('holds a single startedAt across every stage', async () => {
+        await backups.runAllBackups()
+
+        const stamps = restic.statuses.map(s => s.startedAt).filter(Boolean)
+        expect(stamps.length).toBeGreaterThan(1)          // several stages were observed
+        expect(new Set(stamps).size).toBe(1)              // ...all carrying the same start time
+    })
+
+    test('publishes the stages it will run, and advances through them in order', async () => {
+        await backups.runAllBackups()
+
+        // runAllBackups declares all five: dump, store, prune, media, prune.
+        for (const s of restic.statuses) expect(s.planLength).toBe(5)
+
+        // Collapse consecutive repeats first: a single stage can make several
+        // restic calls (db-prune runs `unlock` and then `forget`), so the raw
+        // sequence repeats without going backwards.
+        const seen = restic.statuses.map(s => s.stage).filter(Boolean) as string[]
+        const visited = seen.filter((id, i) => id !== seen[i - 1])
+
+        const order = ['db-dump', 'db-store', 'db-prune', 'media-store', 'media-prune']
+        expect(visited.every(id => order.includes(id))).toBe(true)
+        // Each stage entered once, in plan order. The old status messages could
+        // not express this at all: 'Pruning old backups…' was written verbatim
+        // by both the database and the media half, so they were indistinguishable.
+        expect(new Set(visited).size).toBe(visited.length)
+        const positions = visited.map(id => order.indexOf(id))
+        expect([...positions]).toEqual([...positions].sort((a, b) => a - b))
     })
 })

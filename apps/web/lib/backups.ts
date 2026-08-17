@@ -54,11 +54,24 @@ export const DEFAULT_BACKUP_CONFIG: BackupConfig = {
     keepMonthly:  12,
 }
 
+// One checkpoint in an operation. The plan is computed when the operation
+// starts, so the UI can show what is coming as well as what is done — rather
+// than a single bar that has no idea how much of the work remains.
+export type BackupStage = {
+    id: string
+    label: string
+}
+
 export type BackupStatus = {
     state: 'idle' | 'backing-up' | 'reverting'
+    // Set ONCE when the operation starts. It used to be rewritten on every
+    // stage, which reset the elapsed time and made the progress bar restart
+    // from zero several times per backup.
     startedAt?: string
     message?: string
     error?: string
+    stage?: string          // id of the stage running right now
+    plan?: BackupStage[]    // every stage this operation will run, in order
 }
 
 export type BackupPoint = {
@@ -397,12 +410,12 @@ export async function runDbBackup(extraTags: string[] = []): Promise<void> {
     // writeOwnedStatus(). Null when called outside runAllBackups().
     const token = currentOperation
     const cfg = await readConfig()
-    await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Dumping database…' })
+    await writeOwnedStatus(token, { state: 'backing-up', message: 'Dumping database…', stage: 'db-dump' })
     try {
         await dumpDatabase(DB_DUMP_DIR)
-        await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Backing up to restic…' })
+        await writeOwnedStatus(token, { state: 'backing-up', message: 'Backing up to restic…', stage: 'db-store' })
         await resticBackup(DB_REPO, [DB_DUMP_DIR], 'db', extraTags)
-        await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Pruning old backups…' })
+        await writeOwnedStatus(token, { state: 'backing-up', message: 'Pruning old database backups…', stage: 'db-prune' })
         await resticForget(DB_REPO, cfg)
         await writeOwnedStatus(token, { state: 'idle' })
         console.log('[backups] DB backup complete')
@@ -419,7 +432,7 @@ export async function runDbBackup(extraTags: string[] = []): Promise<void> {
 export async function runMediaBackup(extraTags: string[] = []): Promise<void> {
     const token = currentOperation // see runDbBackup()
     const cfg = await readConfig()
-    await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Backing up media…' })
+    await writeOwnedStatus(token, { state: 'backing-up', message: 'Backing up media…', stage: 'media-store' })
     try {
         // Always ensure the repo exists, even if there's nothing to back up
         // yet (a fresh clone has neither storage/gallery nor storage/uploads
@@ -428,7 +441,7 @@ export async function runMediaBackup(extraTags: string[] = []): Promise<void> {
         await ensureRepoInitialized(MEDIA_REPO)
         const paths = [GALLERY_DIR, UPLOADS_DIR].filter(existsSync)
         if (paths.length > 0) await resticBackup(MEDIA_REPO, paths, 'media', extraTags)
-        await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Pruning old backups…' })
+        await writeOwnedStatus(token, { state: 'backing-up', message: 'Pruning old media backups…', stage: 'media-prune' })
         await resticForget(MEDIA_REPO, cfg)
         await writeOwnedStatus(token, { state: 'idle' })
         console.log('[backups] Media backup complete')
@@ -454,7 +467,7 @@ export async function runMediaBackup(extraTags: string[] = []): Promise<void> {
 // cannot be undone is exactly what this exists to prevent.
 export async function runSafetyBackup(): Promise<void> {
     const token = currentOperation // see runDbBackup()
-    await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Creating safety backup…' })
+    await writeOwnedStatus(token, { state: 'reverting', message: 'Creating safety backup…', stage: 'safety' })
 
     try {
         // A unique dir, NOT the shared DB_DUMP_DIR runDbBackup() uses. Those two
@@ -516,23 +529,56 @@ export async function runSafetyBackup(): Promise<void> {
 // makes every write from a superseded operation a no-op.
 let currentOperation: symbol | null = null
 
+// When the current operation started, and every stage it intends to run. Both
+// belong to the operation rather than to any one status write — which is the
+// point: writing a fresh startedAt per stage is what made the progress bar
+// restart at each one.
+let currentStartedAt: string | null = null
+let currentPlan: BackupStage[] = []
+
 // Returns null when another operation already holds the guard.
 function beginOperation(label: string): symbol | null {
     if (currentOperation) return null
     currentOperation = Symbol(label)
+    currentStartedAt = new Date().toISOString()
+    currentPlan = []
     return currentOperation
 }
 
 function endOperation(token: symbol): void {
-    if (currentOperation === token) currentOperation = null
+    if (currentOperation === token) {
+        currentOperation = null
+        currentStartedAt = null
+        currentPlan = []
+    }
+}
+
+// Declares the checkpoints this operation will pass through. Called once the
+// operation knows its own shape (which parts are being restored, say).
+function setPlan(stages: BackupStage[]): void {
+    currentPlan = stages
 }
 
 // Status write scoped to one operation. A null token means "not running under
 // the guard at all" (runDbBackup()/runMediaBackup() called directly rather
 // than through runAllBackups()), which always writes.
-async function writeOwnedStatus(token: symbol | null, s: BackupStatus): Promise<void> {
+//
+// startedAt and plan are attached from the operation, never from the caller,
+// so no individual stage can reset the clock.
+async function writeOwnedStatus(
+    token: symbol | null,
+    s: { state: BackupStatus['state']; message?: string; stage?: string; error?: string },
+): Promise<void> {
     if (token !== null && currentOperation !== token) return
-    await writeStatus(s)
+    if (s.state === 'idle') {
+        await writeStatus({ state: 'idle', error: s.error })
+        return
+    }
+    await writeStatus({
+        ...s,
+        startedAt: currentStartedAt ?? new Date().toISOString(),
+        plan: currentPlan.length > 0 ? currentPlan : undefined,
+    })
 }
 
 // What the J4 Backups tab's Force Reset button is for. Kills the restic child
@@ -569,6 +615,14 @@ export async function runAllBackups(opts: { manual?: boolean } = {}): Promise<vo
         console.warn('[backups] runAllBackups() called while an operation is already in progress — skipping')
         return
     }
+    setPlan([
+        { id: 'db-dump',     label: 'Dump database' },
+        { id: 'db-store',    label: 'Store database' },
+        { id: 'db-prune',    label: 'Prune database' },
+        { id: 'media-store', label: 'Store media' },
+        { id: 'media-prune', label: 'Prune media' },
+    ])
+
     // Both halves of this run carry the same run tag, which is what lets
     // listBackups() pair the database and media snapshots into one restore
     // point instead of guessing from their timestamps. 'manual' additionally
@@ -960,25 +1014,34 @@ export async function revertToPoint(
     const token = beginOperation('revert')
     if (!token) throw new Error('Another backup or restore operation is already in progress')
 
+    // Only the stages this restore will actually run, so the checkpoints
+    // reflect the chosen parts rather than a fixed list with dead steps in it.
+    setPlan([
+        { id: 'safety', label: 'Safety backup' },
+        ...(point.dbSnapshotId && parts.includes('database') ? [{ id: 'db-restore', label: 'Restore database' }] : []),
+        ...(point.mediaSnapshotId && (parts.includes('gallery') || parts.includes('uploads'))
+            ? [{ id: 'media-restore', label: 'Restore media' }] : []),
+    ])
+
     const tmp = join(tmpdir(), `asot-revert-${Date.now()}`)
     try {
         // Inside the try, so a writeStatus failure releases the guard via the
         // finally rather than wedging every later operation on a held guard.
-        await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring…' })
+        await writeOwnedStatus(token, { state: 'reverting', message: 'Preparing restore…', stage: 'safety' })
 
         // Must come first and must be allowed to throw — if this fails there
         // is no undo for what follows, so the restore does not happen.
         await runSafetyBackup()
 
         if (point.dbSnapshotId && parts.includes('database')) {
-            await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring database…' })
+            await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring database…', stage: 'db-restore' })
             const dbTarget = join(tmp, 'db-restore')
             await resticRestore(DB_REPO, point.dbSnapshotId, dbTarget)
             const dumpRoot = findByMarker(dbTarget, 'manifest.json')
             await restoreDatabase(dumpRoot)
         }
         if (point.mediaSnapshotId && (parts.includes('gallery') || parts.includes('uploads'))) {
-            await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring media files…' })
+            await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring media files…', stage: 'media-restore' })
             const mediaTarget = join(tmp, 'media-restore')
             // Restore only the trees being copied over: a gallery-only revert
             // shouldn't spend the time and disk to restore uploads as well.
@@ -1203,12 +1266,22 @@ export async function applyUploadedZip(
     const token = beginOperation('upload-revert')
     if (!token) throw new Error('Another backup or restore operation is already in progress')
 
+    // What the archive actually holds isn't known until it is extracted, so
+    // this is the plan for the parts that were asked for.
+    setPlan([
+        { id: 'safety',  label: 'Safety backup' },
+        { id: 'extract', label: 'Extract archive' },
+        ...(parts.includes('database') ? [{ id: 'db-restore', label: 'Restore database' }] : []),
+        ...(parts.includes('gallery') || parts.includes('uploads')
+            ? [{ id: 'media-restore', label: 'Restore media' }] : []),
+    ])
+
     const tmp = join(tmpdir(), `asot-upload-extract-${Date.now()}`)
     try {
         // Same rule as revertToPoint(): no safety backup, no restore.
         await runSafetyBackup()
 
-        await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Extracting upload…' })
+        await writeOwnedStatus(token, { state: 'reverting', message: 'Extracting upload…', stage: 'extract' })
         await safeExtractZip(zipPath, tmp)
 
         const dbDir = join(tmp, 'db-source')
@@ -1253,11 +1326,11 @@ export async function applyUploadedZip(
         }
 
         if (hasDbSource) {
-            await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring database…' })
+            await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring database…', stage: 'db-restore' })
             await restoreDatabase(dbDir)
         }
 
-        await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring media files…' })
+        await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring media files…', stage: 'media-restore' })
         if (hasGallery) await copyDirRecursive(gallery, GALLERY_DIR)
         if (hasUploads) await copyDirRecursive(uploads, UPLOADS_DIR)
 

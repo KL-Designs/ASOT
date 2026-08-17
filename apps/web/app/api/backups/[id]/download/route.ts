@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { listBackups, openDownloadZipStream, parseBackupParts } from '@/lib/backups'
+import { logAction } from '@/lib/logAction'
 
 // Any ISO instant: a point's id is the run that produced it, and only falls
 // back to an on-the-hour bucket for snapshots taken before run tagging. The id
@@ -40,6 +41,20 @@ export async function GET(
     const points = await listBackups()
     const point = points.find(p => p.id === id)
     if (!point) return NextResponse.json({ error: 'Backup point not found' }, { status: 404 })
+
+    // Logged before streaming: a download takes a full copy of the database
+    // and media off the server, which is the single most sensitive thing this
+    // feature can do, and it must be recorded whether or not the transfer then
+    // completes.
+    await logAction({
+        action: 'backup.download',
+        category: 'system',
+        performedBy: me.id,
+        performedByName: me.name ?? me.id,
+        entityType: 'backup',
+        entityId: point.id,
+        details: { parts },
+    })
 
     // Everything that can fail with a real error response has to fail here,
     // before the stream exists — once bytes are on the wire the status is
