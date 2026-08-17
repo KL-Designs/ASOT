@@ -336,7 +336,7 @@ export default async function Page({ params }: { params: Promise<{ username: str
 				{/* Left: how this member is doing — progress, who they are, activity. */}
 				<div className={s.stack}>
 					{progress && !progress.atMax && !progress.billetOnly && (
-						<div style={{ padding: '14px var(--pad) 0' }}>
+						<div>
 							<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
 								<span className={s.lbl} style={{ color: 'var(--acc)' }}>{member.milpac?.currentRank}</span>
 								<span className={s.crumb} style={{ margin: 0 }}>{progress.current} / {progress.required} pts</span>
