@@ -22,6 +22,17 @@ export interface ORBATData {
 export interface OrbatEntry {
 	role: string
 	section: string
+	/**
+	 * The raw position category. Returned alongside the derived `section`
+	 * because `section` deliberately collapses information the caller may need:
+	 * both reservist categories become the single label "Company Reservists",
+	 * and the platoon a member belongs to disappears entirely.
+	 *
+	 * The milpac profile needs both back — the platoon name for its unit
+	 * strapline, and active-vs-inactive reservist for its status pill — and
+	 * this is the only place either is known.
+	 */
+	category?: string
 }
 
 
@@ -122,7 +133,7 @@ export async function getOrbatEntryByUserId(userId: string): Promise<OrbatEntry 
 		pos.category === 'gamemaster' ? 'Gamemasters' :
 		pos.sectionTitle
 
-	return { role: pos.role, section }
+	return { role: pos.role, section, category: pos.category }
 }
 
 
