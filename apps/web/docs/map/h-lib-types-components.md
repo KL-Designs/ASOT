@@ -648,6 +648,9 @@ See `types/README.md` at the monorepo root for the sharing convention (web is au
 #### components/editor/SimpleEditor.tsx
 - Default export `SimpleEditor({initialContent='', onChange?, readOnly=false, minHeight=300}: Props)` — a non-collaborative (local-state only) TipTap editor for simpler HTML content editing (training docs etc.), reusing `ImageNodeView`. Custom extensions: `MarginLeftExtension` (preserves Google-Docs-imported paragraph/heading/list indentation), `ListClassExtension` (preserves `lst-kix_*` custom-bullet classes), `HeadingIdExtension` (preserves heading `id` for TOC anchors), `TabIndentExtension` (Tab/Shift-Tab → list-item sink/lift or margin-left indent step for non-list blocks). `splitStyleBlock(html)` — extracts a leading `<style>` block (Google Docs list CSS) so it survives editor round-trips; re-prepended on save.
 
+### components/loadout/icons.tsx
+- `<LoadoutIcon icon size?>` — 24×24 `currentColor` SVG mark per `IconKey`. `PATHS` is a total `Record<IconKey, string>` on purpose: adding a key to `ICON_KEYS` without drawing it is a compile error rather than a blank square. Our own marks, not Arma's — real `.paa` artwork is out of scope.
+
 ---
 
 ## 4. Root-level config files
