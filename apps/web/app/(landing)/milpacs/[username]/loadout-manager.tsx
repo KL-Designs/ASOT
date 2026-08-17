@@ -350,7 +350,7 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
                                     // The tab is carried along: a chip that dropped it
                                     // would bounce the reader back to the overview.
                                     href={`${basePath}/kits/${l.id}` as Route}
-                                    scroll={false}
+                                    // Off for now, same as the section tabs — see tabs.tsx.
                                     // Same reason as the section tabs: see tabs.tsx.
                                     prefetch={false}
                                     aria-current={on ? 'true' : undefined}

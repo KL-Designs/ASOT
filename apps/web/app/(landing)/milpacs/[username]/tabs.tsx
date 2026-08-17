@@ -14,8 +14,9 @@ import s from './profile.module.css'
  * that change only the query string, which made the old `?tab=` links take
  * several clicks to commit in production. See `lib/military/milpac-tabs.ts`.
  *
- * `scroll={false}` because the reader is already looking at the tabs — jumping
- * them to the top of the document on every switch would undo that.
+ * `scroll={false}` used to be set here so the reader stayed put, but it is under
+ * suspicion for the tabs committing one click late and is off while that is
+ * measured — a tab that needs two clicks is worse than one that scrolls.
  */
 export function MilpacTabs({ active, basePath }: { active: MilpacTab; basePath: string }) {
     return (
@@ -24,7 +25,12 @@ export function MilpacTabs({ active, basePath }: { active: MilpacTab; basePath: 
                 <Link
                     key={tab.key}
                     href={`${basePath}${tabPath(tab.key)}` as Route}
-                    scroll={false}
+                    // `scroll={false}` was here to keep the reader in place, but it
+                    // is the only non-default prop on these links and it hooks the
+                    // router's commit path — and the tabs commit one click late, as
+                    // though the render is never flushed until the next event.
+                    // Removed while that is under test; the scroll reset is the
+                    // lesser evil against a tab that needs clicking twice.
                     // Prefetch off, deliberately. With it on, the click issues a
                     // second request for a URL already being prefetched, and that
                     // one is aborted — the payload lands in cache but the
