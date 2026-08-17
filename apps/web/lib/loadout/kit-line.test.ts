@@ -69,10 +69,16 @@ describe('formatKitLine', () => {
         expect(name.endsWith('…')).toBe(true)
     })
 
-    test('a manipulated item count cannot make the line overrun the card', () => {
-        // itemCount is a sum of unvalidated numbers from the pasted export, and
-        // JS prints integers in full decimal well past any plausible count.
-        const line = formatKitLine('Kit', summary({ itemCount: 10 ** 20 }))
+    test('every segment at its worst still fits the card', () => {
+        // 116 characters unclamped: a maxed name, an unrecognised classname of
+        // unbounded length, and an item count of 21 digits — each of which is
+        // reachable from a pasted export. Sized to fail if the clamp is ever
+        // weakened, which the earlier single-field version was not.
+        const line = formatKitLine('A'.repeat(80), summary({
+            primary: { className: 'X'.repeat(200), attachments: [] },
+            itemCount: 10 ** 20,
+        }))
         expect(line.length).toBeLessThanOrEqual(100)
+        expect(line.endsWith('…')).toBe(true)
     })
 })
