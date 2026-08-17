@@ -716,6 +716,23 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                                             Pre-restore
                                         </span>
                                     )}
+                                    {p.isManual && (
+                                        <span
+                                            title='Created on demand from this page — exempt from retention'
+                                            style={{
+                                                fontSize: '0.6rem',
+                                                letterSpacing: 1,
+                                                padding: '2px 6px',
+                                                border: '1px solid rgba(0,195,100,0.5)',
+                                                color: 'rgba(0,195,100,0.85)',
+                                                textTransform: 'uppercase',
+                                                whiteSpace: 'nowrap',
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            Manual
+                                        </span>
+                                    )}
                                 </div>
                                 <span style={{ fontSize: '0.68rem', color: p.dbSnapshotId ? 'rgba(0,195,100,0.85)' : 'rgba(237,237,237,0.2)' }}>
                                     {p.dbSnapshotId ? (p.dbSizeBytes ? fmtBytes(p.dbSizeBytes) : 'Present') : 'Missing'}

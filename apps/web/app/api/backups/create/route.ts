@@ -22,8 +22,12 @@ export async function POST() {
         return NextResponse.json({ error: `Operation already in progress: ${status.state}` }, { status: 409 })
     }
 
-    // Fire and forget — returns immediately, backup runs in background
-    runAllBackups().catch(e => console.error('[backups] Manual create error:', e.message))
+    // Fire and forget — returns immediately, backup runs in background.
+    // manual: true tags the run so retention never prunes it. Without it,
+    // --keep-hourly keeps only the last snapshot of each hour, so a backup
+    // taken by hand would delete that hour's automatic one instead of
+    // standing alongside it.
+    runAllBackups({ manual: true }).catch(e => console.error('[backups] Manual create error:', e.message))
 
     await logAction({
         action: 'backup.create',

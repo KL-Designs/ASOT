@@ -4,7 +4,10 @@ import { hasPermission } from '@/lib/orbat/hasPermission'
 import { readStatus, revertToPoint, listBackups } from '@/lib/backups'
 import { logAction } from '@/lib/logAction'
 
-const ID_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:00:00\.000Z$/
+// Any ISO instant — see the download route for why this loosened from an
+// on-the-hour bucket. The id is resolved against listBackups() server-side, so
+// this only rejects malformed input.
+const ID_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
 
 // POST /api/backups/revert — revert to a merged backup point (backups.restore)
 // Body: { id: string } — an hour-bucket ISO string from GET /api/backups

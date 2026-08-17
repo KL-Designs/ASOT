@@ -32,6 +32,11 @@ export const CONFIG_FILE = join(META_DIR, '.config.json')
 export const GALLERY_DIR = join(STORAGE_ROOT, 'gallery')
 export const UPLOADS_DIR = join(STORAGE_ROOT, 'uploads')
 
+// Prefix of the restic tag every snapshot in one backup run shares
+// ('run:2026-08-17T06:28:40.123Z'). It is what pairs a run's database and
+// media snapshots into a single restore point in buildBackupPoints().
+const RUN_TAG_PREFIX = 'run:'
+
 export type BackupConfig = {
     autoEnabled:  boolean
     keepHourly:   number
@@ -56,13 +61,19 @@ export type BackupStatus = {
 }
 
 export type BackupPoint = {
-    id: string                 // ISO hour bucket, e.g. "2026-08-16T14:00:00.000Z"
-    time: string                // same value as id — kept separate for UI clarity
+    // The run that produced it, as an ISO instant — every snapshot from one
+    // backup run carries a matching 'run:<iso>' tag, which is what pairs the
+    // database and media halves into a single restore point. Snapshots taken
+    // before run tagging existed fall back to their ISO hour bucket, which is
+    // the identity the whole timeline used to have.
+    id: string
+    time: string                // when the earliest snapshot in the point was actually taken, normalised to UTC
     dbSnapshotId?: string
     mediaSnapshotId?: string
     dbSizeBytes?: number        // total_bytes_processed from restic's own snapshot summary, when present
     mediaSizeBytes?: number
     isSafety?: boolean          // carries the 'pre-restore' tag — taken automatically before a restore, never pruned
+    isManual?: boolean          // carries the 'manual' tag — taken by a human on demand, likewise never pruned
 }
 
 export type StorageUsage = {
@@ -333,6 +344,14 @@ async function resticForget(repo: string, cfg: BackupConfig): Promise<void> {
         // are created only when a human actually restores, and dedup makes
         // each one cost close to nothing. See issue #55 requirement 5.
         '--keep-tag', 'pre-restore',
+        // Manual "Create Now" backups, for the same reason. --keep-hourly
+        // keeps only the LAST snapshot of each hour, so without this a manual
+        // backup taken at 16:28 silently deletes that hour's automatic 16:08
+        // one — the operator's deliberate restore point replacing the
+        // scheduled one instead of joining it. Like pre-restore snapshots
+        // these exist only because a human asked for one, so their count is
+        // bounded by clicks rather than by the clock.
+        '--keep-tag', 'manual',
         '--keep-hourly',  String(cfg.keepHourly),
         '--keep-daily',   String(cfg.keepDaily),
         '--keep-weekly',  String(cfg.keepWeekly),
@@ -340,7 +359,7 @@ async function resticForget(repo: string, cfg: BackupConfig): Promise<void> {
     ])
 }
 
-export async function runDbBackup(): Promise<void> {
+export async function runDbBackup(extraTags: string[] = []): Promise<void> {
     // Captured at entry so every status write below belongs to THIS run — see
     // writeOwnedStatus(). Null when called outside runAllBackups().
     const token = currentOperation
@@ -349,7 +368,7 @@ export async function runDbBackup(): Promise<void> {
     try {
         await dumpDatabase(DB_DUMP_DIR)
         await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Backing up to restic…' })
-        await resticBackup(DB_REPO, [DB_DUMP_DIR], 'db')
+        await resticBackup(DB_REPO, [DB_DUMP_DIR], 'db', extraTags)
         await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Pruning old backups…' })
         await resticForget(DB_REPO, cfg)
         await writeOwnedStatus(token, { state: 'idle' })
@@ -364,7 +383,7 @@ export async function runDbBackup(): Promise<void> {
     }
 }
 
-export async function runMediaBackup(): Promise<void> {
+export async function runMediaBackup(extraTags: string[] = []): Promise<void> {
     const token = currentOperation // see runDbBackup()
     const cfg = await readConfig()
     await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Backing up media…' })
@@ -375,7 +394,7 @@ export async function runMediaBackup(): Promise<void> {
         // unconditionally and throws on a repo that was never `restic init`'d.
         await ensureRepoInitialized(MEDIA_REPO)
         const paths = [GALLERY_DIR, UPLOADS_DIR].filter(existsSync)
-        if (paths.length > 0) await resticBackup(MEDIA_REPO, paths, 'media')
+        if (paths.length > 0) await resticBackup(MEDIA_REPO, paths, 'media', extraTags)
         await writeOwnedStatus(token, { state: 'backing-up', startedAt: new Date().toISOString(), message: 'Pruning old backups…' })
         await resticForget(MEDIA_REPO, cfg)
         await writeOwnedStatus(token, { state: 'idle' })
@@ -415,17 +434,22 @@ export async function runSafetyBackup(): Promise<void> {
         // snapshot and the restore would proceed with an undo that isn't one.
         // currentOperation below closes the same race from the other side; this
         // makes the two paths independent even if that guard is ever bypassed.
+        // Same run tag on both halves as an ordinary backup, so a safety
+        // backup appears in the timeline as one restore point rather than a
+        // database row and a media row that happen to be adjacent.
+        const extraTags = [`${RUN_TAG_PREFIX}${new Date().toISOString()}`, 'pre-restore']
+
         const dumpDir = await mkdtemp(join(tmpdir(), 'asot-safety-dump-'))
         try {
             await dumpDatabase(dumpDir)
-            await resticBackup(DB_REPO, [dumpDir], 'db', ['pre-restore'])
+            await resticBackup(DB_REPO, [dumpDir], 'db', extraTags)
         } finally {
             await rm(dumpDir, { recursive: true, force: true }).catch(() => {})
         }
 
         await ensureRepoInitialized(MEDIA_REPO)
         const paths = [GALLERY_DIR, UPLOADS_DIR].filter(existsSync)
-        if (paths.length > 0) await resticBackup(MEDIA_REPO, paths, 'media', ['pre-restore'])
+        if (paths.length > 0) await resticBackup(MEDIA_REPO, paths, 'media', extraTags)
     } catch (e: unknown) {
         // Prefixed so callers, the status file and the tests can all tell a
         // failed safety backup apart from a failure in the restore that
@@ -506,15 +530,22 @@ export async function cancelOperation(): Promise<{ aborted: number }> {
 // block a media attempt or vice versa; if either failed, the combined
 // error is what's left in status once both have finished (even though each
 // function already wrote its own transient status/error along the way).
-export async function runAllBackups(): Promise<void> {
+export async function runAllBackups(opts: { manual?: boolean } = {}): Promise<void> {
     const token = beginOperation('backup')
     if (!token) {
         console.warn('[backups] runAllBackups() called while an operation is already in progress — skipping')
         return
     }
+    // Both halves of this run carry the same run tag, which is what lets
+    // listBackups() pair the database and media snapshots into one restore
+    // point instead of guessing from their timestamps. 'manual' additionally
+    // exempts the run from retention (see resticForget) so a hand-made backup
+    // is never deleted by the next hour's automatic one.
+    const extraTags = [`${RUN_TAG_PREFIX}${new Date().toISOString()}`]
+    if (opts.manual) extraTags.push('manual')
     try {
         const errors: string[] = []
-        try { await runDbBackup() } catch (e) { errors.push(`DB: ${e instanceof Error ? e.message : String(e)}`) }
+        try { await runDbBackup(extraTags) } catch (e) { errors.push(`DB: ${e instanceof Error ? e.message : String(e)}`) }
         // Cancelled while the DB half was running: stop here rather than
         // starting the media half of an operation the operator has already
         // aborted (and which may by now be racing a fresh run).
@@ -522,7 +553,7 @@ export async function runAllBackups(): Promise<void> {
             console.warn('[backups] run was cancelled — not starting the media backup')
             return
         }
-        try { await runMediaBackup() } catch (e) { errors.push(`Media: ${e instanceof Error ? e.message : String(e)}`) }
+        try { await runMediaBackup(extraTags) } catch (e) { errors.push(`Media: ${e instanceof Error ? e.message : String(e)}`) }
         if (errors.length > 0) await writeOwnedStatus(token, { state: 'idle', error: errors.join(' | ') })
     } finally {
         endOperation(token)
@@ -531,7 +562,7 @@ export async function runAllBackups(): Promise<void> {
 
 // ── List ──────────────────────────────────────────────────────────────────────
 
-interface ResticSnapshotEntry {
+export interface ResticSnapshotEntry {
     id: string
     time: string
     tags?: string[]
@@ -558,31 +589,67 @@ function hourBucket(iso: string): string {
     return d.toISOString()
 }
 
+function runIdOf(s: ResticSnapshotEntry): string | null {
+    const tag = s.tags?.find(t => t.startsWith(RUN_TAG_PREFIX))
+    return tag ? tag.slice(RUN_TAG_PREFIX.length) : null
+}
+
+// Pairs each run's database and media snapshots into one restore point.
+//
+// Grouping is by run tag, NOT by hour. Hour bucketing meant two backups in the
+// same hour — an automatic one and a manual "Create Now" minutes later —
+// collapsed into a single row showing only whichever came last, hiding a
+// restore point that still existed. (Retention independently deleted the
+// earlier one; see resticForget's --keep-tag manual.)
+//
+// Snapshots predating run tagging carry no such tag, so they fall back to the
+// hour bucket that used to be the identity of every point — historical points
+// keep the same ids and merge exactly as they always did.
+//
+// Exported for backups.listing.test.ts: this is pure, and the pairing rules
+// are worth testing without standing up two restic repos.
+export function buildBackupPoints(dbSnaps: ResticSnapshotEntry[], mediaSnaps: ResticSnapshotEntry[]): BackupPoint[] {
+    const byRun = new Map<string, BackupPoint>()
+
+    const absorb = (s: ResticSnapshotEntry, side: 'db' | 'media') => {
+        const runId = runIdOf(s)
+        // Normalised to UTC: restic records each snapshot's own offset, so
+        // '+10:00' and 'Z' timestamps would otherwise sort against each other
+        // lexicographically and interleave wrongly.
+        const time = new Date(s.time).toISOString()
+        const key = runId ?? `hour:${hourBucket(s.time)}`
+        const point = byRun.get(key) ?? { id: runId ?? hourBucket(s.time), time }
+
+        // The database half runs first, so the earlier timestamp is the moment
+        // the operator actually asked for — show that, not when the media half
+        // happened to finish.
+        if (time < point.time) point.time = time
+
+        if (side === 'db') {
+            point.dbSnapshotId = s.id
+            point.dbSizeBytes = s.summary?.total_bytes_processed
+        } else {
+            point.mediaSnapshotId = s.id
+            point.mediaSizeBytes = s.summary?.total_bytes_processed
+        }
+
+        if (s.tags?.includes('pre-restore')) point.isSafety = true
+        if (s.tags?.includes('manual')) point.isManual = true
+        byRun.set(key, point)
+    }
+
+    for (const s of dbSnaps) absorb(s, 'db')
+    for (const s of mediaSnaps) absorb(s, 'media')
+
+    return [...byRun.values()].sort((a, b) => b.time.localeCompare(a.time))
+}
+
 export async function listBackups(): Promise<BackupPoint[]> {
     const [dbSnaps, mediaSnaps] = await Promise.all([
         resticSnapshots(DB_REPO),
         resticSnapshots(MEDIA_REPO),
     ])
-
-    const byBucket = new Map<string, BackupPoint>()
-    for (const s of dbSnaps) {
-        const id = hourBucket(s.time)
-        const existing = byBucket.get(id) ?? { id, time: id }
-        existing.dbSnapshotId = s.id
-        existing.dbSizeBytes = s.summary?.total_bytes_processed
-        if (s.tags?.includes('pre-restore')) existing.isSafety = true
-        byBucket.set(id, existing)
-    }
-    for (const s of mediaSnaps) {
-        const id = hourBucket(s.time)
-        const existing = byBucket.get(id) ?? { id, time: id }
-        existing.mediaSnapshotId = s.id
-        existing.mediaSizeBytes = s.summary?.total_bytes_processed
-        if (s.tags?.includes('pre-restore')) existing.isSafety = true
-        byBucket.set(id, existing)
-    }
-
-    return [...byBucket.values()].sort((a, b) => b.time.localeCompare(a.time))
+    return buildBackupPoints(dbSnaps, mediaSnaps)
 }
 
 // ── Storage usage ─────────────────────────────────────────────────────────────

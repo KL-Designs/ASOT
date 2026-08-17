@@ -3,7 +3,11 @@ import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { listBackups, openDownloadZipStream } from '@/lib/backups'
 
-const ID_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:00:00\.000Z$/
+// Any ISO instant: a point's id is the run that produced it, and only falls
+// back to an on-the-hour bucket for snapshots taken before run tagging. The id
+// is re-resolved against listBackups() below regardless, so this is a shape
+// check rather than the actual authorisation of what gets restored.
+const ID_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
 
 // GET /api/backups/[id]/download — restore a backup point and stream a zip of it (backups.manage)
 export async function GET(
