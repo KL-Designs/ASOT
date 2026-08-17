@@ -123,7 +123,7 @@ describe('parseLoadout', () => {
     })
 
     test('rejects a JSON array of the wrong shape, naming the problem', () => {
-        expect(() => parseLoadout('[1,2,3]')).toThrow(/10 slots/)
+        expect(() => parseLoadout('[1,2,3]')).toThrow(/10 a loadout has/)
     })
 })
 ```
@@ -561,8 +561,9 @@ export function prettifyClassName(className: string): string {
     const words = s
         .split('_')
         .filter(Boolean)
-        // camelCase and digit boundaries: "phenylephrineAuto" -> "phenylephrine Auto".
-        .flatMap(part => part.replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(' '))
+        // camelCase only, never digit-then-capital: including digits splits
+        // "M4A3" into "M4 A3". Verified against the real classnames.
+        .flatMap(part => part.replace(/([a-z])([A-Z])/g, '$1 $2').split(' '))
         .filter(Boolean)
         .map(w => (/^[A-Z0-9]+$/.test(w) ? w : w[0].toUpperCase() + w.slice(1)))
 
@@ -639,6 +640,14 @@ describe('iconFor', () => {
         expect(iconFor('ASOT_adfrc_uniform_amcu')).toBe('uniform')
         expect(iconFor('ASOT_adfrc_Peacekeeper_Mk5_AMCU')).toBe('vest')
         expect(iconFor('ASOT_adfrc_patrol_bullock_amcu_medic')).toBe('backpack')
+    })
+
+    test('ItemInfo.type 302 is not treated as bipod', () => {
+        // Regression: 302 nominally means bipod, but 258 of the 324 entries
+        // carrying it are CBA/ACE misc items. Trusting it rendered tourniquets
+        // and PDAs as bipods.
+        expect(iconFor('ACE_tourniquet')).not.toBe('bipod')
+        expect(iconFor('MRH_SoldierTab')).not.toBe('bipod')
     })
 
     test('classifies medical items out of container contents', () => {
@@ -726,9 +735,18 @@ const BY_SLOT: Partial<Record<SlotContext, IconKey>> = {
     watch: 'watch', nvg: 'nvg',
 }
 
-/** Arma's own gear-slot codes. Confirmed against the dump — 605 is headgear. */
+/**
+ * Arma's own gear-slot codes. Confirmed against the dump — 605 is headgear,
+ * not glasses.
+ *
+ * 302 is deliberately absent. It nominally means "bipod", but 258 of the 324
+ * entries carrying it are CBA/ACE misc items — `ACE_tourniquet` and
+ * `MRH_SoldierTab` among them — so it is a generic bucket in practice and
+ * mapping it would render tourniquets as bipods. Real bipods still resolve
+ * exactly, from slot position rather than this table.
+ */
 const BY_TYPE: Record<number, IconKey> = {
-    101: 'muzzle', 201: 'optic', 301: 'pointer', 302: 'bipod',
+    101: 'muzzle', 201: 'optic', 301: 'pointer',
     605: 'helmet', 616: 'nvg', 620: 'tool', 621: 'tool',
     701: 'vest', 801: 'uniform', 401: 'bandage', 619: 'surgical',
 }
@@ -789,7 +807,7 @@ export function iconFor(className: string, slot: SlotContext = 'content'): IconK
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run lib/loadout/classify.test.ts`
-Expected: PASS, 7 tests.
+Expected: PASS, 8 tests.
 
 If `iconFor('CUP_30Rnd_556x45_X95_Tracer_Green')` returns `item` instead of `magazine`, the dictionary was not built — re-run Task 2 Step 3.
 
