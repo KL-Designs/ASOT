@@ -6,6 +6,7 @@ import { generateMilpacForUser } from '@/lib/milpac-gen/generate-for-user'
 import { MilpacServiceError } from '@/lib/milpac-gen/client'
 import { buildDossierData, DOSSIER_SIZE } from '@/lib/military/dossier-data'
 import { DossierCard } from '@/lib/military/dossier-card'
+import { asciiJson } from '@/lib/military/ascii-header'
 
 /**
  * Renders a member's uniform or medal box for the Discord bot.
@@ -67,7 +68,7 @@ export async function POST(
             headers: {
                 // The bot prefixes config.api. Paths rather than absolute URLs
                 // so config.apiInternal can never reach a member-facing button.
-                'X-Milpac-Links': JSON.stringify(data.links),
+                'X-Milpac-Links': asciiJson(data.links),
                 'Cache-Control': 'no-store',
             },
         })
