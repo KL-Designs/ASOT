@@ -48,9 +48,9 @@ Each command directory exports a `data` (`Discord.SlashCommandBuilder`) + `execu
 
 ### `/milpac` — rendering goes through `apps/web`, not the render service
 
-`app/commands/milpac/` (`uniform`, `medals`, both with an optional `member` defaulting to the caller) posts to `apps/web`'s `/api/bot/milpac/{discordId}` and attaches the PNG that comes back. It regenerates every time, so what a member is shown is current as of the moment they asked.
+`app/commands/milpac/` has three subcommands — `profile`, `uniform`, `medals`, all with an optional `member` defaulting to the caller — that post to `apps/web`'s `/api/bot/milpac/{discordId}` and attach what comes back. It regenerates every time, so what a member is shown is current as of the moment they asked. All three share one request/reply body in `render.ts`; only the `type` query param and the `LABEL` copy differ.
 
-**Do not point this at `apps/milpac` directly.** The render payload — awards to ribbons, qualifications to badges, ORBAT section to corps badge, rank tier to rifleman badge — is derived from web's schema by web's `lib/milpac-gen/data-mapper.ts`. A second implementation here is exactly the drift `apps/milpac/PLAN.md` §3 and §4 describe, where two copies disagreed and every corps rank rendered with no insignia for months. The bot deliberately knows only a Discord id and which of two images it wants.
+**Do not point this at `apps/milpac` directly.** The render payload — awards to ribbons, qualifications to badges, ORBAT section to corps badge, rank tier to rifleman badge — is derived from web's schema by web's `lib/milpac-gen/data-mapper.ts`. A second implementation here is exactly the drift `apps/milpac/PLAN.md` §3 and §4 describe, where two copies disagreed and every corps rank rendered with no insignia for months. The bot deliberately knows only a Discord id and which image it wants.
 
 Two config values matter and are easy to confuse:
 
@@ -58,6 +58,20 @@ Two config values matter and are easy to confuse:
 - `config.apiInternal` (`WEB_INTERNAL_URL`) — where to reach web **server-to-server**. `docker-compose.yml` overrides it to `http://web:3000` on the bot service so the call stays on the compose network instead of going out through the reverse proxy and back.
 
 `config.apiSecret` (`BOT_API_SECRET`) authenticates the call and must match web's. It is deliberately **not** `required()` — an unset secret leaves the bot running and the commands explain themselves, rather than taking the whole bot down over one feature.
+
+`profile` posts a composited "dossier card" — uniform, medal box, service statistics, promotion progress and favourite kit on one image — plus link buttons to each section of the member's milpac. It is `type=dossier` on the same route as the other two.
+
+**The dossier is drawn in `apps/web` with satori, not by the render service.** `apps/milpac` composites layered artwork against fixed coordinates and holds no member data (PLAN.md §3) — a card that is mostly typography over member data (stats, rank, kit line) belongs where that data lives, not in an app with none of the unit's design language. `apps/web/lib/military/dossier-data.ts` assembles the data and `dossier-card.tsx` draws it, the same way web already draws its two OpenGraph share cards.
+
+**A render-service outage degrades `profile` but fails `uniform`/`medals`.** `buildDossierData` swallows a `generateMilpacForUser` failure and draws the card without the uniform/medal artwork — identity, statistics and the kit line still make a card. `uniform`/`medals` have nothing left to return without it and correctly fail. Same underlying call, deliberately different failure behaviour per subcommand sharing one route — don't "fix" `profile` to fail the way `uniform` does.
+
+**The section buttons come from web, as paths, in `X-Milpac-Links`.** The route returns a header holding a JSON array of `{label, path, emoji}`; `linkRow()` in `render.ts` maps each to a link button and joins it onto `config.api` — never `config.apiInternal`, which is `http://web:3000` inside compose and would be a dead link for every member clicking outside the container. Sending a path rather than an absolute URL keeps that join on the bot side, which makes the mistake structurally impossible. Web also decides *which* sections exist: `dossier-data.ts` builds the array from `MILPAC_TABS`, dropping the Kits entry when the member has no *public* kit — the bot never learns what a kit is. A fourth entry added to `MILPAC_TABS` produces a fourth button with no bot change.
+
+**The header must stay ASCII.** HTTP header values are ByteStrings, so a section emoji (well past code point 255) made `Response` throw `TypeError: Cannot convert argument to a ByteString` — a 500 naming neither the header nor the offending character. `apps/web`'s `lib/military/ascii-header.ts` exports `asciiJson()`, which escapes non-ASCII to `\uXXXX` — still valid JSON, so the bot's ordinary `JSON.parse` in `linkRow()` decodes it straight back. Anything added to that header later needs to go through `asciiJson`, not a bare `JSON.stringify`.
+
+**`hidden` is read before `deferReply`.** Discord fixes a reply's visibility at deferral, so the option can't be consulted afterwards — the same fact that makes `fail()` withdraw a public placeholder and follow up privately when the reply was public, and simply edit in place when it was already private. `hidden` is a `profile`-only option (`hiddenOption` in `render.ts`); `uniform`/`medals` don't take it.
+
+`apps/bot` declares `discord.js ^14.16.3` in `package.json`, but the lockfile resolves **14.27.0** — past the version where `ephemeral: true` was deprecated, so the code uses `MessageFlags.Ephemeral` throughout instead.
 
 ### Interactions (`app/interactions/{buttons,modals,stringSelectMenus,mentionableSelectMenus}/`)
 
