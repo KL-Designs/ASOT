@@ -19,6 +19,7 @@ import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 import { hasCover as memberHasCover } from '@/lib/military/milpac-cover'
 import { resolveSegment } from '@/lib/military/milpac-slug'
+import { parseMilpacDate } from '@/lib/military/milpac-dates'
 import { CoverUpload } from './cover-upload'
 import { BiographyEditor } from './bio-editor'
 import { RequestAwardButton } from './RequestAwardButton'
@@ -88,21 +89,13 @@ function getPromotionProgress(currentRankAbbr: string | undefined, points: numbe
 
 /** Rough duration between a stored date string and now, as `2.4Y` / `7M`.
  *
- *  `milpac.enlistedDate` and `promotions[].date` are free-form strings written by
- *  CSV imports and by hand, so this has to cope with `DD/MM/YYYY`, `DD-MM-YYYY`
- *  and the `en-AU` "17 Aug 2026" the Discord-join fallback produces. Anything it
- *  cannot parse yields null and the row renders an em-dash rather than `NaN`.
+ *  Parsing lives in `lib/military/milpac-dates` because the certificate route
+ *  reads the same free-form fields, and two parsers for one format drift.
+ *  Anything unparseable yields null and the row renders an em-dash, not `NaN`.
  */
 function durationSince(raw?: string | null): string | null {
-	if (!raw) return null
-	let d: Date | null = null
-	const dmy = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(raw.trim())
-	if (dmy) d = new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1]))
-	else {
-		const parsed = new Date(raw)
-		if (!Number.isNaN(parsed.getTime())) d = parsed
-	}
-	if (!d || Number.isNaN(d.getTime())) return null
+	const d = parseMilpacDate(raw)
+	if (!d) return null
 	const months = (Date.now() - d.getTime()) / (1000 * 60 * 60 * 24 * 30.44)
 	if (months < 0) return null
 	return months < 12 ? `${Math.max(0, Math.round(months))}M` : `${(months / 12).toFixed(1)}Y`

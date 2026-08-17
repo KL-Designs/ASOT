@@ -44,8 +44,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     // Stored as the full rank name to match promotions[].rank and the editor's
     // rank picker; milpac.currentRank is the abbreviation.
     const editorRank = rankNameFromAbbr(me.milpac?.currentRank ?? '')
+    /**
+     * Records who filed an entry, for entries that say nothing about it.
+     *
+     * The test is the *presence* of `issuedByName`, not of `issuedById`. The
+     * editor clears the id whenever the name is typed by hand — a free-text
+     * officer is not a linked user — so keying off the id meant every manually
+     * entered name was overwritten with the editor's own on save, and the field
+     * silently reverted. A blank name is likewise a decision and is kept blank:
+     * the editor warns about it rather than the server papering over it.
+     *
+     * A brand-new row carries neither key (see `addPromotion` and friends), so
+     * it still gets stamped with whoever added it.
+     */
     const stamp = <T extends { issuedById?: string; issuedByName?: string; issuedByRank?: string }>(entries: T[]): T[] =>
-        entries.map(e => e.issuedById
+        entries.map(e => ('issuedByName' in e || e.issuedById)
             ? e
             : { ...e, issuedById: me.id, issuedByName: editorName, issuedByRank: e.issuedByRank || editorRank })
 

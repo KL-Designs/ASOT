@@ -203,6 +203,9 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/loadout/summary.ts
 - `summariseLoadout(kit: ParsedLoadout): KitSummary` — the headline of a kit for the `/community/kits` shelf: primary weapon + its attachments in arsenal order, headgear/uniform/vest/backpack classnames, and `itemCount`. Stacks count by multiplicity (six magazines is six items, not one) and worn/held gear counts too, so a kit that is all worn gear and no cargo does not read as empty; a non-finite stack count is skipped rather than turning the card's count into `NaN`. Pure; unit-tested in `summary.test.ts`.
 
+### lib/military/milpac-dates.ts
+- `parseMilpacDate(raw): Date | null` — the one parser for the free-form dates on a milpac (`enlistedDate`, `promotions[].date`, `awards[].date`). They arrive as "15 August 2020", "04 October 2024", "27/09/2024" and "27-09-2024"; the day-first forms are parsed explicitly because `new Date('04/10/2024')` reads that as **10 April**, not 4 October. An impossible day (`31/02`) is rejected rather than rolled forward, and anything unusable returns null — never today's date, because these are printed on certificates as historical fact. Used by the certificate route and the profile's `durationSince`; unit-tested in `milpac-dates.test.ts`.
+
 ### lib/military/milpac-tabs.ts
 - `MILPAC_TABS` — the three sections a milpac is split into (`overview`, `record`, `kits`) with their labels and **path segments**. The split is conceptual: who the member is, what they have earned, what they carry.
 - `MilpacTab` — union of the keys.

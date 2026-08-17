@@ -77,6 +77,38 @@ function todayStr() {
     return new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+/**
+ * Flags an entry that records no issuing officer.
+ *
+ * Blank is allowed and is saved as blank — plenty of historical records have
+ * nobody left to name, and the server no longer substitutes whoever happens to
+ * be editing. The consequence is worth stating rather than hiding: a signed
+ * certificate carries the officer who actually authorised it, and without one
+ * it falls back to whoever currently holds the signing billet, which re-attributes
+ * a historical document to someone who had nothing to do with it.
+ *
+ * Both halves are needed. A name with no rank is not usable either, so that
+ * falls back the same way.
+ */
+function MissingIssuer({ signsCertificate = false }: { signsCertificate?: boolean }) {
+    return (
+        <span
+            title={signsCertificate
+                ? 'No issuing officer recorded. Any certificate for this entry will be signed by the unit\'s current signing officer instead of the officer who authorised it.'
+                : 'No issuing officer recorded for this entry.'}
+            style={{
+                fontSize: '0.62rem',
+                letterSpacing: '0.04em',
+                color: '#d4a03a',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+            }}
+        >
+            ⚠ No issuer{signsCertificate ? ' — signed by current OC' : ''}
+        </span>
+    )
+}
+
 // `issuedByRank` is the full rank name (RankSelect's value contract), and it
 // signs the rendered certificate — see types/user.d.ts.
 type Promotion = { _key: string; date: string; rank: string; role: string; issuedById?: string; issuedByName?: string; issuedByRank?: string }
@@ -1106,6 +1138,7 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                                         placeholder='e.g. CO Smith'
                                                         style={{ ...inputStyle, fontSize: '0.72rem', padding: '3px 8px', flex: 1 }}
                                                     />
+                                                    {!p.issuedByName?.trim() && <MissingIssuer signsCertificate />}
                                                 </div>
                                             </div>
                                         )}
@@ -1204,6 +1237,7 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                                         placeholder='e.g. CO Smith'
                                                         style={{ ...inputStyle, fontSize: '0.72rem', padding: '3px 8px', flex: 1 }}
                                                     />
+                                                    {!q.issuedByName?.trim() && <MissingIssuer />}
                                                 </div>
                                             </div>
                                         )}
@@ -1329,6 +1363,7 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                                                         placeholder='e.g. CO Smith'
                                                         style={{ ...inputStyle, fontSize: '0.72rem', padding: '3px 8px', flex: 1 }}
                                                     />
+                                                    {!a.issuedByName?.trim() && <MissingIssuer signsCertificate />}
                                                 </div>
                                             </div>
                                         )}

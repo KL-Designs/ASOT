@@ -4,6 +4,7 @@ import Db from '@/lib/mongo'
 import { AWARD_TO_CITATION, certificateCodeForCitation, MEDALLION_CERTIFICATE_CODES, rankAbbrFromName } from '@asot/lib'
 import { renderCertificate, MilpacServiceError } from '@/lib/milpac-gen/client'
 import { resolveUnitSignatory, type Signatory } from '@/lib/milpac-gen/signatory'
+import { parseMilpacDate } from '@/lib/military/milpac-dates'
 
 /**
  * Renders a member's certificate on demand and returns it as a PNG.
@@ -62,13 +63,13 @@ const bare = (value: string) => value.replace(/[()]/g, '')
  * don't parse.
  */
 function rankAbbrAt(user: User, when: string | undefined): string {
-    const target = when ? new Date(when) : null
+    const target = parseMilpacDate(when)
     const fallback = user.milpac?.currentRank ?? ''
-    if (!target || Number.isNaN(target.getTime())) return fallback
+    if (!target) return fallback
 
     const held = (user.milpac?.promotions ?? [])
-        .map(p => ({ rank: p.rank, at: new Date(p.date) }))
-        .filter(p => !Number.isNaN(p.at.getTime()) && p.at.getTime() <= target.getTime())
+        .map(p => ({ rank: p.rank, at: parseMilpacDate(p.date) }))
+        .filter((p): p is { rank: string; at: Date } => p.at !== null && p.at.getTime() <= target.getTime())
         .sort((a, b) => a.at.getTime() - b.at.getTime())
         .at(-1)
 
@@ -76,13 +77,22 @@ function rankAbbrAt(user: User, when: string | undefined): string {
     return rankAbbrFromName(held.rank) || held.rank
 }
 
+/**
+ * A date split into the three pieces the templates print, or null.
+ *
+ * Null rather than "today": these dates are printed as historical fact on a
+ * document a member keeps. A certificate that reads "enlisted on the 18th of
+ * August 2026" because the field was empty is worse than no certificate, so the
+ * caller refuses to render instead. Free-text dates that do not parse — CSV
+ * imports are full of them — are treated the same way.
+ */
 function splitDate(value: string | undefined) {
-    const date = value ? new Date(value) : new Date()
-    const safe = Number.isNaN(date.getTime()) ? new Date() : date
+    const date = parseMilpacDate(value)
+    if (!date) return null
     return {
-        dateNumber: String(safe.getDate()),
-        suffix:     ordinalSuffix(safe.getDate()),
-        date:       safe.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+        dateNumber: String(date.getDate()),
+        suffix:     ordinalSuffix(date.getDate()),
+        date:       date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
     }
 }
 
@@ -154,17 +164,47 @@ export async function GET(
         memberRank = promotion ? rankAbbrFromName(promotion.rank) || promotion.rank : user.milpac?.currentRank
     }
 
-    const { dateNumber, suffix, date } = splitDate(issuedDate)
     // Only hit the ORBAT when the record named nobody.
     signatory ??= await resolveUnitSignatory()
+
+    /**
+     * Everything the printed document asserts has to be real before it is
+     * printed. A certificate is a record a member keeps and shows, so a missing
+     * field must stop it being issued rather than be filled with a plausible
+     * default — an unsigned citation, or one dated today because the enlistment
+     * date was never entered, is a small forgery.
+     *
+     * 422 rather than 500: the request is well-formed and the member does hold
+     * the award; it is their record that is incomplete. The viewer degrades to
+     * the plain award row on a failed render, and the missing fields are what
+     * the milpac editor now warns about.
+     */
+    const issued = splitDate(issuedDate)
+    // The enlistment date, not the award date — the templates print "enlisted
+    // on ... and awarded on ...", and both used to be given the award's date.
+    const joined = splitDate(user.milpac?.enlistedDate)
+
+    const missing = [
+        !issued && (type === 'award' ? 'the award date' : 'the promotion date'),
+        !joined && 'the enlistment date',
+        !signatory.signaturer && 'an issuing officer',
+    ].filter(Boolean) as string[]
+
+    if (missing.length > 0) {
+        console.warn('[milpac] certificate withheld', username, cert, missing.join(', '))
+        return NextResponse.json(
+            { error: `This certificate is missing ${missing.join(' and ')}.` },
+            { status: 422 },
+        )
+    }
 
     try {
         const png = await renderCertificate({
             type,
             cert,
             name: [memberRank, user.name || user.username].filter(Boolean).join(' '),
-            date, dateNumber, suffix,
-            jddate: date, jdnum: dateNumber, jdsuffix: suffix,
+            date: issued!.date, dateNumber: issued!.dateNumber, suffix: issued!.suffix,
+            jddate: joined!.date, jdnum: joined!.dateNumber, jdsuffix: joined!.suffix,
             ...signatory,
         })
         return new NextResponse(new Uint8Array(png), {
