@@ -218,6 +218,9 @@ Clears default OG/Twitter images (overridden per-profile by `opengraph-image.tsx
 #### app/(landing)/milpacs/[username]/loading.tsx
 Client `TacticalLoader` reading the `username` route param for its label.
 
+#### app/(landing)/milpacs/[username]/tabs.tsx
+Server component rendering the profile's section tabs (Overview / Service Record / Loadout) on the rule beneath the hero stat strip. Real `<Link>`s carrying `?tab=`, not client state — the server renders the requested section so there is no flash of the wrong tab and `?tab=loadout` is shareable. `scroll={false}` keeps the reader where they are. A soft navigation remounts the panels, so their `.rise` entrance stagger replays and each tab lays itself out. Tab keys resolve via `resolveTab` (`lib/military/milpac-tabs.ts`).
+
 #### app/(landing)/milpacs/[username]/copy-link.tsx
 Client button in the top bar beside the crumb: copies the profile's canonical absolute URL. Uses
 `navigator.clipboard` when the page is a secure context, otherwise an off-screen-textarea

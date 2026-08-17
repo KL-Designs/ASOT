@@ -189,6 +189,11 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `parseLoadout(raw): ParsedLoadout` — parses an ACE arsenal export (ARMA's *positional* `getUnitLoadout` array — slot 6 is headgear because it is sixth — but valid JSON, so no SQF parser needed) into a render-ready shape: `primary`/`launcher`/`handgun`/`binocular` (`WeaponSlot`: className + muzzle/pointer/optic/bipod + up to 2 magazines), `uniform`/`vest`/`backpack` (`Container`: className + `Stack[]` contents), `headgear`/`facewear` (className or null), `assigned` (map/gps/radio/compass/watch/nvg). Throws `LoadoutParseError` (with a user-facing message) on invalid JSON, non-array input, or a slot count other than 10. Nothing here is stored — `MemberLoadout.raw` is the record; this runs at render, so improving the parser improves every existing loadout with no migration.
 - `LoadoutParseError` — `Error` subclass, `name: 'LoadoutParseError'`.
 
+### lib/military/milpac-tabs.ts
+- `MILPAC_TABS` — the three sections a milpac is split into (`overview`, `record`, `loadout`) with their labels. The split is conceptual: who the member is, what they have earned, what they carry.
+- `MilpacTab` — union of the keys.
+- `resolveTab(raw)` — the tab a `?tab=` value selects, falling back to the first for anything unrecognised, absent, wrongly-cased or repeated. Kept in `lib/` rather than beside the component so it can be unit-tested; `milpac-tabs.test.ts`.
+
 ### lib/loadout/names.ts
 - `resolveItemName(className)` — Arma classname to readable name: hand overrides, then the generated dictionary, then `prettifyClassName`. Never returns empty.
 - `prettifyClassName(className)` — the fallback: strips vendor prefix and type infix, splits camelCase, title-cases. Unit-tested in `names.test.ts`.

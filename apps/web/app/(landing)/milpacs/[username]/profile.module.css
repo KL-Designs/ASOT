@@ -370,14 +370,87 @@
     padding: clamp(22px, 3vw, 38px) var(--pad) 70px;
     display: grid;
     gap: clamp(18px, 2vw, 26px);
-    /* Left: progress and activity. Middle: the record. Right: the artwork.
-       Widest on the right: the service dress and medal box are the things a
-       member actually wants looked at, and unlike the text columns they only
-       get better with room. The combat record is narrowest — a twelve-bar chart
-       and a list of operation names both read fine in a narrow measure. */
-    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.25fr) minmax(0, 1.5fr);
     align-items: start;
 }
+
+/* Each tab sets its own measure rather than forcing one grid on all three.
+   Overview leads with the member and keeps the service data beside them; the
+   record reads as two even columns of lists; the kit takes the full width,
+   which the uniform artwork has wanted since it was a narrow rail. */
+.pageLead { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.pageEven { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pageFull { grid-template-columns: minmax(0, 1fr); }
+
+/* ── section tabs ────────────────────────────────────────────────────────── */
+
+.tabs {
+    display: flex;
+    gap: clamp(20px, 3.5vw, 48px);
+    padding: 0 var(--pad);
+    border-bottom: 1px solid var(--line);
+}
+.tab {
+    position: relative;
+    padding: 17px 0 15px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    white-space: nowrap;
+    transition: 0.18s color;
+}
+.tab:hover { color: var(--ink-2); }
+.tab:focus-visible { outline: 2px solid rgba(var(--acc-rgb), 0.8); outline-offset: 3px; }
+.tabOn { color: var(--ink); text-shadow: 0 0 18px rgba(var(--acc-rgb), 0.35); }
+
+/* Light thrown upward off the tick, spotlighting the active label. Without it
+   the tabs read as three equally quiet words — the tick alone is too fine a
+   mark to carry the whole state at a glance. Painted behind the text via a
+   negative z-index, so it lifts the label rather than washing over it. */
+.tabOn::before {
+    content: "";
+    position: absolute;
+    left: -18%;
+    right: -18%;
+    bottom: 0;
+    height: 46px;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+        ellipse at bottom,
+        rgba(var(--acc-rgb), 0.42) 0%,
+        rgba(var(--acc-rgb), 0.16) 45%,
+        transparent 74%
+    );
+    animation: tabGlow 0.5s ease-out both;
+}
+
+@keyframes tabGlow {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* The same accent mark the panels carry at their corners, drawn in under the
+   active tab rather than simply appearing. One moving thing on the page. */
+.tabOn::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--acc);
+    box-shadow: 0 0 12px rgba(var(--acc-rgb), 0.55);
+    transform-origin: left center;
+    animation: tabTick 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes tabTick {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+}
+
 .stack { display: grid; gap: clamp(18px, 2vw, 26px); min-width: 0; }
 
 .panel {
@@ -650,16 +723,24 @@
 @media (prefers-reduced-motion: reduce) {
     .rise { animation: none; }
     .lnk:hover { transform: none; }
+    /* The tick still marks the active tab — it just does not draw itself in. */
+    .tabOn::after { animation: none; }
 }
 
 /* ── responsive ──────────────────────────────────────────────────────────── */
 
 @media (max-width: 1500px) {
-    .page { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+    /* Two columns is already the widest any tab goes, so only the artwork pair
+       needs help here — a uniform rendered at half of a narrow window is small. */
+    .pageLead { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
 }
 
 @media (max-width: 1080px) {
-    .page { grid-template-columns: 1fr; }
+    .pageLead, .pageEven { grid-template-columns: 1fr; }
+
+    /* Tabs scroll rather than wrap: a wrapped second row reads as two bars. */
+    .tabs { overflow-x: auto; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
     .strip { grid-template-columns: repeat(3, 1fr); }
     .cell:nth-child(3) { border-right: none; }
     .cell:nth-child(n + 4) { border-top: 1px solid var(--line); }
@@ -693,7 +774,6 @@
 
 /* ── loadout ─────────────────────────────────────────────────────────────── */
 
-.kitSection { padding: 0 var(--pad) 40px; }
 
 .kit { display: flex; flex-direction: column; gap: 18px; }
 .kitActions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
