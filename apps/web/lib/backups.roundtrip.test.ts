@@ -34,6 +34,7 @@ import { tmpdir } from 'os'
 import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import type { ReadableStream as NodeWebReadableStream } from 'stream/web'
+import unzipper from 'unzipper'
 
 const RESTIC_BIN = resolve(__dirname, '..', 'bin', process.platform === 'win32' ? 'restic.exe' : 'restic')
 const hasRestic = existsSync(RESTIC_BIN)
@@ -131,6 +132,48 @@ describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
         expect((await backups.listBackups()).some(p => p.isSafety)).toBe(true)
 
         await rm(zipPath, { force: true }).catch(() => {})
+    }, 300000)
+
+    test('a gallery-only download restores only the gallery', async () => {
+        await seed('scoped-original')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        const zipPath = join(tempRoot, 'gallery-only.zip')
+        const stream = await backups.openDownloadZipStream(point, ['gallery']) as unknown as NodeWebReadableStream
+        await pipeline(Readable.fromWeb(stream), createWriteStream(zipPath))
+
+        // Nothing outside the requested part may be in the archive at all —
+        // otherwise a "gallery only" restore could still carry a database.
+        const { files } = await unzipper.Open.file(zipPath)
+        expect(files.length).toBeGreaterThan(0)
+        for (const f of files) expect(f.path).toMatch(/^gallery\//)
+
+        await seed('CORRUPTED')
+        await backups.applyUploadedZip(zipPath, ['gallery'])
+
+        expect(await liveState()).toEqual({
+            db: 'CORRUPTED',            // untouched, as asked
+            gallery: 'scoped-original', // restored
+            uploads: 'CORRUPTED',       // untouched, as asked
+        })
+    }, 300000)
+
+    test('refuses to restore a part the archive does not contain', async () => {
+        await seed('present')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        const zipPath = join(tempRoot, 'gallery-only-2.zip')
+        const stream = await backups.openDownloadZipStream(point, ['gallery']) as unknown as NodeWebReadableStream
+        await pipeline(Readable.fromWeb(stream), createWriteStream(zipPath))
+
+        await seed('CORRUPTED')
+        // Asking for the database out of a gallery-only archive must fail
+        // loudly: "restored nothing, successfully" is the exact failure this
+        // whole code path is written to avoid.
+        await expect(backups.applyUploadedZip(zipPath, ['database'])).rejects.toThrow(/contains no database/i)
+        expect((await liveState()).db).toBe('CORRUPTED')
     }, 300000)
 
     test('revert restores a point in place', async () => {

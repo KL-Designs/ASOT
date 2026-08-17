@@ -4,7 +4,7 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
-import { readStatus, applyUploadedZip } from '@/lib/backups'
+import { readStatus, applyUploadedZip, parseBackupParts } from '@/lib/backups'
 import { logAction } from '@/lib/logAction'
 
 // POST /api/backups/upload — upload a backup ZIP and revert to it (backups.restore)
@@ -40,6 +40,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'File must be a .zip archive' }, { status: 400 })
     }
 
+    // Comma-separated form field; absent means restore everything the archive
+    // holds, malformed is refused rather than widened.
+    const partsField = formData.get('parts')
+    const parts = parseBackupParts(typeof partsField === 'string' ? partsField : null)
+    if (!parts) {
+        return NextResponse.json({ error: 'Invalid parts (expected any of: database, gallery, uploads)' }, { status: 400 })
+    }
+
     const uploadDir = join(tmpdir(), 'asot-backup-uploads')
     await mkdir(uploadDir, { recursive: true })
     const tmpPath = join(uploadDir, `upload-${Date.now()}.zip`)
@@ -47,7 +55,7 @@ export async function POST(request: NextRequest) {
     await writeFile(tmpPath, buffer)
 
     // Fire and forget; delete the tmp file after revert completes
-    applyUploadedZip(tmpPath)
+    applyUploadedZip(tmpPath, parts)
         .finally(() => unlink(tmpPath).catch(() => {}))
         .catch(e => console.error('[backups] Upload-revert error:', e.message))
 
@@ -56,7 +64,7 @@ export async function POST(request: NextRequest) {
         category: 'system',
         performedBy: me.id,
         performedByName: me.name ?? me.id,
-        details: { filename: file.name },
+        details: { filename: file.name, parts },
     })
 
     return NextResponse.json({ message: 'Upload received, revert started' }, { status: 202 })

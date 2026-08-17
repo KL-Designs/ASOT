@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
-import { listBackups, openDownloadZipStream } from '@/lib/backups'
+import { listBackups, openDownloadZipStream, parseBackupParts } from '@/lib/backups'
 
 // Any ISO instant: a point's id is the run that produced it, and only falls
 // back to an on-the-hour bucket for snapshots taken before run tagging. The id
@@ -30,6 +30,13 @@ export async function GET(
         return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
     }
 
+    // ?parts=database,gallery — absent means everything, malformed is rejected
+    // rather than widened (see parseBackupParts).
+    const parts = parseBackupParts(request.nextUrl.searchParams.get('parts'))
+    if (!parts) {
+        return NextResponse.json({ error: 'Invalid parts (expected any of: database, gallery, uploads)' }, { status: 400 })
+    }
+
     const points = await listBackups()
     const point = points.find(p => p.id === id)
     if (!point) return NextResponse.json({ error: 'Backup point not found' }, { status: 404 })
@@ -39,7 +46,7 @@ export async function GET(
     // already committed and a failure can only truncate the download.
     let body: ReadableStream<Uint8Array>
     try {
-        body = await openDownloadZipStream(point)
+        body = await openDownloadZipStream(point, parts)
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
         return NextResponse.json({ error: `Failed to build download: ${msg}` }, { status: 500 })

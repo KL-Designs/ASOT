@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
-import { readStatus, revertToPoint, listBackups } from '@/lib/backups'
+import { readStatus, revertToPoint, listBackups, parseBackupParts } from '@/lib/backups'
 import { logAction } from '@/lib/logAction'
 
 // Any ISO instant — see the download route for why this loosened from an
@@ -24,9 +24,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { id } = body as { id?: string }
+    const { id, parts: rawParts } = body as { id?: string; parts?: string[] }
     if (!id || !ID_RE.test(id)) {
         return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+    }
+
+    // Absent means every part, which is what this endpoint has always done.
+    // Anything malformed is refused rather than widened — this call overwrites
+    // live data, so a typo must not turn a gallery-only restore into all three.
+    const parts = parseBackupParts(rawParts)
+    if (!parts) {
+        return NextResponse.json({ error: 'Invalid parts (expected any of: database, gallery, uploads)' }, { status: 400 })
     }
 
     const status = await readStatus()
@@ -41,7 +49,7 @@ export async function POST(request: NextRequest) {
     if (!point) return NextResponse.json({ error: 'Backup point not found' }, { status: 404 })
 
     // Fire and forget
-    revertToPoint(point).catch(e => console.error('[backups] Revert error:', e.message))
+    revertToPoint(point, parts).catch(e => console.error('[backups] Revert error:', e.message))
 
     await logAction({
         action: 'backup.revert',
@@ -50,6 +58,9 @@ export async function POST(request: NextRequest) {
         performedByName: me.name ?? me.id,
         entityType: 'backup',
         entityId: point.id,
+        // Which parts were overwritten is the first thing anyone auditing a
+        // restore needs to know.
+        details: { parts },
     })
 
     return NextResponse.json({ message: 'Revert started' }, { status: 202 })

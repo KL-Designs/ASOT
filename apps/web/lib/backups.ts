@@ -77,6 +77,38 @@ export type BackupPoint = {
     isManual?: boolean          // carries the 'manual' tag — taken by a human on demand, likewise never pruned
 }
 
+// The separately restorable parts of a backup. The database is its own restic
+// repo; gallery and uploads share the media repo but are distinct source paths
+// within it, so all three can be restored independently.
+export type BackupPart = 'database' | 'gallery' | 'uploads'
+export const ALL_BACKUP_PARTS: readonly BackupPart[] = ['database', 'gallery', 'uploads']
+
+// Returns null for anything malformed rather than silently falling back to
+// "everything": these values choose what a restore overwrites, so a typo must
+// fail the request, not quietly widen it. Absent input DOES mean everything —
+// that is the historical behaviour of every one of these endpoints.
+export function parseBackupParts(raw: string | string[] | null | undefined): BackupPart[] | null {
+    if (raw === null || raw === undefined || raw === '') return [...ALL_BACKUP_PARTS]
+    const requested = (Array.isArray(raw) ? raw : raw.split(',')).map(s => s.trim()).filter(Boolean)
+    if (requested.length === 0) return null
+    const parts: BackupPart[] = []
+    for (const value of requested) {
+        const match = ALL_BACKUP_PARTS.find(p => p === value)
+        if (!match) return null
+        if (!parts.includes(match)) parts.push(match)
+    }
+    return parts
+}
+
+// Which part a media snapshot's source path belongs to. The media repo backs up
+// GALLERY_DIR and UPLOADS_DIR, so the last path segment identifies it.
+function mediaPartOf(sourcePath: string): BackupPart | null {
+    const name = toResticTreePath(sourcePath).split('/').filter(Boolean).pop()
+    if (name === basename(GALLERY_DIR)) return 'gallery'
+    if (name === basename(UPLOADS_DIR)) return 'uploads'
+    return null
+}
+
 export type StorageUsage = {
     live:    { database: number; gallery: number; uploads: number }
     backups: { db: number; mediaGallery: number; mediaUploads: number }
@@ -862,8 +894,15 @@ async function snapshotSourcePaths(repo: string, snapshotId: string): Promise<st
 // restored fine. Restoring only the subpath never creates those parent nodes
 // at all, so there is nothing to re-apply a hostile ACL to — and it fixes
 // snapshots that already exist, since the paths come from the snapshot itself.
-async function resticRestore(repo: string, snapshotId: string, target: string): Promise<void> {
-    const sources = await snapshotSourcePaths(repo, snapshotId)
+async function resticRestore(
+    repo: string,
+    snapshotId: string,
+    target: string,
+    // Restores only the source paths this accepts. Lets a scoped revert skip
+    // restoring gigabytes it is not going to copy anywhere.
+    wanted: (sourcePath: string) => boolean = () => true,
+): Promise<void> {
+    const sources = (await snapshotSourcePaths(repo, snapshotId)).filter(wanted)
     const used = new Set<string>()
     for (const source of sources) {
         const treePath = toResticTreePath(source)
@@ -912,7 +951,10 @@ function findDirNamed(root: string, name: string): string | null {
 
 // ── Revert ────────────────────────────────────────────────────────────────────
 
-export async function revertToPoint(point: BackupPoint): Promise<void> {
+export async function revertToPoint(
+    point: BackupPoint,
+    parts: readonly BackupPart[] = ALL_BACKUP_PARTS,
+): Promise<void> {
     // Claimed before anything else, including the safety backup. Throws rather
     // than returning quietly: the caller is about to be told its restore began.
     const token = beginOperation('revert')
@@ -928,19 +970,24 @@ export async function revertToPoint(point: BackupPoint): Promise<void> {
         // is no undo for what follows, so the restore does not happen.
         await runSafetyBackup()
 
-        if (point.dbSnapshotId) {
+        if (point.dbSnapshotId && parts.includes('database')) {
             await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring database…' })
             const dbTarget = join(tmp, 'db-restore')
             await resticRestore(DB_REPO, point.dbSnapshotId, dbTarget)
             const dumpRoot = findByMarker(dbTarget, 'manifest.json')
             await restoreDatabase(dumpRoot)
         }
-        if (point.mediaSnapshotId) {
+        if (point.mediaSnapshotId && (parts.includes('gallery') || parts.includes('uploads'))) {
             await writeOwnedStatus(token, { state: 'reverting', startedAt: new Date().toISOString(), message: 'Restoring media files…' })
             const mediaTarget = join(tmp, 'media-restore')
-            await resticRestore(MEDIA_REPO, point.mediaSnapshotId, mediaTarget)
-            const gallery = findDirNamed(mediaTarget, basename(GALLERY_DIR))
-            const uploads = findDirNamed(mediaTarget, basename(UPLOADS_DIR))
+            // Restore only the trees being copied over: a gallery-only revert
+            // shouldn't spend the time and disk to restore uploads as well.
+            await resticRestore(MEDIA_REPO, point.mediaSnapshotId, mediaTarget, sourcePath => {
+                const part = mediaPartOf(sourcePath)
+                return part ? parts.includes(part) : false
+            })
+            const gallery = parts.includes('gallery') ? findDirNamed(mediaTarget, basename(GALLERY_DIR)) : null
+            const uploads = parts.includes('uploads') ? findDirNamed(mediaTarget, basename(UPLOADS_DIR)) : null
             if (gallery) await copyDirRecursive(gallery, GALLERY_DIR)
             if (uploads) await copyDirRecursive(uploads, UPLOADS_DIR)
         }
@@ -1048,20 +1095,29 @@ function appendSnapshotSubtree(
 //
 // The response carries no Content-Length in exchange (the size isn't knowable
 // until it's built), so the browser shows an indeterminate progress bar.
-export async function openDownloadZipStream(point: BackupPoint): Promise<ReadableStream<Uint8Array>> {
+export async function openDownloadZipStream(
+    point: BackupPoint,
+    parts: readonly BackupPart[] = ALL_BACKUP_PARTS,
+): Promise<ReadableStream<Uint8Array>> {
     // Resolved up front so a bad snapshot id still fails as a real HTTP error,
     // before any bytes commit the response.
     const jobs: { repo: string; snapshotId: string; sourcePath: string; prefix: string }[] = []
 
-    if (point.dbSnapshotId) {
+    if (point.dbSnapshotId && parts.includes('database')) {
         const [dbPath] = await snapshotSourcePaths(DB_REPO, point.dbSnapshotId)
         // Always 'db-source', never the dump directory's own name: the hourly
         // backup and a safety backup dump from differently-named temp dirs,
         // and applyUploadedZip() looks for exactly this name.
         jobs.push({ repo: DB_REPO, snapshotId: point.dbSnapshotId, sourcePath: dbPath, prefix: 'db-source' })
     }
-    if (point.mediaSnapshotId) {
+    if (point.mediaSnapshotId && (parts.includes('gallery') || parts.includes('uploads'))) {
         for (const sourcePath of await snapshotSourcePaths(MEDIA_REPO, point.mediaSnapshotId)) {
+            const part = mediaPartOf(sourcePath)
+            // An unrecognised media path (the set of backed-up directories
+            // changed since the snapshot was taken) is included only when the
+            // caller asked for everything, so a narrowed request can never
+            // quietly carry something it didn't name.
+            if (part ? !parts.includes(part) : parts.length !== ALL_BACKUP_PARTS.length) continue
             // 'gallery' / 'uploads' — the live directory names, which are also
             // what applyUploadedZip() restores from.
             const prefix = toResticTreePath(sourcePath).split('/').filter(Boolean).pop() ?? 'media'
@@ -1139,7 +1195,10 @@ export async function safeExtractZip(zipPath: string, destDir: string): Promise<
 // Extracts an uploaded zip straight onto disk — bypasses restic entirely, does
 // not feed the upload into either repo's history. Matches buildDownloadZip's
 // { db-source/, gallery/, uploads/ } shape.
-export async function applyUploadedZip(zipPath: string): Promise<void> {
+export async function applyUploadedZip(
+    zipPath: string,
+    parts: readonly BackupPart[] = ALL_BACKUP_PARTS,
+): Promise<void> {
     // Same claim-first rule as revertToPoint().
     const token = beginOperation('upload-revert')
     if (!token) throw new Error('Another backup or restore operation is already in progress')
@@ -1155,11 +1214,29 @@ export async function applyUploadedZip(zipPath: string): Promise<void> {
         const dbDir = join(tmp, 'db-source')
         const gallery = join(tmp, 'gallery')
         const uploads = join(tmp, 'uploads')
-        const hasDbSource = existsSync(dbDir)
-        const hasGallery  = existsSync(gallery)
-        const hasUploads  = existsSync(uploads)
+        // Present in the archive AND asked for. The two are checked separately
+        // below so "the zip has no gallery" and "you chose not to restore the
+        // gallery" stay distinguishable in the error case.
+        const inZip = {
+            database: existsSync(dbDir),
+            gallery:  existsSync(gallery),
+            uploads:  existsSync(uploads),
+        }
+        const hasDbSource = inZip.database && parts.includes('database')
+        const hasGallery  = inZip.gallery  && parts.includes('gallery')
+        const hasUploads  = inZip.uploads  && parts.includes('uploads')
 
-        if (!hasDbSource && !hasGallery && !hasUploads) {
+        // Asked for parts that this archive simply does not contain — restoring
+        // "nothing, successfully" is the failure mode this whole check exists
+        // to prevent, so say which parts are missing rather than proceeding.
+        if (!hasDbSource && !hasGallery && !hasUploads && (inZip.database || inZip.gallery || inZip.uploads)) {
+            const present = ALL_BACKUP_PARTS.filter(p => inZip[p])
+            throw new Error(
+                `This ZIP contains no ${parts.join(', ')} to restore. It contains: ${present.join(', ')}.`
+            )
+        }
+
+        if (!inZip.database && !inZip.gallery && !inZip.uploads) {
             // The old lib/snapshots.ts system's zips had `manifest.json` +
             // `db/` at the archive root, not `db-source/` — recognizably
             // different from anything this uploader can produce or restore.

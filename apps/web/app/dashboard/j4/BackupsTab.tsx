@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Typography, CircularProgress, Dialog, DialogContent, Tooltip as MuiTooltip } from '@mui/material'
+import { Typography, CircularProgress, Dialog, DialogContent, Menu, Tooltip as MuiTooltip } from '@mui/material'
 import { CheckCircleOutline, ErrorOutline } from '@mui/icons-material'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RechartsTooltip } from 'recharts'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
-import type { BackupPoint, BackupStatus, BackupConfig, StorageUsage } from '@/lib/backups'
+import type { BackupPoint, BackupStatus, BackupConfig, StorageUsage, BackupPart } from '@/lib/backups'
 
 // ── Duration history (localStorage) ──────────────────────────────────────────
 
@@ -210,6 +210,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
     const [loading, setLoading]     = useState(true)
     const [error, setError]         = useState<string | null>(null)
     const [uploadFile, setUploadFile] = useState<File | null>(null)
+    const [uploadParts, setUploadParts] = useState<Record<BackupPart, boolean>>({ database: true, gallery: true, uploads: true })
     const [uploading, setUploading]   = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -237,6 +238,31 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
     // yet, and the one whose revert request is in flight.
     const [startingDownload, setStartingDownload] = useState<string | null>(null)
     const [revertPending, setRevertPending] = useState<string | null>(null)
+
+    // The open scope menu (which row, which action, where to anchor it) and the
+    // parts ticked inside it. The plain Download/Revert buttons still act on
+    // everything; this is the caret beside them.
+    const [scopeMenu, setScopeMenu] = useState<{ point: BackupPoint; action: 'download' | 'revert'; anchor: HTMLElement } | null>(null)
+    const [scopeSel, setScopeSel] = useState<Record<BackupPart, boolean>>({ database: true, gallery: true, uploads: true })
+
+    // Which parts a given point can offer at all.
+    const availableParts = (p: BackupPoint): BackupPart[] => [
+        ...(p.dbSnapshotId ? ['database' as const] : []),
+        ...(p.mediaSnapshotId ? ['gallery' as const, 'uploads' as const] : []),
+    ]
+
+    function openScopeMenu(point: BackupPoint, action: 'download' | 'revert', anchor: HTMLElement) {
+        const available = availableParts(point)
+        setScopeSel({
+            database: available.includes('database'),
+            gallery:  available.includes('gallery'),
+            uploads:  available.includes('uploads'),
+        })
+        setScopeMenu({ point, action, anchor })
+    }
+
+    const selectedParts = (point: BackupPoint): BackupPart[] =>
+        availableParts(point).filter(p => scopeSel[p])
 
     const [config, setConfig] = useState<BackupConfig>({ autoEnabled: true, keepHourly: 48, keepDaily: 14, keepWeekly: 8, keepMonthly: 12 })
     const [configDraft, setConfigDraft] = useState<BackupConfig>({ autoEnabled: true, keepHourly: 48, keepDaily: 14, keepWeekly: 8, keepMonthly: 12 })
@@ -379,6 +405,22 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
     const downloadTimers = useRef<Set<number>>(new Set())
     useEffect(() => () => { downloadTimers.current.forEach(t => window.clearInterval(t)) }, [])
 
+    // Used by the scope menu, where there is no anchor to click — a temporary
+    // one keeps the browser's native download behaviour (and the filename hint)
+    // rather than navigating the tab.
+    function triggerDownload(point: BackupPoint, parts: BackupPart[]) {
+        const nonce = downloadNonces.get(point.id) ?? 'dl'
+        const query = new URLSearchParams({ dl: nonce })
+        if (parts.length < availableParts(point).length) query.set('parts', parts.join(','))
+        const a = document.createElement('a')
+        a.href = `/api/backups/${encodeURIComponent(point.id)}/download?${query}`
+        a.download = `backup-${point.id}.zip`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        watchForDownloadStart(point.id, nonce)
+    }
+
     function watchForDownloadStart(pointId: string, nonce: string) {
         setStartingDownload(pointId)
         const deadline = Date.now() + 90_000
@@ -397,11 +439,21 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
         downloadTimers.current.add(timer)
     }
 
-    async function handleRevert(point: BackupPoint) {
-        const parts = [point.dbSnapshotId && 'database', point.mediaSnapshotId && 'media files'].filter(Boolean).join(' and ')
+    async function handleRevert(point: BackupPoint, parts: BackupPart[] = availableParts(point)) {
+        const label: Record<BackupPart, string> = { database: 'the database', gallery: 'the gallery', uploads: 'uploaded files' }
+        const what = parts.map(p => label[p]).join(', ').replace(/, ([^,]*)$/, ' and $1')
+        // A partial restore is a sharper tool than the all-or-nothing one: the
+        // database references media by path, so restoring one without the other
+        // can leave records pointing at files that no longer match. Worth
+        // saying out loud at the moment of choosing, not in a doc somewhere.
+        const partial = parts.length < availableParts(point).length
         openConfirm(
             'Revert to Backup',
-            `This will restore ${parts} from ${new Date(point.time).toLocaleString()}, overwriting the current state. The current state cannot be recovered unless you have another backup. Are you sure?`,
+            `This will restore ${what} from ${new Date(point.time).toLocaleString()}, overwriting the current state. `
+            + (partial
+                ? `Everything else is left exactly as it is now — which can leave the database and the media out of step with each other, since records reference files by path. `
+                : '')
+            + `The current state cannot be recovered unless you have another backup. Are you sure?`,
             async () => {
                 opSizeRef.current = (point.dbSizeBytes ?? 0) + (point.mediaSizeBytes ?? 0)
                 // Held until the request returns, so the row shows the restore
@@ -412,7 +464,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                     const res = await fetch('/api/backups/revert', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: point.id }),
+                        body: JSON.stringify({ id: point.id, parts }),
                     })
                     const data = await res.json()
                     if (!res.ok) setError(data.error ?? 'Failed to start revert')
@@ -427,9 +479,16 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
 
     async function handleUploadRevert() {
         if (!uploadFile) return
+        const chosen = (['database', 'gallery', 'uploads'] as BackupPart[]).filter(p => uploadParts[p])
+        if (chosen.length === 0) { setError('Choose at least one part to restore from the upload.'); return }
+        const labels: Record<BackupPart, string> = { database: 'the database', gallery: 'the gallery', uploads: 'uploaded files' }
+        const what = chosen.map(p => labels[p]).join(', ').replace(/, ([^,]*)$/, ' and $1')
         openConfirm(
             'Upload & Revert',
-            `Upload "${uploadFile.name}" and revert the entire database and media to it? This will DROP all current data. This cannot be undone.`,
+            `Upload "${uploadFile.name}" and restore ${what} from it? This DROPS the current copy of ${chosen.length === 3 ? 'all of it' : 'those parts'} and cannot be undone.`
+            + (chosen.length < 3
+                ? ` Everything else is left as it is, which can leave the database and the media out of step with each other.`
+                : ''),
             async () => {
                 setUploading(true)
                 setError(null)
@@ -437,6 +496,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                 try {
                     const form = new FormData()
                     form.append('backup', uploadFile)
+                    form.append('parts', chosen.join(','))
                     const res = await fetch('/api/backups/upload', { method: 'POST', body: form })
                     const data = await res.json()
                     if (!res.ok) setError(data.error ?? 'Upload failed')
@@ -755,7 +815,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                 {points.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                         <div style={{
-                            display: 'grid', gridTemplateColumns: '1fr 90px 90px 80px 65px', gap: 8,
+                            display: 'grid', gridTemplateColumns: '1fr 90px 90px 80px 22px 65px 22px', gap: 8,
                             padding: '5px 12px', fontSize: '0.58rem', fontWeight: 700, letterSpacing: 2,
                             textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)',
                         }}>
@@ -764,11 +824,13 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                             <span>Media</span>
                             <span></span>
                             <span></span>
+                            <span></span>
+                            <span></span>
                         </div>
 
                         {points.map(p => (
                             <div key={p.id} style={{
-                                display: 'grid', gridTemplateColumns: '1fr 90px 90px 80px 65px', gap: 8,
+                                display: 'grid', gridTemplateColumns: '1fr 90px 90px 80px 22px 65px 22px', gap: 8,
                                 alignItems: 'center', padding: '8px 12px',
                                 background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
                             }}>
@@ -839,18 +901,40 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                                     )}
                                     {startingDownload === p.id ? 'Starting' : 'Download'}
                                 </a>
+                                <button
+                                    aria-label='Choose what to download'
+                                    title='Choose what to download'
+                                    disabled={busy}
+                                    onClick={e => openScopeMenu(p, 'download', e.currentTarget)}
+                                    {...btnPointerProps(`${p.id}:download-scope`)}
+                                    style={{ ...rowBtnSx('green', `${p.id}:download-scope`), width: 22, padding: '3px 0' }}
+                                >
+                                    ▾
+                                </button>
                                 {canRestore && (
-                                    <button
-                                        onClick={() => handleRevert(p)}
-                                        disabled={busy || revertPending === p.id}
-                                        {...btnPointerProps(`${p.id}:revert`)}
-                                        style={{ ...rowBtnSx(undefined, `${p.id}:revert`), gap: 6 }}
-                                    >
-                                        {revertPending === p.id && (
-                                            <CircularProgress size={9} thickness={6} style={{ color: 'rgba(237,237,237,0.6)' }} />
-                                        )}
-                                        {revertPending === p.id ? 'Starting' : 'Revert'}
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => handleRevert(p)}
+                                            disabled={busy || revertPending === p.id}
+                                            {...btnPointerProps(`${p.id}:revert`)}
+                                            style={{ ...rowBtnSx(undefined, `${p.id}:revert`), gap: 6 }}
+                                        >
+                                            {revertPending === p.id && (
+                                                <CircularProgress size={9} thickness={6} style={{ color: 'rgba(237,237,237,0.6)' }} />
+                                            )}
+                                            {revertPending === p.id ? 'Starting' : 'Revert'}
+                                        </button>
+                                        <button
+                                            aria-label='Choose what to restore'
+                                            title='Choose what to restore'
+                                            disabled={busy || revertPending === p.id}
+                                            onClick={e => openScopeMenu(p, 'revert', e.currentTarget)}
+                                            {...btnPointerProps(`${p.id}:revert-scope`)}
+                                            style={{ ...rowBtnSx(undefined, `${p.id}:revert-scope`), width: 22, padding: '3px 0' }}
+                                        >
+                                            ▾
+                                        </button>
+                                    </>
                                 )}
                             </div>
                         ))}
@@ -893,6 +977,31 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                         style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 12 }}>
                         Upload & Revert
                     </Typography>
+                    {/* Same three parts as the timeline's scope menu. Ticking
+                        one off means the archive's copy of it is ignored, so a
+                        zip holding everything can restore just the gallery. */}
+                    <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+                        <span style={{
+                            fontSize: '0.55rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase',
+                            color: 'rgba(237,237,237,0.3)',
+                        }}>
+                            Restore from it
+                        </span>
+                        {(['database', 'gallery', 'uploads'] as BackupPart[]).map(part => (
+                            <label key={part} style={{
+                                display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                                fontSize: '0.68rem', color: 'rgba(237,237,237,0.75)', textTransform: 'capitalize',
+                            }}>
+                                <input
+                                    type='checkbox'
+                                    checked={uploadParts[part]}
+                                    onChange={e => setUploadParts(s => ({ ...s, [part]: e.target.checked }))}
+                                    style={{ accentColor: '#db001d', width: 13, height: 13, cursor: 'pointer' }}
+                                />
+                                {part}
+                            </label>
+                        ))}
+                    </div>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                         <label style={{
                             border: '1px solid rgba(219,0,29,0.25)',
@@ -1086,6 +1195,90 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                 }}
                 onCancel={closeConfirm}
             />
+
+            {/* Scope menu behind each row's caret. The plain buttons still act
+                on everything; this is for the "only the gallery" case. */}
+            <Menu
+                open={scopeMenu !== null}
+                anchorEl={scopeMenu?.anchor ?? null}
+                onClose={() => setScopeMenu(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                slotProps={{ paper: {
+                    style: {
+                        background: '#0b0b0b',
+                        border: '1px solid rgba(219,0,29,0.25)',
+                        borderRadius: 0,
+                        minWidth: 210,
+                    },
+                } }}
+            >
+                {scopeMenu && (() => {
+                    const point = scopeMenu.point
+                    const available = availableParts(point)
+                    const chosen = selectedParts(point)
+                    const isDownload = scopeMenu.action === 'download'
+                    const labels: Record<BackupPart, string> = { database: 'Database', gallery: 'Gallery', uploads: 'Uploads' }
+
+                    return (
+                        <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <span style={{
+                                fontSize: '0.55rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase',
+                                color: 'rgba(237,237,237,0.35)',
+                            }}>
+                                {isDownload ? 'Download parts' : 'Restore parts'}
+                            </span>
+
+                            {available.map(part => (
+                                <label key={part} style={{
+                                    display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+                                    fontSize: '0.68rem', color: 'rgba(237,237,237,0.8)',
+                                }}>
+                                    <input
+                                        type='checkbox'
+                                        checked={scopeSel[part]}
+                                        onChange={e => setScopeSel(s => ({ ...s, [part]: e.target.checked }))}
+                                        style={{ accentColor: '#db001d', width: 13, height: 13, cursor: 'pointer' }}
+                                    />
+                                    <span style={{ flex: 1 }}>{labels[part]}</span>
+                                    {/* Only the database has a per-part size. The media snapshot
+                                        records one figure covering gallery and uploads together,
+                                        so showing a split here would be invented. */}
+                                    {part === 'database' && point.dbSizeBytes !== undefined && (
+                                        <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.3)' }}>
+                                            {fmtBytes(point.dbSizeBytes)}
+                                        </span>
+                                    )}
+                                </label>
+                            ))}
+
+                            {point.mediaSizeBytes !== undefined && (
+                                <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.25)' }}>
+                                    Gallery + uploads together: {fmtBytes(point.mediaSizeBytes)}
+                                </span>
+                            )}
+
+                            <button
+                                disabled={chosen.length === 0}
+                                onClick={() => {
+                                    setScopeMenu(null)
+                                    if (isDownload) triggerDownload(point, chosen)
+                                    else handleRevert(point, chosen)
+                                }}
+                                style={{
+                                    ...rowBtnSx(isDownload ? 'green' : 'red', `${point.id}:scope-go`),
+                                    marginTop: 2,
+                                    opacity: chosen.length === 0 ? 0.35 : 1,
+                                    cursor: chosen.length === 0 ? 'not-allowed' : 'pointer',
+                                }}
+                                {...btnPointerProps(`${point.id}:scope-go`)}
+                            >
+                                {isDownload ? 'Download' : 'Revert'} {chosen.length === available.length ? 'all' : `(${chosen.length})`}
+                            </button>
+                        </div>
+                    )
+                })()}
+            </Menu>
         </div>
     )
 }
