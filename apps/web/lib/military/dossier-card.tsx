@@ -40,9 +40,6 @@ export function DossierCard({ data }: { data: DossierData }) {
             width: '100%', height: '100%', background: '#08090a',
             display: 'flex', flexDirection: 'column',
             fontFamily: 'sans-serif', position: 'relative',
-            borderRadius: 20,
-            border: '3px solid #2f353d',
-            overflow: 'hidden',
         }}>
             {data.cover && (
                 <>
@@ -141,6 +138,12 @@ export function DossierCard({ data }: { data: DossierData }) {
                     <span style={{ fontSize: 23, color: '#e8eaed', marginLeft: 20 }}>{data.kitLine}</span>
                 </div>
             )}
+
+            {/* The member's own accent, closing the card. Full bleed and
+                unconditional — it is the card's foot whether or not the kit row
+                above it is present, so a member with no public kit still gets a
+                finished edge rather than a cut-off stat strip. */}
+            <div style={{ display: 'flex', height: 6, background: accent }} />
         </div>
     )
 }
