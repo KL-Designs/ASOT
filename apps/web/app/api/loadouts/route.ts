@@ -51,6 +51,18 @@ export async function POST(req: Request) {
         updatedAt: now,
     } as MemberLoadout)
 
+    // countDocuments above is a check-then-act, so a burst of concurrent POSTs
+    // can each see room and all insert. Re-check after the fact and undo our
+    // own insert rather than reaching for a transaction: this is a bound on
+    // storage abuse, not an invariant anything reads.
+    if (await Db.loadouts.countDocuments({ userId: me.id }) > MAX_PER_MEMBER) {
+        await Db.loadouts.deleteOne({ _id: result.insertedId, userId: me.id })
+        return NextResponse.json(
+            { error: `You already have ${MAX_PER_MEMBER} loadouts — delete one first.` },
+            { status: 400 },
+        )
+    }
+
     await logAction({
         action: 'loadout.create',
         // 'member', singular — the ActionCategory union in types/logs.d.ts.

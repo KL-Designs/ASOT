@@ -20,7 +20,7 @@ declare global {
         isDefault: boolean
         /** Opt-in: may other members copy the export string? */
         shared: boolean
-        /** The ACE arsenal export, verbatim. The source of truth. */
+        /** The ACE arsenal export as pasted, whitespace-trimmed. The source of truth. */
         raw: string
         createdAt: Date
         updatedAt: Date

@@ -34,6 +34,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     if (body?.isDefault === true) {
         // Exactly one default per member: clear the others first.
+        // Best-effort, not atomic: two concurrent PATCHes can interleave and
+        // leave two rows claiming default, or none. Deliberate — the cures
+        // (a partial unique index, or a transaction needing a replica set) are
+        // riskier than the defect, and the read side is already deterministic:
+        // the profile picks `find(isDefault) ?? loadouts[0]` over a sorted
+        // list, so exactly one loadout is ever shown either way.
         await Db.loadouts.updateMany({ userId: me.id }, { $set: { isDefault: false } })
         set.isDefault = true
     }
