@@ -1,15 +1,15 @@
 import { resolve, join, basename, dirname, sep } from 'path'
 import { existsSync, mkdirSync, createWriteStream, createReadStream, readdirSync } from 'fs'
-import { readFile, writeFile, mkdir, mkdtemp, rm, copyFile, readdir, stat } from 'fs/promises'
+import { readFile, writeFile, mkdir, mkdtemp, rm, copyFile, readdir, stat, statfs } from 'fs/promises'
 import { execFile, type ChildProcess } from 'child_process'
 import { promisify } from 'util'
 import { tmpdir } from 'os'
 import { pipeline } from 'stream/promises'
-import { Readable } from 'stream'
+import { Readable, finished } from 'stream'
 import { createInterface } from 'readline'
 import { EJSON } from 'bson'
 import { MongoClient, FindCursor } from 'mongodb'
-import archiver from 'archiver'
+import archiver, { type Archiver, type EntryDataFunction } from 'archiver'
 import unzipper from 'unzipper'
 
 const execFileAsync = promisify(execFile)
@@ -891,51 +891,120 @@ export async function revertToPoint(point: BackupPoint): Promise<void> {
 
 // ── Download ──────────────────────────────────────────────────────────────────
 
-// Restores the point into a temp tree shaped { db-source/, gallery/, uploads/ }
-// and zips it — this exact shape is also what applyUploadedZip() below expects,
-// so a downloaded zip can be re-uploaded later and round-trip correctly.
-export async function buildDownloadZip(point: BackupPoint): Promise<string> {
-    const tmp = join(tmpdir(), `asot-download-${Date.now()}`)
-    const outDir = join(tmp, 'out')
-    const zipPath = `${tmp}.zip`
-    let succeeded = false
+// Mirrors copyDirRecursive()'s rule that a symlink is never carried out of a
+// restored tree. archiver.directory() lstats every entry and would otherwise
+// write a real zip symlink entry — which safeExtractZip() below refuses
+// outright, producing a disaster-recovery zip this app's own uploader rejects.
+// (The staged copy this replaced dropped symlinks as a side effect; archiver
+// does not, so the rule has to be stated explicitly here.)
+const skipSymlinks: EntryDataFunction = entry => entry.stats?.isSymbolicLink() ? false : entry
+
+// Builds the { db-source/, gallery/, uploads/ } archive that applyUploadedZip()
+// expects, from directories already on disk. Separate from
+// openDownloadZipStream() so the archive's shape — the contract the whole
+// download → upload round trip rests on — can be tested without restic or a
+// restored snapshot.
+export function createBackupArchiveStream(
+    src: { dbDumpRoot?: string; galleryDir?: string; uploadsDir?: string },
+): Archiver {
+    // level 1: the payload is overwhelmingly already-compressed images and
+    // video, so anything higher costs CPU on the response path for almost no
+    // saving.
+    const archive = archiver('zip', { zlib: { level: 1 } })
+    if (src.dbDumpRoot) archive.directory(src.dbDumpRoot, 'db-source', skipSymlinks)
+    if (src.galleryDir) archive.directory(src.galleryDir, 'gallery', skipSymlinks)
+    if (src.uploadsDir) archive.directory(src.uploadsDir, 'uploads', skipSymlinks)
+    return archive
+}
+
+// A download only needs room for the restored tree now that the zip is never
+// written to disk. The sizes are restic's own total_bytes_processed for each
+// snapshot — the logical size of what `restore` will lay down. Skipped entirely
+// when a snapshot predates that summary field: blocking a download that would
+// have worked is worse than letting restic fail on its own.
+async function assertRoomForRestore(point: BackupPoint): Promise<void> {
+    const needed = (point.dbSizeBytes ?? 0) + (point.mediaSizeBytes ?? 0)
+    if (needed === 0) return
+
+    let free: number
     try {
-        await mkdir(outDir, { recursive: true })
+        const fs = await statfs(tmpdir())
+        free = fs.bavail * fs.bsize
+    } catch {
+        return // same reasoning as settledOr(): never fail on a probe failure
+    }
+
+    const required = Math.ceil(needed * 1.1) // headroom for per-file rounding
+    if (free >= required) return
+
+    const gb = (n: number) => `${(n / 1e9).toFixed(1)} GB`
+    throw new Error(
+        `Not enough free disk space to build this download. Restoring it needs about ` +
+        `${gb(required)} of temporary space in ${tmpdir()}, but only ${gb(free)} is free. ` +
+        `Free up space and try again — the zip itself is streamed straight to you and never written to disk.`
+    )
+}
+
+// Restores the point to a temp tree and streams a zip of it — the archive is
+// shaped { db-source/, gallery/, uploads/ }, exactly what applyUploadedZip()
+// expects, so a downloaded zip re-uploads and round-trips correctly.
+//
+// Nothing is staged and no zip file is written. The previous version restored
+// the tree (7GB on the current media set), copied it into a staging directory
+// (another 7GB), then zipped that to disk (another ~7GB) — ~21GB of temp space,
+// all of it before a single byte reached the caller. Peak usage is now the
+// restic restore alone. The trade-off is that the archive's size is unknowable
+// up front, so the response carries no Content-Length and the browser shows an
+// indeterminate progress bar.
+//
+// The returned stream OWNS the temp tree: it is removed when the stream ends,
+// errors, or is cancelled by the client — never sooner, because archiver reads
+// the files lazily as the response drains.
+export async function openDownloadZipStream(point: BackupPoint): Promise<ReadableStream<Uint8Array>> {
+    await assertRoomForRestore(point)
+
+    const tmp = join(tmpdir(), `asot-download-${Date.now()}`)
+    let streaming = false
+    try {
+        const src: { dbDumpRoot?: string; galleryDir?: string; uploadsDir?: string } = {}
 
         if (point.dbSnapshotId) {
             const dbTarget = join(tmp, 'db-restore')
             await resticRestore(DB_REPO, point.dbSnapshotId, dbTarget)
-            const dumpRoot = findByMarker(dbTarget, 'manifest.json')
-            await copyDirRecursive(dumpRoot, join(outDir, 'db-source'))
+            src.dbDumpRoot = findByMarker(dbTarget, 'manifest.json')
         }
         if (point.mediaSnapshotId) {
             const mediaTarget = join(tmp, 'media-restore')
             await resticRestore(MEDIA_REPO, point.mediaSnapshotId, mediaTarget)
-            const gallery = findDirNamed(mediaTarget, basename(GALLERY_DIR))
-            const uploads = findDirNamed(mediaTarget, basename(UPLOADS_DIR))
-            if (gallery) await copyDirRecursive(gallery, join(outDir, 'gallery'))
-            if (uploads) await copyDirRecursive(uploads, join(outDir, 'uploads'))
+            src.galleryDir = findDirNamed(mediaTarget, basename(GALLERY_DIR)) ?? undefined
+            src.uploadsDir = findDirNamed(mediaTarget, basename(UPLOADS_DIR)) ?? undefined
         }
 
-        await new Promise<void>((resolveZip, reject) => {
-            const output  = createWriteStream(zipPath)
-            const archive = archiver('zip', { zlib: { level: 1 } })
-            archive.on('error', reject)
-            output.on('close', () => resolveZip())
-            output.on('error', reject)
-            archive.pipe(output)
-            archive.directory(outDir, false)
-            archive.finalize()
+        const archive = createBackupArchiveStream(src)
+
+        // Covers all three ways this ends: the archive finishing, an archiver
+        // error, and the premature close Readable.toWeb triggers when the
+        // client aborts. Removing the tree any earlier makes archiver read
+        // files out from under itself mid-response.
+        finished(archive, err => {
+            if (err) console.error('[backups] download stream ended early:', err.message)
+            rm(tmp, { recursive: true, force: true }).catch(() => {})
         })
 
-        succeeded = true
-        return zipPath
+        // Deliberately not awaited: finalize() only settles once every queued
+        // entry has been read out, which cannot happen until the HTTP response
+        // drains it. Any failure also surfaces as an 'error' event that
+        // finished() above handles, so this catch exists solely to keep the
+        // rejection from going unhandled.
+        archive.finalize().catch(() => {})
+
+        streaming = true
+        return Readable.toWeb(archive) as ReadableStream<Uint8Array>
     } finally {
-        await rm(tmp, { recursive: true, force: true }).catch(() => {})
-        // zipPath lives deliberately outside tmp (it's the return value) — if
-        // archiving failed partway through, clean up the partial file rather
-        // than leaking it in os.tmpdir() forever.
-        if (!succeeded) await rm(zipPath, { force: true }).catch(() => {})
+        // Only reached when we threw before the stream existed — a restic
+        // failure, or a restored tree without the manifest we expect. Once
+        // streaming, cleanup belongs to finished() above.
+        if (!streaming) await rm(tmp, { recursive: true, force: true }).catch(() => {})
     }
 }
 
@@ -949,7 +1018,10 @@ export async function buildDownloadZip(point: BackupPoint): Promise<string> {
 // success. Awaiting each entry's own write stream to 'finish' closes that
 // race, and validating each entry's path/type here also closes zip-slip and
 // symlink-based path traversal — the source zip is untrusted (staff-uploaded).
-async function safeExtractZip(zipPath: string, destDir: string): Promise<void> {
+// Exported so backups.archive.test.ts can assert that the zip this app
+// produces is one this exact extractor accepts, rather than reimplementing the
+// checks in the test and proving nothing.
+export async function safeExtractZip(zipPath: string, destDir: string): Promise<void> {
     const destRoot = resolve(destDir) + sep
     await mkdir(destDir, { recursive: true })
 

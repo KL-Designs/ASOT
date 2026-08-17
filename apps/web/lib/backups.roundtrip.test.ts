@@ -24,13 +24,16 @@
  * Skips (rather than fails) when the restic binary isn't present, so a fresh
  * clone that hasn't run scripts/ensure-restic.mjs yet still gets a green suite.
  */
-import { describe, test, expect, beforeAll, afterAll } from 'vitest'
+import { describe, test, expect, beforeAll, afterAll, vi } from 'vitest'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import { MongoClient } from 'mongodb'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, statSync } from 'fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, statSync, createWriteStream } from 'fs'
 import { rm } from 'fs/promises'
 import { join, resolve } from 'path'
 import { tmpdir } from 'os'
+import { Readable } from 'stream'
+import { pipeline } from 'stream/promises'
+import type { ReadableStream as NodeWebReadableStream } from 'stream/web'
 
 const RESTIC_BIN = resolve(__dirname, '..', 'bin', process.platform === 'win32' ? 'restic.exe' : 'restic')
 const hasRestic = existsSync(RESTIC_BIN)
@@ -99,9 +102,23 @@ describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
         expect(point.dbSnapshotId).toBeTruthy()
         expect(point.mediaSnapshotId).toBeTruthy()
 
-        const zipPath = await backups.buildDownloadZip(point)
+        // Consumed exactly the way the route's response does — the zip is
+        // produced as it is read and never exists as a file on the server.
+        const zipPath = join(tempRoot, 'downloaded.zip')
+        // The cast bridges the DOM ReadableStream the route returns and the
+        // stream/web one Readable.fromWeb is typed against; they are the same
+        // object at runtime.
+        const webStream = await backups.openDownloadZipStream(point) as unknown as NodeWebReadableStream
+        await pipeline(Readable.fromWeb(webStream), createWriteStream(zipPath))
         expect(existsSync(zipPath)).toBe(true)
         expect(statSync(zipPath).size).toBeGreaterThan(0)
+
+        // The temp restore tree belongs to the stream and must be gone now
+        // that it has drained. Polled: the cleanup runs from stream.finished()
+        // and is not awaited by the reader.
+        await vi.waitFor(() =>
+            expect(readdirSync(tempRoot).filter(n => n.startsWith('asot-download-'))).toEqual([])
+        )
 
         await seed('CORRUPTED')
         await backups.applyUploadedZip(zipPath)
