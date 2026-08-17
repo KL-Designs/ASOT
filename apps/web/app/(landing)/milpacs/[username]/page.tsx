@@ -28,6 +28,7 @@ import { Hero, type HeroStat } from './hero'
 import { EditMilpacButton } from './edit-milpac'
 import { Panel, Rows, Row, Empty, MedallionIcon, MEDALLION_ART, MonthChart, bucketByMonth } from './panels'
 import { LoadoutPanel } from './loadout-panel'
+import { LoadoutManager } from './loadout-manager'
 import s from './profile.module.css'
 
 
@@ -605,8 +606,27 @@ export default async function Page({ params }: { params: Promise<{ username: str
 			<div className={s.kitSection}>
 				<Panel title='Assigned Loadout' tag={activeLoadout?.name} delay='.23s'>
 					{activeLoadout
-						? <LoadoutPanel loadout={activeLoadout} />
-						: <Empty text='No loadout on record. Kit is imported from Arma.' />}
+						? (
+							<LoadoutPanel
+								loadout={activeLoadout}
+								actions={
+									<LoadoutManager
+										isOwn={isOwn}
+										activeId={String(activeLoadout._id)}
+										loadouts={loadouts.map(l => ({
+											id: String(l._id),
+											name: l.name,
+											isDefault: l.isDefault,
+											shared: l.shared,
+											raw: l.shared ? l.raw : '',
+										}))}
+									/>
+								}
+							/>
+						)
+						: isOwn
+							? <LoadoutManager isOwn activeId={null} loadouts={[]} />
+							: <Empty text='No loadout on record. Kit is imported from Arma.' />}
 				</Panel>
 			</div>
 

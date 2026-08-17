@@ -1,6 +1,6 @@
 # Milpac Loadout / Kit — design
 
-**Status:** all decisions taken (§10); awaiting review before an implementation plan
+**Status:** implemented
 **Panel:** `Assigned Loadout` on `/milpacs/[username]`, currently a stub reading
 "No loadout on record. Kit is imported from Arma."
 

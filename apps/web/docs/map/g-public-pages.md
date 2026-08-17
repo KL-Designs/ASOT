@@ -276,7 +276,20 @@ carried (headgear, facewear, binoculars, map/GPS/radio/compass/watch/NVG). Calls
 name dictionary the latter reads is ~2.7MB and must never reach the browser; only the resolved
 strings are sent. A parse failure (e.g. an old row a parser change now rejects) renders a fallback
 message rather than taking down the whole profile. Empty slots render as "—" rather than being
-omitted.
+omitted. Accepts an `actions` slot (rendered above the kit) — `page.tsx` passes `<LoadoutManager/>`
+into it.
+
+#### app/(landing)/milpacs/[username]/loadout-manager.tsx
+Client `LoadoutManager`: the switcher (a `<select>` when a member has more than one loadout, patching
+`PATCH /api/loadouts/[id]` with `{isDefault:true}`), the owner-only import form (`POST /api/loadouts`
+with `{raw, name}`), the sharing toggle and delete button (`PATCH`/`DELETE /api/loadouts/[id]`), and
+a "Copy loadout" button shown whenever the active loadout is `shared` — visible to any visitor, not
+just the owner, since a shared loadout's `raw` is public. Copy uses the same off-screen-textarea
+`execCommand('copy')` fallback as `copy-link.tsx`. The import help text states plainly that importing
+publishes the kit — the share toggle governs one-click copying, not confidentiality. Every action
+reloads the page on success rather than patching local state, keeping this component free of any
+loadout-shape knowledge. `page.tsx` maps `raw: l.shared ? l.raw : ''` before handing summaries to this
+component, so an unshared loadout's export string never reaches the browser in the first place.
 
 #### app/(landing)/milpacs/[username]/image-lightbox.tsx
 Generic client `ImageLightbox`: click-to-zoom full-screen overlay for an `<img>`, closes on
