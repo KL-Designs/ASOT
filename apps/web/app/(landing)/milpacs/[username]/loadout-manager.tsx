@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { Route } from 'next'
-import Link from 'next/link'
 import { copyText } from '@/lib/clipboard'
 import { MAX_NAME, MAX_DESCRIPTION } from '@/lib/loadout/limits'
 import { KIT_ICON_KEYS, DEFAULT_KIT_ICON, type KitIconKey } from '@/lib/loadout/kit-icons'
@@ -346,20 +344,17 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
                         const on = l.id === activeId
                         return (
                             <div key={l.id} className={on ? `${s.kitPick} ${s.kitPickOn}` : s.kitPick}>
-                                <Link
-                                    // The tab is carried along: a chip that dropped it
-                                    // would bounce the reader back to the overview.
-                                    href={`${basePath}/kits/${l.id}` as Route}
-                                    // Off for now, same as the section tabs — see tabs.tsx.
-                                    // Same reason as the section tabs: see tabs.tsx.
-                                    prefetch={false}
+                                {/* A plain <a>, not next/link, for the same measured
+                                    reason as the section tabs — see tabs.tsx. */}
+                                <a
+                                    href={`${basePath}/kits/${l.id}`}
                                     aria-current={on ? 'true' : undefined}
                                     className={s.kitPickName}
                                     title={l.description || undefined}
                                 >
                                     <KitIcon icon={l.icon} size={14} />
                                     {l.name}
-                                </Link>
+                                </a>
 
                                 {/* The nominated kit shows a lit star to everyone;
                                     only the owner gets one to press on the others. A
