@@ -14,6 +14,7 @@ import { deriveStatus, platoonLabel } from '@/lib/military/milpac-status'
 import { ensureVisible, hexToRgbTriplet } from '@/lib/discord/color'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
+import PERMISSIONS from '@/lib/permissions'
 import { getOrbatEntryByUserId } from '@/lib/orbat'
 import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 import { CoverUpload } from './cover-upload'
@@ -22,6 +23,7 @@ import { RequestAwardButton } from './RequestAwardButton'
 import { ImageLightbox } from './image-lightbox'
 import { CertificateViewer } from './certificate-link'
 import { Hero, type HeroStat } from './hero'
+import { EditMilpacButton } from './edit-milpac'
 import { Panel, Rows, Row, Empty, MedallionIcon, MEDALLION_ART, MonthChart, bucketByMonth } from './panels'
 import s from './profile.module.css'
 
@@ -198,10 +200,11 @@ export default async function Page({ params }: { params: Promise<{ username: str
 	// /api/milpac/certificate is gated to logged-in members, so the click
 	// targets below are only offered to someone who can actually load one.
 	const canViewCertificates = me !== null
-	// Matches the gate on the page this links to (`members.editStandard`), which
-	// a hardcoded ['J5-Media'] check did not — it offered J5-Media users an Edit
-	// link to a page that redirected them straight back to /me.
-	const canEdit         = me ? client.hasRoles(me, ['J4 - Administration']) : false
+	// The same keys the editor itself enforces. A hardcoded ['J5-Media'] check
+	// used to offer an Edit link to users the editor would then reject.
+	const canEditStandard   = me ? client.hasRoles(me, PERMISSIONS.members.editStandard)   : false
+	const canEditRestricted = me ? client.hasRoles(me, PERMISSIONS.members.editRestricted) : false
+	const canEdit           = canEditStandard
 	const isOwn           = me?.id === member.id
 	const canRequestAward = me !== null && me.id !== member.id && !member.isSkeletonAccount
 	const hasCover        = existsSync(join(process.cwd(), '..', '..', 'storage', 'uploads', 'cover', `${member.id}.png`))
@@ -332,7 +335,13 @@ export default async function Page({ params }: { params: Promise<{ username: str
 						>
 							View original ↗
 						</a>
-						{canEdit && <Link className={s.btn} href={`/members/${username}`}>Edit</Link>}
+						{canEdit && (
+							<EditMilpacButton
+								username={username}
+								canEditRestricted={canEditRestricted}
+								canEditStandard={canEditStandard}
+							/>
+						)}
 					</>
 				}
 				bannerActions={isOwn ? <CoverUpload hasCover={hasCover} /> : null}
@@ -348,29 +357,27 @@ export default async function Page({ params }: { params: Promise<{ username: str
 					: null}
 			/>
 
-			{progress && !progress.atMax && !progress.billetOnly && (
-				<div style={{ padding: '14px var(--pad) 0' }}>
-					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
-						<span className={s.lbl} style={{ color: 'var(--acc)' }}>{member.milpac?.currentRank}</span>
-						<span className={s.crumb} style={{ margin: 0 }}>{progress.current} / {progress.required} pts</span>
-						<span className={s.lbl}>{progress.nextRank}</span>
-					</div>
-					<div style={{ height: 6, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-						<div style={{
-							height: '100%',
-							width: `${progress.pct}%`,
-							minWidth: progress.pct > 0 ? 6 : 0,
-							background: 'var(--acc)',
-							boxShadow: '0 0 8px rgba(var(--acc-rgb),0.6)',
-						}} />
-					</div>
-				</div>
-			)}
-
 			<div className={s.page}>
-				{/* ── main column ─────────────────────────────────────────────── */}
+				{/* Left: how this member is doing — progress, who they are, activity. */}
 				<div className={s.stack}>
-
+					{progress && !progress.atMax && !progress.billetOnly && (
+						<div style={{ padding: '14px var(--pad) 0' }}>
+							<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
+								<span className={s.lbl} style={{ color: 'var(--acc)' }}>{member.milpac?.currentRank}</span>
+								<span className={s.crumb} style={{ margin: 0 }}>{progress.current} / {progress.required} pts</span>
+								<span className={s.lbl}>{progress.nextRank}</span>
+							</div>
+							<div style={{ height: 6, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+								<div style={{
+									height: '100%',
+									width: `${progress.pct}%`,
+									minWidth: progress.pct > 0 ? 6 : 0,
+									background: 'var(--acc)',
+									boxShadow: '0 0 8px rgba(var(--acc-rgb),0.6)',
+								}} />
+							</div>
+						</div>
+					)}
 					<Panel title='Personnel Summary' tag={`${member.milpac?.currentRank ?? ''} ${name}`.trim()} delay='.05s'>
 						{isOwn
 							? <BiographyEditor initial={member.bio?.content ?? null} accent={accent} />
@@ -378,7 +385,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 								? <p className={s.bio}>{member.bio.content}</p>
 								: <Empty text='No biography on record.' />}
 					</Panel>
-
 					<Panel title='Combat Record' tag='Operations attended · last 12 months' delay='.1s'>
 						<MonthChart months={months} />
 						<div className={s.substats}>
@@ -400,7 +406,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 							</div>
 						</div>
 					</Panel>
-
 					<Panel title='Recent Operations' tag={confirmedOps.length > 0 ? `${confirmedOps.length} confirmed` : undefined} delay='.15s'>
 						{confirmedOps.length === 0
 							? <Empty text='No operations on record.' />
@@ -424,20 +429,16 @@ export default async function Page({ params }: { params: Promise<{ username: str
 								</ul>
 							)}
 					</Panel>
-
 					<Panel title='Commendations & Remarks' delay='.2s'>
 						<Empty text='No commendations on record. Staff write these at the end of an operation.' />
 					</Panel>
-
 					<Panel title={`Operation History (${confirmedOps.length})`} delay='.25s'>
 						<OperationHistory ops={confirmedOps} />
 					</Panel>
-
 				</div>
 
-				{/* ── side column ─────────────────────────────────────────────── */}
+				{/* Middle: the record itself — the facts and the paperwork. */}
 				<div className={s.stack}>
-
 					<Panel title='Service Data' delay='.08s'>
 						<Rows>
 							<Row label='Status' value={status.label} />
@@ -471,29 +472,9 @@ export default async function Page({ params }: { params: Promise<{ username: str
 							<Row label='Promotion points' value={promotionPts > 0 ? promotionPts : null} />
 						</Rows>
 					</Panel>
-
-					{hasUniform && (
-						<Panel title='Service Dress' delay='.1s' flush>
-							<ImageLightbox
-								src={`/api/milpacs/${member.id}`}
-								alt={`${name} uniform`}
-								style={{ width: '100%', height: 'auto', display: 'block' }}
-							/>
-						</Panel>
-					)}
-
 					<Panel title='Awards & Decorations' tag={awards.length > 0 ? String(awards.length) : undefined} delay='.13s'>
 						{awards.length === 0 ? <Empty text='No awards on record.' /> : (
 							<>
-								{hasMedals && (
-									<div style={{ marginTop: 14 }}>
-										<ImageLightbox
-											src={`/api/milpacs/${member.id}?type=medals`}
-											alt={`${name} medals`}
-											style={{ width: '100%', height: 'auto', display: 'block' }}
-										/>
-									</div>
-								)}
 								<div style={{ marginTop: 16, display: 'grid', gap: 8 }}>
 									{awards.map((a, i) => {
 										const certCode = certificateCodeForAward(a.name)
@@ -547,7 +528,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 							</>
 						)}
 					</Panel>
-
 					<Panel title='Qualifications' tag={quals.length > 0 ? String(quals.length) : undefined} delay='.18s'>
 						{quals.length === 0 ? <Empty text='No qualifications on record.' /> : (
 							<div style={{ display: 'grid', gap: 8 }}>
@@ -576,7 +556,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 							</div>
 						)}
 					</Panel>
-
 					<Panel title='Promotion History' tag={promotions.length > 0 ? String(promotions.length) : undefined} delay='.2s'>
 						{promotions.length === 0 ? <Empty text='No promotion history on record.' /> : (
 							<Rows>
@@ -610,11 +589,32 @@ export default async function Page({ params }: { params: Promise<{ username: str
 							</Rows>
 						)}
 					</Panel>
+				</div>
 
+				{/* Right: what the member looks like on parade. */}
+				<div className={s.stack}>
+					{hasUniform && (
+						<Panel title='Service Dress' delay='.1s' flush>
+							<ImageLightbox
+								src={`/api/milpacs/${member.id}`}
+								alt={`${name} uniform`}
+								style={{ width: '100%', height: 'auto', display: 'block' }}
+							/>
+						</Panel>
+					)}
+
+					{hasMedals && (
+						<Panel title='Medal Box' delay='.14s' flush>
+							<ImageLightbox
+								src={`/api/milpacs/${member.id}?type=medals`}
+								alt={`${name} medals`}
+								style={{ width: '100%', height: 'auto', display: 'block' }}
+							/>
+						</Panel>
+					)}
 					<Panel title='Assigned Loadout' tag='Standard' delay='.23s'>
 						<Empty text='No loadout on record. Kit is imported from Arma.' />
 					</Panel>
-
 				</div>
 			</div>
 

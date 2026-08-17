@@ -321,7 +321,10 @@
     padding: clamp(22px, 3vw, 38px) var(--pad) 70px;
     display: grid;
     gap: clamp(18px, 2vw, 26px);
-    grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+    /* Left: progress and activity. Middle: the record. Right: the artwork.
+       The right column is sized by what it holds — a portrait and a medal box —
+       rather than by the text columns beside it. */
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 0.8fr);
     align-items: start;
 }
 .stack { display: grid; gap: clamp(18px, 2vw, 26px); min-width: 0; }
@@ -628,6 +631,10 @@
 }
 
 /* ── responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 1500px) {
+    .page { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+}
 
 @media (max-width: 1080px) {
     .page { grid-template-columns: 1fr; }
