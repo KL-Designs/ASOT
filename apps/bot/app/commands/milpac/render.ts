@@ -115,27 +115,34 @@ export async function renderMilpac(
  * `config.api`, never `config.apiInternal`: this URL is clicked by a member.
  */
 function linkRow(response: Response): Discord.ActionRowBuilder<Discord.ButtonBuilder>[] {
-    let links: { label: string; path: string }[]
     try {
         const parsed = JSON.parse(response.headers.get('x-milpac-links') ?? '[]')
-        // A malformed header must cost the buttons, not the whole reply:
-        // ButtonBuilder throws on an invalid URL and that would swallow the card.
-        links = Array.isArray(parsed)
-            ? parsed.filter(l => typeof l?.label === 'string' && typeof l?.path === 'string' && l.path.startsWith('/'))
-            : []
-    } catch {
+        if (!Array.isArray(parsed)) return []
+
+        // Length, not just type. ButtonBuilder throws on an empty label or one
+        // over 80 characters, and this runs inside editReply's argument list —
+        // a throw here would reject before the reply is ever edited, leaving the
+        // caller on a "thinking" placeholder until Discord times it out.
+        const base = config.api.replace(/\/+$/, '')
+        const links = parsed.filter(l =>
+            typeof l?.label === 'string' && l.label.length > 0 && l.label.length <= 80
+            && typeof l?.path === 'string' && l.path.startsWith('/')
+            && base.length + l.path.length <= 512)
+
+        if (links.length === 0) return []
+
+        // Built inside the try as well: the constraint checks above should make
+        // this unreachable, but the cost of being wrong is the whole reply.
+        return [new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
+            links.slice(0, 5).map(l => new Discord.ButtonBuilder()
+                .setStyle(Discord.ButtonStyle.Link)
+                .setLabel(l.label)
+                .setURL(`${base}${l.path}`)),
+        )]
+    } catch (err) {
+        console.error('[milpac] discarding malformed section links', err)
         return []
     }
-
-    if (links.length === 0) return []
-
-    const base = config.api.replace(/\/+$/, '')
-    return [new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
-        links.slice(0, 5).map(l => new Discord.ButtonBuilder()
-            .setStyle(Discord.ButtonStyle.Link)
-            .setLabel(l.label)
-            .setURL(`${base}${l.path}`)),
-    )]
 }
 
 /** The optional member picker both subcommands share. */
