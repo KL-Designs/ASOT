@@ -9,11 +9,18 @@
             "cwd": "${workspaceFolder}"
         },
         {
-            "name": "Web: Dev + Collab",
+            "name": "Web: Dev",
             "type": "node-terminal",
             "request": "launch",
             "command": "npm run dev-collab",
             "cwd": "${workspaceFolder}/apps/web"
+        },
+        {
+            "name": "Milpac: Dev",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "npm run dev",
+            "cwd": "${workspaceFolder}/apps/milpac"
         },
         {
             "name": "Bot: Dev",
@@ -25,8 +32,13 @@
     ],
     "compounds": [
         {
-            "name": "Web + Bot: Dev",
-            "configurations": ["Web: Dev + Collab", "Bot: Dev"],
+            "name": "Web + Milpac",
+            "configurations": ["Web: Dev", "Milpac: Dev"],
+            "stopAll": true
+        },
+        {
+            "name": "Web + Milpac + Bot",
+            "configurations": ["Web: Dev", "Milpac: Dev", "Bot: Dev"],
             "stopAll": true
         }
     ]
