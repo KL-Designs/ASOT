@@ -89,4 +89,17 @@ describe('pickCardKit', () => {
         expect(pickCardKit(kits)?.name).toBe('newer')
         expect(pickCardKit(reversed)?.name).toBe('newer')
     })
+
+    test('two kits both claiming default resolve by recency, not array order', () => {
+        // The loadouts PATCH route tolerates a race that can leave two rows
+        // claiming default, so this is a real state, not a hypothetical.
+        const kits = [kit('stale', true, true, 1), kit('fresh', true, true, 20)]
+        expect(pickCardKit(kits)?.name).toBe('fresh')
+        expect(pickCardKit([...kits].reverse())?.name).toBe('fresh')
+    })
+
+    test('kits tied on updatedAt resolve identically whichever order they arrive in', () => {
+        const kits = [kit('a', false, true, 7), kit('b', false, true, 7)]
+        expect(pickCardKit(kits)?.name).toBe(pickCardKit([...kits].reverse())?.name)
+    })
 })

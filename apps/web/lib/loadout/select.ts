@@ -55,6 +55,14 @@ export type CardKitCandidate = { isDefault: boolean; shared: boolean; updatedAt:
 export function pickCardKit<T extends CardKitCandidate>(kits: readonly T[]): T | null {
     const publicKits = kits.filter(k => k.shared)
     if (publicKits.length === 0) return null
-    return publicKits.find(k => k.isDefault)
-        ?? [...publicKits].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())[0]
+
+    // One sort over both keys rather than find-then-sort. Two rows can each
+    // claim isDefault — the loadouts PATCH route documents that race as
+    // tolerated — and `.find()` would resolve that by array order, which is the
+    // exact query-order dependence this function exists to avoid.
+    return [...publicKits].sort((a, b) =>
+        Number(b.isDefault) - Number(a.isDefault)
+        || b.updatedAt.getTime() - a.updatedAt.getTime()
+        || JSON.stringify(a).localeCompare(JSON.stringify(b))
+    )[0]
 }
