@@ -25,6 +25,13 @@ export function MilpacTabs({ active, basePath }: { active: MilpacTab; basePath: 
                     key={tab.key}
                     href={`${basePath}${tabPath(tab.key)}` as Route}
                     scroll={false}
+                    // Prefetch off, deliberately. With it on, the click issues a
+                    // second request for a URL already being prefetched, and that
+                    // one is aborted — the payload lands in cache but the
+                    // navigation never applies, so the first click appears to do
+                    // nothing and the second commits instantly. The page renders
+                    // in 0.3-0.5s, so there is little to gain from prefetching it.
+                    prefetch={false}
                     aria-current={tab.key === active ? 'page' : undefined}
                     className={tab.key === active ? `${s.tab} ${s.tabOn}` : s.tab}
                 >

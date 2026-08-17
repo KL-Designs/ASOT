@@ -351,6 +351,8 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
                                     // would bounce the reader back to the overview.
                                     href={`${basePath}/kits/${l.id}` as Route}
                                     scroll={false}
+                                    // Same reason as the section tabs: see tabs.tsx.
+                                    prefetch={false}
                                     aria-current={on ? 'true' : undefined}
                                     className={s.kitPickName}
                                     title={l.description || undefined}
