@@ -286,7 +286,9 @@
     color: var(--ink-2);
     transition: 0.18s;
 }
-.lnk svg { width: 14px; height: 14px; flex: 0 0 auto; fill: currentColor; opacity: 0.85; }
+/* Sized by height with width auto, so the viewBox governs the aspect ratio and
+   a mark that is not square cannot be squashed into one. */
+.lnk svg { height: 13px; width: auto; flex: 0 0 auto; fill: currentColor; opacity: 0.85; }
 .lnk:hover { color: var(--ink); border-color: rgba(var(--acc-rgb), 0.5); transform: translateY(-1px); }
 .lnk:focus-visible { outline: 2px solid rgba(var(--acc-rgb), 0.8); outline-offset: 2px; }
 .lnkOff { opacity: 0.32; pointer-events: none; }

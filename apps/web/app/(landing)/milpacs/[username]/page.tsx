@@ -6,7 +6,7 @@ import { mkdir, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { renderUniform, renderBox, getRenderFingerprint } from '@/lib/milpac-gen/client'
 import { buildUniformData, buildBoxData, computeUniformHash } from '@/lib/milpac-gen/data-mapper'
-import { AWARD_TO_CITATION, QUAL_TO_BADGE } from '@/lib/milpac-gen/maps'
+import { AWARD_TO_CITATION } from '@/lib/milpac-gen/maps'
 import { certificateCodeForCitation, MEDALLION_CERTIFICATE_CODES, rankAbbrFromName } from '@asot/lib'
 import { RANK_TRACKS } from '@/lib/military/promotion-requirements'
 import { calculateOpPoints } from '@/lib/military/points'
@@ -28,30 +28,13 @@ import { Panel, Rows, Row, Empty, MedallionIcon, MEDALLION_ART, MonthChart, buck
 import s from './profile.module.css'
 
 
-// ── Training badge → asset subfolder ─────────────────────────────────────────
-const BADGE_SUBFOLDER: Record<string, string> = {
-	'BCQB': 'CQB', 'ACQB': 'CQB', 'ECQB': 'CQB',
-	'BM': 'Medical', 'AdvM': 'Medical', 'ExpM': 'Medical',
-	'BIDF': 'IDF', 'AIDF': 'IDF', 'BCIDF': 'IDF',
-	'BR': 'Rotary', 'AdvR': 'Rotary', 'ExpR': 'Rotary',
-	'BF': 'Fixed%20Wing', 'AF': 'Fixed%20Wing', 'EF': 'Fixed%20Wing',
-	'NCO': 'NCO', 'Platoon': 'NCO', 'Company': 'NCO',
-	'PT': 'Parradrop-HALO', 'HALO': 'Parradrop-HALO', 'JM': 'Parradrop-HALO', 'PR': 'Parradrop-HALO',
-	'BAT': 'Weapons', 'BGLA': 'Weapons', 'BMG': 'Weapons', 'BPistol': 'Weapons',
-	'BRifle': 'Weapons', 'BSniper': 'Weapons',
-	'ExpAT': 'Weapons', 'ExpGLA': 'Weapons', 'ExpMG': 'Weapons',
-	'ExpPistol': 'Weapons', 'ExpRifle': 'Weapons', 'ExpSniper': 'Weapons',
-	'Driver': 'Armoured%20Crewman', 'Gunner': 'Armoured%20Crewman', 'Commander': 'Armoured%20Crewman',
-	'FO': 'FO%20and%20JTAC', 'JTAC': 'FO%20and%20JTAC',
-	'Commando': 'Special%20Forces', 'Ranger': 'Special%20Forces', 'SASR': 'Special%20Forces',
-}
-
-function trainingBadgeUrl(code: string): string | null {
-	if (code === 'RE') return '/milpac-assets/imge/Training%20Badges/RE.png'
-	const subfolder = BADGE_SUBFOLDER[code]
-	if (!subfolder) return null
-	return `/milpac-assets/imge/Training%20Badges/${subfolder}/${code}.png`
-}
+// Training badge artwork is deliberately not rendered in the qualifications
+// list. The only assets are 1398x1000 full-uniform layers — the badge occupies
+// roughly one percent of the canvas — so drawn at list size they appear as an
+// invisible speck while still indenting the row, which left qualifications with
+// a badge misaligned against those without. They need the crop-a-known-region
+// treatment MedallionIcon uses, and nobody has measured the regions yet.
+// See docs/superpowers/specs/2026-08-17-milpac-redesign-design.md, risk R6.
 
 /**
  * The certificate slide code for an award, or undefined if it has none.
@@ -327,14 +310,6 @@ export default async function Page({ params }: { params: Promise<{ username: str
 				stats={stats}
 				topbarActions={
 					<>
-						<a
-							className={s.btn}
-							href={`https://australianspecialoperationstaskforce.com/${encodeURIComponent(name)}`}
-							target='_blank'
-							rel='noreferrer noopener'
-						>
-							View original ↗
-						</a>
 						{canEdit && (
 							<EditMilpacButton
 								username={username}
@@ -531,28 +506,21 @@ export default async function Page({ params }: { params: Promise<{ username: str
 					<Panel title='Qualifications' tag={quals.length > 0 ? String(quals.length) : undefined} delay='.18s'>
 						{quals.length === 0 ? <Empty text='No qualifications on record.' /> : (
 							<div style={{ display: 'grid', gap: 8 }}>
-								{quals.map((q, i) => {
-									const badgeCode = QUAL_TO_BADGE[q.qualification]
-									const badgeImg  = badgeCode ? trainingBadgeUrl(badgeCode) : null
-									return (
-										<div key={i} className={s.rw} style={{ alignItems: 'center' }}>
-											<span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-												{badgeImg && (
-													<img src={badgeImg} alt='' title={q.qualification} style={{ width: 26, height: 26, objectFit: 'contain', flexShrink: 0 }} />
-												)}
-												<span style={{ minWidth: 0 }}>
-													<span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--ink)' }}>{q.qualification}</span>
-													{q.issuedByName && (
-														<span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--ink-3)', marginTop: 2 }}>
-															Issued by {q.issuedByName}
-														</span>
-													)}
+								{quals.map((q, i) => (
+									<div key={i} className={s.rw} style={{ alignItems: 'baseline' }}>
+										<span style={{ minWidth: 0 }}>
+											<span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--ink)' }}>{q.qualification}</span>
+											{q.issuedByName && (
+												<span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--ink-3)', marginTop: 2 }}>
+													Issued by {q.issuedByName}
 												</span>
-											</span>
-											<span className={s.rwV} style={{ whiteSpace: 'nowrap' }}>{q.date}</span>
-										</div>
-									)
-								})}
+											)}
+										</span>
+										{/* Omitted rather than dashed when absent: a column of
+										    em-dashes is noise, and the name is what matters here. */}
+										{q.date && <span className={s.rwV} style={{ whiteSpace: 'nowrap' }}>{q.date}</span>}
+									</div>
+								))}
 							</div>
 						)}
 					</Panel>
