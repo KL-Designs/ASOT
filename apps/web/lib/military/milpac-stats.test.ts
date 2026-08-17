@@ -28,9 +28,12 @@ describe('durationSince', () => {
     })
 
     test('an unparseable or future date yields null, never NaN', () => {
-        // Not 'sometime in 2019': V8's lenient Date fallback extracts the bare
-        // year from that and parses it as 1 Jan 2019, same trap milpac-dates.test.ts
-        // avoids by keeping its "nothing usable" fixtures free of any 4-digit year.
+        // Deliberately free of any 4-digit year — not 'sometime in 2019'. Node's
+        // lenient Date() fallback extracts a bare year from free text and parses
+        // it as 1 Jan of that year rather than rejecting it, so a fixture
+        // containing one would silently stop testing what this test claims to
+        // test. Same trap milpac-dates.test.ts avoids in its own "nothing
+        // usable" fixtures — don't "restore" a year-bearing string here.
         expect(durationSince('not a real date')).toBeNull()
         expect(durationSince(undefined)).toBeNull()
         expect(durationSince('18 August 2030')).toBeNull()

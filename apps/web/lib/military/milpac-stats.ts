@@ -1,4 +1,3 @@
-import Db from '@/lib/mongo'
 import { calculateOpPoints, calculatePromotionPoints } from '@/lib/military/points'
 import { parseMilpacDate } from '@/lib/military/milpac-dates'
 
@@ -25,6 +24,12 @@ export type ConfirmedOp = {
 }
 
 export async function loadConfirmedOps(memberId: string): Promise<ConfirmedOp[]> {
+    // Imported here rather than at module scope: this file also exports pure
+    // helpers the card and the tests use, and lib/mongo throws on import when
+    // MONGO_URI is unset — which would make a date-formatting test require a
+    // database. The same reason milpac-cover defers @napi-rs/canvas.
+    const { default: Db } = await import('@/lib/mongo')
+
     const attendanceDocs = await Db.operationAttendance.find({
         records: { $elemMatch: { userId: memberId, confirmed: true } },
     }).toArray()
