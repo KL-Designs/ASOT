@@ -535,6 +535,11 @@ interface ResticSnapshotEntry {
     id: string
     time: string
     tags?: string[]
+    // The absolute source paths this snapshot was taken from, in the platform
+    // form of whatever created it — '/tmp/asot-db-dump' from the container,
+    // 'C:\Users\...\asot-db-dump' from a Windows dev machine. resticRestore()
+    // needs these to restore a subpath instead of the whole snapshot.
+    paths?: string[]
     // Only present on snapshots that recorded their own backup summary
     // (which all snapshots created by this app's restic version do) — treat
     // as possibly absent rather than relying on it.
@@ -759,14 +764,56 @@ async function restoreDatabase(dumpDir: string): Promise<void> {
     }
 }
 
-async function resticRestore(repo: string, snapshotId: string, target: string): Promise<void> {
-    await runRestic(repo, ['restore', snapshotId, '--target', target])
+// restic's `<snapshotId>:<subfolder>` form needs the subfolder written the way
+// restic's own tree stores it: forward slashes, with a Windows drive letter as
+// the first path node. 'C:\Users\koda\x' becomes '/C/Users/koda/x'; a POSIX
+// path passes straight through. Handles either platform's paths regardless of
+// which platform is doing the restoring, because a snapshot taken on a Windows
+// dev box can be restored inside the Linux container and vice versa.
+function toResticTreePath(sourcePath: string): string {
+    return sourcePath.replace(/\\/g, '/').replace(/^([A-Za-z]):\//, '/$1/')
 }
 
-// restic restore recreates the full original absolute path under `target`.
-// The DB dump always comes from the same single fixed path (DB_DUMP_DIR), so
-// the restored tree is a chain of single-entry directories down to its
-// actual contents — walk down until manifest.json is found.
+async function snapshotSourcePaths(repo: string, snapshotId: string): Promise<string[]> {
+    const stdout = await runRestic(repo, ['snapshots', snapshotId, '--json'])
+    const paths = (JSON.parse(stdout) as ResticSnapshotEntry[])[0]?.paths ?? []
+    if (paths.length === 0) throw new Error(`Snapshot ${snapshotId} records no source paths to restore`)
+    return paths
+}
+
+// Restores each of the snapshot's source paths into `<target>/<last segment>`,
+// via restic's subfolder form, rather than restoring the snapshot whole.
+//
+// Restoring it whole makes restic recreate the ENTIRE original absolute path
+// underneath the target. For a snapshot taken on Windows that means recreating
+// a 'C:\Users' node and applying the real C:\Users ACL to it — after which
+// restic can no longer set that directory's own timestamp, reports
+// "failed to restore timestamp ... Access is denied" and exits fatal
+// ("There were 1 errors"). Every download and every revert of a
+// Windows-created snapshot failed on that, even though the file data itself
+// restored fine. Restoring only the subpath never creates those parent nodes
+// at all, so there is nothing to re-apply a hostile ACL to — and it fixes
+// snapshots that already exist, since the paths come from the snapshot itself.
+async function resticRestore(repo: string, snapshotId: string, target: string): Promise<void> {
+    const sources = await snapshotSourcePaths(repo, snapshotId)
+    const used = new Set<string>()
+    for (const source of sources) {
+        const treePath = toResticTreePath(source)
+        // Not path.basename(): it can't split a Windows path while running on
+        // Linux (or vice versa). The normalised form always splits on '/'.
+        let name = treePath.split('/').filter(Boolean).pop() ?? 'restored'
+        // Two sources sharing a last segment would otherwise restore on top of
+        // each other and silently merge.
+        while (used.has(name)) name = `${name}_`
+        used.add(name)
+        await runRestic(repo, ['restore', `${snapshotId}:${treePath}`, '--target', join(target, name)])
+    }
+}
+
+// The DB dump restores as a single directory holding manifest.json (named for
+// whatever temp dir it was dumped from, which differs between the hourly
+// backup and a safety backup) — walk down until manifest.json is found rather
+// than assuming that name.
 function findByMarker(root: string, marker: string): string {
     let dir = root
     for (let depth = 0; depth < 20; depth++) {

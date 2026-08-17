@@ -1,0 +1,133 @@
+/**
+ * The disaster-recovery path, end to end, against the REAL restic binary:
+ * back up → download a zip → wreck the live database and media → upload that
+ * zip → everything comes back. Plus the same thing via revert.
+ *
+ * This one deliberately does not fake restic, because the bug it exists to
+ * catch is not expressible against a fake. `restic restore` recreates the
+ * snapshot's full original absolute path underneath the restore target, so a
+ * snapshot taken on Windows (source path 'C:\Users\...\asot-db-dump') made
+ * restic recreate a 'C:\Users' node, apply the real C:\Users ACL to it, and
+ * then fail to set that directory's timestamp — "Access is denied", exit
+ * fatal. Every download and every revert of a Windows-created snapshot broke
+ * on it while the file data restored perfectly well. Only a real restic
+ * against a real repo reproduces that; a stubbed child process cannot.
+ *
+ * It runs INSIDE the OS temp root on purpose — on Windows that keeps every
+ * path under C:\Users, which is precisely the condition that failed. Do not
+ * "fix" a failure here by relocating it to another drive; that hides the bug.
+ * It does take its own unique subdirectory of that root, because DB_DUMP_DIR
+ * is a single fixed path ('<os-temp>/asot-db-dump') and lib/backups.ts only
+ * serialises access to it WITHIN one process — vitest runs each test file in
+ * its own worker, so without this the workers wipe each other's dump mid-run.
+ *
+ * Skips (rather than fails) when the restic binary isn't present, so a fresh
+ * clone that hasn't run scripts/ensure-restic.mjs yet still gets a green suite.
+ */
+import { describe, test, expect, beforeAll, afterAll } from 'vitest'
+import { MongoMemoryServer } from 'mongodb-memory-server'
+import { MongoClient } from 'mongodb'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, statSync } from 'fs'
+import { rm } from 'fs/promises'
+import { join, resolve } from 'path'
+import { tmpdir } from 'os'
+
+const RESTIC_BIN = resolve(__dirname, '..', 'bin', process.platform === 'win32' ? 'restic.exe' : 'restic')
+const hasRestic = existsSync(RESTIC_BIN)
+
+let mongod: MongoMemoryServer
+let mongo: MongoClient
+let storageRoot: string
+let tempRoot: string
+let backups: typeof import('./backups')
+
+beforeAll(async () => {
+    if (!hasRestic) return
+
+    // Must happen before lib/backups.ts is imported: DB_DUMP_DIR is derived
+    // from os.tmpdir() at module load. Still inside the OS temp tree (see the
+    // file header) — just not shared with the other test workers.
+    tempRoot = mkdtempSync(join(tmpdir(), 'asot-roundtrip-temp-'))
+    process.env.TEMP = tempRoot
+    process.env.TMP = tempRoot
+    process.env.TMPDIR = tempRoot
+
+    mongod = await MongoMemoryServer.create()
+    process.env.MONGO_URI = mongod.getUri()
+    process.env.MONGO_DB = 'asot-roundtrip'
+    process.env.RESTIC_PASSWORD = 'roundtrip-test-password'
+    process.env.RESTIC_PATH = RESTIC_BIN
+
+    storageRoot = mkdtempSync(join(tmpdir(), 'asot-roundtrip-'))
+    mkdirSync(join(storageRoot, 'gallery'), { recursive: true })
+    mkdirSync(join(storageRoot, 'uploads'), { recursive: true })
+    process.env.BACKUPS_STORAGE_ROOT = storageRoot
+
+    mongo = new MongoClient(process.env.MONGO_URI)
+    await mongo.connect()
+    backups = await import('./backups')
+}, 120000)
+
+afterAll(async () => {
+    await mongo?.close()
+    await mongod?.stop()
+    if (storageRoot) await rm(storageRoot, { recursive: true, force: true }).catch(() => {})
+    if (tempRoot) await rm(tempRoot, { recursive: true, force: true }).catch(() => {})
+})
+
+describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
+    const seed = async (marker: string) => {
+        const db = mongo.db('asot-roundtrip')
+        await db.collection('sentinel').deleteMany({})
+        await db.collection('sentinel').insertOne({ marker })
+        writeFileSync(join(storageRoot, 'gallery', 'photo.txt'), marker, 'utf-8')
+        writeFileSync(join(storageRoot, 'uploads', 'doc.txt'), marker, 'utf-8')
+    }
+
+    const liveState = async () => ({
+        db:      (await mongo.db('asot-roundtrip').collection('sentinel').findOne({}))?.marker,
+        gallery: readFileSync(join(storageRoot, 'gallery', 'photo.txt'), 'utf-8'),
+        uploads: readFileSync(join(storageRoot, 'uploads', 'doc.txt'), 'utf-8'),
+    })
+
+    test('a downloaded zip restores the database and media it captured', async () => {
+        await seed('original')
+        await backups.runAllBackups()
+        expect((await backups.readStatus()).state).toBe('idle')
+
+        const [point] = await backups.listBackups()
+        expect(point.dbSnapshotId).toBeTruthy()
+        expect(point.mediaSnapshotId).toBeTruthy()
+
+        const zipPath = await backups.buildDownloadZip(point)
+        expect(existsSync(zipPath)).toBe(true)
+        expect(statSync(zipPath).size).toBeGreaterThan(0)
+
+        await seed('CORRUPTED')
+        await backups.applyUploadedZip(zipPath)
+
+        expect(await liveState()).toEqual({ db: 'original', gallery: 'original', uploads: 'original' })
+        expect((await backups.readStatus()).state).toBe('idle')
+
+        // The upload path must take a pre-restore safety backup before it
+        // touches anything (issue #55 requirement 5).
+        expect((await backups.listBackups()).some(p => p.isSafety)).toBe(true)
+
+        await rm(zipPath, { force: true }).catch(() => {})
+    }, 300000)
+
+    test('revert restores a point in place', async () => {
+        await seed('before-revert')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        await seed('CORRUPTED')
+        await backups.revertToPoint(point)
+
+        expect(await liveState()).toEqual({ db: 'before-revert', gallery: 'before-revert', uploads: 'before-revert' })
+
+        const status = await backups.readStatus()
+        expect(status.state).toBe('idle')
+        expect(status.error).toBeUndefined()
+    }, 300000)
+})
