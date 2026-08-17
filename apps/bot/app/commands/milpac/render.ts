@@ -98,10 +98,28 @@ export async function renderMilpac(
     const file = new AttachmentBuilder(png, { name: `${target.username}-${type}.png` })
 
     return interaction.editReply({
-        content: `**${target.displayName}** — ${label.title}`,
+        content: `**${memberTitle(response) ?? target.displayName}** - ${label.title}`,
         files: [file],
         components: linkRow(response),
     })
+}
+
+/**
+ * The member's rank and name as web renders them, or null.
+ *
+ * Rank lives in web's schema, so the bot is told rather than deriving it —
+ * the same reason the section buttons arrive as a header. Absent for
+ * `uniform` and `medals`, which fall back to the Discord display name.
+ */
+function memberTitle(response: Response): string | null {
+    try {
+        const raw = response.headers.get('x-milpac-member')
+        if (!raw) return null
+        const title = JSON.parse(raw)
+        return typeof title === 'string' && title.trim() !== '' ? title : null
+    } catch {
+        return null
+    }
 }
 
 /**

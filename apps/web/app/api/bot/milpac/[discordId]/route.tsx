@@ -69,6 +69,10 @@ export async function POST(
                 // The bot prefixes config.api. Paths rather than absolute URLs
                 // so config.apiInternal can never reach a member-facing button.
                 'X-Milpac-Links': asciiJson(data.links),
+                // Member names are free text and can carry non-ASCII, which a
+                // header value cannot — same trap the links hit. asciiJson of a
+                // bare string yields a quoted JSON string the bot parses back.
+                'X-Milpac-Member': asciiJson(data.memberTitle),
                 'Cache-Control': 'no-store',
             },
         })

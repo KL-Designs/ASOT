@@ -60,6 +60,8 @@ export type DossierData = {
     progress: DossierProgress | null
     kitLine: string | null
     links: DossierLink[]
+    /** `SPR Koda` — what the bot titles its reply with. */
+    memberTitle: string
 }
 
 export async function buildDossierData(member: User, allMembers: User[]): Promise<DossierData> {
@@ -139,5 +141,6 @@ export async function buildDossierData(member: User, allMembers: User[]): Promis
         links: MILPAC_TABS
             .filter(tab => tab.key !== 'kits' || kit !== null)
             .map(tab => ({ label: shareLabelFor(tab), path: `${base}${tabPath(tab.key)}`, emoji: tab.emoji })),
+        memberTitle: [member.milpac?.currentRank, name].filter(Boolean).join(' '),
     }
 }
