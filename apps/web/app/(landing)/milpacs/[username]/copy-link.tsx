@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { copyText } from '@/lib/clipboard'
 import s from './profile.module.css'
 
 /**
@@ -12,31 +13,6 @@ import s from './profile.module.css'
  * correct even on a URL that has not been redirected yet.
  */
 
-/**
- * Pre-`navigator.clipboard` copy, for browsers without it or a page served over
- * plain HTTP. The Clipboard API requires a secure context: localhost qualifies,
- * but a dev server reached over a LAN IP does not, and the promise rejects.
- */
-function legacyCopy(text: string): boolean {
-    const field = document.createElement('textarea')
-    field.value = text
-    // Off-screen rather than hidden: display:none and visibility:hidden are both
-    // unselectable, and execCommand('copy') copies the selection.
-    field.setAttribute('readonly', '')
-    field.style.position = 'fixed'
-    field.style.top = '-1000px'
-    field.style.opacity = '0'
-    document.body.appendChild(field)
-    field.select()
-    try {
-        return document.execCommand('copy')
-    } catch {
-        return false
-    } finally {
-        document.body.removeChild(field)
-    }
-}
-
 export function CopyLinkButton({ path }: { path: string }) {
     const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -46,20 +22,7 @@ export function CopyLinkButton({ path }: { path: string }) {
 
     const copy = useCallback(async () => {
         const url = `${window.location.origin}${path}`
-
-        let ok = false
-        try {
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(url)
-                ok = true
-            } else {
-                ok = legacyCopy(url)
-            }
-        } catch {
-            // A rejected clipboard write (permission, insecure context) is still
-            // worth one attempt at the old path before admitting failure.
-            ok = legacyCopy(url)
-        }
+        const ok = await copyText(url)
 
         setState(ok ? 'copied' : 'failed')
         if (timer.current) clearTimeout(timer.current)

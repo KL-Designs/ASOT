@@ -60,7 +60,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     // default, and the panel with nothing to show.
     if (doc.isDefault) {
         const next = await Db.loadouts.find({ userId: me.id }).sort({ updatedAt: -1 }).limit(1).toArray()
-        if (next[0]) await Db.loadouts.updateOne({ _id: next[0]._id }, { $set: { isDefault: true } })
+        if (next[0]) await Db.loadouts.updateOne({ _id: next[0]._id, userId: me.id }, { $set: { isDefault: true } })
     }
 
     return NextResponse.json({ ok: true })

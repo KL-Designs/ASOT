@@ -193,7 +193,7 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `resolveItemName(className)` — Arma classname to readable name: hand overrides, then the generated dictionary, then `prettifyClassName`. Never returns empty.
 - `prettifyClassName(className)` — the fallback: strips vendor prefix and type infix, splits camelCase, title-cases. Unit-tested in `names.test.ts`.
 - `itemMeta(className)` — `{name, root, type, mod}` from the dictionary, or null. The classifier's input.
-- `generated/arma-items.json` — 31,583 entries, `{class: [name, root, ItemInfo.type, sourceMod]}`, ~2.7MB, **server-side only**. Rebuild with `node scripts/build-item-dictionary.mjs` from `generated/itemdump.txt`, which itself comes from running `lib/loadout/dump-items.sqf` in-game and extracting the `ITEMDUMP` block from the `.rpt`.
+- `generated/arma-items.json` — 31,582 entries, `{class: [name, root, ItemInfo.type, sourceMod]}`, ~2.7MB, **server-side only**. Rebuild with `node scripts/build-item-dictionary.mjs` from `generated/itemdump.txt`, which itself comes from running `lib/loadout/dump-items.sqf` in-game and extracting the `ITEMDUMP` block from the `.rpt`.
 
 ### lib/military/milpac-cover.ts
 - `coverPath(memberId)` / `hasCover(memberId)` — the member's uploaded cover photo at `storage/uploads/cover/{id}.png`. Used by the milpac page (banner) and its `opengraph-image.tsx` (share-card ground). `app/api/uploads/cover/route.ts` still writes via its own cwd-relative string.

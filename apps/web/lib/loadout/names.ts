@@ -17,14 +17,20 @@ type Row = [name: string, root: string, type: number, mod: string]
 const TABLE = table as unknown as Record<string, Row>
 
 /** Wins over the generated file, for names the unit words differently. */
-const OVERRIDES: Record<string, string> = {}
+// Object.create(null) rather than {}: a member controls their own export and
+// the parser accepts any string as a classname, so a classname of
+// 'constructor'/'toString'/etc must not resolve to an inherited prototype
+// member — see resolveItemName below.
+const OVERRIDES: Record<string, string> = Object.create(null)
 
 const VENDOR = /^(CUP|ACE|ace|kat|KAT|TFAR|MRH|ASOT|SP|CFP|VME|JAM)_/
 const TYPE_INFIX = /^(arifle|srifle|hgun|launch|optic|acc|muzzle|bipod|item|weapon|mag|bag|vest|uniform|headgear|glasses|nvg)_/i
 
 export function itemMeta(className: string): ItemMeta | null {
     const row = TABLE[className]
-    if (!row) return null
+    // Array check, not truthiness: TABLE['constructor'] inherits a truthy
+    // function from Object.prototype and would otherwise pass as a row.
+    if (!Array.isArray(row)) return null
     return { name: row[0], root: row[1], type: row[2], mod: row[3] }
 }
 
@@ -46,5 +52,12 @@ export function prettifyClassName(className: string): string {
 }
 
 export function resolveItemName(className: string): string {
-    return OVERRIDES[className] ?? TABLE[className]?.[0] ?? prettifyClassName(className)
+    const override = OVERRIDES[className]
+    const listed = TABLE[className]
+    const name = typeof override === 'string' ? override
+        : Array.isArray(listed) && typeof listed[0] === 'string' ? listed[0]
+        : ''
+    // Never empty: this is the last thing standing between a stray classname
+    // and a blank row on a public page.
+    return name || prettifyClassName(className) || className
 }

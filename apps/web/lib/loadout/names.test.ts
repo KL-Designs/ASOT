@@ -20,6 +20,16 @@ describe('resolveItemName', () => {
     test('an unresolvable classname still returns non-empty text', () => {
         expect(resolveItemName('___').length).toBeGreaterThan(0)
     })
+
+    test('a classname colliding with Object.prototype does not escape as a function', () => {
+        // A member controls their own export, so these are reachable input, not
+        // hypotheticals. Each used to return a truthy function or object.
+        for (const evil of ['constructor', '__proto__', 'toString', 'valueOf', 'hasOwnProperty']) {
+            expect(typeof resolveItemName(evil)).toBe('string')
+            expect(resolveItemName(evil).length).toBeGreaterThan(0)
+            expect(itemMeta(evil)).toBeNull()
+        }
+    })
 })
 
 describe('prettifyClassName', () => {

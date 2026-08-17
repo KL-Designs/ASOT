@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { copyText } from '@/lib/clipboard'
 import s from './profile.module.css'
 
 /**
@@ -15,30 +16,6 @@ import s from './profile.module.css'
  */
 
 type Summary = { id: string; name: string; isDefault: boolean; shared: boolean; raw: string }
-
-/**
- * Mirrors copy-link.tsx: prefer the Clipboard API in a secure context, and fall
- * back to an off-screen-textarea `execCommand('copy')` for a dev server reached
- * over a LAN IP (not a secure context) or a browser without the API.
- */
-async function copyText(text: string): Promise<boolean> {
-    try {
-        if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(text)
-            return true
-        }
-    } catch {
-        // Fall through to the legacy path below on a rejected clipboard write.
-    }
-    const field = document.createElement('textarea')
-    field.value = text
-    field.setAttribute('readonly', '')
-    field.style.position = 'fixed'
-    field.style.top = '-1000px'
-    document.body.appendChild(field)
-    field.select()
-    try { return document.execCommand('copy') } catch { return false } finally { document.body.removeChild(field) }
-}
 
 export function LoadoutManager({ loadouts, isOwn, activeId }: {
     loadouts: Summary[]
@@ -56,15 +33,25 @@ export function LoadoutManager({ loadouts, isOwn, activeId }: {
 
     const submit = async () => {
         setBusy(true); setError(null)
-        const res = await fetch('/api/loadouts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ raw, name }),
-        })
-        const json = await res.json().catch(() => ({}))
-        setBusy(false)
-        if (!res.ok) { setError(json.error ?? 'That import failed.'); return }
-        window.location.reload()
+        try {
+            const res = await fetch('/api/loadouts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ raw, name }),
+            })
+            const json = await res.json().catch(() => ({}))
+            if (!res.ok) {
+                setError(json.error ?? 'That import failed.')
+                setBusy(false)
+                return
+            }
+            window.location.reload()
+        } catch {
+            // A thrown fetch would otherwise leave busy set and the Import button
+            // dead, with the member's pasted export still sitting in the textarea.
+            setError('Could not reach the server. Try again.')
+            setBusy(false)
+        }
     }
 
     const patch = async (id: string, body: Record<string, unknown>) => {
@@ -109,12 +96,13 @@ export function LoadoutManager({ loadouts, isOwn, activeId }: {
 
     return (
         <>
-            {loadouts.length > 1 && (
+            {isOwn && loadouts.length > 1 && (
                 <select
                     className={s.btn}
                     value={activeId ?? ''}
                     onChange={e => patch(e.target.value, { isDefault: true })}
                     aria-label='Choose a loadout'
+                    disabled={busy}
                 >
                     {loadouts.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                 </select>
