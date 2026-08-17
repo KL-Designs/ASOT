@@ -90,7 +90,7 @@ attachments, headgear/uniform/vest/pack, and an item count from `summariseLoadou
 (`@/lib/loadout/summary`). Server-side for the same reason
 `loadout-panel.tsx` is: `resolveItemName` reads a ~2.7MB dictionary that must never reach the
 browser. A kit whose owner is no longer on the roster is skipped, as is one that fails to parse —
-neither may take down everyone else's shelf. Cards link to `/milpacs/<canonical>?tab=kits&kit=<id>`
+neither may take down everyone else's shelf. Cards link to `/milpacs/<canonical>/kits/<id>`
 (canonical segment via `buildSlugIndex`/`canonicalSegment`, so no click goes through a redirect) and
 carry a copy button. Borrows the milpac's design system wholesale — `profile.module.css` supplies
 `.shell`/`.panel`/`.btn` and the custom properties they define, `kits.module.css` only the shelf and
@@ -238,15 +238,15 @@ Clears default OG/Twitter images (overridden per-profile by `opengraph-image.tsx
 Client `TacticalLoader` reading the `username` route param for its label.
 
 #### app/(landing)/milpacs/[username]/tabs.tsx
-Server component rendering the profile's section tabs (Overview / Service Record / Kits) on the rule beneath the hero stat strip. Real `<Link>`s carrying `?tab=`, not client state — the server renders the requested section so there is no flash of the wrong tab and `?tab=kits` is shareable. "Kits" is the unit's word; the code below the surface still says loadout (collection, API routes, `lib/loadout/`), ARMA's own term for the exported array. `scroll={false}` keeps the reader where they are. A soft navigation remounts the panels, so their `.rise` entrance stagger replays and each tab lays itself out. Tab keys resolve via `resolveTab` (`lib/military/milpac-tabs.ts`).
+Server component rendering the profile's section tabs (Overview / Service Record / Kits) on the rule beneath the hero stat strip. Real `<Link>`s to real **routes** — `/milpacs/koda`, `/milpacs/koda/record`, `/milpacs/koda/kits` — not client state and not `?tab=`. **The path is load-bearing:** the App Router silently aborts a navigation that changes only the query string on the same path (segment tree unchanged → RSC fetch cancelled → nothing commits, no error anywhere), which made the earlier `?tab=` links take 2–8 clicks in production while ordinary cross-path links committed first time, every time. Paths come from `tabPath` (`lib/military/milpac-tabs.ts`). "Kits" is the unit's word; the code below the surface still says loadout (collection, API routes, `lib/loadout/`), ARMA's own term for the exported array. `scroll={false}` keeps the reader where they are; each navigation remounts the panels, so their `.rise` entrance stagger replays.
 
 #### app/(landing)/milpacs/[username]/copy-link.tsx
 Client button in the top bar beside the crumb: copies the profile's canonical absolute URL. Uses
 `navigator.clipboard` when the page is a secure context, otherwise an off-screen-textarea
 `execCommand('copy')` fallback; shows "Copied" for 1.8s, or "Press Ctrl+C" if both paths fail.
 
-#### app/(landing)/milpacs/[username]/page.tsx
-The full individual MILPAC profile page (largest file in this group, ~650 lines). **The `[username]`
+#### app/(landing)/milpacs/[username]/milpac-file.tsx
+`MilpacFile` — the full individual MILPAC profile (largest file in this group, ~650 lines), rendered by four thin route files that each pass a `tab`: `page.tsx` (overview, the bare URL), `record/page.tsx`, `kits/page.tsx` and `kits/[kit]/page.tsx` (one specific kit, so a link to it survives Discord). They also re-export its `generateMetadata`/`generateViewport`. The split exists because of the App Router's aborted-query-string-navigation behaviour — see the `tabs.tsx` entry above. A kit id that does not resolve falls back to the member's default rather than 404ing (`pickLoadoutId`), and the canonical-segment `redirect()` carries the section across via `tabSuffix`, so a shared link to a tab lands on that tab. **The `[username]`
 segment is resolved by `resolveSegment` (`lib/military/milpac-slug.ts`) — Discord username first,
 then name slug — and the page `redirect()`s to the canonical segment when reached by the other form,
 so `/milpacs/itskodas` lands on `/milpacs/koda`.** Note the redirect is temporary, not permanent: a
@@ -303,7 +303,7 @@ into it.
 
 #### app/(landing)/milpacs/[username]/loadout-manager.tsx
 Client `LoadoutManager`: the picker (a row of chips when a member has more than one loadout, shown to
-every visitor — each chip is a `<Link>` to `?tab=kits&kit=<id>`, since `LoadoutPanel` is a
+every visitor — each chip is a `<Link>` to `/milpacs/<name>/kits/<id>`, since `LoadoutPanel` is a
 server component and switching kit has to be a navigation; `pickLoadoutId` in `@/lib/loadout/select`
 resolves the param server-side). Each chip carries a star: lit and non-interactive on the member's
 default, and for the owner only, pressable on the others to nominate a new default via `PATCH
@@ -337,7 +337,7 @@ truncates with.
 Every action reloads the page on success rather than patching local state, keeping this component free
 of any loadout-shape knowledge. **Privacy is enforced in `page.tsx`, not here** — it filters
 `isOwn || l.shared` before building the summaries, so another member's private kit never reaches the
-browser as a name, a description or an export string, and `?kit=<private id>` cannot reach it either
+browser as a name, a description or an export string, and `/kits/<private id>` cannot reach it either
 because everything downstream reads that filtered list.
 
 #### app/(landing)/milpacs/[username]/image-lightbox.tsx

@@ -1,16 +1,18 @@
 import type { Route } from 'next'
 import Link from 'next/link'
-import { MILPAC_TABS, type MilpacTab } from '@/lib/military/milpac-tabs'
+import { MILPAC_TABS, tabPath, type MilpacTab } from '@/lib/military/milpac-tabs'
 import s from './profile.module.css'
 
 /**
  * The file's section tabs, sitting on the rule under the hero's stat strip.
  *
- * Real links, not client state. The server renders the requested tab, so there
- * is no flash of the wrong section and a link to `?tab=kits` works when pasted
- * into Discord. It also buys the entrance stagger for free: a soft navigation
- * remounts the panels, so their `.rise` animation replays and each tab lays
- * itself out rather than appearing all at once.
+ * Real links to real routes, not client state and not `?tab=`. Each section is
+ * its own path (`/milpacs/koda/record`), which the server renders directly — so
+ * there is no flash of the wrong section and the link is shareable.
+ *
+ * The path matters beyond tidiness: the App Router silently aborts navigations
+ * that change only the query string, which made the old `?tab=` links take
+ * several clicks to commit in production. See `lib/military/milpac-tabs.ts`.
  *
  * `scroll={false}` because the reader is already looking at the tabs — jumping
  * them to the top of the document on every switch would undo that.
@@ -21,7 +23,7 @@ export function MilpacTabs({ active, basePath }: { active: MilpacTab; basePath: 
             {MILPAC_TABS.map(tab => (
                 <Link
                     key={tab.key}
-                    href={`${basePath}?tab=${tab.key}` as Route}
+                    href={`${basePath}${tabPath(tab.key)}` as Route}
                     scroll={false}
                     aria-current={tab.key === active ? 'page' : undefined}
                     className={tab.key === active ? `${s.tab} ${s.tabOn}` : s.tab}

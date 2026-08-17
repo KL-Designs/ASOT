@@ -155,7 +155,7 @@ export default async function Page() {
                                         {/* The whole card is not one link: the footer holds a
                                             copy button, and a button inside a link is invalid. */}
                                         <Link
-                                            href={`${card.owner.path}?tab=kits&kit=${card.id}` as Route}
+                                            href={`${card.owner.path}/kits/${card.id}` as Route}
                                             className={k.cardName}
                                         >
                                             <KitIcon icon={card.icon} size={15} />
@@ -204,7 +204,7 @@ export default async function Page() {
                                 <footer className={k.cardFoot}>
                                     <span className={k.cardCount}>{card.summary.itemCount} items</span>
                                     <Link
-                                        href={`${card.owner.path}?tab=kits&kit=${card.id}` as Route}
+                                        href={`${card.owner.path}/kits/${card.id}` as Route}
                                         className={s.btn}
                                     >
                                         <UiIcon icon='open' />View

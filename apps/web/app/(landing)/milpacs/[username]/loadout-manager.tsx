@@ -349,7 +349,7 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
                                 <Link
                                     // The tab is carried along: a chip that dropped it
                                     // would bounce the reader back to the overview.
-                                    href={`${basePath}?tab=kits&kit=${l.id}` as Route}
+                                    href={`${basePath}/kits/${l.id}` as Route}
                                     scroll={false}
                                     aria-current={on ? 'true' : undefined}
                                     className={s.kitPickName}
@@ -492,7 +492,7 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
                             // Built from the canonical basePath rather than
                             // window.location, so it is right even on a URL that
                             // has not been redirected to the name slug yet.
-                            const url = `${window.location.origin}${basePath}?tab=kits&kit=${active.id}`
+                            const url = `${window.location.origin}${basePath}/kits/${active.id}`
                             setLinked(await copyText(url))
                             setTimeout(() => setLinked(false), 1800)
                         }}

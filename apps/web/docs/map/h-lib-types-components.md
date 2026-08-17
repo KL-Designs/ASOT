@@ -190,7 +190,7 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `LoadoutParseError` — `Error` subclass, `name: 'LoadoutParseError'`.
 
 ### lib/loadout/select.ts
-- `pickLoadoutId(raw, loadouts): string | null` — which kit a `?kit=` value selects, falling back to the member's default and then to the first of the list for anything unrecognised, absent or repeated; `null` only when the member has none. Viewing is deliberately separate from the default — the old `<select>` switcher set `isDefault` just to change what was on screen. Kept in `lib/` so it can be unit-tested; `select.test.ts`.
+- `pickLoadoutId(raw, loadouts): string | null` — which kit the `/kits/<id>` path segment selects, falling back to the member's default and then to the first of the list for anything unrecognised, absent or repeated; `null` only when the member has none. Viewing is deliberately separate from the default — the old `<select>` switcher set `isDefault` just to change what was on screen. Kept in `lib/` so it can be unit-tested; `select.test.ts`.
 
 ### lib/loadout/limits.ts
 - `MAX_NAME` (40), `MAX_DESCRIPTION` (160), `MAX_RAW_BYTES` (65536), `MAX_PER_MEMBER` (12) — bounds on what a member may store per kit, imported by both loadout API routes and the import form so the field that stops typing and the value the server truncates cannot drift. Replaces two separate copies of `MAX_NAME` that lived in the two route files.
@@ -204,9 +204,11 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `summariseLoadout(kit: ParsedLoadout): KitSummary` — the headline of a kit for the `/community/kits` shelf: primary weapon + its attachments in arsenal order, headgear/uniform/vest/backpack classnames, and `itemCount`. Stacks count by multiplicity (six magazines is six items, not one) and worn/held gear counts too, so a kit that is all worn gear and no cargo does not read as empty; a non-finite stack count is skipped rather than turning the card's count into `NaN`. Pure; unit-tested in `summary.test.ts`.
 
 ### lib/military/milpac-tabs.ts
-- `MILPAC_TABS` — the three sections a milpac is split into (`overview`, `record`, `kits`) with their labels. The split is conceptual: who the member is, what they have earned, what they carry. "Kits" is the unit's word for the third; the code beneath it still says loadout (the collection, the API routes, `lib/loadout/`), which is ARMA's own term for the exported array — renaming those would mean a data migration for no reader-facing gain.
+- `MILPAC_TABS` — the three sections a milpac is split into (`overview`, `record`, `kits`) with their labels and **path segments**. The split is conceptual: who the member is, what they have earned, what they carry.
 - `MilpacTab` — union of the keys.
-- `resolveTab(raw)` — the tab a `?tab=` value selects, falling back to the first for anything unrecognised, absent, wrongly-cased or repeated. Kept in `lib/` rather than beside the component so it can be unit-tested; `milpac-tabs.test.ts`.
+- `tabPath(tab)` — the path a section lives at relative to `/milpacs/<segment>` (`''`, `/record`, `/kits`). The default section owns the bare URL, so its segment is empty.
+- `tabSuffix(tab, kitSegment?)` — what a canonical-segment redirect must carry so a shared link to a section lands on it; appends the kit only under `kits`, and URL-encodes it (it arrives as a path segment and goes straight back out in a `Location` header).
+- **Why paths, not `?tab=`:** the App Router silently aborts a navigation that changes only the query string on the same path — the segment tree is unchanged, so it cancels the RSC fetch and commits nothing, with no console error and a healthy-looking 200 in the network panel. Measured against production, a `?tab=` link needed 2–8 clicks to commit while ordinary cross-path links committed on the first, every time. Unit-tested in `milpac-tabs.test.ts`.
 
 ### lib/loadout/names.ts
 - `resolveItemName(className)` — Arma classname to readable name: hand overrides, then the generated dictionary, then `prettifyClassName`. Never returns empty.

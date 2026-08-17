@@ -1,51 +1,69 @@
 /**
- * The tab comes from a query string, which anyone can type anything into. It
- * decides which half of a public page renders, so an unrecognised value has to
- * land somewhere sensible rather than rendering nothing at all.
+ * The tabs are path segments rather than `?tab=` values, because the App Router
+ * silently aborts navigations that change only the query string. These helpers
+ * build the URLs that relies on — including the redirect suffix, which carries
+ * a member-supplied kit id straight back out in a Location header.
  */
 import { describe, test, expect } from 'vitest'
-import { resolveTab, MILPAC_TABS } from './milpac-tabs'
+import { MILPAC_TABS, tabPath, tabSuffix } from './milpac-tabs'
 
-describe('resolveTab', () => {
-    test('accepts every declared tab key', () => {
-        for (const tab of MILPAC_TABS) {
-            expect(resolveTab(tab.key)).toBe(tab.key)
-        }
-    })
-
-    test('an absent tab falls back to the first one', () => {
-        // The bare /milpacs/koda URL is the common case, not an edge case.
-        expect(resolveTab(undefined)).toBe('overview')
-        expect(resolveTab('')).toBe('overview')
-    })
-
-    test('an unrecognised value falls back rather than rendering nothing', () => {
-        // 'loadout' was this tab's key before the unit's own word replaced it.
-        expect(resolveTab('loadout')).toBe('overview')
-        expect(resolveTab('kit')).toBe('overview')
-        expect(resolveTab('../../etc/passwd')).toBe('overview')
-        expect(resolveTab('__proto__')).toBe('overview')
-    })
-
-    test('a repeated query param takes the first value', () => {
-        // ?tab=kits&tab=record arrives as an array; picking one beats throwing.
-        expect(resolveTab(['kits', 'record'])).toBe('kits')
-        expect(resolveTab(['nonsense', 'kits'])).toBe('overview')
-        expect(resolveTab([])).toBe('overview')
-    })
-
-    test('matching is exact, not case-insensitive or trimmed', () => {
-        // The links this app generates are always lowercase, so anything else
-        // is hand-typed and better served by the default than by a guess.
-        expect(resolveTab('KITS')).toBe('overview')
-        expect(resolveTab(' kits')).toBe('overview')
-    })
-
+describe('MILPAC_TABS', () => {
     test('every tab has a key and a label, and keys are unique', () => {
         const keys = MILPAC_TABS.map(t => t.key)
         expect(new Set(keys).size).toBe(keys.length)
         for (const tab of MILPAC_TABS) {
             expect(tab.label.length).toBeGreaterThan(0)
         }
+    })
+
+    test('exactly one tab owns the bare profile URL', () => {
+        // Two empty segments would make one of them unreachable.
+        expect(MILPAC_TABS.filter(t => t.segment === '')).toHaveLength(1)
+        expect(MILPAC_TABS[0].key).toBe('overview')
+    })
+
+    test('segments are unique and url-safe', () => {
+        const segments = MILPAC_TABS.map(t => t.segment).filter(Boolean)
+        expect(new Set(segments).size).toBe(segments.length)
+        for (const seg of segments) expect(seg).toMatch(/^[a-z][a-z0-9-]*$/)
+    })
+})
+
+describe('tabPath', () => {
+    test('the default section is the bare profile URL', () => {
+        expect(tabPath('overview')).toBe('')
+    })
+
+    test('every other section is a path segment', () => {
+        expect(tabPath('record')).toBe('/record')
+        expect(tabPath('kits')).toBe('/kits')
+    })
+})
+
+describe('tabSuffix', () => {
+    test('matches tabPath when no kit is addressed', () => {
+        for (const tab of MILPAC_TABS) {
+            expect(tabSuffix(tab.key)).toBe(tabPath(tab.key))
+        }
+    })
+
+    test('a kit is appended only under the kits tab', () => {
+        expect(tabSuffix('kits', 'abc123')).toBe('/kits/abc123')
+        // A stray kit id on another section would invent a route that does not
+        // exist, so it is dropped rather than carried.
+        expect(tabSuffix('record', 'abc123')).toBe('/record')
+        expect(tabSuffix('overview', 'abc123')).toBe('')
+    })
+
+    test('the kit id is encoded, not trusted', () => {
+        // It arrives as a path segment and goes back out in a Location header.
+        expect(tabSuffix('kits', '../../etc/passwd')).toBe('/kits/..%2F..%2Fetc%2Fpasswd')
+        expect(tabSuffix('kits', 'a b')).toBe('/kits/a%20b')
+        expect(tabSuffix('kits', 'a?b#c')).toBe('/kits/a%3Fb%23c')
+    })
+
+    test('an empty kit segment falls back to the tab itself', () => {
+        expect(tabSuffix('kits', '')).toBe('/kits')
+        expect(tabSuffix('kits', undefined)).toBe('/kits')
     })
 })
