@@ -97,10 +97,14 @@ export type MonthBucket = { label: string; full: string; attended: number }
 /**
  * Operations attended per month over the last twelve.
  *
- * Server-rendered SVG rather than a charting library: it is twelve rectangles and
- * a baseline, and the accent comes from the same CSS custom property as the rest
- * of the page. Each bar carries a <title>, so hovering gives the month and count
- * through the browser's own tooltip without shipping any JavaScript.
+ * Twelve flex columns rather than a chart library or an SVG: the accent comes
+ * from the same CSS custom property as the rest of the page, and each column
+ * carries a title attribute so hovering gives the month and count through the
+ * browser's own tooltip without shipping any JavaScript.
+ *
+ * Deliberately not SVG. An SVG filling a variable-width container must either
+ * letterbox or scale non-uniformly, and non-uniform scaling stretches the type
+ * along with the bars — which is exactly what it did.
  *
  * The mockup also draws a grey "capacity" track behind each bar — how many
  * operations were available that month. That denominator is not reliably
@@ -108,44 +112,35 @@ export type MonthBucket = { label: string; full: string; attended: number }
  * full roster), so it is omitted rather than estimated.
  */
 export function MonthChart({ months }: { months: MonthBucket[] }) {
-    const W = 720, H = 190, padT = 14, padB = 26, padL = 8, padR = 8
-    const plotH = H - padT - padB
-    const slot = (W - padL - padR) / months.length
-    const barW = Math.min(34, slot * 0.55)
     const peak = Math.max(1, ...months.map(m => m.attended))
+    const total = months.reduce((n, m) => n + m.attended, 0)
 
     return (
-        <svg
-            viewBox={`0 0 ${W} ${H}`}
-            preserveAspectRatio='none'
+        <div
+            className={s.chart}
             role='img'
-            aria-label={`Operations attended per month over the last 12 months. ${months.map(m => `${m.full}: ${m.attended}`).join(', ')}`}
-            style={{ width: '100%', height: 190, display: 'block' }}
+            aria-label={total === 0
+                ? 'No operations attended in the last 12 months.'
+                : `Operations attended per month over the last 12 months. ${months.map(m => `${m.full}: ${m.attended}`).join(', ')}.`}
         >
-            <line x1={padL} y1={padT + plotH} x2={W - padR} y2={padT + plotH} stroke='var(--line-2)' strokeWidth={1} />
-            {months.map((m, i) => {
-                const h = m.attended === 0 ? 0 : Math.max(3, (m.attended / peak) * plotH)
-                const x = padL + slot * i + (slot - barW) / 2
-                const y = padT + plotH - h
-                return (
-                    <g key={m.full}>
-                        {h > 0 && (
-                            <rect x={x} y={y} width={barW} height={h} fill='var(--acc)' opacity={0.85}>
-                                <title>{`${m.full} — ${m.attended} operation${m.attended === 1 ? '' : 's'}`}</title>
-                            </rect>
-                        )}
+            {months.map(m => (
+                <div
+                    key={m.full}
+                    className={s.chartCol}
+                    // The browser's own tooltip — the month and count, with no
+                    // JavaScript and no hover state to manage.
+                    title={`${m.full} — ${m.attended} operation${m.attended === 1 ? '' : 's'}`}
+                >
+                    <div className={s.chartPlot}>
+                        {m.attended > 0 && <span className={s.chartVal}>{m.attended}</span>}
                         {m.attended > 0 && (
-                            <text x={x + barW / 2} y={y - 5} textAnchor='middle' fill='var(--ink)' fontSize={10} fontFamily='var(--mono)'>
-                                {m.attended}
-                            </text>
+                            <div className={s.chartBar} style={{ height: `${(m.attended / peak) * 100}%` }} />
                         )}
-                        <text x={x + barW / 2} y={H - 8} textAnchor='middle' fill='var(--ink-3)' fontSize={9} fontFamily='var(--mono)' letterSpacing='0.08em'>
-                            {m.label}
-                        </text>
-                    </g>
-                )
-            })}
-        </svg>
+                    </div>
+                    <span className={s.chartLbl}>{m.label}</span>
+                </div>
+            ))}
+        </div>
     )
 }
 

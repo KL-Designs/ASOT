@@ -530,6 +530,49 @@
 }
 .cmd p { margin: 9px 0 0; font-size: 13px; color: var(--ink-2); line-height: 1.7; white-space: pre-wrap; }
 
+/* ── combat record chart ─────────────────────────────────────────────────── */
+
+/* Laid out in flex rather than drawn in SVG. An SVG that fills a variable-width
+   container has to either letterbox or scale non-uniformly, and non-uniform
+   scaling distorts the type along with the bars. Here the bars stretch and the
+   labels never do. */
+.chart { display: flex; align-items: stretch; gap: 4px; height: 190px; }
+.chartCol { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+.chartPlot {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    border-bottom: 1px solid var(--line-2);
+}
+.chartVal {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink);
+    line-height: 1;
+    margin-bottom: 5px;
+}
+.chartBar {
+    width: min(34px, 70%);
+    background: var(--acc);
+    opacity: 0.85;
+    min-height: 3px;
+    transition: opacity 0.15s;
+}
+.chartCol:hover .chartBar { opacity: 1; }
+.chartLbl {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--ink-3);
+    letter-spacing: 0.08em;
+    text-align: center;
+    padding-top: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* ── substats ────────────────────────────────────────────────────────────── */
 
 .substats {
