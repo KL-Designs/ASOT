@@ -233,9 +233,13 @@ milpacs index page.
 
 #### app/(landing)/milpacs/[username]/layout.tsx
 Clears default OG/Twitter images (overridden per-profile by `opengraph-image.tsx`).
-
-#### app/(landing)/milpacs/[username]/loading.tsx
-Client `TacticalLoader` reading the `username` route param for its label.
+**There is deliberately no `loading.tsx` beside it** — unlike the other landing routes. Now that each
+section is its own route, a Suspense boundary here fires on every tab switch, replacing the whole
+profile with a full-screen `TacticalLoader` and back, twice a click. Without one, Next holds the
+current section on screen until the next is ready, which at this page's 0.3–0.6s render reads as a
+navigation rather than a reload. The better fix is to lift the hero and tab strip into the layout so
+only the section below swaps, and put a boundary with the sections; that needs `MilpacFile` split in
+two first.
 
 #### app/(landing)/milpacs/[username]/tabs.tsx
 Server component rendering the profile's section tabs (Overview / Service Record / Kits) on the rule beneath the hero stat strip. Real `<Link>`s to real **routes** — `/milpacs/koda`, `/milpacs/koda/record`, `/milpacs/koda/kits` — not client state and not `?tab=`. **The path is load-bearing:** the App Router silently aborts a navigation that changes only the query string on the same path (segment tree unchanged → RSC fetch cancelled → nothing commits, no error anywhere), which made the earlier `?tab=` links take 2–8 clicks in production while ordinary cross-path links committed first time, every time. Paths come from `tabPath` (`lib/military/milpac-tabs.ts`). "Kits" is the unit's word; the code below the surface still says loadout (collection, API routes, `lib/loadout/`), ARMA's own term for the exported array. `scroll={false}` keeps the reader where they are; each navigation remounts the panels, so their `.rise` entrance stagger replays.
