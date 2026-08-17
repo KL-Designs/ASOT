@@ -134,10 +134,21 @@ function linkRow(response: Response): Discord.ActionRowBuilder<Discord.ButtonBui
         // Built inside the try as well: the constraint checks above should make
         // this unreachable, but the cost of being wrong is the whole reply.
         return [new Discord.ActionRowBuilder<Discord.ButtonBuilder>().addComponents(
-            links.slice(0, 5).map(l => new Discord.ButtonBuilder()
-                .setStyle(Discord.ButtonStyle.Link)
-                .setLabel(l.label)
-                .setURL(`${base}${l.path}`)),
+            links.slice(0, 5).map(l => {
+                const button = new Discord.ButtonBuilder()
+                    .setStyle(Discord.ButtonStyle.Link)
+                    .setLabel(l.label)
+                    .setURL(`${base}${l.path}`)
+                // setEmoji throws on an invalid emoji, so it gets the same
+                // untrusted treatment as label above — except the cost of being
+                // wrong here is scoped to this one button's icon: a malformed
+                // emoji falls through to a plain button rather than losing the
+                // button (or, since this sits inside the outer try, the row).
+                if (typeof l?.emoji === 'string' && l.emoji.length > 0) {
+                    try { button.setEmoji(l.emoji) } catch { /* icon-less button is fine */ }
+                }
+                return button
+            }),
         )]
     } catch (err) {
         console.error('[milpac] discarding malformed section links', err)

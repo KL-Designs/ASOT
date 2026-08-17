@@ -7,7 +7,7 @@ import { readCoverImage } from './milpac-cover'
 import { toCardImage } from './card-images'
 import { loadConfirmedOps, resolvePromotionPoints, resolveEnlistedDate, durationSince, getPromotionProgress } from './milpac-stats'
 import { canonicalSegment, buildSlugIndex, toSlugCandidate } from './milpac-slug'
-import { MILPAC_TABS, tabPath } from './milpac-tabs'
+import { MILPAC_TABS, tabPath, shareLabelFor } from './milpac-tabs'
 import { pickCardKit } from '@/lib/loadout/select'
 import { formatKitLine } from '@/lib/loadout/kit-line'
 import { parseLoadout } from '@/lib/loadout/parse'
@@ -31,7 +31,7 @@ export const DOSSIER_SIZE = { width: 1400, height: 860 }
 const UNIFORM_BOX = { width: 560, height: 400 }
 const MEDALS_BOX  = { width: 700, height: 250 }
 
-export type DossierLink = { label: string; path: string }
+export type DossierLink = { label: string; path: string; emoji: string }
 export type DossierStat = { value: string; label: string; accent: boolean }
 
 export type DossierProgress = {
@@ -138,6 +138,6 @@ export async function buildDossierData(member: User, allMembers: User[]): Promis
         // kit line uses, so there is one notion of "has kits worth showing".
         links: MILPAC_TABS
             .filter(tab => tab.key !== 'kits' || kit !== null)
-            .map(tab => ({ label: tab.label, path: `${base}${tabPath(tab.key)}` })),
+            .map(tab => ({ label: shareLabelFor(tab), path: `${base}${tabPath(tab.key)}`, emoji: tab.emoji })),
     }
 }
