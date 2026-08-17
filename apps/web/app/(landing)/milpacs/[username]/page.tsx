@@ -27,6 +27,7 @@ import { CertificateViewer } from './certificate-link'
 import { Hero, type HeroStat } from './hero'
 import { EditMilpacButton } from './edit-milpac'
 import { Panel, Rows, Row, Empty, MedallionIcon, MEDALLION_ART, MonthChart, bucketByMonth } from './panels'
+import { LoadoutPanel } from './loadout-panel'
 import s from './profile.module.css'
 
 
@@ -276,6 +277,9 @@ export default async function Page({ params }: { params: Promise<{ username: str
 		{ linkedUserId: member.id, steamId64: { $exists: true, $ne: '' } },
 		{ sort: { _id: -1 }, projection: { steamId64: 1 } },
 	).catch(() => null)
+
+	const loadouts = await Db.loadouts.find({ userId: member.id }).sort({ updatedAt: -1 }).toArray()
+	const activeLoadout = loadouts.find(l => l.isDefault) ?? loadouts[0] ?? null
 
 	const awards = member.milpac?.awards ?? []
 	const quals  = member.milpac?.qualifications ?? []
@@ -595,10 +599,15 @@ export default async function Page({ params }: { params: Promise<{ username: str
 							/>
 						</Panel>
 					)}
-					<Panel title='Assigned Loadout' tag='Standard' delay='.23s'>
-						<Empty text='No loadout on record. Kit is imported from Arma.' />
-					</Panel>
 				</div>
+			</div>
+
+			<div className={s.kitSection}>
+				<Panel title='Assigned Loadout' tag={activeLoadout?.name} delay='.23s'>
+					{activeLoadout
+						? <LoadoutPanel loadout={activeLoadout} />
+						: <Empty text='No loadout on record. Kit is imported from Arma.' />}
+				</Panel>
 			</div>
 
 			<div className={s.foot}>

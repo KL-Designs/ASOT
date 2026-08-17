@@ -267,6 +267,17 @@ awards would otherwise trigger 30 renders per profile view. A failed render drop
 content rather than leaving a dead click target. `inline` switches it from a full-width row trigger
 to an inline chip.
 
+#### app/(landing)/milpacs/[username]/loadout-panel.tsx
+Server `LoadoutPanel`: renders a member's imported ACE arsenal loadout in the arsenal's own
+arrangement — weapons (primary/launcher/sidearm, each with its magazine and attachments) across the
+top, the three containers (uniform/vest/backpack) with their contents below, then what is worn and
+carried (headgear, facewear, binoculars, map/GPS/radio/compass/watch/NVG). Calls `parseLoadout`
+(`@/lib/loadout/parse`) and `resolveItemName` (`@/lib/loadout/names`) — kept server-side because the
+name dictionary the latter reads is ~2.7MB and must never reach the browser; only the resolved
+strings are sent. A parse failure (e.g. an old row a parser change now rejects) renders a fallback
+message rather than taking down the whole profile. Empty slots render as "—" rather than being
+omitted.
+
 #### app/(landing)/milpacs/[username]/image-lightbox.tsx
 Generic client `ImageLightbox`: click-to-zoom full-screen overlay for an `<img>`, closes on
 Escape/backdrop click. Used for the uniform and medals images.

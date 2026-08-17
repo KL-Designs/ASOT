@@ -719,3 +719,55 @@
     .cell { border-right: none; border-top: 1px solid var(--line); }
     .cell:first-child { border-top: none; }
 }
+
+/* ── loadout ─────────────────────────────────────────────────────────────── */
+
+.kitSection { padding: 0 var(--pad) 40px; }
+
+.kit { display: flex; flex-direction: column; gap: 18px; }
+.kitActions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.kitWeapons, .kitBags {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+.kitSlot, .kitBag {
+    border: 1px solid var(--line);
+    background: var(--s1);
+    border-radius: var(--r);
+    padding: 12px 14px;
+}
+.kitSlotLabel { margin-bottom: 8px; }
+.kitPrimary { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--ink); }
+.kitMag, .kitAttachment {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10px; color: var(--ink-2);
+}
+.kitMag { margin-top: 7px; }
+.kitAttachments { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 7px; }
+.kitEmpty { color: var(--ink-3); font-family: var(--mono); font-size: 12px; }
+
+.kitBagName { display: flex; align-items: center; gap: 9px; font-size: 13px; margin-bottom: 10px; }
+.kitList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.kitList li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-2);
+}
+.kitItemName { flex: 1 1 auto; min-width: 0; }
+.kitCount { font-family: var(--mono); font-size: 11px; color: var(--acc); }
+
+.kitWorn {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+}
+.kitWornItem { display: flex; align-items: center; gap: 9px; color: var(--ink-2); }
+.kitWornName { font-size: 12px; color: var(--ink); }
+
+@media (max-width: 900px) {
+    .kitWeapons, .kitBags { grid-template-columns: 1fr; }
+}
