@@ -63,9 +63,16 @@ describe('formatKitLine', () => {
 
     test('a name whose cut lands on whitespace still ends in an ellipsis', () => {
         // trimEnd() before the ellipsis means this one is allowed to come in
-        // under MAX_NAME — what must hold is that it is bounded and marked.
+        // under MAX_CARD_NAME — what must hold is that it is bounded and marked.
         const name = formatKitLine(`${'A'.repeat(26)} ${'B'.repeat(50)}`, summary()).split(' — ')[0]
         expect(name.length).toBeLessThanOrEqual(28)
         expect(name.endsWith('…')).toBe(true)
+    })
+
+    test('a manipulated item count cannot make the line overrun the card', () => {
+        // itemCount is a sum of unvalidated numbers from the pasted export, and
+        // JS prints integers in full decimal well past any plausible count.
+        const line = formatKitLine('Kit', summary({ itemCount: 10 ** 20 }))
+        expect(line.length).toBeLessThanOrEqual(100)
     })
 })
