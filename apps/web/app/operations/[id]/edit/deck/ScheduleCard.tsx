@@ -231,7 +231,13 @@ export default function ScheduleCard({
                                             value={date}
                                             format="DD/MM/YYYY HH:mm"
                                             onChange={onChangeDate}
-                                            slotProps={{ textField: { size: 'small', sx: pickerSx } }}
+                                            // data-testid: the op-date input has no accessible
+                                            // name/label of its own (MUI renders the picker's
+                                            // sections as an unlabelled masked input), and it's
+                                            // the one control operations-editor.spec.ts's
+                                            // date-edit spec needs to select unambiguously among
+                                            // the timeline's several other pickers/selects.
+                                            slotProps={{ textField: { size: 'small', sx: pickerSx, inputProps: { 'data-testid': 'schedule-op-date-input' } } }}
                                         />
                                     </LocalizationProvider>
                                 </div>

@@ -37,14 +37,24 @@ export default function StatusBar({
             fontFamily: 'var(--mono)', fontSize: 10,
             letterSpacing: '0.12em', textTransform: 'uppercase',
         }}>
-            <div style={{ ...cell, color: connectedColor }}>
+            {/* data-testid: no accessible role/label distinguishes this cell from the
+                other status-bar cells, and its text ('Live'/'Offline'/'Link —') is
+                the value under test in operations-editor.spec.ts's tab-switch spec —
+                matching on that text would make the selector describe its own
+                assertion. */}
+            <div data-testid='status-connection' style={{ ...cell, color: connectedColor }}>
                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
                 {connectedLabel}
             </div>
             <div className={styles.sbDoc} style={cell}><span style={{ color: 'var(--ink-3)' }}>Doc</span> {activeDocTitle}</div>
             <div className={styles.sbWords} style={cell}>{words.toLocaleString()} words</div>
             <div className={styles.sbSections} style={cell}>{sections} sections</div>
-            <div style={{ ...cell, color: 'var(--ink-3)' }}>
+            {/* data-testid: same reasoning as status-connection above — this is the
+                one place `savedAt` (set only by page.tsx's scheduleSave, independent
+                of the collab socket's own connect/disconnect-driven saveStatus) is
+                rendered, which operations-editor.spec.ts's date-edit spec waits on
+                rather than racing the ~1s debounce. */}
+            <div data-testid='status-saved-at' style={{ ...cell, color: 'var(--ink-3)' }}>
                 {savedAt ? `Saved ${savedAt.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false })}` : 'Not saved'}
             </div>
             <div style={{ flexGrow: 1 }} />
