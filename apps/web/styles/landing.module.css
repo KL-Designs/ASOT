@@ -144,13 +144,13 @@
 }
 
 /* The 560px cap is sized for the two-column layout, where the lockup shares the
-   row with the operation card. Centred it has the whole measure to itself, so it
-   runs most of the way to the container's edge and becomes the thing the hero is
-   actually built around. */
+   row with the operation card. Centred it has the whole measure to itself and
+   can run wider — but only to a bit past the 52ch paragraph beneath it. Any
+   further and it stops being the hero's anchor and becomes its whole content. */
 .heroInnerSolo .heroMark {
     margin-inline: auto;
     width: 100%;
-    max-width: min(1120px, 88vw);
+    max-width: min(620px, 68vw);
 }
 
 .heroInnerSolo .heroPLead {
