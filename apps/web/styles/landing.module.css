@@ -66,6 +66,13 @@
         linear-gradient(180deg, rgba(6, 7, 9, .55) 0%, transparent 26%, transparent 52%, rgba(6, 7, 9, .94) 100%);
 }
 
+/* The horizontal pass exists to hold down the left third for left-aligned copy.
+   Centred, it would leave the text sitting over a brighter right side — so the
+   solo hero darkens top-to-bottom only, evenly across the frame. */
+.heroVeilSolo {
+    background: linear-gradient(180deg, rgba(6, 7, 9, .72) 0%, rgba(6, 7, 9, .6) 40%, rgba(6, 7, 9, .97) 100%);
+}
+
 .heroInner {
     position: relative;
     z-index: 4;
@@ -79,11 +86,35 @@
     min-height: clamp(520px, 74vh, 720px);
 }
 
-/* Most weeks there is an operation to lead with. When there isn't, the second
+/*
+   Most weeks there is an operation to lead with. When there isn't, the second
    column would otherwise sit empty and shove the copy off to the left — so the
-   hero drops to one column rather than reserving space for nothing. */
+   hero drops to one column and centres, which is a composition in its own right
+   rather than the two-column one with a hole in it.
+*/
 .heroInnerSolo {
     grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    text-align: center;
+}
+
+.heroInnerSolo .heroCopy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.heroInnerSolo .heroMark {
+    margin-inline: auto;
+}
+
+.heroInnerSolo .heroPLead {
+    margin-inline: auto;
+}
+
+.heroInnerSolo .heroCta,
+.heroInnerSolo .heroFacts {
+    justify-content: center;
 }
 
 .heroCopy {

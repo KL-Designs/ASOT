@@ -100,10 +100,15 @@ export default function Hero({ sotm, roster, opCard }: {
                     : <Image src={Banner} alt='' fill style={{ objectFit: 'cover' }} priority />}
             </div>
 
-            {/* Weighted left, so the contours reinforce the copy without muddying
-                the half of the photograph that's actually on show. */}
-            <Topo opacity={0.042} driftSeconds={720} mask='left' style={{ zIndex: 3 }} />
-            <div className={s.heroVeil} />
+            {/* Weighted left behind left-aligned copy; even across the frame when
+                the hero is centred, or the contours would pile up on one side. */}
+            <Topo
+                opacity={0.042}
+                driftSeconds={720}
+                mask={opCard ? 'left' : 'fade'}
+                style={{ zIndex: 3 }}
+            />
+            <div className={`${s.heroVeil} ${opCard ? '' : s.heroVeilSolo}`} />
 
             <FireEmbers />
             <PhysicsGame
