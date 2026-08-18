@@ -112,6 +112,7 @@ export function resolveMembers(
     csvNames: string[],
     members: MatchCandidate[],
     extraOverrides: Record<string, string> = {},
+    options: { allowManyToOne?: boolean } = {},
 ): {
     resolved: Map<string, MatchCandidate>
     unresolved: string[]
@@ -139,14 +140,20 @@ export function resolveMembers(
         else unresolved.push(csvName)
     }
 
-    const claimedBy = new Map<string, string[]>()
-    for (const [csvName, member] of resolved) {
-        const names = claimedBy.get(member._id) ?? []
-        names.push(csvName)
-        claimedBy.set(member._id, names)
-    }
-    for (const names of claimedBy.values()) {
-        if (names.length > 1) errors.push(`CSV names ${names.map(n => `"${n}"`).join(' and ')} both resolve to one member`)
+    // Two names on one member is fatal for the history import — it merges two
+    // people's service records into one. It is routine for the TeamSpeak
+    // import, where the same member genuinely holds two accounts under two
+    // spellings, so that caller opts out and merges them itself.
+    if (!options.allowManyToOne) {
+        const claimedBy = new Map<string, string[]>()
+        for (const [csvName, member] of resolved) {
+            const names = claimedBy.get(member._id) ?? []
+            names.push(csvName)
+            claimedBy.set(member._id, names)
+        }
+        for (const names of claimedBy.values()) {
+            if (names.length > 1) errors.push(`CSV names ${names.map(n => `"${n}"`).join(' and ')} both resolve to one member`)
+        }
     }
 
     return { resolved, unresolved, errors }

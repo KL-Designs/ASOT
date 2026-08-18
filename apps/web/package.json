@@ -10,6 +10,8 @@
     "lint": "next lint",
     "import:history": "dotenv -e ../../.env -- tsx scripts/import-member-history.ts",
     "sync:ranks": "dotenv -e ../../.env -- tsx scripts/sync-orbat-ranks.ts",
+    "import:quals": "dotenv -e ../../.env -- tsx scripts/import-ts-qualifications.ts",
+    "dedupe:milpac": "dotenv -e ../../.env -- tsx scripts/dedupe-milpac-records.ts",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
