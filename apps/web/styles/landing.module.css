@@ -67,130 +67,31 @@
 }
 
 /*
-   The horizontal pass exists to hold down the left third for left-aligned copy;
-   centred, it would leave the text over a brighter right side. But replacing it
-   with a flat top-to-bottom wash meant carrying enough opacity to protect the
-   middle across the *whole* frame, which drowned the photograph.
+   Centred, the veil runs the other way: dark at the left and right edges,
+   clear through the middle. The screenshot is at its best in the centre of the
+   frame and that is exactly what the copy sits on, so the vignette shapes the
+   photograph inward instead of flattening it — and the hard edges of the hero
+   land on the page background rather than on a cropped image.
 
-   So: a soft radial scrim sized to the copy does the legibility work, and the
-   vertical pass drops to what's needed to seat the hero against the page above
-   and below. The screenshot stays a screenshot at the edges.
+   That leaves white copy sitting on the brightest part of the picture, so
+   legibility is bought with a shadow on the text rather than a scrim over the
+   image. Darkening the photo to protect the words is what made the last version
+   look drowned.
 */
 .heroVeilSolo {
     background:
-        radial-gradient(58% 54% at 50% 47%, rgba(6, 7, 9, .8), rgba(6, 7, 9, .32) 62%, transparent 78%),
-        linear-gradient(180deg, rgba(6, 7, 9, .58) 0%, rgba(6, 7, 9, .12) 30%, rgba(6, 7, 9, .5) 74%, rgba(6, 7, 9, .95) 100%);
-}
-
-.heroInner {
-    position: relative;
-    z-index: 4;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: clamp(56px, 8vw, 110px) var(--pad) 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 372px;
-    gap: 56px;
-    align-items: end;
-    min-height: clamp(520px, 74vh, 720px);
-}
-
-/*
-   Most weeks there is an operation to lead with. When there isn't, the second
-   column would otherwise sit empty and shove the copy off to the left — so the
-   hero drops to one column and centres, which is a composition in its own right
-   rather than the two-column one with a hole in it.
-*/
-.heroInnerSolo {
-    grid-template-columns: minmax(0, 1fr);
-    justify-items: center;
-    text-align: center;
-}
-
-.heroInnerSolo .heroCopy {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-/* The 560px cap is sized for the two-column layout, where the lockup shares the
-   row with the operation card. Centred it has the full measure to itself and
-   reads as undersized at that width. */
-.heroInnerSolo .heroMark {
-    margin-inline: auto;
-    max-width: min(780px, 72vw);
-}
-
-.heroInnerSolo .heroPLead {
-    margin-inline: auto;
-}
-
-.heroInnerSolo .heroCta,
-.heroInnerSolo .heroFacts {
-    justify-content: center;
-}
-
-.heroCopy {
-    padding-bottom: clamp(40px, 6vw, 72px);
-}
-
-/* The lockup — emblem and wordmark in one vector, so nothing can drift out of
-   alignment as the hero scales, and it stays sharp at any density. */
-.heroMark {
-    display: block;
-    margin: 18px 0 6px;
-    max-width: min(560px, 62vw);
-}
-
-.heroMark img {
-    width: 100%;
-    height: auto;
-}
-
-/* The rule that used to sit above the subtitle — it still separates the lockup
-   from the body copy, which is the job it was actually doing. */
-.heroPLead {
-    padding-top: 22px;
-    border-top: 1px solid rgba(255, 255, 255, .13);
-    max-width: min(52ch, 640px);
-}
-
-.heroP {
-    color: #c4c9cf;
-    font-size: 16px;
-    line-height: 1.6;
-    max-width: 52ch;
-    margin: 20px 0 0;
-}
-
-.heroCta {
-    display: flex;
-    gap: 12px;
-    margin-top: 32px;
-    flex-wrap: wrap;
-}
-
-.heroFacts {
-    display: flex;
-    gap: 20px;
-    margin-top: 26px;
-    flex-wrap: wrap;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: .18em;
-    text-transform: uppercase;
-    color: var(--txt-3);
-}
-
-.heroFacts b {
-    color: var(--txt-1);
-    font-weight: 500;
-}
-
-.heroFacts span {
-    display: flex;
-    align-items: center;
-    gap: 7px;
+        linear-gradient(90deg,
+            rgba(6, 7, 9, .96) 0%,
+            rgba(6, 7, 9, .72) 15%,
+            transparent 38%,
+            transparent 62%,
+            rgba(6, 7, 9, .72) 85%,
+            rgba(6, 7, 9, .96) 100%),
+        linear-gradient(180deg,
+            rgba(6, 7, 9, .6) 0%,
+            transparent 24%,
+            transparent 62%,
+            rgba(6, 7, 9, .95) 100%);
 }
 
 /* ---------- next-op card -------------------------------------------------- */
