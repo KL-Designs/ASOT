@@ -118,7 +118,17 @@ export default function EditorShell({
                         {active === 'attendance' && isHQ && <TabPlaceholder label='Attendance' />}
                     </div>
                 </div>
-                {deck && <div className={styles.deck}>{deck}</div>}
+                {/*
+                 * No wrapping div here: MissionDeck (deck/MissionDeck.tsx) is
+                 * fully self-contained — its own root element sets width,
+                 * border-left, background and overflow-y for both the
+                 * expanded (340px) and collapsed (44px) states. A wrapping
+                 * div styled from styles.deck/.deckCollapsed would fight
+                 * that (fixed 340px outer box while the inner rail shrinks
+                 * to 44px, doubled border-left, mismatched width on resize),
+                 * so `deck` is rendered directly and owns its own layout.
+                 */}
+                {deck}
             </div>
 
             {statusBar}

@@ -14,6 +14,9 @@ import FullscreenPage from '@/components/FullscreenPage'
 import EditorShell, { useEditorTab } from './EditorShell'
 import Header from './Header'
 import StatusBar from './StatusBar'
+import { useOperationStatus } from './hooks/useOperationStatus'
+import MissionDeck from './deck/MissionDeck'
+import CountdownStrip from './deck/CountdownStrip'
 const OperationEditor = dynamic(() => import('@/components/editor/CollabEditor'), { ssr: false })
 
 interface MetaFields { title: string; department: string; date: string; loreDate: string }
@@ -110,6 +113,9 @@ export default function Page() {
     // does not participate in the save path itself (see scheduleSave below).
     const [savedAt, setSavedAt] = useState<Date | null>(null)
     const [tab, setTab] = useEditorTab()
+
+    // Mission deck (Task 8) — days-until-op countdown for the deck's strip.
+    const { daysUntil } = useOperationStatus(opID)
 
     // Mission Development
     const [missionDev, setMissionDev] = useState<MissionDevelopment | null>(null)
@@ -569,6 +575,21 @@ export default function Page() {
         </div>
     )
 
+    // Mission-development check counts for the deck's countdown strip.
+    // Mirrors the exact same week list / completion check the Mission
+    // Development panel below computes for its own `checks`/`allDone` — kept
+    // as a separate computation (rather than hoisting that panel's IIFE)
+    // because the panel's version also needs `dueDate`/`isOverdue` per check
+    // and its own save/remove handlers, which the strip doesn't.
+    const devCheckBaseDate = isCampaignOp && campaignStartDate
+        ? new Date(campaignStartDate)
+        : date?.toDate() ?? null
+    const devCheckWeeks = isCampaignOp ? [16, 12, 10, 8, 6, 4] : [12, 10, 8, 6, 4]
+    const checksTotal = opID && devCheckBaseDate ? devCheckWeeks.length : 0
+    const checksDone = opID && devCheckBaseDate
+        ? devCheckWeeks.filter(weeks => !!missionDev?.completions?.[`w${weeks}`]).length
+        : 0
+
     return (
         <>
             {/* Drops the global site navbar/footer (styles/globals.css:31-34) — same
@@ -624,6 +645,14 @@ export default function Page() {
                         editorCount={1}
                         department={department}
                     />
+                }
+                deck={
+                    <MissionDeck
+                        strip={<CountdownStrip daysUntil={daysUntil} checksDone={checksDone} checksTotal={checksTotal} />}
+                    >
+                        {/* Later tasks add deck cards here. */}
+                        {null}
+                    </MissionDeck>
                 }
             >
         <div className='w-full' style={{
