@@ -192,6 +192,83 @@ a.amb:hover {
     }
 }
 
+/* ---------- cursor toggle ------------------------------------------------ */
+
+/*
+   The glyph is the custom cursor in miniature — dot alone when off, dot inside
+   a ring when on. The ring scales up from the dot rather than fading in, which
+   is the same gesture the real cursor makes when it resolves around a target.
+*/
+.cursorToggle {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    flex: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--txt-3);
+    transition: color 0.18s;
+}
+
+.cursorToggle:hover {
+    color: var(--txt-1);
+}
+
+.cursorToggle.on {
+    color: var(--txt-2);
+}
+
+/* Both parts are centred the same way — `inset: 0` plus `margin: auto` against
+   a fixed size — so they are concentric by construction. Centring the dot with
+   the grid and the ring with a negative half-size margin left the two resolving
+   through different rounding, which is visible at 4px. */
+.cursorToggle .dot,
+.cursorToggle .ring {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    border-radius: 50%;
+    box-sizing: border-box;
+}
+
+.cursorToggle .dot {
+    width: 4px;
+    height: 4px;
+    background: currentColor;
+}
+
+.cursorToggle .ring {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid currentColor;
+    opacity: 0;
+    /* Collapsed onto the dot, so switching on reads as the ring growing out
+       of it rather than as a second shape appearing. */
+    transform: scale(0.26);
+    transition: opacity 0.18s var(--nav-ease), transform 0.26s var(--nav-ease);
+}
+
+.cursorToggle.on .ring {
+    opacity: 1;
+    transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cursorToggle .ring {
+        transition: opacity 0.18s;
+        transform: scale(1);
+    }
+}
+
+/* There is no custom cursor on a touch pointer — CustomCursor bails on
+   `pointer: coarse` — so the control would toggle nothing. */
+@media (pointer: coarse) {
+    .cursorToggle {
+        display: none;
+    }
+}
+
 /* ---------- bar ---------------------------------------------------------- */
 
 .bar {
@@ -638,13 +715,19 @@ a.amb:hover {
 
 /* ---------- mega panel --------------------------------------------------- */
 
+/*
+   Anchored to `.inner` rather than to the item it hangs off — the `<li>`s are
+   `position: static` for exactly this reason — and centred on the bar, which is
+   where the menu now sits. A panel centred on the bar cannot be pushed
+   off-screen by a right-hand item the way one anchored to its own item could.
+*/
 .dd {
     position: absolute;
     top: 100%;
-    left: 22px;
+    left: 50%;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(-6px);
+    transform: translateX(-50%) translateY(-6px);
     transition: opacity 0.2s var(--nav-ease), transform 0.24s var(--nav-ease), visibility 0.2s;
     z-index: 50;
     width: 912px;
@@ -660,7 +743,7 @@ a.amb:hover {
 .menu>li.isOpen .dd {
     opacity: 1;
     visibility: visible;
-    transform: translateY(0);
+    transform: translateX(-50%) translateY(0);
 }
 
 .ddCard {

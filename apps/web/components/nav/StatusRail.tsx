@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { NavStatus } from '@/app/api/nav/status/route'
 import { formatCountdown, formatOpTime } from './useNavStatus'
+import CursorToggle from './CursorToggle'
 import s from '@/styles/navbar.module.css'
 
 /**
@@ -60,6 +61,7 @@ export default function StatusRail({ status, hidden }: { status: NavStatus | nul
                         {online} on TeamSpeak
                     </span>
                 )}
+                <CursorToggle />
             </span>
         </div>
     )
