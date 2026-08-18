@@ -84,18 +84,37 @@ for a real `Db.users` query keyed on a HOF Discord role. Public, static for now.
 
 #### app/(landing)/community/kits/page.tsx
 The unit's shared-kit shelf, reached from the navbar's "Our Orbat" menu. Server component: reads
-`Db.loadouts.find({shared: true})` (newest first) and `client.fetchAllMembers()`, then renders one
-card per kit — its chosen badge beside the name, the owner's `description` when they wrote one, the primary weapon with its
-attachments, headgear/uniform/vest/pack, and an item count from `summariseLoadout`
-(`@/lib/loadout/summary`). Server-side for the same reason
-`loadout-panel.tsx` is: `resolveItemName` reads a ~2.7MB dictionary that must never reach the
-browser. A kit whose owner is no longer on the roster is skipped, as is one that fails to parse —
-neither may take down everyone else's shelf. Cards link to `/milpacs/<canonical>/kits/<id>`
-(canonical segment via `buildSlugIndex`/`canonicalSegment`, so no click goes through a redirect) and
-carry a copy button. Borrows the milpac's design system wholesale — `profile.module.css` supplies
-`.shell`/`.panel`/`.btn` and the custom properties they define, `kits.module.css` only the shelf and
-card layout. `--acc` is per card, set to the owner's own Discord accent; the page chrome uses the
-unit red. Public, no login required.
+`Db.loadouts.find({shared: true})` (newest first) and `client.fetchAllMembers()`, builds one
+`CardData` per kit (name, `description`, `tags` via `normaliseTags`, `ratingAvg`/`ratingCount` plus
+`ratingScore` = `weightedScore()` computed once here, `copyCount`, the primary weapon with its
+attachments, headgear/uniform/vest/pack, an item count from `summariseLoadout`
+(`@/lib/loadout/summary`), and a lowercased `|`-joined `haystack` for client-side search), then hands
+the list to `<Shelf>`. Server-side for the same reason `loadout-panel.tsx` is: `resolveItemName` reads
+a ~2.7MB dictionary that must never reach the browser — only resolved strings and each shared kit's
+`raw` export cross into the client component. A kit whose owner is no longer on the roster is
+skipped, as is one that fails to parse — neither may take down everyone else's shelf. Borrows the
+milpac's design system wholesale — `profile.module.css` supplies `.shell`/`.panel`/`.btn` and the
+custom properties they define, `kits.module.css` only the shelf and card layout. `--acc` is per card,
+set to the owner's own Discord accent; the page chrome uses the unit red. Public, no login required.
+
+#### app/(landing)/community/kits/shelf.tsx
+`'use client'` — the shelf's controls and grid: search box, the four sorts (Newest / Top rated /
+Most copied / A-Z, `SHELF_SORTS`), an AND tag filter bar with per-tag counts (`tagCounts`, counted
+over every card so a chip's number doesn't shift as you type), and 24-per-page numbered paging
+(`KITS_PER_PAGE`). Filtering/sorting/paging all happen client-side over the cards the server already
+shipped — a keystroke costs no round-trip — using the pure functions in `lib/loadout/shelf.ts`
+(`matchesQuery`, `matchesTags`, `sortCards`, `pageCount`, `paginate`); this file is state and markup
+only. Any change to query/tags/sort resets to page 1. Filter state is not mirrored into the URL, so a
+filtered shelf is not linkable. Renders one `<KitCard>` per shown kit, staggered entrance delay capped
+at 8 cards.
+
+#### app/(landing)/community/kits/kit-card.tsx
+`'use client'` — one kit on the shelf: owner avatar/name, `<TagChips>`, the owner's `description` when
+written, primary weapon + attachments, the gear grid, a read-only `<Stars avg count>` row
+(`components/loadout/stars.tsx`), and a footer with item count, copy count (seeded from the server,
+corrected by the copy endpoint's own answer), a "View" link to `/milpacs/<canonical>/kits/<id>`, and
+`<CopyKitButton>` (`copy-kit.tsx`). `CardData` (`ShelfCard` from `lib/loadout/shelf.ts` plus the
+rendered fields) is exported for `shelf.tsx` and `page.tsx` to share.
 
 #### app/(landing)/community/kits/copy-kit.tsx
 Client `CopyKitButton`: copies a shared kit's raw ACE arsenal export via `copyText`
