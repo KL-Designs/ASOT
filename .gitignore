@@ -20,3 +20,9 @@
 
 # Subagent-driven-development scratch workspace (ledgers, briefs, review packages)
 /.superpowers/
+
+# Historical member-history CSVs extracted from the pre-website systems, the
+# input to apps/web/scripts/import-member-history.ts. Member data, not source —
+# tracked nowhere, same reasoning as /storage. The dry-run report the importer
+# prints is the audit artifact worth keeping, not the input.
+/ASOT_Member_History_*.csv
