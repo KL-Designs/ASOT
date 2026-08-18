@@ -142,7 +142,7 @@ export default function DetailsCard({
                         width: '100%', background: 'transparent', border: 'none',
                         borderBottom: '1px solid var(--line-2)',
                         color: 'var(--ink)', fontSize: 15, fontWeight: 700,
-                        letterSpacing: '0.04em', textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
                         outline: 'none', padding: '4px 0 8px', boxSizing: 'border-box',
                     }}
                 />

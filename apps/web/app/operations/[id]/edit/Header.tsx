@@ -117,7 +117,13 @@ export default function Header({
                 </Link>
                 <div style={{ width: 1, height: 14, background: 'var(--line)', flexShrink: 0 }} />
                 <span style={{
-                    fontSize: '0.95rem', fontWeight: 700, letterSpacing: '0.02em',
+                    /* Display-only caps. The name is stored and edited in
+                       whatever case the author typed (see DetailsCard's title
+                       field) — this only renders it uppercase to sit with the
+                       mono all-caps chrome around it, so the two never
+                       disagree about what the name actually is. */
+                    fontSize: '0.95rem', fontWeight: 700, letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
                     color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
                     {title || 'Untitled Operation'}

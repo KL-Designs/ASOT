@@ -519,11 +519,14 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             // an ancestor whose only sizing is `min-height` never counts as
             // "definite" for a percentage-height descendant to resolve
             // against, which is what made the rail stop a quarter of the way
-            // down the viewport before. `position: sticky` + this height is
-            // what makes it reach the status bar on a short document and
-            // keep sticking through the whole scroll on a long one — a fixed
-            // `calc(100vh - N)` could do neither once N drifted out of sync
-            // with the real chrome height.
+            // What keeps the rail on screen through a long document is not
+            // this `sticky` but the fact that CollabEditor confines the
+            // scroll to the editor column beside it, so this row never
+            // scrolls at all - see that file's comment on the column div.
+            // Sticky is kept only as a harmless backstop should an ancestor
+            // ever scroll again; on its own it could not do the job, because
+            // a sticky box may only travel within its containing block and
+            // that block is exactly one viewport tall.
             height: '100%',
         }}>
             <div style={{

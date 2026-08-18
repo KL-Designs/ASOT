@@ -22,6 +22,7 @@ import { TextStyle } from '@tiptap/extension-text-style'
 import PageSidebar from './PageSidebar'
 import IntelPackageEditor from './intel-package/IntelPackageEditor'
 import ImageLibraryModal from './ImageLibraryModal'
+import { useThinScrollFade } from './useThinScrollFade'
 import {
     FormatAlignLeft, FormatAlignCenter, FormatAlignRight,
     Delete, Lock, LockOpen,
@@ -481,6 +482,11 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
     // reads activeEditor via the `editor` prop closure) ever runs.
     const toolbarRef = useRef<HTMLDivElement>(null)
 
+    // The editor column is its own scroll container on desktop (see the
+    // `overflowY` note on the column div below), so it gets the same thin
+    // fading overlay scrollbar treatment `.mainScroll` has.
+    const columnScrollRef = useThinScrollFade<HTMLDivElement>()
+
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 768)
         check()
@@ -637,11 +643,39 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                     presenceUser={{ id: 'self', ...user }}
                     presencePeers={peers.map(p => ({ id: p.clientId, name: p.name, color: p.color, avatar: p.avatar }))}
                 />
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                {/*
+                 * The editor column, not `.mainScroll`, is what actually
+                 * scrolls on desktop. The rail beside it is `position:
+                 * sticky`, and a sticky box can only travel inside its own
+                 * containing block — which here is this row, exactly one
+                 * viewport tall. A three-screen document scrolling in an
+                 * ancestor therefore gave the rail nowhere to stick to and
+                 * it simply scrolled away with the content. Confining the
+                 * overflow to this column instead means the row never
+                 * scrolls at all, so the rail (and the sticky toolbar just
+                 * inside here, which had the same containing-block problem)
+                 * stay put by construction rather than by viewport maths.
+                 * `minHeight: 0` is the usual flex-child override without
+                 * which this box refuses to shrink below its content and
+                 * never overflows in the first place.
+                 *
+                 * Mobile keeps scrolling in `.mainScroll`: there the rail is
+                 * `orientation='top'` and this is a column, so there's no
+                 * sticky side rail to preserve.
+                 */}
+                <div
+                    ref={columnScrollRef}
+                    className={isMobile ? undefined : 'thin-scroll'}
+                    style={{
+                        flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
+                        minHeight: isMobile ? undefined : 0,
+                        overflowY: isMobile ? undefined : 'auto',
+                    }}
+                >
                     {/* One persistent formatting toolbar, owned by the column rather
                         than any section (visual-fixes spec §1) — pinned above all
                         document content and, via `position: sticky`, staying put as
-                        the content beneath it scrolls inside .mainScroll. It always
+                        the content beneath it scrolls in this column. It always
                         targets `activeEditor`, the last section to report focus. */}
                     {!readOnly && activePageType !== 'intel' && (
                         <EditorToolbar editor={activeEditor} uploadUrl={uploadUrl} containerRef={toolbarRef} />
