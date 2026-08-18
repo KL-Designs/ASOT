@@ -73,10 +73,10 @@
    photograph inward instead of flattening it — and the hard edges of the hero
    land on the page background rather than on a cropped image.
 
-   That leaves white copy sitting on the brightest part of the picture, so
-   legibility is bought with a shadow on the text rather than a scrim over the
-   image. Darkening the photo to protect the words is what made the last version
-   look drowned.
+   That leaves white copy sitting on the brightest part of the picture. It rides
+   on the photograph unaided — shadows were tried and read as a halo — so if a
+   screenshot ever lands too bright behind the paragraph, narrow the transparent
+   window below rather than reaching for a scrim or a text-shadow.
 */
 .heroVeilSolo {
     background:
@@ -123,20 +123,9 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* Holds the copy against a bright sky without dimming the sky — see the
-       note on .heroVeilSolo. */
-    text-shadow: 0 1px 2px rgba(0, 0, 0, .55), 0 4px 24px rgba(0, 0, 0, .7);
 }
 
-/* The lockup is a flat vector, so it needs a real drop shadow rather than a
-   text one. */
-.heroInnerSolo .heroMark img {
-    filter: drop-shadow(0 4px 26px rgba(0, 0, 0, .7)) drop-shadow(0 1px 3px rgba(0, 0, 0, .5));
-}
-
-/* Buttons carry their own fill and would only look smudged. */
 .heroInnerSolo .heroCta {
-    text-shadow: none;
     justify-content: center;
 }
 

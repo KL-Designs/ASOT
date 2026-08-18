@@ -104,7 +104,7 @@ export default function Hero({ sotm, roster, opCard }: {
                 the contours competed with what was already in the frame; the
                 grid sits behind it as a graticule instead of a second texture.
                 The topo still runs on the flat bands further down the page. */}
-            <MilitaryGrid gradient opacity={0.4} style={{ zIndex: 3 }} />
+            <MilitaryGrid gradient opacity={0.7} style={{ zIndex: 3 }} />
             <div className={`${s.heroVeil} ${opCard ? '' : s.heroVeilSolo}`} />
 
             <FireEmbers />
