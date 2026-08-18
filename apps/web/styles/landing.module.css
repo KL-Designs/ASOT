@@ -256,8 +256,18 @@
 
 /* ---------- next-op card -------------------------------------------------- */
 
+/*
+   Stretched to the copy column's height rather than sized by its own content.
+   `.heroInner` is `align-items: end`, so without this the card hung off the
+   bottom of a much taller row and the two halves of the hero read as unrelated
+   blocks. The margin matches `.heroCopy`'s padding-bottom so both end on the
+   same line.
+*/
 .opcard {
     position: relative;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
     background: rgba(9, 10, 12, .82);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -299,6 +309,9 @@
 
 .ocB {
     padding: 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .ocT {
@@ -319,8 +332,12 @@
     margin-top: 8px;
 }
 
+/* Takes up the slack. Title and meta stay at the top; the countdown, sign-on
+   count and buttons gather at the bottom, so a card stretched past its content
+   gains air in the middle rather than a gap under everything. */
 .ocCountdown {
-    margin-top: 14px;
+    margin-top: auto;
+    padding-top: 18px;
 }
 
 .ocSlots {

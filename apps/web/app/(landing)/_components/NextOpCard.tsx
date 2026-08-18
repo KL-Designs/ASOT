@@ -53,10 +53,12 @@ export default function NextOpCard({ op }: { op: LandingOp }) {
                 <div className={s.ocT}>{op.title}</div>
                 <div className={s.ocM}>{when} AEST</div>
 
-                <Countdown
-                    target={op.date}
-                    onElapsed={<div className={s.ocM}>Underway</div>}
-                />
+                <div className={s.ocCountdown}>
+                    <Countdown
+                        target={op.date}
+                        onElapsed={<div className={s.ocM}>Underway</div>}
+                    />
+                </div>
 
                 <ProgressTrack
                     className={s.ocSlots}
