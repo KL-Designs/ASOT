@@ -431,6 +431,12 @@ The CSV path is a required argument. `ASOT_Member_History_*.csv` at the repo
 root is git-ignored — it is member data, not source, on the same reasoning as
 `/storage`.
 
+**The ignore rule was added after the file had already been committed**, and
+`.gitignore` has no effect on an already-tracked path, so it stayed tracked and
+reached the public remote. This branch untracks it with `git rm --cached`,
+which removes it from the tip once merged but not from history. See the
+incident note at the end of this document.
+
 ## 9. The report
 
 Printed identically on a dry run and an apply, before any write. It is the
@@ -555,3 +561,25 @@ the one currently seated in the ORBAT.** That means the ORBAT import matched
 the wrong account for both. It does not affect this import — the service record
 belongs where the history is — but the seating is wrong today and will stay
 wrong until someone fixes it.
+
+## Incident: the source CSV reached a public remote
+
+`ASOT_Member_History_Master_Batch_12.csv` (153 KB, 187 members' names, ranks,
+roles, awards and dates) was committed in `66490aee` and pushed to
+`origin/main`. `KL-Designs/ASOT` is a **public** repository.
+
+How it happened: the commit was made with a broad `git add`, which swept in the
+then-untracked file. The `/ASOT_Member_History_*.csv` ignore rule was added
+later, in `fa4a3d40`, and `.gitignore` does not apply to already-tracked paths
+— so the rule looked like it was working (the file stopped appearing in
+`git status`) while the file remained tracked.
+
+Severity is limited by what the data is: essentially the same service-record
+information the site already publishes per member at `/milpacs/<name>`, which
+is a public landing page. It is the bulk form and the lack of a decision to
+publish it that are the problem, not a new class of disclosure.
+
+`git rm --cached` on this branch stops it being tracked going forward and
+removes it from the tip on merge. It does **not** remove it from history —
+that needs a history rewrite and a force-push of `main`, which is the
+repository owner's call, not something this change makes.
