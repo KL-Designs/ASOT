@@ -90,19 +90,31 @@ export const ISSUER_WINDOWS: readonly { until: string | null; issuer: Issuer }[]
  * with no officer.
  */
 function dateToComparable(dateStr: string): number | null {
-    // Try 'DD MMMM YYYY' format: '01 January 2023'
     const months: { [key: string]: number } = {
         'january': 1, 'february': 2, 'march': 3, 'april': 4,
         'may': 5, 'june': 6, 'july': 7, 'august': 8,
         'september': 9, 'october': 10, 'november': 11, 'december': 12,
     }
-    const fullMatch = dateStr.match(/^(\d{1,2})\s+(\w+)\s+(\d{4})$/)
+
+    // Try 'DD MMMM YYYY' format: '01 January 2023'
+    const fullMatch = dateStr.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/)
     if (fullMatch) {
         const [, day, monthName, year] = fullMatch
         const month = months[monthName.toLowerCase()]
         if (month) {
             return parseInt(year) * 10000 + month * 100 + parseInt(day)
         }
+    }
+
+    // 'November 2021' — month and year, no day. One award in the source file is
+    // dated this way. The day defaults to the 1st: the value is only ever used
+    // to pick an issuer window, never stored, and no window boundary falls
+    // mid-month.
+    const monthYearMatch = dateStr.match(/^([A-Za-z]+)\s+(\d{4})$/)
+    if (monthYearMatch) {
+        const [, monthName, year] = monthYearMatch
+        const month = months[monthName.toLowerCase()]
+        if (month) return parseInt(year) * 10000 + month * 100 + 1
     }
 
     // Try 'YYYY-MM-DD' format: '2023-01-01'

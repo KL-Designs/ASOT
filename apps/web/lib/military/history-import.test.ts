@@ -83,4 +83,25 @@ describe('resolveIssuer', () => {
         expect(resolveIssuer('')).toBeNull()
         expect(resolveIssuer('sometime')).toBeNull()
     })
+
+    // One award in the source file is dated "November 2021" — month and year,
+    // with no day. Rejecting it would silently drop a real award.
+    test('accepts a month-and-year date, treating it as the first of the month', () => {
+        expect(resolveIssuer('November 2021')?.issuedByName).toBe('Thomas')
+    })
+
+    test('is not affected by the local timezone at a window boundary', () => {
+        // The bug this guards: Date.parse('01 January 2023') is local midnight
+        // and Date.parse('2023-01-01') is UTC midnight, so east of Greenwich the
+        // boundary date fell into the previous officer's window.
+        expect(resolveIssuer('01 January 2023')?.issuedByName).toBe('Trew')
+        expect(resolveIssuer('02 September 2023')?.issuedByName).toBe('Jazz')
+        expect(resolveIssuer('01 January 2025')?.issuedByRank).toBe('Brigadier')
+        expect(resolveIssuer('01 January 2026')?.issuedByRank).toBe('Major General')
+    })
+
+    test('rejects a date that is neither format', () => {
+        expect(resolveIssuer('sometime in 2019')).toBeNull()
+        expect(resolveIssuer('2021')).toBeNull()
+    })
 })
