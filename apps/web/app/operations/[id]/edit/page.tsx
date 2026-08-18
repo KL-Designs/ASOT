@@ -19,6 +19,8 @@ import MissionDeck from './deck/MissionDeck'
 import CountdownStrip from './deck/CountdownStrip'
 import ScheduleCard from './deck/ScheduleCard'
 import StageCard from './deck/StageCard'
+import DetailsCard from './deck/DetailsCard'
+import AttendanceCard from './deck/AttendanceCard'
 const OperationEditor = dynamic(() => import('@/components/editor/CollabEditor'), { ssr: false })
 
 interface MetaFields { title: string; department: string; date: string; loreDate: string }
@@ -474,6 +476,126 @@ export default function Page() {
         }
     }
 
+    // DetailsCard handlers (Task 11) — lifted verbatim out of the old
+    // "Operation Details" panel's inline onChange/onBlur closures. Same
+    // scheduleSave keys, same endpoints, same metaHandleRef mirroring; only
+    // the JSX moved.
+    function handleTitleChange(v: string) {
+        setTitle(v)
+        metaHandleRef.current?.set('title', v)
+        scheduleSave({ title: v })
+    }
+
+    function handleDepartmentChange(v: string) {
+        setDepartment(v)
+        metaHandleRef.current?.set('department', v)
+        scheduleSave({ department: v })
+    }
+
+    function handleStatusChange(v: string) {
+        setStatus(v)
+        scheduleSave({ status: v })
+    }
+
+    function handleThemeColorChange(v: string) {
+        setThemeColor(v)
+        scheduleSave({ themeColor: v })
+    }
+
+    function handlePageThemeChange(v: string) {
+        setPageTheme(v)
+        scheduleSave({ pageTheme: v })
+    }
+
+    function handleMapWorldChange(w: string) {
+        setMapWorld(w)
+        scheduleSave({ mapWorld: w })
+    }
+
+    function handleLoreDateChange(v: Dayjs | null) {
+        setLoreDateDayjs(v)
+        const str = v?.isValid() ? v.format('DD/MM/YYYY HH:mm') : ''
+        setLoreDate(str)
+        metaHandleRef.current?.set('loreDate', str)
+        scheduleSave({ loreDate: str })
+    }
+
+    function handleBilletPointsChange(v: number) {
+        setBilletPoints(v)
+    }
+
+    // billetPoints is read from render-time closure, same as the old inline
+    // onBlur handler — fine since this is recreated every render.
+    async function handleBilletPointsBlur() {
+        await fetch(`/api/operations/update?id=${opID}&billetPoints=${billetPoints}`)
+    }
+
+    async function handleOpenOwnerPicker() {
+        if (j2Members.length === 0) {
+            const res = await fetch('/api/admin/members?department=j2')
+            const data = await res.json()
+            setJ2Members((data.members ?? []).map((m: any) => ({ id: m.discordId ?? m._id, displayName: m.displayName ?? m.name ?? 'Unknown' })))
+        }
+        setOwnerPickerOpen(true)
+    }
+
+    function handleCloseOwnerPicker() {
+        setOwnerPickerOpen(false)
+    }
+
+    async function handleSelectOwner(id: string, displayName: string) {
+        setOwnedBy(id)
+        setOwnedByName(displayName)
+        setOwnerPickerOpen(false)
+        await fetch(`/api/operations/update?id=${opID}&ownedBy=${encodeURIComponent(id)}&ownedByName=${encodeURIComponent(displayName)}`)
+    }
+
+    // AttendanceCard handlers (Task 11) — same saveAttendanceSettings path
+    // (with its `?? current` sibling-field fallbacks) the old Attendance
+    // Settings panel's platoon checkboxes and ping toggle already used.
+    function handleTogglePlatoon(id: string) {
+        const updated = assignedPlatoons.includes(id)
+            ? assignedPlatoons.filter(p => p !== id)
+            : [...assignedPlatoons, id]
+        setAssignedPlatoons(updated)
+        saveAttendanceSettings({ assignedPlatoons: updated })
+    }
+
+    function handleTogglePing() {
+        const next = !discordPingEnabled
+        setDiscordPingEnabled(next)
+        saveAttendanceSettings({ discordPingEnabled: next })
+    }
+
+    // Custom-unit add/remove for AttendanceCard's "+ Custom Unit" chip — same
+    // endpoint the (untouched) Custom Attendance Units panel below uses, kept
+    // as separate functions rather than reusing that panel's inline handlers
+    // so this task doesn't touch code a later task owns.
+    async function addCustomUnit(name: string, color?: string) {
+        setCustomUnitsSaving(true)
+        try {
+            const res = await fetch(`/api/operations/${opID}/attendance/custom-units`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, color }),
+            })
+            const data = await res.json()
+            if (data.unit) setCustomUnits(prev => [...prev, data.unit])
+        } finally {
+            setCustomUnitsSaving(false)
+        }
+    }
+
+    async function removeCustomUnit(id: string) {
+        setCustomUnitsSaving(true)
+        try {
+            await fetch(`/api/operations/${opID}/attendance/custom-units?unitId=${id}`, { method: 'DELETE' })
+            setCustomUnits(prev => prev.filter(u => u.id !== id))
+        } finally {
+            setCustomUnitsSaving(false)
+        }
+    }
+
     // Timeline card handlers (Task 9, fixed up per review) — direct-acting
     // controls, one per row.
     //
@@ -652,14 +774,6 @@ export default function Page() {
         return attStage === 'rsvp_closed' ? 'rsvp_closed' : 'preparing'
     })()
 
-    const STATUS_COLORS: Record<string, string> = {
-        'Active':         'rgba(0,200,80,0.9)',
-        'Upcoming':       'rgba(219,160,0,0.9)',
-        'Completed':      'rgba(100,150,237,0.8)',
-        'In Development': 'rgba(219,0,29,0.75)',
-    }
-    const currentStatusColor = STATUS_COLORS[status] || 'rgba(237,237,237,0.5)'
-
     if (!loaded) return (
         <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -774,6 +888,39 @@ export default function Page() {
                     <MissionDeck
                         strip={<CountdownStrip daysUntil={daysUntil} checksDone={checksDone} checksTotal={checksTotal} />}
                     >
+                        {opID && (
+                            <DetailsCard
+                                title={title}
+                                onTitleChange={handleTitleChange}
+                                ownedBy={ownedBy}
+                                ownedByName={ownedByName}
+                                canPickOwner={isJ2Lead || isJ4Admin}
+                                ownerPickerOpen={ownerPickerOpen}
+                                j2Members={j2Members}
+                                onOpenOwnerPicker={handleOpenOwnerPicker}
+                                onCloseOwnerPicker={handleCloseOwnerPicker}
+                                onSelectOwner={handleSelectOwner}
+                                canSeeBilletPoints={isJ2Lead || isJ4Admin}
+                                billetPoints={billetPoints}
+                                onBilletPointsChange={handleBilletPointsChange}
+                                onBilletPointsBlur={handleBilletPointsBlur}
+                                department={department}
+                                onDepartmentChange={handleDepartmentChange}
+                                status={status}
+                                isHQ={isHQ}
+                                onStatusChange={handleStatusChange}
+                                themeColor={themeColor}
+                                onThemeColorChange={handleThemeColorChange}
+                                pageTheme={pageTheme}
+                                eraOptions={eraOptions}
+                                onPageThemeChange={handlePageThemeChange}
+                                mapWorld={mapWorld}
+                                availableWorlds={availableWorlds}
+                                onMapWorldChange={handleMapWorldChange}
+                                loreDateDayjs={loreDateDayjs}
+                                onLoreDateChange={handleLoreDateChange}
+                            />
+                        )}
                         {isHQ && opID && (
                             <ScheduleCard
                                 timeline={timeline}
@@ -796,6 +943,20 @@ export default function Page() {
                                 onAdvance={requestStageChange}
                                 onSelect={requestStageChange}
                                 advancing={stageAdvancing}
+                            />
+                        )}
+                        {/* Gated by not rendering at all (spec §1) — not by disabling. */}
+                        {isHQ && opID && (
+                            <AttendanceCard
+                                platoons={PLATOON_OPTS}
+                                selected={assignedPlatoons}
+                                onToggle={handleTogglePlatoon}
+                                customUnits={customUnits}
+                                onAddCustomUnit={addCustomUnit}
+                                onRemoveCustomUnit={removeCustomUnit}
+                                customUnitsSaving={customUnitsSaving}
+                                pingEnabled={discordPingEnabled}
+                                onTogglePing={handleTogglePing}
                             />
                         )}
                         {/* Later tasks add more deck cards here. */}
@@ -1287,288 +1448,77 @@ export default function Page() {
                 )
             })()}
 
-            {/* Metadata card */}
-            <div style={{ ...sideBorders(`1px solid ${c(0.15)}`, `2px solid ${c(1)}`), background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
-                <div className='flex items-center px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
-                        Operation Details
-                    </span>
-                </div>
-                <div className='flex flex-col gap-4 p-4'>
-                    {/* Title */}
-                    <input
-                        value={title}
-                        placeholder='Operation Name'
-                        onChange={e => { setTitle(e.target.value); metaHandleRef.current?.set('title', e.target.value); scheduleSave({ title: e.target.value }) }}
-                        style={{
-                            background: 'transparent',
-                            ...bottomBorder('1px solid rgba(255,255,255,0.1)'),
-                            color: 'rgba(237,237,237,0.9)',
-                            fontSize: '1.5rem',
-                            fontWeight: 700,
-                            letterSpacing: '0.1em',
-                            textTransform: 'uppercase',
-                            outline: 'none',
-                            width: '100%',
-                            padding: '4px 0',
-                        }}
-                    />
-                    {/* Owner row */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.68rem' }}>
-                        <span style={{ fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: c(0.55), flexShrink: 0 }}>Mission Owner</span>
-                        {ownerPickerOpen && (isJ2Lead || isJ4Admin) ? (
-                            <div style={{ display: 'flex', gap: 6, flex: 1 }}>
-                                <select
-                                    defaultValue={ownedBy}
-                                    onChange={async e => {
-                                        const sel = j2Members.find(m => m.id === e.target.value)
-                                        if (!sel) return
-                                        setOwnedBy(sel.id)
-                                        setOwnedByName(sel.displayName)
-                                        setOwnerPickerOpen(false)
-                                        await fetch(`/api/operations/update?id=${opID}&ownedBy=${encodeURIComponent(sel.id)}&ownedByName=${encodeURIComponent(sel.displayName)}`)
-                                    }}
-                                    style={{ flex: 1, background: 'rgba(0,0,0,0.4)', border: `1px solid ${c(0.3)}`, color: 'rgba(237,237,237,0.8)', fontSize: '0.75rem', padding: '5px 8px', outline: 'none' }}
-                                >
-                                    <option value=''>— Select member —</option>
-                                    {j2Members.map(m => <option key={m.id} value={m.id}>{m.displayName}</option>)}
-                                </select>
-                                <button type='button' onClick={() => setOwnerPickerOpen(false)} style={{ fontSize: '0.6rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.35)', padding: '3px 8px', cursor: 'pointer' }}>Cancel</button>
-                            </div>
-                        ) : (
-                            <>
-                                <span style={{ color: ownedByName ? 'rgba(237,237,237,0.7)' : 'rgba(237,237,237,0.25)', fontStyle: ownedByName ? 'normal' : 'italic' }}>
-                                    {ownedByName || 'Unassigned'}
-                                </span>
-                                {(isJ2Lead || isJ4Admin) && (
-                                    <button type='button' onClick={async () => {
-                                        if (j2Members.length === 0) {
-                                            const res = await fetch('/api/admin/members?department=j2')
-                                            const data = await res.json()
-                                            setJ2Members((data.members ?? []).map((m: any) => ({ id: m.discordId ?? m._id, displayName: m.displayName ?? m.name ?? 'Unknown' })))
-                                        }
-                                        setOwnerPickerOpen(true)
-                                    }}
-                                        style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', background: 'none', border: `1px solid ${c(0.25)}`, color: c(0.6), padding: '2px 8px', cursor: 'pointer' }}
-                                    >Change</button>
-                                )}
-                            </>
-                        )}
-                    </div>
-
-                    {/* Billet points — J2 leads + J4 admin only */}
-                    {(isJ2Lead || isJ4Admin) && opID && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.68rem' }}>
-                            <span style={{ fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: c(0.55), flexShrink: 0 }}>Billet Points</span>
-                            <input
-                                type='number'
-                                min={0}
-                                step={1}
-                                value={billetPoints}
-                                onChange={e => setBilletPoints(Math.max(0, parseInt(e.target.value) || 0))}
-                                onBlur={async () => {
-                                    await fetch(`/api/operations/update?id=${opID}&billetPoints=${billetPoints}`)
-                                }}
-                                style={{ width: 52, background: 'rgba(0,0,0,0.4)', border: `1px solid ${c(0.25)}`, color: 'rgba(237,237,237,0.8)', fontSize: '0.75rem', padding: '3px 6px', outline: 'none', textAlign: 'center' }}
-                            />
-                            <span style={{ color: c(0.35), fontStyle: 'italic' }}>awarded to owner on completion</span>
-                        </div>
-                    )}
-
-                    {/* Acknowledgements panel — shown for Upcoming ops */}
-                    {status === 'Upcoming' && (
-                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: ackExpanded ? 10 : 0 }}>
-                                <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: c(0.55) }}>Orders Acknowledged</span>
-                                <span style={{ fontSize: '0.65rem', fontWeight: 700, color: ackCount > 0 ? 'rgba(0,200,80,0.8)' : 'rgba(237,237,237,0.3)' }}>{ackCount} staff</span>
-                                <button type='button' onClick={() => setAckExpanded(v => !v)} style={{ fontSize: '0.58rem', background: 'none', border: 'none', color: 'rgba(237,237,237,0.3)', cursor: 'pointer', padding: '0 4px' }}>{ackExpanded ? '▲ Hide' : '▼ Show'}</button>
-                                <button type='button' disabled={remindSaving} onClick={async () => {
-                                    setRemindSaving(true)
-                                    try {
-                                        const res = await fetch(`/api/operations/${opID}/remind`, { method: 'POST' })
-                                        if (res.ok) { const d = await res.json(); setRemindSent(d.sent ?? 0) }
-                                    } finally { setRemindSaving(false) }
-                                }}
-                                    style={{ marginLeft: 'auto', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: remindSaving ? 'rgba(255,255,255,0.03)' : 'rgba(100,150,237,0.1)', border: '1px solid rgba(100,150,237,0.3)', color: remindSaving ? 'rgba(237,237,237,0.25)' : 'rgba(100,150,237,0.75)', cursor: remindSaving ? 'not-allowed' : 'pointer' }}
-                                >
-                                    {remindSaving ? 'Sending…' : remindSent !== null ? `Sent (${remindSent})` : 'Remind Unacknowledged'}
-                                </button>
-                            </div>
-                            {ackExpanded && ackList.length > 0 && (
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                                    {ackList.map(a => (
-                                        <div key={a.userId} style={{ fontSize: '0.58rem', padding: '3px 8px', background: 'rgba(0,200,80,0.06)', border: '1px solid rgba(0,200,80,0.18)', color: 'rgba(0,200,80,0.7)' }}>
-                                            {a.userName} <span style={{ opacity: 0.5 }}>{new Date(a.acknowledgedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            {ackExpanded && ackList.length === 0 && (
-                                <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>No staff have acknowledged yet.</div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Sub-fields row 1 */}
-                    <div className='flex flex-wrap gap-4'>
-                        <input
-                            value={department}
-                            placeholder='Department'
-                            onChange={e => { setDepartment(e.target.value); metaHandleRef.current?.set('department', e.target.value); scheduleSave({ department: e.target.value }) }}
-                            style={{
-                                background: 'transparent',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                color: 'rgba(237,237,237,0.75)',
-                                fontSize: '0.8rem',
-                                letterSpacing: '0.06em',
-                                outline: 'none',
-                                padding: '8px 12px',
-                                flex: 1,
-                                minWidth: 160,
+            {/* Acknowledgements + cover photo — not rehomed into a deck card
+                (Task 11). Neither fits the DetailsCard row idiom:
+                acknowledgements is a count/expand/remind list, and Task 12's
+                brief already earmarks it for the future Attendance tab;
+                cover photo is an image plus upload/replace/remove, not a
+                single data row. Left mounted here, functionally unchanged
+                from the old "Operation Details" panel, pending a ruling on
+                their permanent home — see the task-11 report. Everything
+                else that panel held (title, owner, billet points,
+                department, status, theme colour, era, map, in-game date) now
+                lives in the deck's DetailsCard. */}
+            <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {status === 'Upcoming' && (
+                    <div style={{ ...sideBorders(`1px solid ${c(0.15)}`, `2px solid ${c(0.5)}`), background: 'rgba(255,255,255,0.01)', padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: ackExpanded ? 10 : 0 }}>
+                            <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: c(0.55) }}>Orders Acknowledged</span>
+                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: ackCount > 0 ? 'rgba(0,200,80,0.8)' : 'rgba(237,237,237,0.3)' }}>{ackCount} staff</span>
+                            <button type='button' onClick={() => setAckExpanded(v => !v)} style={{ fontSize: '0.58rem', background: 'none', border: 'none', color: 'rgba(237,237,237,0.3)', cursor: 'pointer', padding: '0 4px' }}>{ackExpanded ? '▲ Hide' : '▼ Show'}</button>
+                            <button type='button' disabled={remindSaving} onClick={async () => {
+                                setRemindSaving(true)
+                                try {
+                                    const res = await fetch(`/api/operations/${opID}/remind`, { method: 'POST' })
+                                    if (res.ok) { const d = await res.json(); setRemindSent(d.sent ?? 0) }
+                                } finally { setRemindSaving(false) }
                             }}
-                        />
-                        {/* Status */}
-                        <select
-                            value={status}
-                            onChange={e => { setStatus(e.target.value); scheduleSave({ status: e.target.value }) }}
-                            style={{
-                                background: 'rgba(0,0,0,0.4)',
-                                border: `1px solid ${currentStatusColor}`,
-                                color: currentStatusColor,
-                                fontSize: '0.8rem',
-                                letterSpacing: '0.06em',
-                                outline: 'none',
-                                padding: '8px 12px',
-                                minWidth: 160,
-                                cursor: 'pointer',
-                                fontWeight: 700,
-                            }}
-                        >
-                            <option value='Upcoming' style={{ background: 'rgb(18,18,18)', color: 'rgba(219,160,0,0.9)' }}>Upcoming</option>
-                            <option value='Active' style={{ background: 'rgb(18,18,18)', color: 'rgba(0,200,80,0.9)' }}>Active</option>
-                            <option value='Completed' style={{ background: 'rgb(18,18,18)', color: 'rgba(100,150,237,0.8)' }}>Completed</option>
-                            {isHQ && <option value='In Development' style={{ background: 'rgb(18,18,18)', color: 'rgba(219,0,29,0.75)' }}>In Development</option>}
-                        </select>
-                        {/* Complete Mission button — visible when op is Active */}
-                        {isHQ && status === 'Active' && (
-                            <button
-                                onClick={() => applyStage('confirmations_open')}
-                                style={{
-                                    background: 'rgba(219,0,29,0.15)',
-                                    border: '1px solid rgba(219,0,29,0.6)',
-                                    color: 'rgba(219,0,29,0.9)',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 700,
-                                    letterSpacing: '0.1em',
-                                    textTransform: 'uppercase',
-                                    padding: '8px 16px',
-                                    cursor: 'pointer',
-                                    whiteSpace: 'nowrap',
-                                }}
+                                style={{ marginLeft: 'auto', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: remindSaving ? 'rgba(255,255,255,0.03)' : 'rgba(100,150,237,0.1)', border: '1px solid rgba(100,150,237,0.3)', color: remindSaving ? 'rgba(237,237,237,0.25)' : 'rgba(100,150,237,0.75)', cursor: remindSaving ? 'not-allowed' : 'pointer' }}
                             >
-                                Complete Mission
+                                {remindSaving ? 'Sending…' : remindSent !== null ? `Sent (${remindSent})` : 'Remind Unacknowledged'}
                             </button>
+                        </div>
+                        {ackExpanded && ackList.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                {ackList.map(a => (
+                                    <div key={a.userId} style={{ fontSize: '0.58rem', padding: '3px 8px', background: 'rgba(0,200,80,0.06)', border: '1px solid rgba(0,200,80,0.18)', color: 'rgba(0,200,80,0.7)' }}>
+                                        {a.userName} <span style={{ opacity: 0.5 }}>{new Date(a.acknowledgedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+                                    </div>
+                                ))}
+                            </div>
                         )}
-                        {/* Theme color picker */}
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px solid rgba(255,255,255,0.1)', padding: '6px 12px', cursor: 'pointer', userSelect: 'none' }}>
-                            <input
-                                type='color'
-                                value={themeColor}
-                                onChange={e => { setThemeColor(e.target.value); scheduleSave({ themeColor: e.target.value }) }}
-                                style={{ width: 22, height: 22, border: 'none', padding: 0, background: 'transparent', cursor: 'pointer' }}
-                            />
-                            <span style={{ fontSize: '0.75rem', letterSpacing: '0.06em', color: 'rgba(237,237,237,0.55)', whiteSpace: 'nowrap' }}>Theme Color</span>
-                        </label>
-                        {/* ERA / Page Theme */}
-                        <select
-                            value={pageTheme ?? 'modern'}
-                            onChange={e => {
-                                setPageTheme(e.target.value)
-                                scheduleSave({ pageTheme: e.target.value })
-                            }}
-                            style={{
-                                background: 'rgba(0,0,0,0.4)',
-                                border: `1px solid ${c(0.35)}`,
-                                color: c(0.8),
-                                fontSize: '0.8rem',
-                                letterSpacing: '0.06em',
-                                outline: 'none',
-                                padding: '8px 12px',
-                                minWidth: 150,
-                                cursor: 'pointer',
-                                fontWeight: 700,
-                            }}
-                        >
-                            {eraOptions.length > 0
-                                ? eraOptions.map(opt => (
-                                    <option key={opt.value} value={opt.value} style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>
-                                        {opt.name}
-                                    </option>
-                                ))
-                                : (
-                                    <>
-                                        <option value='modern'  style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Modern</option>
-                                        <option value='wwii'    style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>WWII</option>
-                                        <option value='vietnam' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Vietnam</option>
-                                        <option value='coldwar' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Cold War</option>
-                                        <option value='fantasy' style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Fantasy</option>
-                                        <option value='scifi'   style={{ background: 'rgb(18,18,18)', color: 'rgba(237,237,237,0.8)' }}>Sci-Fi</option>
-                                    </>
-                                )
-                            }
-                        </select>
-                        {/* Map World */}
-                        <MapWorldPicker
-                            value={mapWorld}
-                            worlds={availableWorlds}
-                            onChange={w => { setMapWorld(w); scheduleSave({ mapWorld: w }) }}
-                            themeColor={themeColor}
-                        />
+                        {ackExpanded && ackList.length === 0 && (
+                            <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>No staff have acknowledged yet.</div>
+                        )}
                     </div>
-                    {/* In-Game date/time — datetime picker */}
-                    <LocalizationProvider dateAdapter={AdapterDayjs}>
-                        <DateTimePicker
-                            label='In-Game Date & Time'
-                            value={loreDateDayjs}
-                            format='DD/MM/YYYY HH:mm'
-                            onChange={v => {
-                                setLoreDateDayjs(v)
-                                const str = v?.isValid() ? v.format('DD/MM/YYYY HH:mm') : ''
-                                setLoreDate(str)
-                                metaHandleRef.current?.set('loreDate', str)
-                                scheduleSave({ loreDate: str })
-                            }}
-                            slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
-                        />
-                    </LocalizationProvider>
+                )}
 
-                    {/* Cover image */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        {coverImage ? (
-                            <>
-                                <div style={{ position: 'relative', width: 140, height: 52, flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
-                                    <img src={coverImage} alt='cover' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                                </div>
-                                <button
-                                    onClick={removeCover}
-                                    style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: c(0.6), background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                                >
-                                    Remove Cover
-                                </button>
-                                <label style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', cursor: 'pointer' }}>
-                                    Replace
-                                    <input type='file' accept='image/*' style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCover(f) }} />
-                                </label>
-                            </>
-                        ) : (
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px dashed rgba(255,255,255,0.12)', padding: '10px 18px', cursor: 'pointer' }}>
-                                <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: coverUploading ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.4)' }}>
-                                    {coverUploading ? 'Uploading…' : '+ Cover Photo'}
-                                </span>
-                                <input type='file' accept='image/*' style={{ display: 'none' }} disabled={coverUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCover(f) }} />
+                {/* Cover image */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {coverImage ? (
+                        <>
+                            <div style={{ position: 'relative', width: 140, height: 52, flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                                <img src={coverImage} alt='cover' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            </div>
+                            <button
+                                onClick={removeCover}
+                                style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: c(0.6), background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                            >
+                                Remove Cover
+                            </button>
+                            <label style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', cursor: 'pointer' }}>
+                                Replace
+                                <input type='file' accept='image/*' style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCover(f) }} />
                             </label>
-                        )}
-                    </div>
+                        </>
+                    ) : (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px dashed rgba(255,255,255,0.12)', padding: '10px 18px', cursor: 'pointer' }}>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: coverUploading ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.4)' }}>
+                                {coverUploading ? 'Uploading…' : '+ Cover Photo'}
+                            </span>
+                            <input type='file' accept='image/*' style={{ display: 'none' }} disabled={coverUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCover(f) }} />
+                        </label>
+                    )}
                 </div>
             </div>
 
@@ -2061,215 +2011,5 @@ export default function Page() {
                 </div>
             )}
         </>
-    )
-}
-
-// ─── Popular Arma 3 maps (shown when not in maps system) ─────────────────────
-
-const POPULAR_MAPS: { name: string; displayName: string }[] = [
-    { name: 'altis', displayName: 'Altis' },
-    { name: 'stratis', displayName: 'Stratis' },
-    { name: 'tanoa', displayName: 'Tanoa' },
-    { name: 'malden', displayName: 'Malden' },
-    { name: 'livonia', displayName: 'Livonia' },
-    { name: 'chernarus', displayName: 'Chernarus' },
-    { name: 'takistan', displayName: 'Takistan' },
-    { name: 'sahrani', displayName: 'Sahrani' },
-    { name: 'panthera', displayName: 'Panthera' },
-    { name: 'lingor', displayName: 'Lingor' },
-    { name: 'namalsk', displayName: 'Namalsk' },
-    { name: 'fallujah', displayName: 'Fallujah' },
-    { name: 'clafghan', displayName: 'Clafghan' },
-    { name: 'porto', displayName: 'Porto' },
-    { name: 'utes', displayName: 'Utes' },
-    { name: 'zargabad', displayName: 'Zargabad' },
-    { name: 'desert_e', displayName: 'Desert (IRL)' },
-]
-
-// ─── Map World Picker ─────────────────────────────────────────────────────────
-
-function MapWorldPicker({
-    value,
-    worlds,
-    onChange,
-    themeColor,
-}: {
-    value: string
-    worlds: { name: string; displayName: string; hasPreview: boolean }[]
-    onChange: (name: string) => void
-    themeColor: string
-}) {
-    const [open, setOpen] = useState(false)
-    const [search, setSearch] = useState('')
-    const [customValue, setCustomValue] = useState('')
-    const [showCustom, setShowCustom] = useState(false)
-    const ref = useRef<HTMLDivElement>(null)
-    const searchRef = useRef<HTMLInputElement>(null)
-
-    const selected = worlds.find(w => w.name === value)
-        ?? POPULAR_MAPS.find(m => m.name === value)
-        ?? (value ? { name: value, displayName: value } : null)
-
-    useEffect(() => {
-        if (!open) { setSearch(''); setShowCustom(false) }
-        else setTimeout(() => searchRef.current?.focus(), 50)
-    }, [open])
-
-    useEffect(() => {
-        if (!open) return
-        const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
-        document.addEventListener('mousedown', close)
-        return () => document.removeEventListener('mousedown', close)
-    }, [open])
-
-    // Merge maps-system worlds with popular maps (deduplicate by name)
-    const systemNames = new Set(worlds.map(w => w.name))
-    const popularFiltered = POPULAR_MAPS.filter(m => !systemNames.has(m.name))
-
-    const allMaps: { name: string; displayName: string; hasPreview: boolean; isSystem?: boolean }[] = [
-        ...worlds.map(w => ({ ...w, isSystem: true })),
-        ...popularFiltered.map(m => ({ ...m, hasPreview: false, isSystem: false })),
-    ]
-
-    const q = search.toLowerCase()
-    const filtered = q
-        ? allMaps.filter(m => m.displayName.toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
-        : allMaps
-
-    const systemMaps = filtered.filter(m => m.isSystem)
-    const popularMaps = filtered.filter(m => !m.isSystem)
-
-    function MapItem({ w }: { w: typeof allMaps[number] }) {
-        const isActive = w.name === value
-        return (
-            <div
-                className='mwp-item'
-                onClick={() => { onChange(w.name); setOpen(false) }}
-                style={{
-                    position: 'relative',
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '7px 12px', cursor: 'pointer',
-                    background: isActive ? 'rgba(255,255,255,0.07)' : 'transparent',
-                    borderLeft: isActive ? `2px solid ${themeColor}` : '2px solid transparent',
-                    fontSize: '0.78rem', color: isActive ? 'rgba(237,237,237,0.95)' : 'rgba(237,237,237,0.6)',
-                }}
-            >
-                {!isActive && <div className='mwp-hover' style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.04)', opacity: 0, transition: 'opacity 0.1s ease', pointerEvents: 'none', willChange: 'opacity' }} />}
-                {w.hasPreview ? (
-                    <img src={`/map-assets/${w.name}/preview.jpg`} alt='' loading='lazy' style={{ width: 40, height: 28, objectFit: 'cover', flexShrink: 0, border: `1px solid ${isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)'}` }} />
-                ) : (
-                    <div style={{ width: 40, height: 28, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.15)' }}>MAP</span>
-                    </div>
-                )}
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.displayName}</span>
-                {w.isSystem && <span style={{ fontSize: '0.55rem', color: 'rgba(34,197,94,0.6)', flexShrink: 0, letterSpacing: '0.08em' }}>SYSTEM</span>}
-            </div>
-        )
-    }
-
-    return (
-        <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
-            <button
-                type='button'
-                onClick={() => setOpen(v => !v)}
-                style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    background: 'rgba(0,0,0,0.4)',
-                    border: `1px solid ${open ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.1)'}`,
-                    color: selected ? 'rgba(237,237,237,0.85)' : 'rgba(237,237,237,0.3)',
-                    fontSize: '0.8rem', letterSpacing: '0.06em',
-                    padding: '6px 10px', cursor: 'pointer', minWidth: 160,
-                    transition: 'border-color 0.15s',
-                }}
-            >
-                {selected && worlds.find(w => w.name === value)?.hasPreview && (
-                    <img src={`/map-assets/${value}/preview.jpg`} alt='' style={{ width: 28, height: 20, objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)' }} />
-                )}
-                <span style={{ flex: 1, textAlign: 'left' }}>{selected?.displayName ?? 'No Map'}</span>
-                <span style={{ fontSize: '0.6rem', opacity: 0.4 }}>▾</span>
-            </button>
-
-            {open && (
-                <div style={{
-                    position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 400,
-                    background: 'rgb(14,14,14)', border: '1px solid rgba(255,255,255,0.12)',
-                    minWidth: 260, maxHeight: 380,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.7)',
-                    display: 'flex', flexDirection: 'column',
-                }}>
-                    <style>{`.mwp-item:hover .mwp-hover{opacity:1!important}`}</style>
-
-                    {/* Search */}
-                    <div style={{ padding: '8px 10px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
-                        <input
-                            ref={searchRef}
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            placeholder='Search maps…'
-                            style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.75rem', padding: '5px 8px', outline: 'none', fontFamily: 'inherit' }}
-                        />
-                    </div>
-
-                    {/* Custom map option */}
-                    {!showCustom ? (
-                        <button
-                            type='button'
-                            onClick={() => setShowCustom(true)}
-                            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', background: 'rgba(219,0,29,0.05)', ...bottomBorder('1px solid rgba(255,255,255,0.06)'), cursor: 'pointer', color: 'rgba(219,0,29,0.7)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'left' }}
-                        >
-                            + Custom Map…
-                        </button>
-                    ) : (
-                        <div style={{ flexShrink: 0, display: 'flex', gap: 4, padding: '6px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                            <input
-                                autoFocus
-                                value={customValue}
-                                onChange={e => setCustomValue(e.target.value)}
-                                placeholder='Enter map name…'
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter' && customValue.trim()) { onChange(customValue.trim()); setOpen(false) }
-                                    if (e.key === 'Escape') setShowCustom(false)
-                                }}
-                                style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(219,0,29,0.3)', color: 'rgba(237,237,237,0.85)', fontSize: '0.75rem', padding: '4px 8px', outline: 'none', fontFamily: 'inherit' }}
-                            />
-                            <button type='button' onClick={() => { if (customValue.trim()) { onChange(customValue.trim()); setOpen(false) } }} style={{ background: 'rgba(219,0,29,0.15)', border: '1px solid rgba(219,0,29,0.35)', color: 'rgba(219,0,29,0.8)', fontSize: '0.68rem', fontWeight: 700, padding: '4px 10px', cursor: 'pointer' }}>OK</button>
-                        </div>
-                    )}
-
-                    <div style={{ overflowY: 'auto', flex: 1 }}>
-                        {/* No map option */}
-                        <div className='mwp-item' onClick={() => { onChange(''); setOpen(false) }}
-                            style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', cursor: 'pointer', background: !value ? 'rgba(255,255,255,0.06)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '0.78rem', color: 'rgba(237,237,237,0.35)' }}>
-                            <div className='mwp-hover' style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.04)', opacity: 0, transition: 'opacity 0.1s ease', pointerEvents: 'none', willChange: 'opacity' }} />
-                            <div style={{ width: 40, height: 28, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>—</span>
-                            </div>
-                            No Map
-                        </div>
-
-                        {/* Maps system maps */}
-                        {systemMaps.length > 0 && (
-                            <>
-                                <div style={{ padding: '5px 12px 3px', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(34,197,94,0.5)' }}>Maps System</div>
-                                {systemMaps.map(w => <MapItem key={w.name} w={w} />)}
-                            </>
-                        )}
-
-                        {/* Popular Arma 3 maps */}
-                        {popularMaps.length > 0 && (
-                            <>
-                                <div style={{ padding: '5px 12px 3px', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)' }}>Arma 3 Maps</div>
-                                {popularMaps.map(w => <MapItem key={w.name} w={w} />)}
-                            </>
-                        )}
-
-                        {filtered.length === 0 && q && (
-                            <div style={{ padding: '16px', textAlign: 'center', fontSize: '0.72rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No maps matching "{search}"</div>
-                        )}
-                    </div>
-                </div>
-            )}
-        </div>
     )
 }
