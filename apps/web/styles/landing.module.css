@@ -66,11 +66,20 @@
         linear-gradient(180deg, rgba(6, 7, 9, .55) 0%, transparent 26%, transparent 52%, rgba(6, 7, 9, .94) 100%);
 }
 
-/* The horizontal pass exists to hold down the left third for left-aligned copy.
-   Centred, it would leave the text sitting over a brighter right side — so the
-   solo hero darkens top-to-bottom only, evenly across the frame. */
+/*
+   The horizontal pass exists to hold down the left third for left-aligned copy;
+   centred, it would leave the text over a brighter right side. But replacing it
+   with a flat top-to-bottom wash meant carrying enough opacity to protect the
+   middle across the *whole* frame, which drowned the photograph.
+
+   So: a soft radial scrim sized to the copy does the legibility work, and the
+   vertical pass drops to what's needed to seat the hero against the page above
+   and below. The screenshot stays a screenshot at the edges.
+*/
 .heroVeilSolo {
-    background: linear-gradient(180deg, rgba(6, 7, 9, .72) 0%, rgba(6, 7, 9, .6) 40%, rgba(6, 7, 9, .97) 100%);
+    background:
+        radial-gradient(58% 54% at 50% 47%, rgba(6, 7, 9, .8), rgba(6, 7, 9, .32) 62%, transparent 78%),
+        linear-gradient(180deg, rgba(6, 7, 9, .58) 0%, rgba(6, 7, 9, .12) 30%, rgba(6, 7, 9, .5) 74%, rgba(6, 7, 9, .95) 100%);
 }
 
 .heroInner {
@@ -104,8 +113,12 @@
     align-items: center;
 }
 
+/* The 560px cap is sized for the two-column layout, where the lockup shares the
+   row with the operation card. Centred it has the full measure to itself and
+   reads as undersized at that width. */
 .heroInnerSolo .heroMark {
     margin-inline: auto;
+    max-width: min(780px, 72vw);
 }
 
 .heroInnerSolo .heroPLead {
