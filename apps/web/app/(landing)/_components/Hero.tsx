@@ -6,11 +6,11 @@ import Image from 'next/image'
 import Button from '@/components/ui/Button'
 import EnlistButton from '@/components/ui/EnlistButton'
 import Pulse from '@/components/ui/Pulse'
-import Topo from '@/components/ui/Topo'
 import { Kicker } from '@/components/ui/SectionHead'
 import { ArrowIcon, DiscordIcon } from '@/components/ui/icons'
 
 import FireEmbers from '@/components/fire-embers'
+import MilitaryGrid from '@/components/military-grid'
 import PhysicsGame from '@/components/physics-game'
 import MinigameScoreboard from '@/components/minigame-scoreboard'
 
@@ -100,16 +100,11 @@ export default function Hero({ sotm, roster, opCard }: {
                     : <Image src={Banner} alt='' fill style={{ objectFit: 'cover' }} priority />}
             </div>
 
-            {/* Weighted left behind left-aligned copy. Centred, it takes the same
-                edge vignette the veil does — on the same stops, so the contours
-                fade out exactly where the darkening does instead of surviving
-                into the clear middle as a layer of their own. */}
-            <Topo
-                opacity={0.042}
-                driftSeconds={720}
-                mask={opCard ? 'left' : 'edges'}
-                style={{ zIndex: 3 }}
-            />
+            {/* A faint survey grid rather than the topo field. Over a photograph
+                the contours competed with what was already in the frame; the
+                grid sits behind it as a graticule instead of a second texture.
+                The topo still runs on the flat bands further down the page. */}
+            <MilitaryGrid gradient style={{ zIndex: 3 }} />
             <div className={`${s.heroVeil} ${opCard ? '' : s.heroVeilSolo}`} />
 
             <FireEmbers />
