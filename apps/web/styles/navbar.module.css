@@ -211,6 +211,27 @@ a.amb:hover {
 
 /* ---------- brand plate -------------------------------------------------- */
 
+/*
+   The brand and the right cluster are both `flex: 1 1 0`, so they take an equal
+   share of whatever the menu leaves behind and the menu lands on the true
+   centre of the bar — not merely the middle of the leftover space, which is
+   what `margin-left: auto` on the right cluster would give when the two flanks
+   are different widths (they are: the cluster is roughly twice the brand).
+
+   Absolute-positioning the menu would centre it too, but a fixed-width element
+   in the middle of a flex row can overlap its neighbours as the viewport
+   narrows. Here the flanks' automatic minimum size floors them at their content
+   width, so a bar too tight to centre in slides the menu off-centre instead of
+   letting anything collide. It also keeps the menu in flow, which is what lets
+   the mega panels go on anchoring to `.inner` rather than to the menu.
+*/
+.side {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
 .brand {
     display: flex;
     align-items: center;
@@ -218,7 +239,6 @@ a.amb:hover {
     flex: none;
     position: relative;
     padding: 8px 20px 8px 14px;
-    margin-right: 18px;
     background: linear-gradient(90deg, #15171b, #0e1013);
     clip-path: polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%);
 }
@@ -266,6 +286,7 @@ a.amb:hover {
 /* ---------- primary menu ------------------------------------------------- */
 
 .menu {
+    flex: none;
     display: flex;
     align-items: stretch;
     height: 100%;
@@ -387,10 +408,10 @@ a.amb:hover {
 /* ---------- right cluster ------------------------------------------------ */
 
 .util {
-    margin-left: auto;
+    flex: 1 1 0;
     display: flex;
     align-items: center;
-    flex: none;
+    justify-content: flex-end;
     height: 100%;
 }
 

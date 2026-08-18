@@ -124,13 +124,18 @@ export default function Navbar() {
                     <Topo opacity={0.065} driftSeconds={720} />
 
                     <div className={s.inner}>
-                        <Link href='/' className={s.brand}>
-                            <Image src={Logo} alt='ASOT' className={s.brandMark} width={34} height={34} quality={100} priority />
-                            <span className={s.brandTxt}>
-                                <span className={s.brandName}>ASOT</span>
-                                <span className={s.brandSub}>Est. 2019 · Australia</span>
-                            </span>
-                        </Link>
+                        {/* Wrapped so it can claim an equal share of the free space
+                            against the right cluster — that is what centres the
+                            menu between them. See `.side` in the stylesheet. */}
+                        <div className={s.side}>
+                            <Link href='/' className={s.brand}>
+                                <Image src={Logo} alt='ASOT' className={s.brandMark} width={34} height={34} quality={100} priority />
+                                <span className={s.brandTxt}>
+                                    <span className={s.brandName}>ASOT</span>
+                                    <span className={s.brandSub}>Est. 2019 · Australia</span>
+                                </span>
+                            </Link>
+                        </div>
 
                         <ul className={s.menu}>
                             {NAV_ITEMS.map(item => (
