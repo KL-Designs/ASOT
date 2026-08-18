@@ -18,9 +18,25 @@ import { getOnlineCache } from '@/lib/teamspeak/cache'
 
 export const dynamic = 'force-dynamic'
 
+export type NavOp = {
+    id: string
+    title: string
+    date: string
+    status: 'Upcoming' | 'Active'
+    /** Attendance lifecycle stage; null when the op has no attendance doc yet. */
+    stage: NonNullable<OperationAttendance['stage']> | null
+    /** Whether members can still self-report. Distinguishes "nobody has signed
+        on yet" from "nobody can sign on yet", which read very differently. */
+    rsvpOpen: boolean
+    /** Members who have self-reported as attending (`rsvp === 'attending'`). */
+    attending: number
+    /** Members a section leader has confirmed actually turned up. */
+    confirmed: number
+}
+
 export type NavStatus = {
     /** The soonest operation the public can see, or null if none is scheduled. */
-    nextOp: { id: string, title: string, date: string } | null
+    nextOp: NavOp | null
     /** Members currently connected to TeamSpeak, or null if the cache is cold. */
     teamspeakOnline: number | null
     /** Filled ORBAT slots, excluding inactive reservists — the active roster. */
@@ -43,7 +59,7 @@ const INACTIVE_CATEGORIES = ['inactiveReservist']
  */
 const RUNNING_WINDOW_MS = 6 * 60 * 60 * 1000
 
-async function findNextOp(): Promise<NavStatus['nextOp']> {
+async function findNextOp(): Promise<NavOp | null> {
     const op = await Db.operations.findOne(
         {
             deletedAt: { $exists: false },
@@ -51,10 +67,31 @@ async function findNextOp(): Promise<NavStatus['nextOp']> {
             status: { $in: ['Upcoming', 'Active'] },
             date: { $gte: new Date(Date.now() - RUNNING_WINDOW_MS) },
         },
-        { sort: { date: 1 }, projection: { title: 1, date: 1 } },
+        { sort: { date: 1 }, projection: { title: 1, date: 1, status: 1 } },
     )
     if (!op) return null
-    return { id: String(op._id), title: op.title, date: new Date(op.date).toISOString() }
+
+    /* Only the two per-record booleans are projected. `records` carries a
+       snapshot of every member's unit, section and role for the op, and the
+       rail needs two counts off it — pulling the whole array into a public,
+       uncached route would be a lot of document for two numbers. */
+    const attendance = await Db.operationAttendance.findOne(
+        { operationId: op._id },
+        { projection: { 'records.rsvp': 1, 'records.confirmed': 1, stage: 1, rsvpOpen: 1 } },
+    ).catch(() => null)
+
+    const records = attendance?.records ?? []
+
+    return {
+        id: String(op._id),
+        title: op.title,
+        date: new Date(op.date).toISOString(),
+        status: op.status === 'Active' ? 'Active' : 'Upcoming',
+        stage: attendance?.stage ?? null,
+        rsvpOpen: !!attendance?.rsvpOpen,
+        attending: records.filter(r => r.rsvp === 'attending').length,
+        confirmed: records.filter(r => r.confirmed).length,
+    }
 }
 
 export async function GET() {

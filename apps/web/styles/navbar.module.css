@@ -146,6 +146,14 @@ a.amb:hover {
     align-items: center;
 }
 
+.strip .muster {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--txt-2);
+    white-space: nowrap;
+}
+
 .pulse {
     position: relative;
     width: 6px;
@@ -1117,7 +1125,10 @@ a.amb:hover {
         display: grid;
     }
 
+    /* A phone-width rail carries the operation and nothing else — the muster
+       call and roster count are the first things to go. */
     .strip .hi,
+    .strip .muster,
     .strip .sep,
     .strip .rosterCount {
         display: none;

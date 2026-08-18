@@ -666,7 +666,7 @@ the mobile sheet share one source of truth. Layout and interaction live in
 - `formatOpTime(iso)` → `SAT 20:00` in the reader's timezone; `formatCountdown(iso)` → `T−2D 04H 11M`, or `RUNNING` once the start time passes (minute resolution).
 
 #### components/nav/StatusRail.tsx
-- Default export `StatusRail({status, hidden})` — the 28px rail above the bar. Each segment is conditional on its own data; `hidden` collapses it to zero height on scroll.
+- Default export `StatusRail({status, hidden})` — the 28px rail above the bar. Each segment is conditional on its own data; `hidden` collapses it to zero height on scroll. Its leftmost segment is the `MusterCall`, which renders four states off the next op's attendance rather than one number: `Standing by` (no op), `N on deck` + live pulse (running — `confirmed` if any have landed, else `attending`), `RSVP not open` (no attendance doc or still `preparing`), and `N signed on` otherwise. A bare count reads wrongly in three of those.
 
 #### components/nav/AccountMenu.tsx
 - Default export `AccountMenu({user})` — account chip + dropdown. Fetches `/api/me/orbat` and `/api/me/promotion-progress` lazily on first open, not on mount. Threads the member's Discord `hexAccentColor` through the `--acct-accent` CSS variable (avatar edge, panel top rule, rank line, progress bar), falling back to `var(--red)`. Owns logout and the impersonation return action.

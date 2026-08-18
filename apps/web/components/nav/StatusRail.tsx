@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import type { NavStatus } from '@/app/api/nav/status/route'
+import type { NavOp, NavStatus } from '@/app/api/nav/status/route'
 import { formatCountdown, formatOpTime } from './useNavStatus'
 import CursorToggle from './CursorToggle'
 import s from '@/styles/navbar.module.css'
@@ -35,7 +35,7 @@ export default function StatusRail({ status, hidden }: { status: NavStatus | nul
 
     return (
         <div className={`${s.strip} ${hidden ? s.stripHidden : ''}`}>
-            <span className={s.hi}>1 Platoon · Infantry</span>
+            <MusterCall op={op} />
             <span className={s.sep} />
 
             {op ? (
@@ -64,5 +64,45 @@ export default function StatusRail({ status, hidden }: { status: NavStatus | nul
                 <CursorToggle />
             </span>
         </div>
+    )
+}
+
+/**
+ * How many people are coming — the leftmost segment.
+ *
+ * Four states rather than one number, because a bare count reads wrongly in
+ * three of them. `0 signed on` during an op that hasn't opened RSVP says
+ * "nobody wants to come" when it means "nobody can sign on yet"; the same
+ * figure once the op is running is stale, since by then what matters is who
+ * actually turned up, which is a different field.
+ */
+function MusterCall({ op }: { op: NavOp | null | undefined }) {
+    const running = !!op && (
+        op.status === 'Active'
+        || op.stage === 'op_running'
+        || op.stage === 'confirmations_open'
+    )
+
+    // No attendance doc yet, or one still in `preparing` — RSVP is genuinely
+    // not available, as opposed to available and unanswered.
+    const rsvpPending = !!op && !op.rsvpOpen
+        && (op.stage === null || op.stage === 'preparing')
+        && op.attending === 0
+
+    let body: React.ReactNode
+    if (!op) body = 'Standing by'
+    else if (running) {
+        // Section leaders confirm attendance during and after the op; until the
+        // first confirmation lands the RSVP count is the best number there is.
+        body = <><span className={s.amb}>{op.confirmed || op.attending}</span> on deck</>
+    }
+    else if (rsvpPending) body = 'RSVP not open'
+    else body = <><span className={s.amb}>{op.attending}</span> signed on</>
+
+    return (
+        <span className={s.muster}>
+            {running && <span className={s.pulse}><i /><b /></span>}
+            {body}
+        </span>
     )
 }
