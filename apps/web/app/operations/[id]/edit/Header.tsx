@@ -18,7 +18,6 @@ interface HeaderProps {
     onDelete: () => void
     activityOpen: boolean
     onToggleActivity: () => void
-    onOpenPreview: () => void
     publishConfirmOpen: boolean
     publishSaving: boolean
     onPublishClick: () => void
@@ -58,7 +57,7 @@ const menuItemStyle: CSSProperties = {
 
 export default function Header({
     operationId, fromJ2, title, status, saveStatus, isHQ,
-    onDelete, activityOpen, onToggleActivity, onOpenPreview,
+    onDelete, activityOpen, onToggleActivity,
     publishConfirmOpen, publishSaving, onPublishClick, onPublishConfirm, onPublishCancel,
 }: HeaderProps) {
     // Supplementary real data (not fabricated) for the status pill's countdown —
@@ -173,9 +172,6 @@ export default function Header({
                                 style={{ ...menuItemStyle, background: activityOpen ? 'var(--s3)' : 'none' }}
                             >
                                 {activityOpen ? '✓ Activity' : 'Activity'}
-                            </button>
-                            <button type='button' onClick={() => { onOpenPreview(); setMenuOpen(false) }} style={menuItemStyle}>
-                                ⊡ Preview
                             </button>
                             <div style={{ height: 1, background: 'var(--line)', margin: '4px 0' }} />
                             <button type='button' onClick={() => { onDelete(); setMenuOpen(false) }}

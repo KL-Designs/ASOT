@@ -82,7 +82,7 @@ interface EditorShellProps {
 }
 
 export default function EditorShell({
-    themeColor, isHQ, tab, onTabChange, header, deck, statusBar,
+    operationId, themeColor, isHQ, tab, onTabChange, header, deck, statusBar,
     brief, map, development, attendance, contentPaddingRight,
 }: EditorShellProps) {
     const visibleTabs = TABS.filter(t => t !== 'attendance' || isHQ)
@@ -146,6 +146,25 @@ export default function EditorShell({
                         {active === 'development' && development}
                         {active === 'attendance' && isHQ && attendance}
                     </div>
+                    {/*
+                     * Preview — floats at the bottom-right of the editor column
+                     * itself (.main is `position: relative`, set above), not the
+                     * viewport, so it always sits just left of the mission deck
+                     * (deck is .main's sibling in .body) at every width, deck
+                     * state included. Opens the public operation page in a new
+                     * tab — same behaviour the old header overflow-menu "⊡
+                     * Preview" item had; only its position moved.
+                     */}
+                    {operationId && (
+                        <button
+                            type='button'
+                            onClick={() => window.open(`/operations/${operationId}`, '_blank')}
+                            title='Preview operation'
+                            className={styles.previewBtn}
+                        >
+                            ⊡ Preview
+                        </button>
+                    )}
                 </div>
                 {/*
                  * No wrapping div here: MissionDeck (deck/MissionDeck.tsx) is

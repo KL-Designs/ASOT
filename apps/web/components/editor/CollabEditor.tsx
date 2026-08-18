@@ -21,11 +21,10 @@ import PageSidebar from './PageSidebar'
 import IntelPackageEditor from './intel-package/IntelPackageEditor'
 import ImageLibraryModal from './ImageLibraryModal'
 import {
-    Undo, Redo,
-    FormatBold, FormatItalic, FormatUnderlined, StrikethroughS,
-    FormatListBulleted, FormatListNumbered,
+    Undo, Redo, StrikethroughS,
+    FormatListNumbered,
     FormatAlignLeft, FormatAlignCenter, FormatAlignRight,
-    FormatQuote, HorizontalRule, AddPhotoAlternate, FormatClear, FormatColorFill,
+    FormatQuote, HorizontalRule, FormatClear, FormatColorFill,
     InsertLink, LinkOff, Delete, Lock, LockOpen,
 } from '@mui/icons-material'
 
@@ -450,11 +449,9 @@ interface ActiveEditorProps {
 }
 
 function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSectionTitle, initialContent, onSaveStatusChange, themeColor = '#db001d', readOnly = false, synced = false, allowedTypes }: ActiveEditorProps) {
-    const { r, g, b } = hexToRgb(themeColor)
-    const c = (a: number) => `rgba(${r},${g},${b},${a})`
-
     const [activePage, setActivePage] = useState<string>('main')
     const [activePageType, setActivePageType] = useState<string>('orders')
+    const [activePageTitle, setActivePageTitle] = useState<string>('')
     const [sectionIds, setSectionIds] = useState<string[]>([])
     const [seedSectionId, setSeedSectionId] = useState<string | null>(null)
     const [peers, setPeers] = useState<Peer[]>([])
@@ -480,7 +477,13 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
 
     useEffect(() => {
         const pmeta = ydoc.getMap<string>('pmeta-' + activePage)
-        const read = () => setActivePageType(pmeta.get('pageType') || (activePage === 'main' ? 'orders' : 'orders'))
+        const read = () => {
+            setActivePageType(pmeta.get('pageType') || (activePage === 'main' ? 'orders' : 'orders'))
+            // Section eyebrow (visual-fixes spec §2) — the document's own
+            // title, read straight off the same pmeta map PageSidebar uses,
+            // not a new field.
+            setActivePageTitle(pmeta.get('title') || (activePage === 'main' ? 'CHQ Orders' : 'Untitled'))
+        }
         pmeta.observe(read)
         read()
         return () => pmeta.unobserve(read)
@@ -566,7 +569,17 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
 
     return (
         <ThemeContext.Provider value={themeColor}>
-            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 20, alignItems: 'flex-start' }}>
+            <div style={{
+                display: 'flex', flexDirection: isMobile ? 'column' : 'row',
+                minHeight: '100%',
+                // The rail (PageSidebar, orientation='sidebar') must sit flush
+                // against the shell's own left edge with no gap beside it
+                // (visual-fixes spec §1) — so no padding/gap here on desktop.
+                // Mobile's 'top' orientation never had that flush-rail
+                // requirement, so it keeps the old padded/gapped treatment.
+                padding: isMobile ? 'clamp(1.5rem, 2.5vw, 2.5rem)' : 0,
+                gap: isMobile ? 16 : 0,
+            }}>
                 <PageSidebar
                     ydoc={ydoc}
                     activePage={activePage}
@@ -576,58 +589,64 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                     synced={synced}
                     allowedTypes={allowedTypes}
                 />
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {activePageType !== 'intel' && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                            <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)', marginRight: 2 }}>
-                                {readOnly ? 'Viewing' : 'Editing'}
-                            </span>
-                            <PresenceAvatar key='self' peer={{ clientId: -1, ...user }} self />
-                            {peers.map(peer => (
-                                <PresenceAvatar key={peer.clientId} peer={peer} />
-                            ))}
-                        </div>
-                    )}
+                <div style={{
+                    flex: 1, minWidth: 0,
+                    padding: isMobile ? 0 : 'clamp(1.5rem, 2.5vw, 2.5rem)',
+                }}>
+                    <div style={{ maxWidth: 740, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {activePageType !== 'intel' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                                <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-3)', marginRight: 2 }}>
+                                    {readOnly ? 'Viewing' : 'Editing'}
+                                </span>
+                                <PresenceAvatar key='self' peer={{ clientId: -1, ...user }} self />
+                                {peers.map(peer => (
+                                    <PresenceAvatar key={peer.clientId} peer={peer} />
+                                ))}
+                            </div>
+                        )}
 
-                    {activePageType === 'intel' ? (
-                        <IntelPackageEditor
-                            key={activePage}
-                            operationId={operationId}
-                            readOnly={readOnly}
-                            themeColor={themeColor}
-                        />
-                    ) : (
-                        <>
-                            {sectionIds.map((id, idx) => (
-                                <SectionEditor
-                                    key={`${activePage}-${id}`}
-                                    ydoc={ydoc}
-                                    sectionId={id}
-                                    pageId={activePage}
-                                    provider={provider}
-                                    user={user}
-                                    uploadUrl={uploadUrl}
-                                    onRemove={() => removeSection(id)}
-                                    onMoveUp={() => moveSection(id, 'up')}
-                                    onMoveDown={() => moveSection(id, 'down')}
-                                    canMoveUp={idx > 0}
-                                    canMoveDown={idx < sectionIds.length - 1}
-                                    themeColor={themeColor}
-                                    readOnly={readOnly}
-                                    seedContent={activePage === 'main' && id === seedSectionId ? initialContent : undefined}
-                                />
-                            ))}
-                            {!readOnly && (
-                                <button type='button' onClick={addSection}
-                                    style={{ alignSelf: 'flex-start', padding: '7px 16px', background: 'transparent', border: `1px dashed ${c(0.3)}`, color: c(0.55), fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.15s' }}
-                                    onMouseEnter={e => { e.currentTarget.style.borderColor = c(0.7); e.currentTarget.style.color = c(0.9) }}
-                                    onMouseLeave={e => { e.currentTarget.style.borderColor = c(0.3); e.currentTarget.style.color = c(0.55) }}
-                                >
-                                    + Add Section
-                                </button>
-                            )}
-                        </>
-                    )}
+                        {activePageType === 'intel' ? (
+                            <IntelPackageEditor
+                                key={activePage}
+                                operationId={operationId}
+                                readOnly={readOnly}
+                                themeColor={themeColor}
+                            />
+                        ) : (
+                            <>
+                                {sectionIds.map((id, idx) => (
+                                    <SectionEditor
+                                        key={`${activePage}-${id}`}
+                                        ydoc={ydoc}
+                                        sectionId={id}
+                                        pageId={activePage}
+                                        pageTitle={activePageTitle}
+                                        provider={provider}
+                                        user={user}
+                                        uploadUrl={uploadUrl}
+                                        onRemove={() => removeSection(id)}
+                                        onMoveUp={() => moveSection(id, 'up')}
+                                        onMoveDown={() => moveSection(id, 'down')}
+                                        canMoveUp={idx > 0}
+                                        canMoveDown={idx < sectionIds.length - 1}
+                                        themeColor={themeColor}
+                                        readOnly={readOnly}
+                                        seedContent={activePage === 'main' && id === seedSectionId ? initialContent : undefined}
+                                    />
+                                ))}
+                                {!readOnly && (
+                                    <button type='button' onClick={addSection}
+                                        style={{ alignSelf: 'flex-start', padding: '6px 2px', background: 'transparent', border: 'none', color: 'var(--ink-3)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'color 0.15s' }}
+                                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
+                                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-3)' }}
+                                    >
+                                        + Add Section
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
         </ThemeContext.Provider>
@@ -640,6 +659,10 @@ interface SectionEditorProps {
     ydoc: Y.Doc
     sectionId: string
     pageId?: string
+    /** The active document's own title — the section's eyebrow label (visual-
+     * fixes spec §2). Read once in ActiveEditor off the same `pmeta` map
+     * PageSidebar already uses, not a new field. */
+    pageTitle?: string
     provider: HocuspocusProvider
     user: PresenceUser
     uploadUrl: string
@@ -653,10 +676,7 @@ interface SectionEditorProps {
     seedContent?: any
 }
 
-function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, themeColor = '#db001d', readOnly = false, seedContent }: SectionEditorProps) {
-    const { r, g, b } = hexToRgb(themeColor)
-    const c = (a: number) => `rgba(${r},${g},${b},${a})`
-
+function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, uploadUrl, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, themeColor = '#db001d', readOnly = false, seedContent }: SectionEditorProps) {
     const isNonMain = pageId && pageId !== 'main'
     const metaKey = isNonMain ? `smeta-${pageId}-${sectionId}` : `smeta-${sectionId}`
     const contentKey = isNonMain ? `scontent-${pageId}-${sectionId}` : `scontent-${sectionId}`
@@ -667,19 +687,37 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
     const [sectionMinHeight, setSectionMinHeight] = useState(80)
 
     const effectiveBorderColor = sectionBorderColor || themeColor
+    // Accent tint via the operation's own --acc/--acc-rgb tokens (set on the
+    // shell root — EditorShell.tsx) rather than a themeColor-derived rgba()
+    // helper: same colour, token-backed per the visual-fixes design tokens
+    // rule. blockquote/hr/mark/list-marker rules restyled for spec §2 (quote
+    // → card-style callout with a corner tick, bullets → accent squares);
+    // h1/h2/a keep the same tint treatment they always had.
     const themeCSS = `
         .op-editor-${sectionId} { min-height: ${sectionMinHeight}px; }
-        .op-editor-${sectionId} h1 { border-left-color: ${c(0.75)}; background: ${c(0.045)}; }
-        .op-editor-${sectionId} h2 { color: ${c(0.88)}; }
-        .op-editor-${sectionId} h2::before { color: ${c(0.65)}; }
-        .op-editor-${sectionId} ul li::marker { color: ${c(0.6)}; }
-        .op-editor-${sectionId} ol li::marker { color: ${c(0.6)}; }
-        .op-editor-${sectionId} blockquote { border-left-color: ${c(0.5)}; background: ${c(0.04)}; }
-        .op-editor-${sectionId} hr { border-top-color: ${c(0.2)}; }
-        .op-editor-${sectionId} mark { background: ${c(0.2)}; }
-        .op-editor-${sectionId} a { color: ${c(0.85)}; }
+        .op-editor-${sectionId} h1 { border-left-color: rgba(var(--acc-rgb), 0.75); background: rgba(var(--acc-rgb), 0.045); }
+        .op-editor-${sectionId} h2 { color: rgba(var(--acc-rgb), 0.88); }
+        .op-editor-${sectionId} h2::before { color: rgba(var(--acc-rgb), 0.65); }
+        .op-editor-${sectionId} ul { list-style: none; padding-left: 1.2em; }
+        .op-editor-${sectionId} ul li { position: relative; }
+        .op-editor-${sectionId} ul li::before { content: ''; position: absolute; left: -1.1em; top: 0.6em; width: 5px; height: 5px; background: var(--acc); }
+        .op-editor-${sectionId} ol li::marker { color: rgba(var(--acc-rgb), 0.6); }
+        .op-editor-${sectionId} blockquote {
+            position: relative; margin: 1.2em 0; padding: 14px 18px;
+            border: 1px solid var(--line); border-radius: var(--r);
+            background: linear-gradient(180deg, var(--s1), var(--bg));
+        }
+        .op-editor-${sectionId} blockquote::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 36px; height: 2px;
+            background: var(--acc); opacity: 0.75;
+        }
+        .op-editor-${sectionId} hr { border-top-color: var(--line-2); }
+        .op-editor-${sectionId} mark { background: rgba(var(--acc-rgb), 0.2); }
+        .op-editor-${sectionId} a { color: rgba(var(--acc-rgb), 0.85); }
     `
     const [confirmingRemove, setConfirmingRemove] = useState(false)
+    const [hovered, setHovered] = useState(false)
+    const [toolbarOverflowOpen, setToolbarOverflowOpen] = useState(false)
     const [imagePopoverOpen, setImagePopoverOpen] = useState(false)
     const [showImageLibrary, setShowImageLibrary] = useState(false)
     const seededRef = useRef(false)
@@ -842,182 +880,225 @@ function SectionEditor({ ydoc, sectionId, pageId, provider, user, uploadUrl, onR
 
     if (!editor) return null
 
+    // Drives the toolbar's block-style select — 0 means "plain paragraph",
+    // matching whichever of H1/H2/H3 (if any) the cursor is currently in.
+    const currentHeadingLevel = ([1, 2, 3] as const).find(l => editor.isActive('heading', { level: l })) ?? 0
+    const chromeVisible = hovered || confirmingRemove
+
     return (
-        <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `3px solid ${effectiveBorderColor}`, background: 'rgba(255,255,255,0.01)', position: 'relative' }}>
+        <div style={{ position: 'relative' }}
+            onMouseEnter={() => setHovered(true)}
+            onMouseLeave={() => { setHovered(false); setToolbarOverflowOpen(false) }}
+        >
             <style>{themeCSS}</style>
 
-            {/* Section header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.25)' }}>
-                {readOnly ? (
-                    <span style={{ flex: 1, color: 'rgba(237,237,237,0.7)', fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{title}</span>
-                ) : (
-                    <input
-                        value={title}
-                        onChange={e => updateMeta({ title: e.target.value })}
-                        placeholder='Section Title'
-                        style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', outline: 'none', padding: '2px 0' }}
-                    />
-                )}
-                {!readOnly && (<>
-                    {/* Border color picker */}
-                    <div style={{ position: 'relative', flexShrink: 0 }}>
-                        <input ref={borderColorInputRef} type='color'
-                            value={sectionBorderColor || themeColor}
-                            onChange={e => updateMeta({ borderColor: e.target.value })}
-                            style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
-                        />
-                        <button type='button' title='Section border colour' onClick={() => borderColorInputRef.current?.click()}
-                            style={{ width: 16, height: 16, borderRadius: 2, background: effectiveBorderColor, border: '1px solid rgba(255,255,255,0.25)', cursor: 'pointer', display: 'block', flexShrink: 0 }}
-                        />
+            {/* Eyebrow (document name) + section title + accent rule — the
+                section's chrome (colour/visibility/reorder/delete) is a
+                hover-revealed row alongside it rather than a permanent bar
+                (visual-fixes spec §2). */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>
+                        {pageTitle}
                     </div>
-                    <button type='button'
-                        title={isPublic ? 'Publicly visible — click to make private' : 'Members only — click to make public'}
-                        onClick={() => updateMeta({ isPublic: !isPublic })}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: isPublic ? 'rgba(100,220,100,0.07)' : 'rgba(219,180,0,0.07)', border: `1px solid ${isPublic ? 'rgba(100,220,100,0.25)' : 'rgba(219,180,0,0.3)'}`, color: isPublic ? 'rgba(100,220,100,0.8)' : 'rgba(219,180,0,0.8)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0, transition: 'all 0.15s' }}
-                    >
-                        {isPublic ? <><LockOpen style={{ fontSize: 12 }} /> Public</> : <><Lock style={{ fontSize: 12 }} /> Members Only</>}
-                    </button>
-                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                    {readOnly ? (
+                        <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink)' }}>{title}</div>
+                    ) : (
+                        <input
+                            value={title}
+                            onChange={e => updateMeta({ title: e.target.value })}
+                            placeholder='Section Title'
+                            style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontSize: 26, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink)', padding: 0 }}
+                        />
+                    )}
+                    <div style={{ width: 36, height: 2, background: 'var(--acc)', opacity: 0.75, marginTop: 10 }} />
+                </div>
+
+                {!readOnly && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0, paddingTop: 2,
+                        opacity: chromeVisible ? 1 : 0, pointerEvents: chromeVisible ? 'auto' : 'none', transition: 'opacity 0.12s',
+                    }}>
+                        {/* Section accent colour picker */}
+                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                            <input ref={borderColorInputRef} type='color'
+                                value={sectionBorderColor || themeColor}
+                                onChange={e => updateMeta({ borderColor: e.target.value })}
+                                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+                            />
+                            <button type='button' title='Section accent colour' onClick={() => borderColorInputRef.current?.click()}
+                                style={{ width: 14, height: 14, borderRadius: 2, background: effectiveBorderColor, border: '1px solid var(--line-2)', cursor: 'pointer', display: 'block' }}
+                            />
+                        </div>
+                        <button type='button'
+                            title={isPublic ? 'Publicly visible — click to make private' : 'Members only — click to make public'}
+                            onClick={() => updateMeta({ isPublic: !isPublic })}
+                            style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: isPublic ? 'var(--good)' : 'var(--warn)', cursor: 'pointer', padding: 3 }}
+                        >
+                            {isPublic ? <LockOpen style={{ fontSize: 13 }} /> : <Lock style={{ fontSize: 13 }} />}
+                        </button>
                         <button type='button' title='Move section up' onClick={onMoveUp} disabled={!canMoveUp}
-                            style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: canMoveUp ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.08)', cursor: canMoveUp ? 'pointer' : 'default', padding: '2px 4px', fontSize: '0.75rem', lineHeight: 1, transition: 'color 0.15s' }}
-                            onMouseEnter={e => { if (canMoveUp) e.currentTarget.style.color = 'rgba(237,237,237,0.8)' }}
-                            onMouseLeave={e => { if (canMoveUp) e.currentTarget.style.color = 'rgba(237,237,237,0.3)' }}
+                            style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: canMoveUp ? 'var(--ink-3)' : 'var(--line-2)', cursor: canMoveUp ? 'pointer' : 'default', padding: '3px 2px', fontSize: '0.7rem', lineHeight: 1 }}
                         >▲</button>
                         <button type='button' title='Move section down' onClick={onMoveDown} disabled={!canMoveDown}
-                            style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: canMoveDown ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.08)', cursor: canMoveDown ? 'pointer' : 'default', padding: '2px 4px', fontSize: '0.75rem', lineHeight: 1, transition: 'color 0.15s' }}
-                            onMouseEnter={e => { if (canMoveDown) e.currentTarget.style.color = 'rgba(237,237,237,0.8)' }}
-                            onMouseLeave={e => { if (canMoveDown) e.currentTarget.style.color = 'rgba(237,237,237,0.3)' }}
+                            style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: canMoveDown ? 'var(--ink-3)' : 'var(--line-2)', cursor: canMoveDown ? 'pointer' : 'default', padding: '3px 2px', fontSize: '0.7rem', lineHeight: 1 }}
                         >▼</button>
+                        {confirmingRemove ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <button type='button' onClick={onRemove} style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fff', background: 'var(--crit)', border: '1px solid var(--crit)', padding: '2px 6px', cursor: 'pointer', borderRadius: 'var(--r)' }}>Yes</button>
+                                <button type='button' onClick={() => setConfirmingRemove(false)} style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-3)', background: 'none', border: '1px solid var(--line-2)', padding: '2px 6px', cursor: 'pointer', borderRadius: 'var(--r)' }}>No</button>
+                            </div>
+                        ) : (
+                            <button type='button' title='Remove section' onClick={() => setConfirmingRemove(true)}
+                                style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'var(--ink-3)', cursor: 'pointer', padding: 3 }}
+                                onMouseEnter={e => (e.currentTarget.style.color = 'var(--crit)')}
+                                onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink-3)')}
+                            >
+                                <Delete style={{ fontSize: 14 }} />
+                            </button>
+                        )}
                     </div>
-                    {confirmingRemove ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                            <span style={{ fontSize: '0.6rem', color: 'rgba(219,0,29,0.7)', letterSpacing: '0.08em' }}>Remove section?</span>
-                            <button type='button' onClick={onRemove} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.9)', background: 'rgba(219,0,29,0.1)', border: '1px solid rgba(219,0,29,0.3)', padding: '3px 8px', cursor: 'pointer' }}>Yes</button>
-                            <button type='button' onClick={() => setConfirmingRemove(false)} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', background: 'none', border: '1px solid rgba(255,255,255,0.1)', padding: '3px 8px', cursor: 'pointer' }}>No</button>
-                        </div>
-                    ) : (
-                        <button type='button' title='Remove section' onClick={() => setConfirmingRemove(true)}
-                            style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', color: 'rgba(237,237,237,0.2)', cursor: 'pointer', padding: 4, flexShrink: 0, transition: 'color 0.15s' }}
-                            onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.7)')}
-                            onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.2)')}
-                        >
-                            <Delete style={{ fontSize: 16 }} />
-                        </button>
-                    )}
-                </>)}
+                )}
             </div>
 
-            {/* Toolbar */}
-            <div style={{ display: readOnly ? 'none' : 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, padding: '7px 10px', background: 'rgb(10,10,10)', borderBottom: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 2px 8px rgba(0,0,0,0.6)', position: 'sticky', top: 0, zIndex: 20 }}>
-                <TBtn title='Undo' onClick={() => editor.chain().focus().undo().run()}><Undo style={{ fontSize: 16 }} /></TBtn>
-                <TBtn title='Redo' onClick={() => editor.chain().focus().redo().run()}><Redo style={{ fontSize: 16 }} /></TBtn>
-                <TDivider />
-                {([1, 2, 3] as const).map(level => (
-                    <TBtn key={level} title={`Heading ${level}`} active={editor.isActive('heading', { level })} onClick={() => editor.chain().focus().toggleHeading({ level }).run()}>
-                        <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.05em' }}>H{level}</span>
-                    </TBtn>
-                ))}
+            {/* Toolbar — one slim row: block style, B/I/U, list, image, and an
+                overflow menu for everything else (visual-fixes spec §2). */}
+            <div style={{ display: readOnly ? 'none' : 'flex', alignItems: 'center', gap: 2, height: 44, borderBottom: '1px solid var(--line)', marginBottom: 18 }}>
                 <select
-                    value={(editor.getAttributes('textStyle').fontSize as string | undefined) || ''}
+                    value={String(currentHeadingLevel)}
                     onChange={e => {
-                        if (e.target.value) (editor.chain().focus() as any).setFontSize(e.target.value).run()
-                        else (editor.chain().focus() as any).unsetFontSize().run()
+                        const lvl = Number(e.target.value)
+                        if (lvl === 0) editor.chain().focus().setParagraph().run()
+                        else editor.chain().focus().setHeading({ level: lvl as 1 | 2 | 3 }).run()
                     }}
-                    title='Font size'
-                    style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.6)', fontSize: '0.65rem', padding: '0 4px', cursor: 'pointer', height: 28, outline: 'none', minWidth: 52 }}>
-                    <option value=''>Size</option>
-                    {[10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48].map(s => (
-                        <option key={s} value={`${s}px`}>{s}</option>
-                    ))}
+                    title='Block style'
+                    style={{ background: 'none', border: 'none', color: 'var(--ink-2)', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '4px 6px', cursor: 'pointer', outline: 'none' }}
+                >
+                    <option value='0'>Text</option>
+                    <option value='1'>Heading 1</option>
+                    <option value='2'>Heading 2</option>
+                    <option value='3'>Heading 3</option>
                 </select>
-                <TDivider />
-                <TBtn title='Bold' active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}><FormatBold style={{ fontSize: 17 }} /></TBtn>
-                <TBtn title='Italic' active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><FormatItalic style={{ fontSize: 17 }} /></TBtn>
-                <TBtn title='Underline' active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}><FormatUnderlined style={{ fontSize: 17 }} /></TBtn>
-                <TBtn title='Strikethrough' active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}><StrikethroughS style={{ fontSize: 17 }} /></TBtn>
-                <TBtn title='Highlight' active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}><FormatColorFill style={{ fontSize: 17 }} /></TBtn>
-                <TDivider />
-                <TBtn title='Align Left' active={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()}><FormatAlignLeft style={{ fontSize: 17 }} /></TBtn>
-                <TBtn title='Align Centre' active={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()}><FormatAlignCenter style={{ fontSize: 17 }} /></TBtn>
-                <TBtn title='Align Right' active={editor.isActive({ textAlign: 'right' })} onClick={() => editor.chain().focus().setTextAlign('right').run()}><FormatAlignRight style={{ fontSize: 17 }} /></TBtn>
-                <TDivider />
-                <TBtn title='Bullet List' active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}><FormatListBulleted style={{ fontSize: 17 }} /></TBtn>
-                <TBtn title='Numbered List' active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><FormatListNumbered style={{ fontSize: 17 }} /></TBtn>
-                <TDivider />
-                <TBtn title='Quote' active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}><FormatQuote style={{ fontSize: 17 }} /></TBtn>
-                <TBtn title='Section Divider' onClick={() => editor.chain().focus().setHorizontalRule().run()}><HorizontalRule style={{ fontSize: 17 }} /></TBtn>
-                <TDivider />
+                <TLabel title='Bold' active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>B</TLabel>
+                <TLabel title='Italic' active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>I</TLabel>
+                <TLabel title='Underline' active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>U</TLabel>
+                <div style={{ width: 1, height: 16, background: 'var(--line)', margin: '0 4px' }} />
+                <TLabel title='Bullet List' active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}>List</TLabel>
                 <div style={{ position: 'relative' }}>
-                    <TBtn title={uploadingImage ? 'Uploading...' : 'Insert Image'} active={uploadingImage || imagePopoverOpen}
+                    <TLabel title={uploadingImage ? 'Uploading…' : 'Insert Image'} active={uploadingImage || imagePopoverOpen}
                         onClick={() => { if (!uploadingImage) setImagePopoverOpen(v => !v) }}
                     >
-                        <AddPhotoAlternate style={{ fontSize: 17, opacity: uploadingImage ? 0.4 : 1 }} />
-                    </TBtn>
+                        Image
+                    </TLabel>
                     {imagePopoverOpen && !uploadingImage && (
                         <div
                             onMouseDown={e => e.stopPropagation()}
-                            style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'rgba(14,14,14,0.97)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, padding: '4px 0', display: 'flex', flexDirection: 'column', minWidth: 190, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
+                            style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '4px 0', display: 'flex', flexDirection: 'column', minWidth: 190, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
                         >
                             <button type='button'
                                 onClick={() => { setImagePopoverOpen(false); imageInputRef.current?.click() }}
-                                style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'rgba(237,237,237,0.7)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
-                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                                style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'var(--ink-2)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--s3)')}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >Upload from Computer</button>
                             <button type='button'
                                 onClick={() => { setImagePopoverOpen(false); setShowImageLibrary(true) }}
-                                style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'rgba(237,237,237,0.7)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
-                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                                style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'var(--ink-2)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--s3)')}
                                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                             >Select from Library</button>
                         </div>
                     )}
                 </div>
+
+                <div style={{ flex: 1 }} />
+
+                {/* Overflow — undo/redo, font size, strike/highlight, align,
+                    numbered list, quote, divider, link, clear formatting.
+                    Same commands the old 20-button row exposed directly;
+                    only their visibility moved. */}
                 <div style={{ position: 'relative' }}>
-                    <TBtn title={editor.isActive('link') ? 'Edit Link' : 'Insert Link'} active={editor.isActive('link')}
-                        onClick={() => {
-                            const existing = editor.getAttributes('link').href || ''
-                            setLinkUrl(existing)
-                            setLinkText('')
-                            setLinkPopover(v => !v)
-                            const noSel = editor.state.selection.empty
-                            setTimeout(() => (noSel ? linkTextInputRef.current : linkUrlInputRef.current)?.focus(), 40)
-                        }}
-                    >
-                        <InsertLink style={{ fontSize: 17 }} />
-                    </TBtn>
-                    {linkPopover && (
-                        <div {...{ [`data-link-popover-${sectionId}`]: true }} onMouseDown={e => e.stopPropagation()}
-                            style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'rgba(14,14,14,0.97)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
+                    <TLabel title='More formatting' active={toolbarOverflowOpen} onClick={() => setToolbarOverflowOpen(v => !v)}>⋯</TLabel>
+                    {toolbarOverflowOpen && (
+                        <div
+                            onMouseDown={e => e.stopPropagation()}
+                            style={{ position: 'absolute', top: '110%', right: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: 6, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, width: 232, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
                         >
-                            {editor.state.selection.empty && (
-                                <input ref={linkTextInputRef} value={linkText} onChange={e => setLinkText(e.target.value)} placeholder='Display text'
-                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); linkUrlInputRef.current?.focus() } if (e.key === 'Escape') setLinkPopover(false) }}
-                                    style={{ background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
-                                />
-                            )}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <input ref={linkUrlInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter') { e.preventDefault(); applyLink() }
-                                        if (e.key === 'Escape') setLinkPopover(false)
+                            <TBtn title='Undo' onClick={() => editor.chain().focus().undo().run()}><Undo style={{ fontSize: 16 }} /></TBtn>
+                            <TBtn title='Redo' onClick={() => editor.chain().focus().redo().run()}><Redo style={{ fontSize: 16 }} /></TBtn>
+                            <TDivider />
+                            <TBtn title='Strikethrough' active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}><StrikethroughS style={{ fontSize: 17 }} /></TBtn>
+                            <TBtn title='Highlight' active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}><FormatColorFill style={{ fontSize: 17 }} /></TBtn>
+                            <TDivider />
+                            <TBtn title='Align Left' active={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()}><FormatAlignLeft style={{ fontSize: 17 }} /></TBtn>
+                            <TBtn title='Align Centre' active={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()}><FormatAlignCenter style={{ fontSize: 17 }} /></TBtn>
+                            <TBtn title='Align Right' active={editor.isActive({ textAlign: 'right' })} onClick={() => editor.chain().focus().setTextAlign('right').run()}><FormatAlignRight style={{ fontSize: 17 }} /></TBtn>
+                            <TDivider />
+                            <TBtn title='Numbered List' active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><FormatListNumbered style={{ fontSize: 17 }} /></TBtn>
+                            <TBtn title='Quote' active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}><FormatQuote style={{ fontSize: 17 }} /></TBtn>
+                            <TBtn title='Section Divider' onClick={() => editor.chain().focus().setHorizontalRule().run()}><HorizontalRule style={{ fontSize: 17 }} /></TBtn>
+                            <TDivider />
+                            <div style={{ position: 'relative' }}>
+                                <TBtn title={editor.isActive('link') ? 'Edit Link' : 'Insert Link'} active={editor.isActive('link')}
+                                    onClick={() => {
+                                        const existing = editor.getAttributes('link').href || ''
+                                        setLinkUrl(existing)
+                                        setLinkText('')
+                                        setLinkPopover(v => !v)
+                                        const noSel = editor.state.selection.empty
+                                        setTimeout(() => (noSel ? linkTextInputRef.current : linkUrlInputRef.current)?.focus(), 40)
                                     }}
-                                    style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.85)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
-                                />
-                                <button type='button' onClick={applyLink}
-                                    style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: `rgba(${r},${g},${b},0.85)`, background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
-                                >Apply</button>
+                                >
+                                    <InsertLink style={{ fontSize: 17 }} />
+                                </TBtn>
+                                {linkPopover && (
+                                    <div {...{ [`data-link-popover-${sectionId}`]: true }} onMouseDown={e => e.stopPropagation()}
+                                        style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
+                                    >
+                                        {editor.state.selection.empty && (
+                                            <input ref={linkTextInputRef} value={linkText} onChange={e => setLinkText(e.target.value)} placeholder='Display text'
+                                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); linkUrlInputRef.current?.focus() } if (e.key === 'Escape') setLinkPopover(false) }}
+                                                style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
+                                            />
+                                        )}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <input ref={linkUrlInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') { e.preventDefault(); applyLink() }
+                                                    if (e.key === 'Escape') setLinkPopover(false)
+                                                }}
+                                                style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
+                                            />
+                                            <button type='button' onClick={applyLink}
+                                                style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--acc)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
+                                            >Apply</button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
+                            <TBtn title='Remove Link' onClick={() => { editor.chain().focus().unsetLink().run(); setLinkPopover(false) }}>
+                                <LinkOff style={{ fontSize: 17 }} />
+                            </TBtn>
+                            <TDivider />
+                            <TBtn title='Clear Formatting' onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>
+                                <FormatClear style={{ fontSize: 17 }} />
+                            </TBtn>
+                            <select
+                                value={(editor.getAttributes('textStyle').fontSize as string | undefined) || ''}
+                                onChange={e => {
+                                    if (e.target.value) (editor.chain().focus() as any).setFontSize(e.target.value).run()
+                                    else (editor.chain().focus() as any).unsetFontSize().run()
+                                }}
+                                title='Font size'
+                                style={{ background: 'var(--s3)', border: '1px solid var(--line-2)', color: 'var(--ink-2)', fontSize: '0.65rem', padding: '0 4px', cursor: 'pointer', height: 26, outline: 'none', minWidth: 52 }}>
+                                <option value=''>Size</option>
+                                {[10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48].map(s => (
+                                    <option key={s} value={`${s}px`}>{s}</option>
+                                ))}
+                            </select>
                         </div>
                     )}
                 </div>
-                <TBtn title='Remove Link' onClick={() => { editor.chain().focus().unsetLink().run(); setLinkPopover(false) }}>
-                    <LinkOff style={{ fontSize: 17 }} />
-                </TBtn>
-                <TDivider />
-                <TBtn title='Clear Formatting' onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>
-                    <FormatClear style={{ fontSize: 17 }} />
-                </TBtn>
             </div>
 
             <EditorContent editor={editor} />
@@ -1076,4 +1157,29 @@ function TBtn({ onClick, active, title, children }: { onClick: () => void; activ
 
 function TDivider() {
     return <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.1)', margin: '0 3px' }} />
+}
+
+/** Primary-toolbar control (visual-fixes spec §2): a quiet mono text label
+ * rather than an MUI icon — used for the small set of controls that stay
+ * visible on the slim main row (block style, B/I/U, list, image, the
+ * overflow toggle). Everything else keeps the icon-based `TBtn` inside the
+ * overflow panel. */
+function TLabel({ onClick, active, title, children }: { onClick: () => void; active?: boolean; title: string; children: React.ReactNode }) {
+    return (
+        <button type='button' title={title} onClick={onClick}
+            style={{
+                padding: '5px 8px',
+                background: active ? 'var(--s2)' : 'transparent',
+                border: 'none',
+                borderRadius: 'var(--r)',
+                color: active ? 'var(--ink)' : 'var(--ink-2)',
+                fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+                cursor: 'pointer', transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--ink)' }}
+            onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'var(--ink-2)' }}
+        >
+            {children}
+        </button>
+    )
 }

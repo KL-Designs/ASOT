@@ -849,7 +849,6 @@ export default function Page() {
                         onDelete={() => setConfirmDelete(true)}
                         activityOpen={activityOpen}
                         onToggleActivity={() => setActivityOpen(o => !o)}
-                        onOpenPreview={() => window.open(`/operations/${opID}`, '_blank')}
                         publishConfirmOpen={publishConfirmOpen}
                         publishSaving={publishSaving}
                         onPublishClick={() => setPublishConfirmOpen(true)}

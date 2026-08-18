@@ -24,10 +24,15 @@ interface Props {
 /**
  * Documents rail + collaborative editor. `CollabEditor` (imported here as
  * `OperationEditor`, matching the name page.tsx used before this split)
- * already renders `PageSidebar` internally as its own documents rail — see
- * the design doc's non-goal on not rewriting `CollabEditor.tsx` beyond the
- * one permitted `onProviderReady` prop, so that internal structure is
- * untouched.
+ * already renders `PageSidebar` internally as its own documents rail.
+ *
+ * No padding/max-width wrapper here (unlike the old card-based design):
+ * the documents rail must sit flush against the shell's own left edge, full
+ * height, with no gap above or beside it (visual-fixes spec §1) — a padded,
+ * centred wrapper around the whole thing would reintroduce exactly that
+ * gap. `CollabEditor` now owns its own layout: the rail renders flush left,
+ * and its own content column applies the padding/max-width centering
+ * (spec §2) to just the document body, not the rail.
  *
  * The old panel's `loaded ? <OperationEditor/> : <skeleton/>` branch is
  * dropped: page.tsx already returns its own full-page loading state before
@@ -40,7 +45,7 @@ export default function BriefTab({
     onMetaChange, metaHandleRef, onSaveStatusChange, onProviderReady,
 }: Props) {
     return (
-        <div style={{ width: '100%', maxWidth: 1220, margin: '0 auto', padding: 'clamp(1.5rem, 2.5vw, 2.5rem)' }}>
+        <div style={{ width: '100%', height: '100%' }}>
             <OperationEditor
                 documentId={opID}
                 uploadUrl='/api/operations/upload'
