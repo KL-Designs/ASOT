@@ -39,11 +39,15 @@ export default function NextOpCard({ op }: { op: LandingOp }) {
                 {op.department && <span className={s.rt}>{op.department}</span>}
             </div>
 
-            <div className={s.ocImg}>
-                {/* Operation covers are arbitrary stored URLs, so next/image would
-                    need every host allow-listed — a plain img is the honest choice. */}
-                {op.coverImage && <img src={op.coverImage} alt='' />}
-            </div>
+            {/* Only when there is a cover. Rendering the panel regardless left a
+                blank 118px band between the header and the title, which read as
+                a broken image and pushed the card's content to the bottom of a
+                box that looked empty. Operation covers are arbitrary stored URLs,
+                so next/image would need every host allow-listed — a plain img is
+                the honest choice. */}
+            {op.coverImage && (
+                <div className={s.ocImg}><img src={op.coverImage} alt='' /></div>
+            )}
 
             <div className={s.ocB}>
                 <div className={s.ocT}>{op.title}</div>

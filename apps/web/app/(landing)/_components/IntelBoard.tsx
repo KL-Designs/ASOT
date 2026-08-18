@@ -61,17 +61,27 @@ function FeaturedOp({ op }: { op: LandingOp }) {
         hour: '2-digit', minute: '2-digit', hour12: false,
     })
 
+    const status = (
+        <span className={s.badge}>
+            <Pulse tone={running || op.rsvpOpen ? 'live' : 'idle'} />
+            {running ? 'Op running' : op.rsvpOpen ? 'Sign-on open' : 'Briefing pending'}
+        </span>
+    )
+
     return (
         <article className={s.opfeat}>
-            <div className={s.opfeatImg}>
-                {op.coverImage && <img src={op.coverImage} alt='' />}
-                <span className={s.badge}>
-                    <Pulse tone={running || op.rsvpOpen ? 'live' : 'idle'} />
-                    {running ? 'Op running' : op.rsvpOpen ? 'Sign-on open' : 'Briefing pending'}
-                </span>
-            </div>
+            {/* The badge rides on the cover when there is one. Without a cover the
+                panel would be an empty 300px box, so it collapses and the badge
+                moves inline above the heading rather than being lost with it. */}
+            {op.coverImage && (
+                <div className={s.opfeatImg}>
+                    <img src={op.coverImage} alt='' />
+                    {status}
+                </div>
+            )}
 
             <div className={s.opfeatBody}>
+                {!op.coverImage && <div className={s.badgeInline}>{status}</div>}
                 <Kicker>{when} AEST{op.department ? ` · ${op.department}` : ''}</Kicker>
                 <h3 className={s.opfeatT}>{op.title}</h3>
 

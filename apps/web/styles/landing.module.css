@@ -73,8 +73,22 @@
     inset: 0;
     z-index: 2;
     background:
-        linear-gradient(90deg, rgba(6, 7, 9, .92) 0%, rgba(6, 7, 9, .72) 34%, rgba(6, 7, 9, .28) 62%, rgba(6, 7, 9, .55) 100%),
-        linear-gradient(180deg, rgba(6, 7, 9, .55) 0%, transparent 26%, transparent 52%, rgba(6, 7, 9, .94) 100%);
+        /* Weighted left, where the copy is, and easing off well before the
+           middle so the screenshot survives behind the operation card. */
+        linear-gradient(90deg,
+            rgba(6, 7, 9, .9) 0%,
+            rgba(6, 7, 9, .6) 30%,
+            rgba(6, 7, 9, .16) 62%,
+            rgba(6, 7, 9, .44) 100%),
+        /* Both ramps tight against the edges — enough to seat the hero under the
+           navbar and against the stat band, and no further in. The bottom ramp
+           used to begin at 52%, which meant it was dimming the middle of the
+           frame on every horizontal position. */
+        linear-gradient(180deg,
+            rgba(6, 7, 9, .4) 0%,
+            transparent 18%,
+            transparent 78%,
+            rgba(6, 7, 9, .88) 100%);
 }
 
 /*
@@ -506,6 +520,17 @@
     letter-spacing: .2em;
     text-transform: uppercase;
     color: var(--live);
+}
+
+/* Un-positions the badge so it sits in the flow above the heading when there is
+   no cover image for it to ride on. */
+.badgeInline {
+    margin-bottom: 14px;
+}
+
+.badgeInline .badge {
+    position: static;
+    display: inline-flex;
 }
 
 .opfeatBody {
