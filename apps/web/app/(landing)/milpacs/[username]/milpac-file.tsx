@@ -31,6 +31,7 @@ import { MilpacTabs } from './tabs'
 import { tabSuffix, type MilpacTab } from '@/lib/military/milpac-tabs'
 import { pickLoadoutId } from '@/lib/loadout/select'
 import { kitIcon } from '@/lib/loadout/kit-icons'
+import { normaliseTags } from '@/lib/loadout/tags'
 import { LoadoutManager } from './loadout-manager'
 import s from './profile.module.css'
 
@@ -220,6 +221,7 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 		name: l.name,
 		description: l.description ?? '',
 		icon: kitIcon(l.icon),
+		tags: normaliseTags(l.tags),
 		isDefault: l.isDefault,
 		shared: l.shared,
 		raw: l.raw,

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { copyText } from '@/lib/clipboard'
 import { MAX_NAME, MAX_DESCRIPTION } from '@/lib/loadout/limits'
 import { KIT_ICON_KEYS, DEFAULT_KIT_ICON, type KitIconKey } from '@/lib/loadout/kit-icons'
+import { KIT_TAG_GROUPS, KIT_TAG_LABELS, MAX_KIT_TAGS, type KitTag } from '@/lib/loadout/tags'
 import { KitIcon, UiIcon } from '@/components/loadout/kit-icons'
 import s from './profile.module.css'
 
@@ -38,6 +39,7 @@ type Summary = {
     name: string
     description: string
     icon: KitIconKey
+    tags: KitTag[]
     isDefault: boolean
     shared: boolean
     raw: string
@@ -83,6 +85,49 @@ function IconPicker({ value, onPick }: { value: KitIconKey; onPick: (key: KitIco
     )
 }
 
+/**
+ * The tag grid. Checkboxes rather than a radiogroup — a kit is often two
+ * things at once — grouped under headings so twenty-nine options read as four
+ * short lists.
+ *
+ * Unchosen tags disable once the cap is reached rather than the save failing
+ * afterwards: the limit is visible at the moment it starts to matter.
+ */
+function TagPicker({ value, onToggle }: { value: KitTag[]; onToggle: (tag: KitTag) => void }) {
+    const full = value.length >= MAX_KIT_TAGS
+    return (
+        <div className={s.kitTagPicker}>
+            {KIT_TAG_GROUPS.map(({ group, tags }) => (
+                <div key={group} className={s.kitTagGroup}>
+                    <span className={s.kitTagGroupName}>{group}</span>
+                    <div className={s.kitTagOpts}>
+                        {tags.map(tag => {
+                            const on = value.includes(tag)
+                            return (
+                                <button
+                                    key={tag}
+                                    type='button'
+                                    role='checkbox'
+                                    aria-checked={on}
+                                    disabled={!on && full}
+                                    className={on ? `${s.kitTagOpt} ${s.kitTagOptOn}` : s.kitTagOpt}
+                                    onClick={() => onToggle(tag)}
+                                >
+                                    {KIT_TAG_LABELS[tag]}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+            ))}
+            <p className={s.kitFieldNote}>
+                {value.length} of {MAX_KIT_TAGS} chosen
+                {full && ' — deselect one to pick another'}
+            </p>
+        </div>
+    )
+}
+
 export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
     loadouts: Summary[]
     isOwn: boolean
@@ -97,8 +142,11 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
     const [makePublic, setMakePublic] = useState(false)
     const [importIcon, setImportIcon] = useState<KitIconKey>(DEFAULT_KIT_ICON)
     const [editing, setEditing] = useState(false)
+    const [nameDraft, setNameDraft] = useState('')
     const [descDraft, setDescDraft] = useState('')
     const [iconDraft, setIconDraft] = useState<KitIconKey>(DEFAULT_KIT_ICON)
+    const [tagsDraft, setTagsDraft] = useState<KitTag[]>([])
+    const [importTags, setImportTags] = useState<KitTag[]>([])
     const [error, setError] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [copied, setCopied] = useState(false)
@@ -112,7 +160,7 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
             const res = await fetch('/api/loadouts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ raw, name, description, shared: makePublic, icon: importIcon }),
+                body: JSON.stringify({ raw, name, description, shared: makePublic, icon: importIcon, tags: importTags }),
             })
             const json = await res.json().catch(() => ({}))
             if (!res.ok) {
@@ -169,9 +217,19 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
         }
     }
 
+    /** Shared by both pickers; the cap is enforced here as well as in the UI. */
+    const toggleTag = (list: KitTag[], tag: KitTag): KitTag[] =>
+        list.includes(tag)
+            ? list.filter(t => t !== tag)
+            : list.length >= MAX_KIT_TAGS ? list : [...list, tag]
+
     const saveDetails = () => {
         if (!active) return
-        patch(active.id, { description: descDraft, icon: iconDraft })
+        const name = nameDraft.trim()
+        // An unnamed kit is unusable in the picker, so an empty box is refused
+        // rather than saved and worked around later.
+        if (!name) { setError('A kit needs a name.'); return }
+        patch(active.id, { name, description: descDraft, icon: iconDraft, tags: tagsDraft })
     }
 
     // Escape closes the import dialog. The page behind it is deliberately left
@@ -229,6 +287,11 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
                     <div className={s.kitField}>
                         <span className={s.lbl}>Icon</span>
                         <IconPicker value={importIcon} onPick={setImportIcon} />
+                    </div>
+
+                    <div className={s.kitField}>
+                        <span className={s.lbl}>Tags — optional</span>
+                        <TagPicker value={importTags} onToggle={t => setImportTags(list => toggleTag(list, t))} />
                     </div>
 
                     <label className={s.kitField}>
@@ -393,6 +456,22 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
                     ? (
                         <div className={s.kitEdit}>
                             <div className={s.kitField}>
+                                <span className={s.lbl}>Name</span>
+                                <input
+                                    className={s.kitImportName}
+                                    placeholder='e.g. Section Medic'
+                                    aria-label='Kit name'
+                                    maxLength={MAX_NAME}
+                                    value={nameDraft}
+                                    autoFocus
+                                    onChange={e => setNameDraft(e.target.value)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter') saveDetails()
+                                        if (e.key === 'Escape') setEditing(false)
+                                    }}
+                                />
+                            </div>
+                            <div className={s.kitField}>
                                 <span className={s.lbl}>Icon</span>
                                 <IconPicker value={iconDraft} onPick={setIconDraft} />
                             </div>
@@ -405,7 +484,6 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
                                         aria-label='Kit description'
                                         maxLength={MAX_DESCRIPTION}
                                         value={descDraft}
-                                        autoFocus
                                         onChange={e => setDescDraft(e.target.value)}
                                         onKeyDown={e => {
                                             if (e.key === 'Enter') saveDetails()
@@ -422,6 +500,10 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
                                     </button>
                                 </div>
                             </div>
+                            <div className={s.kitField}>
+                                <span className={s.lbl}>Tags</span>
+                                <TagPicker value={tagsDraft} onToggle={t => setTagsDraft(list => toggleTag(list, t))} />
+                            </div>
                         </div>
                     )
                     : (
@@ -432,8 +514,10 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
                                     type='button'
                                     className={s.kitDescBtn}
                                     onClick={() => {
+                                        setNameDraft(active.name)
                                         setDescDraft(active.description)
                                         setIconDraft(active.icon)
+                                        setTagsDraft(active.tags)
                                         setEditing(true)
                                     }}
                                 >
