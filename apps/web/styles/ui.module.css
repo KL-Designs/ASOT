@@ -166,7 +166,7 @@
    inherits the "information" meaning amber carries in the status rail. */
 .btnAmber {
     isolation: isolate;
-    background: rgba(245, 185, 63, 0.34);
+    background: color-mix(in srgb, var(--amber) 34%, transparent);
     color: var(--amber);
 }
 

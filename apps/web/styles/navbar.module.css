@@ -81,7 +81,7 @@
 }
 
 a.amb:hover {
-    color: #ffd280;
+    color: #f0cd7e;
 }
 
 .strip .right {
@@ -514,14 +514,25 @@ a.amb:hover {
    The mobile sheet keeps it permanently open: see `.macts`. */
 .actDonate {
     margin-left: 14px;
-    padding: 0 13px;
+}
+
+/*
+   Compound selector on purpose. `.btn` in ui.module.css also sets `gap`, and at
+   equal specificity the winner depends on which module the bundler emits last —
+   which is not something to leave to chance for the one rule that decides
+   whether this button looks symmetric. `.navAct.actDonate` outranks both.
+*/
+.navAct.actDonate {
+    padding: 0 12px;
     gap: 0;
 }
 
 .actDonate .lbl {
-    display: inline-block;
+    display: block;
     max-width: 0;
+    min-width: 0;
     margin-left: 0;
+    padding: 0;
     opacity: 0;
     overflow: hidden;
     white-space: nowrap;
