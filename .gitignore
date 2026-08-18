@@ -26,3 +26,4 @@
 # tracked nowhere, same reasoning as /storage. The dry-run report the importer
 # prints is the audit artifact worth keeping, not the input.
 /ASOT_Member_History_*.csv
+/ASOT - ORBAT*.csv
