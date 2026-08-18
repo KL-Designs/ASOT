@@ -18,6 +18,12 @@
     z-index: 50;
     font-family: var(--font-cond);
     background: var(--ink-1);
+
+    /* Every control in the right cluster measures from this. They were three
+       separate `height: 36px` declarations that happened to agree — which is a
+       coincidence, not a guarantee, and the account chip still read taller
+       because its 1px border and the avatar's glow sit outside that box. */
+    --nav-ctl-h: 40px;
 }
 
 /* Several controls here are <button> for behaviour rather than <a> — ENLIST
@@ -511,7 +517,7 @@ a.amb:hover {
    in-bar geometry and spacing live here. The silhouette, the variants and the
    inset-face trick that survives the notch are all in ui.module.css. */
 .navAct {
-    height: 36px;
+    height: var(--nav-ctl-h);
     padding: 0 16px;
     font-size: 13.5px;
     gap: 8px;
@@ -592,7 +598,7 @@ a.amb:hover {
     display: flex;
     align-items: center;
     gap: 9px;
-    height: 36px;
+    height: var(--nav-ctl-h);
     margin-left: 10px;
     padding: 0 10px 0 5px;
     border: 1px solid var(--line-1);
@@ -609,8 +615,8 @@ a.amb:hover {
 }
 
 .avatar {
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
     border-radius: 2px;
     flex: none;
     position: relative;
