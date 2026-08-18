@@ -705,13 +705,19 @@ a.amb:hover {
     align-content: start;
 }
 
+/*
+   Centred rather than top-aligned. The grid stretches every item to the height
+   of the tallest in its row, so a one-line description sat pinned to the top of
+   a cell sized by a two-line one — which read as the text hanging off the
+   divider above it rather than sitting in its own space.
+*/
 .ddItem {
     display: flex;
     gap: 11px;
-    padding: 12px 15px;
+    padding: 14px 15px;
     position: relative;
     transition: background 0.16s;
-    align-items: flex-start;
+    align-items: center;
     border-right: 1px solid var(--line-1);
     border-bottom: 1px solid var(--line-1);
 }
@@ -740,11 +746,12 @@ a.amb:hover {
     transform: scaleY(1);
 }
 
+/* The 2px nudge that held the icon on the title's baseline goes with the top
+   alignment it was correcting for. */
 .ddItem .ic {
     width: 17px;
     height: 17px;
     flex: none;
-    margin-top: 2px;
     color: var(--txt-3);
     transition: color 0.16s;
 }
