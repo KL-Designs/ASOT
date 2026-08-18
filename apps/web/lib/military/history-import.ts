@@ -187,8 +187,17 @@ export function buildHistory(rows: HistoryRow[]): BuiltHistory {
 
     // Date first, file order second. Sorting up front rather than per member
     // keeps the tie-break stable without threading an index through.
+    // Date.parse('') is NaN, and NaN makes every comparison falsy — the
+    // comparator would fall through to file order for that pair only, which is
+    // non-transitive and lets V8 scramble members that have no bad row at all.
+    // One undated row in the real file was enough to misorder another member's
+    // awards. Infinity keeps the comparator total and sorts undated rows last,
+    // where the spec says they belong; they are skipped before output anyway.
     const ordered = rows
-        .map((row, index) => ({ row, index, at: Date.parse(row.date) }))
+        .map((row, index) => {
+            const at = Date.parse(row.date)
+            return { row, index, at: Number.isNaN(at) ? Infinity : at }
+        })
         .sort((a, b) => (a.at - b.at) || (a.index - b.index))
 
     const historyFor = (member: string): MemberHistory => {

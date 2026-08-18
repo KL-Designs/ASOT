@@ -228,4 +228,19 @@ describe('buildHistory', () => {
         const { byMember } = buildHistory([row({ member: 'Abdul' }), row({ member: 'Abuza', line: 3 })])
         expect([...byMember.keys()]).toEqual(['Abdul', 'Abuza'])
     })
+
+    // Regression: Date.parse('') is NaN, which made the comparator
+    // non-transitive. One undated row in the real file scrambled a different
+    // member's awards entirely — the bad row does not have to be anywhere near
+    // the records it corrupts.
+    test('an undated row does not disturb the order of anything else', () => {
+        const { byMember, skipped } = buildHistory([
+            row({ member: 'A', date: '01 March 2022', role: 'third', line: 2 }),
+            row({ member: 'A', date: '01 January 2022', role: 'first', line: 3 }),
+            row({ member: 'B', date: '', line: 4 }),
+            row({ member: 'A', date: '01 February 2022', role: 'second', line: 5 }),
+        ])
+        expect(byMember.get('A')!.promotions.map(p => p.role)).toEqual(['first', 'second', 'third'])
+        expect(skipped.map(s => s.line)).toEqual([4])
+    })
 })
