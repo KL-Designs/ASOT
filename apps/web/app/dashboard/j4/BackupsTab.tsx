@@ -245,11 +245,14 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
     // everything; this is the caret beside them.
     const [scopeMenu, setScopeMenu] = useState<{ point: BackupPoint; action: 'download' | 'revert'; anchor: HTMLElement } | null>(null)
     const [scopeSel, setScopeSel] = useState<Record<BackupPart, boolean>>({ database: true, gallery: true, uploads: true })
-    // Off by default. A restore has always merged media into what is already
-    // there; this makes the clean version available without changing what the
-    // button does for anyone who does not ask for it.
-    const [wipeMedia, setWipeMedia] = useState(false)
-    const [uploadWipe, setUploadWipe] = useState(false)
+    // On by default, matching the database half of a restore: collections are
+    // dropped and reinserted, so the database already comes back as the backup
+    // had it. Media merging was the odd one out, and a restore that leaves
+    // files the backup never contained is not the restore most people mean.
+    // Untick to merge instead. The safety backup taken first makes the
+    // deletion recoverable, which is what allows this to default on.
+    const [wipeMedia, setWipeMedia] = useState(true)
+    const [uploadWipe, setUploadWipe] = useState(true)
 
     // Which parts a given point can offer at all.
     const availableParts = (p: BackupPoint): BackupPart[] => [
@@ -445,10 +448,11 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
         downloadTimers.current.add(timer)
     }
 
-    // `wipe` is a parameter rather than read from state so the quick
-    // revert-everything button cannot inherit a tick left behind in the scope
-    // menu. Opting into deletion happens in the same place you opt into it.
-    async function handleRevert(point: BackupPoint, parts: BackupPart[] = availableParts(point), wipe = false) {
+    // A parameter rather than read from state, so the caller decides. The
+    // default is true because the plain Revert button shows no checkbox: two
+    // adjacent buttons that quietly differ would be worse than one consistent
+    // rule, and the confirmation names the deletion either way.
+    async function handleRevert(point: BackupPoint, parts: BackupPart[] = availableParts(point), wipe = true) {
         const label: Record<BackupPart, string> = { database: 'the database', gallery: 'the gallery', uploads: 'uploaded files' }
         const what = parts.map(p => label[p]).join(', ').replace(/, ([^,]*)$/, ' and $1')
         // A partial restore is a sharper tool than the all-or-nothing one: the

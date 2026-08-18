@@ -1029,9 +1029,13 @@ export async function revertToPoint(
     parts: readonly BackupPart[] = ALL_BACKUP_PARTS,
     // `wipeMedia` clears each restored media tree before copying into it, so
     // the result matches the backup rather than being the union of the two.
-    // Off by default: merging is what this has always done, and the operator
-    // opts in. The database half has always been clean — restoreDatabase()
-    // drops each collection — so this only closes the gap between the two.
+    // The database half has always worked this way — restoreDatabase() drops
+    // each collection — so this closes the gap between them, and the dashboard
+    // ticks it by default for that reason.
+    //
+    // The flag still defaults to false HERE. A programmatic caller that says
+    // nothing should get the non-destructive behaviour; only a caller that
+    // asked deletes files.
     opts: { wipeMedia?: boolean } = {},
 ): Promise<void> {
     // Claimed before anything else, including the safety backup. Throws rather
