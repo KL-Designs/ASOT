@@ -13,7 +13,14 @@ import s from '../../milpacs/[username]/profile.module.css'
  * one its owner switched sharing on for, and the page never sends `raw` for any
  * other. Handing it over on a click is the entire point of the shelf.
  */
-export function CopyKitButton({ raw, name }: { raw: string; name: string }) {
+export function CopyKitButton({ raw, name, loadoutId, onCopied }: {
+    raw: string
+    name: string
+    /** Absent on the milpac's own copy button, which reports nothing. */
+    loadoutId?: string
+    /** Handed the endpoint's own count, so the footer never guesses. */
+    onCopied?: (copyCount: number) => void
+}) {
     const [copied, setCopied] = useState(false)
 
     return (
@@ -23,8 +30,22 @@ export function CopyKitButton({ raw, name }: { raw: string; name: string }) {
             aria-label={`Copy the ${name} kit export`}
             aria-live='polite'
             onClick={async () => {
-                setCopied(await copyText(raw))
+                // The clipboard write goes first and is never behind an await
+                // on the network: the browser grants clipboard access on the
+                // user's gesture, and a round-trip in between is what revokes
+                // it. A failed count is invisible; a failed copy is the whole
+                // feature not working.
+                const ok = await copyText(raw)
+                setCopied(ok)
                 setTimeout(() => setCopied(false), 1800)
+
+                // Fire-and-forget. `keepalive` so it still goes if the reader
+                // navigates away in the same breath.
+                if (!loadoutId) return
+                fetch(`/api/loadouts/${loadoutId}/copy`, { method: 'POST', keepalive: true })
+                    .then(res => res.ok ? res.json() : null)
+                    .then(json => { if (json) onCopied?.(json.copyCount) })
+                    .catch(() => {})
             }}
         >
             <UiIcon icon={copied ? 'check' : 'copy'} />

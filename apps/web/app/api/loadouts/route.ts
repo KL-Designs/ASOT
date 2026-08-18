@@ -5,6 +5,7 @@ import { logAction } from '@/lib/logAction'
 import { parseLoadout, LoadoutParseError } from '@/lib/loadout/parse'
 import { MAX_NAME, MAX_DESCRIPTION, MAX_RAW_BYTES, MAX_PER_MEMBER } from '@/lib/loadout/limits'
 import { isKitIcon } from '@/lib/loadout/kit-icons'
+import { normaliseTags } from '@/lib/loadout/tags'
 
 export async function POST(req: Request) {
     const me = await client.fetchMe().catch(() => null)
@@ -23,6 +24,11 @@ export async function POST(req: Request) {
     // Validated against the key list, not merely typed: it becomes a Record
     // lookup on a public page. An unknown value is dropped, not stored.
     const icon = isKitIcon(body?.icon) ? body.icon : undefined
+
+    // Same treatment as the icon: validated against the vocabulary rather than
+    // merely typed, de-duplicated and capped, because these become `Record`
+    // lookups when chips render on the public shelf.
+    const tags = normaliseTags(body?.tags)
 
     if (!raw) return NextResponse.json({ error: 'Paste your ACE arsenal export first.' }, { status: 400 })
     if (Buffer.byteLength(raw) > MAX_RAW_BYTES) {
@@ -51,6 +57,7 @@ export async function POST(req: Request) {
         name,
         ...(description ? { description } : {}),
         ...(icon ? { icon } : {}),
+        ...(tags.length ? { tags } : {}),
         // The first loadout a member imports is their default; there is no
         // sensible alternative and it saves them a second click.
         isDefault: existing === 0,

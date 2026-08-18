@@ -803,6 +803,11 @@ const MIGRATION_ITEMS = [
     { label: '🗃️ Migrate: pages.dashboard cleanup', script: 'scripts/migrate-pages-dashboard-cleanup.mjs', cwd: ROOT },
     { label: '🗃️ Migrate: reminders schema', script: 'scripts/migrate-reminders-schema.mjs', cwd: ROOT },
     { label: '🗃️ Migrate: reservist role', script: 'scripts/migrate-reservist-role.mjs', cwd: ROOT },
+    // Dry-run by default, `--apply` to write — same as every other item here,
+    // via runMigration's own dry-run-then-confirm flow. Creates the unique
+    // indexes the kit rating/copy routes upsert against; must run before this
+    // feature ships.
+    { label: '🗃️ Create indexes: kit ratings & copies', script: 'scripts/2026-08-19-kit-rating-indexes.mjs', cwd: ROOT },
     {
         label: '🗃️ Import: member history CSV',
         command: 'npm',

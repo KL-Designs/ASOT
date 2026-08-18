@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { MAX_NAME, MAX_DESCRIPTION } from '@/lib/loadout/limits'
 import { isKitIcon } from '@/lib/loadout/kit-icons'
+import { normaliseTags } from '@/lib/loadout/tags'
 
 /**
  * Both handlers scope every query by `userId: me.id`. The id in the URL is
@@ -38,6 +39,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     // rather than written, so a stored value is always renderable.
     if (isKitIcon(body?.icon)) set.icon = body.icon
 
+    // `undefined` means "not editing tags"; an empty array means "clear them",
+    // so the two cases cannot be collapsed into a truthiness check.
+    if (body?.tags !== undefined) set.tags = normaliseTags(body.tags)
+
+    // `raw` is deliberately absent, and must stay absent. A kit's contents are
+    // what the member exported from the arsenal; changing them means exporting
+    // again and re-importing. Everything around the export is editable — name,
+    // description, icon, tags, visibility — the export itself is not.
+
     if (body?.isDefault === true) {
         // Exactly one default per member: clear the others first.
         // Best-effort, not atomic: two concurrent PATCHes can interleave and
@@ -68,6 +78,13 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
         const next = await Db.loadouts.find({ userId: me.id }).sort({ updatedAt: -1 }).limit(1).toArray()
         if (next[0]) await Db.loadouts.updateOne({ _id: next[0]._id, userId: me.id }, { $set: { isDefault: true } })
     }
+
+    // Best-effort: a deleted loadout's ratings and copy rows have nothing left
+    // to denormalise into. ObjectIds are never reused, so leaving them behind
+    // would only ever be a leak, never a correctness risk — no transaction, no
+    // retry, and neither failure blocks the response below.
+    Db.loadoutRatings.deleteMany({ loadoutId: doc._id }).catch(() => {})
+    Db.loadoutCopies.deleteMany({ loadoutId: doc._id }).catch(() => {})
 
     return NextResponse.json({ ok: true })
 }

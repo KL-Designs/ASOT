@@ -1,6 +1,6 @@
 # Part D — Misc API
 
-Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,minigame,members,notifications,upload,services-asot,recruit-session,maps,map-presets,loadouts,dev,tfar,shoot,preferences,ping,orbat,milpacs,membercount,logout,generate,credits,award-request,auth,dashboard}/**/route.ts` (excludes `gallery/admin/**`, which belongs to the admin catalog). 82 route files.
+Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,minigame,members,notifications,upload,services-asot,recruit-session,maps,map-presets,loadouts,dev,tfar,shoot,preferences,ping,orbat,milpacs,membercount,logout,generate,credits,award-request,auth,dashboard}/**/route.ts` (excludes `gallery/admin/**`, which belongs to the admin catalog). 88 route files.
 
 ### dashboard (1 file)
 
@@ -298,15 +298,21 @@ Driver's license tracker (India Company specific feature, role-gated by raw Disc
 
 ---
 
-### loadouts (2 files)
+### loadouts (4 files)
 
 #### /api/loadouts
-- **POST** — creates a loadout for the authenticated member from `{raw, name, description?, shared?, icon?}`. `icon` is checked against `isKitIcon` (`lib/loadout/kit-icons.ts`) and dropped if unknown, so a stored value is always renderable. Validates by parsing (`lib/loadout/parse.ts`); stores `raw` only. Bounds come from `lib/loadout/limits.ts` (64KB, 12 per member, 40-char name, 160-char description) — shared with the import form so the field that stops typing and the value the server truncates agree. `shared` defaults to **false**: publication is the one thing here that cannot be undone after the fact, so it is never inferred. First loadout becomes the default. Auth: any logged-in member, own records only.
+- **POST** — creates a loadout for the authenticated member from `{raw, name, description?, shared?, icon?, tags?}`. `icon` is checked against `isKitIcon` (`lib/loadout/kit-icons.ts`) and dropped if unknown, so a stored value is always renderable. `tags` goes through `normaliseTags` (`lib/loadout/tags.ts`) — unknown keys dropped, capped at `MAX_KIT_TAGS`, always in declared order. Validates by parsing (`lib/loadout/parse.ts`); stores `raw` only. Bounds come from `lib/loadout/limits.ts` (64KB, 12 per member, 40-char name, 160-char description) — shared with the import form so the field that stops typing and the value the server truncates agree. `shared` defaults to **false**: publication is the one thing here that cannot be undone after the fact, so it is never inferred. First loadout becomes the default. Auth: any logged-in member, own records only.
 
 #### /api/loadouts/[id]
-- **PATCH** — rename, edit `description` or `icon` (same key-list check as create), `shared` toggle, or `isDefault: true` (which clears the member's other defaults first). `description` is accepted with no UI behind it yet, so a line written at import time is correctable rather than permanent-until-reimport.
-- **DELETE** — removes it; deleting the default promotes the most recently updated survivor.
-- Both scope every query by `userId` from `fetchMe()`, never the URL id alone.
+- **PATCH** — rename, edit `description`, `icon` (same key-list check as create) or `tags` (`normaliseTags`; `undefined` means "not editing tags", `[]` means "clear them"), `shared` toggle, or `isDefault: true` (which clears the member's other defaults first). `description` is accepted with no UI behind it yet, so a line written at import time is correctable rather than permanent-until-reimport.
+- **DELETE** — removes it; deleting the default promotes the most recently updated survivor. Also best-effort `deleteMany`s the loadout's rows out of `loadout_ratings` and `loadout_copies` (no transaction — ObjectIds are never reused, so a row left behind on failure is a leak, not a correctness bug).
+- Both scope every query by `userId` from `fetchMe()`, never the URL id alone. Collections: `Db.loadouts`, `Db.loadoutRatings`, `Db.loadoutCopies`.
+
+#### /api/loadouts/[id]/rating
+- **PUT** — sets, changes or withdraws the caller's 1-5 star rating on a *shared* kit (`{stars: 1-5}` or `{stars: null}` to withdraw). Anonymous: the response never says who rated a kit, including to its owner — only `{mine, avg, count}` (the caller's own rating, plain mean, count) ever leaves the route. No self-rating (403) and no `GET` (both pages that show a rating read Mongo server-side). The write is a `findOneAndUpdate`/`findOneAndDelete` on `loadout_ratings` (`returnDocument: 'before'`, or the deleted doc) to get the member's previous rating atomically, then a single aggregation-pipeline `findOneAndUpdate` on the loadout that `$inc`s `ratingSum`/`ratingCount` by the computed delta and derives `ratingAvg` from those same written fields in a second `$set` stage — deliberately not a read-then-recompute-then-write, which could desync under concurrent raters. `ratingCount` floored at 0 via `$max`. Auth: any logged-in member, not the kit's owner. Collections: `Db.loadouts`, `Db.loadoutRatings`.
+
+#### /api/loadouts/[id]/copy
+- **POST** — counts a copy of a *shared* kit by a distinct actor: a signed-in member (Discord id) or a signed-out visitor identified by the `httpOnly` `kit_visitor` cookie (`anon:<uuid>`, set on first copy, 1-year `maxAge`). Only a first copy by a given actor moves `MemberLoadout.copyCount` — repeats increment `LoadoutCopy.copies` but not the headline number. Excludes the owner copying their own kit (not a signal). The increment and its read happen as one atomic `findOneAndUpdate` (`returnDocument: 'after'`) rather than write-then-arithmetic-on-a-snapshot, so two actors' first-ever copies landing concurrently can't both report the same stale count. Auth: none (public). Collections: `Db.loadouts`, `Db.loadoutCopies`.
 
 ---
 

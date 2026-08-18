@@ -206,3 +206,123 @@
 @media (prefers-reduced-motion: reduce) {
     .card:hover { transform: none; }
 }
+
+/* ── Shelf controls ───────────────────────────────────────────────────── */
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-inline: var(--pad);
+    margin-bottom: 10px;
+}
+
+.search {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex: 1 1 240px;
+    padding: 7px 11px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .12);
+}
+
+.search:focus-within {
+    border-color: rgba(var(--acc-rgb), .55);
+}
+
+.searchInput {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    font-size: 13px;
+    color: inherit;
+    background: none;
+    border: 0;
+    outline: none;
+}
+
+.sorts,
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.filters {
+    padding-inline: var(--pad);
+    margin-bottom: 16px;
+}
+
+.sort,
+.filter,
+.filterClear,
+.pageBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    padding: 5px 11px;
+    border-radius: 2px;
+    cursor: pointer;
+    color: inherit;
+    background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .12);
+    transition: background .12s ease, border-color .12s ease;
+}
+
+.sort:hover,
+.filter:hover,
+.filterClear:hover,
+.pageBtn:hover:not(:disabled) {
+    border-color: rgba(var(--acc-rgb), .5);
+}
+
+.sortOn,
+.filterOn,
+.pageBtnOn {
+    color: rgb(var(--acc-rgb));
+    background: rgba(var(--acc-rgb), .14);
+    border-color: rgba(var(--acc-rgb), .55);
+}
+
+.filterCount {
+    font-size: 10px;
+    opacity: .6;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Card rating row ──────────────────────────────────────────────────── */
+
+/* 16px horizontal to line up with .cardMain (15px 16px) and .cardFoot
+   (12px 16px), which already set the card's gutter. */
+.cardRating {
+    padding: 0 16px 12px;
+}
+
+.cardCopies {
+    margin-left: 10px;
+    padding-left: 10px;
+    border-left: 1px solid var(--line);
+}
+
+/* ── Pager ────────────────────────────────────────────────────────────── */
+
+.pager {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+    padding-inline: var(--pad);
+    margin: 22px 0 6px;
+}
+
+.pageBtn:disabled {
+    opacity: .35;
+    cursor: default;
+}
