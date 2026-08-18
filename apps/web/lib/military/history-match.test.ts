@@ -12,9 +12,24 @@ describe('buildMemberIndex', () => {
         }
     })
 
-    test('strips [tags] and (parens) from a nickname', () => {
+    test('strips [tags] from a nickname', () => {
         const m = member({ _id: '1', username: 'a', nickname: 'Etched [OLD ACC]' })
         expect(buildMemberIndex([m]).get('etched')).toEqual([m])
+    })
+
+    // The parens branch of normalise() had no coverage at all. A real nickname
+    // carrying a rank suffix like PTE(S) relies on it.
+    test('strips (parens) from a nickname', () => {
+        const m = member({ _id: '1', username: 'a', nickname: 'Koda (LOA)' })
+        expect(buildMemberIndex([m]).get('koda')).toEqual([m])
+    })
+
+    // Both at once, in the shape the live roster actually uses.
+    test('strips a rank suffix and a department tag together', () => {
+        const m = member({ _id: '1', username: 'itskodas', nickname: 'PTE(S) Koda [J7]' })
+        const index = buildMemberIndex([m])
+        expect(index.get('pte koda')).toEqual([m])
+        expect(index.get('koda')).toEqual([m])
     })
 
     // Dave and Grubby have no `name` and a nickname of "REC Dave" / "REC
@@ -94,8 +109,18 @@ describe('resolveMembers', () => {
         expect(errors.some(e => e.includes('Nutpriom') && e.includes('Nutpirom'))).toBe(true)
     })
 
-    test('errors when an override target is missing', () => {
-        const { errors } = resolveMembers(['Koda'], [koda])
-        expect(errors.length).toBeGreaterThan(0)
+    // Discriminating: every override target is present except one, so the error
+    // can only come from that specific entry. The previous version of this test
+    // passed a name that was not an override at all, and was satisfied by the
+    // other ten entries being trivially absent from a one-member fixture.
+    test('errors naming the one override target that does not exist', () => {
+        const usernames = ['bobittihaxs', '.gryphorim.', 'nutpirom', 'salpacino', 'mastergoose123',
+            'odinv9.', 'tally.enfield', 'reality_bites', 'falcon7589', 'farmingtons9']
+        const members = usernames.map((username, i) => member({ _id: String(i), username }))
+        const { errors, unresolved } = resolveMembers(['Formula'], members)
+
+        expect(errors).toHaveLength(1)
+        expect(errors[0]).toContain('rjfrg')
+        expect(unresolved).toEqual(['Formula'])
     })
 })
