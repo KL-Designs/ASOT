@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { KeyboardArrowDown, Person, MilitaryTech, Tune, Dashboard as DashboardIcon, Logout } from '@mui/icons-material'
 
 import Avatar from '@/components/member/avatar'
-import { rankNameFromAbbr } from '@/lib/military/ranks'
 import type { PromotionProgress } from '@/app/api/me/promotion-progress/route'
+import { memberLabel } from './member-label'
 import s from '@/styles/navbar.module.css'
 
 /**
@@ -68,14 +68,12 @@ export default function AccountMenu({ user }: { user: User }) {
     }
 
     const isMember = !!(user as any).isMember
-    const strippedNickname = user.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
-    const displayName = strippedNickname || user.globalName || user.username
-    const rankAbbr = user.milpac?.currentRank || null
-    const rank = rankAbbr ? rankNameFromAbbr(rankAbbr) : null
+    const { name, fullName, rankAbbr, rankName } = memberLabel(user)
     const callsign = user.milpac?.callsign || orbatEntry?.section || null
 
-    // `who` is the two-line label on the chip itself: rank over posting.
-    const chipTop = rankAbbr ? `${rankAbbr} ${displayName}` : displayName
+    // Rank + bare name, never rank + nickname: the nickname already starts with
+    // the rank, so the latter prints it twice. See member-label.ts.
+    const chipTop = rankAbbr ? `${rankAbbr} ${name}` : name
     const chipSub = callsign || orbatEntry?.role || 'ASOT'
 
     const progress = promotion?.progress
@@ -99,7 +97,7 @@ export default function AccountMenu({ user }: { user: User }) {
                 onClick={handleToggle}
                 aria-expanded={open}
                 aria-haspopup='menu'
-                title={displayName}
+                title={fullName}
                 className={`${s.acct} ${open ? s.isOpen : ''}`}
             >
                 <span className={s.avatar}><Avatar user={user} borderRadius='2px' /></span>
@@ -114,7 +112,7 @@ export default function AccountMenu({ user }: { user: User }) {
                 <div className={s.card}>
                     <div className={s.hd}>
                         <div className={s.r}>
-                            {rank && <span className={s.rank}>{rank} </span>}{displayName}
+                            {rankName && <span className={s.rank}>{rankName} </span>}{name}
                         </div>
                         <div className={s.u}>
                             {[callsign, orbatEntry?.role].filter(Boolean).join(' · ')

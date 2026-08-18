@@ -66,6 +66,54 @@
     }
 }
 
+/* ---------- cursor glow -------------------------------------------------- */
+
+/*
+   Its own clipping wrapper rather than `overflow: hidden` on the bar — the mega
+   panels hang out of the bar's bottom edge and would be sliced off.
+   Sits above the topo and below the bar's content.
+*/
+.glowWrap {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.45s var(--nav-ease);
+}
+
+.glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 220px;
+    height: 220px;
+    margin: -110px 0 0 -110px;
+    border-radius: 50%;
+    /* White rather than the unit red: red at any strength that reads as a glow
+       also reads as a highlight, and the bar already uses red for active items,
+       hover brackets and the brand edge. Taller than the 66px bar, so only a
+       band of it shows — which keeps it a wash rather than a visible disc. */
+    background: radial-gradient(closest-side circle,
+            rgba(255, 255, 255, 0.10),
+            rgba(255, 255, 255, 0.035) 48%,
+            transparent 72%);
+    will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .glowWrap {
+        display: none;
+    }
+}
+
+@media (hover: none) {
+    .glowWrap {
+        display: none;
+    }
+}
+
 /* ---------- shell -------------------------------------------------------- */
 
 .nav {
@@ -75,6 +123,14 @@
     font-family: var(--font-cond);
     background: var(--ink-1);
     box-shadow: 0 0.65rem 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Several controls here are <button> for behaviour rather than <a> — ENLIST
+   runs a transition, the menu labels open panels. Browsers give buttons the
+   default arrow, so without this they'd feel dead next to the links beside
+   them whenever the custom cursor is off. */
+.nav button {
+    cursor: pointer;
 }
 
 /* Scrolled: the bar goes translucent and the status rail collapses away,

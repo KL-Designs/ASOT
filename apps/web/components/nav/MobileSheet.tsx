@@ -6,6 +6,7 @@ import { ExpandLess, ExpandMore } from '@mui/icons-material'
 
 import Avatar from '@/components/member/avatar'
 import { NAV_ITEMS, isItemActive, type NavItem } from './nav-data'
+import { memberLabel } from './member-label'
 import s from '@/styles/navbar.module.css'
 
 /**
@@ -34,10 +35,9 @@ export default function MobileSheet({
         window.location.href = '/'
     }
 
-    const strippedNickname = user?.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
-    const displayName = strippedNickname || user?.globalName || user?.username
-    const rankAbbr = user?.milpac?.currentRank
-    const callsign = user?.milpac?.callsign
+    // Rank + bare name — the nickname already leads with the rank, so pairing
+    // the two would print it twice. See member-label.ts.
+    const label = user ? memberLabel(user) : null
 
     return (
         <div className={s.sheet}>
@@ -49,12 +49,12 @@ export default function MobileSheet({
             ))}
 
             <div className={s.mfoot}>
-                {user ? (
+                {user && label ? (
                     <>
                         <span className={s.avatar}><Avatar user={user} borderRadius='2px' /></span>
                         <span className={s.who}>
-                            {rankAbbr ? `${rankAbbr} ${displayName}` : displayName}
-                            <span>{callsign || 'ASOT'}</span>
+                            {label.rankAbbr ? `${label.rankAbbr} ${label.name}` : label.name}
+                            <span>{label.callsign || 'ASOT'}</span>
                         </span>
                         <button type='button' className={s.sign} onClick={handleLogout}>Sign out</button>
                     </>

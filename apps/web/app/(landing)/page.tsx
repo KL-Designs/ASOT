@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import Image, { StaticImageData } from 'next/image'
 import { useRef, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 import { Button, Typography } from '@mui/material'
 import { ChevronRight } from '@mui/icons-material'
@@ -26,17 +25,17 @@ import FireEmbers from '@/components/fire-embers'
 import PhysicsGame from '@/components/physics-game'
 import MinigameScoreboard from '@/components/minigame-scoreboard'
 import MilitaryGrid from '@/components/military-grid'
+import { useEnlistTransition, EnlistFadeOverlay } from '@/components/enlist-transition'
 
 
 
 export default function Page() {
 
 	const ref       = useRef<HTMLDivElement>(null)
-	const router    = useRouter()
+	const { fading: enlistFading, enlist } = useEnlistTransition()
 
 	const [keys, setKeys] = useState<string>('')
 	const [gameActive, setGameActive] = useState(false)
-	const [enlistFading, setEnlistFading] = useState(false)
 	const [currentUser, setCurrentUser] = useState<User | null>(null)
 	const [scoreboardKey, setScoreboardKey] = useState(0)
 	const [gameDead, setGameDead] = useState(false)
@@ -104,20 +103,12 @@ export default function Page() {
 		setKeys(keys + e.key)
 	}
 
-	function handleEnlist() {
-		setEnlistFading(true)
-		setTimeout(() => router.push('/join/video'), 840)
-	}
 
 	return (
 		<>
-			{/* Full-screen fade-to-black overlay triggered by Enlist Now */}
-			<div style={{
-				position: 'fixed', inset: 0, background: '#000', zIndex: 9999,
-				opacity: enlistFading ? 1 : 0,
-				transition: 'opacity 0.8s ease',
-				pointerEvents: enlistFading ? 'auto' : 'none',
-			}} />
+			{/* Full-screen fade-to-black overlay triggered by Enlist Now.
+			    Shared with the navbar's ENLIST — see components/enlist-transition. */}
+			<EnlistFadeOverlay fading={enlistFading} />
 			{/* ── Hero ─────────────────────────────────────────────── */}
 			<div
 				ref={ref}
@@ -187,7 +178,7 @@ export default function Page() {
 									variant='contained'
 									size='large'
 									endIcon={<ChevronRight />}
-									onClick={handleEnlist}
+									onClick={enlist}
 									sx={{
 										'@keyframes enlistPulse': {
 											'0%': { boxShadow: '0 0 0 0 rgba(219,0,29,0.7), 0 0 12px rgba(219,0,29,0.4)' },

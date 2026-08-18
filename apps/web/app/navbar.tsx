@@ -11,11 +11,13 @@ import {
 } from '@mui/icons-material'
 
 import CrateIcon from '@/components/nav/CrateIcon'
+import { useEnlistTransition, EnlistFadeOverlay } from '@/components/enlist-transition'
 
 import NotificationBell from '@/app/dashboard/_components/NotificationBell'
 import AccountMenu from '@/components/nav/AccountMenu'
 import MobileSheet from '@/components/nav/MobileSheet'
 import Topo from '@/components/nav/Topo'
+import CursorGlow from '@/components/nav/CursorGlow'
 import StatusRail from '@/components/nav/StatusRail'
 import { useNavStatus, formatOpTime } from '@/components/nav/useNavStatus'
 import { NAV_ITEMS, isItemActive, type NavItem } from '@/components/nav/nav-data'
@@ -51,6 +53,7 @@ export default function Navbar() {
 
     const status = useNavStatus()
     const isMember = !!(user as any)?.isMember
+    const { fading: enlistFading, enlist } = useEnlistTransition()
 
     useEffect(() => {
         fetch('/api/me')
@@ -109,19 +112,25 @@ export default function Navbar() {
                 </Link>
             )
             : (
-                <Link href='/join' className={`${s.act} ${s.actEnlist}`}>
+                // Same action as the homepage hero's "Enlist Now" — fade the
+                // screen to black, then the join video. Shared so the two can't
+                // drift; see components/enlist-transition.
+                <button type='button' onClick={enlist} className={`${s.act} ${s.actEnlist}`}>
                     Enlist
-                </Link>
+                </button>
             )
 
     return (
         <>
+            <EnlistFadeOverlay fading={enlistFading} />
+
             <header ref={root} className={`${s.nav} ${scrolled ? s.navScrolled : ''}`}>
 
                 <StatusRail status={status} hidden={scrolled} />
 
                 <nav className={s.bar} aria-label='Primary'>
                     <Topo opacity={0.065} driftSeconds={720} />
+                    <CursorGlow />
 
                     <div className={s.inner}>
                         {/* Wrapped so it can claim an equal share of the free space
