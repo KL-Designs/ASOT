@@ -553,7 +553,16 @@ export function LoadoutManager({ loadouts, isOwn, activeId, basePath }: {
                         className={`${s.btn} ${s.kitCopy}`}
                         aria-live='polite'
                         title='Copy the ACE arsenal export, to paste into the arsenal'
-                        onClick={async () => { setCopied(await copyText(active.raw)); setTimeout(() => setCopied(false), 1800) }}
+                        onClick={async () => {
+                            setCopied(await copyText(active.raw))
+                            setTimeout(() => setCopied(false), 1800)
+                            // Only a published kit has a count to move, and the
+                            // route ignores the owner's own copies anyway.
+                            if (active.shared) {
+                                fetch(`/api/loadouts/${active.id}/copy`, { method: 'POST', keepalive: true })
+                                    .catch(() => {})
+                            }
+                        }}
                     >
                         <UiIcon icon={copied ? 'check' : 'copy'} />
                         {copied ? 'Copied' : 'Copy kit'}

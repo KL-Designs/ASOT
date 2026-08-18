@@ -231,6 +231,15 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 	const activeLoadoutId = pickLoadoutId(kitSegment, loadoutList)
 	const activeLoadout = loadouts.find(l => String(l._id) === activeLoadoutId) ?? null
 
+	// The viewer's own rating, for the control's initial state. Only ever their
+	// own row: nothing here reads, or could read, who else rated it.
+	const myRating = activeLoadout && me && !isOwn
+		? await Db.loadoutRatings.findOne(
+			{ loadoutId: activeLoadout._id, userId: me.id },
+			{ projection: { stars: 1 } },
+		)
+		: null
+
 	const awards = member.milpac?.awards ?? []
 	const quals  = member.milpac?.qualifications ?? []
 	const promotions = member.milpac?.promotions ?? []
@@ -573,6 +582,18 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 							? (
 								<LoadoutPanel
 									loadout={activeLoadout}
+									tags={normaliseTags(activeLoadout.tags)}
+									// Omitted entirely for a private kit: an unpublished kit has
+									// no audience to have an opinion, and its avg/count are always
+									// zero since nobody but the owner can ever see it to rate it.
+									rating={activeLoadout.shared ? {
+										loadoutId: String(activeLoadout._id),
+										avg: activeLoadout.ratingAvg ?? 0,
+										count: activeLoadout.ratingCount ?? 0,
+										mine: myRating?.stars ?? null,
+										// Only a signed-in visitor who is not the owner may rate.
+										canRate: Boolean(me) && !isOwn,
+									} : undefined}
 									actions={
 										<LoadoutManager
 											isOwn={isOwn}

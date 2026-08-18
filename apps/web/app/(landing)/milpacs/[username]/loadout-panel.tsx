@@ -2,6 +2,9 @@ import { parseLoadout, type WeaponSlot, type Container } from '@/lib/loadout/par
 import { resolveItemName } from '@/lib/loadout/names'
 import { iconFor, type SlotContext as Slot } from '@/lib/loadout/classify'
 import { LoadoutIcon } from '@/components/loadout/icons'
+import { Stars } from '@/components/loadout/stars'
+import { TagChips } from '@/components/loadout/tag-chips'
+import type { KitTag } from '@/lib/loadout/tags'
 import s from './profile.module.css'
 
 /**
@@ -78,7 +81,20 @@ function Bag({ label, container, slot }: { label: string; container: Container; 
     )
 }
 
-export function LoadoutPanel({ loadout, actions }: { loadout: MemberLoadout; actions?: React.ReactNode }) {
+export function LoadoutPanel({ loadout, tags, rating, actions }: {
+    loadout: MemberLoadout
+    tags: KitTag[]
+    /** Absent on a kit that cannot be rated at all — an unpublished one. */
+    rating?: {
+        loadoutId: string
+        avg: number
+        count: number
+        /** The viewer's own rating, never anyone else's. */
+        mine: number | null
+        canRate: boolean
+    }
+    actions?: React.ReactNode
+}) {
     // The panel is only rendered for a stored loadout, which was validated on
     // import — but a parser change could still reject an old row, and that must
     // not take the whole profile down.
@@ -105,6 +121,26 @@ export function LoadoutPanel({ loadout, actions }: { loadout: MemberLoadout; act
     return (
         <div className={s.kit}>
             {actions && <div className={s.kitActions}>{actions}</div>}
+
+            {/* What the kit is for, and what the unit makes of it — above the
+                gear, because both are read before the item list is. Absent
+                entirely on a private kit: an unpublished kit has no audience
+                to have an opinion. */}
+            {(tags.length > 0 || rating) && (
+                <div className={s.kitMeta}>
+                    <TagChips tags={tags} />
+                    {rating && (
+                        <Stars
+                            avg={rating.avg}
+                            count={rating.count}
+                            mine={rating.mine}
+                            loadoutId={rating.loadoutId}
+                            interactive={rating.canRate}
+                            size={16}
+                        />
+                    )}
+                </div>
+            )}
 
             <div className={s.kitBody}>
                 <div className={s.kitWorn}>
