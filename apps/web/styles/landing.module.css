@@ -89,11 +89,16 @@
             transparent 66%,
             rgba(6, 7, 9, .42) 84%,
             rgba(6, 7, 9, .88) 100%),
+        /* The vertical pass applies at every horizontal position, so its ramps
+           are what darkens the middle even where the vignette above has gone
+           fully clear. Both are pulled tight against the edges: enough to seat
+           the hero under the navbar and against the stat band below, and no
+           further into the frame than that. */
         linear-gradient(180deg,
-            rgba(6, 7, 9, .42) 0%,
-            transparent 20%,
-            transparent 68%,
-            rgba(6, 7, 9, .9) 100%);
+            rgba(6, 7, 9, .34) 0%,
+            transparent 14%,
+            transparent 82%,
+            rgba(6, 7, 9, .85) 100%);
 }
 
 .heroInner {
