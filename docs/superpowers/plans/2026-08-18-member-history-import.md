@@ -1397,8 +1397,8 @@ The output must match these exactly. Any mismatch is a bug in the importer, not 
 | Award corrections | 66 |
 | Role corrections | 159 |
 | Thomas (Major) | 201 |
-| Trew (Major) | 187 |
-| Jazz (Major) | 558 |
+| Trew (Major) | 164 |
+| Jazz (Major) | 581 |
 | Six (Brigadier) | 613 |
 | Six (Major General) | 297 |
 | promotionPoints written | 18 |

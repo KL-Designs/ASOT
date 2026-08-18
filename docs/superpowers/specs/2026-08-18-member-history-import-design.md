@@ -99,6 +99,19 @@ field the moment it disagreed with the first.
 A row whose `Date` cell is empty is skipped. Dates are parsed *only* to select
 the issuing officer (§3), never to produce the stored value.
 
+**Comparison is on a `YYYYMMDD` integer, not on `Date.parse`.** `Date.parse`
+reads `01 January 2023` as *local* midnight and `2023-01-01` as *UTC* midnight,
+so anywhere east of Greenwich the first is less than the second and every
+record falling exactly on a window boundary is attributed to the previous
+officer. 23 records land on a boundary, and the unit is in Australia. Deriving
+an integer from the parts sidesteps the whole class of problem.
+
+Two date shapes occur in the file: `04 February 2026` throughout, and
+`November 2021` once, on a Zilo award. The month-and-year form takes day 1 for
+issuer selection — the derived number is never stored, and no window boundary
+falls mid-month, so the officer is the same across the whole month. Anything
+matching neither shape is skipped.
+
 ## 3. Issuing officer
 
 Derived from the record's date. All five windows resolve to a real user, so
@@ -452,8 +465,8 @@ Normalisation
 
 Issuers
    201  Thomas (Major)          → 2023-01-01
-   187  Trew (Major)     2023-01-01 → 2023-09-02
-   558  Jazz (Major)     2023-09-02 → 2025-01-01
+   164  Trew (Major)     2023-01-01 → 2023-09-02
+   581  Jazz (Major)     2023-09-02 → 2025-01-01
    613  Six (Brigadier)  2025-01-01 → 2026-01-01
    297  Six (Major General)  2026-01-01 →
 
