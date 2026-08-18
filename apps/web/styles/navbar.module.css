@@ -501,18 +501,47 @@ a.amb:hover {
     height: 15px;
 }
 
-/* Icon only, at every width. The crate reads on its own and the button sits
-   next to a labelled primary action — two labels side by side made the pair
-   compete, which is the opposite of the volume difference it's meant to have.
-   The `aria-label` on the anchor carries the name for assistive tech.
-   The mobile sheet overrides this: see `.macts`. */
+/* Icon only at rest, at every width — the crate reads on its own, and next to a
+   labelled primary action two labels made the pair compete, which is the
+   opposite of the volume difference it's meant to have.
+
+   The label unfurls on hover and on keyboard focus rather than being absent:
+   an icon alone is only obvious once you already know what it is. `gap` goes to
+   zero and the spacing moves onto the label's own margin, or the collapsed
+   label would still be holding 8px of dead air open beside the icon.
+
+   `aria-label` on the anchor carries the name regardless of hover state.
+   The mobile sheet keeps it permanently open: see `.macts`. */
 .actDonate {
     margin-left: 14px;
     padding: 0 13px;
+    gap: 0;
 }
 
 .actDonate .lbl {
-    display: none;
+    display: inline-block;
+    max-width: 0;
+    margin-left: 0;
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition:
+        max-width 0.28s var(--nav-ease),
+        margin-left 0.28s var(--nav-ease),
+        opacity 0.18s var(--nav-ease);
+}
+
+.actDonate:hover .lbl,
+.actDonate:focus-visible .lbl {
+    max-width: 9ch;
+    margin-left: 8px;
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .actDonate .lbl {
+        transition: none;
+    }
 }
 
 .actPrimary {
@@ -1027,8 +1056,13 @@ a.amb:hover {
     font-size: 13px;
 }
 
+/* Permanently open in the sheet — there the two actions are full-width and sit
+   in among the navigation links, where a lone icon reads as an unlabelled
+   control rather than a quieter one. */
 .macts .actDonate .lbl {
-    display: inline;
+    max-width: none;
+    margin-left: 8px;
+    opacity: 1;
 }
 
 .grp {
