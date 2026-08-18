@@ -62,7 +62,7 @@ There is no separate "clear" pass. `$set` of a whole array replaces it, which
 what the CSV says and nothing else. A member the importer does not touch is
 never in the `bulkWrite` at all.
 
-**Dry run is the default.** The importer reports and exits. `--commit` is
+**Dry run is the default.** The importer reports and exits. `--apply` is
 required to write. This is the single most destructive operation in the repo
 that is not the backup restore, and it must not be possible to run it by
 autocomplete.
@@ -371,13 +371,19 @@ becomes a TypeScript script.
 
 | File | Responsibility | Depends on |
 |---|---|---|
-| `apps/web/lib/military/history-import.ts` | CSV parse, the three alias tables, issuer-by-date, record building. Pure — no DB, no fs, no clock. | `@asot/lib` (ranks), `./awards` |
-| `apps/web/lib/military/history-match.ts` | Member key index, contested/unmatched detection. Pure — takes plain objects, not a DB handle. | `@asot/lib` (rank abbreviations) |
-| `apps/web/lib/military/history-import.test.ts` | Unit tests for both modules. | vitest |
-| `apps/web/scripts/import-member-history.ts` | Runner: reads the CSV, connects to Mongo, prints the report, writes only under `--commit`. | both modules, `mongodb` |
+| `apps/web/lib/military/history-vocab.ts` | The three alias tables and their resolvers. Pure. | `@asot/lib` (ranks), `./awards` |
+| `apps/web/lib/military/history-import.ts` | CSV parse, issuer-by-date, record building and sorting. Pure — no DB, no fs, no clock. | `./history-vocab`, `@/lib/orbat/csv-parser` |
+| `apps/web/lib/military/history-match.ts` | Member key index, override table, contested/unmatched detection. Pure — takes plain objects, not a DB handle. | `@asot/lib` (rank abbreviations) |
+| `apps/web/lib/military/history-{vocab,import,match}.test.ts` | Unit tests, one per module. | vitest |
+| `apps/web/scripts/import-member-history.ts` | Runner: reads the CSV, connects to Mongo, prints the report, writes only under `--apply`. | all three modules, `mongodb` |
 
-`apps/web/lib/military/history-import.test.ts` is collected by the existing
-`npm run test:unit` (`include: ['lib/**/*.test.ts']`) with no config change.
+The vocabulary tables sit in their own file rather than inside
+`history-import.ts` because they are the part with the guard tests, and they
+are what a reviewer needs to read on its own — roughly 60 entries whose whole
+job is to be checked against the canonical lists.
+
+Those tests are collected by the existing `npm run test:unit`
+(`include: ['lib/**/*.test.ts']`) with no config change.
 
 ### Running it
 
@@ -390,12 +396,22 @@ the `@asot/lib` and `@/` path aliases these modules use.
 "import:history": "dotenv -e ../../.env -- tsx scripts/import-member-history.ts"
 ```
 
-The importer is also registered in `scripts/start.mjs` under Migrations, since
+The importer is registered in `scripts/start.mjs` under Migrations, since
 `npm start` is this repo's stated front door for running anything.
+
+**The flag is `--apply`, matching every other migration in the repo.**
+`runMigration()` in `start.mjs` runs a migration once bare for a dry run, asks
+for confirmation naming the target database, then re-runs it with `--apply` —
+which is exactly this importer's flow. Inventing a second flag name would mean
+special-casing the one migration that most needs the confirmation step.
+
+`runMigration()` currently hardcodes `node <script>`, so it gains an optional
+`command`/`args` pair on the item, defaulting to today's behaviour. That is
+the smallest change that lets a non-`node` migration join the menu.
 
 ```
 npm --prefix apps/web run import:history -- ../../ASOT_Member_History_Master_Batch_12.csv
-npm --prefix apps/web run import:history -- ../../ASOT_Member_History_Master_Batch_12.csv --commit
+npm --prefix apps/web run import:history -- ../../ASOT_Member_History_Master_Batch_12.csv --apply
 ```
 
 The CSV path is a required argument. `ASOT_Member_History_*.csv` at the repo
@@ -404,12 +420,12 @@ root is git-ignored — it is member data, not source, on the same reasoning as
 
 ## 9. The report
 
-Printed identically on a dry run and a commit, before any write. It is the
+Printed identically on a dry run and an apply, before any write. It is the
 audit artifact; the input file is not tracked, so the report is what records
 what happened.
 
 ```
-MEMBER HISTORY IMPORT — DRY RUN (no changes written; pass --commit to write)
+MEMBER HISTORY IMPORT — DRY RUN (no changes written; pass --apply to write)
 
 Source   ASOT_Member_History_Master_Batch_12.csv
 Rows     1858 parsed
@@ -498,7 +514,7 @@ broken function:**
 
 ## 11. Rollback
 
-A backup is taken through the existing J4 backups tab before the `--commit`
+A backup is taken through the existing J4 backups tab before the `--apply`
 run. The importer does not take its own — the backup system already covers
 exactly this, and a second half-implemented snapshot mechanism would be worse
 than using the one that is tested.
@@ -514,10 +530,11 @@ partial record, and this importer does not touch accounts it was not pointed at.
 | Formula | `rjfrg` | `rjfarl` — 3 promotions, 1 award | Both nicknamed `PTE(P) Formula [J1] [J5]`; `rjfrg` is the seated account |
 | Goose | `mastergoose123` | `goosethetwingo` — 2 awards | `mastergoose123` matches the CSV's date range exactly on both ends |
 
-After the run these two people appear twice on the roster with split service
-records. That is a pre-existing duplication the import makes visible rather than
-one it creates, and cleaning it up means merging or discharging an account —
-a different operation, needing its own decision.
+**Neither Formula nor Goose is still in ASOT, so this is left alone.** The
+superseded account keeps its partial record and nobody looks at it. Merging or
+discharging an account is a different operation and buys nothing for two people
+who have left; if it is ever wanted, it is a separate change and not a
+prerequisite for this one.
 
 Two more are worth a separate look for the same reason: **`Odin` and `Bones`
 each resolved to the account holding the history, while the *other* account is
