@@ -74,9 +74,11 @@
    land on the page background rather than on a cropped image.
 
    That leaves white copy sitting on the brightest part of the picture. It rides
-   on the photograph unaided — shadows were tried and read as a halo — so if a
-   screenshot ever lands too bright behind the paragraph, narrow the transparent
-   window below rather than reaching for a scrim or a text-shadow.
+   on the photograph unaided — a text-shadow was tried and read as a halo — so if
+   a screenshot ever lands too bright behind the paragraph, narrow the
+   transparent window below rather than reaching for a scrim. The lockup keeps a
+   tight drop-shadow, which is a different thing: it seats a hard-edged mark on
+   the image without glowing.
 */
 .heroVeilSolo {
     background:
@@ -160,6 +162,10 @@
 .heroMark img {
     width: 100%;
     height: auto;
+    /* Tight and low — enough to seat the mark on the photograph, short of the
+       wide soft glow that read as a halo. Blur radius is what makes the
+       difference here, not alpha. */
+    filter: drop-shadow(0 2px 10px rgba(0, 0, 0, .45));
 }
 
 /* The rule that used to sit above the subtitle — it still separates the lockup
