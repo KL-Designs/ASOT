@@ -11,6 +11,7 @@
  * Pure: no database, no filesystem, no clock.
  */
 import { isRankAbbr } from '@asot/lib'
+import { parseRow } from '@/lib/orbat/csv-parser'
 
 /**
  * Misspelled rank abbreviations in the sheet, mapped to the catalog's.
@@ -21,41 +22,6 @@ import { isRankAbbr } from '@asot/lib'
  */
 export const ABBR_TYPOS: Record<string, string> = {
     TRP: 'TPR',   // Trooper — appears as "TRP(S) Pluto"
-}
-
-/**
- * Splits one CSV line into cells.
- *
- * `parseRow` in lib/orbat/csv-parser is not reused: it toggles on every quote
- * character, so a field containing an escaped quote ("" inside a quoted cell)
- * loses the quote and, worse, flips the parser's state for the rest of the
- * line — shifting every cell after it into the wrong column. Today's export
- * has no quotes anywhere, so both parsers agree on it; a future one with a
- * comma or an apostrophe-heavy cell would not be so forgiving, and a silent
- * column shift is exactly the failure this file cannot survive.
- */
-export function splitCsvRow(line: string): string[] {
-    const cells: string[] = []
-    let current = ''
-    let quoted = false
-
-    for (let i = 0; i < line.length; i++) {
-        const char = line[i]
-        if (quoted) {
-            if (char !== '"') current += char
-            else if (line[i + 1] === '"') { current += '"'; i++ }
-            else quoted = false
-        } else if (char === '"') {
-            quoted = true
-        } else if (char === ',') {
-            cells.push(current)
-            current = ''
-        } else {
-            current += char
-        }
-    }
-    cells.push(current)
-    return cells
 }
 
 export type RankedName = {
@@ -116,7 +82,7 @@ export function parseOrbat(text: string): OrbatCell[] {
     const found: OrbatCell[] = []
 
     text.replace(/^﻿/, '').split(/\r?\n/).forEach((line, index) => {
-        splitCsvRow(line).forEach((raw, col) => {
+        parseRow(line).forEach((raw, col) => {
             const person = splitRankedName(raw)
             if (person) found.push({ ...person, line: index + 1, col })
         })

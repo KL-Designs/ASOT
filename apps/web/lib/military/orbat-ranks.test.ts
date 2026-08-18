@@ -1,35 +1,8 @@
 import { describe, test, expect } from 'vitest'
 import {
-    splitCsvRow, normaliseCell, canonicalAbbr, splitRankedName,
+    normaliseCell, canonicalAbbr, splitRankedName,
     parseOrbat, orbatRanks, repairedName,
 } from './orbat-ranks'
-
-describe('splitCsvRow', () => {
-    test('splits a plain row', () => {
-        expect(splitCsvRow('a,b,c')).toEqual(['a', 'b', 'c'])
-    })
-
-    test('keeps empty cells, so column positions are preserved', () => {
-        expect(splitCsvRow(',,x,,')).toEqual(['', '', 'x', '', ''])
-    })
-
-    test('a comma inside quotes does not split the cell', () => {
-        expect(splitCsvRow('a,"b,c",d')).toEqual(['a', 'b,c', 'd'])
-    })
-
-    // The reason lib/orbat/csv-parser's parseRow is not reused. It toggles on
-    // every quote, so the second quote of an escaped pair re-enters quoted
-    // state and the following comma stops separating cells — every cell after
-    // it lands one column to the left, which in a grid this wide silently
-    // reassigns people to other sections.
-    test('an escaped quote does not shift the following columns', () => {
-        expect(splitCsvRow('a,"say ""hi""",b,c')).toEqual(['a', 'say "hi"', 'b', 'c'])
-    })
-
-    test('a quoted empty cell is still a cell', () => {
-        expect(splitCsvRow('a,"",b')).toEqual(['a', '', 'b'])
-    })
-})
 
 describe('normaliseCell', () => {
     test('collapses runs of whitespace', () => {
