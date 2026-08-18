@@ -299,7 +299,7 @@ moments, each a row carrying its own control:
 | RSVP closes | computed datetime | offset select |
 | Operation starts | datetime, and `in 92 days` | date picker |
 | Confirmations open | when the mission ends | — |
-| Completed | 48h after confirmations | — |
+| Completed | 24h after confirmations open | — |
 
 The current moment carries the accent ring. Nothing is stated twice.
 
