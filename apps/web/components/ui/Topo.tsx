@@ -15,6 +15,7 @@ import s from '@/styles/ui.module.css'
  * entirely under `prefers-reduced-motion`.
  *
  * `mask` decides how it meets its edges — `fade` for a full-width band,
+ * `edges` for the inverse (present at the sides, gone through the middle),
  * `left` for a hero whose right half carries a photograph, `none` inside a
  * small card that clips it anyway.
  */
@@ -27,11 +28,14 @@ export default function Topo({
 }: {
     opacity?: number
     driftSeconds?: number
-    mask?: 'fade' | 'left' | 'none'
+    mask?: 'fade' | 'edges' | 'left' | 'none'
     className?: string
     style?: React.CSSProperties
 }) {
-    const maskClass = mask === 'fade' ? s.topoFade : mask === 'left' ? s.topoLeft : ''
+    const maskClass = mask === 'fade' ? s.topoFade
+        : mask === 'edges' ? s.topoEdges
+            : mask === 'left' ? s.topoLeft
+                : ''
     const classes = [s.topo, maskClass, driftSeconds > 0 ? s.topoDrift : '', className]
         .filter(Boolean).join(' ')
 

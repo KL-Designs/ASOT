@@ -100,12 +100,14 @@ export default function Hero({ sotm, roster, opCard }: {
                     : <Image src={Banner} alt='' fill style={{ objectFit: 'cover' }} priority />}
             </div>
 
-            {/* Weighted left behind left-aligned copy; even across the frame when
-                the hero is centred, or the contours would pile up on one side. */}
+            {/* Weighted left behind left-aligned copy. Centred, it takes the same
+                edge vignette the veil does — on the same stops, so the contours
+                fade out exactly where the darkening does instead of surviving
+                into the clear middle as a layer of their own. */}
             <Topo
                 opacity={0.042}
                 driftSeconds={720}
-                mask={opCard ? 'left' : 'fade'}
+                mask={opCard ? 'left' : 'edges'}
                 style={{ zIndex: 3 }}
             />
             <div className={`${s.heroVeil} ${opCard ? '' : s.heroVeilSolo}`} />

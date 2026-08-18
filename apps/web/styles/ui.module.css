@@ -57,6 +57,17 @@
     mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
 }
 
+/*
+   The inverse of `fade`: present at the left and right edges, gone through the
+   middle. For a centred hero, where the same stops are used by the veil's
+   vignette — the two have to agree or the contours outlive the darkening and
+   read as a separate layer floating over the photograph.
+*/
+.topoEdges {
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 15%, transparent 38%, transparent 62%, #000 85%, #000 100%);
+    mask-image: linear-gradient(90deg, #000 0%, #000 15%, transparent 38%, transparent 62%, #000 85%, #000 100%);
+}
+
 /* Weighted to the left — for a hero where the right side carries a photograph
    and the contours would only muddy it. */
 .topoLeft {
