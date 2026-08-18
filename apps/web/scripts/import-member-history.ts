@@ -78,9 +78,10 @@ async function main() {
         }))
 
         const { resolved, unresolved, errors } = resolveMembers([...byMember.keys()], candidates)
-        // throw rather than die() here — die() calls process.exit() immediately,
-        // which would skip the finally block below and leave the Mongo client
-        // open. main().catch() reports the message and exits instead.
+        // Every failure inside this try throws rather than calling die(): die()
+        // calls process.exit() immediately, which would skip the finally block
+        // and leave the Mongo client open. main().catch() reports the message
+        // and exits with the same status.
         if (errors.length) throw new Error(`member resolution failed:\n         ${errors.join('\n         ')}`)
         if (unresolved.length) throw new Error(`${unresolved.length} member(s) did not resolve: ${unresolved.join(', ')}\n         Add them to MEMBER_OVERRIDES in lib/military/history-match.ts.`)
 
@@ -89,7 +90,7 @@ async function main() {
 
         // Nothing may be dropped silently. This is the guarantee, not a summary.
         if (written + skipped.length !== rows.length) {
-            die(`accounting failed: ${written} written + ${skipped.length} skipped != ${rows.length} rows`)
+            throw new Error(`accounting failed: ${written} written + ${skipped.length} skipped != ${rows.length} rows`)
         }
 
         const updates: AnyBulkWriteOperation<User>[] = []
@@ -145,7 +146,7 @@ async function main() {
             return
         }
 
-        if (updates.length === 0) die('no members resolved — nothing to write')
+        if (updates.length === 0) throw new Error('no members resolved — nothing to write')
 
         const result = await client.db(MONGO_DB!).collection<User>('users').bulkWrite(updates)
         console.log(`Wrote ${result.modifiedCount} member(s).\n`)
