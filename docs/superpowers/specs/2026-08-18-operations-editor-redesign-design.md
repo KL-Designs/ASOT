@@ -6,6 +6,11 @@ shell that separates writing a briefing from administering an operation, and
 rebuilds the schedule and attendance surfaces at roughly half their current
 information density.
 
+It then covers the other half of the same surface: the public mission page at
+`/operations/[id]` — which is also what the editor's Preview drawer renders —
+whose three per-operation themes are replaced by theme modules and redesigned
+(§10).
+
 ## Goal
 
 The page does two unrelated jobs in one vertical scroll, in the wrong order.
@@ -49,8 +54,9 @@ Three problems follow from that shape, and the design is mostly about them:
   and the `cron/operations` transitions keep their current behaviour. This
   redesign changes how the stage is *displayed and manually overridden*, not
   when it advances.
-- **The public view page** at `app/operations/[id]/page.tsx`, its paged view,
-  section nav or print path.
+- **The public view page's *behaviour*.** §10 restyles it and restructures how
+  its three themes are expressed. Its routing, content model, acknowledgement
+  flow, paged view and print path keep their current behaviour.
 - **The standalone map route.** `/operations/[id]/map` stays exactly as it is —
   `app/operations/list.tsx` links into it from three places (lines 530, 578 and
   908) and it provides a genuine fullscreen mode. The Map *tab* embeds the same
@@ -58,8 +64,9 @@ Three problems follow from that shape, and the design is mostly about them:
 - **`IntelPackageEditor` / `IntelPackageViewer`** (1,300 and 1,410 lines). The
   Intel Package is one of the document types in the rail and opens as it does
   today.
-- **Merging the two design systems.** See §2 — this ports milpac's tokens into
-  the editor and accepts one duplication, deliberately.
+- **Refactoring the milpac page itself.** §2 extracts the tokens it defines
+  into a shared stylesheet that milpac then imports; its components, layout and
+  behaviour are not touched.
 
 ---
 
@@ -150,14 +157,25 @@ top-left corner (not the current full-width 2px top rule), `panelHeader` at
 row, `chip`, `btn`, `pill`, the mono tab with its 2px underline and glow, and
 the film-grain overlay.
 
-These land in a new `app/operations/[id]/edit/shell.module.css`.
+**These are extracted, not copied.** An earlier draft of this spec accepted
+duplicating the token block into the editor, on the grounds that there were
+only two consumers and that editing a shipped page mid-rewrite was a risk worth
+avoiding. Adding the mission page (§10) makes three consumers across two
+feature areas, and three copies of a palette is how palettes drift.
 
-**This duplicates `profile.module.css`'s token block, knowingly.** Extracting a
-shared stylesheet means editing a shipped, well-tested page in the same change
-that rewrites another one, and the two will want to diverge while this settles.
-Merging them into one `styles/` module is a follow-up, worth doing once the
-editor has been in use for a few operations — recorded here so it is not
-rediscovered as an accident.
+So the token block moves to `styles/command.css` — plain CSS custom properties
+on a class, no module scoping, importable anywhere:
+
+- `profile.module.css` imports it and drops its own `:root` block. Its
+  components, layout and behaviour do not change; this is a
+  find-and-delete of duplicated declarations, verifiable by diffing rendered
+  colour values.
+- The editor shell imports it as `app/operations/[id]/edit/shell.module.css`.
+- Each mission-page theme imports it and overrides what it needs (§10).
+
+`--acc` / `--acc-rgb` stay injected inline by whichever page owns the entity —
+per member on milpac, per operation here. That indirection is what makes one
+palette serve both.
 
 ---
 
@@ -343,10 +361,110 @@ staff authoring tool used at a desk.
 - The `VIEW →` and `MAP ↗` header links (Map is a tab; View moves to overflow).
 - Delete Mission's top-level placement (moves to overflow).
 - The three per-file `hexToRgb` copies (moves to `lib/`).
+- All 165 `isOF`/`isSF` ternaries across the five view files (§10).
+- `profile.module.css`'s `:root` token block (moves to `styles/command.css`).
+- The scifi starfield background and the `#140f07` brass palette, replaced by
+  the Tactical and Dispatch designs.
 
 ---
 
-## 10. Testing
+## 10. The mission page and its themes
+
+The public view at `app/operations/[id]/page.tsx` is the same surface as the
+editor's Preview: **Preview is an `<iframe>` of this page**, refreshed by
+resetting `src` with a cache-busting `_t` param. There is no separate preview
+page to restyle, and restyling this one fixes both.
+
+### The problem
+
+Each operation picks a `pageTheme` — `modern`, `oldfashioned` or `scifi` —
+which the view renders through inline `isOF ? … : isSF ? … : …` ternaries:
+
+| File | Branches |
+|---|---|
+| `page.tsx` | 86 |
+| `paged-view.tsx` | 44 |
+| `PageNavClient.tsx` | 17 |
+| `OcapStatsPanel.tsx` | 10 |
+| `section-nav.tsx` | 8 |
+| **Total** | **165** |
+
+Every visual decision is written three times, at its point of use. That is why
+the page resists change, and it caps how different a theme is allowed to be:
+a theme can only vary what someone remembered to branch on.
+
+### Theme modules, not token swaps
+
+Themes become modules that own their markup. One container resolves the data;
+each theme decides what to draw with it.
+
+```
+app/operations/[id]/
+  page.tsx              loads the operation, resolves permissions and theme
+  view/
+    model.ts            OperationView — the contract every theme receives
+    registry.ts         pageTheme -> module, and the editor's dropdown labels
+    shared/             DocBody, acknowledgement, print hooks, OCAP panels
+    modern/
+    dispatch/
+    tactical/
+```
+
+`OperationView` is the whole contract: title, department, dates, status,
+sections, page tree, OCAP summary, acknowledgement state, and viewer
+capability flags. A theme is a pure function of it. Adding a theme is a new
+folder, an entry in `registry.ts`, and nothing else edited.
+
+**Why not fully separate pages,** which was the first instinct: the data
+loading, permission resolution, acknowledgement mutation and print wiring would
+be triplicated, and a change to any of them would need making three times, with
+the third discovered missing in production. The split is presentation-only.
+
+**Why not token sets,** which this spec previously chose: token swaps hold only
+while themes differ by colour and type. The designs in §10.1 differ
+structurally — hanging numerals, a chop stamp and a signature block have no
+counterpart in the others. A mechanism that cannot express them is the wrong
+mechanism.
+
+Tokens still do the work *inside* a theme; they are no longer how a theme is
+selected.
+
+### 10.1 The three themes
+
+Stored `pageTheme` values are unchanged — `modern`, `oldfashioned`, `scifi` —
+so no data migration is required. Only display names and designs change.
+
+**Modern** (`modern`). The `styles/command.css` palette applied to a briefing:
+cool near-black, the 36px accent tick per panel, mono micro-labels, film grain.
+The operation's theme colour is the accent. The default.
+
+**Dispatch** (`oldfashioned`, shown as "Dispatch"). Reimagined rather than
+ported — the current brass-on-`#140f07` with Courier chrome is replaced by a
+printed operations order: warm stock, ink-black serif body, a rotated
+double-ruled chop stamp for status, hanging clause numerals in a margin, a
+ruled left margin, and a signature block in place of a bare acknowledge button.
+
+**It is the one light theme, deliberately.** This page has a real print path
+(`PrintButton`, `data-print-section`, and a `bgColor` passed per theme), and a
+paper design is the only one of the three that prints honestly rather than
+flooding a page with ink.
+
+**Tactical** (`scifi`, shown as "Tactical"). Also reimagined: the starfield
+wallpaper behind Courier is replaced by a console — cold blue-black ground, a
+fine technical grid, corner brackets instead of full panel borders, a tick rail
+down the edge, scanlines, and bracketed mono readouts. The operation's own
+colour remains the accent, used as the alert hue against cyan chrome, so an
+operation keeps its identity in every theme.
+
+### 10.2 Print
+
+Each theme module exports a `printBackground` and its own print stylesheet,
+replacing the `bgColor={isOF ? '#140f07' : isSF ? '#01050a' : 'rgb(10,10,10)'}`
+ternary currently passed to `PrintButton`. `data-print-section` markers stay on
+section wrappers — the print path selects them and must keep working unchanged
+for all three themes.
+
+## 11. Testing
 
 **Unit (`vitest`, `npm run test:unit`).** The extracted logic is where the real
 risk sits and it is all pure:
@@ -363,6 +481,14 @@ risk sits and it is all pure:
 Attendance tab and deck card are absent — not disabled — for a non-HQ user, and
 Publish renders only for HQ on an `In Development` operation.
 
+**Theme modules (§10).** Each theme renders from the same `OperationView`
+fixture, which is what stops one theme quietly losing a field the others show.
+Per theme, assert: every section renders, the acknowledgement control is
+present and reflects acknowledged state, `data-print-section` markers survive,
+and an unknown `pageTheme` value falls back to Modern rather than throwing.
+A snapshot of the milpac page before and after the `styles/command.css`
+extraction must show no rendered colour change.
+
 **End-to-end (`playwright`).** Specs are written for tab switching preserving
 the collab connection, deck collapse persistence, and the timeline editing a
 date. **These are not run as part of this work without asking** — running
@@ -370,10 +496,10 @@ date. **These are not run as part of this work without asking** — running
 
 ---
 
-## 11. Rollout
+## 12. Rollout
 
-Work happens on `feat/operations-editor`, already branched off `main` at
-`63526821`, and carrying one unrelated commit-pending fix (the React
+Work happens on `feat/operations-editor`, branched off `main` at `63526821`,
+which already carries one unrelated fix as `1032f5c2` (the React
 shorthand/longhand border warning).
 
 No feature flag. This is a staff-only page behind `pages.operationsEdit`, the
@@ -382,9 +508,17 @@ against one Y.Doc. Because `.github/workflows/deploy.yml` deploys every push to
 `main` with no CI gate, the branch merges only when the whole shell is
 finished — per the repo's standing rule on large features.
 
-Sequencing, each step leaving the page working:
+Two bodies of work — the editor shell and the mission page — sharing only
+`styles/command.css`. They are independent after step 1 and can land in either
+order.
 
-1. `shell.module.css` and the token port.
+Sequencing, each step leaving both pages working:
+
+1. `styles/command.css`: extract the token block, repoint `profile.module.css`
+   at it, confirm no rendered change on milpac.
+
+**Editor shell**
+
 2. Extract `useOperationMeta`, `useOperationStatus`, `useDocStats` from
    `page.tsx` — behaviour-preserving, page still renders as today.
 3. `EditorShell` + Header + StatusBar, with the existing panels stacked
@@ -394,9 +528,23 @@ Sequencing, each step leaving the page working:
 6. Density rebuild of Schedule and Attendance.
 7. Delete the dead panel code.
 
+**Mission page**
+
+8. `view/model.ts` and `view/registry.ts`; extract `shared/` from the current
+   view without changing output.
+9. `modern/` — port today's `modern` branch onto the new structure, so the
+   default theme is proven against the container before anything is redesigned.
+10. `dispatch/` and `tactical/`, each new work rather than a port.
+11. Delete the `isOF`/`isSF` ternaries and rename the editor's theme dropdown
+    labels to Modern / Dispatch / Tactical.
+
+Step 9 before step 10 matters: it separates "did the new architecture break the
+page" from "do we like the new designs", which are otherwise diagnosed
+together.
+
 ---
 
-## 12. Open questions
+## 13. Open questions
 
 - **`billetPoints` on the Details card.** It is awarded to the owner on
   completion. Whether it should be editable after publish is a policy question
@@ -408,3 +556,14 @@ Sequencing, each step leaving the page working:
   panels (`OcapLinkPanel`, `OcapStatsPanel`, 568 and 520 lines) on the public
   view. Whether the editor's OCAP page should surface sync status is unresolved
   and deferred.
+- **Dispatch is a light theme inside a dark app.** The site chrome (navbar,
+  footer) is dark and does not currently vary by page. Whether Dispatch should
+  suppress or invert that chrome, as `FullscreenPage` already does for the map,
+  needs deciding before it ships.
+- **How many operations use each theme.** Unknown from the code. It does not
+  change the architecture, but if `oldfashioned` and `scifi` are effectively
+  unused, building two full theme modules is speculative work and Dispatch and
+  Tactical could land after the shell instead of with it.
+- **The Preview iframe under Dispatch.** Preview renders the mission page inside
+  a dark editor. A light page in a 40vw drawer may need a framing treatment
+  rather than sitting flush against the deck.
