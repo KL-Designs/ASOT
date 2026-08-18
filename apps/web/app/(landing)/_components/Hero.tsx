@@ -135,7 +135,7 @@ export default function Hero({ sotm, roster, opCard }: {
                 }}
             >
                 <div className={s.heroCopy}>
-                    <Kicker>Est. 2019 · Oceania&apos;s largest ArmA 3 milsim unit</Kicker>
+                    <Kicker centred={!opCard}>Est. 2019 · Oceania&apos;s largest ArmA 3 milsim unit</Kicker>
 
                     {/* The unit lockup as a vector — emblem and wordmark are one
                         asset, so they can never drift apart or fall out of

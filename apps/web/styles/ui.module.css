@@ -313,6 +313,17 @@
     flex: none;
 }
 
+/* Centred, a rule on one side only reads as an alignment mistake rather than a
+   flourish — so it gets its mirror. Left-aligned it stays single, where the one
+   rule is doing the work of pointing into the text. */
+.kickerCentred::after {
+    content: '';
+    width: 20px;
+    height: 1px;
+    background: var(--red);
+    flex: none;
+}
+
 .h2 {
     font-family: var(--font-disp);
     font-weight: 700;
