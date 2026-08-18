@@ -10,14 +10,31 @@ export interface OrbatData {
     gamemasters: OrbatMember[]
 }
 
+/**
+ * Splits one CSV line into trimmed cells.
+ *
+ * The escaped-quote case is the one that matters. RFC 4180 escapes a quote
+ * inside a quoted field by doubling it, and a parser that simply toggles on
+ * every quote character reads the second half of that pair as *re-entering*
+ * quoted state — so the next comma stops separating cells and every remaining
+ * cell on the line lands one column to the left. In the ORBAT that silently
+ * reseats people into other sections, and nothing about the output looks
+ * wrong enough to notice.
+ */
 export function parseRow(line: string): string[] {
     const result: string[] = []
     let current = ''
     let inQuotes = false
-    for (const char of line) {
-        if (char === '"') {
-            inQuotes = !inQuotes
-        } else if (char === ',' && !inQuotes) {
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i]
+        if (inQuotes) {
+            if (char !== '"') current += char
+            else if (line[i + 1] === '"') { current += '"'; i++ }   // "" is one literal quote
+            else inQuotes = false
+        } else if (char === '"') {
+            inQuotes = true
+        } else if (char === ',') {
             result.push(current.trim())
             current = ''
         } else {
