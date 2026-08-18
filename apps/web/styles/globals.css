@@ -78,11 +78,25 @@ body {
 }
 
 @media (pointer: fine) {
-	html, body, * { cursor: none !important; }
-	body.suppress-custom-cursor,
-	body.suppress-custom-cursor * { cursor: auto !important; }
-	body.cursor-disabled,
-	body.cursor-disabled * { cursor: auto !important; }
+	/*
+	   Hide the native cursor only while the custom one is actually being drawn.
+
+	   This was previously an unconditional `* { cursor: none !important }` with
+	   `* { cursor: auto !important }` layered back on when the custom cursor was
+	   off. That does not restore anything: `auto` is not "whatever this element
+	   would normally use", it is the plain arrow (text over text runs), and the
+	   `!important` beat every author `cursor: pointer` underneath it. Turning
+	   the custom cursor off therefore left links and buttons with no pointer.
+
+	   Scoping the rule off instead means that when the cursor is disabled no
+	   cursor declaration applies at all, and every element falls back to its own.
+	*/
+	html:has(body:not(.cursor-disabled):not(.suppress-custom-cursor)),
+	body:not(.cursor-disabled):not(.suppress-custom-cursor),
+	body:not(.cursor-disabled):not(.suppress-custom-cursor) * {
+		cursor: none !important;
+	}
+
 	/* Map area keeps cursor:none even when the site cursor is suppressed */
 	body.suppress-custom-cursor [data-map-area],
 	body.suppress-custom-cursor [data-map-area] * { cursor: none !important; }
