@@ -550,6 +550,21 @@ export default function Page() {
         await fetch(`/api/operations/update?id=${opID}&ownedBy=${encodeURIComponent(id)}&ownedByName=${encodeURIComponent(displayName)}`)
     }
 
+    // Complete Mission (Task 11, ruling 1) — restores the old panel's button,
+    // which called `applyStage('confirmations_open')` directly with no
+    // confirmation step. That call writes the operation's `status` (via
+    // `fetch('/api/operations/update?...status=Completed')` + `setStatus`)
+    // and, as the same side effect it always had, the attendance `stage` —
+    // two different fields on two different documents that happen to share
+    // the word "completed". Routed through commitStageChange rather than a
+    // bare applyStage call so it picks up the same double-click guard and
+    // refresh() every other stage-changing control already has; that's an
+    // additive safety net, not a behaviour change, since the underlying
+    // write is identical either way.
+    function handleCompleteMission() {
+        commitStageChange('confirmations_open')
+    }
+
     // AttendanceCard handlers (Task 11) — same saveAttendanceSettings path
     // (with its `?? current` sibling-field fallbacks) the old Attendance
     // Settings panel's platoon checkboxes and ping toggle already used.
@@ -919,6 +934,12 @@ export default function Page() {
                                 onMapWorldChange={handleMapWorldChange}
                                 loreDateDayjs={loreDateDayjs}
                                 onLoreDateChange={handleLoreDateChange}
+                                onCompleteMission={handleCompleteMission}
+                                completingMission={stageAdvancing}
+                                coverImage={coverImage}
+                                coverUploading={coverUploading}
+                                onUploadCover={uploadCover}
+                                onRemoveCover={removeCover}
                             />
                         )}
                         {isHQ && opID && (
@@ -1448,18 +1469,16 @@ export default function Page() {
                 )
             })()}
 
-            {/* Acknowledgements + cover photo — not rehomed into a deck card
-                (Task 11). Neither fits the DetailsCard row idiom:
-                acknowledgements is a count/expand/remind list, and Task 12's
-                brief already earmarks it for the future Attendance tab;
-                cover photo is an image plus upload/replace/remove, not a
-                single data row. Left mounted here, functionally unchanged
-                from the old "Operation Details" panel, pending a ruling on
-                their permanent home — see the task-11 report. Everything
-                else that panel held (title, owner, billet points,
-                department, status, theme colour, era, map, in-game date) now
-                lives in the deck's DetailsCard. */}
-            <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Acknowledgements — owned by Task 12, not this one. Its proper
+                home is the Attendance tab Task 12 builds; left mounted here,
+                functionally unchanged from the old "Operation Details" panel,
+                so it isn't lost in the meantime. Do not restyle, move, or
+                delete it as part of any other task — see task-11-report.md
+                for the ruling. Everything else that old panel held (title,
+                owner, billet points, department, status, theme colour, era,
+                map, in-game date, cover photo) now lives in the deck's
+                DetailsCard. */}
+            <div style={{ marginBottom: 20 }}>
                 {status === 'Upcoming' && (
                     <div style={{ ...sideBorders(`1px solid ${c(0.15)}`, `2px solid ${c(0.5)}`), background: 'rgba(255,255,255,0.01)', padding: '12px 16px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: ackExpanded ? 10 : 0 }}>
@@ -1492,34 +1511,6 @@ export default function Page() {
                         )}
                     </div>
                 )}
-
-                {/* Cover image */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    {coverImage ? (
-                        <>
-                            <div style={{ position: 'relative', width: 140, height: 52, flexShrink: 0, border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
-                                <img src={coverImage} alt='cover' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                            </div>
-                            <button
-                                onClick={removeCover}
-                                style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: c(0.6), background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                            >
-                                Remove Cover
-                            </button>
-                            <label style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', cursor: 'pointer' }}>
-                                Replace
-                                <input type='file' accept='image/*' style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCover(f) }} />
-                            </label>
-                        </>
-                    ) : (
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1px dashed rgba(255,255,255,0.12)', padding: '10px 18px', cursor: 'pointer' }}>
-                            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: coverUploading ? 'rgba(237,237,237,0.3)' : 'rgba(237,237,237,0.4)' }}>
-                                {coverUploading ? 'Uploading…' : '+ Cover Photo'}
-                            </span>
-                            <input type='file' accept='image/*' style={{ display: 'none' }} disabled={coverUploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadCover(f) }} />
-                        </label>
-                    )}
-                </div>
             </div>
 
             {/* Attendance settings — HQ only */}

@@ -55,6 +55,21 @@ interface Props {
 
     loreDateDayjs: Dayjs | null
     onLoreDateChange: (v: Dayjs | null) => void
+
+    /** Restores the old panel's "Complete Mission" button (Task 11, ruling 1).
+     * Writes the operation's `status` (Active → Completed) via the same
+     * `applyStage('confirmations_open')` path as before — distinct from
+     * StageCard's attendance `stage`, even though that path also advances
+     * the stage as a side effect. Caller gates the write; this card gates
+     * the button's visibility on `isHQ && status === 'Active'`, matching the
+     * old inline condition. */
+    onCompleteMission: () => void
+    completingMission: boolean
+
+    coverImage: string | null
+    coverUploading: boolean
+    onUploadCover: (file: File) => void
+    onRemoveCover: () => void
 }
 
 const rowStyle: CSSProperties = {
@@ -94,12 +109,10 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
  * card is presentation only, every handler is passed down from page.tsx so
  * the save paths (and their exact keys/endpoints) don't move.
  *
- * Not rehomed here: the cover photo upload and the orders-acknowledgement
- * block. Neither fits this row idiom (an image + upload/replace/remove, and
- * a count/expand/remind list, respectively) and Task 12's brief already
- * earmarks acknowledgements for the future Attendance tab — see the task-11
- * report for the full writeup. Both stay live in page.tsx, just outside the
- * deleted panel, pending a ruling on their permanent home.
+ * Not rehomed here: the orders-acknowledgement block, still left mounted in
+ * page.tsx pending Task 12's Attendance tab (see the task-11 report). The
+ * cover photo *is* rehomed here as a compact data row — see the "Cover" row
+ * below.
  */
 export default function DetailsCard({
     title, onTitleChange,
@@ -111,6 +124,8 @@ export default function DetailsCard({
     pageTheme, eraOptions, onPageThemeChange,
     mapWorld, availableWorlds, onMapWorldChange,
     loreDateDayjs, onLoreDateChange,
+    onCompleteMission, completingMission,
+    coverImage, coverUploading, onUploadCover, onRemoveCover,
 }: Props) {
     const statusColor = STATUS_COLOR[status] ?? 'var(--ink-3)'
 
@@ -200,6 +215,80 @@ export default function DetailsCard({
                         <option value="Completed">Completed</option>
                         {isHQ && <option value="In Development">In Development</option>}
                     </select>
+                </Row>
+
+                {/* Complete Mission — same visibility gate the old inline button had
+                    (`isHQ && status === 'Active'`), sitting directly under the Status
+                    row it acts on. No confirmation dialog, matching the original. */}
+                {isHQ && status === 'Active' && (
+                    <div style={{ padding: '0 16px 12px', display: 'flex', justifyContent: 'flex-end' }}>
+                        <button
+                            type="button"
+                            onClick={onCompleteMission}
+                            disabled={completingMission}
+                            style={{
+                                border: '1px solid rgba(var(--acc-rgb), 0.6)',
+                                background: 'rgba(var(--acc-rgb), 0.15)',
+                                borderRadius: 'var(--r)',
+                                color: 'var(--acc)',
+                                fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700,
+                                letterSpacing: '0.12em', textTransform: 'uppercase',
+                                padding: '6px 12px',
+                                cursor: completingMission ? 'not-allowed' : 'pointer',
+                                opacity: completingMission ? 0.6 : 1,
+                            }}
+                        >
+                            {completingMission ? 'Completing…' : 'Complete Mission'}
+                        </button>
+                    </div>
+                )}
+
+                <Row label="Cover">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        {coverImage && (
+                            <img
+                                src={coverImage}
+                                alt=""
+                                style={{
+                                    width: 56, height: 32, objectFit: 'cover',
+                                    borderRadius: 'var(--r)', border: '1px solid var(--line-2)',
+                                    display: 'block', flexShrink: 0,
+                                }}
+                            />
+                        )}
+                        <label style={{
+                            fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700,
+                            letterSpacing: '0.1em', textTransform: 'uppercase',
+                            color: coverUploading ? 'var(--ink-3)' : 'var(--acc)',
+                            cursor: coverUploading ? 'not-allowed' : 'pointer',
+                            whiteSpace: 'nowrap',
+                        }}>
+                            {coverUploading ? 'Uploading…' : coverImage ? 'Replace' : 'Upload'}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                disabled={coverUploading}
+                                style={{ display: 'none' }}
+                                onChange={e => { const f = e.target.files?.[0]; if (f) onUploadCover(f) }}
+                            />
+                        </label>
+                        {coverImage && (
+                            <button
+                                type="button"
+                                onClick={onRemoveCover}
+                                disabled={coverUploading}
+                                style={{
+                                    background: 'none', border: 'none', padding: 0,
+                                    fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700,
+                                    letterSpacing: '0.1em', textTransform: 'uppercase',
+                                    color: 'var(--ink-3)',
+                                    cursor: coverUploading ? 'not-allowed' : 'pointer',
+                                }}
+                            >
+                                Remove
+                            </button>
+                        )}
+                    </span>
                 </Row>
 
                 <Row label="Theme Colour">
