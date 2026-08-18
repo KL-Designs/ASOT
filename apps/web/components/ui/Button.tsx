@@ -21,6 +21,13 @@ type Common = {
     variant?: ButtonVariant
     size?: 'md' | 'sm'
     block?: boolean
+    /**
+     * Renders a real `<button disabled>` even when `href` is given. A disabled
+     * link is not a thing HTML has — an `<a>` with `aria-disabled` is still
+     * focusable and still navigable on Enter — so the element changes rather
+     * than being dressed up.
+     */
+    disabled?: boolean
     className?: string
     children: React.ReactNode
 }
@@ -44,6 +51,7 @@ export default function Button({
     variant = 'red',
     size = 'md',
     block = false,
+    disabled = false,
     className = '',
     children,
     ...rest
@@ -53,8 +61,18 @@ export default function Button({
         VARIANTS[variant],
         size === 'sm' ? s.btnSm : '',
         block ? s.btnBlock : '',
+        disabled ? s.btnDisabled : '',
         className,
     ].filter(Boolean).join(' ')
+
+    if (disabled) {
+        const { href: _href, external: _external, ...safe } = rest as Record<string, unknown>
+        return (
+            <button type='button' disabled className={classes} {...safe as React.ButtonHTMLAttributes<HTMLButtonElement>}>
+                {children}
+            </button>
+        )
+    }
 
     if ('href' in rest && rest.href) {
         const { href, external, ...anchorProps } = rest as { href: string, external?: boolean } & React.AnchorHTMLAttributes<HTMLAnchorElement>

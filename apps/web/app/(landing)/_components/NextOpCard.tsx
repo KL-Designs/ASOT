@@ -26,6 +26,8 @@ export default function NextOpCard({ op }: { op: LandingOp }) {
         : op.rsvpOpen ? 'Sign-on open'
             : 'Sign-on not open'
 
+    const canSignOn = op.rsvpOpen && !running
+
     const when = new Date(op.date).toLocaleString('en-AU', {
         weekday: 'short', day: 'numeric', month: 'short',
         hour: '2-digit', minute: '2-digit', hour12: false,
@@ -68,8 +70,20 @@ export default function NextOpCard({ op }: { op: LandingOp }) {
                 />
             </div>
 
+            {/* Sign-on is only a real action while RSVP is open. Disabled rather
+                than hidden: the button going flat is what tells you the state,
+                and a slot that empties and refills is harder to read than one
+                that greys. Orders stay live — the briefing is worth reading
+                before you can commit. */}
             <div className={s.ocF}>
-                <Button variant='red' size='sm' href={`/operations/${op.id}`}>Sign on</Button>
+                <Button
+                    variant='red'
+                    size='sm'
+                    href={`/operations/${op.id}`}
+                    disabled={!canSignOn}
+                >
+                    {canSignOn ? 'Sign on' : 'Sign-on closed'}
+                </Button>
                 <Button variant='ghost' size='sm' href={`/operations/${op.id}`}>Orders</Button>
             </div>
         </aside>

@@ -228,6 +228,18 @@
     opacity: 0;
 }
 
+/*
+   Placed after the variants so it wins on source order without needing
+   `!important`. `pointer-events: none` is what actually stops the hover
+   treatments firing — a disabled <button> still matches :hover in CSS.
+*/
+.btnDisabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    box-shadow: none;
+    pointer-events: none;
+}
+
 .btnSm {
     height: 38px;
     padding: 0 18px;

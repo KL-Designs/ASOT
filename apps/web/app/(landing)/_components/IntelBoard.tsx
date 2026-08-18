@@ -102,7 +102,13 @@ function FeaturedOp({ op }: { op: LandingOp }) {
                         value={op.slots ? <><b>{signedOn}</b> / {op.slots} slots</> : <><b>{signedOn}</b> signed on</>}
                         pct={op.slots ? (signedOn / op.slots) * 100 : 0}
                     />
-                    <Button variant='red' href={`/operations/${op.id}`}>Sign on</Button>
+                    <Button
+                        variant='red'
+                        href={`/operations/${op.id}`}
+                        disabled={!(op.rsvpOpen && !running)}
+                    >
+                        {op.rsvpOpen && !running ? 'Sign on' : 'Sign-on closed'}
+                    </Button>
                     <Button variant='ghost' href={`/operations/${op.id}`}>Read orders</Button>
                 </div>
             </div>
