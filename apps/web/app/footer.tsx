@@ -4,7 +4,6 @@ import Image from 'next/image'
 
 import Button from '@/components/ui/Button'
 import Pulse from '@/components/ui/Pulse'
-import Topo from '@/components/ui/Topo'
 import { CrateIcon, DiscordIcon, SteamIcon, YouTubeIcon, MailIcon } from '@/components/ui/icons'
 import Signature from '@/components/signature'
 import CreditsModal from '@/components/credits-modal'
@@ -80,7 +79,7 @@ export default async function Footer() {
 
     return (
         <footer className={s.ft}>
-            <Topo opacity={0.075} driftSeconds={900} mask='none' />
+            <div className={s.pattern} aria-hidden='true' />
             <div className={s.word} aria-hidden='true'>ASOT</div>
 
             <div className={s.in}>

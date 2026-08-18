@@ -30,6 +30,30 @@
     opacity: .8;
 }
 
+/*
+   Honeycombs rather than the topo field the rest of the page uses. The footer
+   is the one band with no photograph and no data in it, so it can carry a
+   pattern with actual geometry — and giving the page's floor a different
+   texture from its chrome stops the topo reading as wallpaper.
+
+   Tiled at a fixed size rather than stretched: the asset is a designed cluster,
+   not a seamless tile, so scaling it to the footer would distort the cells.
+   Faded from the top so it never collides with the red rule above it.
+*/
+.pattern {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image: url('/designs/honeycombs.svg');
+    background-repeat: repeat;
+    background-size: 820px auto;
+    background-position: center top;
+    opacity: .05;
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent);
+    mask-image: linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent);
+}
+
 .in {
     position: relative;
     z-index: 2;

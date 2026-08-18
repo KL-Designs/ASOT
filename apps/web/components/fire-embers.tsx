@@ -43,8 +43,8 @@ export default function FireEmbers({ style }: { style?: React.CSSProperties }) {
 				y: canvas.height + 2,
 				vx: (Math.random() - 0.5) * 0.4,
 				vy: -(Math.random() * 0.55 + 0.2),
-				size: Math.random() * 1.3 + 0.6,
-				opacity: Math.random() * 0.45 + 0.55,
+				size: Math.random() * 1 + 0.4,
+				opacity: Math.random() * 0.5 + 0.5,
 				life: 1,
 				decay: Math.random() * 0.003 + 0.0015,
 			})
@@ -71,7 +71,7 @@ export default function FireEmbers({ style }: { style?: React.CSSProperties }) {
 				// Glow
 				ctx.save()
 				ctx.globalCompositeOperation = 'lighter'
-				ctx.globalAlpha = alpha * 0.5
+				ctx.globalAlpha = alpha * 0.35
 				const glow = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.size * 3.5)
 				glow.addColorStop(0, `hsl(${hue}, 100%, 55%)`)
 				glow.addColorStop(1, 'transparent')
@@ -84,7 +84,7 @@ export default function FireEmbers({ style }: { style?: React.CSSProperties }) {
 				// Core
 				ctx.save()
 				ctx.globalCompositeOperation = 'lighter'
-				ctx.globalAlpha = alpha * 0.9
+				ctx.globalAlpha = alpha * 0.75
 				ctx.beginPath()
 				ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2)
 				ctx.fillStyle = `hsl(${hue + 15}, 100%, 75%)`
@@ -113,6 +113,7 @@ export default function FireEmbers({ style }: { style?: React.CSSProperties }) {
 				height: 520,
 				pointerEvents: 'none',
 				zIndex: 0,
+				opacity: 0.75,
 				...style,
 			}}
 		/>

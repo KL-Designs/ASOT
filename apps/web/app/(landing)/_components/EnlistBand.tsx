@@ -35,7 +35,7 @@ const STEPS = [
 export default function EnlistBand() {
     return (
         <section className={s.enlist} id='enlist'>
-            <Topo opacity={0.06} driftSeconds={720} />
+            <Topo opacity={0.05} driftSeconds={720} />
 
             <div className={s.enlistIn}>
                 <Kicker>Enlistment</Kicker>
