@@ -12,7 +12,7 @@
  * See docs/superpowers/specs/2026-08-18-member-history-import-design.md.
  */
 import { readFileSync } from 'fs'
-import { MongoClient } from 'mongodb'
+import { MongoClient, type Filter, type AnyBulkWriteOperation } from 'mongodb'
 import { parseHistoryCsv, buildHistory, ISSUER_WINDOWS } from '@/lib/military/history-import'
 import { resolveMembers, type MatchCandidate } from '@/lib/military/history-match'
 import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/military/points'
@@ -54,7 +54,18 @@ function awardsOnlyPoints(member: User, awards: { name: string }[]): number {
 }
 
 async function main() {
-    const rows = parseHistoryCsv(readFileSync(csvPath!, 'utf-8'))
+    const text = readFileSync(csvPath!, 'utf-8')
+    const rows = parseHistoryCsv(text)
+
+    // parseHistoryCsv drops a row whose Member Name cell is empty, and such a
+    // row would be counted neither as written nor as skipped — the accounting
+    // assertion below would pass while a record was silently missing. Compare
+    // against the raw non-blank line count so that cannot happen quietly.
+    const dataLines = text.replace(/^﻿/, '').split(/\r?\n/).slice(1).filter(l => l.trim()).length
+    if (rows.length !== dataLines) {
+        die(`${dataLines - rows.length} row(s) were dropped at parse time (empty member name?) — refusing to run`)
+    }
+
     const { byMember, skipped, corrections } = buildHistory(rows)
 
     const client = new MongoClient(MONGO_URI!)
@@ -67,8 +78,11 @@ async function main() {
         }))
 
         const { resolved, unresolved, errors } = resolveMembers([...byMember.keys()], candidates)
-        if (errors.length) die(`member resolution failed:\n         ${errors.join('\n         ')}`)
-        if (unresolved.length) die(`${unresolved.length} member(s) did not resolve: ${unresolved.join(', ')}\n         Add them to MEMBER_OVERRIDES in lib/military/history-match.ts.`)
+        // throw rather than die() here — die() calls process.exit() immediately,
+        // which would skip the finally block below and leave the Mongo client
+        // open. main().catch() reports the message and exits instead.
+        if (errors.length) throw new Error(`member resolution failed:\n         ${errors.join('\n         ')}`)
+        if (unresolved.length) throw new Error(`${unresolved.length} member(s) did not resolve: ${unresolved.join(', ')}\n         Add them to MEMBER_OVERRIDES in lib/military/history-match.ts.`)
 
         const byId = new Map(users.map(u => [u._id, u]))
         const written = [...byMember.values()].reduce((n, h) => n + h.promotions.length + h.awards.length, 0)
@@ -78,7 +92,7 @@ async function main() {
             die(`accounting failed: ${written} written + ${skipped.length} skipped != ${rows.length} rows`)
         }
 
-        const updates = []
+        const updates: AnyBulkWriteOperation<User>[] = []
         let pointsWritten = 0
         for (const [csvName, history] of byMember) {
             const member = byId.get(resolved.get(csvName)!._id)!
@@ -92,7 +106,7 @@ async function main() {
                 set['milpac.promotionPoints'] = awardsOnlyPoints(member, history.awards)
                 pointsWritten++
             }
-            updates.push({ updateOne: { filter: { _id: member._id } as never, update: { $set: set } } })
+            updates.push({ updateOne: { filter: { _id: member._id } as Filter<User>, update: { $set: set } } })
         }
 
         const promotions = [...byMember.values()].reduce((n, h) => n + h.promotions.length, 0)
@@ -131,7 +145,9 @@ async function main() {
             return
         }
 
-        const result = await client.db(MONGO_DB!).collection<User>('users').bulkWrite(updates as never)
+        if (updates.length === 0) die('no members resolved — nothing to write')
+
+        const result = await client.db(MONGO_DB!).collection<User>('users').bulkWrite(updates)
         console.log(`Wrote ${result.modifiedCount} member(s).\n`)
     } finally {
         await client.close()
