@@ -16,6 +16,17 @@ interface PageEntry {
 
 const STAFF_SECTION_PRESETS = ['HQ Orders', '1 PLT Orders', '2 PLT Orders', '3 PLT Orders'] as const
 
+/** Shape both `presenceUser` and each entry of `presencePeers` share — just
+ * enough identity to render an avatar (visual-fixes FIX 3). `id` is a
+ * Y.js/Hocuspocus awareness clientID for peers, or the literal 'self' for
+ * the local user; either way it's only ever used as a React key here. */
+interface PresencePerson {
+    id: string | number
+    name: string
+    color: string
+    avatar: string | null
+}
+
 interface Props {
     ydoc: Y.Doc
     activePage: string
@@ -24,6 +35,14 @@ interface Props {
     orientation?: 'sidebar' | 'top'
     synced?: boolean
     allowedTypes?: string[]
+    readOnly?: boolean
+    /** The local user and everyone else currently in the document — both
+     * read off the same Hocuspocus awareness state the collaborative cursors
+     * already use (ActiveEditor's own `user`/`peers`), not a second channel.
+     * Drives the rail footer's "EDITING" indicator (visual-fixes FIX 3),
+     * which replaces the old current-user-only footer. */
+    presenceUser?: PresencePerson
+    presencePeers?: PresencePerson[]
 }
 
 function hexToRgb(hex: string) {
@@ -35,7 +54,7 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor, orientation = 'sidebar', synced = false, allowedTypes }: Props) {
+export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor, orientation = 'sidebar', synced = false, allowedTypes, readOnly = false, presenceUser, presencePeers = [] }: Props) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
@@ -62,19 +81,6 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     const renameInputRef = useRef<HTMLInputElement>(null)
     const defaultInitRef = useRef(false)
     const [hoveredRowId, setHoveredRowId] = useState<string | null>(null)
-
-    // Current user, for the sidebar footer (name + avatar) only — same
-    // endpoint CollabEditor/useMapYjs already call for the collab token, no
-    // new prop needed and nothing here touches Y.Doc state.
-    const [currentUser, setCurrentUser] = useState<{ name: string; avatar: string | null } | null>(null)
-    useEffect(() => {
-        let cancelled = false
-        fetch('/api/me/token')
-            .then(r => r.json())
-            .then(({ name, avatar }) => { if (!cancelled) setCurrentUser({ name: name || 'Unknown', avatar: avatar || null }) })
-            .catch(() => {})
-        return () => { cancelled = true }
-    }, [])
 
     // Restore system cursor over modals (globals.css sets cursor:none !important for custom cursor)
     useEffect(() => {
@@ -502,8 +508,17 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             background: 'linear-gradient(180deg, var(--s1), var(--bg))',
             position: 'sticky',
             top: 0,
-            alignSelf: 'flex-start',
-            height: 'calc(100vh - 116px)',
+            // Flex-driven, not viewport maths (visual-fixes FIX 2): this row's
+            // parent (CollabEditor's ActiveEditor root) has `minHeight: '100%'`
+            // resolved against EditorShell's now-definite wrapper, so it's at
+            // least as tall as the visible body region and taller when the
+            // document itself is. Default `align-items: stretch` (no override
+            // here) plus this `height: '100%'` makes the rail match that
+            // exactly, so it reaches the status bar on a short document and
+            // keeps sticking through the whole scroll on a long one — a fixed
+            // `calc(100vh - N)` could do neither once N drifted out of sync
+            // with the real chrome height.
+            height: '100%',
         }}>
             <div style={{
                 fontSize: 11, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase',
@@ -769,24 +784,52 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             </button>
             </div>
 
-            {/* Footer — current user */}
+            {/* Footer — collaborator presence (visual-fixes FIX 3). Replaces the
+                old current-user-only footer; the "EDITING" indicator that used
+                to float at the top-right of the editor column now lives here
+                instead, reusing the same `presenceUser`/`presencePeers` identity
+                ActiveEditor already derives from the Hocuspocus awareness state
+                for the collaborative cursors — no second presence channel. */}
             <div style={{
                 display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
                 padding: '10px 14px',
                 borderTop: '1px solid var(--line)',
             }}>
-                <div style={{
-                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
-                    background: 'var(--acc)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 9, fontWeight: 700, color: '#fff', textTransform: 'uppercase',
+                {presenceUser && (() => {
+                    const shown = [presenceUser, ...presencePeers].slice(0, 6)
+                    const overflowCount = presenceUser ? 1 + presencePeers.length - shown.length : 0
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                            {shown.map((p, i) => (
+                                <div key={p.id} title={p.name} style={{
+                                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+                                    background: p.color, border: '1.5px solid var(--bg)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 8.5, fontWeight: 700, color: '#fff', textTransform: 'uppercase',
+                                    marginLeft: i === 0 ? 0 : -6, position: 'relative', zIndex: shown.length - i,
+                                }}>
+                                    {p.avatar ? <img src={p.avatar} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : p.name.charAt(0)}
+                                </div>
+                            ))}
+                            {overflowCount > 0 && (
+                                <div style={{
+                                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                                    background: 'var(--s3)', border: '1.5px solid var(--bg)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 8, fontWeight: 700, color: 'var(--ink-2)',
+                                    marginLeft: -6, position: 'relative', zIndex: 0,
+                                }}>
+                                    +{overflowCount}
+                                </div>
+                            )}
+                        </div>
+                    )
+                })()}
+                <span style={{
+                    fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                    color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 }}>
-                    {currentUser?.avatar ? (
-                        <img src={currentUser.avatar} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    ) : (currentUser?.name?.charAt(0) ?? '?')}
-                </div>
-                <span style={{ fontSize: 11, color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {currentUser?.name ?? 'Loading…'}
+                    {!presenceUser ? 'Connecting…' : presencePeers.length === 0 ? 'Only you' : readOnly ? 'Viewing' : 'Editing'}
                 </span>
             </div>
 

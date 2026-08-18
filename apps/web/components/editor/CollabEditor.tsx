@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useContext, useEffect, useRef, useState } from 'react'
+import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -602,6 +602,15 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                     orientation={isMobile ? 'top' : 'sidebar'}
                     synced={synced}
                     allowedTypes={allowedTypes}
+                    readOnly={readOnly}
+                    // The rail's own footer now carries the "EDITING" presence
+                    // indicator (visual-fixes FIX 3) that used to float at the
+                    // top-right of the editor column — same `user`/`peers`
+                    // this component already derives from the Hocuspocus
+                    // awareness state for the collaborative cursors, just
+                    // handed down instead of a second channel.
+                    presenceUser={{ id: 'self', ...user }}
+                    presencePeers={peers.map(p => ({ id: p.clientId, name: p.name, color: p.color, avatar: p.avatar }))}
                 />
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                     {/* One persistent formatting toolbar, owned by the column rather
@@ -617,17 +626,11 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                             than the old ~740px cap, so the document reads as a real
                             writing surface instead of a phone-width column. */}
                         <div style={{ maxWidth: 1160, margin: '0 auto', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            {activePageType !== 'intel' && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                                    <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-3)', marginRight: 2 }}>
-                                        {readOnly ? 'Viewing' : 'Editing'}
-                                    </span>
-                                    <PresenceAvatar key='self' peer={{ clientId: -1, ...user }} self />
-                                    {peers.map(peer => (
-                                        <PresenceAvatar key={peer.clientId} peer={peer} />
-                                    ))}
-                                </div>
-                            )}
+                            {/* The "EDITING" presence indicator that used to float here
+                                (top-right of the editor column) now lives in the rail's
+                                own footer instead (visual-fixes FIX 3) — see the
+                                `presenceUser`/`presencePeers` props passed to
+                                PageSidebar above. */}
 
                             {activePageType === 'intel' ? (
                                 <IntelPackageEditor
@@ -706,6 +709,95 @@ interface EditorToolbarProps {
     containerRef: React.RefObject<HTMLDivElement>
 }
 
+// Fixed sizes baked into the group-fit math below — not "hardcoded viewport
+// maths" in the sense FIX 2 warns against (those approximated an *unrelated*
+// layout region via vh arithmetic that drifted out of sync); these are a
+// component measuring its own children's own fixed CSS, values that only
+// change if TDivider's or TIconBtn's own inline styles do, right next to
+// this file's other toolbar controls.
+const TOOLBAR_DIVIDER_WIDTH = 9        // TDivider: 1px bar + 4px margin each side
+const TOOLBAR_OVERFLOW_BTN_WIDTH = 26  // matches TIconBtn's fixed 26×26 box
+
+/**
+ * Measurement-driven toolbar overflow (visual-fixes FIX 1): decides how many
+ * leading groups of `groupKeys` (already in the toolbar's fixed display
+ * order) fit inside the container's own observed width before the rest have
+ * to move into the "⋯" popover. Reacts only to the container's own
+ * ResizeObserver'd width — not to *why* it changed — so deck collapse,
+ * window resize, and sidebar collapse all correct it the same way, with no
+ * per-cause breakpoint list to keep in sync.
+ *
+ * A group is measured (via `setGroupRef`) only while it's actually rendered
+ * on the bar; one currently sitting in the overflow popover keeps its last
+ * known width in `widthsRef` rather than being treated as 0-width, so it
+ * doesn't flicker in and out on every render once it's been pushed off.
+ * Every group here is fixed-width (icon buttons) except the block-style/
+ * size dropdowns, whose label text shifts slightly with the cursor's
+ * position — that group sits early enough in the fixed order that it's the
+ * last one ever pushed into overflow, so a briefly stale cached width for
+ * it in practice never happens.
+ */
+function useToolbarOverflow(groupKeys: readonly string[], containerRef: React.RefObject<HTMLDivElement>) {
+    const [containerWidth, setContainerWidth] = useState<number | null>(null)
+    const groupRefs = useRef<Record<string, HTMLDivElement | null>>({})
+    const widthsRef = useRef<Record<string, number>>({})
+    const [visibleCount, setVisibleCount] = useState(groupKeys.length)
+
+    useEffect(() => {
+        const el = containerRef.current
+        if (!el) return
+        const observer = new ResizeObserver(entries => {
+            const width = entries[0]?.contentRect.width
+            if (width != null) setContainerWidth(width)
+        })
+        observer.observe(el)
+        return () => observer.disconnect()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    // No dependency array: this needs to re-measure/re-decide after *any*
+    // render that might have changed a visible group's rendered width (e.g.
+    // the block-style dropdown's label text) as well as after containerWidth
+    // itself changes — cheaper to just always check than to enumerate every
+    // input that can move a group's width. Can't loop: `setVisibleCount`
+    // below only actually updates state (and so only triggers the re-render
+    // that re-runs this effect) when the computed value differs from the
+    // last one, so it converges instead of chaining forever.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useLayoutEffect(() => {
+        for (const key of groupKeys) {
+            const node = groupRefs.current[key]
+            if (node) widthsRef.current[key] = node.offsetWidth
+        }
+        if (containerWidth == null) return
+
+        const widths = groupKeys.map(k => widthsRef.current[k] ?? 0)
+        const totalWidth = widths.reduce((a, b) => a + b, 0) + TOOLBAR_DIVIDER_WIDTH * Math.max(groupKeys.length - 1, 0)
+
+        let next = groupKeys.length
+        if (totalWidth > containerWidth) {
+            const reserved = TOOLBAR_OVERFLOW_BTN_WIDTH + TOOLBAR_DIVIDER_WIDTH
+            let used = 0
+            let count = 0
+            for (let i = 0; i < groupKeys.length; i++) {
+                const dividerBefore = i > 0 ? TOOLBAR_DIVIDER_WIDTH : 0
+                if (used + dividerBefore + widths[i] + reserved <= containerWidth) {
+                    used += dividerBefore + widths[i]
+                    count++
+                } else {
+                    break
+                }
+            }
+            next = count
+        }
+        setVisibleCount(prev => (prev === next ? prev : next))
+    })
+
+    const setGroupRef = (key: string) => (el: HTMLDivElement | null) => { groupRefs.current[key] = el }
+
+    return { visibleCount, setGroupRef }
+}
+
 /**
  * The one persistent formatting toolbar (visual-fixes spec §1) — pinned
  * above all document content via `position: sticky`, owned by the editor
@@ -718,6 +810,13 @@ interface EditorToolbarProps {
  * per-section chrome, so they moved here with everything else. Paste/drop
  * image upload stays in SectionEditor itself (it fires on whichever editor
  * the image actually lands in, independent of this toolbar's own state).
+ *
+ * Every group renders on the bar by default (visual-fixes FIX 1) — the "⋯"
+ * overflow popover only ever takes the *trailing* groups that genuinely
+ * don't fit, decided by `useToolbarOverflow` below from the container's own
+ * measured width, never a fixed split. Group order and dividers are
+ * unchanged: history | block type + size | inline marks | highlight |
+ * alignment | lists | blocks | insert | clear.
  */
 function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) {
     const [imagePopoverOpen, setImagePopoverOpen] = useState(false)
@@ -775,138 +874,174 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
     const currentHeadingLevel = editor ? (([1, 2, 3] as const).find(l => editor.isActive('heading', { level: l })) ?? 0) : 0
     const currentFontSize = (editor?.getAttributes('textStyle').fontSize as string | undefined) || ''
 
+    // Same nine groups, same order, as the previous always-inline toolbar —
+    // just named and grouped now so `useToolbarOverflow` can measure and
+    // relocate them as units (visual-fixes FIX 1) instead of individual
+    // buttons ending up orphaned on either side of a divider.
+    const groups: { key: string; node: React.ReactNode }[] = [
+        { key: 'history', node: (
+            <>
+                <TIconBtn title='Undo' disabled={disabled} onClick={() => editor?.chain().focus().undo().run()}><IconUndo /></TIconBtn>
+                <TIconBtn title='Redo' disabled={disabled} onClick={() => editor?.chain().focus().redo().run()}><IconRedo /></TIconBtn>
+            </>
+        ) },
+        { key: 'block', node: (
+            <>
+                <ToolbarDropdown title='Block style' disabled={disabled} minWidth={92}
+                    value={String(currentHeadingLevel)} options={HEADING_OPTIONS}
+                    onSelect={v => {
+                        if (!editor) return
+                        const lvl = Number(v)
+                        if (lvl === 0) editor.chain().focus().setParagraph().run()
+                        else editor.chain().focus().setHeading({ level: lvl as 1 | 2 | 3 }).run()
+                    }}
+                />
+                <ToolbarDropdown title='Text size' disabled={disabled} minWidth={52}
+                    value={currentFontSize} options={FONT_SIZE_OPTIONS}
+                    onSelect={v => {
+                        if (!editor) return
+                        if (v) (editor.chain().focus() as any).setFontSize(v).run()
+                        else (editor.chain().focus() as any).unsetFontSize().run()
+                    }}
+                />
+            </>
+        ) },
+        { key: 'marks', node: (
+            <>
+                <TLabel title='Bold' disabled={disabled} active={!!editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()}>B</TLabel>
+                <TLabel title='Italic' disabled={disabled} active={!!editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()}>I</TLabel>
+                <TLabel title='Underline' disabled={disabled} active={!!editor?.isActive('underline')} onClick={() => editor?.chain().focus().toggleUnderline().run()}>U</TLabel>
+                <TIconBtn title='Strikethrough' disabled={disabled} active={!!editor?.isActive('strike')} onClick={() => editor?.chain().focus().toggleStrike().run()}><IconStrikethrough /></TIconBtn>
+            </>
+        ) },
+        { key: 'highlight', node: (
+            <TIconBtn title='Highlight' disabled={disabled} active={!!editor?.isActive('highlight')} onClick={() => editor?.chain().focus().toggleHighlight().run()}><IconHighlight /></TIconBtn>
+        ) },
+        { key: 'align', node: (
+            <>
+                <TIconBtn title='Align Left' disabled={disabled} active={!!editor?.isActive({ textAlign: 'left' })} onClick={() => editor?.chain().focus().setTextAlign('left').run()}><IconAlignLeft /></TIconBtn>
+                <TIconBtn title='Align Centre' disabled={disabled} active={!!editor?.isActive({ textAlign: 'center' })} onClick={() => editor?.chain().focus().setTextAlign('center').run()}><IconAlignCenter /></TIconBtn>
+                <TIconBtn title='Align Right' disabled={disabled} active={!!editor?.isActive({ textAlign: 'right' })} onClick={() => editor?.chain().focus().setTextAlign('right').run()}><IconAlignRight /></TIconBtn>
+            </>
+        ) },
+        { key: 'lists', node: (
+            <>
+                <TIconBtn title='Bullet List' disabled={disabled} active={!!editor?.isActive('bulletList')} onClick={() => editor?.chain().focus().toggleBulletList().run()}><IconListBullet /></TIconBtn>
+                <TIconBtn title='Numbered List' disabled={disabled} active={!!editor?.isActive('orderedList')} onClick={() => editor?.chain().focus().toggleOrderedList().run()}><IconListNumber /></TIconBtn>
+            </>
+        ) },
+        { key: 'blocks', node: (
+            <>
+                <TIconBtn title='Quote' disabled={disabled} active={!!editor?.isActive('blockquote')} onClick={() => editor?.chain().focus().toggleBlockquote().run()}><IconQuote /></TIconBtn>
+                <TIconBtn title='Section Divider' disabled={disabled} onClick={() => editor?.chain().focus().setHorizontalRule().run()}><IconRule /></TIconBtn>
+            </>
+        ) },
+        { key: 'insert', node: (
+            <>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <TIconBtn title={uploadingImage ? 'Uploading…' : 'Insert Image'} disabled={disabled} active={uploadingImage || imagePopoverOpen}
+                        onClick={() => { if (!uploadingImage) setImagePopoverOpen(v => !v) }}
+                    >
+                        <IconImage />
+                    </TIconBtn>
+                    {imagePopoverOpen && !uploadingImage && (
+                        <div
+                            onMouseDown={e => e.stopPropagation()}
+                            style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '4px 0', display: 'flex', flexDirection: 'column', minWidth: 190, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
+                        >
+                            <button type='button'
+                                onMouseDown={e => e.preventDefault()}
+                                onClick={() => { setImagePopoverOpen(false); imageInputRef.current?.click() }}
+                                style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'var(--ink-2)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--s3)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >Upload from Computer</button>
+                            <button type='button'
+                                onMouseDown={e => e.preventDefault()}
+                                onClick={() => { setImagePopoverOpen(false); setShowImageLibrary(true) }}
+                                style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'var(--ink-2)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--s3)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                            >Select from Library</button>
+                        </div>
+                    )}
+                </div>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <TIconBtn title={editor?.isActive('link') ? 'Edit Link' : 'Insert Link'} disabled={disabled} active={!!editor?.isActive('link')}
+                        onClick={() => {
+                            if (!editor) return
+                            const existing = editor.getAttributes('link').href || ''
+                            setLinkUrl(existing)
+                            setLinkText('')
+                            setLinkPopover(v => !v)
+                            const noSel = editor.state.selection.empty
+                            setTimeout(() => (noSel ? linkTextInputRef.current : linkUrlInputRef.current)?.focus(), 40)
+                        }}
+                    >
+                        <IconLink />
+                    </TIconBtn>
+                    {linkPopover && editor && (
+                        <div data-shared-link-popover onMouseDown={e => e.stopPropagation()}
+                            style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
+                        >
+                            {editor.state.selection.empty && (
+                                <input ref={linkTextInputRef} value={linkText} onChange={e => setLinkText(e.target.value)} placeholder='Display text'
+                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); linkUrlInputRef.current?.focus() } if (e.key === 'Escape') setLinkPopover(false) }}
+                                    style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
+                                />
+                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <input ref={linkUrlInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter') { e.preventDefault(); applyLink() }
+                                        if (e.key === 'Escape') setLinkPopover(false)
+                                    }}
+                                    style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
+                                />
+                                <button type='button' onMouseDown={e => e.preventDefault()} onClick={applyLink}
+                                    style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--acc)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
+                                >Apply</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                <TIconBtn title='Remove Link' disabled={disabled} onClick={() => { editor?.chain().focus().unsetLink().run(); setLinkPopover(false) }}><IconUnlink /></TIconBtn>
+            </>
+        ) },
+        { key: 'clear', node: (
+            <TIconBtn title='Clear Formatting' disabled={disabled} onClick={() => editor?.chain().focus().clearNodes().unsetAllMarks().run()}><IconClear /></TIconBtn>
+        ) },
+    ]
+
+    const { visibleCount, setGroupRef } = useToolbarOverflow(groups.map(g => g.key), containerRef)
+    const visibleGroups = groups.slice(0, visibleCount)
+    const overflowGroups = groups.slice(visibleCount)
+
     return (
         <div ref={containerRef} style={{
             display: 'flex', alignItems: 'center', gap: 2, height: 44, flexShrink: 0,
             borderBottom: '1px solid var(--line)', background: 'var(--bg)', padding: '0 16px',
-            position: 'sticky', top: 0, zIndex: 20, overflowX: 'auto',
+            position: 'sticky', top: 0, zIndex: 20,
             opacity: disabled ? 0.45 : 1, transition: 'opacity 0.15s',
         }}>
-            {/* History */}
-            <TIconBtn title='Undo' disabled={disabled} onClick={() => editor?.chain().focus().undo().run()}><IconUndo /></TIconBtn>
-            <TIconBtn title='Redo' disabled={disabled} onClick={() => editor?.chain().focus().redo().run()}><IconRedo /></TIconBtn>
-            <TDivider />
-
-            {/* Block type + text size */}
-            <ToolbarDropdown title='Block style' disabled={disabled} minWidth={92}
-                value={String(currentHeadingLevel)} options={HEADING_OPTIONS}
-                onSelect={v => {
-                    if (!editor) return
-                    const lvl = Number(v)
-                    if (lvl === 0) editor.chain().focus().setParagraph().run()
-                    else editor.chain().focus().setHeading({ level: lvl as 1 | 2 | 3 }).run()
-                }}
-            />
-            <ToolbarDropdown title='Text size' disabled={disabled} minWidth={52}
-                value={currentFontSize} options={FONT_SIZE_OPTIONS}
-                onSelect={v => {
-                    if (!editor) return
-                    if (v) (editor.chain().focus() as any).setFontSize(v).run()
-                    else (editor.chain().focus() as any).unsetFontSize().run()
-                }}
-            />
-            <TDivider />
-
-            {/* Inline marks */}
-            <TLabel title='Bold' disabled={disabled} active={!!editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()}>B</TLabel>
-            <TLabel title='Italic' disabled={disabled} active={!!editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()}>I</TLabel>
-            <TLabel title='Underline' disabled={disabled} active={!!editor?.isActive('underline')} onClick={() => editor?.chain().focus().toggleUnderline().run()}>U</TLabel>
-            <TIconBtn title='Strikethrough' disabled={disabled} active={!!editor?.isActive('strike')} onClick={() => editor?.chain().focus().toggleStrike().run()}><IconStrikethrough /></TIconBtn>
-            <TDivider />
-
-            {/* Colour / highlight */}
-            <TIconBtn title='Highlight' disabled={disabled} active={!!editor?.isActive('highlight')} onClick={() => editor?.chain().focus().toggleHighlight().run()}><IconHighlight /></TIconBtn>
-            <TDivider />
-
-            {/* Alignment */}
-            <TIconBtn title='Align Left' disabled={disabled} active={!!editor?.isActive({ textAlign: 'left' })} onClick={() => editor?.chain().focus().setTextAlign('left').run()}><IconAlignLeft /></TIconBtn>
-            <TIconBtn title='Align Centre' disabled={disabled} active={!!editor?.isActive({ textAlign: 'center' })} onClick={() => editor?.chain().focus().setTextAlign('center').run()}><IconAlignCenter /></TIconBtn>
-            <TIconBtn title='Align Right' disabled={disabled} active={!!editor?.isActive({ textAlign: 'right' })} onClick={() => editor?.chain().focus().setTextAlign('right').run()}><IconAlignRight /></TIconBtn>
-            <TDivider />
-
-            {/* Lists */}
-            <TIconBtn title='Bullet List' disabled={disabled} active={!!editor?.isActive('bulletList')} onClick={() => editor?.chain().focus().toggleBulletList().run()}><IconListBullet /></TIconBtn>
-            <TIconBtn title='Numbered List' disabled={disabled} active={!!editor?.isActive('orderedList')} onClick={() => editor?.chain().focus().toggleOrderedList().run()}><IconListNumber /></TIconBtn>
-            <TDivider />
-
-            {/* Blocks */}
-            <TIconBtn title='Quote' disabled={disabled} active={!!editor?.isActive('blockquote')} onClick={() => editor?.chain().focus().toggleBlockquote().run()}><IconQuote /></TIconBtn>
-            <TIconBtn title='Section Divider' disabled={disabled} onClick={() => editor?.chain().focus().setHorizontalRule().run()}><IconRule /></TIconBtn>
-            <TDivider />
-
-            {/* Insert */}
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-                <TIconBtn title={uploadingImage ? 'Uploading…' : 'Insert Image'} disabled={disabled} active={uploadingImage || imagePopoverOpen}
-                    onClick={() => { if (!uploadingImage) setImagePopoverOpen(v => !v) }}
-                >
-                    <IconImage />
-                </TIconBtn>
-                {imagePopoverOpen && !uploadingImage && (
-                    <div
-                        onMouseDown={e => e.stopPropagation()}
-                        style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '4px 0', display: 'flex', flexDirection: 'column', minWidth: 190, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
-                    >
-                        <button type='button'
-                            onMouseDown={e => e.preventDefault()}
-                            onClick={() => { setImagePopoverOpen(false); imageInputRef.current?.click() }}
-                            style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'var(--ink-2)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
-                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--s3)')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >Upload from Computer</button>
-                        <button type='button'
-                            onMouseDown={e => e.preventDefault()}
-                            onClick={() => { setImagePopoverOpen(false); setShowImageLibrary(true) }}
-                            style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'var(--ink-2)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
-                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--s3)')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                        >Select from Library</button>
+            {visibleGroups.map((g, i) => (
+                <React.Fragment key={g.key}>
+                    {i > 0 && <TDivider />}
+                    <div ref={setGroupRef(g.key)} style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                        {g.node}
                     </div>
-                )}
-            </div>
-            <div style={{ position: 'relative', flexShrink: 0 }}>
-                <TIconBtn title={editor?.isActive('link') ? 'Edit Link' : 'Insert Link'} disabled={disabled} active={!!editor?.isActive('link')}
-                    onClick={() => {
-                        if (!editor) return
-                        const existing = editor.getAttributes('link').href || ''
-                        setLinkUrl(existing)
-                        setLinkText('')
-                        setLinkPopover(v => !v)
-                        const noSel = editor.state.selection.empty
-                        setTimeout(() => (noSel ? linkTextInputRef.current : linkUrlInputRef.current)?.focus(), 40)
-                    }}
-                >
-                    <IconLink />
-                </TIconBtn>
-                {linkPopover && editor && (
-                    <div data-shared-link-popover onMouseDown={e => e.stopPropagation()}
-                        style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
-                    >
-                        {editor.state.selection.empty && (
-                            <input ref={linkTextInputRef} value={linkText} onChange={e => setLinkText(e.target.value)} placeholder='Display text'
-                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); linkUrlInputRef.current?.focus() } if (e.key === 'Escape') setLinkPopover(false) }}
-                                style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
-                            />
-                        )}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <input ref={linkUrlInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
-                                onKeyDown={e => {
-                                    if (e.key === 'Enter') { e.preventDefault(); applyLink() }
-                                    if (e.key === 'Escape') setLinkPopover(false)
-                                }}
-                                style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
-                            />
-                            <button type='button' onMouseDown={e => e.preventDefault()} onClick={applyLink}
-                                style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--acc)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
-                            >Apply</button>
-                        </div>
-                    </div>
-                )}
-            </div>
-            <TIconBtn title='Remove Link' disabled={disabled} onClick={() => { editor?.chain().focus().unsetLink().run(); setLinkPopover(false) }}><IconUnlink /></TIconBtn>
-            <TDivider />
+                </React.Fragment>
+            ))}
 
-            {/* Clear */}
-            <TIconBtn title='Clear Formatting' disabled={disabled} onClick={() => editor?.chain().focus().clearNodes().unsetAllMarks().run()}><IconClear /></TIconBtn>
+            {/* "⋯" only ever appears once genuinely needed (visual-fixes FIX
+                1) — useToolbarOverflow returns the full group count, and this
+                stays unrendered, whenever everything already fits. */}
+            {overflowGroups.length > 0 && (
+                <>
+                    <TDivider />
+                    <ToolbarOverflowMenu groups={overflowGroups} />
+                </>
+            )}
 
             <input ref={imageInputRef} type='file' accept='image/*' style={{ display: 'none' }}
                 onChange={e => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); e.target.value = '' }}
@@ -916,6 +1051,48 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                     onSelect={url => { editor?.chain().focus().setImage({ src: url }).run(); setShowImageLibrary(false) }}
                     onClose={() => setShowImageLibrary(false)}
                 />
+            )}
+        </div>
+    )
+}
+
+/**
+ * The "⋯" overflow trigger + popover (visual-fixes FIX 1) — holds whichever
+ * trailing groups `useToolbarOverflow` decided don't fit on the bar, in the
+ * same fixed order they'd otherwise appear in. Every control inside still
+ * goes through TIconBtn/TLabel/ToolbarDropdown, so the mousedown
+ * preventDefault that keeps focus in the document (and this trigger button
+ * itself, via TIconBtn) is never reintroduced as a regression here.
+ */
+function ToolbarOverflowMenu({ groups }: { groups: { key: string; node: React.ReactNode }[] }) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (!open) return
+        const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [open])
+
+    return (
+        <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+            <TIconBtn title='More formatting options' active={open} onClick={() => setOpen(v => !v)}>
+                <IconMoreHoriz />
+            </TIconBtn>
+            {open && (
+                <div onMouseDown={e => e.stopPropagation()}
+                    style={{ position: 'absolute', top: '110%', right: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: 6, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 160, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
+                >
+                    {groups.map((g, i) => (
+                        <React.Fragment key={g.key}>
+                            {i > 0 && <div style={{ height: 1, background: 'var(--line)' }} />}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                                {g.node}
+                            </div>
+                        </React.Fragment>
+                    ))}
+                </div>
             )}
         </div>
     )
@@ -1349,22 +1526,6 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
     )
 }
 
-function PresenceAvatar({ peer, self }: { peer: Peer; self?: boolean }) {
-    const [hovered, setHovered] = useState(false)
-    return (
-        <div style={{ position: 'relative', flexShrink: 0 }} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
-            <div style={{ width: 26, height: 26, borderRadius: '50%', background: peer.color, border: `2px solid ${self ? 'rgba(255,255,255,0.5)' : peer.color}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'uppercase', cursor: 'default', flexShrink: 0, opacity: self ? 0.85 : 1 }}>
-                {peer.avatar ? <img src={peer.avatar} alt={peer.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : peer.name.charAt(0)}
-            </div>
-            {hovered && (
-                <div style={{ position: 'absolute', bottom: '120%', left: '50%', transform: 'translateX(-50%)', background: peer.color, color: '#fff', fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 3, whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 100 }}>
-                    {self ? `${peer.name} (you)` : peer.name}
-                </div>
-            )}
-        </div>
-    )
-}
-
 /** Compact icon control for the shared toolbar (visual-fixes-report FIX 2) —
  * every icon-bearing button in `EditorToolbar` routes through this so the
  * `onMouseDown` focus-retention fix (FIX 1) and the active/hover token
@@ -1450,3 +1611,4 @@ const IconLink = () => <Svg><path d='M10 14a4.5 4.5 0 0 1 0-6.36l2-2a4.5 4.5 0 1
 const IconUnlink = () => <Svg><path d='M9.5 14.5a4.5 4.5 0 0 1-1.15-4.4' /><path d='M14.5 9.5a4.5 4.5 0 0 1 1.15 4.4' /><path d='m12.35 6.85 1.65-1.65a4.5 4.5 0 1 1 6.36 6.36l-1.65 1.65' /><path d='m11.65 17.15-1.65 1.65a4.5 4.5 0 1 1-6.36-6.36l1.65-1.65' /><line x1='4' y1='4' x2='20' y2='20' /></Svg>
 const IconClear = () => <Svg><path d='M18 5H8.5L4 9.5 12.5 18H18' /><path d='m13.5 9.5-4.5 4.5' /><line x1='9' y1='21' x2='19' y2='21' /></Svg>
 const IconChevronDown = () => <Svg size={11}><path d='M6 9l6 6 6-6' /></Svg>
+const IconMoreHoriz = () => <Svg><circle cx='5' cy='12' r='1.6' fill='currentColor' stroke='none' /><circle cx='12' cy='12' r='1.6' fill='currentColor' stroke='none' /><circle cx='19' cy='12' r='1.6' fill='currentColor' stroke='none' /></Svg>

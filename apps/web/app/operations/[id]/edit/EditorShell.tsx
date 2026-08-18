@@ -133,7 +133,19 @@ export default function EditorShell({
                          * reached via unmount instead of navigation. So it stays mounted
                          * always and is hidden with CSS instead.
                          */}
-                        <div style={{ display: active === 'brief' ? undefined : 'none' }}>
+                        {/*
+                         * height: '100%' (matching the `map` wrapper just below) gives
+                         * this box a definite height equal to .mainScroll's own — the
+                         * body region between the merged header and the status bar,
+                         * already computed purely via flexbox (no viewport maths) — so
+                         * CollabEditor's own `minHeight: '100%'` root (which otherwise
+                         * has no definite ancestor to resolve that percentage against)
+                         * actually takes effect. That's what lets PageSidebar's rail
+                         * stretch to fill the same region (visual-fixes FIX 2) instead
+                         * of relying on a hardcoded `calc(100vh - N)` that drifts every
+                         * time the chrome above or below it changes height.
+                         */}
+                        <div style={{ display: active === 'brief' ? undefined : 'none', height: '100%' }}>
                             {brief}
                         </div>
                         {mapVisited && (
