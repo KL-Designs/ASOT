@@ -35,6 +35,26 @@ export const CrateIcon = (props: IconProps) => (
     <Stroke d='M3 7.5 12 4l9 3.5v9L12 20l-9-3.5v-9zM3 7.5 12 11l9-3.5M12 11v9M8.5 12.4v3.2M15.5 12.4v3.2' {...props} />
 )
 
+/** A campaign medal — service and time served. */
+export const MedalIcon = (props: IconProps) => (
+    <Stroke d='M12 14a5 5 0 100-10 5 5 0 000 10zM8.5 13L7 21l5-2.5L17 21l-1.5-8' {...props} />
+)
+
+/** A group — the unit as people rather than as a structure. */
+export const UsersIcon = (props: IconProps) => (
+    <Stroke d='M9 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM2.5 20a6.5 6.5 0 0113 0M16 4.5a3.5 3.5 0 010 7M17 13.5a6.5 6.5 0 014.5 6.5' {...props} />
+)
+
+/** A rucksack — kit, loadouts, the things you carry. */
+export const PackIcon = (props: IconProps) => (
+    <Stroke d='M6 8h12v13H6zM9 8V5a3 3 0 016 0v3M9.5 13h5' {...props} />
+)
+
+/** A reticle — operations and objectives. */
+export const TargetIcon = (props: IconProps) => (
+    <Stroke d='M12 3a9 9 0 100 18 9 9 0 000-18zM12 8a4 4 0 100 8 4 4 0 000-8zM12 12h.01M12 1v3M12 20v3M1 12h3M20 12h3' {...props} />
+)
+
 /** Arrow, for "this leads somewhere" on a primary action. */
 export const ArrowIcon = (props: IconProps) => (
     <Stroke d='M5 12h13M13 6.5 18.5 12 13 17.5' {...props} />

@@ -2,7 +2,7 @@ import React from 'react'
 import Image from 'next/image'
 
 import SectionHead from '@/components/ui/SectionHead'
-import { MilitaryTech, Group, Backpack, TrackChanges } from '@mui/icons-material'
+import { MedalIcon, UsersIcon, PackIcon, TargetIcon } from '@/components/ui/icons'
 
 import LargestMilsim from '@/public/images/home/Rooftopincert.jpg'
 import s from '@/styles/landing.module.css'
@@ -19,22 +19,22 @@ import s from '@/styles/landing.module.css'
 const CARDS = [
     {
         n: '01', kicker: 'Experience', title: 'Six years of it',
-        icon: <MilitaryTech />,
+        icon: <MedalIcon />,
         body: 'Previous and currently serving members of the armed forces have helped shape our gameplay into a genuine balance of realism and playability.',
     },
     {
         n: '02', kicker: 'Culture', title: 'Everyone has a voice',
-        icon: <Group />,
+        icon: <UsersIcon />,
         body: 'Large and structured, but every member gets a say in nearly everything we do. New ideas are welcomed. It runs more like a family than a chain of command.',
     },
     {
         n: '03', kicker: 'Features', title: 'ASOT-only systems',
-        icon: <Backpack />,
+        icon: <PackIcon />,
         body: 'Custom uniforms, patches and weapons, plus vehicle recovery that lets engineers bring back fully destroyed vehicles and aircraft. Nothing else in ArmA works like it.',
     },
     {
         n: '04', kicker: 'Gameplay', title: 'Never the same twice',
-        icon: <TrackChanges />,
+        icon: <TargetIcon />,
         body: 'A full-time Zeus team builds balanced, challenging missions every week across infantry, armour, rotary and support. There’s something for everyone.',
     },
 ]
