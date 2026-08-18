@@ -508,14 +508,18 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             background: 'linear-gradient(180deg, var(--s1), var(--bg))',
             position: 'sticky',
             top: 0,
-            // Flex-driven, not viewport maths (visual-fixes FIX 2): this row's
-            // parent (CollabEditor's ActiveEditor root) has `minHeight: '100%'`
-            // resolved against EditorShell's now-definite wrapper, so it's at
-            // least as tall as the visible body region and taller when the
-            // document itself is. Default `align-items: stretch` (no override
-            // here) plus this `height: '100%'` makes the rail match that
-            // exactly, so it reaches the status bar on a short document and
-            // keeps sticking through the whole scroll on a long one — a fixed
+            // Flex-driven, not viewport maths (visual-fixes FIX 3): this row's
+            // parent (CollabEditor's ActiveEditor root) sets `height: '100%'`
+            // — a real `height`, not `minHeight` — resolved against
+            // EditorShell's own definite wrapper. That's what lets this
+            // `height: '100%'` here resolve to an actual pixel value instead
+            // of falling back to this element's own (short) content height;
+            // an ancestor whose only sizing is `min-height` never counts as
+            // "definite" for a percentage-height descendant to resolve
+            // against, which is what made the rail stop a quarter of the way
+            // down the viewport before. `position: sticky` + this height is
+            // what makes it reach the status bar on a short document and
+            // keep sticking through the whole scroll on a long one — a fixed
             // `calc(100vh - N)` could do neither once N drifted out of sync
             // with the real chrome height.
             height: '100%',

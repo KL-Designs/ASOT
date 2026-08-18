@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useContext, useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -180,34 +181,43 @@ export default function CollabEditor({
     }, [documentId, ydoc])
 
     if (!ready) {
-        const { r: sr, g: sg, b: sb } = hexToRgb(themeColor)
-        const sc = (a: number) => `rgba(${sr},${sg},${sb},${a})`
+        // Token-only, full-bleed "connecting" state (visual-fixes FIX 5) —
+        // fills CollabEditor's own root exactly the way the ready-state
+        // editor column does (EditorShell's wrapper around `brief` already
+        // gives this a definite `height: 100%` to fill), centred both axes,
+        // no red. The skeleton lines echo the real document's own shape —
+        // eyebrow, title, three body lines — rather than arbitrary bars.
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <style>{`@keyframes op-pulse{0%,100%{opacity:.35}50%{opacity:.75}}.op-pulse{animation:op-pulse 1.8s ease-in-out infinite}`}</style>
-                <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: sc(0.28), textAlign: 'center', paddingBottom: 4 }}>
-                    Connecting to collaboration server…
-                </div>
-                {[1, 0.6].map((opacity, i) => (
-                    <div key={i} style={{ border: `1px solid ${sc(0.1)}`, borderTop: `2px solid ${sc(0.25)}`, opacity }}>
-                        <div style={{ background: 'rgba(0,0,0,0.35)', padding: '9px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <div className='op-pulse' style={{ width: 6, height: 6, background: sc(0.35), flexShrink: 0 }} />
-                                <div className='op-pulse' style={{ height: 7, width: 110 + i * 30, background: sc(0.18), borderRadius: 2 }} />
-                            </div>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                                {[28, 28, 28, 28, 28].map((w, j) => (
-                                    <div key={j} className='op-pulse' style={{ width: w, height: 24, background: 'rgba(255,255,255,0.04)', borderRadius: 2 }} />
-                                ))}
-                            </div>
-                        </div>
-                        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 11 }}>
-                            {[88, 72, 80, 52].map((w, j) => (
-                                <div key={j} className='op-pulse' style={{ height: 8, width: `${w}%`, background: 'rgba(237,237,237,0.055)', borderRadius: 2, animationDelay: `${j * 0.12}s` }} />
-                            ))}
-                        </div>
+            <div style={{ height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+                <style>{`
+                    @keyframes op-conn-pulse { 0%, 100% { opacity: .4; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1); } }
+                    @keyframes op-conn-shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
+                    .op-conn-dot { animation: op-conn-pulse 1.4s ease-in-out infinite; }
+                    .op-conn-skel {
+                        background-image: linear-gradient(90deg, var(--s1) 0%, var(--s2) 50%, var(--s1) 100%);
+                        background-size: 240px 100%;
+                        background-repeat: no-repeat;
+                        animation: op-conn-shimmer 1.6s ease-in-out infinite;
+                    }
+                `}</style>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: 'min(360px, 80%)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span className='op-conn-dot' style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--acc)', flexShrink: 0 }} />
+                        <span style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                            Connecting to collaboration server
+                        </span>
                     </div>
-                ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+                        {/* Eyebrow */}
+                        <div className='op-conn-skel' style={{ height: 7, width: '32%', borderRadius: 2 }} />
+                        {/* Title */}
+                        <div className='op-conn-skel' style={{ height: 15, width: '68%', borderRadius: 2, marginTop: 2, animationDelay: '0.1s' }} />
+                        {/* Body lines */}
+                        <div className='op-conn-skel' style={{ height: 9, width: '100%', borderRadius: 2, marginTop: 12, animationDelay: '0.2s' }} />
+                        <div className='op-conn-skel' style={{ height: 9, width: '91%', borderRadius: 2, animationDelay: '0.3s' }} />
+                        <div className='op-conn-skel' style={{ height: 9, width: '76%', borderRadius: 2, animationDelay: '0.4s' }} />
+                    </div>
+                </div>
             </div>
         )
     }
@@ -585,7 +595,22 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
         <ThemeContext.Provider value={themeColor}>
             <div style={{
                 display: 'flex', flexDirection: isMobile ? 'column' : 'row',
-                minHeight: '100%',
+                // `height`, not `minHeight` (visual-fixes FIX 3 regression fix):
+                // a box whose own `height` CSS property is unset (only
+                // `min-height` was) never counts as a "definite" containing
+                // block for a descendant's percentage height, even once the
+                // min-height constraint has forced its rendered box to fill
+                // the parent — so PageSidebar's own `height: 100%` a few
+                // levels down was resolving to `auto` (its own content
+                // height) instead of this row's height, which is why the
+                // rail stopped a quarter of the way down the viewport. Only
+                // an explicit `height` here — resolved against EditorShell's
+                // own definite wrapper — makes that chain actually definite.
+                // A long document still scrolls: nothing here clips
+                // overflow, so content taller than this row's own box still
+                // extends past it and is picked up by `.mainScroll`'s own
+                // `overflow-y: auto` exactly as before.
+                height: '100%',
                 // The rail (PageSidebar, orientation='sidebar') must sit flush
                 // against the shell's own left edge with no gap beside it
                 // (visual-fixes spec §1) — so no padding/gap here on desktop.
@@ -1057,33 +1082,153 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
 }
 
 /**
+ * Shared positioning for every portalled toolbar menu (visual-fixes FIX 1
+ * regression fix): the TEXT/SIZE dropdowns and the "⋯" overflow popover used
+ * to render as a `position: absolute` child right next to their trigger,
+ * which worked until the toolbar picked up overflow handling — whatever
+ * ancestor now clips that overflow also clips an absolutely-positioned
+ * descendant, so the menus were getting cut off at the toolbar's own bottom
+ * edge and forcing an inner scrollbar onto the 44px bar itself.
+ *
+ * The fix is to portal the menu to `document.body` and position it with
+ * `position: fixed` computed from the trigger's own `getBoundingClientRect()`
+ * — nothing above `document.body` can clip it. This hook owns exactly that:
+ * measuring the trigger (and, once mounted, the menu itself, to decide
+ * whether to flip above when there's no room below), re-measuring on scroll
+ * (capture-phase, so `.mainScroll` scrolling underneath still repositions
+ * it) and window resize, and closing on outside click / Escape.
+ */
+function usePortalMenuPosition(
+    open: boolean,
+    triggerRef: React.RefObject<HTMLElement | null>,
+    menuRef: React.RefObject<HTMLElement | null>,
+    onClose: () => void,
+    align: 'left' | 'right' = 'left',
+) {
+    const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+    const recompute = useCallback(() => {
+        const trigger = triggerRef.current
+        if (!trigger) return
+        const rect = trigger.getBoundingClientRect()
+        const menuEl = menuRef.current
+        const menuW = menuEl?.offsetWidth ?? 0
+        const menuH = menuEl?.offsetHeight ?? 0
+        const spaceBelow = window.innerHeight - rect.bottom
+        // Flip above the trigger only when there's genuinely more room up
+        // there — never flip into negative space just because below is tight.
+        const flip = menuH > 0 && spaceBelow < menuH + 8 && rect.top > menuH + 8
+        const top = flip ? rect.top - 4 - menuH : rect.bottom + 4
+        let left = align === 'right' ? rect.right - menuW : rect.left
+        left = Math.min(Math.max(4, left), window.innerWidth - menuW - 4)
+        setPos({ top, left })
+    }, [triggerRef, menuRef, align])
+
+    // Runs after the portalled menu is committed to the DOM but before the
+    // browser paints, so `menuRef.current.offsetHeight` is already real by
+    // the time `recompute` reads it — no visible flash at the wrong spot.
+    useLayoutEffect(() => {
+        if (!open) { setPos(null); return }
+        recompute()
+    }, [open, recompute])
+
+    useEffect(() => {
+        if (!open) return
+        const onScroll = () => recompute()
+        const onResize = () => recompute()
+        window.addEventListener('scroll', onScroll, true)
+        window.addEventListener('resize', onResize)
+        return () => {
+            window.removeEventListener('scroll', onScroll, true)
+            window.removeEventListener('resize', onResize)
+        }
+    }, [open, recompute])
+
+    useEffect(() => {
+        if (!open) return
+        const closeOnOutside = (e: MouseEvent) => {
+            const target = e.target as Node
+            if (triggerRef.current?.contains(target)) return
+            if (menuRef.current?.contains(target)) return
+            onClose()
+        }
+        const closeOnEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+        document.addEventListener('mousedown', closeOnOutside)
+        document.addEventListener('keydown', closeOnEscape)
+        return () => {
+            document.removeEventListener('mousedown', closeOnOutside)
+            document.removeEventListener('keydown', closeOnEscape)
+        }
+    }, [open, onClose, triggerRef, menuRef])
+
+    return pos
+}
+
+/**
+ * Portal wrapper shared by `ToolbarDropdown` and `ToolbarOverflowMenu` — see
+ * `usePortalMenuPosition` above for why this exists. `onMouseDown` on the
+ * portalled root still stops propagation (belt-and-suspenders alongside the
+ * containment check in the hook's outside-click listener), and every actual
+ * control rendered inside (`children`) is still responsible for its own
+ * `onMouseDown={e => e.preventDefault()}` — this wrapper doesn't add or
+ * remove any of that, it only relocates the DOM.
+ */
+function PortalMenu({ open, onClose, triggerRef, align = 'left', minWidth, children }: {
+    open: boolean
+    onClose: () => void
+    triggerRef: React.RefObject<HTMLElement | null>
+    align?: 'left' | 'right'
+    minWidth?: number
+    children: React.ReactNode
+}) {
+    const menuRef = useRef<HTMLDivElement>(null)
+    const pos = usePortalMenuPosition(open, triggerRef, menuRef, onClose, align)
+
+    if (!open) return null
+
+    return createPortal(
+        <div
+            ref={menuRef}
+            onMouseDown={e => e.stopPropagation()}
+            style={{
+                position: 'fixed',
+                top: pos ? pos.top : -9999,
+                left: pos ? pos.left : -9999,
+                visibility: pos ? 'visible' : 'hidden',
+                zIndex: 10000,
+                minWidth,
+                background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+            }}
+        >
+            {children}
+        </div>,
+        document.body,
+    )
+}
+
+/**
  * The "⋯" overflow trigger + popover (visual-fixes FIX 1) — holds whichever
  * trailing groups `useToolbarOverflow` decided don't fit on the bar, in the
  * same fixed order they'd otherwise appear in. Every control inside still
  * goes through TIconBtn/TLabel/ToolbarDropdown, so the mousedown
  * preventDefault that keeps focus in the document (and this trigger button
- * itself, via TIconBtn) is never reintroduced as a regression here.
+ * itself, via TIconBtn) is never reintroduced as a regression here. The
+ * popover itself is portalled (see `PortalMenu`) — it used to render as a
+ * `position: absolute` sibling of the trigger, which is what let it get
+ * clipped once the toolbar picked up overflow handling.
  */
 function ToolbarOverflowMenu({ groups }: { groups: { key: string; node: React.ReactNode }[] }) {
     const [open, setOpen] = useState(false)
-    const ref = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        if (!open) return
-        const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
-        document.addEventListener('mousedown', close)
-        return () => document.removeEventListener('mousedown', close)
-    }, [open])
+    const triggerRef = useRef<HTMLDivElement>(null)
 
     return (
-        <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+        <div ref={triggerRef} style={{ position: 'relative', flexShrink: 0 }}>
             <TIconBtn title='More formatting options' active={open} onClick={() => setOpen(v => !v)}>
                 <IconMoreHoriz />
             </TIconBtn>
-            {open && (
-                <div onMouseDown={e => e.stopPropagation()}
-                    style={{ position: 'absolute', top: '110%', right: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: 6, display: 'flex', flexDirection: 'column', gap: 6, minWidth: 160, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
-                >
+            <PortalMenu open={open} onClose={() => setOpen(false)} triggerRef={triggerRef} align='right' minWidth={160}>
+                <div style={{ padding: 6, display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {groups.map((g, i) => (
                         <React.Fragment key={g.key}>
                             {i > 0 && <div style={{ height: 1, background: 'var(--line)' }} />}
@@ -1093,7 +1238,7 @@ function ToolbarOverflowMenu({ groups }: { groups: { key: string; node: React.Re
                         </React.Fragment>
                     ))}
                 </div>
-            )}
+            </PortalMenu>
         </div>
     )
 }
@@ -1117,7 +1262,9 @@ const FONT_SIZE_OPTIONS = [
  * other control here gets — converting it to this component instead keeps
  * the block-type and text-size controls on the same interaction model (and
  * the same token-based styling) as everything else, rather than carving out
- * a focus-and-reapply special case just for these two.
+ * a focus-and-reapply special case just for these two. The option list is
+ * portalled (see `PortalMenu`) so it's never clipped by the toolbar's own
+ * box regardless of how many groups have been measured into the "⋯" popover.
  */
 function ToolbarDropdown({ value, options, onSelect, disabled, title, minWidth = 80 }: {
     value: string
@@ -1128,20 +1275,13 @@ function ToolbarDropdown({ value, options, onSelect, disabled, title, minWidth =
     minWidth?: number
 }) {
     const [open, setOpen] = useState(false)
-    const ref = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        if (!open) return
-        const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
-        document.addEventListener('mousedown', close)
-        return () => document.removeEventListener('mousedown', close)
-    }, [open])
+    const triggerRef = useRef<HTMLButtonElement>(null)
 
     const current = options.find(o => o.value === value) || options[0]
 
     return (
-        <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
-            <button type='button' title={title} disabled={disabled}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+            <button ref={triggerRef} type='button' title={title} disabled={disabled}
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => setOpen(v => !v)}
                 style={{
@@ -1156,10 +1296,8 @@ function ToolbarDropdown({ value, options, onSelect, disabled, title, minWidth =
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{current.label}</span>
                 <IconChevronDown />
             </button>
-            {open && (
-                <div onMouseDown={e => e.stopPropagation()}
-                    style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: 4, display: 'flex', flexDirection: 'column', minWidth: Math.max(minWidth, 120), maxHeight: 280, overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
-                >
+            <PortalMenu open={open} onClose={() => setOpen(false)} triggerRef={triggerRef} align='left' minWidth={Math.max(minWidth, 120)}>
+                <div style={{ padding: 4, display: 'flex', flexDirection: 'column', maxHeight: 280, overflowY: 'auto' }}>
                     {options.map(o => (
                         <button key={o.value} type='button'
                             onMouseDown={e => e.preventDefault()}
@@ -1174,7 +1312,7 @@ function ToolbarDropdown({ value, options, onSelect, disabled, title, minWidth =
                         >{o.label}</button>
                     ))}
                 </div>
-            )}
+            </PortalMenu>
         </div>
     )
 }
@@ -1229,6 +1367,16 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
     const [isPublic, setIsPublic] = useState(true)
     const [sectionBorderColor, setSectionBorderColor] = useState<string | null>(null)
     const [sectionMinHeight, setSectionMinHeight] = useState(80)
+    // Eyebrow rename (visual-fixes FIX 4) — click to edit, commit on blur/
+    // Enter, cancel on Escape. Writes through the exact same field
+    // PageSidebar's own rename (`commitRename`) does: `pmeta-{pageId}`'s
+    // `title` key. No second write path — PageSidebar's rail and this
+    // eyebrow both end up reading/writing the one Y.Map, so a rename from
+    // either place shows up in the other via the normal Yjs observer
+    // ActiveEditor already has on that map (the `pageTitle` prop below is
+    // that same state, just handed down).
+    const [editingEyebrow, setEditingEyebrow] = useState(false)
+    const [eyebrowValue, setEyebrowValue] = useState('')
 
     const effectiveBorderColor = sectionBorderColor || themeColor
     // Accent tint via the operation's own --acc/--acc-rgb tokens (set on the
@@ -1301,6 +1449,22 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
             if (updates.borderColor !== undefined) smeta.set('borderColor', updates.borderColor)
             if (updates.minHeight !== undefined) smeta.set('minHeight', updates.minHeight)
         })
+    }
+
+    function startEyebrowEdit() {
+        if (readOnly) return
+        setEyebrowValue(pageTitle || '')
+        setEditingEyebrow(true)
+    }
+
+    // Same write path as PageSidebar.commitRename: the `pmeta-{pageId}` map's
+    // `title` key, same fallback rule for an emptied-out value.
+    function commitEyebrow() {
+        const docId = pageId || 'main'
+        const fallback = docId === 'main' ? 'CHQ Orders' : 'Untitled'
+        const trimmed = eyebrowValue.trim() || fallback
+        ydoc.getMap<string>('pmeta-' + docId).set('title', trimmed)
+        setEditingEyebrow(false)
     }
 
     const editor = useEditor({
@@ -1439,12 +1603,29 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
             <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
                 marginBottom: 18, padding: '6px 2px 14px', borderBottom: '1px solid var(--line)',
-                background: 'rgba(var(--acc-rgb), 0.02)',
             }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>
-                        {pageTitle}
-                    </div>
+                    {!readOnly && editingEyebrow ? (
+                        <input
+                            value={eyebrowValue}
+                            onChange={e => setEyebrowValue(e.target.value)}
+                            onBlur={commitEyebrow}
+                            onKeyDown={e => {
+                                if (e.key === 'Enter') { e.preventDefault(); commitEyebrow() }
+                                if (e.key === 'Escape') { e.preventDefault(); setEditingEyebrow(false) }
+                            }}
+                            autoFocus
+                            style={{ display: 'block', width: '100%', background: 'transparent', border: 'none', outline: 'none', padding: 0, fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}
+                        />
+                    ) : (
+                        <div
+                            onClick={startEyebrowEdit}
+                            title={readOnly ? undefined : 'Click to rename document'}
+                            style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6, cursor: readOnly ? 'default' : 'text' }}
+                        >
+                            {pageTitle}
+                        </div>
+                    )}
                     {readOnly ? (
                         <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink)' }}>{title}</div>
                     ) : (
