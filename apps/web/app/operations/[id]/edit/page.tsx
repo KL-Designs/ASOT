@@ -17,6 +17,7 @@ import StatusBar from './StatusBar'
 import { useOperationStatus } from './hooks/useOperationStatus'
 import MissionDeck from './deck/MissionDeck'
 import CountdownStrip from './deck/CountdownStrip'
+import ScheduleCard from './deck/ScheduleCard'
 const OperationEditor = dynamic(() => import('@/components/editor/CollabEditor'), { ssr: false })
 
 interface MetaFields { title: string; department: string; date: string; loreDate: string }
@@ -115,7 +116,8 @@ export default function Page() {
     const [tab, setTab] = useEditorTab()
 
     // Mission deck (Task 8) — days-until-op countdown for the deck's strip.
-    const { daysUntil } = useOperationStatus(opID)
+    // Task 9 also consumes the timeline it builds, for the Timeline card.
+    const { timeline, daysUntil } = useOperationStatus(opID)
 
     // Mission Development
     const [missionDev, setMissionDev] = useState<MissionDevelopment | null>(null)
@@ -168,15 +170,7 @@ export default function Page() {
     const [attendanceSaving, setAttendanceSaving] = useState(false)
     const [tickNow, setTickNow] = useState(() => new Date())
 
-    // Draft state for the schedule panel — only committed on "Confirm Schedule"
-    const [draftDate, setDraftDate] = useState<Dayjs | null>(null)
-    const [draftRsvpOpenAt, setDraftRsvpOpenAt] = useState<string | null>(null)
-    const [draftRsvpCloseOffsetMins, setDraftRsvpCloseOffsetMins] = useState(90)
-    const [draftRsvpCloseMode, setDraftRsvpCloseMode] = useState<'preset' | 'custom'>('preset')
-    const [draftRsvpCloseAt, setDraftRsvpCloseAt] = useState<string | null>(null)
-    const [scheduleSaving, setScheduleSaving] = useState(false)
     const [attendanceOpen, setAttendanceOpen] = useState(true)
-    const [scheduleOpen, setScheduleOpen] = useState(true)
 
     const [attStage, setAttStage] = useState<AttendanceStage>('preparing')
     const [confirmStage, setConfirmStage] = useState<AttendanceStage | null>(null)
@@ -299,7 +293,6 @@ export default function Page() {
                 setTitle(op.title || '')
                 const opDate = op.date ? dayjs(op.date) : null
                 setDate(opDate)
-                setDraftDate(opDate)
                 const loreDateStr = op.loreDate instanceof Date ? op.loreDate.toISOString() : (op.loreDate ?? '')
                 setLoreDate(loreDateStr)
                 const parsed = loreDateStr ? dayjs(loreDateStr) : null
@@ -365,8 +358,6 @@ export default function Page() {
                 const openAt = json.rsvpOpenAt ? new Date(json.rsvpOpenAt).toISOString() : null
                 setRsvpOpenAt(openAt)
                 setRsvpCloseOffsetMins(json.rsvpCloseOffsetMins ?? 90)
-                setDraftRsvpOpenAt(openAt)
-                setDraftRsvpCloseOffsetMins(json.rsvpCloseOffsetMins ?? 90)
                 setAttStage(json.stage ?? 'preparing')
                 // If RSVP is already open when we load, mark the auto-open as already fired
                 // so the close→re-open bounce can't happen.
@@ -472,25 +463,35 @@ export default function Page() {
         }
     }
 
-    async function confirmSchedule() {
-        setScheduleSaving(true)
-        try {
-            // Save operation date if changed
-            if (draftDate && draftDate.toISOString() !== date?.toISOString()) {
-                metaHandleRef.current?.set('date', draftDate.toISOString())
-                await fetch(`/api/operations/update?id=${opID}&date=${encodeURIComponent(draftDate.toISOString())}`)
-                setDate(draftDate)
-            }
-            // Save automation settings if changed
-            const attUpdates: Parameters<typeof saveAttendanceSettings>[0] = {}
-            if (draftRsvpOpenAt !== rsvpOpenAt) attUpdates.rsvpOpenAt = draftRsvpOpenAt
-            if (draftRsvpCloseOffsetMins !== rsvpCloseOffsetMins) attUpdates.rsvpCloseOffsetMins = draftRsvpCloseOffsetMins
-            if (Object.keys(attUpdates).length > 0) await saveAttendanceSettings(attUpdates)
-            setRsvpOpenAt(draftRsvpOpenAt)
-            setRsvpCloseOffsetMins(draftRsvpCloseOffsetMins)
-        } finally {
-            setScheduleSaving(false)
+    // Timeline card handlers (Task 9) — replace the old Schedule & Automation
+    // panel's draft-then-"Confirm Schedule" flow with direct-acting controls,
+    // one per row. Same two save paths as before: the operation date goes
+    // through /api/operations/update (and the Y.doc meta handle, like every
+    // other metaSave field); the RSVP fields go through saveAttendanceSettings.
+    async function handleChangeDate(v: Dayjs | null) {
+        if (!v) return
+        metaHandleRef.current?.set('date', v.toISOString())
+        setDate(v)
+        await fetch(`/api/operations/update?id=${opID}&date=${encodeURIComponent(v.toISOString())}`)
+    }
+
+    function handleChangeRsvpMode() {
+        if (rsvpOpenAt) {
+            setRsvpOpenAt(null)
+            saveAttendanceSettings({ rsvpOpenAt: null })
+            return
         }
+        // Turning manual → scheduled needs an operation date to default from,
+        // same as the old "Scheduled" pill (see git history for the panel it replaced).
+        if (!date) return
+        const openAt = new Date(date.toDate().getTime() - 3 * 24 * 3600000).toISOString()
+        setRsvpOpenAt(openAt)
+        saveAttendanceSettings({ rsvpOpenAt: openAt })
+    }
+
+    function handleChangeCloseOffset(mins: number) {
+        setRsvpCloseOffsetMins(mins)
+        saveAttendanceSettings({ rsvpCloseOffsetMins: mins })
     }
 
     async function applyStage(newStage: AttendanceStage) {
@@ -650,8 +651,17 @@ export default function Page() {
                     <MissionDeck
                         strip={<CountdownStrip daysUntil={daysUntil} checksDone={checksDone} checksTotal={checksTotal} />}
                     >
-                        {/* Later tasks add deck cards here. */}
-                        {null}
+                        {isHQ && opID && (
+                            <ScheduleCard
+                                timeline={timeline}
+                                date={date}
+                                onChangeDate={handleChangeDate}
+                                onChangeRsvpMode={handleChangeRsvpMode}
+                                closeOffsetMins={rsvpCloseOffsetMins}
+                                onChangeCloseOffset={handleChangeCloseOffset}
+                            />
+                        )}
+                        {/* Later tasks add more deck cards here. */}
                     </MissionDeck>
                 }
             >
@@ -1424,312 +1434,6 @@ export default function Page() {
                     </div>
                 </div>
             </div>
-
-            {/* Schedule & Automation panel — HQ only */}
-            {isHQ && opID && (() => {
-                function fmtCountdown(target: Date): string | null {
-                    const diffMs = target.getTime() - tickNow.getTime()
-                    if (diffMs <= 0) return null
-                    const s = Math.floor(diffMs / 1000) % 60
-                    const m = Math.floor(diffMs / 60000) % 60
-                    const h = Math.floor(diffMs / 3600000) % 24
-                    const d = Math.floor(diffMs / 86400000)
-                    if (d > 0) return `${d}d ${h}h ${m}m`
-                    if (h > 0) return `${h}h ${m}m ${s}s`
-                    return `${m}m ${s}s`
-                }
-
-                const inDev = status === 'In Development'
-                const opDate        = draftDate?.toDate() ?? null
-                // inDev only suppresses cron/triggers — editing is always allowed
-                const rsvpCloseDate = opDate ? new Date(opDate.getTime() - draftRsvpCloseOffsetMins * 60000) : null
-                const confirmCloseDate = confirmationOpenedAt ? new Date(confirmationOpenedAt.getTime() + 24 * 3600000) : null
-
-                const scheduleDirty = (
-                    draftDate?.toISOString() !== date?.toISOString() ||
-                    draftRsvpOpenAt !== rsvpOpenAt ||
-                    draftRsvpCloseOffsetMins !== rsvpCloseOffsetMins
-                )
-
-                const RELATIVE_OPTS = [
-                    { label: '1 day before',   mins: 1440 },
-                    { label: '3 days before',  mins: 4320 },
-                    { label: '1 week before',  mins: 10080 },
-                    { label: '2 weeks before', mins: 20160 },
-                ]
-
-                const CLOSE_OPTS = [
-                    { label: '30 min before',   mins: 30 },
-                    { label: '1 hour before',   mins: 60 },
-                    { label: '1.5 hours before', mins: 90 },
-                    { label: '2 hours before',  mins: 120 },
-                    { label: '3 hours before',  mins: 180 },
-                    { label: '6 hours before',  mins: 360 },
-                    { label: '12 hours before', mins: 720 },
-                    { label: '1 day before',    mins: 1440 },
-                ]
-
-                const inputSx: React.CSSProperties = {
-                    background: 'rgba(0,0,0,0.35)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: 'rgba(237,237,237,0.75)',
-                    fontSize: '0.78rem',
-                    letterSpacing: '0.04em',
-                    outline: 'none',
-                    padding: '6px 10px',
-                    cursor: 'pointer',
-                    width: '100%',
-                }
-
-                const isPreset = CLOSE_OPTS.some(o => o.mins === draftRsvpCloseOffsetMins)
-                const effectiveCloseMode = draftRsvpCloseMode === 'custom' || !isPreset ? 'custom' : 'preset'
-
-                return (
-                    <div style={{
-                        ...sideBorders(`1px solid ${c(0.15)}`, `2px solid ${c(0.5)}`),
-                        background: 'rgba(255,255,255,0.01)',
-                        marginBottom: 20,
-                    }}>
-                        <button type='button' onClick={() => setScheduleOpen(v => !v)}
-                            className='flex items-center justify-between px-4 py-3'
-                            style={sectionToggleStyle(scheduleOpen)}
-                        >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
-                                    Schedule &amp; Automation
-                                </span>
-                                {inDev && (
-                                    <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,160,0,0.7)', border: '1px solid rgba(237,160,0,0.3)', padding: '2px 8px' }}>
-                                        Automation paused — In Development
-                                    </span>
-                                )}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                {scheduleSaving && (
-                                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>Saving…</span>
-                                )}
-                                <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>{scheduleOpen ? '[−]' : '[+]'}</span>
-                            </div>
-                        </button>
-
-                        {scheduleOpen && <div className='flex flex-wrap gap-6 p-4'>
-                            {/* ── Settings column ── */}
-                            <div style={{ flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-                                {/* Operation Date */}
-                                <div>
-                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
-                                        {'// OPERATION DATE'}
-                                    </div>
-                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                        <DateTimePicker
-                                            label='Operation Date'
-                                            value={draftDate}
-                                            format='DD/MM/YYYY HH:mm'
-                                            onChange={v => setDraftDate(v)}
-                                            slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
-                                        />
-                                    </LocalizationProvider>
-                                </div>
-
-                                {/* RSVP Open */}
-                                <div>
-                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
-                                        {'// RSVP OPEN'}
-                                    </div>
-                                    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                                        <button
-                                            onClick={() => setDraftRsvpOpenAt(null)}
-                                            style={{
-                                                padding: '5px 14px', borderRadius: 999,
-                                                border: '1px solid rgba(219,0,29,0.25)',
-                                                background: !draftRsvpOpenAt ? 'rgba(219,0,29,0.3)' : 'rgba(255,255,255,0.05)',
-                                                color: !draftRsvpOpenAt ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.45)',
-                                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em',
-                                                textTransform: 'uppercase', cursor: 'pointer',
-                                            }}
-                                        >Manual</button>
-                                        <button
-                                            onClick={() => {
-                                                if (!draftRsvpOpenAt && draftDate) {
-                                                    setDraftRsvpOpenAt(new Date(draftDate.toDate().getTime() - 3 * 24 * 3600000).toISOString())
-                                                }
-                                            }}
-                                            style={{
-                                                padding: '5px 14px', borderRadius: 999,
-                                                border: '1px solid rgba(219,0,29,0.25)',
-                                                background: draftRsvpOpenAt ? 'rgba(219,0,29,0.3)' : 'rgba(255,255,255,0.05)',
-                                                color: draftRsvpOpenAt ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.45)',
-                                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em',
-                                                textTransform: 'uppercase', cursor: 'pointer',
-                                            }}
-                                        >Scheduled</button>
-                                    </div>
-
-                                    {draftRsvpOpenAt && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                                <DateTimePicker
-                                                    label='RSVP Opens At'
-                                                    value={dayjs(draftRsvpOpenAt)}
-                                                    format='DD/MM/YYYY HH:mm'
-                                                    onChange={v => { if (v) setDraftRsvpOpenAt(v.toISOString()) }}
-                                                    slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
-                                                />
-                                            </LocalizationProvider>
-                                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>
-                                                Quick set
-                                            </div>
-                                            <select
-                                                defaultValue=''
-                                                onChange={e => {
-                                                    const mins = parseInt(e.target.value)
-                                                    if (!mins || !draftDate) return
-                                                    setDraftRsvpOpenAt(new Date(draftDate.toDate().getTime() - mins * 60000).toISOString())
-                                                    e.target.value = ''
-                                                }}
-                                                style={inputSx}
-                                            >
-                                                <option value='' disabled>Relative to op date…</option>
-                                                {RELATIVE_OPTS.map(o => (
-                                                    <option key={o.mins} value={o.mins}>{o.label}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* RSVP Close */}
-                                <div>
-                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: c(0.6), marginBottom: 10, fontFamily: 'monospace' }}>
-                                        {'// RSVP CLOSE'}
-                                    </div>
-                                    <select
-                                        value={effectiveCloseMode === 'custom' ? 'custom' : draftRsvpCloseOffsetMins}
-                                        onChange={e => {
-                                            if (e.target.value === 'custom') {
-                                                setDraftRsvpCloseMode('custom')
-                                                if (!draftRsvpCloseAt && draftDate) {
-                                                    setDraftRsvpCloseAt(new Date(draftDate.toDate().getTime() - draftRsvpCloseOffsetMins * 60000).toISOString())
-                                                }
-                                            } else {
-                                                setDraftRsvpCloseMode('preset')
-                                                setDraftRsvpCloseAt(null)
-                                                setDraftRsvpCloseOffsetMins(parseInt(e.target.value))
-                                            }
-                                        }}
-                                        style={inputSx}
-                                    >
-                                        {CLOSE_OPTS.map(o => (
-                                            <option key={o.mins} value={o.mins}>{o.label}</option>
-                                        ))}
-                                        <option value='custom'>Custom…</option>
-                                    </select>
-                                    {effectiveCloseMode === 'custom' && (
-                                        <div style={{ marginTop: 8 }}>
-                                            <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                                <DateTimePicker
-                                                    label='RSVP Closes At'
-                                                    value={draftRsvpCloseAt ? dayjs(draftRsvpCloseAt) : null}
-                                                    format='DD/MM/YYYY HH:mm'
-                                                    onChange={v => {
-                                                        if (!v) return
-                                                        setDraftRsvpCloseAt(v.toISOString())
-                                                        if (draftDate) {
-                                                            const offsetMins = Math.round((draftDate.toDate().getTime() - v.toDate().getTime()) / 60000)
-                                                            setDraftRsvpCloseOffsetMins(Math.max(0, offsetMins))
-                                                        }
-                                                    }}
-                                                    slotProps={{ textField: { size: 'small', sx: { width: '100%' } } }}
-                                                />
-                                            </LocalizationProvider>
-                                            {!draftDate && (
-                                                <div style={{ fontSize: '0.6rem', color: 'rgba(237,160,0,0.7)', marginTop: 5 }}>
-                                                    Set an operation date first to compute offset.
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Confirm button */}
-                                <button
-                                    disabled={!scheduleDirty || scheduleSaving}
-                                    onClick={confirmSchedule}
-                                    style={{
-                                        padding: '9px 20px',
-                                        background: scheduleDirty ? c(0.18) : 'rgba(255,255,255,0.03)',
-                                        border: `1px solid ${scheduleDirty ? c(0.6) : 'rgba(255,255,255,0.1)'}`,
-                                        color: scheduleDirty ? c(0.9) : 'rgba(237,237,237,0.2)',
-                                        fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.14em',
-                                        textTransform: 'uppercase', cursor: scheduleDirty ? 'pointer' : 'not-allowed',
-                                        transition: 'all 0.15s', alignSelf: 'flex-start',
-                                    }}
-                                >
-                                    {scheduleSaving ? 'Saving…' : scheduleDirty ? '⬆ Confirm Schedule' : '✓ Schedule Confirmed'}
-                                </button>
-                            </div>
-
-                            {/* ── Status column ── */}
-                            <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 14, fontFamily: 'monospace' }}>
-                                    {'// STATUS'}
-                                </div>
-                                {([
-                                    {
-                                        label: 'RSVP Opens',
-                                        color: rsvpOpen || ['rsvp_closed','op_running','confirmations_open','completed'].includes(displayStage) ? 'rgba(0,210,90,0.8)'
-                                            : rsvpOpenAt && !fmtCountdown(new Date(rsvpOpenAt)) ? 'rgba(219,160,0,0.9)'
-                                            : rsvpOpenAt ? 'rgba(219,160,0,0.8)'
-                                            : 'rgba(237,237,237,0.2)',
-                                        detail: rsvpOpen ? '✓ Open'
-                                            : ['rsvp_closed','op_running','confirmations_open','completed'].includes(displayStage) ? '✓ Opened'
-                                            : rsvpOpenAt ? (fmtCountdown(new Date(rsvpOpenAt)) ?? 'Pending cron…')
-                                            : 'Manual',
-                                    },
-                                    {
-                                        label: 'RSVP Closes',
-                                        color: !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? 'rgba(0,210,90,0.8)'
-                                            : rsvpOpen && rsvpCloseDate ? 'rgba(219,160,0,0.8)'
-                                            : 'rgba(237,237,237,0.2)',
-                                        detail: !rsvpOpen && rsvpCloseDate && rsvpCloseDate <= tickNow ? '✓ Closed'
-                                            : rsvpCloseDate ? (fmtCountdown(rsvpCloseDate) ?? 'Firing…')
-                                            : '—',
-                                    },
-                                    {
-                                        label: 'Mission Active',
-                                        color: status === 'Active' || status === 'Completed' ? 'rgba(0,210,90,0.8)'
-                                            : opDate && fmtCountdown(opDate) ? 'rgba(219,160,0,0.8)'
-                                            : 'rgba(237,237,237,0.2)',
-                                        detail: status === 'Completed' ? '✓ Completed'
-                                            : status === 'Active' ? '✓ Active'
-                                            : opDate ? (fmtCountdown(opDate) ?? 'Firing…') : '—',
-                                    },
-                                    {
-                                        label: 'Confirmations',
-                                        color: confirmationOpen ? 'rgba(219,160,0,0.8)'
-                                            : confirmationOpenedAt && !confirmationOpen ? 'rgba(0,210,90,0.8)'
-                                            : status === 'Completed' ? 'rgba(219,160,0,0.6)'
-                                            : 'rgba(237,237,237,0.2)',
-                                        detail: confirmationOpen ? `Open · closes ${confirmCloseDate ? (fmtCountdown(confirmCloseDate) ?? 'soon') : '—'}`
-                                            : confirmationOpenedAt && !confirmationOpen ? '✓ Closed'
-                                            : status === 'Completed' ? 'Pending cron…'
-                                            : 'When mission ends',
-                                    },
-                                ].map((row, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 0', borderBottom: i < 3 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                                        <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: row.color, flexShrink: 0, marginTop: 4 }} />
-                                        <div>
-                                            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 1 }}>{row.label}</div>
-                                            <div style={{ fontSize: '0.72rem', color: row.color, fontWeight: row.color.includes('160') ? 700 : 400, fontFamily: 'monospace', letterSpacing: '0.03em' }}>{row.detail}</div>
-                                        </div>
-                                    </div>
-                                )))}
-                            </div>
-                        </div>}
-                    </div>
-                )
-            })()}
 
             {/* Attendance settings — HQ only */}
             {isHQ && opID && (
