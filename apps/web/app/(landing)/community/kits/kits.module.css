@@ -215,6 +215,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    padding-inline: var(--pad);
     margin-bottom: 10px;
 }
 
@@ -252,6 +253,7 @@
 }
 
 .filters {
+    padding-inline: var(--pad);
     margin-bottom: 16px;
 }
 
@@ -316,6 +318,7 @@
     flex-wrap: wrap;
     justify-content: center;
     gap: 5px;
+    padding-inline: var(--pad);
     margin: 22px 0 6px;
 }
 
