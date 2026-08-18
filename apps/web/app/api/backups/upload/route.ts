@@ -48,6 +48,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid parts (expected any of: database, gallery, uploads)' }, { status: 400 })
     }
 
+    // A form field, so it arrives as a string. Compared against 'true' exactly
+    // rather than tested for truthiness — this deletes live files, and the
+    // string "false" is truthy.
+    const wipeMedia = formData.get('wipeMedia') === 'true'
+
     const uploadDir = join(tmpdir(), 'asot-backup-uploads')
     await mkdir(uploadDir, { recursive: true })
     const tmpPath = join(uploadDir, `upload-${Date.now()}.zip`)
@@ -55,7 +60,7 @@ export async function POST(request: NextRequest) {
     await writeFile(tmpPath, buffer)
 
     // Fire and forget; delete the tmp file after revert completes
-    applyUploadedZip(tmpPath, parts)
+    applyUploadedZip(tmpPath, parts, { wipeMedia })
         .finally(() => unlink(tmpPath).catch(() => {}))
         .catch(e => console.error('[backups] Upload-revert error:', e.message))
 
@@ -64,7 +69,7 @@ export async function POST(request: NextRequest) {
         category: 'system',
         performedBy: me.id,
         performedByName: me.name ?? me.id,
-        details: { filename: file.name, parts },
+        details: { filename: file.name, parts, wipeMedia },
     })
 
     return NextResponse.json({ message: 'Upload received, revert started' }, { status: 202 })
