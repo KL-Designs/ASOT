@@ -809,6 +809,12 @@ const MIGRATION_ITEMS = [
         args: ['--prefix', 'apps/web', 'run', 'import:history', '--', '../../ASOT_Member_History_Master_Batch_12.csv'],
         cwd: ROOT,
     },
+    {
+        label: '🗃️ Sync: member ranks from ORBAT CSV',
+        command: 'npm',
+        args: ['--prefix', 'apps/web', 'run', 'sync:ranks', '--', '../../ASOT - ORBAT - ASOT - ORBAT.csv'],
+        cwd: ROOT,
+    },
 ]
 
 // ─── Main loop ──────────────────────────────────────────────────────────────
