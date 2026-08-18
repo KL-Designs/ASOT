@@ -803,13 +803,25 @@ const MIGRATION_ITEMS = [
     { label: '🗃️ Migrate: pages.dashboard cleanup', script: 'scripts/migrate-pages-dashboard-cleanup.mjs', cwd: ROOT },
     { label: '🗃️ Migrate: reminders schema', script: 'scripts/migrate-reminders-schema.mjs', cwd: ROOT },
     { label: '🗃️ Migrate: reservist role', script: 'scripts/migrate-reservist-role.mjs', cwd: ROOT },
+    {
+        label: '🗃️ Import: member history CSV',
+        command: 'npm',
+        args: ['--prefix', 'apps/web', 'run', 'import:history', '--', '../../ASOT_Member_History_Master_Batch_12.csv'],
+        cwd: ROOT,
+    },
 ]
 
 // ─── Main loop ──────────────────────────────────────────────────────────────
 
 async function runMigration(item) {
+    // Most migrations are `node scripts/foo.mjs`. An item may override both
+    // halves — the member history importer runs through npm so it picks up
+    // tsx and the shared .env, and it takes the CSV path as an argument.
+    const command  = item.command ?? 'node'
+    const baseArgs = item.args ?? [item.script]
+
     p.log.step(`Dry run: ${item.label}`)
-    const dryCode = await run('node', [item.script], { cwd: item.cwd })
+    const dryCode = await run(command, baseArgs, { cwd: item.cwd })
     if (dryCode !== 0) {
         p.log.error(`dry run exited with code ${dryCode} — not offering to apply`)
         return
@@ -822,7 +834,7 @@ async function runMigration(item) {
     }
 
     p.log.step(`Applying: ${item.label}`)
-    const applyCode = await run('node', [item.script, '--apply'], { cwd: item.cwd })
+    const applyCode = await run(command, [...baseArgs, '--apply'], { cwd: item.cwd })
     reportExit(applyCode)
 }
 

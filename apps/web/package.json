@@ -8,6 +8,7 @@
     "build": "dotenv -e ../../.env -- next build",
     "start": "dotenv -v NODE_ENV=production -e ../../.env -- node server.mjs",
     "lint": "next lint",
+    "import:history": "dotenv -e ../../.env -- tsx scripts/import-member-history.ts",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
@@ -113,6 +114,7 @@
     "mongodb-memory-server": "^10.4.3",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^4.1.10"
   }
