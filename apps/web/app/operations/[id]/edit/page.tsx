@@ -475,21 +475,50 @@ export default function Page() {
         await fetch(`/api/operations/update?id=${opID}&date=${encodeURIComponent(v.toISOString())}`)
     }
 
-    function handleChangeRsvpMode() {
-        if (rsvpOpenAt) {
-            setRsvpOpenAt(null)
-            saveAttendanceSettings({ rsvpOpenAt: null })
-            return
-        }
-        // Turning manual → scheduled needs an operation date to default from,
-        // same as the old "Scheduled" pill (see git history for the panel it replaced).
-        if (!date) return
+    // "Manual" pill — matches the old panel's Manual button (always clears it).
+    function handleSetRsvpOpenManual() {
+        if (!rsvpOpenAt) return
+        setRsvpOpenAt(null)
+        saveAttendanceSettings({ rsvpOpenAt: null })
+    }
+
+    // "Scheduled" pill — matches the old panel's Scheduled button: only
+    // defaults (3 days before the op date) if nothing's set yet and there's
+    // an op date to default from; otherwise a no-op, same as before.
+    function handleSetRsvpOpenScheduled() {
+        if (rsvpOpenAt || !date) return
         const openAt = new Date(date.toDate().getTime() - 3 * 24 * 3600000).toISOString()
         setRsvpOpenAt(openAt)
         saveAttendanceSettings({ rsvpOpenAt: openAt })
     }
 
+    // Exact RSVP-open instant picked directly off the DateTimePicker.
+    function handleChangeRsvpOpenAt(v: Dayjs | null) {
+        if (!v) return
+        const iso = v.toISOString()
+        setRsvpOpenAt(iso)
+        saveAttendanceSettings({ rsvpOpenAt: iso })
+    }
+
+    // RSVP-open quick-set relative to the op date (1 day/3 days/1 week/2 weeks before).
+    function handleQuickSetRsvpOpen(mins: number) {
+        if (!date) return
+        const iso = new Date(date.toDate().getTime() - mins * 60000).toISOString()
+        setRsvpOpenAt(iso)
+        saveAttendanceSettings({ rsvpOpenAt: iso })
+    }
+
     function handleChangeCloseOffset(mins: number) {
+        setRsvpCloseOffsetMins(mins)
+        saveAttendanceSettings({ rsvpCloseOffsetMins: mins })
+    }
+
+    // Custom RSVP-close instant — same as the old panel's "Custom…" picker:
+    // it only ever persists as the derived minutes-before-op-date, and does
+    // nothing without an op date to derive that offset from.
+    function handleChangeRsvpCloseAt(v: Dayjs | null) {
+        if (!v || !date) return
+        const mins = Math.max(0, Math.round((date.toDate().getTime() - v.toDate().getTime()) / 60000))
         setRsvpCloseOffsetMins(mins)
         saveAttendanceSettings({ rsvpCloseOffsetMins: mins })
     }
@@ -656,9 +685,13 @@ export default function Page() {
                                 timeline={timeline}
                                 date={date}
                                 onChangeDate={handleChangeDate}
-                                onChangeRsvpMode={handleChangeRsvpMode}
+                                onSetRsvpOpenManual={handleSetRsvpOpenManual}
+                                onSetRsvpOpenScheduled={handleSetRsvpOpenScheduled}
+                                onChangeRsvpOpenAt={handleChangeRsvpOpenAt}
+                                onQuickSetRsvpOpen={handleQuickSetRsvpOpen}
                                 closeOffsetMins={rsvpCloseOffsetMins}
                                 onChangeCloseOffset={handleChangeCloseOffset}
+                                onChangeRsvpCloseAt={handleChangeRsvpCloseAt}
                             />
                         )}
                         {/* Later tasks add more deck cards here. */}
