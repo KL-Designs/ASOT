@@ -22,11 +22,8 @@ import PageSidebar from './PageSidebar'
 import IntelPackageEditor from './intel-package/IntelPackageEditor'
 import ImageLibraryModal from './ImageLibraryModal'
 import {
-    Undo, Redo, StrikethroughS,
-    FormatListNumbered,
     FormatAlignLeft, FormatAlignCenter, FormatAlignRight,
-    FormatQuote, HorizontalRule, FormatClear, FormatColorFill,
-    InsertLink, LinkOff, Delete, Lock, LockOpen,
+    Delete, Lock, LockOpen,
 } from '@mui/icons-material'
 
 
@@ -723,7 +720,6 @@ interface EditorToolbarProps {
  * the image actually lands in, independent of this toolbar's own state).
  */
 function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) {
-    const [toolbarOverflowOpen, setToolbarOverflowOpen] = useState(false)
     const [imagePopoverOpen, setImagePopoverOpen] = useState(false)
     const [showImageLibrary, setShowImageLibrary] = useState(false)
     const [uploadingImage, setUploadingImage] = useState(false)
@@ -777,55 +773,88 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
     // 0 means "plain paragraph", matching whichever of H1/H2/H3 (if any) the
     // focused section's cursor is currently in.
     const currentHeadingLevel = editor ? (([1, 2, 3] as const).find(l => editor.isActive('heading', { level: l })) ?? 0) : 0
+    const currentFontSize = (editor?.getAttributes('textStyle').fontSize as string | undefined) || ''
 
     return (
         <div ref={containerRef} style={{
             display: 'flex', alignItems: 'center', gap: 2, height: 44, flexShrink: 0,
-            borderBottom: '1px solid var(--line)', background: 'var(--bg)', padding: '0 20px',
-            position: 'sticky', top: 0, zIndex: 20,
+            borderBottom: '1px solid var(--line)', background: 'var(--bg)', padding: '0 16px',
+            position: 'sticky', top: 0, zIndex: 20, overflowX: 'auto',
             opacity: disabled ? 0.45 : 1, transition: 'opacity 0.15s',
         }}>
-            <select
-                value={String(currentHeadingLevel)}
-                disabled={disabled}
-                onChange={e => {
+            {/* History */}
+            <TIconBtn title='Undo' disabled={disabled} onClick={() => editor?.chain().focus().undo().run()}><IconUndo /></TIconBtn>
+            <TIconBtn title='Redo' disabled={disabled} onClick={() => editor?.chain().focus().redo().run()}><IconRedo /></TIconBtn>
+            <TDivider />
+
+            {/* Block type + text size */}
+            <ToolbarDropdown title='Block style' disabled={disabled} minWidth={92}
+                value={String(currentHeadingLevel)} options={HEADING_OPTIONS}
+                onSelect={v => {
                     if (!editor) return
-                    const lvl = Number(e.target.value)
+                    const lvl = Number(v)
                     if (lvl === 0) editor.chain().focus().setParagraph().run()
                     else editor.chain().focus().setHeading({ level: lvl as 1 | 2 | 3 }).run()
                 }}
-                title='Block style'
-                style={{ background: 'none', border: 'none', color: 'var(--ink-2)', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '4px 6px', cursor: disabled ? 'default' : 'pointer', outline: 'none' }}
-            >
-                <option value='0'>Text</option>
-                <option value='1'>Heading 1</option>
-                <option value='2'>Heading 2</option>
-                <option value='3'>Heading 3</option>
-            </select>
+            />
+            <ToolbarDropdown title='Text size' disabled={disabled} minWidth={52}
+                value={currentFontSize} options={FONT_SIZE_OPTIONS}
+                onSelect={v => {
+                    if (!editor) return
+                    if (v) (editor.chain().focus() as any).setFontSize(v).run()
+                    else (editor.chain().focus() as any).unsetFontSize().run()
+                }}
+            />
             <TDivider />
+
+            {/* Inline marks */}
             <TLabel title='Bold' disabled={disabled} active={!!editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()}>B</TLabel>
             <TLabel title='Italic' disabled={disabled} active={!!editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()}>I</TLabel>
             <TLabel title='Underline' disabled={disabled} active={!!editor?.isActive('underline')} onClick={() => editor?.chain().focus().toggleUnderline().run()}>U</TLabel>
+            <TIconBtn title='Strikethrough' disabled={disabled} active={!!editor?.isActive('strike')} onClick={() => editor?.chain().focus().toggleStrike().run()}><IconStrikethrough /></TIconBtn>
             <TDivider />
-            <TLabel title='Bullet List' disabled={disabled} active={!!editor?.isActive('bulletList')} onClick={() => editor?.chain().focus().toggleBulletList().run()}>List</TLabel>
-            <div style={{ position: 'relative' }}>
-                <TLabel title={uploadingImage ? 'Uploading…' : 'Insert Image'} disabled={disabled} active={uploadingImage || imagePopoverOpen}
+
+            {/* Colour / highlight */}
+            <TIconBtn title='Highlight' disabled={disabled} active={!!editor?.isActive('highlight')} onClick={() => editor?.chain().focus().toggleHighlight().run()}><IconHighlight /></TIconBtn>
+            <TDivider />
+
+            {/* Alignment */}
+            <TIconBtn title='Align Left' disabled={disabled} active={!!editor?.isActive({ textAlign: 'left' })} onClick={() => editor?.chain().focus().setTextAlign('left').run()}><IconAlignLeft /></TIconBtn>
+            <TIconBtn title='Align Centre' disabled={disabled} active={!!editor?.isActive({ textAlign: 'center' })} onClick={() => editor?.chain().focus().setTextAlign('center').run()}><IconAlignCenter /></TIconBtn>
+            <TIconBtn title='Align Right' disabled={disabled} active={!!editor?.isActive({ textAlign: 'right' })} onClick={() => editor?.chain().focus().setTextAlign('right').run()}><IconAlignRight /></TIconBtn>
+            <TDivider />
+
+            {/* Lists */}
+            <TIconBtn title='Bullet List' disabled={disabled} active={!!editor?.isActive('bulletList')} onClick={() => editor?.chain().focus().toggleBulletList().run()}><IconListBullet /></TIconBtn>
+            <TIconBtn title='Numbered List' disabled={disabled} active={!!editor?.isActive('orderedList')} onClick={() => editor?.chain().focus().toggleOrderedList().run()}><IconListNumber /></TIconBtn>
+            <TDivider />
+
+            {/* Blocks */}
+            <TIconBtn title='Quote' disabled={disabled} active={!!editor?.isActive('blockquote')} onClick={() => editor?.chain().focus().toggleBlockquote().run()}><IconQuote /></TIconBtn>
+            <TIconBtn title='Section Divider' disabled={disabled} onClick={() => editor?.chain().focus().setHorizontalRule().run()}><IconRule /></TIconBtn>
+            <TDivider />
+
+            {/* Insert */}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+                <TIconBtn title={uploadingImage ? 'Uploading…' : 'Insert Image'} disabled={disabled} active={uploadingImage || imagePopoverOpen}
                     onClick={() => { if (!uploadingImage) setImagePopoverOpen(v => !v) }}
                 >
-                    Image
-                </TLabel>
+                    <IconImage />
+                </TIconBtn>
                 {imagePopoverOpen && !uploadingImage && (
                     <div
                         onMouseDown={e => e.stopPropagation()}
                         style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '4px 0', display: 'flex', flexDirection: 'column', minWidth: 190, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
                     >
                         <button type='button'
+                            onMouseDown={e => e.preventDefault()}
                             onClick={() => { setImagePopoverOpen(false); imageInputRef.current?.click() }}
                             style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'var(--ink-2)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--s3)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >Upload from Computer</button>
                         <button type='button'
+                            onMouseDown={e => e.preventDefault()}
                             onClick={() => { setImagePopoverOpen(false); setShowImageLibrary(true) }}
                             style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'var(--ink-2)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
                             onMouseEnter={e => (e.currentTarget.style.background = 'var(--s3)')}
@@ -834,95 +863,50 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                     </div>
                 )}
             </div>
-
-            <div style={{ flex: 1 }} />
-
-            {/* Overflow — undo/redo, font size, strike/highlight, align,
-                numbered list, quote, divider, link, clear formatting. Same
-                commands the old per-section overflow menu exposed; only the
-                toolbar hosting them moved. */}
-            <div style={{ position: 'relative' }}>
-                <TLabel title='More formatting' disabled={disabled} active={toolbarOverflowOpen} onClick={() => setToolbarOverflowOpen(v => !v)}>⋯</TLabel>
-                {toolbarOverflowOpen && editor && (
-                    <div
-                        onMouseDown={e => e.stopPropagation()}
-                        style={{ position: 'absolute', top: '110%', right: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: 6, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, width: 232, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+                <TIconBtn title={editor?.isActive('link') ? 'Edit Link' : 'Insert Link'} disabled={disabled} active={!!editor?.isActive('link')}
+                    onClick={() => {
+                        if (!editor) return
+                        const existing = editor.getAttributes('link').href || ''
+                        setLinkUrl(existing)
+                        setLinkText('')
+                        setLinkPopover(v => !v)
+                        const noSel = editor.state.selection.empty
+                        setTimeout(() => (noSel ? linkTextInputRef.current : linkUrlInputRef.current)?.focus(), 40)
+                    }}
+                >
+                    <IconLink />
+                </TIconBtn>
+                {linkPopover && editor && (
+                    <div data-shared-link-popover onMouseDown={e => e.stopPropagation()}
+                        style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
                     >
-                        <TBtn title='Undo' onClick={() => editor.chain().focus().undo().run()}><Undo style={{ fontSize: 16 }} /></TBtn>
-                        <TBtn title='Redo' onClick={() => editor.chain().focus().redo().run()}><Redo style={{ fontSize: 16 }} /></TBtn>
-                        <TDivider />
-                        <TBtn title='Strikethrough' active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}><StrikethroughS style={{ fontSize: 17 }} /></TBtn>
-                        <TBtn title='Highlight' active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}><FormatColorFill style={{ fontSize: 17 }} /></TBtn>
-                        <TDivider />
-                        <TBtn title='Align Left' active={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()}><FormatAlignLeft style={{ fontSize: 17 }} /></TBtn>
-                        <TBtn title='Align Centre' active={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()}><FormatAlignCenter style={{ fontSize: 17 }} /></TBtn>
-                        <TBtn title='Align Right' active={editor.isActive({ textAlign: 'right' })} onClick={() => editor.chain().focus().setTextAlign('right').run()}><FormatAlignRight style={{ fontSize: 17 }} /></TBtn>
-                        <TDivider />
-                        <TBtn title='Numbered List' active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><FormatListNumbered style={{ fontSize: 17 }} /></TBtn>
-                        <TBtn title='Quote' active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}><FormatQuote style={{ fontSize: 17 }} /></TBtn>
-                        <TBtn title='Section Divider' onClick={() => editor.chain().focus().setHorizontalRule().run()}><HorizontalRule style={{ fontSize: 17 }} /></TBtn>
-                        <TDivider />
-                        <div style={{ position: 'relative' }}>
-                            <TBtn title={editor.isActive('link') ? 'Edit Link' : 'Insert Link'} active={editor.isActive('link')}
-                                onClick={() => {
-                                    const existing = editor.getAttributes('link').href || ''
-                                    setLinkUrl(existing)
-                                    setLinkText('')
-                                    setLinkPopover(v => !v)
-                                    const noSel = editor.state.selection.empty
-                                    setTimeout(() => (noSel ? linkTextInputRef.current : linkUrlInputRef.current)?.focus(), 40)
+                        {editor.state.selection.empty && (
+                            <input ref={linkTextInputRef} value={linkText} onChange={e => setLinkText(e.target.value)} placeholder='Display text'
+                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); linkUrlInputRef.current?.focus() } if (e.key === 'Escape') setLinkPopover(false) }}
+                                style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
+                            />
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <input ref={linkUrlInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
+                                onKeyDown={e => {
+                                    if (e.key === 'Enter') { e.preventDefault(); applyLink() }
+                                    if (e.key === 'Escape') setLinkPopover(false)
                                 }}
-                            >
-                                <InsertLink style={{ fontSize: 17 }} />
-                            </TBtn>
-                            {linkPopover && (
-                                <div data-shared-link-popover onMouseDown={e => e.stopPropagation()}
-                                    style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
-                                >
-                                    {editor.state.selection.empty && (
-                                        <input ref={linkTextInputRef} value={linkText} onChange={e => setLinkText(e.target.value)} placeholder='Display text'
-                                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); linkUrlInputRef.current?.focus() } if (e.key === 'Escape') setLinkPopover(false) }}
-                                            style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
-                                        />
-                                    )}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                        <input ref={linkUrlInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
-                                            onKeyDown={e => {
-                                                if (e.key === 'Enter') { e.preventDefault(); applyLink() }
-                                                if (e.key === 'Escape') setLinkPopover(false)
-                                            }}
-                                            style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
-                                        />
-                                        <button type='button' onClick={applyLink}
-                                            style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--acc)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
-                                        >Apply</button>
-                                    </div>
-                                </div>
-                            )}
+                                style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
+                            />
+                            <button type='button' onMouseDown={e => e.preventDefault()} onClick={applyLink}
+                                style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--acc)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
+                            >Apply</button>
                         </div>
-                        <TBtn title='Remove Link' onClick={() => { editor.chain().focus().unsetLink().run(); setLinkPopover(false) }}>
-                            <LinkOff style={{ fontSize: 17 }} />
-                        </TBtn>
-                        <TDivider />
-                        <TBtn title='Clear Formatting' onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>
-                            <FormatClear style={{ fontSize: 17 }} />
-                        </TBtn>
-                        <select
-                            value={(editor.getAttributes('textStyle').fontSize as string | undefined) || ''}
-                            onChange={e => {
-                                if (e.target.value) (editor.chain().focus() as any).setFontSize(e.target.value).run()
-                                else (editor.chain().focus() as any).unsetFontSize().run()
-                            }}
-                            title='Font size'
-                            style={{ background: 'var(--s3)', border: '1px solid var(--line-2)', color: 'var(--ink-2)', fontSize: '0.65rem', padding: '0 4px', cursor: 'pointer', height: 26, outline: 'none', minWidth: 52 }}>
-                            <option value=''>Size</option>
-                            {[10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48].map(s => (
-                                <option key={s} value={`${s}px`}>{s}</option>
-                            ))}
-                        </select>
                     </div>
                 )}
             </div>
+            <TIconBtn title='Remove Link' disabled={disabled} onClick={() => { editor?.chain().focus().unsetLink().run(); setLinkPopover(false) }}><IconUnlink /></TIconBtn>
+            <TDivider />
+
+            {/* Clear */}
+            <TIconBtn title='Clear Formatting' disabled={disabled} onClick={() => editor?.chain().focus().clearNodes().unsetAllMarks().run()}><IconClear /></TIconBtn>
 
             <input ref={imageInputRef} type='file' accept='image/*' style={{ display: 'none' }}
                 onChange={e => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); e.target.value = '' }}
@@ -932,6 +916,87 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                     onSelect={url => { editor?.chain().focus().setImage({ src: url }).run(); setShowImageLibrary(false) }}
                     onClose={() => setShowImageLibrary(false)}
                 />
+            )}
+        </div>
+    )
+}
+
+const HEADING_OPTIONS = [
+    { value: '0', label: 'Text' },
+    { value: '1', label: 'Heading 1' },
+    { value: '2', label: 'Heading 2' },
+    { value: '3', label: 'Heading 3' },
+]
+
+const FONT_SIZE_OPTIONS = [
+    { value: '', label: 'Size' },
+    ...[10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48].map(s => ({ value: `${s}px`, label: String(s) })),
+]
+
+/**
+ * Custom button + menu standing in for a native `<select>` in the shared
+ * toolbar (visual-fixes-report FIX 1). A native `<select>`'s own dropdown
+ * needs its mousedown, so it can't take the `preventDefault` treatment every
+ * other control here gets — converting it to this component instead keeps
+ * the block-type and text-size controls on the same interaction model (and
+ * the same token-based styling) as everything else, rather than carving out
+ * a focus-and-reapply special case just for these two.
+ */
+function ToolbarDropdown({ value, options, onSelect, disabled, title, minWidth = 80 }: {
+    value: string
+    options: { value: string; label: string }[]
+    onSelect: (value: string) => void
+    disabled?: boolean
+    title: string
+    minWidth?: number
+}) {
+    const [open, setOpen] = useState(false)
+    const ref = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (!open) return
+        const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [open])
+
+    const current = options.find(o => o.value === value) || options[0]
+
+    return (
+        <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+            <button type='button' title={title} disabled={disabled}
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => setOpen(v => !v)}
+                style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4,
+                    padding: '5px 6px', minWidth, background: open ? 'var(--s2)' : 'transparent', border: 'none', borderRadius: 'var(--r)',
+                    color: 'var(--ink-2)', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+                    cursor: disabled ? 'default' : 'pointer', transition: 'color 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-2)' }}
+            >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{current.label}</span>
+                <IconChevronDown />
+            </button>
+            {open && (
+                <div onMouseDown={e => e.stopPropagation()}
+                    style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: 4, display: 'flex', flexDirection: 'column', minWidth: Math.max(minWidth, 120), maxHeight: 280, overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
+                >
+                    {options.map(o => (
+                        <button key={o.value} type='button'
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => { onSelect(o.value); setOpen(false) }}
+                            style={{
+                                textAlign: 'left', padding: '6px 10px', background: o.value === value ? 'var(--s3)' : 'transparent',
+                                border: 'none', borderRadius: 'var(--r)', color: o.value === value ? 'var(--acc)' : 'var(--ink-2)',
+                                fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
+                            onMouseLeave={e => { e.currentTarget.style.color = o.value === value ? 'var(--acc)' : 'var(--ink-2)' }}
+                        >{o.label}</button>
+                    ))}
+                </div>
             )}
         </div>
     )
@@ -1300,15 +1365,26 @@ function PresenceAvatar({ peer, self }: { peer: Peer; self?: boolean }) {
     )
 }
 
-function TBtn({ onClick, active, title, children }: { onClick: () => void; active?: boolean; title: string; children: React.ReactNode }) {
-    const themeColor = useContext(ThemeContext)
-    const { r, g, b } = hexToRgb(themeColor)
-    const c = (a: number) => `rgba(${r},${g},${b},${a})`
+/** Compact icon control for the shared toolbar (visual-fixes-report FIX 2) —
+ * every icon-bearing button in `EditorToolbar` routes through this so the
+ * `onMouseDown` focus-retention fix (FIX 1) and the active/hover token
+ * colours only need to live in one place. */
+function TIconBtn({ onClick, active, title, disabled, children }: { onClick: () => void; active?: boolean; title: string; disabled?: boolean; children: React.ReactNode }) {
     return (
-        <button type='button' title={title} onClick={onClick}
-            style={{ padding: '4px 7px', background: active ? c(0.15) : 'transparent', border: active ? `1px solid ${c(0.3)}` : '1px solid transparent', color: active ? c(0.9) : 'rgba(237,237,237,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 2, transition: 'all 0.15s', minWidth: 28, height: 28 }}
-            onMouseEnter={e => { if (!active) { e.currentTarget.style.color = 'rgba(237,237,237,0.9)'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)' } }}
-            onMouseLeave={e => { if (!active) { e.currentTarget.style.color = 'rgba(237,237,237,0.5)'; e.currentTarget.style.background = 'transparent' } }}
+        <button type='button' title={title} disabled={disabled}
+            onMouseDown={e => e.preventDefault()}
+            onClick={onClick}
+            style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                width: 26, height: 26, padding: 0,
+                background: active ? 'rgba(var(--acc-rgb), 0.16)' : 'transparent',
+                border: active ? '1px solid rgba(var(--acc-rgb), 0.35)' : '1px solid transparent',
+                borderRadius: 'var(--r)',
+                color: active ? 'var(--acc)' : 'var(--ink-2)',
+                cursor: disabled ? 'default' : 'pointer', transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--ink)' }}
+            onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'var(--ink-2)' }}
         >
             {children}
         </button>
@@ -1316,23 +1392,23 @@ function TBtn({ onClick, active, title, children }: { onClick: () => void; activ
 }
 
 function TDivider() {
-    return <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.1)', margin: '0 3px' }} />
+    return <div style={{ width: 1, height: 16, background: 'var(--line)', margin: '0 4px', flexShrink: 0 }} />
 }
 
-/** Primary-toolbar control (visual-fixes spec §2): a quiet mono text label
- * rather than an MUI icon — used for the small set of controls that stay
- * visible on the slim main row (block style, B/I/U, list, image, the
- * overflow toggle). Everything else keeps the icon-based `TBtn` inside the
- * overflow panel. */
+/** Primary-toolbar text control (visual-fixes-report FIX 2) — a quiet mono
+ * label rather than an icon, reserved for the few controls a label reads
+ * more clearly than an icon would (B / I / U). */
 function TLabel({ onClick, active, title, disabled, children }: { onClick: () => void; active?: boolean; title: string; disabled?: boolean; children: React.ReactNode }) {
     return (
-        <button type='button' title={title} onClick={onClick} disabled={disabled}
+        <button type='button' title={title} disabled={disabled}
+            onMouseDown={e => e.preventDefault()}
+            onClick={onClick}
             style={{
-                padding: '5px 8px',
-                background: active ? 'var(--s2)' : 'transparent',
+                padding: '5px 8px', flexShrink: 0,
+                background: active ? 'rgba(var(--acc-rgb), 0.14)' : 'transparent',
                 border: 'none',
                 borderRadius: 'var(--r)',
-                color: active ? 'var(--ink)' : 'var(--ink-2)',
+                color: active ? 'var(--acc)' : 'var(--ink-2)',
                 fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
                 cursor: disabled ? 'default' : 'pointer', transition: 'all 0.15s',
             }}
@@ -1343,3 +1419,34 @@ function TLabel({ onClick, active, title, disabled, children }: { onClick: () =>
         </button>
     )
 }
+
+// ─── Toolbar icons ─────────────────────────────────────────────────────────────
+// Small stroke-based inline SVGs (visual-fixes-report FIX 2) rather than the
+// MUI/Material glyph set used elsewhere in this file — kept to a single
+// consistent stroke weight and size so the shared toolbar reads as one quiet
+// row rather than a mix of icon styles. Scoped to `EditorToolbar`; the
+// per-image floating toolbar in `ResizableImageView` is a separate control
+// surface and keeps its existing MUI icons.
+function Svg({ children, size = 15 }: { children: React.ReactNode; size?: number }) {
+    return (
+        <svg width={size} height={size} viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth={1.75} strokeLinecap='round' strokeLinejoin='round'>
+            {children}
+        </svg>
+    )
+}
+const IconUndo = () => <Svg><path d='M3 7v6h6' /><path d='M21 17a9 9 0 0 0-9-9c-2.4 0-4.68.94-6.36 2.64L3 13' /></Svg>
+const IconRedo = () => <Svg><path d='M21 7v6h-6' /><path d='M3 17a9 9 0 0 1 9-9c2.4 0 4.68.94 6.36 2.64L21 13' /></Svg>
+const IconStrikethrough = () => <Svg><path d='M16 4H9.5A3.5 3.5 0 0 0 8 10.67' /><path d='M14 12a4 4 0 0 1 0 8H6' /><line x1='4' y1='12' x2='20' y2='12' /></Svg>
+const IconHighlight = () => <Svg><path d='M4 20h4l10.5-10.5-4-4L4 16Z' /><path d='m13 6.5 4 4' /><path d='M8 20H4v-4' /></Svg>
+const IconAlignLeft = () => <Svg><line x1='4' y1='6' x2='20' y2='6' /><line x1='4' y1='12' x2='13' y2='12' /><line x1='4' y1='18' x2='17' y2='18' /></Svg>
+const IconAlignCenter = () => <Svg><line x1='4' y1='6' x2='20' y2='6' /><line x1='7.5' y1='12' x2='16.5' y2='12' /><line x1='6' y1='18' x2='18' y2='18' /></Svg>
+const IconAlignRight = () => <Svg><line x1='4' y1='6' x2='20' y2='6' /><line x1='11' y1='12' x2='20' y2='12' /><line x1='7' y1='18' x2='20' y2='18' /></Svg>
+const IconListBullet = () => <Svg><circle cx='4.5' cy='6' r='1' fill='currentColor' stroke='none' /><circle cx='4.5' cy='12' r='1' fill='currentColor' stroke='none' /><circle cx='4.5' cy='18' r='1' fill='currentColor' stroke='none' /><line x1='9' y1='6' x2='20' y2='6' /><line x1='9' y1='12' x2='20' y2='12' /><line x1='9' y1='18' x2='20' y2='18' /></Svg>
+const IconListNumber = () => <Svg><path d='M4.5 5.5h1v3' /><path d='M4.5 14.3c0-.8.7-1.3 1.4-1.3.8 0 1.4.4 1.4 1.1 0 .5-.4.8-.9 1.3l-1.9 1.8h2.8' /><line x1='11' y1='6' x2='20' y2='6' /><line x1='11' y1='12' x2='20' y2='12' /><line x1='11' y1='18' x2='20' y2='18' /></Svg>
+const IconQuote = () => <Svg><path d='M7 8a3 3 0 0 0-3 3v2a2 2 0 0 0 2 2h1v3l-3 2' /><path d='M17 8a3 3 0 0 0-3 3v2a2 2 0 0 0 2 2h1v3l-3 2' /></Svg>
+const IconRule = () => <Svg><line x1='4' y1='12' x2='20' y2='12' /></Svg>
+const IconImage = () => <Svg><rect x='3.5' y='4.5' width='17' height='15' rx='1.5' /><circle cx='9' cy='10' r='1.6' /><path d='m5 17 5-5 3.5 3.5L18 11l1.5 1.5' /></Svg>
+const IconLink = () => <Svg><path d='M10 14a4.5 4.5 0 0 1 0-6.36l2-2a4.5 4.5 0 1 1 6.36 6.36l-1.1 1.1' /><path d='M14 10a4.5 4.5 0 0 1 0 6.36l-2 2a4.5 4.5 0 1 1-6.36-6.36l1.1-1.1' /></Svg>
+const IconUnlink = () => <Svg><path d='M9.5 14.5a4.5 4.5 0 0 1-1.15-4.4' /><path d='M14.5 9.5a4.5 4.5 0 0 1 1.15 4.4' /><path d='m12.35 6.85 1.65-1.65a4.5 4.5 0 1 1 6.36 6.36l-1.65 1.65' /><path d='m11.65 17.15-1.65 1.65a4.5 4.5 0 1 1-6.36-6.36l1.65-1.65' /><line x1='4' y1='4' x2='20' y2='20' /></Svg>
+const IconClear = () => <Svg><path d='M18 5H8.5L4 9.5 12.5 18H18' /><path d='m13.5 9.5-4.5 4.5' /><line x1='9' y1='21' x2='19' y2='21' /></Svg>
+const IconChevronDown = () => <Svg size={11}><path d='M6 9l6 6 6-6' /></Svg>
