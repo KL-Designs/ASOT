@@ -176,6 +176,10 @@ export default function Page() {
     const [attStage, setAttStage] = useState<AttendanceStage>('preparing')
     const [confirmStage, setConfirmStage] = useState<AttendanceStage | null>(null)
     const [stageAdvancing, setStageAdvancing] = useState(false)
+    // StageCard's own confirm target — kept separate from confirmStage
+    // (the old Attendance Settings stepper's confirm state, untouched below)
+    // so the two flows don't share dialog state while both remain live.
+    const [stageCardConfirmTarget, setStageCardConfirmTarget] = useState<AttendanceStage | null>(null)
 
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [previewOpen, setPreviewOpen] = useState(false)
@@ -582,13 +586,15 @@ export default function Page() {
         await saveAttendanceSettings(updates)
     }
 
-    // StageCard's single Advance button (Task 10) — reuses applyStage, the
+    // StageCard's write path (Task 10, extended) — reuses applyStage, the
     // same handler the Attendance Settings stepper's node clicks call, so it
     // saves through the exact same endpoint (POST .../attendance/platoons)
-    // and payload. Guards against a double-click firing two writes, and
-    // calls refresh() so the deck's timeline (and StatusBar) pick up the
+    // and payload regardless of whether the change came from the Advance
+    // button or a progress-segment click. Guards against a double-click (or
+    // a segment click while a write is already in flight) firing two writes,
+    // and calls refresh() so the deck's timeline (and StatusBar) pick up the
     // change immediately instead of waiting on the next 30s poll.
-    async function handleAdvanceStage(to: AttendanceStage) {
+    async function commitStageChange(to: AttendanceStage) {
         if (stageAdvancing) return
         setStageAdvancing(true)
         try {
@@ -597,6 +603,30 @@ export default function Page() {
         } finally {
             setStageAdvancing(false)
         }
+    }
+
+    // Same three stages the Attendance Settings stepper's own NEEDS_CONFIRM
+    // guards (~line 1712 below, in the untouched old stepper block) — going
+    // Active, opening attendance confirmation (billet points), and closing
+    // it. Duplicated here rather than shared so that block doesn't need
+    // touching; both flows write through the same applyStage/commitStageChange
+    // path regardless.
+    const STAGE_CARD_CONFIRM_MSGS: Partial<Record<AttendanceStage, string>> = {
+        op_running:          'Mark the operation as Active? This sets it to "Op Running".',
+        confirmations_open:  `End "${title || 'this mission'}"? This marks it Completed and opens attendance confirmation.`,
+        completed:            'Close attendance confirmation? Squad leaders will no longer be able to confirm.',
+    }
+
+    // Entry point for both StageCard controls (Advance button and segment
+    // clicks). Pauses for confirmation on the three impactful stages above;
+    // everything else commits immediately.
+    function requestStageChange(to: AttendanceStage) {
+        if (stageAdvancing) return
+        if (STAGE_CARD_CONFIRM_MSGS[to]) {
+            setStageCardConfirmTarget(to)
+            return
+        }
+        commitStageChange(to)
     }
 
     const PLATOON_OPTS = [
@@ -688,6 +718,19 @@ export default function Page() {
                 onCancel={() => setConfirmDelete(false)}
             />
 
+            {/* StageCard's confirm gate (Advance button + segment clicks) — same
+                three impactful stages, same messages, as the old Attendance
+                Settings stepper's own dialog further down. */}
+            <ConfirmDialog
+                open={stageCardConfirmTarget !== null}
+                title='Change Stage'
+                message={stageCardConfirmTarget ? (STAGE_CARD_CONFIRM_MSGS[stageCardConfirmTarget] ?? `Move to "${stageCardConfirmTarget}"?`) : ''}
+                confirmLabel='Confirm'
+                danger
+                onConfirm={() => { const s = stageCardConfirmTarget!; setStageCardConfirmTarget(null); commitStageChange(s) }}
+                onCancel={() => setStageCardConfirmTarget(null)}
+            />
+
             <EditorShell
                 operationId={opID}
                 themeColor={themeColor}
@@ -750,7 +793,8 @@ export default function Page() {
                         {isHQ && opID && (
                             <StageCard
                                 stage={displayStage}
-                                onAdvance={handleAdvanceStage}
+                                onAdvance={requestStageChange}
+                                onSelect={requestStageChange}
                                 advancing={stageAdvancing}
                             />
                         )}
