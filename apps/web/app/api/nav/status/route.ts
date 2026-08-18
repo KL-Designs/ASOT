@@ -23,9 +23,18 @@ export type NavStatus = {
     nextOp: { id: string, title: string, date: string } | null
     /** Members currently connected to TeamSpeak, or null if the cache is cold. */
     teamspeakOnline: number | null
-    /** Filled ORBAT slots — the active roster size. */
+    /** Filled ORBAT slots, excluding inactive reservists — the active roster. */
     roster: number | null
 }
+
+/**
+ * Reservists share the `orbat_positions` collection with platoon, HQ and
+ * gamemaster slots and are told apart only by `category`, so a plain
+ * "filled slots" count silently includes members flagged as inactive. Active
+ * reservists are part of the roster; inactive ones are the whole point of the
+ * distinction.
+ */
+const INACTIVE_CATEGORIES = ['inactiveReservist']
 
 /**
  * Operations stay listed for a while after their start time (an op runs for
@@ -51,7 +60,12 @@ async function findNextOp(): Promise<NavStatus['nextOp']> {
 export async function GET() {
     const [nextOp, roster] = await Promise.all([
         findNextOp().catch(() => null),
-        Db.orbatPositions.countDocuments({ userId: { $ne: null } }).catch(() => null),
+        // `distinct` rather than a count: the rail says "N active", which should
+        // be a headcount, and one member can occupy more than one slot.
+        Db.orbatPositions
+            .distinct('userId', { userId: { $ne: null }, category: { $nin: INACTIVE_CATEGORIES } })
+            .then(ids => ids.length)
+            .catch(() => null),
     ])
 
     // Read-only — the cron job owns refreshing this. A cold cache yields null
