@@ -1,0 +1,66 @@
+/*
+ * Grid regions for the editor shell. Colour comes entirely from the
+ * `.command` tokens (styles/command.css) plus the per-operation --acc/--acc-rgb
+ * injected inline by EditorShell — nothing here hardcodes a colour.
+ */
+.shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    overflow: hidden;
+}
+.body { display: flex; flex: 1; min-height: 0; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+.deck { width: 340px; flex-shrink: 0; border-left: 1px solid var(--line); overflow-y: auto; }
+.deckCollapsed { width: 44px; }
+
+@media (max-width: 1279px) { .deck { position: absolute; right: 0; top: 0; bottom: 0; z-index: 20; } }
+@media (max-width: 1023px) { .deck { width: 300px; } }
+
+/* The scrollable pane inside .main — .main itself is a plain flex column with
+   no overflow rule (see the block above), so without this the tab content
+   would be clipped by .shell's overflow:hidden instead of scrolling. */
+.mainScroll { flex: 1; min-height: 0; overflow-y: auto; }
+
+.tabbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 16px;
+    height: 36px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--line);
+    background: var(--s1);
+}
+
+.tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--ink-3);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 0 10px;
+    height: 100%;
+    cursor: pointer;
+}
+.tab:hover { color: var(--ink-2); }
+.tabOn { color: var(--ink); border-bottom-color: var(--acc); }
+
+.tabPlaceholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-3);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}

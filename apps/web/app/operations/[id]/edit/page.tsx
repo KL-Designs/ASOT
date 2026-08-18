@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef, type CSSProperties } from 'react'
-import Link from 'next/link'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import ConfirmDialog from '@/components/confirm-dialog'
 import dayjs, { Dayjs } from 'dayjs'
@@ -11,6 +10,9 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dynamic from 'next/dynamic'
 import PERMISSIONS from '@/lib/permissions'
 import ActivityLog from './activity-log'
+import EditorShell, { useEditorTab } from './EditorShell'
+import Header from './Header'
+import StatusBar from './StatusBar'
 const OperationEditor = dynamic(() => import('@/components/editor/CollabEditor'), { ssr: false })
 
 interface MetaFields { title: string; department: string; date: string; loreDate: string }
@@ -98,6 +100,10 @@ export default function Page() {
     const [initialContent, setInitialContent] = useState<any>(undefined)
     const [loaded, setLoaded] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
+    // Timestamp of the last successful scheduleSave — status-bar display only,
+    // does not participate in the save path itself (see scheduleSave below).
+    const [savedAt, setSavedAt] = useState<Date | null>(null)
+    const [tab, setTab] = useEditorTab()
 
     // Mission Development
     const [missionDev, setMissionDev] = useState<MissionDevelopment | null>(null)
@@ -366,6 +372,7 @@ export default function Page() {
             try {
                 await fetch(`/api/operations/update?id=${opID}&${qs}`)
                 setSaveStatus('saved')
+                setSavedAt(new Date())
             } catch {
                 setSaveStatus('unsaved')
             }
@@ -397,6 +404,24 @@ export default function Page() {
     async function removeCover() {
         setCoverImage(null)
         await fetch(`/api/operations/update?id=${opID}&coverImage=`)
+    }
+
+    // Publish flow — lifted unchanged from the old inline header buttons; only
+    // the JSX moved (into Header.tsx), the fetch/state logic did not.
+    async function confirmPublish() {
+        setPublishSaving(true)
+        try {
+            const res = await fetch(`/api/operations/${opID}/publish`, { method: 'POST' })
+            if (res.ok) {
+                setStatus('Upcoming')
+                setPublishConfirmOpen(false)
+            } else {
+                const d = await res.json()
+                alert(d.error ?? 'Publish failed')
+            }
+        } finally {
+            setPublishSaving(false)
+        }
     }
 
     async function saveAttendanceSettings(updates: {
@@ -512,9 +537,6 @@ export default function Page() {
     }
     const currentStatusColor = STATUS_COLORS[status] || 'rgba(237,237,237,0.5)'
 
-    const statusColor = saveStatus === 'saved' ? 'rgba(100,220,100,0.65)' : saveStatus === 'saving' ? 'rgba(219,0,29,0.65)' : 'rgba(237,200,0,0.65)'
-    const statusLabel = saveStatus === 'saved' ? '● Saved' : saveStatus === 'saving' ? '● Saving…' : '● Unsaved'
-
     if (!loaded) return (
         <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -542,6 +564,54 @@ export default function Page() {
     )
 
     return (
+        <>
+            <ConfirmDialog
+                open={confirmDelete}
+                title='Delete Mission'
+                message={`"${title || 'This mission'}" will be permanently deleted. This cannot be undone.`}
+                confirmLabel='Delete'
+                danger
+                onConfirm={handleDelete}
+                onCancel={() => setConfirmDelete(false)}
+            />
+
+            <EditorShell
+                operationId={opID}
+                themeColor={themeColor}
+                isHQ={isHQ}
+                tab={tab}
+                onTabChange={setTab}
+                header={
+                    <Header
+                        operationId={opID}
+                        fromJ2={fromJ2}
+                        title={title}
+                        status={status}
+                        saveStatus={saveStatus}
+                        isHQ={isHQ}
+                        onDelete={() => setConfirmDelete(true)}
+                        activityOpen={activityOpen}
+                        onToggleActivity={() => setActivityOpen(o => !o)}
+                        onOpenPreview={() => window.open(`/operations/${opID}`, '_blank')}
+                        publishConfirmOpen={publishConfirmOpen}
+                        publishSaving={publishSaving}
+                        onPublishClick={() => setPublishConfirmOpen(true)}
+                        onPublishConfirm={confirmPublish}
+                        onPublishCancel={() => setPublishConfirmOpen(false)}
+                    />
+                }
+                statusBar={
+                    <StatusBar
+                        connected={true}
+                        activeDocTitle={title || 'Untitled'}
+                        words={0}
+                        sections={0}
+                        savedAt={savedAt}
+                        editorCount={1}
+                        department={department}
+                    />
+                }
+            >
         <div className='w-full' style={{
             paddingRight: previewOpen ? 'clamp(360px, 40vw, 700px)' : activityOpen ? 'clamp(280px, 30vw, 460px)' : 0,
             transition: 'padding-right 0.25s ease',
@@ -555,163 +625,6 @@ export default function Page() {
                 flexShrink: 0,
                 padding: 'clamp(1.5rem, 2.5vw, 2.5rem)',
             }}>
-
-            <ConfirmDialog
-                open={confirmDelete}
-                title='Delete Mission'
-                message={`"${title || 'This mission'}" will be permanently deleted. This cannot be undone.`}
-                confirmLabel='Delete'
-                danger
-                onConfirm={handleDelete}
-                onCancel={() => setConfirmDelete(false)}
-            />
-
-            {/* Page header */}
-            <div className='flex items-center justify-between gap-4' style={{ marginBottom: 20 }}>
-                <div className='flex items-center gap-4'>
-                    <Link
-                        href={fromJ2 ? '/dashboard/j2' : '/operations'}
-                        style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', textDecoration: 'none' }}
-                    >
-                        {fromJ2 ? '← J2 Operations' : '← Back'}
-                    </Link>
-                    <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
-                    <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)' }}>
-                        Mission Edit
-                    </span>
-                    {opID && (
-                        <>
-                            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
-                            <Link
-                                href={`/operations/${opID}`}
-                                style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: c(0.55), textDecoration: 'none' }}
-                            >
-                                View →
-                            </Link>
-                        </>
-                    )}
-                    {opID && (
-                        <>
-                            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.1)' }} />
-                            <Link
-                                href={`/operations/${opID}/map`}
-                                style={{
-                                    background: 'none',
-                                    padding: '2px 0',
-                                    fontSize: '0.68rem',
-                                    fontWeight: 700,
-                                    letterSpacing: '0.14em',
-                                    textTransform: 'uppercase',
-                                    color: 'rgba(237,237,237,0.3)',
-                                    textDecoration: 'none',
-                                    ...bottomBorder('2px solid transparent'),
-                                }}
-                            >
-                                Map ↗
-                            </Link>
-                        </>
-                    )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: statusColor }}>
-                        {statusLabel}
-                    </span>
-                    {/* Publish button — visible when In Development */}
-                    {opID && isHQ && status === 'In Development' && (
-                        publishConfirmOpen ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', background: 'rgba(0,200,80,0.07)', border: '1px solid rgba(0,200,80,0.3)', borderRadius: 2 }}>
-                                <span style={{ fontSize: '0.6rem', color: 'rgba(0,200,80,0.75)', fontWeight: 700, letterSpacing: '0.1em' }}>Publish "{title || 'this op'}"?</span>
-                                <button type='button' disabled={publishSaving} onClick={async () => {
-                                    setPublishSaving(true)
-                                    try {
-                                        const res = await fetch(`/api/operations/${opID}/publish`, { method: 'POST' })
-                                        if (res.ok) {
-                                            setStatus('Upcoming')
-                                            setPublishConfirmOpen(false)
-                                        } else {
-                                            const d = await res.json()
-                                            alert(d.error ?? 'Publish failed')
-                                        }
-                                    } finally {
-                                        setPublishSaving(false)
-                                    }
-                                }}
-                                    style={{ padding: '4px 10px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', background: 'rgba(0,200,80,0.2)', border: '1px solid rgba(0,200,80,0.5)', color: 'rgba(0,200,80,0.95)', cursor: 'pointer' }}
-                                >{publishSaving ? 'Publishing…' : '✓ Confirm'}</button>
-                                <button type='button' onClick={() => setPublishConfirmOpen(false)}
-                                    style={{ padding: '4px 8px', fontSize: '0.6rem', fontWeight: 700, background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}
-                                >Cancel</button>
-                            </div>
-                        ) : (
-                            <button type='button' onClick={() => setPublishConfirmOpen(true)}
-                                style={{
-                                    padding: '6px 14px',
-                                    background: 'rgba(0,200,80,0.08)',
-                                    border: '1px solid rgba(0,200,80,0.35)',
-                                    color: 'rgba(0,200,80,0.75)',
-                                    fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-                                    cursor: 'pointer', transition: 'all 0.15s',
-                                }}
-                                onMouseEnter={e => { const el = e.currentTarget; el.style.background = 'rgba(0,200,80,0.18)'; el.style.color = 'rgba(0,200,80,1)'; el.style.borderColor = 'rgba(0,200,80,0.65)' }}
-                                onMouseLeave={e => { const el = e.currentTarget; el.style.background = 'rgba(0,200,80,0.08)'; el.style.color = 'rgba(0,200,80,0.75)'; el.style.borderColor = 'rgba(0,200,80,0.35)' }}
-                            >
-                                ↑ Publish Operation
-                            </button>
-                        )
-                    )}
-                    {opID && (
-                        <button
-                            onClick={() => setConfirmDelete(true)}
-                            style={{
-                                padding: '6px 14px',
-                                background: 'rgba(219,0,29,0.06)',
-                                border: '1px solid rgba(219,0,29,0.3)',
-                                color: 'rgba(219,0,29,0.65)',
-                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-                                cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
-                            }}
-                            onMouseEnter={e => { const el = e.currentTarget; el.style.background = 'rgba(219,0,29,0.14)'; el.style.color = 'rgba(219,0,29,1)'; el.style.borderColor = 'rgba(219,0,29,0.6)' }}
-                            onMouseLeave={e => { const el = e.currentTarget; el.style.background = 'rgba(219,0,29,0.06)'; el.style.color = 'rgba(219,0,29,0.65)'; el.style.borderColor = 'rgba(219,0,29,0.3)' }}
-                        >
-                            Delete Mission
-                        </button>
-                    )}
-                    {opID && (
-                        <button
-                            className='hidden md:block'
-                            onClick={() => setActivityOpen(o => !o)}
-                            style={{
-                                padding: '6px 14px',
-                                background: activityOpen ? 'rgba(237,237,237,0.07)' : 'rgba(237,237,237,0.03)',
-                                border: `1px solid ${activityOpen ? 'rgba(237,237,237,0.25)' : 'rgba(255,255,255,0.1)'}`,
-                                color: activityOpen ? 'rgba(237,237,237,0.8)' : 'rgba(237,237,237,0.35)',
-                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-                                cursor: 'pointer', transition: 'all 0.15s',
-                            }}
-                        >
-                            Activity
-                        </button>
-                    )}
-                    {opID && (
-                        <button
-                            className='hidden md:block'
-                            onClick={() => window.open(`/operations/${opID}`, '_blank')}
-                            style={{
-                                padding: '6px 14px',
-                                background: 'rgba(237,237,237,0.03)',
-                                border: '1px solid rgba(255,255,255,0.1)',
-                                color: 'rgba(237,237,237,0.35)',
-                                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-                                cursor: 'pointer', transition: 'all 0.15s',
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.color = 'rgba(237,237,237,0.75)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
-                            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(237,237,237,0.35)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
-                        >
-                            ⊡ Preview
-                        </button>
-                    )}
-                </div>
-            </div>
 
             {/* Mission Development */}
             {opID && (() => {
@@ -2176,6 +2089,8 @@ export default function Page() {
             )}
 
             </div>{/* end edit column */}
+        </div>
+            </EditorShell>
 
             {/* Activity log drawer — fixed overlay from right */}
             {opID && (
@@ -2261,8 +2176,7 @@ export default function Page() {
                     />
                 </div>
             )}
-
-        </div>
+        </>
     )
 }
 
