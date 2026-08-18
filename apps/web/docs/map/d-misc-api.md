@@ -1,6 +1,6 @@
 # Part D — Misc API
 
-Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,minigame,members,notifications,upload,services-asot,recruit-session,maps,map-presets,loadouts,dev,tfar,shoot,preferences,ping,orbat,milpacs,membercount,logout,generate,credits,award-request,auth,dashboard}/**/route.ts` (excludes `gallery/admin/**`, which belongs to the admin catalog). 82 route files.
+Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,minigame,members,notifications,upload,services-asot,recruit-session,maps,map-presets,loadouts,dev,tfar,shoot,preferences,ping,orbat,milpacs,membercount,logout,generate,credits,award-request,auth,dashboard}/**/route.ts` (excludes `gallery/admin/**`, which belongs to the admin catalog). 88 route files.
 
 ### dashboard (1 file)
 
