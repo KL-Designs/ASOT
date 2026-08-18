@@ -31,7 +31,7 @@ export default function IntelBoard({ featured, log }: { featured: LandingOp | nu
                     more={{ href: '/operations', label: 'View all operations' }}
                 />
 
-                <div className={s.intel}>
+                <div className={`${s.intel} ${featured ? '' : s.intelSolo}`}>
                     {featured && <FeaturedOp op={featured} />}
 
                     <aside className={s.oplist}>

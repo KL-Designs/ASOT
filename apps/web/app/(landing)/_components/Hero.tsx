@@ -125,7 +125,7 @@ export default function Hero({ sotm, roster, opCard }: {
             />
 
             <div
-                className={s.heroInner}
+                className={`${s.heroInner} ${opCard ? '' : s.heroInnerSolo}`}
                 style={{
                     opacity: gameActive ? 0 : 1,
                     transition: 'opacity 0.6s ease',
@@ -142,8 +142,11 @@ export default function Hero({ sotm, roster, opCard }: {
                         <Image src={Wordmark} alt='ASOT' priority />
                     </h1>
 
-                    <p className={s.heroSub}>Australian Special Operations Taskforce</p>
-                    <p className={s.heroP}>
+                    {/* No subtitle line: the lockup already carries "Australian
+                        Special Operations Taskforce" under the wordmark, and
+                        printing it again directly beneath was the loudest thing
+                        wrong with the hero. The rule moves onto the paragraph. */}
+                    <p className={`${s.heroP} ${s.heroPLead}`}>
                         Two operations a week, 50+ players on the field, and a rank structure that
                         actually means something. Combined arms across infantry, armour, rotary and
                         support — run by people who care about getting it right.

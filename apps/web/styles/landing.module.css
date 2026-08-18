@@ -79,6 +79,13 @@
     min-height: clamp(520px, 74vh, 720px);
 }
 
+/* Most weeks there is an operation to lead with. When there isn't, the second
+   column would otherwise sit empty and shove the copy off to the left — so the
+   hero drops to one column rather than reserving space for nothing. */
+.heroInnerSolo {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 .heroCopy {
     padding-bottom: clamp(40px, 6vw, 72px);
 }
@@ -96,17 +103,12 @@
     height: auto;
 }
 
-.heroSub {
-    font-family: var(--font-cond);
-    font-weight: 600;
-    font-size: clamp(15px, 1.8vw, 23px);
-    letter-spacing: .34em;
-    text-transform: uppercase;
-    color: var(--txt-1);
-    margin: 16px 0 0;
-    padding-top: 16px;
+/* The rule that used to sit above the subtitle — it still separates the lockup
+   from the body copy, which is the job it was actually doing. */
+.heroPLead {
+    padding-top: 22px;
     border-top: 1px solid rgba(255, 255, 255, .13);
-    max-width: 640px;
+    max-width: min(52ch, 640px);
 }
 
 .heroP {
@@ -367,6 +369,12 @@
     display: grid;
     grid-template-columns: minmax(0, 1.62fr) minmax(0, 1fr);
     gap: 24px;
+}
+
+/* Same reasoning as the hero: with no operation to feature, the log takes the
+   whole width instead of hugging one side of an empty grid. */
+.intelSolo {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .opfeat {
