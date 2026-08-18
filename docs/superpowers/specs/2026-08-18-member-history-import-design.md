@@ -580,6 +580,9 @@ is a public landing page. It is the bulk form and the lack of a decision to
 publish it that are the problem, not a new class of disclosure.
 
 `git rm --cached` on this branch stops it being tracked going forward and
-removes it from the tip on merge. It does **not** remove it from history —
-that needs a history rewrite and a force-push of `main`, which is the
-repository owner's call, not something this change makes.
+removes it from the tip on merge. It does **not** remove it from history.
+
+**Owner's decision: no history rewrite.** The data is already public per
+member, so purging it from history was judged not worth rewriting a shared
+branch. The file stays on disk locally as the importer's input and is deleted
+by hand once the import is done.
