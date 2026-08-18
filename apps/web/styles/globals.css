@@ -248,13 +248,22 @@ select option {
 
 /* ── Editor (always uses site red) ───────────────────────────────────────── */
 
+/* The editable region's own ground (visual-fixes spec §3) — a hairline
+   border plus a ground one step lighter than the column background so the
+   writable area reads as a distinct surface rather than blending into the
+   page, without going back to a heavy boxed card. The per-section rule in
+   CollabEditor.tsx (.op-editor-{sectionId}) layers the focus ring on top. */
 .op-editor {
     color: rgba(237, 237, 237, 0.85);
     font-size: 0.92rem;
     line-height: 1.75;
     outline: none;
     min-height: 80px;
-    padding: 36px 48px;
+    padding: 28px 36px;
+    background: var(--s1);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    transition: box-shadow 0.15s, border-color 0.15s;
 }
 
 .op-editor h1 {

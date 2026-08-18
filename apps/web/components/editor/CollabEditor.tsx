@@ -2,6 +2,7 @@
 
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
+import type { Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -456,6 +457,22 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
     const [seedSectionId, setSeedSectionId] = useState<string | null>(null)
     const [peers, setPeers] = useState<Peer[]>([])
     const [isMobile, setIsMobile] = useState(false)
+    // The one shared formatting toolbar (visual-fixes spec §1) dispatches to
+    // whichever section's editor last reported focus — set/cleared by each
+    // SectionEditor's own onFocus/onBlur below. null means "nothing focused",
+    // which the toolbar renders as disabled rather than guessing a target.
+    // `activeSectionId` drives each section's own focus ring (spec §3);
+    // kept separate from `activeEditor` because SectionEditor only knows its
+    // own id, not its own Editor instance, until useEditor() returns it.
+    const [activeEditor, setActiveEditor] = useState<Editor | null>(null)
+    const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
+    // Lets the blur handler below tell "focus moved into the toolbar itself"
+    // (a button, a select, a popover — keep the target) apart from "focus
+    // left the document entirely" (clear it), via the blur event's
+    // relatedTarget. Without this, mousedown on a toolbar button blurs the
+    // editor and clears activeEditor before the button's own onClick (which
+    // reads activeEditor via the `editor` prop closure) ever runs.
+    const toolbarRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 768)
@@ -589,67 +606,334 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                     synced={synced}
                     allowedTypes={allowedTypes}
                 />
-                <div style={{
-                    flex: 1, minWidth: 0,
-                    padding: isMobile ? 0 : 'clamp(1.5rem, 2.5vw, 2.5rem)',
-                }}>
-                    <div style={{ maxWidth: 740, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {activePageType !== 'intel' && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                                <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-3)', marginRight: 2 }}>
-                                    {readOnly ? 'Viewing' : 'Editing'}
-                                </span>
-                                <PresenceAvatar key='self' peer={{ clientId: -1, ...user }} self />
-                                {peers.map(peer => (
-                                    <PresenceAvatar key={peer.clientId} peer={peer} />
-                                ))}
-                            </div>
-                        )}
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                    {/* One persistent formatting toolbar, owned by the column rather
+                        than any section (visual-fixes spec §1) — pinned above all
+                        document content and, via `position: sticky`, staying put as
+                        the content beneath it scrolls inside .mainScroll. It always
+                        targets `activeEditor`, the last section to report focus. */}
+                    {!readOnly && activePageType !== 'intel' && (
+                        <EditorToolbar editor={activeEditor} uploadUrl={uploadUrl} containerRef={toolbarRef} />
+                    )}
+                    <div style={{ flex: 1, padding: isMobile ? 0 : '24px 48px 40px' }}>
+                        {/* Widened measure (visual-fixes spec §2): ~1100-1200px rather
+                            than the old ~740px cap, so the document reads as a real
+                            writing surface instead of a phone-width column. */}
+                        <div style={{ maxWidth: 1160, margin: '0 auto', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            {activePageType !== 'intel' && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                                    <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-3)', marginRight: 2 }}>
+                                        {readOnly ? 'Viewing' : 'Editing'}
+                                    </span>
+                                    <PresenceAvatar key='self' peer={{ clientId: -1, ...user }} self />
+                                    {peers.map(peer => (
+                                        <PresenceAvatar key={peer.clientId} peer={peer} />
+                                    ))}
+                                </div>
+                            )}
 
-                        {activePageType === 'intel' ? (
-                            <IntelPackageEditor
-                                key={activePage}
-                                operationId={operationId}
-                                readOnly={readOnly}
-                                themeColor={themeColor}
-                            />
-                        ) : (
-                            <>
-                                {sectionIds.map((id, idx) => (
-                                    <SectionEditor
-                                        key={`${activePage}-${id}`}
-                                        ydoc={ydoc}
-                                        sectionId={id}
-                                        pageId={activePage}
-                                        pageTitle={activePageTitle}
-                                        provider={provider}
-                                        user={user}
-                                        uploadUrl={uploadUrl}
-                                        onRemove={() => removeSection(id)}
-                                        onMoveUp={() => moveSection(id, 'up')}
-                                        onMoveDown={() => moveSection(id, 'down')}
-                                        canMoveUp={idx > 0}
-                                        canMoveDown={idx < sectionIds.length - 1}
-                                        themeColor={themeColor}
-                                        readOnly={readOnly}
-                                        seedContent={activePage === 'main' && id === seedSectionId ? initialContent : undefined}
-                                    />
-                                ))}
-                                {!readOnly && (
-                                    <button type='button' onClick={addSection}
-                                        style={{ alignSelf: 'flex-start', padding: '6px 2px', background: 'transparent', border: 'none', color: 'var(--ink-3)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'color 0.15s' }}
-                                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
-                                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-3)' }}
-                                    >
-                                        + Add Section
-                                    </button>
-                                )}
-                            </>
-                        )}
+                            {activePageType === 'intel' ? (
+                                <IntelPackageEditor
+                                    key={activePage}
+                                    operationId={operationId}
+                                    readOnly={readOnly}
+                                    themeColor={themeColor}
+                                />
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 40 }}>
+                                    {sectionIds.map((id, idx) => (
+                                        <SectionEditor
+                                            key={`${activePage}-${id}`}
+                                            ydoc={ydoc}
+                                            sectionId={id}
+                                            pageId={activePage}
+                                            pageTitle={activePageTitle}
+                                            provider={provider}
+                                            user={user}
+                                            uploadUrl={uploadUrl}
+                                            onRemove={() => removeSection(id)}
+                                            onMoveUp={() => moveSection(id, 'up')}
+                                            onMoveDown={() => moveSection(id, 'down')}
+                                            canMoveUp={idx > 0}
+                                            canMoveDown={idx < sectionIds.length - 1}
+                                            themeColor={themeColor}
+                                            readOnly={readOnly}
+                                            seedContent={activePage === 'main' && id === seedSectionId ? initialContent : undefined}
+                                            isFirst={idx === 0}
+                                            isLast={idx === sectionIds.length - 1}
+                                            focused={activeSectionId === id}
+                                            onFocusEditor={editor => { setActiveEditor(editor); setActiveSectionId(id) }}
+                                            onBlurEditor={(editor, event) => {
+                                                // Focus landing anywhere inside the toolbar (a button,
+                                                // a select, an open popover) isn't "nothing focused" —
+                                                // keep dispatching to this section until focus actually
+                                                // leaves both the document and the toolbar.
+                                                const related = event.relatedTarget as Node | null
+                                                if (related && toolbarRef.current?.contains(related)) return
+                                                setActiveEditor(prev => (prev === editor ? null : prev))
+                                                setActiveSectionId(prev => (prev === id ? null : prev))
+                                            }}
+                                        />
+                                    ))}
+                                    {!readOnly && (
+                                        <button type='button' onClick={addSection}
+                                            style={{ alignSelf: 'flex-start', marginTop: 8, padding: '6px 2px', background: 'transparent', border: 'none', color: 'var(--ink-3)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'color 0.15s' }}
+                                            onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
+                                            onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-3)' }}
+                                        >
+                                            + Add Section
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
         </ThemeContext.Provider>
+    )
+}
+
+// ─── Editor Toolbar ────────────────────────────────────────────────────────────
+
+interface EditorToolbarProps {
+    /** Whichever section's editor last reported focus, or null when nothing
+     * in the document is focused — the toolbar renders every control
+     * disabled rather than guess a target (visual-fixes spec §1). */
+    editor: Editor | null
+    uploadUrl: string
+    /** ActiveEditor's own ref to this toolbar's root DOM node, so its blur
+     * handler can tell "focus moved into the toolbar" (keep the target)
+     * apart from "focus left the document entirely" (clear it) — see the
+     * `relatedTarget` check in ActiveEditor's onBlurEditor. */
+    containerRef: React.RefObject<HTMLDivElement>
+}
+
+/**
+ * The one persistent formatting toolbar (visual-fixes spec §1) — pinned
+ * above all document content via `position: sticky`, owned by the editor
+ * column rather than any one section. Every control dispatches to whichever
+ * section last reported focus (the `editor` prop); when that's null every
+ * control renders disabled instead of silently doing nothing or throwing.
+ *
+ * This also now owns the image/link insertion flows that used to live in
+ * each section's own toolbar — they're text-formatting concerns, not
+ * per-section chrome, so they moved here with everything else. Paste/drop
+ * image upload stays in SectionEditor itself (it fires on whichever editor
+ * the image actually lands in, independent of this toolbar's own state).
+ */
+function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) {
+    const [toolbarOverflowOpen, setToolbarOverflowOpen] = useState(false)
+    const [imagePopoverOpen, setImagePopoverOpen] = useState(false)
+    const [showImageLibrary, setShowImageLibrary] = useState(false)
+    const [uploadingImage, setUploadingImage] = useState(false)
+    const [linkPopover, setLinkPopover] = useState(false)
+    const [linkUrl, setLinkUrl] = useState('')
+    const [linkText, setLinkText] = useState('')
+    const imageInputRef = useRef<HTMLInputElement>(null)
+    const linkUrlInputRef = useRef<HTMLInputElement>(null)
+    const linkTextInputRef = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        if (!linkPopover) return
+        const close = (e: MouseEvent) => {
+            if (!(e.target as Element).closest('[data-shared-link-popover]')) setLinkPopover(false)
+        }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [linkPopover])
+
+    async function handleImageUpload(file: File) {
+        if (!editor || uploadingImage) return
+        setUploadingImage(true)
+        try {
+            const formData = new FormData()
+            formData.append('file', file)
+            const res = await fetch(uploadUrl, { method: 'POST', body: formData })
+            const json = await res.json()
+            if (json.url) editor.chain().focus().setImage({ src: json.url }).run()
+            else alert(json.error || 'Upload failed')
+        } finally {
+            setUploadingImage(false)
+        }
+    }
+
+    function applyLink() {
+        if (!editor) return
+        const hasSelection = !editor.state.selection.empty
+        if (!hasSelection && linkText.trim() && linkUrl.trim()) {
+            editor.chain().focus().insertContent(`<a href="${linkUrl.trim()}">${linkText.trim()}</a>`).run()
+        } else if (linkUrl.trim()) {
+            editor.chain().focus().setLink({ href: linkUrl.trim() }).run()
+        } else {
+            editor.chain().focus().unsetLink().run()
+        }
+        setLinkPopover(false)
+        setLinkText('')
+        setLinkUrl('')
+    }
+
+    const disabled = !editor
+    // 0 means "plain paragraph", matching whichever of H1/H2/H3 (if any) the
+    // focused section's cursor is currently in.
+    const currentHeadingLevel = editor ? (([1, 2, 3] as const).find(l => editor.isActive('heading', { level: l })) ?? 0) : 0
+
+    return (
+        <div ref={containerRef} style={{
+            display: 'flex', alignItems: 'center', gap: 2, height: 44, flexShrink: 0,
+            borderBottom: '1px solid var(--line)', background: 'var(--bg)', padding: '0 20px',
+            position: 'sticky', top: 0, zIndex: 20,
+            opacity: disabled ? 0.45 : 1, transition: 'opacity 0.15s',
+        }}>
+            <select
+                value={String(currentHeadingLevel)}
+                disabled={disabled}
+                onChange={e => {
+                    if (!editor) return
+                    const lvl = Number(e.target.value)
+                    if (lvl === 0) editor.chain().focus().setParagraph().run()
+                    else editor.chain().focus().setHeading({ level: lvl as 1 | 2 | 3 }).run()
+                }}
+                title='Block style'
+                style={{ background: 'none', border: 'none', color: 'var(--ink-2)', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '4px 6px', cursor: disabled ? 'default' : 'pointer', outline: 'none' }}
+            >
+                <option value='0'>Text</option>
+                <option value='1'>Heading 1</option>
+                <option value='2'>Heading 2</option>
+                <option value='3'>Heading 3</option>
+            </select>
+            <TDivider />
+            <TLabel title='Bold' disabled={disabled} active={!!editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()}>B</TLabel>
+            <TLabel title='Italic' disabled={disabled} active={!!editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()}>I</TLabel>
+            <TLabel title='Underline' disabled={disabled} active={!!editor?.isActive('underline')} onClick={() => editor?.chain().focus().toggleUnderline().run()}>U</TLabel>
+            <TDivider />
+            <TLabel title='Bullet List' disabled={disabled} active={!!editor?.isActive('bulletList')} onClick={() => editor?.chain().focus().toggleBulletList().run()}>List</TLabel>
+            <div style={{ position: 'relative' }}>
+                <TLabel title={uploadingImage ? 'Uploading…' : 'Insert Image'} disabled={disabled} active={uploadingImage || imagePopoverOpen}
+                    onClick={() => { if (!uploadingImage) setImagePopoverOpen(v => !v) }}
+                >
+                    Image
+                </TLabel>
+                {imagePopoverOpen && !uploadingImage && (
+                    <div
+                        onMouseDown={e => e.stopPropagation()}
+                        style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '4px 0', display: 'flex', flexDirection: 'column', minWidth: 190, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
+                    >
+                        <button type='button'
+                            onClick={() => { setImagePopoverOpen(false); imageInputRef.current?.click() }}
+                            style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'var(--ink-2)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--s3)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >Upload from Computer</button>
+                        <button type='button'
+                            onClick={() => { setImagePopoverOpen(false); setShowImageLibrary(true) }}
+                            style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'var(--ink-2)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--s3)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >Select from Library</button>
+                    </div>
+                )}
+            </div>
+
+            <div style={{ flex: 1 }} />
+
+            {/* Overflow — undo/redo, font size, strike/highlight, align,
+                numbered list, quote, divider, link, clear formatting. Same
+                commands the old per-section overflow menu exposed; only the
+                toolbar hosting them moved. */}
+            <div style={{ position: 'relative' }}>
+                <TLabel title='More formatting' disabled={disabled} active={toolbarOverflowOpen} onClick={() => setToolbarOverflowOpen(v => !v)}>⋯</TLabel>
+                {toolbarOverflowOpen && editor && (
+                    <div
+                        onMouseDown={e => e.stopPropagation()}
+                        style={{ position: 'absolute', top: '110%', right: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: 6, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, width: 232, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+                    >
+                        <TBtn title='Undo' onClick={() => editor.chain().focus().undo().run()}><Undo style={{ fontSize: 16 }} /></TBtn>
+                        <TBtn title='Redo' onClick={() => editor.chain().focus().redo().run()}><Redo style={{ fontSize: 16 }} /></TBtn>
+                        <TDivider />
+                        <TBtn title='Strikethrough' active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}><StrikethroughS style={{ fontSize: 17 }} /></TBtn>
+                        <TBtn title='Highlight' active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}><FormatColorFill style={{ fontSize: 17 }} /></TBtn>
+                        <TDivider />
+                        <TBtn title='Align Left' active={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()}><FormatAlignLeft style={{ fontSize: 17 }} /></TBtn>
+                        <TBtn title='Align Centre' active={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()}><FormatAlignCenter style={{ fontSize: 17 }} /></TBtn>
+                        <TBtn title='Align Right' active={editor.isActive({ textAlign: 'right' })} onClick={() => editor.chain().focus().setTextAlign('right').run()}><FormatAlignRight style={{ fontSize: 17 }} /></TBtn>
+                        <TDivider />
+                        <TBtn title='Numbered List' active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><FormatListNumbered style={{ fontSize: 17 }} /></TBtn>
+                        <TBtn title='Quote' active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}><FormatQuote style={{ fontSize: 17 }} /></TBtn>
+                        <TBtn title='Section Divider' onClick={() => editor.chain().focus().setHorizontalRule().run()}><HorizontalRule style={{ fontSize: 17 }} /></TBtn>
+                        <TDivider />
+                        <div style={{ position: 'relative' }}>
+                            <TBtn title={editor.isActive('link') ? 'Edit Link' : 'Insert Link'} active={editor.isActive('link')}
+                                onClick={() => {
+                                    const existing = editor.getAttributes('link').href || ''
+                                    setLinkUrl(existing)
+                                    setLinkText('')
+                                    setLinkPopover(v => !v)
+                                    const noSel = editor.state.selection.empty
+                                    setTimeout(() => (noSel ? linkTextInputRef.current : linkUrlInputRef.current)?.focus(), 40)
+                                }}
+                            >
+                                <InsertLink style={{ fontSize: 17 }} />
+                            </TBtn>
+                            {linkPopover && (
+                                <div data-shared-link-popover onMouseDown={e => e.stopPropagation()}
+                                    style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
+                                >
+                                    {editor.state.selection.empty && (
+                                        <input ref={linkTextInputRef} value={linkText} onChange={e => setLinkText(e.target.value)} placeholder='Display text'
+                                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); linkUrlInputRef.current?.focus() } if (e.key === 'Escape') setLinkPopover(false) }}
+                                            style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
+                                        />
+                                    )}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <input ref={linkUrlInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') { e.preventDefault(); applyLink() }
+                                                if (e.key === 'Escape') setLinkPopover(false)
+                                            }}
+                                            style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
+                                        />
+                                        <button type='button' onClick={applyLink}
+                                            style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--acc)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
+                                        >Apply</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <TBtn title='Remove Link' onClick={() => { editor.chain().focus().unsetLink().run(); setLinkPopover(false) }}>
+                            <LinkOff style={{ fontSize: 17 }} />
+                        </TBtn>
+                        <TDivider />
+                        <TBtn title='Clear Formatting' onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>
+                            <FormatClear style={{ fontSize: 17 }} />
+                        </TBtn>
+                        <select
+                            value={(editor.getAttributes('textStyle').fontSize as string | undefined) || ''}
+                            onChange={e => {
+                                if (e.target.value) (editor.chain().focus() as any).setFontSize(e.target.value).run()
+                                else (editor.chain().focus() as any).unsetFontSize().run()
+                            }}
+                            title='Font size'
+                            style={{ background: 'var(--s3)', border: '1px solid var(--line-2)', color: 'var(--ink-2)', fontSize: '0.65rem', padding: '0 4px', cursor: 'pointer', height: 26, outline: 'none', minWidth: 52 }}>
+                            <option value=''>Size</option>
+                            {[10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48].map(s => (
+                                <option key={s} value={`${s}px`}>{s}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+            </div>
+
+            <input ref={imageInputRef} type='file' accept='image/*' style={{ display: 'none' }}
+                onChange={e => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); e.target.value = '' }}
+            />
+            {showImageLibrary && (
+                <ImageLibraryModal
+                    onSelect={url => { editor?.chain().focus().setImage({ src: url }).run(); setShowImageLibrary(false) }}
+                    onClose={() => setShowImageLibrary(false)}
+                />
+            )}
+        </div>
     )
 }
 
@@ -674,9 +958,27 @@ interface SectionEditorProps {
     themeColor?: string
     readOnly?: boolean
     seedContent?: any
+    /** First/last in the section list — `isFirst` skips the inter-section
+     * hairline rule (visual-fixes spec §3), `isLast` lets the editable area
+     * grow to fill any leftover column height (spec §2) rather than
+     * collapsing to its content's own height. */
+    isFirst?: boolean
+    isLast?: boolean
+    /** True while ActiveEditor's `activeSectionId` names this section —
+     * drives the focus ring (visual-fixes spec §3). Lives in the parent
+     * (not local state here) so it reflects "this is the shared toolbar's
+     * current target" rather than raw ProseMirror DOM focus, which would
+     * flicker off the instant a toolbar button is clicked. */
+    focused?: boolean
+    /** Reports this section's own editor to ActiveEditor's `activeEditor`
+     * state whenever it gains/loses browser focus, so the one shared
+     * toolbar (rendered above all sections) always dispatches to whichever
+     * section the caret is actually in (visual-fixes spec §1). */
+    onFocusEditor?: (editor: Editor) => void
+    onBlurEditor?: (editor: Editor, event: FocusEvent) => void
 }
 
-function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, uploadUrl, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, themeColor = '#db001d', readOnly = false, seedContent }: SectionEditorProps) {
+function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, uploadUrl, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, themeColor = '#db001d', readOnly = false, seedContent, isFirst = false, isLast = false, focused = false, onFocusEditor, onBlurEditor }: SectionEditorProps) {
     const isNonMain = pageId && pageId !== 'main'
     const metaKey = isNonMain ? `smeta-${pageId}-${sectionId}` : `smeta-${sectionId}`
     const contentKey = isNonMain ? `scontent-${pageId}-${sectionId}` : `scontent-${sectionId}`
@@ -692,9 +994,18 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
     // helper: same colour, token-backed per the visual-fixes design tokens
     // rule. blockquote/hr/mark/list-marker rules restyled for spec §2 (quote
     // → card-style callout with a corner tick, bullets → accent squares);
-    // h1/h2/a keep the same tint treatment they always had.
+    // h1/h2/a keep the same tint treatment they always had. The editable
+    // area's own ground/border/radius live on the shared `.op-editor` rule
+    // in globals.css; this scoped block only layers the per-instance bits
+    // that rule can't know — min-height, the focus ring, and (for the last
+    // section) growing to fill the column (spec §2/§3).
     const themeCSS = `
-        .op-editor-${sectionId} { min-height: ${sectionMinHeight}px; }
+        .op-editor-${sectionId} {
+            min-height: ${sectionMinHeight}px;
+            box-shadow: ${focused ? '0 0 0 2px rgba(var(--acc-rgb), 0.4)' : 'none'};
+            border-color: ${focused ? 'rgba(var(--acc-rgb), 0.5)' : 'var(--line)'};
+            ${isLast ? 'flex: 1; display: flex; flex-direction: column;' : ''}
+        }
         .op-editor-${sectionId} h1 { border-left-color: rgba(var(--acc-rgb), 0.75); background: rgba(var(--acc-rgb), 0.045); }
         .op-editor-${sectionId} h2 { color: rgba(var(--acc-rgb), 0.88); }
         .op-editor-${sectionId} h2::before { color: rgba(var(--acc-rgb), 0.65); }
@@ -717,20 +1028,13 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
     `
     const [confirmingRemove, setConfirmingRemove] = useState(false)
     const [hovered, setHovered] = useState(false)
-    const [toolbarOverflowOpen, setToolbarOverflowOpen] = useState(false)
-    const [imagePopoverOpen, setImagePopoverOpen] = useState(false)
-    const [showImageLibrary, setShowImageLibrary] = useState(false)
     const seededRef = useRef(false)
-    const imageInputRef = useRef<HTMLInputElement>(null)
     const borderColorInputRef = useRef<HTMLInputElement>(null)
-    const [uploadingImage, setUploadingImage] = useState(false)
+    // Paste/drop image upload stays local to each section — it fires on
+    // whichever editor the image actually landed in, independent of the
+    // shared toolbar's own (separately stateful) Image control.
     const uploadingImageRef = useRef(false)
     const pasteUploadRef = useRef<(file: File) => void>(() => {})
-    const [linkPopover, setLinkPopover] = useState(false)
-    const [linkUrl, setLinkUrl] = useState('')
-    const [linkText, setLinkText] = useState('')
-    const linkUrlInputRef = useRef<HTMLInputElement>(null)
-    const linkTextInputRef = useRef<HTMLInputElement>(null)
     const heightDragRef = useRef({ startY: 0, startH: 0 })
 
     useEffect(() => {
@@ -760,6 +1064,8 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
     const editor = useEditor({
         immediatelyRender: false,
         editable: !readOnly,
+        onFocus: ({ editor: e }) => onFocusEditor?.(e),
+        onBlur: ({ editor: e, event }) => onBlurEditor?.(e, event),
         extensions: [
             StarterKit.configure({ undoRedo: false }),
             TextAlign.configure({ types: ['heading', 'paragraph'] }),
@@ -819,30 +1125,6 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
         return () => { provider.off('synced', trySeek) }
     }, [editor, provider, seedContent])
 
-    useEffect(() => {
-        if (!linkPopover) return
-        const close = (e: MouseEvent) => {
-            if (!(e.target as Element).closest(`[data-link-popover-${sectionId}]`)) setLinkPopover(false)
-        }
-        document.addEventListener('mousedown', close)
-        return () => document.removeEventListener('mousedown', close)
-    }, [linkPopover, sectionId])
-
-    function applyLink() {
-        if (!editor) return
-        const hasSelection = !editor.state.selection.empty
-        if (!hasSelection && linkText.trim() && linkUrl.trim()) {
-            editor.chain().focus().insertContent(`<a href="${linkUrl.trim()}">${linkText.trim()}</a>`).run()
-        } else if (linkUrl.trim()) {
-            editor.chain().focus().setLink({ href: linkUrl.trim() }).run()
-        } else {
-            editor.chain().focus().unsetLink().run()
-        }
-        setLinkPopover(false)
-        setLinkText('')
-        setLinkUrl('')
-    }
-
     function onHeightDragStart(e: React.MouseEvent) {
         e.preventDefault()
         heightDragRef.current = { startY: e.clientY, startH: sectionMinHeight }
@@ -863,7 +1145,6 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
     async function handleImageUpload(file: File) {
         if (!editor || uploadingImageRef.current) return
         uploadingImageRef.current = true
-        setUploadingImage(true)
         try {
             const formData = new FormData()
             formData.append('file', file)
@@ -873,22 +1154,28 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
             else alert(json.error || 'Upload failed')
         } finally {
             uploadingImageRef.current = false
-            setUploadingImage(false)
         }
     }
     pasteUploadRef.current = handleImageUpload
 
     if (!editor) return null
 
-    // Drives the toolbar's block-style select — 0 means "plain paragraph",
-    // matching whichever of H1/H2/H3 (if any) the cursor is currently in.
-    const currentHeadingLevel = ([1, 2, 3] as const).find(l => editor.isActive('heading', { level: l })) ?? 0
     const chromeVisible = hovered || confirmingRemove
 
     return (
-        <div style={{ position: 'relative' }}
+        <div style={{
+            position: 'relative',
+            display: isLast ? 'flex' : undefined,
+            flexDirection: isLast ? 'column' : undefined,
+            flex: isLast ? 1 : undefined,
+            // Hairline + clear space between consecutive sections (visual-
+            // fixes spec §3) — skipped on the first section, which already
+            // sits right below the shared toolbar with its own breathing room.
+            borderTop: isFirst ? 'none' : '1px solid var(--line)',
+            paddingTop: isFirst ? 0 : 32,
+        }}
             onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => { setHovered(false); setToolbarOverflowOpen(false) }}
+            onMouseLeave={() => setHovered(false)}
         >
             <style>{themeCSS}</style>
 
@@ -961,147 +1248,15 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
                 )}
             </div>
 
-            {/* Toolbar — one slim row: block style, B/I/U, list, image, and an
-                overflow menu for everything else (visual-fixes spec §2). */}
-            <div style={{ display: readOnly ? 'none' : 'flex', alignItems: 'center', gap: 2, height: 44, borderBottom: '1px solid var(--line)', marginBottom: 18 }}>
-                <select
-                    value={String(currentHeadingLevel)}
-                    onChange={e => {
-                        const lvl = Number(e.target.value)
-                        if (lvl === 0) editor.chain().focus().setParagraph().run()
-                        else editor.chain().focus().setHeading({ level: lvl as 1 | 2 | 3 }).run()
-                    }}
-                    title='Block style'
-                    style={{ background: 'none', border: 'none', color: 'var(--ink-2)', fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '4px 6px', cursor: 'pointer', outline: 'none' }}
-                >
-                    <option value='0'>Text</option>
-                    <option value='1'>Heading 1</option>
-                    <option value='2'>Heading 2</option>
-                    <option value='3'>Heading 3</option>
-                </select>
-                <TLabel title='Bold' active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>B</TLabel>
-                <TLabel title='Italic' active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}>I</TLabel>
-                <TLabel title='Underline' active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()}>U</TLabel>
-                <div style={{ width: 1, height: 16, background: 'var(--line)', margin: '0 4px' }} />
-                <TLabel title='Bullet List' active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}>List</TLabel>
-                <div style={{ position: 'relative' }}>
-                    <TLabel title={uploadingImage ? 'Uploading…' : 'Insert Image'} active={uploadingImage || imagePopoverOpen}
-                        onClick={() => { if (!uploadingImage) setImagePopoverOpen(v => !v) }}
-                    >
-                        Image
-                    </TLabel>
-                    {imagePopoverOpen && !uploadingImage && (
-                        <div
-                            onMouseDown={e => e.stopPropagation()}
-                            style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '4px 0', display: 'flex', flexDirection: 'column', minWidth: 190, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
-                        >
-                            <button type='button'
-                                onClick={() => { setImagePopoverOpen(false); imageInputRef.current?.click() }}
-                                style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'var(--ink-2)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
-                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--s3)')}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                            >Upload from Computer</button>
-                            <button type='button'
-                                onClick={() => { setImagePopoverOpen(false); setShowImageLibrary(true) }}
-                                style={{ padding: '8px 14px', background: 'transparent', border: 'none', color: 'var(--ink-2)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', textAlign: 'left' }}
-                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--s3)')}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                            >Select from Library</button>
-                        </div>
-                    )}
-                </div>
-
-                <div style={{ flex: 1 }} />
-
-                {/* Overflow — undo/redo, font size, strike/highlight, align,
-                    numbered list, quote, divider, link, clear formatting.
-                    Same commands the old 20-button row exposed directly;
-                    only their visibility moved. */}
-                <div style={{ position: 'relative' }}>
-                    <TLabel title='More formatting' active={toolbarOverflowOpen} onClick={() => setToolbarOverflowOpen(v => !v)}>⋯</TLabel>
-                    {toolbarOverflowOpen && (
-                        <div
-                            onMouseDown={e => e.stopPropagation()}
-                            style={{ position: 'absolute', top: '110%', right: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: 6, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, width: 232, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
-                        >
-                            <TBtn title='Undo' onClick={() => editor.chain().focus().undo().run()}><Undo style={{ fontSize: 16 }} /></TBtn>
-                            <TBtn title='Redo' onClick={() => editor.chain().focus().redo().run()}><Redo style={{ fontSize: 16 }} /></TBtn>
-                            <TDivider />
-                            <TBtn title='Strikethrough' active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}><StrikethroughS style={{ fontSize: 17 }} /></TBtn>
-                            <TBtn title='Highlight' active={editor.isActive('highlight')} onClick={() => editor.chain().focus().toggleHighlight().run()}><FormatColorFill style={{ fontSize: 17 }} /></TBtn>
-                            <TDivider />
-                            <TBtn title='Align Left' active={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()}><FormatAlignLeft style={{ fontSize: 17 }} /></TBtn>
-                            <TBtn title='Align Centre' active={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()}><FormatAlignCenter style={{ fontSize: 17 }} /></TBtn>
-                            <TBtn title='Align Right' active={editor.isActive({ textAlign: 'right' })} onClick={() => editor.chain().focus().setTextAlign('right').run()}><FormatAlignRight style={{ fontSize: 17 }} /></TBtn>
-                            <TDivider />
-                            <TBtn title='Numbered List' active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()}><FormatListNumbered style={{ fontSize: 17 }} /></TBtn>
-                            <TBtn title='Quote' active={editor.isActive('blockquote')} onClick={() => editor.chain().focus().toggleBlockquote().run()}><FormatQuote style={{ fontSize: 17 }} /></TBtn>
-                            <TBtn title='Section Divider' onClick={() => editor.chain().focus().setHorizontalRule().run()}><HorizontalRule style={{ fontSize: 17 }} /></TBtn>
-                            <TDivider />
-                            <div style={{ position: 'relative' }}>
-                                <TBtn title={editor.isActive('link') ? 'Edit Link' : 'Insert Link'} active={editor.isActive('link')}
-                                    onClick={() => {
-                                        const existing = editor.getAttributes('link').href || ''
-                                        setLinkUrl(existing)
-                                        setLinkText('')
-                                        setLinkPopover(v => !v)
-                                        const noSel = editor.state.selection.empty
-                                        setTimeout(() => (noSel ? linkTextInputRef.current : linkUrlInputRef.current)?.focus(), 40)
-                                    }}
-                                >
-                                    <InsertLink style={{ fontSize: 17 }} />
-                                </TBtn>
-                                {linkPopover && (
-                                    <div {...{ [`data-link-popover-${sectionId}`]: true }} onMouseDown={e => e.stopPropagation()}
-                                        style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
-                                    >
-                                        {editor.state.selection.empty && (
-                                            <input ref={linkTextInputRef} value={linkText} onChange={e => setLinkText(e.target.value)} placeholder='Display text'
-                                                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); linkUrlInputRef.current?.focus() } if (e.key === 'Escape') setLinkPopover(false) }}
-                                                style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
-                                            />
-                                        )}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <input ref={linkUrlInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
-                                                onKeyDown={e => {
-                                                    if (e.key === 'Enter') { e.preventDefault(); applyLink() }
-                                                    if (e.key === 'Escape') setLinkPopover(false)
-                                                }}
-                                                style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
-                                            />
-                                            <button type='button' onClick={applyLink}
-                                                style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--acc)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
-                                            >Apply</button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            <TBtn title='Remove Link' onClick={() => { editor.chain().focus().unsetLink().run(); setLinkPopover(false) }}>
-                                <LinkOff style={{ fontSize: 17 }} />
-                            </TBtn>
-                            <TDivider />
-                            <TBtn title='Clear Formatting' onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}>
-                                <FormatClear style={{ fontSize: 17 }} />
-                            </TBtn>
-                            <select
-                                value={(editor.getAttributes('textStyle').fontSize as string | undefined) || ''}
-                                onChange={e => {
-                                    if (e.target.value) (editor.chain().focus() as any).setFontSize(e.target.value).run()
-                                    else (editor.chain().focus() as any).unsetFontSize().run()
-                                }}
-                                title='Font size'
-                                style={{ background: 'var(--s3)', border: '1px solid var(--line-2)', color: 'var(--ink-2)', fontSize: '0.65rem', padding: '0 4px', cursor: 'pointer', height: 26, outline: 'none', minWidth: 52 }}>
-                                <option value=''>Size</option>
-                                {[10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48].map(s => (
-                                    <option key={s} value={`${s}px`}>{s}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            <EditorContent editor={editor} />
+            {/* The formatting toolbar used to live here, per section — it's
+                now the one shared instance ActiveEditor renders above all
+                sections (visual-fixes spec §1). This is just the editable
+                surface itself: `.op-editor`/`.op-editor-${sectionId}`
+                (globals.css + themeCSS above) give it a distinct ground,
+                border and — when focused — accent ring (spec §3), and, for
+                the last section, `flex: 1` to fill any leftover column
+                height (spec §2). */}
+            <EditorContent editor={editor} style={isLast ? { flex: 1, display: 'flex', flexDirection: 'column' } : undefined} />
 
             {!readOnly && (
                 <div onMouseDown={onHeightDragStart}
@@ -1109,16 +1264,6 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
                     title='Drag to set minimum height'>
                     <div style={{ width: 28, height: 2, background: 'rgba(255,255,255,0.1)', borderRadius: 1 }} />
                 </div>
-            )}
-
-            <input ref={imageInputRef} type='file' accept='image/*' style={{ display: 'none' }}
-                onChange={e => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); e.target.value = '' }}
-            />
-            {showImageLibrary && (
-                <ImageLibraryModal
-                    onSelect={url => { editor.chain().focus().setImage({ src: url }).run(); setShowImageLibrary(false) }}
-                    onClose={() => setShowImageLibrary(false)}
-                />
             )}
         </div>
     )
@@ -1164,9 +1309,9 @@ function TDivider() {
  * visible on the slim main row (block style, B/I/U, list, image, the
  * overflow toggle). Everything else keeps the icon-based `TBtn` inside the
  * overflow panel. */
-function TLabel({ onClick, active, title, children }: { onClick: () => void; active?: boolean; title: string; children: React.ReactNode }) {
+function TLabel({ onClick, active, title, disabled, children }: { onClick: () => void; active?: boolean; title: string; disabled?: boolean; children: React.ReactNode }) {
     return (
-        <button type='button' title={title} onClick={onClick}
+        <button type='button' title={title} onClick={onClick} disabled={disabled}
             style={{
                 padding: '5px 8px',
                 background: active ? 'var(--s2)' : 'transparent',
@@ -1174,7 +1319,7 @@ function TLabel({ onClick, active, title, children }: { onClick: () => void; act
                 borderRadius: 'var(--r)',
                 color: active ? 'var(--ink)' : 'var(--ink-2)',
                 fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-                cursor: 'pointer', transition: 'all 0.15s',
+                cursor: disabled ? 'default' : 'pointer', transition: 'all 0.15s',
             }}
             onMouseEnter={e => { if (!active) e.currentTarget.style.color = 'var(--ink)' }}
             onMouseLeave={e => { if (!active) e.currentTarget.style.color = 'var(--ink-2)' }}
