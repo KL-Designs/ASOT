@@ -1281,3 +1281,73 @@
 }
 .kitImportBox { resize: vertical; }
 .kitImportError { margin: 0; font-size: 12px; color: var(--crit); }
+
+/* ── Kit tags ─────────────────────────────────────────────────────────── */
+
+.tagChips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tagChip {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 2px;
+    color: rgb(var(--acc-rgb));
+    background: rgba(var(--acc-rgb), .10);
+    border: 1px solid rgba(var(--acc-rgb), .28);
+    white-space: nowrap;
+}
+
+/* ── Kit rating ───────────────────────────────────────────────────────── */
+
+.stars {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    color: rgb(var(--acc-rgb));
+}
+
+.star {
+    display: inline-flex;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    line-height: 0;
+}
+
+.starsLive .star {
+    cursor: pointer;
+    transition: transform .12s ease;
+}
+
+.starsLive .star:hover,
+.starsLive .star:focus-visible {
+    transform: scale(1.18);
+}
+
+.starsLive .star:disabled {
+    cursor: default;
+    opacity: .6;
+}
+
+.starsNum {
+    margin-left: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.starsCount {
+    margin-left: 4px;
+    font-size: 11px;
+    opacity: .62;
+}
