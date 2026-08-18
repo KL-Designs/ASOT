@@ -83,9 +83,12 @@ export function buildMemberIndex(members: MatchCandidate[]): Map<string, MatchCa
 }
 
 /** Empty when every override names a member that exists. */
-export function validateOverrides(members: MatchCandidate[]): string[] {
+export function validateOverrides(
+    members: MatchCandidate[],
+    overrides: Record<string, string> = MEMBER_OVERRIDES,
+): string[] {
     const usernames = new Set(members.map(m => m.username))
-    return Object.entries(MEMBER_OVERRIDES)
+    return Object.entries(overrides)
         .filter(([, username]) => !usernames.has(username))
         .map(([csvName, username]) => `override "${csvName}" names username "${username}", which does not exist`)
 }
@@ -97,13 +100,25 @@ export function validateOverrides(members: MatchCandidate[]): string[] {
  * reports (a missing override target, two names landing on one member) merge
  * two people's service records, which is unrecoverable once the old arrays
  * have been replaced.
+ *
+ * `extraOverrides` lets a second import add adjudications of its own without
+ * editing the history table above. The two files do not cover the same names:
+ * the history CSV spans everyone who ever served, the ORBAT only who is
+ * currently seated, so each surfaces contested names the other never sees.
+ * Keeping them apart also keeps each table's evidence with the import that
+ * gathered it.
  */
-export function resolveMembers(csvNames: string[], members: MatchCandidate[]): {
+export function resolveMembers(
+    csvNames: string[],
+    members: MatchCandidate[],
+    extraOverrides: Record<string, string> = {},
+): {
     resolved: Map<string, MatchCandidate>
     unresolved: string[]
     errors: string[]
 } {
-    const errors = validateOverrides(members)
+    const overrides = { ...MEMBER_OVERRIDES, ...extraOverrides }
+    const errors = validateOverrides(members, overrides)
     const byUsername = new Map(members.map(m => [m.username, m]))
     const index = buildMemberIndex(members)
 
@@ -111,7 +126,7 @@ export function resolveMembers(csvNames: string[], members: MatchCandidate[]): {
     const unresolved: string[] = []
 
     for (const csvName of csvNames) {
-        const override = MEMBER_OVERRIDES[csvName]
+        const override = overrides[csvName]
         if (override) {
             const member = byUsername.get(override)
             if (member) resolved.set(csvName, member)

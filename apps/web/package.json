@@ -9,6 +9,7 @@
     "start": "dotenv -v NODE_ENV=production -e ../../.env -- node server.mjs",
     "lint": "next lint",
     "import:history": "dotenv -e ../../.env -- tsx scripts/import-member-history.ts",
+    "sync:ranks": "dotenv -e ../../.env -- tsx scripts/sync-orbat-ranks.ts",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
