@@ -1,0 +1,433 @@
+/* ============================================================================
+   ASOT — shared UI primitives
+   ----------------------------------------------------------------------------
+   The pieces of the Command Strip language that more than one surface needs:
+   the notched button, the live pulse, section headings, stat readouts and
+   progress tracks. The navbar was the first consumer; the landing page and
+   footer are the second and third.
+
+   Anything here must be genuinely reusable. Surface-specific choreography stays
+   in that surface's own module (navbar.module.css, landing.module.css) — this
+   file is the vocabulary, not the sentences.
+
+   Palette and font tokens come from globals.css.
+   ========================================================================== */
+
+/* ---------- topo backdrop ------------------------------------------------ */
+
+/*
+   The drifting contour field. The mockups inlined ~160KB of contour paths and
+   repeated them with two <use> copies; here the same art is an external file
+   (public/designs/topo.svg, viewBox 0 0 2400 800) painted as a repeating
+   background, so it is cached once by the browser and never lands in the HTML
+   of every page.
+
+   The seam-free loop is the same trick by other means: the tile div is 340% of
+   its container wide with tiles at 50% of that (= 170% of the container), so
+   translating it by exactly -50% of itself advances precisely one tile. There
+   is no jump to hide, which is what makes an arbitrarily slow drift safe.
+*/
+.topo {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.topoTile {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 340%;
+    background-image: url('/designs/topo.svg');
+    background-repeat: repeat-x;
+    background-size: 50% auto;
+    /* The art is far taller than most bands it sits in; centring shows a
+       horizontal slice rather than the whole field. */
+    background-position: left center;
+    opacity: var(--topo-op, 0.065);
+}
+
+/* Fades in from both edges — for full-width bands that shouldn't have the
+   contours run into a hard border. */
+.topoFade {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
+}
+
+/* Weighted to the left — for a hero where the right side carries a photograph
+   and the contours would only muddy it. */
+.topoLeft {
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 38%, transparent 74%);
+    mask-image: linear-gradient(90deg, #000 0%, #000 38%, transparent 74%);
+}
+
+.topoDrift .topoTile {
+    animation: topodrift var(--topo-drift, 720s) linear infinite;
+}
+
+@keyframes topodrift {
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .topoDrift .topoTile {
+        animation: none;
+    }
+}
+
+/* ---------- notched button ----------------------------------------------- */
+
+/*
+   One silhouette, several volumes. Only one variant should ever be solid-filled
+   in a given cluster — whichever is the primary action there. The notch is cut
+   with clip-path rather than border-radius, which is why the outlined variants
+   draw their border as a background layer with an inset face on top: a real
+   border or box-shadow gets sliced off at the notched corners.
+*/
+.btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    height: 46px;
+    padding: 0 24px;
+    font-family: var(--font-cond);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border: 0;
+    cursor: pointer;
+    transition: color 0.2s var(--nav-ease), background 0.2s var(--nav-ease), box-shadow 0.2s var(--nav-ease);
+    clip-path: polygon(11px 0, 100% 0, 100% calc(100% - 11px), calc(100% - 11px) 100%, 0 100%, 0 11px);
+}
+
+.btn svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+}
+
+/* Primary. The only filled element in its cluster. */
+.btnRed {
+    background: var(--red);
+    color: #fff;
+}
+
+.btnRed:hover {
+    background: var(--red-hi);
+    box-shadow: 0 0 30px -6px var(--red-glow);
+}
+
+/* Secondary. A hairline that fills on hover. */
+.btnGhost {
+    isolation: isolate;
+    background: rgba(255, 255, 255, 0.22);
+    color: var(--txt-1);
+}
+
+.btnGhost::before {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    z-index: -1;
+    background: var(--ink-1);
+    transition: background 0.2s var(--nav-ease);
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.btnGhost:hover {
+    background: #fff;
+}
+
+.btnGhost:hover::before {
+    background: var(--ink-2);
+}
+
+/* Support / donate. Amber so it never competes with the primary, and so it
+   inherits the "information" meaning amber carries in the status rail. */
+.btnAmber {
+    isolation: isolate;
+    background: rgba(245, 185, 63, 0.34);
+    color: var(--amber);
+}
+
+.btnAmber::before {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    z-index: -1;
+    background: var(--ink-1);
+    transition: opacity 0.2s var(--nav-ease);
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.btnAmber:hover {
+    background: var(--amber);
+    color: var(--ink-1);
+}
+
+.btnAmber:hover::before {
+    opacity: 0;
+}
+
+/* The signed-in primary. Same silhouette as the others but a dark plate with a
+   red leading edge, so it reads as "yours" without shouting — it is frequent
+   navigation, not a conversion, and it must not out-shout a real CTA nearby. */
+.btnDark {
+    isolation: isolate;
+    color: var(--txt-1);
+    background: linear-gradient(90deg, var(--red) 0 3px, var(--line-2) 3px);
+}
+
+.btnDark::before {
+    content: '';
+    position: absolute;
+    inset: 1px 1px 1px 3px;
+    z-index: -1;
+    background: linear-gradient(90deg, #15171b, #1b1e24);
+    transition: background 0.2s var(--nav-ease);
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+.btnDark:hover {
+    color: #fff;
+    background: linear-gradient(90deg, var(--red-hi) 0 3px, #3a3f49 3px);
+}
+
+.btnDark:hover::before {
+    background: linear-gradient(90deg, #1c1f25, #23272e);
+}
+
+/* Discord. Kept deliberately quiet — see the landing page notes: brand blue
+   belongs on Discord's site, not as the loudest band on ours. */
+.btnDiscord:hover {
+    background: var(--discord);
+    color: #fff;
+}
+
+.btnDiscord:hover::before {
+    opacity: 0;
+}
+
+.btnSm {
+    height: 38px;
+    padding: 0 18px;
+    font-size: 13px;
+}
+
+.btnBlock {
+    width: 100%;
+}
+
+/* ---------- live pulse ---------------------------------------------------- */
+
+.pulse {
+    position: relative;
+    width: 6px;
+    height: 6px;
+    display: inline-block;
+    flex: none;
+}
+
+.pulse i,
+.pulse b {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--live);
+}
+
+.pulse i {
+    animation: uiPing 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+    opacity: 0.65;
+}
+
+.pulseAmber i,
+.pulseAmber b {
+    background: var(--amber);
+}
+
+.pulseIdle i,
+.pulseIdle b {
+    background: var(--txt-3);
+}
+
+.pulseIdle i {
+    animation: none;
+}
+
+@keyframes uiPing {
+
+    75%,
+    100% {
+        transform: scale(2.6);
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pulse i {
+        animation: none;
+    }
+}
+
+/* ---------- section heading ---------------------------------------------- */
+
+/* The rule before the label is drawn rather than typed, so it stays crisp and
+   can never wrap away from its text. */
+.kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    color: var(--red);
+    text-transform: uppercase;
+}
+
+.kicker::before {
+    content: '';
+    width: 20px;
+    height: 1px;
+    background: var(--red);
+    flex: none;
+}
+
+.h2 {
+    font-family: var(--font-disp);
+    font-weight: 700;
+    font-size: clamp(24px, 2.6vw, 34px);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    margin: 12px 0 0;
+    line-height: 1.06;
+    color: var(--txt-1);
+}
+
+.lede {
+    color: var(--txt-2);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    line-height: 1.65;
+    max-width: 62ch;
+    margin: 14px 0 0;
+}
+
+.sectionHead {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 30px;
+    margin-bottom: 38px;
+    flex-wrap: wrap;
+}
+
+.moreLink {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    color: var(--txt-2);
+    text-transform: uppercase;
+    transition: color 0.16s;
+    white-space: nowrap;
+}
+
+.moreLink:hover {
+    color: var(--red);
+}
+
+/* ---------- progress track ------------------------------------------------ */
+
+/*
+   Used for operation sign-on and for rank progress on a milpac. The fill is
+   gradient rather than flat so a nearly-empty bar still reads as a bar.
+*/
+.track {
+    height: 4px;
+    background: #1a1d22;
+    overflow: hidden;
+}
+
+.track i {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent, var(--red)), var(--amber));
+    transition: width 0.4s var(--nav-ease);
+}
+
+.trackRow {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    color: var(--txt-3);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.trackRow b {
+    color: var(--txt-1);
+    font-weight: 500;
+}
+
+/* Rank progress puts three labels across one row — held rank, points, next
+   rank — so the bar underneath reads as a journey between two named points
+   rather than an unlabelled percentage. */
+.rankRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 5px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+}
+
+.rankPts {
+    color: var(--txt-3);
+}
+
+/* ---------- countdown ----------------------------------------------------- */
+
+.countdown {
+    display: flex;
+    gap: 6px;
+}
+
+.countdown>div {
+    flex: 1;
+    background: #0e1014;
+    border: 1px solid var(--line-1);
+    padding: 8px 4px;
+    text-align: center;
+}
+
+.countdown .n {
+    font-family: var(--font-mono);
+    font-size: 19px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.countdown .l {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 0.16em;
+    color: var(--txt-3);
+    margin-top: 5px;
+    text-transform: uppercase;
+}

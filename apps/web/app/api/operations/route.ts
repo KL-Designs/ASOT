@@ -73,7 +73,27 @@ export async function GET(request: NextRequest) {
         }
 
         const limit = limitParam ? parseInt(limitParam) : 0
-        const cursor = Db.operations.find(query).sort({ date: -1 })
+
+        /*
+         * This branch is reachable unauthenticated, and an operation document
+         * carries J2/J6-internal fields alongside the public ones. Without a
+         * projection every one of them went out to anyone who asked for the
+         * list. Excluded by name rather than allow-listed, so adding a public
+         * field needs no change here — adding a *private* one does.
+         *
+         * The `id` branch above is separate: it returns a full document and is
+         * gated on `operations.viewInDevelopment` for in-development missions.
+         */
+        const cursor = Db.operations
+            .find(query, {
+                projection: {
+                    internalNotes: 0,
+                    zeusNotes: 0,
+                    missionDevelopment: 0,
+                    acknowledgements: 0,
+                },
+            })
+            .sort({ date: -1 })
         const missions = await (limit > 0 ? cursor.limit(limit) : cursor).toArray()
         return NextResponse.json({ missions, isHQ }, { status: 200 })
     }

@@ -27,6 +27,8 @@ Full inventory of every page, API route, and `lib`/`types`/`components` file in 
 
 | Topic / keyword | Where to look |
 |---|---|
+| Shared UI primitives — notched buttons, pulses, section heads, progress/rank bars, countdown, topo backdrop | H (`components/ui/**`, `styles/ui.module.css`) — **check here before writing a new button, badge or bar** |
+| Landing home page, hero, intel board, platoon cards, gallery strip, enlist band, site footer | G (`app/(landing)/page.tsx`, `app/(landing)/_components/**`, `app/footer.tsx`), H (`lib/landing.ts`), plus `styles/landing.module.css` and `styles/footer.module.css` |
 | Site navigation, navbar, status rail, mega panels, mobile sheet, topo backdrop, nav fonts/palette | G (`app/navbar.tsx`, `app/layout.tsx` fonts), H (`components/nav/**`), D (`/api/nav/status`, `/api/me/promotion-progress`), plus `styles/navbar.module.css` and the Command Strip tokens in `styles/globals.css` |
 | Auth, login, Discord OAuth, `token` cookie | G (`/login`, `/login/callback`), H (`lib/discord/index.ts`, `lib/discord/oauth.ts`) |
 | Permissions, role gates, `PERMISSIONS.*` | H (`lib/permissions.ts` — single source of truth) |

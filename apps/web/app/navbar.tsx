@@ -10,13 +10,14 @@ import {
     Dashboard as DashboardIcon, AccountCircle,
 } from '@mui/icons-material'
 
-import CrateIcon from '@/components/nav/CrateIcon'
+import { CrateIcon } from '@/components/ui/icons'
+import Button from '@/components/ui/Button'
 import { useEnlistTransition, EnlistFadeOverlay } from '@/components/enlist-transition'
 
 import NotificationBell from '@/app/dashboard/_components/NotificationBell'
 import AccountMenu from '@/components/nav/AccountMenu'
 import MobileSheet from '@/components/nav/MobileSheet'
-import Topo from '@/components/nav/Topo'
+import Topo from '@/components/ui/Topo'
 import StatusRail from '@/components/nav/StatusRail'
 import { useNavStatus, formatOpTime } from '@/components/nav/useNavStatus'
 import { NAV_ITEMS, isItemActive, type NavItem } from '@/components/nav/nav-data'
@@ -93,30 +94,31 @@ export default function Navbar() {
     /* The two action buttons. Built here rather than in each surface so the bar
        and the mobile sheet can never style the same button differently. */
     const donateButton = (
-        <Link href='/donate' className={`${s.act} ${s.actDonate}`} aria-label='Donate'>
+        <Button variant='amber' href='/donate' aria-label='Donate'
+            className={`${s.navAct} ${s.actDonate}`}>
             <CrateIcon />
             <span className={s.lbl}>Donate</span>
-        </Link>
+        </Button>
     )
     const primaryButton = isMember
         ? (
-            <Link href='/dashboard' className={`${s.act} ${s.actDash}`}>
+            <Button variant='dark' href='/dashboard' className={`${s.navAct} ${s.actPrimary}`}>
                 <DashboardIcon />Dashboard
-            </Link>
+            </Button>
         )
         : user
             ? (
-                <Link href='/me' className={`${s.act} ${s.actEnlist}`}>
+                <Button variant='red' href='/me' className={`${s.navAct} ${s.actPrimary}`}>
                     <AccountCircle />Profile
-                </Link>
+                </Button>
             )
             : (
                 // Same action as the homepage hero's "Enlist Now" — fade the
                 // screen to black, then the join video. Shared so the two can't
                 // drift; see components/enlist-transition.
-                <button type='button' onClick={enlist} className={`${s.act} ${s.actEnlist}`}>
+                <Button variant='red' onClick={enlist} className={`${s.navAct} ${s.actPrimary}`}>
                     Enlist
-                </button>
+                </Button>
             )
 
     return (
@@ -304,7 +306,7 @@ function MegaPanel({ item, nextOp }: { item: NavItem, nextOp: { id: string, titl
                 {withFeature && (
                     <Link href={`/operations/${nextOp!.id}` as any} className={s.megaFeat}>
                         <div className={s.featImg}>
-                            <Topo opacity={0.32} driftSeconds={900} fade={false} />
+                            <Topo opacity={0.32} driftSeconds={900} mask='none' />
                             <span className={s.tag}>Next Op</span>
                         </div>
                         <div className={s.featT}>{nextOp!.title}</div>

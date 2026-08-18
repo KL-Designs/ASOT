@@ -33,6 +33,7 @@ import { pickLoadoutId } from '@/lib/loadout/select'
 import { kitIcon } from '@/lib/loadout/kit-icons'
 import { normaliseTags } from '@/lib/loadout/tags'
 import { LoadoutManager } from './loadout-manager'
+import RankProgress from '@/components/ui/RankProgress'
 import s from './profile.module.css'
 
 
@@ -316,24 +317,8 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 			{tab === 'overview' && (
 				<div className={`${s.page} ${s.pageLead}`}>
 					<div className={s.stack}>
-						{progress && !progress.atMax && !progress.billetOnly && (
-							<div>
-								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
-									<span className={s.lbl} style={{ color: 'var(--acc)' }}>{member.milpac?.currentRank}</span>
-									<span className={s.crumb} style={{ margin: 0 }}>{progress.current} / {progress.required} pts</span>
-									<span className={s.lbl}>{progress.nextRank}</span>
-								</div>
-								<div style={{ height: 6, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-									<div style={{
-										height: '100%',
-										width: `${progress.pct}%`,
-										minWidth: progress.pct > 0 ? 6 : 0,
-										background: 'var(--acc)',
-										boxShadow: '0 0 8px rgba(var(--acc-rgb),0.6)',
-									}} />
-								</div>
-							</div>
-						)}
+						{/* Shared with the navbar account menu — see components/ui/RankProgress. */}
+						<RankProgress currentRank={member.milpac?.currentRank} progress={progress} accent='var(--acc)' />
 						<Panel title='Personnel Summary' tag={`${member.milpac?.currentRank ?? ''} ${name}`.trim()} delay='.05s'>
 							{isOwn
 								? <BiographyEditor initial={member.bio?.content ?? null} accent={accent} />

@@ -10,62 +10,6 @@
    Palette and font tokens are the site-wide ones defined in globals.css.
    ========================================================================== */
 
-/* ---------- topo backdrop ------------------------------------------------ */
-
-/*
-   The mockup inlined ~160KB of contour paths and repeated them with two <use>
-   copies. Here the same art is an external file (public/designs/topo.svg,
-   viewBox 0 0 2400 800) painted as a repeating background instead, so it is
-   cached once by the browser and never lands in the HTML of every page.
-
-   The seam-free loop is the same trick by other means: the tile div is 340%
-   of its container wide with tiles at 50% of that (= 170% of the container),
-   so translating it by exactly -50% of itself advances precisely one tile.
-   There is no jump to hide, which is what makes an arbitrarily slow drift safe.
-*/
-.topo {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    pointer-events: none;
-    z-index: 0;
-}
-
-.topoTile {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 340%;
-    background-image: url('/designs/topo.svg');
-    background-repeat: repeat-x;
-    background-size: 50% auto;
-    /* The art is far taller than the bar; centring shows a horizontal slice. */
-    background-position: left center;
-    opacity: var(--topo-op, 0.065);
-}
-
-.topoFade {
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
-}
-
-.topoDrift .topoTile {
-    animation: topodrift var(--topo-drift, 720s) linear infinite;
-}
-
-@keyframes topodrift {
-    to {
-        transform: translateX(-50%);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .topoDrift .topoTile {
-        animation: none;
-    }
-}
-
 /* ---------- shell -------------------------------------------------------- */
 
 .nav {
@@ -74,7 +18,6 @@
     z-index: 50;
     font-family: var(--font-cond);
     background: var(--ink-1);
-    box-shadow: 0 0.65rem 10px rgba(0, 0, 0, 0.5);
 }
 
 /* Several controls here are <button> for behaviour rather than <a> — ENLIST
@@ -543,110 +486,27 @@ a.amb:hover {
     height: 17px;
 }
 
-/* The three actions share one notched silhouette. */
-.act {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+/* The three actions are the shared `components/ui/Button` — only their
+   in-bar geometry and spacing live here. The silhouette, the variants and the
+   inset-face trick that survives the notch are all in ui.module.css. */
+.navAct {
     height: 36px;
     padding: 0 16px;
-    font-family: var(--font-cond);
-    font-weight: 700;
     font-size: 13.5px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    transition: color 0.2s var(--nav-ease), background 0.2s var(--nav-ease), box-shadow 0.2s var(--nav-ease);
-    white-space: nowrap;
-    position: relative;
-    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+    gap: 8px;
 }
 
-.act svg {
+.navAct svg {
     width: 15px;
     height: 15px;
-    flex: none;
-}
-
-/* DONATE — amber ghost, deliberately quieter than the primary action.
-   The outline is a 1px background layer with an inset face on top: a real
-   border or box-shadow would be sliced off at the notched corners. */
-/* The label is coloured explicitly as well as the anchor: Tailwind's preflight
-   resets `a` to `color: inherit`, which leaves nested text taking the bar's
-   white rather than the amber set here. */
-.actDonate,
-.actDonate .lbl {
-    color: var(--amber);
 }
 
 .actDonate {
     margin-left: 14px;
-    isolation: isolate;
-    background: rgba(245, 185, 63, 0.34);
 }
 
-.actDonate::before {
-    content: '';
-    position: absolute;
-    inset: 1px;
-    z-index: -1;
-    background: var(--ink-1);
-    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
-    transition: opacity 0.2s var(--nav-ease);
-}
-
-.actDonate:hover,
-.actDonate:hover .lbl {
-    color: #0b0c0e;
-}
-
-.actDonate:hover {
-    background: var(--amber);
-    box-shadow: 0 0 20px -6px rgba(245, 185, 63, 0.5);
-}
-
-.actDonate:hover::before {
-    opacity: 0;
-}
-
-/* ENLIST — solid red. The only filled element in the bar when signed out. */
-.actEnlist {
+.actPrimary {
     margin-left: 10px;
-    background: var(--red);
-    color: #fff;
-}
-
-.actEnlist:hover {
-    background: var(--red-hi);
-    box-shadow: 0 0 22px -4px var(--red-glow);
-}
-
-/* DASHBOARD — signed-in primary. Same notch as the brand plate, so the bar is
-   bookended by matching shapes. Dark rather than red: frequent navigation, not
-   a conversion. */
-.actDash {
-    margin-left: 10px;
-    color: var(--txt-1);
-    isolation: isolate;
-    background: linear-gradient(90deg, var(--red) 0 3px, var(--line-2) 3px);
-}
-
-.actDash::before {
-    content: '';
-    position: absolute;
-    inset: 1px 1px 1px 3px;
-    z-index: -1;
-    background: linear-gradient(90deg, #15171b, #1b1e24);
-    clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 7px);
-    transition: background 0.2s var(--nav-ease);
-}
-
-.actDash:hover {
-    color: #fff;
-    background: linear-gradient(90deg, var(--red-hi) 0 3px, #3a3f49 3px);
-}
-
-.actDash:hover::before {
-    background: linear-gradient(90deg, #1c1f25, #23272e);
 }
 
 /* ---------- account chip ------------------------------------------------- */
@@ -979,19 +839,10 @@ a.amb:hover {
     text-transform: uppercase;
 }
 
-.acctDd .hd .track {
-    height: 3px;
-    background: #1a1d22;
-    border-radius: 2px;
-    overflow: hidden;
+/* The bar itself is the shared ProgressTrack; the menu only asks for a
+   thinner track and its own top margin. */
+.acctDd .hd .progress {
     margin-top: 10px;
-}
-
-.acctDd .hd .track i {
-    display: block;
-    height: 100%;
-    background: linear-gradient(90deg, var(--acct-accent, var(--red)), var(--amber));
-    transition: width 0.4s var(--nav-ease);
 }
 
 .acctDd .hd .pts {
@@ -1109,7 +960,7 @@ a.amb:hover {
         display: none;
     }
 
-    .actDonate {
+    .navAct.actDonate {
         padding: 0 13px;
     }
 
@@ -1123,8 +974,7 @@ a.amb:hover {
     .menu,
     .icons,
     .actDonate,
-    .actEnlist,
-    .actDash,
+    .actPrimary,
     .acctWrap {
         display: none;
     }
@@ -1162,9 +1012,11 @@ a.amb:hover {
     background: #0a0b0d;
 }
 
-.macts .act {
+/* In the sheet the pair goes full width and the donate label comes back —
+   there is room for it here, and at this size the notch is the only thing
+   marking them as ASOT rather than generic buttons. */
+.macts .navAct {
     flex: 1;
-    justify-content: center;
     height: 40px;
     margin: 0;
     font-size: 13px;

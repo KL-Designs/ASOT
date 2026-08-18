@@ -589,6 +589,23 @@ See `types/README.md` at the monorepo root for the sharing convention (web is au
 
 ---
 
+### lib/landing.ts
+Server-side loaders for the public home page and footer — direct Mongo, no `/api/*` round-trip.
+- `getFeaturedOp()` / `getOperationsLog(limit)` → `LandingOp` — id, title, date, status, department,
+  cover, theme, map world, owner name, plus `blurb`, `attending`, `confirmed`, `slots`, `rsvpOpen`,
+  `stage`. Reads through `PUBLIC_OP_FIELDS`, which **never** includes `internalNotes`/`zeusNotes`.
+- `blurb` is recovered by flattening the first public ProseMirror section — operations have **no**
+  summary field.
+- `slots` is filled ORBAT positions across the op's `assignedPlatoons`. Nothing in the schema stores
+  a total-slots figure, so this is the only defensible denominator; null when the op has no platoon
+  assignment.
+- `getPlatoonStats()` → per-category member (`distinct` userId) and section counts.
+- `getRosterCount()` → distinct members holding a filled slot, excluding `inactiveReservist`.
+- `getScreenshotOfMonth()` → the SOTM doc, loaded server-side so the hero paints with its photo.
+- `getGalleryTiles(limit)` → random pick from `storage/gallery/featured`, Fisher-Yates shuffled.
+Every loader catches independently and degrades to null/empty: the front door should lose one band,
+not the whole page.
+
 ## 3. `components/**` — requested subset
 
 ### Top-level components/*.tsx
@@ -646,6 +663,60 @@ See `types/README.md` at the monorepo root for the sharing convention (web is au
 
 #### components/wip-page.tsx
 - Default export `WipPage()` — "Under Development" placeholder page with a bypass button that appends `?bypass_wip=1` and reloads. Paired with `middleware.ts`'s `WIP_PATHS` rewrite (see §4).
+
+### components/ui/* — the shared design system
+
+The Command Strip vocabulary, factored out of the navbar so the landing page,
+the footer and the milpac draw the same pieces. **Look here before writing a new
+button, badge or bar.** Styles live in `styles/ui.module.css`; surface-specific
+choreography stays in that surface's own module.
+
+#### components/ui/Button.tsx
+- Default export `Button({variant, size, block, href, external, ...})` — the notched action button.
+  Variants `red` (primary/filled) · `ghost` · `amber` (support/donate) · `discord` (ghost that only
+  takes brand blue on hover) · `dark` (signed-in primary: dark plate, red leading edge). Sizes
+  `md` (46px) / `sm` (38px). Renders `<a>` with `href`, `<button>` otherwise; `external` skips
+  next/link and adds the rel guard.
+- **Rule:** only one button in a cluster is ever solid-filled — whichever is primary for that state.
+
+#### components/ui/Topo.tsx
+- Default export `Topo({opacity, driftSeconds, mask, className, style})` — the drifting contour
+  backdrop. Paints `public/designs/topo.svg` (a seamless 2400x800 tile) as a repeating background
+  rather than inlining ~160KB of paths. `mask`: `fade` (full-width band) · `left` (hero with a photo
+  on the right) · `none`. `driftSeconds = 0` pins it; motion stops under `prefers-reduced-motion`.
+
+#### components/ui/Pulse.tsx
+- Default export `Pulse({tone})` — the live dot. `live` / `amber` / `idle` (dim, animation off, for
+  "known not live" as distinct from "unknown").
+
+#### components/ui/SectionHead.tsx
+- Default export `SectionHead({kicker, title, more, children})`, plus named `Kicker` and `Lede`.
+  The standard section opener; using it everywhere is most of what makes a long page read as one
+  document.
+
+#### components/ui/ProgressTrack.tsx
+- Default export `ProgressTrack({label, value, pct, accent})` — labelled bar, `pct` clamped 0–100.
+  Consumers: operation sign-on, the navbar account menu, `RankProgress`.
+
+#### components/ui/RankProgress.tsx
+- Default export `RankProgress({currentRank, progress, accent})` — a member's progress to the next
+  rank. Takes exactly what `getPromotionProgress()` (`lib/military/milpac-stats.ts`) returns;
+  renders nothing at max rank or on a billet-assigned rank. Used by the milpac file so it and the
+  navbar can't draw the same number two ways.
+
+#### components/ui/Countdown.tsx
+- Default export `Countdown({target, onElapsed})` — **client**. D/H/M/S, ticking every second
+  (unlike the navbar rail's minute resolution). Renders empty until mounted to avoid a hydration
+  mismatch.
+
+#### components/ui/EnlistButton.tsx
+- Default export `EnlistButton({variant, size})` — **client**. Self-contained "Enlist now": carries
+  its own `EnlistFadeOverlay`, so several can be mounted at once and only the pressed one shows.
+
+#### components/ui/icons.tsx
+- Named exports `CrateIcon` (donations as resupply, not charity), `ArrowIcon`, `DiscordIcon`,
+  `SteamIcon`, `YouTubeIcon`, `MailIcon`. Everything else on the site uses `@mui/icons-material` —
+  only add here when the meaning genuinely isn't in that set.
 
 ### components/nav/*
 

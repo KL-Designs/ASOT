@@ -47,11 +47,40 @@ Don't add a second filled button without re-thinking the whole cluster.
 Route-group layout for all `(landing)` pages; sets default OG/Twitter image. No auth gate — public.
 
 #### app/(landing)/page.tsx
-The marketing homepage. Hero with a physics minigame (`PhysicsGame`, `MinigameScoreboard`),
-Screenshot-of-the-Month banner (`/api/gallery/sotm`), member count (`/api/membercount`), an
-`OpsTeaser` sub-component that fetches `/api/operations?status=Active,Upcoming,Completed&limit=3`
-and renders operation cards linking to `/operations/[id]`, plus static feature/platoon sections.
-Fully public, no auth.
+The public home page — a **server component** (`force-dynamic`). Every figure comes out of Mongo
+through `lib/landing.ts`, so the page renders complete instead of filling in after mount. Sections
+in order: hero, stat readout, intel board, why, platoons, gallery strip, enlist band. Sub-components
+live in `app/(landing)/_components/`; layout in `styles/landing.module.css`; the shared vocabulary
+(notched buttons, pulses, section heads, progress tracks, topo) in `components/ui/` +
+`styles/ui.module.css`. Fully public, no auth.
+
+**The page leads with what is happening next.** The version it replaced was an about page: it
+explained who the unit is four separate times and never told a returning member anything
+actionable, and its operations section was headed "Recent & Upcoming" above three cards all marked
+COMPLETED. Don't reintroduce a layout that buries the next operation.
+
+#### app/(landing)/_components/*
+- `Hero.tsx` — **client**. Variant A "overlay": copy lower-left over the Screenshot of the Month,
+  the `public/ASOT.svg` lockup, CTAs, live roster facts. Hosts the physics minigame (`PhysicsGame`,
+  `MinigameScoreboard`, `FireEmbers`) and the `id10t` keyboard easter egg, fading the copy out while
+  the game is active. Takes the next-op card as a prop so that card stays server-rendered.
+- `NextOpCard.tsx` — next operation with a live `Countdown` and sign-on track. The block that gives
+  the page a job.
+- `StatReadout.tsx` — four-up figure bar. Only the roster figure is live.
+- `IntelBoard.tsx` — featured operation + operations log (upcoming ahead of completed, status dot
+  per row).
+- `WhySection.tsx` — lead card + four cards, replacing ~4,800px of alternating text/image blocks.
+- `Platoons.tsx` — three platoon cards with live member/section counts from the ORBAT.
+- `GalleryStrip.tsx` — six images drawn at random from `storage/gallery/featured`. Captions are
+  filenames tidied up; the gallery stores no titles, dates or photographer credits.
+- `EnlistBand.tsx` — the three-step enlistment path above the final CTA.
+
+#### app/footer.tsx
+The site footer ("Command") — a **server component**. Five columns: brand + socials, three link
+columns, and a live unit-status panel (next op, sign-ons, roster, applications) that bookends the
+navbar's status rail at the other end of the page. Reads `getFeaturedOp()`/`getRosterCount()` from
+`lib/landing.ts`. Styles in `styles/footer.module.css`. Keeps `CreditsModal` and the Dakoda
+`Signature`, the latter on a proper plate rather than floating in the legal text.
 
 ---
 
