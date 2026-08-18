@@ -2,7 +2,16 @@
 
 import { useRef, useEffect } from 'react'
 
-export default function FireEmbers() {
+/**
+ * Embers drifting up from the bottom edge.
+ *
+ * `style` is merged over the defaults so a caller can place the canvas in its
+ * own stacking context. The `zIndex: 0` default only works when the embers sit
+ * directly on a section background — put a veil or a scrim above them and they
+ * disappear under it, which is not obvious from the fact that they are drawn
+ * with `lighter` compositing.
+ */
+export default function FireEmbers({ style }: { style?: React.CSSProperties }) {
 	const canvasRef = useRef<HTMLCanvasElement>(null)
 
 	useEffect(() => {
@@ -34,8 +43,8 @@ export default function FireEmbers() {
 				y: canvas.height + 2,
 				vx: (Math.random() - 0.5) * 0.4,
 				vy: -(Math.random() * 0.55 + 0.2),
-				size: Math.random() * 1 + 0.4,
-				opacity: Math.random() * 0.5 + 0.5,
+				size: Math.random() * 1.3 + 0.6,
+				opacity: Math.random() * 0.45 + 0.55,
 				life: 1,
 				decay: Math.random() * 0.003 + 0.0015,
 			})
@@ -62,7 +71,7 @@ export default function FireEmbers() {
 				// Glow
 				ctx.save()
 				ctx.globalCompositeOperation = 'lighter'
-				ctx.globalAlpha = alpha * 0.35
+				ctx.globalAlpha = alpha * 0.5
 				const glow = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.size * 3.5)
 				glow.addColorStop(0, `hsl(${hue}, 100%, 55%)`)
 				glow.addColorStop(1, 'transparent')
@@ -75,7 +84,7 @@ export default function FireEmbers() {
 				// Core
 				ctx.save()
 				ctx.globalCompositeOperation = 'lighter'
-				ctx.globalAlpha = alpha * 0.75
+				ctx.globalAlpha = alpha * 0.9
 				ctx.beginPath()
 				ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2)
 				ctx.fillStyle = `hsl(${hue + 15}, 100%, 75%)`
@@ -104,6 +113,7 @@ export default function FireEmbers() {
 				height: 520,
 				pointerEvents: 'none',
 				zIndex: 0,
+				...style,
 			}}
 		/>
 	)

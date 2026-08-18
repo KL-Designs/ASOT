@@ -107,7 +107,9 @@ export default function Hero({ sotm, roster, opCard }: {
             <MilitaryGrid gradient opacity={0.7} style={{ zIndex: 3 }} />
             <div className={`${s.heroVeil} ${opCard ? '' : s.heroVeilSolo}`} />
 
-            <FireEmbers />
+            {/* Above the veil, below the copy. At zIndex 0 they painted under the
+                darkening layer and were all but invisible. */}
+            <FireEmbers style={{ zIndex: 3 }} />
             <PhysicsGame
                 onActivate={() => setGameActive(true)}
                 onGameOver={handleGameOver}
