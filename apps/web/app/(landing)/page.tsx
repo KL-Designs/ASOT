@@ -52,10 +52,14 @@ export default async function Page() {
 
             <StatReadout roster={roster} />
 
-            <IntelBoard featured={featured} log={log} />
+            {/* The pitch first, then the proof, then the standing record. The
+                enlist band stays last — it is the page's closing move, and the
+                operations log reads as evidence for it rather than as a section
+                someone is meant to act on. */}
             <WhySection roster={roster} />
             <Platoons stats={platoons} />
             <GalleryStrip tiles={tiles} />
+            <IntelBoard featured={featured} log={log} />
             <EnlistBand />
         </div>
     )

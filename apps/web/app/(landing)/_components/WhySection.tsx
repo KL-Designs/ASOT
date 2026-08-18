@@ -41,7 +41,7 @@ const CARDS = [
 
 export default function WhySection({ roster }: { roster: number | null }) {
     return (
-        <section className={`${s.sec} ${s.secTight}`} id='why'>
+        <section className={s.sec} id='why'>
             <div className={s.inner}>
                 <SectionHead
                     kicker='Why ASOT'

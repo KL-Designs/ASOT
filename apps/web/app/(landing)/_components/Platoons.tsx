@@ -42,7 +42,7 @@ export default function Platoons({ stats }: { stats: PlatoonStat[] }) {
     const statFor = (id: string) => stats.find(st => st.id === id)
 
     return (
-        <section className={`${s.sec} ${s.secTight}`} id='platoons'>
+        <section className={s.sec} id='platoons'>
             <div className={s.inner}>
                 <SectionHead
                     kicker='Our units'

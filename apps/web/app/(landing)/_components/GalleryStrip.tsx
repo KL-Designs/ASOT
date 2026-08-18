@@ -32,7 +32,7 @@ export default function GalleryStrip({ tiles }: { tiles: GalleryTile[] }) {
     if (tiles.length === 0) return null
 
     return (
-        <section className={`${s.sec} ${s.secTight}`} id='gallery'>
+        <section className={s.sec} id='gallery'>
             <div className={s.inner}>
                 <SectionHead
                     kicker='Media team'

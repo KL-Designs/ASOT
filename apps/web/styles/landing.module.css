@@ -20,7 +20,11 @@
     position: relative;
 }
 
-.secTight {
+/* Consecutive sections collapse their shared gap. Doing this by adjacency
+   rather than a `secTight` class on each component means the running order can
+   change without every section needing its padding re-checked — which is
+   exactly the bug that class was one reorder away from causing. */
+.sec+.sec {
     padding-top: 0;
 }
 
