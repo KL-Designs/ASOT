@@ -83,17 +83,17 @@
 .heroVeilSolo {
     background:
         linear-gradient(90deg,
-            rgba(6, 7, 9, .96) 0%,
-            rgba(6, 7, 9, .72) 15%,
-            transparent 38%,
-            transparent 62%,
-            rgba(6, 7, 9, .72) 85%,
-            rgba(6, 7, 9, .96) 100%),
+            rgba(6, 7, 9, .88) 0%,
+            rgba(6, 7, 9, .42) 16%,
+            transparent 34%,
+            transparent 66%,
+            rgba(6, 7, 9, .42) 84%,
+            rgba(6, 7, 9, .88) 100%),
         linear-gradient(180deg,
-            rgba(6, 7, 9, .6) 0%,
-            transparent 24%,
-            transparent 62%,
-            rgba(6, 7, 9, .95) 100%);
+            rgba(6, 7, 9, .42) 0%,
+            transparent 20%,
+            transparent 68%,
+            rgba(6, 7, 9, .9) 100%);
 }
 
 .heroInner {

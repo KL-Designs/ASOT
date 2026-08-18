@@ -64,8 +64,8 @@
    read as a separate layer floating over the photograph.
 */
 .topoEdges {
-    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 15%, transparent 38%, transparent 62%, #000 85%, #000 100%);
-    mask-image: linear-gradient(90deg, #000 0%, #000 15%, transparent 38%, transparent 62%, #000 85%, #000 100%);
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 16%, transparent 34%, transparent 66%, #000 84%, #000 100%);
+    mask-image: linear-gradient(90deg, #000 0%, #000 16%, transparent 34%, transparent 66%, #000 84%, #000 100%);
 }
 
 /* Weighted to the left — for a hero where the right side carries a photograph
