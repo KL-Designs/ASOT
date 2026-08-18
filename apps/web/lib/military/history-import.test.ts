@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest'
+import { beforeAll, afterAll, describe, test, expect } from 'vitest'
 import { parseHistoryCsv, resolveIssuer } from './history-import'
 
 const HEADER = 'Member Name,Record Type,Date,Award,Award Type,Rank,Role,Source File'
@@ -90,14 +90,22 @@ describe('resolveIssuer', () => {
         expect(resolveIssuer('November 2021')?.issuedByName).toBe('Thomas')
     })
 
-    test('is not affected by the local timezone at a window boundary', () => {
-        // The bug this guards: Date.parse('01 January 2023') is local midnight
-        // and Date.parse('2023-01-01') is UTC midnight, so east of Greenwich the
-        // boundary date fell into the previous officer's window.
-        expect(resolveIssuer('01 January 2023')?.issuedByName).toBe('Trew')
-        expect(resolveIssuer('02 September 2023')?.issuedByName).toBe('Jazz')
-        expect(resolveIssuer('01 January 2025')?.issuedByRank).toBe('Brigadier')
-        expect(resolveIssuer('01 January 2026')?.issuedByRank).toBe('Major General')
+    // The bug this guards: Date.parse('01 January 2023') is local midnight while
+    // Date.parse('2023-01-01') is UTC midnight, so east of Greenwich the boundary
+    // date fell into the previous officer's window. Pinning the zone is what makes
+    // these assertions fail if resolveIssuer ever goes back to Date.parse — on a
+    // UTC runner the bug simply does not reproduce, and the test would pass either way.
+    describe('resolveIssuer at a window boundary, in a timezone east of UTC', () => {
+        const realTz = process.env.TZ
+        beforeAll(() => { process.env.TZ = 'Australia/Sydney' })
+        afterAll(() => { process.env.TZ = realTz })
+
+        test('a boundary date still belongs to the later officer', () => {
+            expect(resolveIssuer('01 January 2023')?.issuedByName).toBe('Trew')
+            expect(resolveIssuer('02 September 2023')?.issuedByName).toBe('Jazz')
+            expect(resolveIssuer('01 January 2025')?.issuedByRank).toBe('Brigadier')
+            expect(resolveIssuer('01 January 2026')?.issuedByRank).toBe('Major General')
+        })
     })
 
     test('rejects a date that is neither format', () => {

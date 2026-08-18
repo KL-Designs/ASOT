@@ -83,11 +83,9 @@ export const ISSUER_WINDOWS: readonly { until: string | null; issuer: Issuer }[]
 ]
 
 /**
- * The officer of record for a date, or null when the date does not parse.
- *
- * The first window is unbounded at the start on purpose: 23 records predate
- * the supplied mapping and fold into Thomas's window rather than importing
- * with no officer.
+ * Parse a date string into a numeric YYYYMMDD value for timezone-agnostic
+ * comparison. Accepts 'DD MMMM YYYY', 'MMMM YYYY' (day defaults to 1), and
+ * 'YYYY-MM-DD' formats. Returns null if the format is not recognized.
  */
 function dateToComparable(dateStr: string): number | null {
     const months: { [key: string]: number } = {
@@ -127,6 +125,13 @@ function dateToComparable(dateStr: string): number | null {
     return null
 }
 
+/**
+ * The officer of record for a date, or null when the date does not parse.
+ *
+ * The first window is unbounded at the start on purpose: 23 records predate
+ * the supplied mapping and fold into Thomas's window rather than importing
+ * with no officer.
+ */
 export function resolveIssuer(date: string): Issuer | null {
     const at = dateToComparable(date)
     if (at === null) return null
