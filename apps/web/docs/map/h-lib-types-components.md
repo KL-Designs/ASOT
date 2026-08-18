@@ -647,6 +647,36 @@ See `types/README.md` at the monorepo root for the sharing convention (web is au
 #### components/wip-page.tsx
 - Default export `WipPage()` — "Under Development" placeholder page with a bypass button that appends `?bypass_wip=1` and reloads. Paired with `middleware.ts`'s `WIP_PATHS` rewrite (see §4).
 
+### components/nav/*
+
+The Command Strip navbar, split out of `app/navbar.tsx` so the desktop bar and
+the mobile sheet share one source of truth. Layout and interaction live in
+`styles/navbar.module.css`; these files are structure, state and data.
+
+#### components/nav/nav-data.tsx
+- `NAV_ITEMS: NavItem[]` — the public navigation tree (six top-level items, MUI icons, each child carrying a `description` for the mega panel). Consumed by both `app/navbar.tsx` and `MobileSheet`. `Support` lives under `About Us` rather than at the top level.
+- `isItemActive(item, pathname)` — active check that also matches any child href.
+- Types `NavItem` / `NavChild`.
+
+#### components/nav/Topo.tsx
+- Default export `Topo({opacity?, driftSeconds?, fade?})` — the drifting contour backdrop. Paints `public/designs/topo.svg` (a seamless 2400x800 tile) as a repeating background rather than inlining ~160KB of paths into every page. `driftSeconds = 0` pins it static; motion stops under `prefers-reduced-motion`.
+
+#### components/nav/useNavStatus.ts
+- `useNavStatus()` — fetches `/api/nav/status` on mount and every 5 minutes. Never throws or exposes an error state; a failed request just leaves rail segments unrendered. Shared by `StatusRail` and the mega panel's "Next Op" card so both quote the same operation.
+- `formatOpTime(iso)` → `SAT 20:00` in the reader's timezone; `formatCountdown(iso)` → `T−2D 04H 11M`, or `RUNNING` once the start time passes (minute resolution).
+
+#### components/nav/StatusRail.tsx
+- Default export `StatusRail({status, hidden})` — the 28px rail above the bar. Each segment is conditional on its own data; `hidden` collapses it to zero height on scroll.
+
+#### components/nav/AccountMenu.tsx
+- Default export `AccountMenu({user})` — account chip + dropdown. Fetches `/api/me/orbat` and `/api/me/promotion-progress` lazily on first open, not on mount. Threads the member's Discord `hexAccentColor` through the `--acct-accent` CSS variable (avatar edge, panel top rule, rank line, progress bar), falling back to `var(--red)`. Owns logout and the impersonation return action.
+
+#### components/nav/MobileSheet.tsx
+- Default export `MobileSheet({pathname, user, actions, onNavigate})` — the sub-1200px sheet. `actions` is the DONATE + primary pair, passed in from `app/navbar.tsx` so the two surfaces can't style the same buttons differently.
+
+#### components/nav/CrateIcon.tsx
+- Default export `CrateIcon(props)` — the supply-crate glyph on the DONATE button. The only hand-drawn icon in the navbar; every other one is MUI.
+
 ### components/operations/*.tsx
 
 #### components/operations/AttendanceDrawer.tsx

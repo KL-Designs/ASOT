@@ -15,10 +15,30 @@ Injects `x-pathname` header on every request (except `_next` assets). Also inter
 unless the URL has `?bypass_wip`. Public, runs on every route.
 
 #### app/layout.tsx
-Root HTML layout: Montserrat font, MUI `ThemeProvider` with `UnitTheme`, `CustomCursor`, and the
-site `Navbar`/`Footer` (from `app/(landing)/navbar.tsx` / `footer.tsx`) wrapping `{children}` for
-the entire app (both landing and dashboard trees share this shell). Sets dynamic `metadataBase`
-from request headers. Public.
+Root HTML layout: MUI `ThemeProvider` with `UnitTheme`, `CustomCursor`, and the site
+`Navbar`/`Footer` (from `app/navbar.tsx` / `app/footer.tsx`) wrapping `{children}` for the entire
+app (both landing and dashboard trees share this shell). Sets dynamic `metadataBase` from request
+headers. Public.
+
+Fonts: Montserrat stays the `<body>` font. Barlow Condensed, Oswald, JetBrains Mono and Inter are
+also loaded via `next/font/google` and exposed as CSS variables on `<html>`; `styles/globals.css`
+wraps each in a `--font-cond` / `--font-disp` / `--font-mono` / `--font-ui` alias with its fallback
+stack, and components reference only those. Declared site-wide rather than scoped to the navbar so
+other surfaces can adopt the display/mono faces.
+
+#### app/navbar.tsx
+The **Command Strip** site navigation (client component) — three bands: a `StatusRail` carrying the
+next operation and live presence, the 66px bar itself, and a `MobileSheet` below 1200px. Fetches
+`/api/me` on mount for auth state and `useNavStatus()` for the rail. Renders the brand plate, the
+six-item menu with hover-opened mega panels (912px, or 640px "compact" for short menus; the `<li>`
+is `position: static` so a panel anchors to the bar and can never be pushed off-screen), the right
+cluster (icon buttons, DONATE, the auth-dependent primary action, `AccountMenu`), and the
+scroll-to-top button. Sub-components live in `components/nav/*`; all layout in
+`styles/navbar.module.css`. Public — signed-out visitors get ENLIST (`/join`) in the primary slot.
+
+**Right-cluster hierarchy is deliberate:** only one element is ever solid-filled — whichever is the
+primary action for the current auth state. DONATE stays an amber ghost so it never competes with it.
+Don't add a second filled button without re-thinking the whole cluster.
 
 ---
 

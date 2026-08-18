@@ -15,6 +15,43 @@
 	--red: rgb(219, 0, 29);
 	--grey: rgba(255, 255, 255, 0.12);
 	--dark-grey: rgb(19, 19, 19);
+
+	/* ── Command Strip palette ────────────────────────────────────────────
+	   Introduced with the navbar redesign. Four graded ink levels and two
+	   hairline weights rather than a pile of one-off rgba() values, so panels,
+	   rails and dividers stack consistently. Amber is the "information /
+	   support" accent (status rail, donate); red stays the primary accent.
+	   Site-wide because the rest of the site is expected to adopt them. */
+	--ink-0: #08090a;
+	--ink-1: #0b0c0e;
+	--ink-2: #111317;
+	--ink-3: #171a1f;
+
+	--line-1: #1e2127;
+	--line-2: #2a2e36;
+
+	--txt-1: #f2f3f5;
+	--txt-2: #9aa0a8;
+	--txt-3: #5f656e;
+
+	--red-hi: #ff4257;
+	--red-dim: #7d1122;
+	--red-glow: rgba(224, 35, 60, 0.35);
+	--amber: #f5b93f;
+	--live: #3ddc84;
+
+	--nav-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+	/* ── Type ─────────────────────────────────────────────────────────────
+	   The next/font variables are declared on <html> in app/layout.tsx; these
+	   aliases add the fallback stacks in one place so a component only ever
+	   references --font-cond / --font-disp / --font-mono / --font-ui.
+	   `cond` is the interface face, `disp` display headings, `mono` data and
+	   labels, `ui` body copy. Montserrat remains the default body font. */
+	--font-cond: var(--font-barlow-condensed), 'Arial Narrow', system-ui, sans-serif;
+	--font-disp: var(--font-oswald), var(--font-barlow-condensed), 'Arial Narrow', system-ui, sans-serif;
+	--font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+	--font-ui: var(--font-inter), system-ui, sans-serif;
 }
 
 :target {

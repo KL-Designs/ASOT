@@ -27,6 +27,7 @@ Full inventory of every page, API route, and `lib`/`types`/`components` file in 
 
 | Topic / keyword | Where to look |
 |---|---|
+| Site navigation, navbar, status rail, mega panels, mobile sheet, topo backdrop, nav fonts/palette | G (`app/navbar.tsx`, `app/layout.tsx` fonts), H (`components/nav/**`), D (`/api/nav/status`, `/api/me/promotion-progress`), plus `styles/navbar.module.css` and the Command Strip tokens in `styles/globals.css` |
 | Auth, login, Discord OAuth, `token` cookie | G (`/login`, `/login/callback`), H (`lib/discord/index.ts`, `lib/discord/oauth.ts`) |
 | Permissions, role gates, `PERMISSIONS.*` | H (`lib/permissions.ts` — single source of truth) |
 | Granular permission keys, ORBAT-Role-granted permissions | H (`lib/permissions-catalog.ts`, `lib/orbat/hasPermission.ts`: additive mechanism, wired into `attendance.confirm` and, as of the permission-system migration, `pages.member` (35 call sites); `lib/orbat/hasPermissions.ts`: batch variant, same semantics), A (`/api/admin/orbat/permission-keys`) |
