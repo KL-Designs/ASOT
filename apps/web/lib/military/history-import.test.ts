@@ -1,5 +1,5 @@
 import { beforeAll, afterAll, describe, test, expect } from 'vitest'
-import { parseHistoryCsv, resolveIssuer } from './history-import'
+import { parseHistoryCsv, resolveIssuer, buildHistory, type HistoryRow } from './history-import'
 
 const HEADER = 'Member Name,Record Type,Date,Award,Award Type,Rank,Role,Source File'
 
@@ -124,4 +124,108 @@ describe('resolveIssuer', () => {
 test('the pinned timezone does not leak out of this file', () => {
     expect(process.env.TZ).not.toBe('Australia/Sydney')
     expect(process.env.TZ).not.toBe('undefined')
+})
+
+const row = (over: Partial<HistoryRow>): HistoryRow => ({
+    member: 'Test', type: 'promotion', date: '14 June 2022',
+    award: '', rank: 'Private', role: 'Rifleman', line: 2, ...over,
+})
+
+describe('buildHistory', () => {
+    test('builds a promotion with its issuer attached', () => {
+        const { byMember } = buildHistory([row({})])
+        expect(byMember.get('Test')!.promotions).toEqual([{
+            date: '14 June 2022', rank: 'Private', role: 'Rifleman',
+            issuedById: '224086573560365057', issuedByName: 'Thomas', issuedByRank: 'Major',
+        }])
+    })
+
+    test('builds an award with the type from AWARDS, not from the row', () => {
+        const { byMember } = buildHistory([row({ type: 'award', award: 'Campaign Medallion' })])
+        expect(byMember.get('Test')!.awards[0]).toMatchObject({
+            name: 'Campaign Medallion', type: 'Operational Service Citation',
+        })
+    })
+
+    test('stores the date byte-identical to the source cell', () => {
+        const { byMember } = buildHistory([row({ date: '04 February 2026' })])
+        expect(byMember.get('Test')!.promotions[0].date).toBe('04 February 2026')
+    })
+
+    test('applies vocabulary aliases', () => {
+        const { byMember, corrections } = buildHistory([
+            row({ rank: 'Warrant Officer Class One', role: 'Machine Gunner' }),
+            row({ type: 'award', award: 'Long Term Service Citation', line: 3 }),
+        ])
+        expect(byMember.get('Test')!.promotions[0]).toMatchObject({
+            rank: 'Warrant Officer 1', role: 'Machinegunner',
+        })
+        expect(byMember.get('Test')!.awards[0].name).toBe('4 Year+ Service Citation')
+        expect(corrections).toEqual({ rank: 1, award: 1, role: 1 })
+    })
+
+    // The source groups each member's rows by record type and then
+    // alphabetically by award name, so it arrives badly out of order.
+    test('sorts records ascending by date', () => {
+        const { byMember } = buildHistory([
+            row({ date: '04 October 2025', line: 2 }),
+            row({ date: '07 June 2025', line: 3 }),
+            row({ date: '06 December 2025', line: 4 }),
+        ])
+        expect(byMember.get('Test')!.promotions.map(p => p.date))
+            .toEqual(['07 June 2025', '04 October 2025', '06 December 2025'])
+    })
+
+    test('breaks a date tie by file order', () => {
+        const { byMember } = buildHistory([
+            row({ date: '15 August 2020', role: 'first', line: 2 }),
+            row({ date: '15 August 2020', role: 'second', line: 3 }),
+        ])
+        expect(byMember.get('Test')!.promotions.map(p => p.role)).toEqual(['first', 'second'])
+    })
+
+    test('skips a row with no date and says why', () => {
+        const { byMember, skipped } = buildHistory([row({ date: '', line: 9 })])
+        expect(byMember.has('Test')).toBe(false)
+        expect(skipped).toEqual([{ line: 9, member: 'Test', reason: 'no date' }])
+    })
+
+    test('skips a row whose rank is not a rank and says why', () => {
+        const { skipped } = buildHistory([row({ rank: 'Stone', line: 5 })])
+        expect(skipped).toEqual([{ line: 5, member: 'Test', reason: 'unknown rank "Stone"' }])
+    })
+
+    test('skips a row whose award is unknown and says why', () => {
+        const { skipped } = buildHistory([row({ type: 'award', award: 'Order of the Phoenix', line: 7 })])
+        expect(skipped).toEqual([{ line: 7, member: 'Test', reason: 'unknown award "Order of the Phoenix"' }])
+    })
+
+    test('a skipped row contributes no partial record', () => {
+        const { byMember, skipped } = buildHistory([
+            row({ rank: 'Stone', line: 2 }),
+            row({ rank: 'Private', line: 3 }),
+        ])
+        expect(byMember.get('Test')!.promotions).toHaveLength(1)
+        expect(skipped).toHaveLength(1)
+    })
+
+    // written + skipped === rows in. The runner asserts this before writing;
+    // this test is what makes the property true rather than hoped for.
+    test('every row is either built or skipped', () => {
+        const rows = [
+            row({ line: 2 }),
+            row({ type: 'award', award: 'Campaign Medallion', line: 3 }),
+            row({ date: '', line: 4 }),
+            row({ rank: 'Stone', line: 5 }),
+            row({ member: 'Other', line: 6 }),
+        ]
+        const { byMember, skipped } = buildHistory(rows)
+        const built = [...byMember.values()].reduce((n, m) => n + m.promotions.length + m.awards.length, 0)
+        expect(built + skipped.length).toBe(rows.length)
+    })
+
+    test('keeps members separate', () => {
+        const { byMember } = buildHistory([row({ member: 'Abdul' }), row({ member: 'Abuza', line: 3 })])
+        expect([...byMember.keys()]).toEqual(['Abdul', 'Abuza'])
+    })
 })

@@ -6,6 +6,7 @@
  * Pure: no database, no filesystem, no clock.
  */
 import { parseRow } from '@/lib/orbat/csv-parser'
+import { resolveRank, resolveAward, resolveRole } from './history-vocab'
 
 export type HistoryRow = {
     member: string
@@ -142,4 +143,92 @@ export function resolveIssuer(date: string): Issuer | null {
         if (windowUntil !== null && at < windowUntil) return window.issuer
     }
     return null
+}
+
+export type PromotionRecord = {
+    date: string
+    rank: string
+    role: string
+    issuedById: string
+    issuedByName: string
+    issuedByRank: string
+}
+
+export type AwardRecord = {
+    date: string
+    name: string
+    type: string
+    issuedById: string
+    issuedByName: string
+    issuedByRank: string
+}
+
+export type MemberHistory = { promotions: PromotionRecord[]; awards: AwardRecord[] }
+export type SkippedRow = { line: number; member: string; reason: string }
+
+export type BuiltHistory = {
+    /** Keyed by the CSV's member name — resolving that to a user is history-match's job. */
+    byMember: Map<string, MemberHistory>
+    skipped: SkippedRow[]
+    corrections: { rank: number; award: number; role: number }
+}
+
+/**
+ * Rows in, the arrays that go into milpac.promotions/awards out.
+ *
+ * Every row leaves here exactly once, either as a record or as a skip with a
+ * reason. Nothing is dropped silently and nothing is guessed: a rank or award
+ * that resolves to nothing is a skip, not a best effort.
+ */
+export function buildHistory(rows: HistoryRow[]): BuiltHistory {
+    const byMember = new Map<string, MemberHistory>()
+    const skipped: SkippedRow[] = []
+    const corrections = { rank: 0, award: 0, role: 0 }
+
+    // Date first, file order second. Sorting up front rather than per member
+    // keeps the tie-break stable without threading an index through.
+    const ordered = rows
+        .map((row, index) => ({ row, index, at: Date.parse(row.date) }))
+        .sort((a, b) => (a.at - b.at) || (a.index - b.index))
+
+    const historyFor = (member: string): MemberHistory => {
+        const existing = byMember.get(member)
+        if (existing) return existing
+        const fresh: MemberHistory = { promotions: [], awards: [] }
+        byMember.set(member, fresh)
+        return fresh
+    }
+
+    for (const { row } of ordered) {
+        const issuer = resolveIssuer(row.date)
+        if (!issuer) {
+            skipped.push({ line: row.line, member: row.member, reason: 'no date' })
+            continue
+        }
+
+        if (row.type === 'promotion') {
+            const rank = resolveRank(row.rank)
+            if (!rank) {
+                skipped.push({ line: row.line, member: row.member, reason: `unknown rank "${row.rank}"` })
+                continue
+            }
+            if (rank !== row.rank.trim()) corrections.rank++
+
+            const role = resolveRole(row.role)
+            if (role !== row.role.trim()) corrections.role++
+
+            historyFor(row.member).promotions.push({ date: row.date, rank, role, ...issuer })
+        } else {
+            const award = resolveAward(row.award)
+            if (!award) {
+                skipped.push({ line: row.line, member: row.member, reason: `unknown award "${row.award}"` })
+                continue
+            }
+            if (award.name !== row.award.trim()) corrections.award++
+
+            historyFor(row.member).awards.push({ date: row.date, name: award.name, type: award.type, ...issuer })
+        }
+    }
+
+    return { byMember, skipped, corrections }
 }
