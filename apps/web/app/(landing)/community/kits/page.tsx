@@ -1,10 +1,9 @@
-import type { Metadata, Route } from 'next'
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { connection } from 'next/server'
 
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
-import Avatar from '@/components/member/avatar'
 import { ensureVisible, hexToRgbTriplet } from '@/lib/discord/color'
 import { resolveMilpacProfile } from '@/lib/military/milpac-profile'
 import { buildSlugIndex, canonicalSegment, toSlugCandidate } from '@/lib/military/milpac-slug'
@@ -12,11 +11,11 @@ import { parseLoadout } from '@/lib/loadout/parse'
 import { summariseLoadout, type KitSummary } from '@/lib/loadout/summary'
 import { resolveItemName } from '@/lib/loadout/names'
 import { iconFor } from '@/lib/loadout/classify'
-import { LoadoutIcon } from '@/components/loadout/icons'
-import { KitIcon, UiIcon } from '@/components/loadout/kit-icons'
 import { kitIcon } from '@/lib/loadout/kit-icons'
-import type { KitIconKey } from '@/lib/loadout/kit-icons'
-import { CopyKitButton } from './copy-kit'
+import { normaliseTags, KIT_TAG_LABELS } from '@/lib/loadout/tags'
+import { weightedScore } from '@/lib/loadout/rating'
+import { Shelf } from './shelf'
+import type { CardData } from './kit-card'
 
 import s from '../../milpacs/[username]/profile.module.css'
 import k from './kits.module.css'
@@ -42,17 +41,6 @@ export const metadata: Metadata = {
 /** The unit red, for the page chrome. Each card overrides it with its owner's. */
 const UNIT_ACCENT = '#db001d'
 
-type Card = {
-    id: string
-    name: string
-    description: string
-    icon: KitIconKey
-    raw: string
-    updatedAt: Date
-    summary: KitSummary
-    owner: { id: string; avatarURL: string; label: string; path: Route; accent: string }
-}
-
 export default async function Page() {
     await connection()
 
@@ -66,7 +54,7 @@ export default async function Page() {
     const slugIndex = buildSlugIndex(members.map(toSlugCandidate))
     const byId = new Map(members.map(m => [m.id, m]))
 
-    const cards: Card[] = []
+    const cards: CardData[] = []
     for (const doc of shared) {
         const member = byId.get(doc.userId)
         // An orphan kit (owner left the roster, or a skeleton import) has no
@@ -83,21 +71,69 @@ export default async function Page() {
         }
 
         const { name, rankAbbr, accent } = resolveMilpacProfile(member, null)
+        const ownerAccent = ensureVisible(accent)
+        const ownerLabel = [rankAbbr, name].filter(Boolean).join(' ')
+        const tags = normaliseTags(doc.tags)
+        const ratingAvg = doc.ratingAvg ?? 0
+        const ratingCount = doc.ratingCount ?? 0
+
+        const primary = summary.primary
+            ? {
+                name: resolveItemName(summary.primary.className),
+                icon: iconFor(summary.primary.className, 'primary'),
+                attachments: summary.primary.attachments.map(a => ({
+                    name: resolveItemName(a), icon: iconFor(a),
+                })),
+            }
+            : null
+
+        const gear = ([
+            ['Head', 'headgear', summary.headgear],
+            ['Uniform', 'uniform', summary.uniform],
+            ['Vest', 'vest', summary.vest],
+            ['Pack', 'backpack', summary.backpack],
+        ] as const).map(([label, slot, cls]) => ({
+            label,
+            icon: iconFor(cls ?? '', slot),
+            // Empty slots still render: what a member chose not to take is part
+            // of the shape of a kit, and a missing row would misalign the grid.
+            name: cls ? resolveItemName(cls) : '—',
+        }))
+
         cards.push({
             id: String(doc._id),
             name: doc.name,
             description: doc.description ?? '',
             icon: kitIcon(doc.icon),
             raw: doc.raw,
-            updatedAt: doc.updatedAt,
-            summary,
+            tags,
+            // Epoch ms, not a Date — this crosses into a client component.
+            updatedAt: doc.updatedAt.getTime(),
+            ratingAvg,
+            ratingCount,
+            ratingScore: weightedScore(ratingAvg, ratingCount),
+            copyCount: doc.copyCount ?? 0,
+            itemCount: summary.itemCount,
+            primary,
+            gear,
             owner: {
                 id: member.id,
                 avatarURL: member.avatarURL,
-                label: [rankAbbr, name].filter(Boolean).join(' '),
-                path: `/milpacs/${canonicalSegment(member, slugIndex)}` as Route,
-                accent: ensureVisible(accent),
+                label: ownerLabel,
+                path: `/milpacs/${canonicalSegment(member, slugIndex)}`,
+                accent: ownerAccent,
+                accentRgb: hexToRgbTriplet(ownerAccent),
             },
+            // Built here because the dictionary that resolves these names must
+            // not reach the browser. Lowercased once so the search does not
+            // lowercase every card on every keystroke.
+            haystack: [
+                doc.name,
+                doc.description ?? '',
+                ownerLabel,
+                ...tags.map(t => KIT_TAG_LABELS[t]),
+                primary?.name ?? '',
+            ].join('|').toLowerCase(),
         })
     }
 
@@ -133,105 +169,7 @@ export default async function Page() {
                         Import one on your milpac and share it to start the shelf.
                     </p>
                 )
-                : (
-                    <div className={k.grid}>
-                        {cards.map((card, i) => (
-                            <article
-                                key={card.id}
-                                // Capped at eight so the last card in a long shelf is not
-                                // still waiting to appear seconds after the first.
-                                className={`${s.panel} ${s.rise} ${k.card}`}
-                                style={{
-                                    animationDelay: `${Math.min(i, 8) * 0.045}s`,
-                                    ['--acc' as string]: card.owner.accent,
-                                    ['--acc-rgb' as string]: hexToRgbTriplet(card.owner.accent),
-                                }}
-                            >
-                                <header className={k.cardHead}>
-                                    <div className={k.cardAvatar}>
-                                        <Avatar user={{ id: card.owner.id, avatarURL: card.owner.avatarURL }} />
-                                    </div>
-                                    <div className={k.cardWho}>
-                                        {/* The whole card is not one link: the footer holds a
-                                            copy button, and a button inside a link is invalid. */}
-                                        <Link
-                                            href={`${card.owner.path}/kits/${card.id}` as Route}
-                                            className={k.cardName}
-                                        >
-                                            <KitIcon icon={card.icon} size={15} />
-                                            {card.name}
-                                        </Link>
-                                        <span className={k.cardOwner}>{card.owner.label}</span>
-                                    </div>
-                                </header>
-
-                                <div className={k.cardMain}>
-                                    {/* The owner's own line on the kit, when they wrote
-                                        one — it says what a list of item names cannot. */}
-                                    {card.description && <p className={k.cardBlurb}>{card.description}</p>}
-
-                                    {card.summary.primary
-                                        ? (
-                                            <div>
-                                                <div className={k.cardWeapon}>
-                                                    <LoadoutIcon icon={iconFor(card.summary.primary.className, 'primary')} size={18} />
-                                                    <span className={k.cardWeaponName}>
-                                                        {resolveItemName(card.summary.primary.className)}
-                                                    </span>
-                                                </div>
-                                                {card.summary.primary.attachments.length > 0 && (
-                                                    <div className={k.cardAtt} style={{ marginTop: 8 }}>
-                                                        {card.summary.primary.attachments.map(a => (
-                                                            <span key={a} className={k.cardAttItem}>
-                                                                <LoadoutIcon icon={iconFor(a)} size={12} />
-                                                                {resolveItemName(a)}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )
-                                        : <div className={s.empty}>No primary weapon</div>}
-
-                                    <ul className={k.gear}>
-                                        <Gear label='Head' slot='headgear' cls={card.summary.headgear} />
-                                        <Gear label='Uniform' slot='uniform' cls={card.summary.uniform} />
-                                        <Gear label='Vest' slot='vest' cls={card.summary.vest} />
-                                        <Gear label='Pack' slot='backpack' cls={card.summary.backpack} />
-                                    </ul>
-                                </div>
-
-                                <footer className={k.cardFoot}>
-                                    <span className={k.cardCount}>{card.summary.itemCount} items</span>
-                                    <Link
-                                        href={`${card.owner.path}/kits/${card.id}` as Route}
-                                        className={s.btn}
-                                    >
-                                        <UiIcon icon='open' />View
-                                    </Link>
-                                    <CopyKitButton raw={card.raw} name={card.name} />
-                                </footer>
-                            </article>
-                        ))}
-                    </div>
-                )}
-
-            <div className={s.foot}>
-                <span>Unclassified // For unit use only</span>
-                <span>{cards.length} shared</span>
-            </div>
+                : <Shelf cards={cards} />}
         </div>
-    )
-}
-
-/** One worn/carried line. Empty slots still render — what a member chose not to
- *  take is part of the shape of a kit, and a missing row would misalign the grid. */
-function Gear({ label, slot, cls }: { label: string; slot: Parameters<typeof iconFor>[1]; cls: string | null }) {
-    return (
-        <li className={k.gearRow}>
-            <LoadoutIcon icon={iconFor(cls ?? '', slot)} size={15} />
-            <span className={k.gearLabel}>{label}</span>
-            <span className={k.gearName}>{cls ? resolveItemName(cls) : '—'}</span>
-        </li>
     )
 }

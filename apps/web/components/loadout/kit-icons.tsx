@@ -40,6 +40,9 @@ const UI_PATHS = {
     pencil: 'M4 20h4L20 8l-4-4L4 16z',
     eye: 'M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6zm9-2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z',
     open: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
+    search: 'M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm5 12 5 5',
+    prev: 'M15 5 8 12l7 7',
+    next: 'M9 5l7 7-7 7',
 } as const
 
 export type UiIconKey = keyof typeof UI_PATHS
