@@ -229,18 +229,23 @@ describe('buildHistory', () => {
         expect([...byMember.keys()]).toEqual(['Abdul', 'Abuza'])
     })
 
-    // Regression: Date.parse('') is NaN, which made the comparator
-    // non-transitive. One undated row in the real file scrambled a different
-    // member's awards entirely — the bad row does not have to be anywhere near
-    // the records it corrupts.
-    test('an undated row does not disturb the order of anything else', () => {
+    // Regression: Date.parse('') is NaN, and NaN made every comparison falsy,
+    // so the comparator fell through to file order for that pair alone — which
+    // is non-transitive, and V8 then scrambles rows belonging to members that
+    // have no bad row at all. Exactly this happened on the real file: its one
+    // undated row (Talon's) misordered Thomas's awards.
+    //
+    // The row order below is the shape that reproduces it: the undated row must
+    // sit BETWEEN a later date and an earlier one. Move it to the end and the
+    // bug hides, which is why an earlier version of this test passed against
+    // the broken sort.
+    test('an undated row does not disturb the order of another member', () => {
         const { byMember, skipped } = buildHistory([
-            row({ member: 'A', date: '01 March 2022', role: 'third', line: 2 }),
-            row({ member: 'A', date: '01 January 2022', role: 'first', line: 3 }),
-            row({ member: 'B', date: '', line: 4 }),
-            row({ member: 'A', date: '01 February 2022', role: 'second', line: 5 }),
+            row({ member: 'A', date: '03 January 2022', role: 'later',   line: 2 }),
+            row({ member: 'B', date: '',                                 line: 3 }),
+            row({ member: 'A', date: '01 January 2022', role: 'earlier', line: 4 }),
         ])
-        expect(byMember.get('A')!.promotions.map(p => p.role)).toEqual(['first', 'second', 'third'])
-        expect(skipped.map(s => s.line)).toEqual([4])
+        expect(byMember.get('A')!.promotions.map(p => p.role)).toEqual(['earlier', 'later'])
+        expect(skipped.map(s => s.line)).toEqual([3])
     })
 })
