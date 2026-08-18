@@ -120,10 +120,10 @@ export default function Header({
 
                 {showPublish && (
                     publishConfirmOpen ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', background: 'rgba(127,174,92,0.1)', border: '1px solid var(--good)', borderRadius: 'var(--r)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', background: 'color-mix(in srgb, var(--good) 10%, transparent)', border: '1px solid var(--good)', borderRadius: 'var(--r)' }}>
                             <span style={{ fontSize: '0.6rem', color: 'var(--good)', fontWeight: 700, letterSpacing: '0.1em' }}>Publish "{title || 'this op'}"?</span>
                             <button type='button' disabled={publishSaving} onClick={onPublishConfirm}
-                                style={{ padding: '4px 10px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', background: 'rgba(127,174,92,0.22)', border: '1px solid var(--good)', color: 'var(--good)', cursor: 'pointer', borderRadius: 'var(--r)' }}
+                                style={{ padding: '4px 10px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', background: 'color-mix(in srgb, var(--good) 22%, transparent)', border: '1px solid var(--good)', color: 'var(--good)', cursor: 'pointer', borderRadius: 'var(--r)' }}
                             >{publishSaving ? 'Publishing…' : '✓ Confirm'}</button>
                             <button type='button' onClick={onPublishCancel}
                                 style={{ padding: '4px 8px', fontSize: '0.6rem', fontWeight: 700, background: 'none', border: '1px solid var(--line-2)', color: 'var(--ink-3)', cursor: 'pointer', borderRadius: 'var(--r)' }}
@@ -132,7 +132,7 @@ export default function Header({
                     ) : (
                         <button type='button' onClick={onPublishClick}
                             style={{
-                                padding: '6px 14px', background: 'rgba(127,174,92,0.08)',
+                                padding: '6px 14px', background: 'color-mix(in srgb, var(--good) 8%, transparent)',
                                 border: '1px solid var(--good)', color: 'var(--good)',
                                 fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
                                 cursor: 'pointer', borderRadius: 'var(--r)',

@@ -12,13 +12,17 @@
     font-family: var(--sans);
     overflow: hidden;
 }
-.body { display: flex; flex: 1; min-height: 0; }
+/*
+ * position: relative so MissionDeck (deck/MissionDeck.tsx) can go
+ * `position: absolute` against this box, not the viewport, when it turns
+ * itself into an overlay below 1280px — see that file's own doc comment.
+ * .body has no other layout role here; MissionDeck fully owns its own
+ * width/border/background for both the pushed (>=1280px) and overlay
+ * (<1280px) cases, same as it always has (see EditorShell's doc comment
+ * on why `deck` is rendered with no wrapping div).
+ */
+.body { display: flex; flex: 1; min-height: 0; position: relative; }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
-.deck { width: 340px; flex-shrink: 0; border-left: 1px solid var(--line); overflow-y: auto; }
-.deckCollapsed { width: 44px; }
-
-@media (max-width: 1279px) { .deck { position: absolute; right: 0; top: 0; bottom: 0; z-index: 20; } }
-@media (max-width: 1023px) { .deck { width: 300px; } }
 
 /* The scrollable pane inside .main — .main itself is a plain flex column with
    no overflow rule (see the block above), so without this the tab content
@@ -36,6 +40,13 @@
     background: var(--s1);
 }
 
+/* Below 1024px the tab strip scrolls horizontally instead of compressing —
+   four tabs still fit above that width, so the rule is scoped narrow rather
+   than applied unconditionally. */
+@media (max-width: 1023px) {
+    .tabbar { overflow-x: auto; scrollbar-width: thin; }
+}
+
 .tab {
     background: none;
     border: none;
@@ -49,6 +60,27 @@
     padding: 0 10px;
     height: 100%;
     cursor: pointer;
+    flex-shrink: 0;
 }
 .tab:hover { color: var(--ink-2); }
 .tabOn { color: var(--ink); border-bottom-color: var(--acc); }
+
+/*
+ * StatusBar cells (§8). Cells drop left-to-right by priority as width falls;
+ * "Live/Offline" (connected) and "Saved HH:MM" (savedAt) carry no class
+ * here and so never drop — they're the two pieces of state spec §8 calls
+ * out to keep longest. Thresholds line up with the shell's own breakpoints
+ * (1600/1280/1024) plus one narrower step for the doc-editor headcount,
+ * since that cell matters least once the deck (which already shows
+ * presence) has collapsed to a rail anyway.
+ */
+.sbDoc      { }
+.sbWords    { }
+.sbSections { }
+.sbEditors  { }
+.sbDept     { }
+
+@media (max-width: 1599px) { .sbDoc      { display: none; } }
+@media (max-width: 1279px) { .sbWords    { display: none; } }
+@media (max-width: 1023px) { .sbSections { display: none; } .sbDept { display: none; } }
+@media (max-width: 767px)  { .sbEditors  { display: none; } }

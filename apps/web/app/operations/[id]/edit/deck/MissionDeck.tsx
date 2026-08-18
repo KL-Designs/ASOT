@@ -4,32 +4,83 @@ import { useEffect, useState, type ReactNode } from 'react'
 
 const STORAGE_KEY = 'asot.opsdeck.collapsed'
 
+// Below this the shell doesn't have room to push the deck's 340px alongside
+// the tab content (spec §8: "1024–1279px: deck collapses to a 44px rail,
+// expanding as an overlay on click" / "<1024px: … overlay drawers"). Both
+// bands get the same treatment here — a rail that expands as a floating
+// overlay rather than pushing layout — since nothing in the spec's two rows
+// distinguishes deck behaviour between them, only the (out-of-scope-for-this
+// file) documents rail does.
+const WIDE_QUERY = '(min-width: 1280px)'
+
+/**
+ * True once the viewport is wide enough to push-layout the deck instead of
+ * overlaying it. Starts `true` (matches the >=1600px/1280-1599px rows, the
+ * common case) rather than reading matchMedia during render — the server
+ * has no viewport, so reading it synchronously on the client's first render
+ * would still risk a hydration mismatch on a client that boots narrow.
+ */
+function useIsWide(): boolean {
+    const [wide, setWide] = useState(true)
+    useEffect(() => {
+        const mq = window.matchMedia(WIDE_QUERY)
+        const update = () => setWide(mq.matches)
+        update()
+        mq.addEventListener('change', update)
+        return () => mq.removeEventListener('change', update)
+    }, [])
+    return wide
+}
+
 export default function MissionDeck({ strip, children }: {
     strip: ReactNode
     children: ReactNode
 }) {
-    const [collapsed, setCollapsed] = useState(false)
+    const isWide = useIsWide()
+
+    // The user's manual preference — meaningful only at >=1280px, where the
+    // deck pushes layout and the old collapse/expand toggle behaves exactly
+    // as it always has.
+    const [collapsedPref, setCollapsedPref] = useState(false)
+
+    // The overlay's open/closed state below 1280px. Deliberately separate
+    // from collapsedPref and never persisted: an overlay drawer that
+    // remembered "open" would auto-cover the tab content on every load on a
+    // narrow screen, which is worse than just re-opening it each time.
+    const [overlayOpen, setOverlayOpen] = useState(false)
 
     // Read persisted collapse state after mount only — the server render has
     // no localStorage, so reading it during render (or synchronously on the
     // initial client render) would make the very first client markup depend
     // on a value the server couldn't have produced, a hydration mismatch.
     useEffect(() => {
-        setCollapsed(window.localStorage.getItem(STORAGE_KEY) === '1')
+        setCollapsedPref(window.localStorage.getItem(STORAGE_KEY) === '1')
     }, [])
 
-    function toggle() {
-        setCollapsed(c => {
+    // Crossing back into the narrow band always starts from closed, per the
+    // no-persistence note above — covers both "resized narrow" and "loaded
+    // narrow" (the latter via isWide's own mount-time matchMedia read).
+    useEffect(() => {
+        if (!isWide) setOverlayOpen(false)
+    }, [isWide])
+
+    function toggleCollapsedPref() {
+        setCollapsedPref(c => {
             window.localStorage.setItem(STORAGE_KEY, c ? '0' : '1')
             return !c
         })
     }
 
+    const collapsed = isWide ? collapsedPref : !overlayOpen
+    const overlay = !isWide && !collapsed
+
     if (collapsed) {
         return (
             <aside style={{ width: 44, flexShrink: 0, borderLeft: '1px solid var(--line)', background: 'var(--bg)' }}>
                 <button
-                    type="button" onClick={toggle} aria-label="Expand mission deck"
+                    type="button"
+                    onClick={isWide ? toggleCollapsedPref : () => setOverlayOpen(true)}
+                    aria-label="Expand mission deck"
                     style={{ width: 44, height: 44, background: 'none', border: 'none', color: 'var(--ink-3)', cursor: 'pointer' }}
                 >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -42,11 +93,20 @@ export default function MissionDeck({ strip, children }: {
 
     return (
         <aside style={{
-            width: 340, flexShrink: 0,
+            width: overlay ? 'min(340px, 92vw)' : 340,
+            flexShrink: 0,
             borderLeft: '1px solid var(--line)',
             background: 'var(--bg)',
             display: 'flex', flexDirection: 'column',
             overflowY: 'auto',
+            // Overlay case (<1280px, expanded): float above the tab content
+            // instead of pushing it — there's no room to push. Positioned
+            // against .body (shell.module.css sets `position: relative`
+            // there for exactly this) rather than the viewport, so it docks
+            // under the header/tab bar instead of covering them.
+            ...(overlay
+                ? { position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 30, boxShadow: '-8px 0 24px rgba(0,0,0,0.45)' }
+                : {}),
         }}>
             {/*
              * Not in the original brief code — that version only ever renders
@@ -56,7 +116,9 @@ export default function MissionDeck({ strip, children }: {
              */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
                 <button
-                    type="button" onClick={toggle} aria-label="Collapse mission deck"
+                    type="button"
+                    onClick={isWide ? toggleCollapsedPref : () => setOverlayOpen(false)}
+                    aria-label="Collapse mission deck"
                     style={{ width: 32, height: 32, margin: 4, background: 'none', border: 'none', color: 'var(--ink-3)', cursor: 'pointer' }}
                 >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

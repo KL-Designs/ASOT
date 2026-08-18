@@ -1,5 +1,7 @@
 'use client'
 
+import styles from './shell.module.css'
+
 interface Props {
     /**
      * `null` means "not measured" — no provider is reachable yet to say either
@@ -39,17 +41,17 @@ export default function StatusBar({
                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
                 {connectedLabel}
             </div>
-            <div style={cell}><span style={{ color: 'var(--ink-3)' }}>Doc</span> {activeDocTitle}</div>
-            <div style={cell}>{words.toLocaleString()} words</div>
-            <div style={cell}>{sections} sections</div>
+            <div className={styles.sbDoc} style={cell}><span style={{ color: 'var(--ink-3)' }}>Doc</span> {activeDocTitle}</div>
+            <div className={styles.sbWords} style={cell}>{words.toLocaleString()} words</div>
+            <div className={styles.sbSections} style={cell}>{sections} sections</div>
             <div style={{ ...cell, color: 'var(--ink-3)' }}>
                 {savedAt ? `Saved ${savedAt.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false })}` : 'Not saved'}
             </div>
             <div style={{ flexGrow: 1 }} />
-            <div style={{ ...cell, borderRight: 'none', borderLeft: '1px solid var(--line)' }}>
+            <div className={styles.sbEditors} style={{ ...cell, borderRight: 'none', borderLeft: '1px solid var(--line)' }}>
                 {editorCount} editing
             </div>
-            <div style={{ ...cell, borderRight: 'none', borderLeft: '1px solid var(--line)', color: 'var(--ink-3)' }}>
+            <div className={styles.sbDept} style={{ ...cell, borderRight: 'none', borderLeft: '1px solid var(--line)', color: 'var(--ink-3)' }}>
                 {department}
             </div>
         </div>

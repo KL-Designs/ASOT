@@ -1,11 +1,12 @@
 ﻿'use client'
 
-import { useState, useEffect, useRef, type CSSProperties } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import ConfirmDialog from '@/components/confirm-dialog'
 import dayjs, { Dayjs } from 'dayjs'
 import type { HocuspocusProvider } from '@hocuspocus/provider'
 import PERMISSIONS from '@/lib/permissions'
+import { hexToRgb } from '@/lib/colour'
 import ActivityLog from './activity-log'
 import FullscreenPage from '@/components/FullscreenPage'
 import EditorShell, { useEditorTab } from './EditorShell'
@@ -34,22 +35,6 @@ type AttendanceStage = 'preparing' | 'rsvp_open' | 'rsvp_closed' | 'op_running' 
 // under the shell's own chrome now that FullscreenPage has dropped the site
 // navbar this route used to sit under (that's where the old `top: 64` came from).
 const EDITOR_CHROME_HEIGHT = 84
-
-// Mixing the `border` shorthand with a per-side longhand (`borderTop`, `borderBottom`)
-// in one style object makes React warn whenever either value updates on rerender.
-// These build the all-longhand equivalent instead.
-const sideBorders = (all: string, top: string): CSSProperties =>
-    ({ borderTop: top, borderRight: all, borderBottom: all, borderLeft: all })
-
-function hexToRgb(hex: string) {
-    const h = hex.replace('#', '')
-    return {
-        r: parseInt(h.substring(0, 2), 16),
-        g: parseInt(h.substring(2, 4), 16),
-        b: parseInt(h.substring(4, 6), 16),
-    }
-}
-
 
 export default function Page() {
     const { id: routeId } = useParams<{ id: string }>()
@@ -722,12 +707,10 @@ export default function Page() {
         }
     }
 
-    // Same three stages the Attendance Settings stepper's own NEEDS_CONFIRM
-    // guards (~line 1712 below, in the untouched old stepper block) — going
-    // Active, opening attendance confirmation (billet points), and closing
-    // it. Duplicated here rather than shared so that block doesn't need
-    // touching; both flows write through the same applyStage/commitStageChange
-    // path regardless.
+    // Same three stages the old Attendance Settings stepper's own
+    // NEEDS_CONFIRM guards used to gate (that stepper is retired — Task 12)
+    // — going Active, opening attendance confirmation (billet points), and
+    // closing it.
     const STAGE_CARD_CONFIRM_MSGS: Partial<Record<AttendanceStage, string>> = {
         op_running:          'Mark the operation as Active? This sets it to "Op Running".',
         confirmations_open:  `End "${title || 'this mission'}"? This marks it Completed and opens attendance confirmation.`,
@@ -786,7 +769,10 @@ export default function Page() {
             {/* Spinner */}
             <div style={{
                 width: 36, height: 36,
-                ...sideBorders(`2px solid rgba(219,0,29,0.12)`, `2px solid rgba(219,0,29,0.75)`),
+                borderTop: '2px solid rgba(219,0,29,0.75)',
+                borderRight: '2px solid rgba(219,0,29,0.12)',
+                borderBottom: '2px solid rgba(219,0,29,0.12)',
+                borderLeft: '2px solid rgba(219,0,29,0.12)',
                 borderRadius: '50%',
                 animation: 'edit-spin 0.8s linear infinite',
             }} />
