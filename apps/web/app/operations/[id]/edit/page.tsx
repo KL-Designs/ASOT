@@ -10,6 +10,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dynamic from 'next/dynamic'
 import PERMISSIONS from '@/lib/permissions'
 import ActivityLog from './activity-log'
+import FullscreenPage from '@/components/FullscreenPage'
 import EditorShell, { useEditorTab } from './EditorShell'
 import Header from './Header'
 import StatusBar from './StatusBar'
@@ -45,6 +46,11 @@ const CHECK_CONTENT: Record<'campaign' | 'single', Record<string, string[]>> = {
         w4: ['Final development check completed', 'Arsenal and loadout updates confirmed'],
     },
 }
+
+// Header (48px) + tab bar (36px) from shell.module.css — the drawers below dock
+// under the shell's own chrome now that FullscreenPage has dropped the site
+// navbar this route used to sit under (that's where the old `top: 64` came from).
+const EDITOR_CHROME_HEIGHT = 84
 
 // Mixing the `border` shorthand with a per-side longhand (`borderTop`, `borderBottom`)
 // in one style object makes React warn whenever either value updates on rerender.
@@ -565,6 +571,11 @@ export default function Page() {
 
     return (
         <>
+            {/* Drops the global site navbar/footer (styles/globals.css:31-34) — same
+                pattern as /operations/[id]/map and /maps/[name]. The shell's own back
+                crumb replaces the site nav. */}
+            <FullscreenPage />
+
             <ConfirmDialog
                 open={confirmDelete}
                 title='Delete Mission'
@@ -602,7 +613,10 @@ export default function Page() {
                 }
                 statusBar={
                     <StatusBar
-                        connected={true}
+                        // null, not true — no Hocuspocus provider is reachable from this
+                        // page (CollabEditor doesn't expose it), so the socket state is
+                        // genuinely unmeasured here, not "known connected".
+                        connected={null}
                         activeDocTitle={title || 'Untitled'}
                         words={0}
                         sections={0}
@@ -2096,7 +2110,7 @@ export default function Page() {
             {opID && (
                 <div style={{
                     position: 'fixed',
-                    top: 64,
+                    top: EDITOR_CHROME_HEIGHT,
                     right: 0,
                     bottom: 0,
                     width: 'clamp(280px, 30vw, 460px)',
@@ -2115,7 +2129,7 @@ export default function Page() {
             {opID && (
                 <div style={{
                     position: 'fixed',
-                    top: 64,
+                    top: EDITOR_CHROME_HEIGHT,
                     right: 0,
                     bottom: 0,
                     width: 'clamp(360px, 40vw, 700px)',

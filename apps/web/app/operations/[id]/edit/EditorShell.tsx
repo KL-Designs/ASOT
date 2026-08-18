@@ -27,6 +27,10 @@ function tabFromLocation(): EditorTab {
  * for the measured failure rate of Link-based tabs (11/18 commits), and note
  * that a real navigation here would also tear down the Hocuspocus socket and
  * force the Y.Doc to reconnect on every tab switch.
+ *
+ * This hook doesn't know about `isHQ`, so it can resolve `?tab=attendance` for
+ * a non-HQ user — EditorShell (which does know isHQ) is responsible for
+ * falling back to `brief` when the resolved tab isn't actually visible.
  */
 export function useEditorTab(): [EditorTab, (t: EditorTab) => void] {
     const [tab, setTab] = useState<EditorTab>('brief')
@@ -66,6 +70,11 @@ export default function EditorShell({
     themeColor, isHQ, tab, onTabChange, header, deck, statusBar, children,
 }: EditorShellProps) {
     const visibleTabs = TABS.filter(t => t !== 'attendance' || isHQ)
+    // A tab that isn't in the visible set — a non-HQ user deep-linking
+    // ?tab=attendance, or a stale value from before a role change — must not
+    // be selected: that renders nothing (no placeholder, no content) with no
+    // way back except editing the URL. Fall back to brief instead.
+    const active = visibleTabs.includes(tab) ? tab : 'brief'
 
     return (
         <div
@@ -80,8 +89,8 @@ export default function EditorShell({
                         key={t}
                         type='button'
                         onClick={() => onTabChange(t)}
-                        aria-current={t === tab ? 'page' : undefined}
-                        className={t === tab ? `${styles.tab} ${styles.tabOn}` : styles.tab}
+                        aria-current={t === active ? 'page' : undefined}
+                        className={t === active ? `${styles.tab} ${styles.tabOn}` : styles.tab}
                     >
                         {TAB_LABELS[t].toUpperCase()}
                     </button>
@@ -91,10 +100,22 @@ export default function EditorShell({
             <div className={styles.body}>
                 <div className={styles.main}>
                     <div className={styles.mainScroll}>
-                        {tab === 'brief' && children}
-                        {tab === 'map' && <TabPlaceholder label='Map' />}
-                        {tab === 'development' && <TabPlaceholder label='Development' />}
-                        {tab === 'attendance' && isHQ && <TabPlaceholder label='Attendance' />}
+                        {/*
+                         * Brief holds the collaborative editor — a Hocuspocus socket and a
+                         * Y.Doc that CollabEditor creates in useState and destroys on
+                         * unmount. Conditionally rendering it per tab (`tab === 'brief' &&
+                         * children`) would tear the socket down and force a Y.Doc rebuild
+                         * every time a user switches away and back — the exact hazard the
+                         * "no router navigation" rule (spec §7) exists to prevent, just
+                         * reached via unmount instead of navigation. So it stays mounted
+                         * always and is hidden with CSS instead.
+                         */}
+                        <div style={{ display: active === 'brief' ? undefined : 'none' }}>
+                            {children}
+                        </div>
+                        {active === 'map' && <TabPlaceholder label='Map' />}
+                        {active === 'development' && <TabPlaceholder label='Development' />}
+                        {active === 'attendance' && isHQ && <TabPlaceholder label='Attendance' />}
                     </div>
                 </div>
                 {deck && <div className={styles.deck}>{deck}</div>}

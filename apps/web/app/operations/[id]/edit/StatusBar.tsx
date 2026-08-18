@@ -1,7 +1,13 @@
 'use client'
 
 interface Props {
-    connected: boolean
+    /**
+     * `null` means "not measured" — no provider is reachable yet to say either
+     * way — and must render as a neutral state, never as `true`. Rendering a
+     * green "Live" pill for a socket state nothing has observed would be a
+     * fabricated value, not a placeholder.
+     */
+    connected: boolean | null
     activeDocTitle: string
     words: number
     sections: number
@@ -19,6 +25,8 @@ export default function StatusBar({
         borderRight: '1px solid var(--line)',
         color: 'var(--ink-2)',
     }
+    const connectedColor = connected === true ? 'var(--good)' : connected === false ? 'var(--crit)' : 'var(--ink-3)'
+    const connectedLabel = connected === true ? 'Live' : connected === false ? 'Offline' : 'Link —'
     return (
         <div style={{
             display: 'flex', alignItems: 'center', height: 32, flexShrink: 0,
@@ -27,9 +35,9 @@ export default function StatusBar({
             fontFamily: 'var(--mono)', fontSize: 10,
             letterSpacing: '0.12em', textTransform: 'uppercase',
         }}>
-            <div style={{ ...cell, color: connected ? 'var(--good)' : 'var(--crit)' }}>
+            <div style={{ ...cell, color: connectedColor }}>
                 <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
-                {connected ? 'Live' : 'Offline'}
+                {connectedLabel}
             </div>
             <div style={cell}><span style={{ color: 'var(--ink-3)' }}>Doc</span> {activeDocTitle}</div>
             <div style={cell}>{words.toLocaleString()} words</div>
