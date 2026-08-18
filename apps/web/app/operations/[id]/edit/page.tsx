@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import ConfirmDialog from '@/components/confirm-dialog'
@@ -43,6 +43,24 @@ const CHECK_CONTENT: Record<'campaign' | 'single', Record<string, string[]>> = {
         w4: ['Final development check completed', 'Arsenal and loadout updates confirmed'],
     },
 }
+
+// Mixing the `border` shorthand with a per-side longhand (`borderTop`, `borderBottom`)
+// in one style object makes React warn whenever either value updates on rerender.
+// These build the all-longhand equivalent instead.
+const sideBorders = (all: string, top: string): CSSProperties =>
+    ({ borderTop: top, borderRight: all, borderBottom: all, borderLeft: all })
+
+const bottomBorder = (bottom: string): CSSProperties =>
+    ({ borderTop: 'none', borderRight: 'none', borderBottom: bottom, borderLeft: 'none' })
+
+// Shared style for the collapsible section header buttons.
+const sectionToggleStyle = (open: boolean): CSSProperties => ({
+    ...bottomBorder(open ? '1px solid rgba(255,255,255,0.05)' : 'none'),
+    width: '100%',
+    background: 'none',
+    cursor: 'pointer',
+    textAlign: 'left',
+})
 
 function hexToRgb(hex: string) {
     const h = hex.replace('#', '')
@@ -509,8 +527,7 @@ export default function Page() {
             {/* Spinner */}
             <div style={{
                 width: 36, height: 36,
-                border: `2px solid rgba(219,0,29,0.12)`,
-                borderTop: `2px solid rgba(219,0,29,0.75)`,
+                ...sideBorders(`2px solid rgba(219,0,29,0.12)`, `2px solid rgba(219,0,29,0.75)`),
                 borderRadius: '50%',
                 animation: 'edit-spin 0.8s linear infinite',
             }} />
@@ -580,7 +597,6 @@ export default function Page() {
                                 href={`/operations/${opID}/map`}
                                 style={{
                                     background: 'none',
-                                    border: 'none',
                                     padding: '2px 0',
                                     fontSize: '0.68rem',
                                     fontWeight: 700,
@@ -588,7 +604,7 @@ export default function Page() {
                                     textTransform: 'uppercase',
                                     color: 'rgba(237,237,237,0.3)',
                                     textDecoration: 'none',
-                                    borderBottom: '2px solid transparent',
+                                    ...bottomBorder('2px solid transparent'),
                                 }}
                             >
                                 Map ↗
@@ -769,10 +785,10 @@ export default function Page() {
 
                 return (
                     <>
-                        <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${allDone ? 'rgba(0,200,80,0.6)' : c(0.5)}`, background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
+                        <div style={{ ...sideBorders(`1px solid ${c(0.15)}`, `2px solid ${allDone ? 'rgba(0,200,80,0.6)' : c(0.5)}`), background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
                             <button type='button' onClick={() => setMissionDevOpen(v => !v)}
                                 className='flex items-center justify-between px-4 py-3'
-                                style={{ borderBottom: missionDevOpen ? '1px solid rgba(255,255,255,0.05)' : 'none', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                                style={sectionToggleStyle(missionDevOpen)}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                     <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: allDone ? 'rgba(0,200,80,0.6)' : 'rgba(237,237,237,0.3)' }}>
@@ -997,7 +1013,7 @@ export default function Page() {
                                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                     onClick={e => { if (e.target === e.currentTarget) setCompletingCheckId(null) }}
                                 >
-                                    <div style={{ background: '#0f0f10', border: `1px solid ${c(0.35)}`, borderTop: `2px solid rgba(0,200,80,0.7)`, padding: '24px 28px', maxWidth: 500, width: '90%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    <div style={{ background: '#0f0f10', ...sideBorders(`1px solid ${c(0.35)}`, `2px solid rgba(0,200,80,0.7)`), padding: '24px 28px', maxWidth: 500, width: '90%', display: 'flex', flexDirection: 'column', gap: 16 }}>
                                         <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(0,200,80,0.5)', fontFamily: 'monospace' }}>
                                             {'// COMPLETE CHECK'}
                                         </div>
@@ -1078,7 +1094,7 @@ export default function Page() {
                                 onClick={e => { if (e.target === e.currentTarget) setOrdersCheckModal(false) }}
                             >
                                 <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                    <div style={{ background: '#0f0f10', border: `1px solid rgba(100,150,237,0.35)`, borderTop: `2px solid rgba(100,150,237,0.8)`, padding: '24px 28px', maxWidth: 440, width: '90%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    <div style={{ background: '#0f0f10', ...sideBorders(`1px solid rgba(100,150,237,0.35)`, `2px solid rgba(100,150,237,0.8)`), padding: '24px 28px', maxWidth: 440, width: '90%', display: 'flex', flexDirection: 'column', gap: 16 }}>
                                         <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.5)', fontFamily: 'monospace' }}>
                                             {'// REQUEST ORDERS CHECK'}
                                         </div>
@@ -1169,7 +1185,7 @@ export default function Page() {
             })()}
 
             {/* Metadata card */}
-            <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(1)}`, background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
+            <div style={{ ...sideBorders(`1px solid ${c(0.15)}`, `2px solid ${c(1)}`), background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
                 <div className='flex items-center px-4 py-3' style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
                         Operation Details
@@ -1183,8 +1199,7 @@ export default function Page() {
                         onChange={e => { setTitle(e.target.value); metaHandleRef.current?.set('title', e.target.value); scheduleSave({ title: e.target.value }) }}
                         style={{
                             background: 'transparent',
-                            border: 'none',
-                            borderBottom: '1px solid rgba(255,255,255,0.1)',
+                            ...bottomBorder('1px solid rgba(255,255,255,0.1)'),
                             color: 'rgba(237,237,237,0.9)',
                             fontSize: '1.5rem',
                             fontWeight: 700,
@@ -1515,14 +1530,13 @@ export default function Page() {
 
                 return (
                     <div style={{
-                        border: `1px solid ${c(0.15)}`,
-                        borderTop: `2px solid ${c(0.5)}`,
+                        ...sideBorders(`1px solid ${c(0.15)}`, `2px solid ${c(0.5)}`),
                         background: 'rgba(255,255,255,0.01)',
                         marginBottom: 20,
                     }}>
                         <button type='button' onClick={() => setScheduleOpen(v => !v)}
                             className='flex items-center justify-between px-4 py-3'
-                            style={{ borderBottom: scheduleOpen ? '1px solid rgba(255,255,255,0.05)' : 'none', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                            style={sectionToggleStyle(scheduleOpen)}
                         >
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
@@ -1763,10 +1777,10 @@ export default function Page() {
 
             {/* Attendance settings — HQ only */}
             {isHQ && opID && (
-                <div style={{ border: `1px solid ${c(0.15)}`, borderTop: `2px solid ${c(0.5)}`, background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
+                <div style={{ ...sideBorders(`1px solid ${c(0.15)}`, `2px solid ${c(0.5)}`), background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
                     <button type='button' onClick={() => setAttendanceOpen(v => !v)}
                         className='flex items-center justify-between px-4 py-3'
-                        style={{ borderBottom: attendanceOpen ? '1px solid rgba(255,255,255,0.05)' : 'none', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                        style={sectionToggleStyle(attendanceOpen)}
                     >
                         <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
                             Attendance Settings
@@ -1969,8 +1983,7 @@ export default function Page() {
             {/* Custom Attendance Units — HQ only */}
             {isHQ && opID && (
                 <div style={{
-                    border: `1px solid ${c(0.12)}`,
-                    borderTop: `2px solid rgba(251,191,36,0.35)`,
+                    ...sideBorders(`1px solid ${c(0.12)}`, `2px solid rgba(251,191,36,0.35)`),
                     marginBottom: 20,
                     background: 'rgba(0,0,0,0.22)',
                 }}>
@@ -2140,7 +2153,7 @@ export default function Page() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <style>{`@keyframes op-pulse{0%,100%{opacity:.35}50%{opacity:.75}}.op-pulse{animation:op-pulse 1.8s ease-in-out infinite}`}</style>
                     {[1, 0.6].map((opacity, i) => (
-                        <div key={i} style={{ border: `1px solid ${c(0.1)}`, borderTop: `2px solid ${c(0.25)}`, opacity }}>
+                        <div key={i} style={{ ...sideBorders(`1px solid ${c(0.1)}`, `2px solid ${c(0.25)}`), opacity }}>
                             <div style={{ background: 'rgba(0,0,0,0.35)', padding: '9px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                     <div className='op-pulse' style={{ width: 6, height: 6, background: c(0.35), flexShrink: 0 }} />
@@ -2405,7 +2418,7 @@ function MapWorldPicker({
                         <button
                             type='button'
                             onClick={() => setShowCustom(true)}
-                            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', background: 'rgba(219,0,29,0.05)', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: 'rgba(219,0,29,0.7)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'left' }}
+                            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', background: 'rgba(219,0,29,0.05)', ...bottomBorder('1px solid rgba(255,255,255,0.06)'), cursor: 'pointer', color: 'rgba(219,0,29,0.7)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'left' }}
                         >
                             + Custom Map…
                         </button>
