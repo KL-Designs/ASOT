@@ -56,6 +56,21 @@ export function Stars({
     const [hover, setHover] = useState<number | null>(null)
     const [busy, setBusy] = useState(false)
 
+    // `seed` remembers the props `state` was last derived from. A parent can
+    // re-render an already-mounted `Stars` with fresh `avg`/`count`/`mine` —
+    // the shelf does this on every filter/sort/page change — and without this,
+    // `state` would keep showing whatever it was seeded with at mount. This is
+    // React's documented "adjust state during render" pattern, not an effect:
+    // comparing against `seed` (rather than resetting unconditionally) is what
+    // keeps it from also clobbering the optimistic update `rate()` writes to
+    // `state` after a successful PUT, since that call leaves the props — and
+    // therefore `seed` — untouched.
+    const [seed, setSeed] = useState({ avg, count, mine })
+    if (seed.avg !== avg || seed.count !== count || seed.mine !== mine) {
+        setSeed({ avg, count, mine })
+        setState({ avg, count, mine })
+    }
+
     // Interactive stars show the viewer their own rating, not the average —
     // the average is beside them, and a control that ignores your input to
     // display a crowd's is a control nobody trusts.
