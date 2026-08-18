@@ -141,7 +141,7 @@ export default function Hero({ sotm, roster, opCard }: {
                         asset, so they can never drift apart or fall out of
                         alignment as the hero scales. */}
                     <h1 className={s.heroMark}>
-                        <Image src={Wordmark} alt='ASOT' priority />
+                        <Image src={Wordmark} alt='ASOT' priority sizes='(max-width: 900px) 88vw, 1120px' />
                     </h1>
 
                     {/* No subtitle line: the lockup already carries "Australian
