@@ -74,6 +74,19 @@
     color: var(--txt-2);
 }
 
+/*
+   globals.css carries `@layer base { :where(p, a) { font-size: 1rem } }`. A value
+   declared on the element beats an inherited one no matter how low its
+   specificity, so every <a> in the rail was being set to 16px while the spans
+   beside it inherited the rail's 10px. Opting links back into inheritance is the
+   fix; the same trap applies to any link that carries text directly rather than
+   through a child with its own size.
+*/
+.strip a {
+    font-size: inherit;
+    letter-spacing: inherit;
+}
+
 .strip .amb {
     color: var(--amber);
     text-decoration: none;
