@@ -815,6 +815,12 @@ const MIGRATION_ITEMS = [
         args: ['--prefix', 'apps/web', 'run', 'sync:ranks', '--', '../../ASOT - ORBAT - ASOT - ORBAT.csv'],
         cwd: ROOT,
     },
+    {
+        label: '🗃️ Import: qualifications from TeamSpeak',
+        command: 'npm',
+        args: ['--prefix', 'apps/web', 'run', 'import:quals'],
+        cwd: ROOT,
+    },
 ]
 
 // ─── Main loop ──────────────────────────────────────────────────────────────

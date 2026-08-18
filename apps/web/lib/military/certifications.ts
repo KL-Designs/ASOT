@@ -18,6 +18,10 @@ export const CERTIFICATIONS = [
     { csvHeader: 'RTO',                            label: 'Radio Telecommunications Operator Course',  points: 10 },
     { csvHeader: 'FO',                             label: 'Forward Observer Course',                   points: 15 },
     { csvHeader: 'NCO',                            label: 'Basic Staff (NCO) Course',                  points: 10 },
+    // Held by three members, granted on TeamSpeak only. Worth no promotion
+    // points by the unit's decision — it qualifies its holder to assess the
+    // Basic Staff course rather than rewarding them for passing one.
+    { csvHeader: 'NCO Assessor',                   label: 'NCO Assessor Course',                       points: 0  },
     { csvHeader: 'Static Line Paratrooper',         label: 'Static Line Paratrooper Course',            points: 10 },
     { csvHeader: 'Armoured Crew - Driver Basics',   label: 'Driver Basics Course',                      points: 5  },
     { csvHeader: "Armoured Crewman -  F&T's",       label: 'Driver Formations and Tactics Course',      points: 5  },
