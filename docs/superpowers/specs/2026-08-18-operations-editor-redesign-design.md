@@ -116,6 +116,13 @@ tabs.
 **Preview** is a floating button at the editor's bottom-right, opening the
 existing drawer. It is not a tab and not a header button.
 
+The drawer frames its iframe rather than letting it sit flush: a 10px gutter of
+`--bg`, a `--line` hairline and a soft shadow, with the active theme's name in
+the drawer header. The previewed page then reads as a document under
+inspection instead of a panel of the editor that changed colour — which matters
+most for Dispatch (§10.1), a light page inside a dark tool, but is applied to
+all three themes rather than special-casing one.
+
 ### Why not tabs for everything
 
 The deck is the design's one real bet, so state the trade plainly: it costs
@@ -449,6 +456,10 @@ ruled left margin, and a signature block in place of a bare acknowledge button.
 paper design is the only one of the three that prints honestly rather than
 flooding a page with ink.
 
+The site navbar and footer stay dark under it. They do not currently vary by
+page, and making them do so is out of scope — a light document under dark site
+chrome is accepted as-is rather than being a reason to abandon the theme.
+
 **Tactical** (`scifi`, shown as "Tactical"). Also reimagined: the starfield
 wallpaper behind Courier is replaced by a console — cold blue-black ground, a
 fine technical grid, corner brackets instead of full panel borders, a tick rail
@@ -534,13 +545,26 @@ Sequencing, each step leaving both pages working:
    view without changing output.
 9. `modern/` — port today's `modern` branch onto the new structure, so the
    default theme is proven against the container before anything is redesigned.
-10. `dispatch/` and `tactical/`, each new work rather than a port.
-11. Delete the `isOF`/`isSF` ternaries and rename the editor's theme dropdown
-    labels to Modern / Dispatch / Tactical.
+10. Restyle `modern/` onto `styles/command.css`, and delete the `isOF`/`isSF`
+    ternaries. `oldfashioned` and `scifi` resolve to their existing markup,
+    lifted verbatim into `dispatch/` and `tactical/` folders as-is — moved, not
+    redesigned, so nothing regresses while they wait.
 
-Step 9 before step 10 matters: it separates "did the new architecture break the
-page" from "do we like the new designs", which are otherwise diagnosed
-together.
+### Phase 2 — the alternate themes
+
+**Modern is roughly 90% of operations; the other two are uncommon.** Building
+two full theme modules to new designs is therefore speculative work sitting in
+front of the shell that fixes the daily complaint. It ships as its own branch
+after this one:
+
+11. `dispatch/` rebuilt to the Dispatch design.
+12. `tactical/` rebuilt to the Tactical design.
+13. Rename the editor's theme dropdown labels to Modern / Dispatch / Tactical.
+
+Step 9 before step 10 matters, and step 10 before phase 2 matters more: they
+separate "did the new architecture break the page" from "do we like the new
+designs", which are otherwise diagnosed together. Splitting the phases also
+means the 165 ternaries die on schedule regardless of when the redesigns land.
 
 ---
 
@@ -556,14 +580,8 @@ together.
   panels (`OcapLinkPanel`, `OcapStatsPanel`, 568 and 520 lines) on the public
   view. Whether the editor's OCAP page should surface sync status is unresolved
   and deferred.
-- **Dispatch is a light theme inside a dark app.** The site chrome (navbar,
-  footer) is dark and does not currently vary by page. Whether Dispatch should
-  suppress or invert that chrome, as `FullscreenPage` already does for the map,
-  needs deciding before it ships.
-- **How many operations use each theme.** Unknown from the code. It does not
-  change the architecture, but if `oldfashioned` and `scifi` are effectively
-  unused, building two full theme modules is speculative work and Dispatch and
-  Tactical could land after the shell instead of with it.
-- **The Preview iframe under Dispatch.** Preview renders the mission page inside
-  a dark editor. A light page in a 40vw drawer may need a framing treatment
-  rather than sitting flush against the deck.
+Resolved since the first draft, recorded so they are not reopened: the site
+chrome stays dark under Dispatch (§10.1); the Preview drawer frames its iframe
+for every theme rather than special-casing Dispatch (§1); and Dispatch and
+Tactical move to a phase 2 branch because Modern carries ~90% of operations
+(§12).
