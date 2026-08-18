@@ -98,7 +98,12 @@ describe('resolveIssuer', () => {
     describe('resolveIssuer at a window boundary, in a timezone east of UTC', () => {
         const realTz = process.env.TZ
         beforeAll(() => { process.env.TZ = 'Australia/Sydney' })
-        afterAll(() => { process.env.TZ = realTz })
+        // Assigning undefined would set the literal string "undefined", which Node
+        // resolves to GMT — the one zone where the bug above stops reproducing.
+        afterAll(() => {
+            if (realTz === undefined) delete process.env.TZ
+            else process.env.TZ = realTz
+        })
 
         test('a boundary date still belongs to the later officer', () => {
             expect(resolveIssuer('01 January 2023')?.issuedByName).toBe('Trew')
@@ -112,4 +117,11 @@ describe('resolveIssuer', () => {
         expect(resolveIssuer('sometime in 2019')).toBeNull()
         expect(resolveIssuer('2021')).toBeNull()
     })
+})
+
+// Guards the restore above: a leaked TZ would silently re-zone every test file
+// that runs after this one.
+test('the pinned timezone does not leak out of this file', () => {
+    expect(process.env.TZ).not.toBe('Australia/Sydney')
+    expect(process.env.TZ).not.toBe('undefined')
 })
