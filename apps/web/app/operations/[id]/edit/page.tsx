@@ -18,6 +18,7 @@ import { useOperationStatus } from './hooks/useOperationStatus'
 import MissionDeck from './deck/MissionDeck'
 import CountdownStrip from './deck/CountdownStrip'
 import ScheduleCard from './deck/ScheduleCard'
+import StageCard from './deck/StageCard'
 const OperationEditor = dynamic(() => import('@/components/editor/CollabEditor'), { ssr: false })
 
 interface MetaFields { title: string; department: string; date: string; loreDate: string }
@@ -174,6 +175,7 @@ export default function Page() {
 
     const [attStage, setAttStage] = useState<AttendanceStage>('preparing')
     const [confirmStage, setConfirmStage] = useState<AttendanceStage | null>(null)
+    const [stageAdvancing, setStageAdvancing] = useState(false)
 
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [previewOpen, setPreviewOpen] = useState(false)
@@ -580,6 +582,23 @@ export default function Page() {
         await saveAttendanceSettings(updates)
     }
 
+    // StageCard's single Advance button (Task 10) — reuses applyStage, the
+    // same handler the Attendance Settings stepper's node clicks call, so it
+    // saves through the exact same endpoint (POST .../attendance/platoons)
+    // and payload. Guards against a double-click firing two writes, and
+    // calls refresh() so the deck's timeline (and StatusBar) pick up the
+    // change immediately instead of waiting on the next 30s poll.
+    async function handleAdvanceStage(to: AttendanceStage) {
+        if (stageAdvancing) return
+        setStageAdvancing(true)
+        try {
+            await applyStage(to)
+            refresh()
+        } finally {
+            setStageAdvancing(false)
+        }
+    }
+
     const PLATOON_OPTS = [
         { id: 'companyHQ', label: '1-0 HQ',            color: 'rgba(185,0,24,0.7)' },
         { id: 'platoon11', label: '1-1 Platoon',         color: 'rgba(194,120,0,0.7)' },
@@ -726,6 +745,13 @@ export default function Page() {
                                 onChangeCloseOffset={handleChangeCloseOffset}
                                 onChangeRsvpCloseAt={handleChangeRsvpCloseAt}
                                 automationPaused={status === 'In Development'}
+                            />
+                        )}
+                        {isHQ && opID && (
+                            <StageCard
+                                stage={displayStage}
+                                onAdvance={handleAdvanceStage}
+                                advancing={stageAdvancing}
                             />
                         )}
                         {/* Later tasks add more deck cards here. */}
