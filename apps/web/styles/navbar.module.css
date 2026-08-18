@@ -282,12 +282,12 @@ a.amb:hover {
 }
 
 /*
-   The bar is a fixed 66px, so the plate's height is mark + padding*2 and the
-   only question is how much air is left. 46px filled it to 60px, and a plate
-   with 3px of clearance reads as a taller, heavier bar even though the bar's
-   dimension never changed — the eye takes the plate's edge for the bar's.
-   40px lands the plate at 56px, which is still well up from the 50px it began
-   at but leaves the gap visible.
+   The bar is a fixed 66px, so the plate's height is mark + padding*2 and what
+   matters is the air left over. 40px puts the plate at 56px with 5px top and
+   bottom. 46px was tried and fills it to 60px — the plate then sits close enough
+   to the bar's edge that the eye takes one boundary for the other, so it reads
+   as a taller bar even though `.bar` never changes. 40 is the ceiling before
+   that starts happening.
 */
 .brand {
     display: flex;

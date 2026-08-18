@@ -270,14 +270,16 @@ function MenuItem({ item, active, open, onEnter, onLeave, onToggle, nextOp }: {
 
 function MegaPanel({ item, nextOp }: { item: NavItem, nextOp: { id: string, title: string, date: string } | null }) {
     const children = item.children!
-    const withFeature = children.length >= 4 && !!nextOp
+    const withFeature = item.feature === 'nextOp' && !!nextOp
 
     // Odd counts leave a single item on the last row; without this the row
     // above it keeps a border that now separates nothing.
     const lastRowFrom = children.length - (children.length % 2 === 0 ? 2 : 1)
 
     return (
-        <div className={`${s.dd} ${children.length >= 4 ? '' : s.ddCompact}`}>
+        // A short menu goes compact — unless it is carrying the operation card,
+        // which needs the full width to sit beside the links rather than under.
+        <div className={`${s.dd} ${children.length >= 4 || withFeature ? '' : s.ddCompact}`}>
             <div className={s.ddCard}>
                 <div className={s.megaRail}>
                     <span className={s.lbl}>{item.name}</span>
