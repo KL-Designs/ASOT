@@ -117,7 +117,7 @@ export default function Page() {
 
     // Mission deck (Task 8) — days-until-op countdown for the deck's strip.
     // Task 9 also consumes the timeline it builds, for the Timeline card.
-    const { timeline, daysUntil } = useOperationStatus(opID)
+    const { timeline, daysUntil, refresh } = useOperationStatus(opID)
 
     // Mission Development
     const [missionDev, setMissionDev] = useState<MissionDevelopment | null>(null)
@@ -190,6 +190,11 @@ export default function Page() {
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
     const metaHandleRef = useRef<{ set: (key: string, value: string) => void } | null>(null)
     const previewIframeRef = useRef<HTMLIFrameElement>(null)
+    // Debounce timers for the Timeline card's two free-text pickers (Task 9 fix) —
+    // same idea as metaSaveTimer, just per-field, so dragging through a picker's
+    // month/day/hour/minute sections doesn't fire a save per completed section.
+    const rsvpOpenAtSaveTimer = useRef<ReturnType<typeof setTimeout>>()
+    const rsvpCloseAtSaveTimer = useRef<ReturnType<typeof setTimeout>>()
 
     useEffect(() => {
         const id = setInterval(() => setTickNow(new Date()), 1000)
@@ -463,64 +468,91 @@ export default function Page() {
         }
     }
 
-    // Timeline card handlers (Task 9) — replace the old Schedule & Automation
-    // panel's draft-then-"Confirm Schedule" flow with direct-acting controls,
-    // one per row. Same two save paths as before: the operation date goes
-    // through /api/operations/update (and the Y.doc meta handle, like every
-    // other metaSave field); the RSVP fields go through saveAttendanceSettings.
-    async function handleChangeDate(v: Dayjs | null) {
+    // Timeline card handlers (Task 9, fixed up per review) — direct-acting
+    // controls, one per row.
+    //
+    // The operation date now goes through the same debounced scheduleSave
+    // path every other meta field uses (title/department/status/... — see
+    // scheduleSave above), instead of a raw per-keystroke fetch: it debounces
+    // at 1s and drives the StatusBar's saved indicator like everything else.
+    //
+    // The five RSVP fields still go through saveAttendanceSettings (same
+    // POST /api/operations/${opID}/attendance/platoons as before). Each of
+    // the six RSVP handlers below calls refresh() (from useOperationStatus)
+    // once its save lands, so the timeline's server-derived bits — detail
+    // text, current/pending dot state — catch up immediately instead of
+    // waiting for the next 30s poll. The picker/pill *values* don't need
+    // that round trip: they're driven off local rsvpOpenAt/rsvpCloseOffsetMins
+    // state (passed into ScheduleCard as props), the same way date and
+    // closeOffsetMins already were, not off the polled timeline.
+    function handleChangeDate(v: Dayjs | null) {
         if (!v) return
-        metaHandleRef.current?.set('date', v.toISOString())
+        const iso = v.toISOString()
+        metaHandleRef.current?.set('date', iso)
         setDate(v)
-        await fetch(`/api/operations/update?id=${opID}&date=${encodeURIComponent(v.toISOString())}`)
+        scheduleSave({ date: iso })
     }
 
     // "Manual" pill — matches the old panel's Manual button (always clears it).
-    function handleSetRsvpOpenManual() {
+    async function handleSetRsvpOpenManual() {
         if (!rsvpOpenAt) return
         setRsvpOpenAt(null)
-        saveAttendanceSettings({ rsvpOpenAt: null })
+        await saveAttendanceSettings({ rsvpOpenAt: null })
+        refresh()
     }
 
     // "Scheduled" pill — matches the old panel's Scheduled button: only
     // defaults (3 days before the op date) if nothing's set yet and there's
     // an op date to default from; otherwise a no-op, same as before.
-    function handleSetRsvpOpenScheduled() {
+    async function handleSetRsvpOpenScheduled() {
         if (rsvpOpenAt || !date) return
         const openAt = new Date(date.toDate().getTime() - 3 * 24 * 3600000).toISOString()
         setRsvpOpenAt(openAt)
-        saveAttendanceSettings({ rsvpOpenAt: openAt })
+        await saveAttendanceSettings({ rsvpOpenAt: openAt })
+        refresh()
     }
 
-    // Exact RSVP-open instant picked directly off the DateTimePicker.
+    // Exact RSVP-open instant picked directly off the DateTimePicker. Debounced —
+    // dragging through the picker's date/time sections fires onChange per section.
     function handleChangeRsvpOpenAt(v: Dayjs | null) {
         if (!v) return
         const iso = v.toISOString()
         setRsvpOpenAt(iso)
-        saveAttendanceSettings({ rsvpOpenAt: iso })
+        clearTimeout(rsvpOpenAtSaveTimer.current)
+        rsvpOpenAtSaveTimer.current = setTimeout(async () => {
+            await saveAttendanceSettings({ rsvpOpenAt: iso })
+            refresh()
+        }, 1000)
     }
 
     // RSVP-open quick-set relative to the op date (1 day/3 days/1 week/2 weeks before).
-    function handleQuickSetRsvpOpen(mins: number) {
+    async function handleQuickSetRsvpOpen(mins: number) {
         if (!date) return
         const iso = new Date(date.toDate().getTime() - mins * 60000).toISOString()
         setRsvpOpenAt(iso)
-        saveAttendanceSettings({ rsvpOpenAt: iso })
+        await saveAttendanceSettings({ rsvpOpenAt: iso })
+        refresh()
     }
 
-    function handleChangeCloseOffset(mins: number) {
+    async function handleChangeCloseOffset(mins: number) {
         setRsvpCloseOffsetMins(mins)
-        saveAttendanceSettings({ rsvpCloseOffsetMins: mins })
+        await saveAttendanceSettings({ rsvpCloseOffsetMins: mins })
+        refresh()
     }
 
     // Custom RSVP-close instant — same as the old panel's "Custom…" picker:
     // it only ever persists as the derived minutes-before-op-date, and does
-    // nothing without an op date to derive that offset from.
+    // nothing without an op date to derive that offset from. Debounced for
+    // the same reason as handleChangeRsvpOpenAt.
     function handleChangeRsvpCloseAt(v: Dayjs | null) {
         if (!v || !date) return
         const mins = Math.max(0, Math.round((date.toDate().getTime() - v.toDate().getTime()) / 60000))
         setRsvpCloseOffsetMins(mins)
-        saveAttendanceSettings({ rsvpCloseOffsetMins: mins })
+        clearTimeout(rsvpCloseAtSaveTimer.current)
+        rsvpCloseAtSaveTimer.current = setTimeout(async () => {
+            await saveAttendanceSettings({ rsvpCloseOffsetMins: mins })
+            refresh()
+        }, 1000)
     }
 
     async function applyStage(newStage: AttendanceStage) {
@@ -685,6 +717,7 @@ export default function Page() {
                                 timeline={timeline}
                                 date={date}
                                 onChangeDate={handleChangeDate}
+                                rsvpOpenAt={rsvpOpenAt}
                                 onSetRsvpOpenManual={handleSetRsvpOpenManual}
                                 onSetRsvpOpenScheduled={handleSetRsvpOpenScheduled}
                                 onChangeRsvpOpenAt={handleChangeRsvpOpenAt}
@@ -692,6 +725,7 @@ export default function Page() {
                                 closeOffsetMins={rsvpCloseOffsetMins}
                                 onChangeCloseOffset={handleChangeCloseOffset}
                                 onChangeRsvpCloseAt={handleChangeRsvpCloseAt}
+                                automationPaused={status === 'In Development'}
                             />
                         )}
                         {/* Later tasks add more deck cards here. */}

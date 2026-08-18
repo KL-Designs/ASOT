@@ -6,7 +6,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import Panel from './Panel'
-import type { TimelineMoment } from '@/lib/operations/schedule'
+import { rsvpCloseAt, type TimelineMoment } from '@/lib/operations/schedule'
 
 interface Props {
     timeline: TimelineMoment[]
@@ -15,6 +15,14 @@ interface Props {
     date: Dayjs | null
     onChangeDate: (v: Dayjs | null) => void
 
+    /**
+     * Committed RSVP-open instant (null = manual). Drives the Manual/Scheduled
+     * pills and the open-time picker directly — NOT timeline[i].at, which comes
+     * from a 30s-polled live-status fetch and would lag every one of this
+     * row's own writes by up to 30s (see git history: the card originally read
+     * m.at here and the pills/picker went stale after every click).
+     */
+    rsvpOpenAt: string | null
     /** rsvp_opens: switch to manual (no automatic open) — a no-op if already manual. */
     onSetRsvpOpenManual: () => void
     /** rsvp_opens: switch to scheduled, defaulting to 3 days before the op date — a no-op if already scheduled, or if there's no op date to default from. */
@@ -24,11 +32,14 @@ interface Props {
     /** rsvp_opens: quick-set relative to the op date (see RELATIVE_OPEN_OPTS). */
     onQuickSetRsvpOpen: (mins: number) => void
 
-    /** Committed RSVP-close lead time — drives the rsvp_closes select. */
+    /** Committed RSVP-close lead time — drives the rsvp_closes select and (with `date`) its custom picker's value. */
     closeOffsetMins: number
     onChangeCloseOffset: (mins: number) => void
     /** rsvp_closes custom mode: set an exact close instant; the card converts it to minutes-before-op-date. */
     onChangeRsvpCloseAt: (v: Dayjs | null) => void
+
+    /** Status is "In Development" — cron/client-side auto-open/close/activate is suppressed (page.tsx's tickNow effect), so any scheduled time below is inert until the op is published. */
+    automationPaused: boolean
 }
 
 /** Relative-to-op-date quick-sets for RSVP open — same four the old panel offered. */
@@ -56,11 +67,21 @@ const CLOSE_OFFSET_OPTS = [
  * Each row states its moment once — label, computed time, and (where it has
  * one) the control(s) that change it. `confirmations_open` and `completed`
  * are derived from the attendance stage and carry no control.
+ *
+ * Duplication rule: a row's `detail` text (the plain-English instant) is
+ * shown only when no visible picker on that row already states the same
+ * instant. op_starts always has a picker, so it never shows detail.
+ * rsvp_opens hides detail once scheduled (the picker takes over); "Manual"
+ * still needs detail since the pills alone don't say it. rsvp_closes hides
+ * detail only in custom mode, where the picker restates the instant — the
+ * preset select never does (it names an offset, not a time), so detail stays
+ * the one place that states the resulting instant.
  */
 export default function ScheduleCard({
     timeline, date, onChangeDate,
-    onSetRsvpOpenManual, onSetRsvpOpenScheduled, onChangeRsvpOpenAt, onQuickSetRsvpOpen,
+    rsvpOpenAt, onSetRsvpOpenManual, onSetRsvpOpenScheduled, onChangeRsvpOpenAt, onQuickSetRsvpOpen,
     closeOffsetMins, onChangeCloseOffset, onChangeRsvpCloseAt,
+    automationPaused,
 }: Props) {
     // Whether the rsvp_closes row shows the "Custom…" date picker. Starts open
     // if the committed offset isn't one of the presets (an existing custom
@@ -70,6 +91,10 @@ export default function ScheduleCard({
         () => !CLOSE_OFFSET_OPTS.some(o => o.mins === closeOffsetMins),
     )
     const isPresetClose = CLOSE_OFFSET_OPTS.some(o => o.mins === closeOffsetMins)
+    const closeCustomVisible = closeCustomOpen || !isPresetClose
+
+    // Local, immediate — not the polled timeline. See the `rsvpOpenAt` prop doc.
+    const closeAtLocal = date ? rsvpCloseAt(date.toDate(), closeOffsetMins) : null
 
     return (
         <Panel title="Timeline">
@@ -80,7 +105,13 @@ export default function ScheduleCard({
                         width: 1, background: 'var(--line-2)',
                     }} />
 
-                    {timeline.map((m, i) => (
+                    {timeline.map((m, i) => {
+                        const suppressDetail =
+                            m.id === 'op_starts' ||
+                            (m.id === 'rsvp_opens' && !!rsvpOpenAt) ||
+                            (m.id === 'rsvp_closes' && closeCustomVisible)
+
+                        return (
                         <div key={m.id} style={{ position: 'relative', paddingBottom: i === timeline.length - 1 ? 0 : 20 }}>
                             <div style={{
                                 position: 'absolute', left: -24, top: 4,
@@ -97,30 +128,32 @@ export default function ScheduleCard({
                                 {m.label}
                             </div>
 
-                            <div style={{
-                                fontFamily: 'var(--mono)', fontSize: 12,
-                                color: m.state === 'current' ? 'var(--acc)' : 'var(--ink-3)',
-                                marginTop: 3,
-                            }}>
-                                {m.detail}
-                            </div>
+                            {!suppressDetail && (
+                                <div style={{
+                                    fontFamily: 'var(--mono)', fontSize: 12,
+                                    color: m.state === 'current' ? 'var(--acc)' : 'var(--ink-3)',
+                                    marginTop: 3,
+                                }}>
+                                    {m.detail}
+                                </div>
+                            )}
 
                             {m.id === 'rsvp_opens' && (
                                 <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
                                     <div style={{ display: 'flex', gap: 6 }}>
-                                        <button type="button" onClick={onSetRsvpOpenManual} style={pillStyle(!m.at)}>
+                                        <button type="button" onClick={onSetRsvpOpenManual} style={pillStyle(!rsvpOpenAt)}>
                                             Manual
                                         </button>
-                                        <button type="button" onClick={onSetRsvpOpenScheduled} style={pillStyle(!!m.at)}>
+                                        <button type="button" onClick={onSetRsvpOpenScheduled} style={pillStyle(!!rsvpOpenAt)}>
                                             Scheduled
                                         </button>
                                     </div>
 
-                                    {m.at && (
+                                    {rsvpOpenAt && (
                                         <>
                                             <LocalizationProvider dateAdapter={AdapterDayjs}>
                                                 <DateTimePicker
-                                                    value={dayjs(m.at)}
+                                                    value={dayjs(rsvpOpenAt)}
                                                     format="DD/MM/YYYY HH:mm"
                                                     onChange={onChangeRsvpOpenAt}
                                                     slotProps={{ textField: { size: 'small', sx: pickerSx } }}
@@ -141,6 +174,12 @@ export default function ScheduleCard({
                                                 ))}
                                             </select>
                                         </>
+                                    )}
+
+                                    {automationPaused && (
+                                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--warn)' }}>
+                                            Automation paused — In Development
+                                        </div>
                                     )}
                                 </div>
                             )}
@@ -165,11 +204,11 @@ export default function ScheduleCard({
                                         <option value="custom">Custom…</option>
                                     </select>
 
-                                    {(closeCustomOpen || !isPresetClose) && (
+                                    {closeCustomVisible && (
                                         <>
                                             <LocalizationProvider dateAdapter={AdapterDayjs}>
                                                 <DateTimePicker
-                                                    value={m.at ? dayjs(m.at) : null}
+                                                    value={closeAtLocal ? dayjs(closeAtLocal) : null}
                                                     format="DD/MM/YYYY HH:mm"
                                                     onChange={onChangeRsvpCloseAt}
                                                     slotProps={{ textField: { size: 'small', sx: pickerSx } }}
@@ -198,7 +237,8 @@ export default function ScheduleCard({
                                 </div>
                             )}
                         </div>
-                    ))}
+                        )
+                    })}
                 </div>
             </div>
         </Panel>
