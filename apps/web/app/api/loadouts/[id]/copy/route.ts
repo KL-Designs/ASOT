@@ -65,9 +65,19 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     let copyCount = doc.copyCount ?? 0
     // Only a first copy by this actor moves the headline number. That single
     // condition is what makes it distinct people rather than total clicks.
+    //
+    // The increment and the read of the resulting value happen as one atomic
+    // findOneAndUpdate rather than a write followed by arithmetic on the
+    // pre-write snapshot — two different actors' first-ever copies landing
+    // concurrently would otherwise both compute the same stale N+1 while the
+    // database reached N+2, so the response would misreport the true count.
     if (result.upsertedCount > 0) {
-        await Db.loadouts.updateOne({ _id: loadoutId }, { $inc: { copyCount: 1 } })
-        copyCount += 1
+        const updated = await Db.loadouts.findOneAndUpdate(
+            { _id: loadoutId },
+            { $inc: { copyCount: 1 } },
+            { returnDocument: 'after', projection: { copyCount: 1 } },
+        )
+        copyCount = updated?.copyCount ?? copyCount + 1
     }
 
     const res = NextResponse.json({ copyCount })
