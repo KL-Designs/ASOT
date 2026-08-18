@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Montserrat } from "next/font/google"
 import "@/styles/globals.css"
+import "@/styles/command.css"
 import { headers } from "next/headers"
 
 

@@ -15,26 +15,6 @@
 
 .shell {
     /* --acc and --acc-rgb are injected per member */
-    --bg: #08090a;
-    --s1: #0d0f11;
-    --s2: #12151a;
-    --s3: #181c22;
-    --line: #1e232b;
-    --line-2: #2a3038;
-
-    --ink: #e8eaed;
-    --ink-2: #a8b0ba;
-    --ink-3: #6b7480;
-
-    --good: #7fae5c;
-    --warn: #d4a03a;
-    --crit: #c05a48;
-
-    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Roboto Mono", Menlo, Consolas, monospace;
-    --sans: "Helvetica Neue", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-
-    --r: 3px;
-    --pad: clamp(16px, 3vw, 40px);
 
     background: var(--bg);
     color: var(--ink);
