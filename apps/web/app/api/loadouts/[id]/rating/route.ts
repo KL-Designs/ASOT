@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
-import { isStars, summarise } from '@/lib/loadout/rating'
+import { isStars } from '@/lib/loadout/rating'
 
 /**
  * What the unit thinks of a shared kit.
@@ -16,18 +16,42 @@ import { isStars, summarise } from '@/lib/loadout/rating'
  */
 
 /**
- * Recompute the two denormalised fields from the collection that owns the
- * truth. Reading the rows rather than running a `$group`: a kit gathers tens of
- * ratings, not millions, and `summarise` is the same function the tests pin
- * the maths with.
+ * Applies a rating delta to the loadout's denormalised fields in one atomic
+ * aggregation-pipeline update, so `ratingAvg` is derived inside the same write
+ * that applies the delta rather than computed from a value read a moment
+ * earlier — the read-then-write shape that let two concurrent raters
+ * permanently desync the count (see the finding this replaces). The first
+ * stage `$inc`s `ratingSum`/`ratingCount` (via `$add` over `$ifNull`-guarded
+ * current values, since both are absent on a never-rated kit); the second
+ * derives `ratingAvg` from the fields the first stage just wrote. `ratingCount`
+ * is floored at 0 with `$max` so a double-withdrawal race can never drive it
+ * negative.
  */
-async function recount(loadoutId: ObjectId) {
-    const rows = await Db.loadoutRatings
-        .find({ loadoutId }, { projection: { stars: 1 } })
-        .toArray()
-    const { avg, count } = summarise(rows.map(row => row.stars))
-    await Db.loadouts.updateOne({ _id: loadoutId }, { $set: { ratingAvg: avg, ratingCount: count } })
-    return { avg, count }
+async function applyRatingDelta(loadoutId: ObjectId, deltaSum: number, deltaCount: number) {
+    const updated = await Db.loadouts.findOneAndUpdate(
+        { _id: loadoutId },
+        [
+            {
+                $set: {
+                    ratingSum: { $add: [{ $ifNull: ['$ratingSum', 0] }, deltaSum] },
+                    ratingCount: { $max: [0, { $add: [{ $ifNull: ['$ratingCount', 0] }, deltaCount] }] },
+                },
+            },
+            {
+                $set: {
+                    ratingAvg: {
+                        $cond: [
+                            { $gt: ['$ratingCount', 0] },
+                            { $round: [{ $divide: ['$ratingSum', '$ratingCount'] }, 2] },
+                            0,
+                        ],
+                    },
+                },
+            },
+        ],
+        { returnDocument: 'after', projection: { ratingAvg: 1, ratingCount: 1 } },
+    )
+    return { avg: updated?.ratingAvg ?? 0, count: updated?.ratingCount ?? 0 }
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -52,8 +76,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     // An explicit null withdraws a rating. Distinct from a missing field,
     // which is a malformed request.
     if (body?.stars === null) {
-        await Db.loadoutRatings.deleteOne({ loadoutId, userId: me.id })
-        const { avg, count } = await recount(loadoutId)
+        // `findOneAndDelete` hands back the row it removed atomically, so the
+        // delta comes from the same operation that reads the previous value —
+        // no separate read that a concurrent write could invalidate. No row
+        // (an already-withdrawn or never-cast rating) is a no-op: both deltas
+        // stay 0 rather than under-counting the loadout.
+        const previous = await Db.loadoutRatings.findOneAndDelete({ loadoutId, userId: me.id })
+        const deltaCount = previous ? -1 : 0
+        const deltaSum = previous ? -previous.stars : 0
+        const { avg, count } = await applyRatingDelta(loadoutId, deltaSum, deltaCount)
         return NextResponse.json({ mine: null, avg, count })
     }
 
@@ -68,12 +99,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     // Upsert against the unique `{ loadoutId, userId }` index rather than
     // checking for an existing row first — the index is what enforces one
     // rating per member, so rating again is a change, not a second vote.
-    await Db.loadoutRatings.updateOne(
+    // `returnDocument: 'before'` hands back the member's previous row (or
+    // `null` on a fresh insert) from the same atomic operation that writes the
+    // new one, so the delta below reflects what was actually there rather than
+    // a value fetched a moment earlier.
+    const previous = await Db.loadoutRatings.findOneAndUpdate(
         { loadoutId, userId: me.id },
         { $set: { stars: body.stars, updatedAt: now }, $setOnInsert: { createdAt: now } },
-        { upsert: true },
+        { upsert: true, returnDocument: 'before' },
     )
+    const deltaCount = previous ? 0 : 1
+    const deltaSum = body.stars - (previous?.stars ?? 0)
 
-    const { avg, count } = await recount(loadoutId)
+    const { avg, count } = await applyRatingDelta(loadoutId, deltaSum, deltaCount)
     return NextResponse.json({ mine: body.stars, avg, count })
 }

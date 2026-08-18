@@ -79,5 +79,12 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
         if (next[0]) await Db.loadouts.updateOne({ _id: next[0]._id, userId: me.id }, { $set: { isDefault: true } })
     }
 
+    // Best-effort: a deleted loadout's ratings and copy rows have nothing left
+    // to denormalise into. ObjectIds are never reused, so leaving them behind
+    // would only ever be a leak, never a correctness risk — no transaction, no
+    // retry, and neither failure blocks the response below.
+    Db.loadoutRatings.deleteMany({ loadoutId: doc._id }).catch(() => {})
+    Db.loadoutCopies.deleteMany({ loadoutId: doc._id }).catch(() => {})
+
     return NextResponse.json({ ok: true })
 }

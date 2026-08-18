@@ -44,6 +44,14 @@ declare global {
          */
         ratingAvg?: number
         ratingCount?: number
+        /**
+         * The running total `ratingAvg` is divided from. Exists so the average
+         * can be maintained by atomic delta — `$inc`-style, inside the same
+         * aggregation-pipeline update that applies the delta — rather than
+         * recomputed from a snapshot read a moment earlier. Optional, absent on
+         * existing documents, reads default to 0.
+         */
+        ratingSum?: number
         /** Distinct actors who have copied it — see `loadout_copies`. */
         copyCount?: number
         /** The ACE arsenal export as pasted, whitespace-trimmed. The source of truth. */
