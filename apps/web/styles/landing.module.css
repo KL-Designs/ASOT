@@ -28,6 +28,13 @@
     padding-top: 0;
 }
 
+/* The stat band is a compact, flush strip. A full section's worth of air under
+   it reads as a void rather than as separation — the band has already done the
+   dividing, so the section below only needs to clear it. */
+.readout+.sec {
+    padding-top: clamp(34px, 3.4vw, 52px);
+}
+
 .inner {
     max-width: 1400px;
     margin: 0 auto;
