@@ -44,6 +44,11 @@ interface Props {
     themeColor?: string
     readOnly?: boolean
     allowedTypes?: string[]
+    /** Fired once the Hocuspocus provider exists, so a caller (the status bar's
+     * presence/connection state) can reach it without this component needing
+     * to expose anything else. See task-12's ruling: this is the only prop
+     * CollabEditor may gain. */
+    onProviderReady?: (provider: HocuspocusProvider) => void
 }
 
 function hexToRgb(hex: string) {
@@ -112,6 +117,7 @@ export default function CollabEditor({
     themeColor = '#db001d',
     readOnly = false,
     allowedTypes,
+    onProviderReady,
 }: Props) {
     const [ydoc] = useState(() => new Y.Doc())
     const [ready, setReady] = useState<ReadyState | null>(null)
@@ -159,7 +165,10 @@ export default function CollabEditor({
                         if (status === 'disconnected') setTimeout(() => onSaveStatusChange?.('unsaved'), 0)
                     },
                 })
-                if (!destroyed) setReady({ provider: p, ydoc, user })
+                if (!destroyed) {
+                    setReady({ provider: p, ydoc, user })
+                    onProviderReady?.(p)
+                }
             })
 
         return () => {

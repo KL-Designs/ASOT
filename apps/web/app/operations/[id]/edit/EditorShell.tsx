@@ -49,10 +49,6 @@ export function useEditorTab(): [EditorTab, (t: EditorTab) => void] {
     return [tab, change]
 }
 
-function TabPlaceholder({ label }: { label: string }) {
-    return <div className={styles.tabPlaceholder}>{label} — coming soon</div>
-}
-
 interface EditorShellProps {
     operationId: string
     themeColor: string
@@ -63,11 +59,31 @@ interface EditorShellProps {
     /** Optional for now — nothing populates it until the deck itself exists. */
     deck?: ReactNode
     statusBar: ReactNode
-    children: ReactNode
+    /** Documents rail + collaborative editor. Holds the Hocuspocus socket and
+     * Y.Doc (see the module doc below) — always mounted, hidden with CSS. */
+    brief: ReactNode
+    /** The map viewer. Has its own Y.js state (`useMapYjs`) with the same
+     * unmount hazard as Brief — mounted on first visit, then kept mounted and
+     * hidden with CSS like Brief, never unmounted again afterwards. */
+    map: ReactNode
+    /** Mission development gates. Holds no socket — free to mount/unmount
+     * with the tab switch. */
+    development: ReactNode
+    /** Who attends, notifications, acknowledgements — `isHQ` only. Holds no
+     * socket — free to mount/unmount with the tab switch. Gated by the caller
+     * (page.tsx passes `null` for a non-HQ user) and, redundantly, here too:
+     * an HQ user's role changing mid-session must not leave stale attendance
+     * content selectable via a stale tab value. */
+    attendance: ReactNode
+    /** Right-padding applied to the tab content area so a slide-over drawer
+     * (Activity/Preview, both fixed overlays rendered outside this shell)
+     * doesn't cover whichever tab is currently showing. */
+    contentPaddingRight?: string | number
 }
 
 export default function EditorShell({
-    themeColor, isHQ, tab, onTabChange, header, deck, statusBar, children,
+    themeColor, isHQ, tab, onTabChange, header, deck, statusBar,
+    brief, map, development, attendance, contentPaddingRight,
 }: EditorShellProps) {
     const visibleTabs = TABS.filter(t => t !== 'attendance' || isHQ)
     // A tab that isn't in the visible set — a non-HQ user deep-linking
@@ -75,6 +91,15 @@ export default function EditorShell({
     // be selected: that renders nothing (no placeholder, no content) with no
     // way back except editing the URL. Fall back to brief instead.
     const active = visibleTabs.includes(tab) ? tab : 'brief'
+
+    // Map mounts on first visit, then — like Brief — stays mounted forever
+    // and is only ever hidden with `display: none` (see the `brief` prop doc).
+    // Unlike Brief, it isn't mounted from the very first render: an author who
+    // never opens Map never pays for `useMapYjs`'s own Y.js document.
+    const [mapVisited, setMapVisited] = useState(active === 'map')
+    useEffect(() => {
+        if (active === 'map') setMapVisited(true)
+    }, [active])
 
     return (
         <div
@@ -99,23 +124,27 @@ export default function EditorShell({
 
             <div className={styles.body}>
                 <div className={styles.main}>
-                    <div className={styles.mainScroll}>
+                    <div className={styles.mainScroll} style={{ paddingRight: contentPaddingRight, transition: 'padding-right 0.25s ease' }}>
                         {/*
                          * Brief holds the collaborative editor — a Hocuspocus socket and a
                          * Y.Doc that CollabEditor creates in useState and destroys on
                          * unmount. Conditionally rendering it per tab (`tab === 'brief' &&
-                         * children`) would tear the socket down and force a Y.Doc rebuild
+                         * brief`) would tear the socket down and force a Y.Doc rebuild
                          * every time a user switches away and back — the exact hazard the
                          * "no router navigation" rule (spec §7) exists to prevent, just
                          * reached via unmount instead of navigation. So it stays mounted
                          * always and is hidden with CSS instead.
                          */}
                         <div style={{ display: active === 'brief' ? undefined : 'none' }}>
-                            {children}
+                            {brief}
                         </div>
-                        {active === 'map' && <TabPlaceholder label='Map' />}
-                        {active === 'development' && <TabPlaceholder label='Development' />}
-                        {active === 'attendance' && isHQ && <TabPlaceholder label='Attendance' />}
+                        {mapVisited && (
+                            <div style={{ display: active === 'map' ? undefined : 'none', height: '100%' }}>
+                                {map}
+                            </div>
+                        )}
+                        {active === 'development' && development}
+                        {active === 'attendance' && isHQ && attendance}
                     </div>
                 </div>
                 {/*
