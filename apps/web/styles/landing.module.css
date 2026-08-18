@@ -94,6 +94,131 @@
             rgba(6, 7, 9, .95) 100%);
 }
 
+.heroInner {
+    position: relative;
+    z-index: 4;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: clamp(56px, 8vw, 110px) var(--pad) 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 372px;
+    gap: 56px;
+    align-items: end;
+    min-height: clamp(520px, 74vh, 720px);
+}
+
+/*
+   Most weeks there is an operation to lead with. When there isn't, the second
+   column would otherwise sit empty and shove the copy off to the left — so the
+   hero drops to one column and centres, which is a composition in its own right
+   rather than the two-column one with a hole in it.
+*/
+.heroInnerSolo {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    text-align: center;
+}
+
+.heroInnerSolo .heroCopy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Holds the copy against a bright sky without dimming the sky — see the
+       note on .heroVeilSolo. */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .55), 0 4px 24px rgba(0, 0, 0, .7);
+}
+
+/* The lockup is a flat vector, so it needs a real drop shadow rather than a
+   text one. */
+.heroInnerSolo .heroMark img {
+    filter: drop-shadow(0 4px 26px rgba(0, 0, 0, .7)) drop-shadow(0 1px 3px rgba(0, 0, 0, .5));
+}
+
+/* Buttons carry their own fill and would only look smudged. */
+.heroInnerSolo .heroCta {
+    text-shadow: none;
+    justify-content: center;
+}
+
+.heroInnerSolo .heroFacts {
+    justify-content: center;
+}
+
+/* The 560px cap is sized for the two-column layout, where the lockup shares the
+   row with the operation card. Centred it has the full measure to itself and
+   reads as undersized at that width. */
+.heroInnerSolo .heroMark {
+    margin-inline: auto;
+    max-width: min(780px, 72vw);
+}
+
+.heroInnerSolo .heroPLead {
+    margin-inline: auto;
+}
+
+.heroCopy {
+    padding-bottom: clamp(40px, 6vw, 72px);
+}
+
+/* The lockup — emblem and wordmark in one vector, so nothing can drift out of
+   alignment as the hero scales, and it stays sharp at any density. */
+.heroMark {
+    display: block;
+    margin: 18px 0 6px;
+    max-width: min(560px, 62vw);
+}
+
+.heroMark img {
+    width: 100%;
+    height: auto;
+}
+
+/* The rule that used to sit above the subtitle — it still separates the lockup
+   from the body copy, which is the job it was actually doing. */
+.heroPLead {
+    padding-top: 22px;
+    border-top: 1px solid rgba(255, 255, 255, .13);
+    max-width: min(52ch, 640px);
+}
+
+.heroP {
+    color: #c4c9cf;
+    font-size: 16px;
+    line-height: 1.6;
+    max-width: 52ch;
+    margin: 20px 0 0;
+}
+
+.heroCta {
+    display: flex;
+    gap: 12px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+}
+
+.heroFacts {
+    display: flex;
+    gap: 20px;
+    margin-top: 26px;
+    flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+.heroFacts b {
+    color: var(--txt-1);
+    font-weight: 500;
+}
+
+.heroFacts span {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
 /* ---------- next-op card -------------------------------------------------- */
 
 .opcard {
