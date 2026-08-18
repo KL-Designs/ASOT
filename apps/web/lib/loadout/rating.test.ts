@@ -46,7 +46,7 @@ describe('weightedScore', () => {
         expect(weightedScore(0, 0)).toBe(0)
     })
 
-    test('more ratings at the same average never lowers the score', () => {
+    test('more ratings at an above-prior average raise the score', () => {
         expect(weightedScore(4.5, 20)).toBeGreaterThan(weightedScore(4.5, 2))
     })
 })
