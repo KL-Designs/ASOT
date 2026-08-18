@@ -501,8 +501,18 @@ a.amb:hover {
     height: 15px;
 }
 
+/* Icon only, at every width. The crate reads on its own and the button sits
+   next to a labelled primary action — two labels side by side made the pair
+   compete, which is the opposite of the volume difference it's meant to have.
+   The `aria-label` on the anchor carries the name for assistive tech.
+   The mobile sheet overrides this: see `.macts`. */
 .actDonate {
     margin-left: 14px;
+    padding: 0 13px;
+}
+
+.actDonate .lbl {
+    display: none;
 }
 
 .actPrimary {
@@ -955,13 +965,8 @@ a.amb:hover {
         padding: 0 12px;
     }
 
-    .actDonate .lbl,
     .acct .who {
         display: none;
-    }
-
-    .navAct.actDonate {
-        padding: 0 13px;
     }
 
     .acct {
