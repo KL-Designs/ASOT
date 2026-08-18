@@ -640,7 +640,7 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                                     themeColor={themeColor}
                                 />
                             ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 40 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 56 }}>
                                     {sectionIds.map((id, idx) => (
                                         <SectionEditor
                                             key={`${activePage}-${id}`}
@@ -1171,19 +1171,34 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
             // Hairline + clear space between consecutive sections (visual-
             // fixes spec §3) — skipped on the first section, which already
             // sits right below the shared toolbar with its own breathing room.
+            // The header band below adds its own full-width hairline under
+            // the title+controls row; this borderTop is the separate rule
+            // that actually falls *between* two sections, so both stay —
+            // they're doing different jobs (visual-fixes header-band spec).
             borderTop: isFirst ? 'none' : '1px solid var(--line)',
-            paddingTop: isFirst ? 0 : 32,
+            paddingTop: isFirst ? 0 : 40,
         }}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
         >
             <style>{themeCSS}</style>
 
-            {/* Eyebrow (document name) + section title + accent rule — the
-                section's chrome (colour/visibility/reorder/delete) is a
-                hover-revealed row alongside it rather than a permanent bar
-                (visual-fixes spec §2). */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+            {/* Header band: title block (left) and section chrome (right)
+                bound into one full-width row so the two pieces that used to
+                float at opposite ends now read as a single unit, closed off
+                by a full-width hairline that runs under both — the main
+                structural cue separating this section's header from its
+                body and from the next section (visual-fixes header-band
+                spec). The short accent rule under the title is a separate,
+                shorter rule doing a different job (the title's own
+                underline) and stays as-is. The faint accent-tinted ground
+                is deliberately quiet — just enough to read as "header" vs.
+                body text, not a bordered card. */}
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                marginBottom: 18, padding: '6px 2px 14px', borderBottom: '1px solid var(--line)',
+                background: 'rgba(var(--acc-rgb), 0.02)',
+            }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>
                         {pageTitle}
@@ -1203,7 +1218,7 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
 
                 {!readOnly && (
                     <div style={{
-                        display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0, paddingTop: 2,
+                        display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0,
                         opacity: chromeVisible ? 1 : 0, pointerEvents: chromeVisible ? 'auto' : 'none', transition: 'opacity 0.12s',
                     }}>
                         {/* Section accent colour picker */}
