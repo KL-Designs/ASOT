@@ -282,10 +282,12 @@ a.amb:hover {
 }
 
 /*
-   The plate's vertical padding is what decides how large the mark can be: the
-   bar is a fixed 66px, so mark + padding*2 has to stay under it. At 46px the
-   plate comes to 60px and keeps 3px of air top and bottom — any bigger and the
-   plate starts defining the bar's height instead of sitting inside it.
+   The bar is a fixed 66px, so the plate's height is mark + padding*2 and the
+   only question is how much air is left. 46px filled it to 60px, and a plate
+   with 3px of clearance reads as a taller, heavier bar even though the bar's
+   dimension never changed — the eye takes the plate's edge for the bar's.
+   40px lands the plate at 56px, which is still well up from the 50px it began
+   at but leaves the gap visible.
 */
 .brand {
     display: flex;
@@ -293,7 +295,7 @@ a.amb:hover {
     gap: 11px;
     flex: none;
     position: relative;
-    padding: 7px 20px 7px 14px;
+    padding: 8px 20px 8px 14px;
     background: linear-gradient(90deg, #15171b, #0e1013);
     clip-path: polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%);
 }
@@ -309,8 +311,8 @@ a.amb:hover {
 }
 
 .brandMark {
-    width: 46px;
-    height: 46px;
+    width: 40px;
+    height: 40px;
     flex: none;
     object-fit: contain;
 }
@@ -1024,7 +1026,7 @@ a.amb:hover {
     }
 
     .brand {
-        padding: 8px 18px 8px 14px;
+        padding: 9px 18px 9px 14px;
     }
 
     .mi {
