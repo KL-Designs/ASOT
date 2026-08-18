@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { MAX_NAME, MAX_DESCRIPTION } from '@/lib/loadout/limits'
 import { isKitIcon } from '@/lib/loadout/kit-icons'
+import { normaliseTags } from '@/lib/loadout/tags'
 
 /**
  * Both handlers scope every query by `userId: me.id`. The id in the URL is
@@ -37,6 +38,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     // Same key-list check the create route uses — an unknown icon is ignored
     // rather than written, so a stored value is always renderable.
     if (isKitIcon(body?.icon)) set.icon = body.icon
+
+    // `undefined` means "not editing tags"; an empty array means "clear them",
+    // so the two cases cannot be collapsed into a truthiness check.
+    if (body?.tags !== undefined) set.tags = normaliseTags(body.tags)
+
+    // `raw` is deliberately absent, and must stay absent. A kit's contents are
+    // what the member exported from the arsenal; changing them means exporting
+    // again and re-importing. Everything around the export is editable — name,
+    // description, icon, tags, visibility — the export itself is not.
 
     if (body?.isDefault === true) {
         // Exactly one default per member: clear the others first.
