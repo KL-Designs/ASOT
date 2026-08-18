@@ -221,6 +221,49 @@ select option {
 	background: #474747;
 }
 
+/* Thin, fading overlay scrollbars — operations editor only (visual-fixes
+   spec). Opt in per-container with `.thin-scroll` rather than touching the
+   site-wide rule above, so every other page keeps the default chunky
+   scrollbar unless it happens to reuse a component that already carries
+   this class. Width is fixed at 8px regardless of the thumb's visibility,
+   so nothing reflows when it fades in/out — only its own background-color
+   ever changes. Track, corner and arrow buttons are fully transparent.
+   Firefox has no per-element fade or true overlay support, so it falls back
+   to a plain thin (non-overlay) scrollbar via scrollbar-width/-color. */
+.thin-scroll {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.thin-scroll::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+.thin-scroll::-webkit-scrollbar-track,
+.thin-scroll::-webkit-scrollbar-corner {
+	background: transparent;
+}
+.thin-scroll::-webkit-scrollbar-button {
+	display: none;
+	width: 0;
+	height: 0;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+	background-color: transparent;
+	border-radius: 4px;
+	transition: background-color 0.2s ease;
+}
+/* Fades in on hover, or while the scroll-fade hook (useThinScrollFade) has
+   marked the container as actively scrolling. Hover keeps working even
+   where the hook isn't wired up, per the CSS-only fallback the spec calls
+   out as acceptable. */
+.thin-scroll:hover::-webkit-scrollbar-thumb,
+.thin-scroll.is-scrolling::-webkit-scrollbar-thumb {
+	background-color: rgba(255, 255, 255, 0.18);
+}
+.thin-scroll::-webkit-scrollbar-thumb:hover {
+	background-color: rgba(255, 255, 255, 0.3);
+}
+
 
 /* ─── Operation Document Editor & Viewer ─────────────────────────────────── */
 

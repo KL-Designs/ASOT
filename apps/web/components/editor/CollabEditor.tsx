@@ -1297,7 +1297,7 @@ function ToolbarDropdown({ value, options, onSelect, disabled, title, minWidth =
                 <IconChevronDown />
             </button>
             <PortalMenu open={open} onClose={() => setOpen(false)} triggerRef={triggerRef} align='left' minWidth={Math.max(minWidth, 120)}>
-                <div style={{ padding: 4, display: 'flex', flexDirection: 'column', maxHeight: 280, overflowY: 'auto' }}>
+                <div className='thin-scroll' style={{ padding: 4, display: 'flex', flexDirection: 'column', maxHeight: 280, overflowY: 'auto' }}>
                     {options.map(o => (
                         <button key={o.value} type='button'
                             onMouseDown={e => e.preventDefault()}

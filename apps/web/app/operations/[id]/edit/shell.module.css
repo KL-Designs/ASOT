@@ -65,7 +65,9 @@
     flex-shrink: 1;
     min-width: 0;
     overflow-x: auto;
-    scrollbar-width: thin;
+    /* Thin fading overlay scrollbar rules live on the shared `.thin-scroll`
+       class (styles/globals.css) applied alongside this one in Header.tsx —
+       including the Firefox scrollbar-width/-color fallback. */
 }
 
 .tab {

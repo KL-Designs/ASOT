@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { rgbTriplet } from '@/lib/colour'
+import { useThinScrollFade } from '@/components/editor/useThinScrollFade'
 import styles from './shell.module.css'
 
 export type EditorTab = 'brief' | 'map' | 'development' | 'attendance'
@@ -103,6 +104,8 @@ export default function EditorShell({
         if (active === 'map') setMapVisited(true)
     }, [active])
 
+    const mainScrollFadeRef = useThinScrollFade<HTMLDivElement>()
+
     return (
         <div
             className={`command ${styles.shell}`}
@@ -122,7 +125,11 @@ export default function EditorShell({
 
             <div className={styles.body}>
                 <div className={styles.main}>
-                    <div className={styles.mainScroll} style={{ paddingRight: contentPaddingRight, transition: 'padding-right 0.25s ease' }}>
+                    <div
+                        ref={mainScrollFadeRef}
+                        className={`${styles.mainScroll} thin-scroll`}
+                        style={{ paddingRight: contentPaddingRight, transition: 'padding-right 0.25s ease' }}
+                    >
                         {/*
                          * Brief holds the collaborative editor — a Hocuspocus socket and a
                          * Y.Doc that CollabEditor creates in useState and destroys on

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as Y from 'yjs'
 import { Delete, DragIndicator, HorizontalRule, ContentCopy } from '@mui/icons-material'
+import { useThinScrollFade } from './useThinScrollFade'
 
 interface PageEntry {
     id: string
@@ -81,6 +82,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     const renameInputRef = useRef<HTMLInputElement>(null)
     const defaultInitRef = useRef(false)
     const [hoveredRowId, setHoveredRowId] = useState<string | null>(null)
+    const listFadeRef = useThinScrollFade<HTMLDivElement>()
 
     // Restore system cursor over modals (globals.css sets cursor:none !important for custom cursor)
     useEffect(() => {
@@ -532,7 +534,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 Documents
             </div>
 
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '6px 0' }}>
+            <div ref={listFadeRef} className='thin-scroll' style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '6px 0' }}>
             {pages.map((page, idx) => {
                 const isActive = page.id === activePage
                 const isRenaming = renamingId === page.id
@@ -863,7 +865,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
 
                         {/* Section checklist */}
                         {importSourceId && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto', padding: '4px 0' }}>
+                            <div className='thin-scroll' style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto', padding: '4px 0' }}>
                                 {importSectionList.length === 0 ? (
                                     <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic' }}>No sections found in this document.</div>
                                 ) : (

@@ -178,7 +178,7 @@ export default function MapWorldPicker({
                         </div>
                     )}
 
-                    <div style={{ overflowY: 'auto', flex: 1 }}>
+                    <div className='thin-scroll' style={{ overflowY: 'auto', flex: 1 }}>
                         {/* No map option */}
                         <div className='mwp-item' onClick={() => { onChange(''); setOpen(false) }}
                             style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', cursor: 'pointer', background: !value ? 'rgba(255,255,255,0.06)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '0.78rem', color: 'rgba(237,237,237,0.35)' }}>

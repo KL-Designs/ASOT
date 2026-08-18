@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { useOperationStatus } from './hooks/useOperationStatus'
 import { TABS, TAB_LABELS, type EditorTab } from './EditorShell'
+import { useThinScrollFade } from '@/components/editor/useThinScrollFade'
 import styles from './shell.module.css'
 
 export type SaveStatus = 'saved' | 'saving' | 'unsaved'
@@ -79,6 +80,7 @@ export default function Header({
 
     const [menuOpen, setMenuOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
+    const tabsRowFadeRef = useThinScrollFade<HTMLElement>()
 
     useEffect(() => {
         if (!menuOpen) return
@@ -135,7 +137,7 @@ export default function Header({
                 title above — separates the title/pill group from the tabs. */}
             <div style={{ width: 1, height: 14, background: 'var(--line)', flexShrink: 0 }} />
 
-            <nav className={styles.tabsRow} aria-label='Operation editor sections'>
+            <nav ref={tabsRowFadeRef} className={`${styles.tabsRow} thin-scroll`} aria-label='Operation editor sections'>
                 {visibleTabs.map(t => (
                     <button
                         key={t}

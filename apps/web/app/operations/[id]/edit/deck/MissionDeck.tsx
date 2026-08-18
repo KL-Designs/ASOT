@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
+import { useThinScrollFade } from '@/components/editor/useThinScrollFade'
 
 const STORAGE_KEY = 'asot.opsdeck.collapsed'
 
@@ -37,6 +38,7 @@ export default function MissionDeck({ strip, children }: {
     children: ReactNode
 }) {
     const isWide = useIsWide()
+    const scrollFadeRef = useThinScrollFade<HTMLDivElement>()
 
     // The user's manual preference — meaningful only at >=1280px, where the
     // deck pushes layout and the old collapse/expand toggle behaves exactly
@@ -131,14 +133,18 @@ export default function MissionDeck({ strip, children }: {
             {/* The actual visible deck box — border, background and the
                 vertical scroll all live here now, not on the outer `aside`
                 (see the `overflow: visible` comment above). */}
-            <div style={{
-                height: '100%',
-                display: 'flex', flexDirection: 'column',
-                borderLeft: '1px solid var(--line)',
-                background: 'var(--bg)',
-                overflowY: 'auto',
-                ...(overlay ? { boxShadow: '-8px 0 24px rgba(0,0,0,0.45)' } : {}),
-            }}>
+            <div
+                ref={scrollFadeRef}
+                className='thin-scroll'
+                style={{
+                    height: '100%',
+                    display: 'flex', flexDirection: 'column',
+                    borderLeft: '1px solid var(--line)',
+                    background: 'var(--bg)',
+                    overflowY: 'auto',
+                    ...(overlay ? { boxShadow: '-8px 0 24px rgba(0,0,0,0.45)' } : {}),
+                }}
+            >
                 {strip}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 16 }}>
                     {children}
