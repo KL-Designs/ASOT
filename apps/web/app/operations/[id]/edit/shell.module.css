@@ -52,22 +52,20 @@
 }
 .previewBtn:hover { color: var(--ink); border-color: var(--acc); }
 
-.tabbar {
+/* The tab links, inline in Header's single merged row (spec §3) rather than
+   a separate bar underneath it. `min-width: 0` lets it shrink below its
+   content's natural width instead of forcing the row wider than its
+   container; `overflow-x: auto` then lets the strip itself scroll instead of
+   wrapping to a second line once it's been squeezed that far. */
+.tabsRow {
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 0 16px;
-    height: 36px;
-    flex-shrink: 0;
-    border-bottom: 1px solid var(--line);
-    background: var(--s1);
-}
-
-/* Below 1024px the tab strip scrolls horizontally instead of compressing —
-   four tabs still fit above that width, so the rule is scoped narrow rather
-   than applied unconditionally. */
-@media (max-width: 1023px) {
-    .tabbar { overflow-x: auto; scrollbar-width: thin; }
+    height: 100%;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
 }
 
 .tab {

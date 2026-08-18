@@ -6,9 +6,11 @@ import styles from './shell.module.css'
 
 export type EditorTab = 'brief' | 'map' | 'development' | 'attendance'
 
-const TABS: readonly EditorTab[] = ['brief', 'map', 'development', 'attendance']
+/** Also used by Header.tsx, which renders the tab links inline in the merged
+ * header row — see that file for why the row owns them instead of this one. */
+export const TABS: readonly EditorTab[] = ['brief', 'map', 'development', 'attendance']
 
-const TAB_LABELS: Record<EditorTab, string> = {
+export const TAB_LABELS: Record<EditorTab, string> = {
     brief: 'Brief',
     map: 'Map',
     development: 'Development',
@@ -106,21 +108,17 @@ export default function EditorShell({
             className={`command ${styles.shell}`}
             style={{ ['--acc' as string]: themeColor, ['--acc-rgb' as string]: rgbTriplet(themeColor) }}
         >
+            {/*
+             * The tab links themselves render inline in Header's own row now
+             * (spec §3: one merged row, not a header row plus a separate tab
+             * bar) — Header gets `tab`/`onTabChange`/`isHQ` from page.tsx
+             * directly and computes the same `visibleTabs`/active fallback
+             * this component still needs below for content routing. This
+             * component intentionally still owns that routing logic (which
+             * tab's content is on screen) even though it no longer renders
+             * the buttons that drive it.
+             */}
             {header}
-
-            <nav className={styles.tabbar} aria-label='Operation editor sections'>
-                {visibleTabs.map(t => (
-                    <button
-                        key={t}
-                        type='button'
-                        onClick={() => onTabChange(t)}
-                        aria-current={t === active ? 'page' : undefined}
-                        className={t === active ? `${styles.tab} ${styles.tabOn}` : styles.tab}
-                    >
-                        {TAB_LABELS[t].toUpperCase()}
-                    </button>
-                ))}
-            </nav>
 
             <div className={styles.body}>
                 <div className={styles.main}>
@@ -168,13 +166,15 @@ export default function EditorShell({
                 </div>
                 {/*
                  * No wrapping div here: MissionDeck (deck/MissionDeck.tsx) is
-                 * fully self-contained — its own root element sets width,
-                 * border-left, background and overflow-y for both the
-                 * expanded (340px) and collapsed (44px) states. A wrapping
-                 * div styled from styles.deck/.deckCollapsed would fight
-                 * that (fixed 340px outer box while the inner rail shrinks
-                 * to 44px, doubled border-left, mismatched width on resize),
-                 * so `deck` is rendered directly and owns its own layout.
+                 * fully self-contained — its own root element sets width for
+                 * both the expanded (340px) and collapsed (0 — nothing but
+                 * the pull-tab remains) states, with border/background/
+                 * overflow-y living on an inner box so the pull-tab itself
+                 * can overhang uncropped. A wrapping div styled from
+                 * styles.deck/.deckCollapsed would fight that (fixed 340px
+                 * outer box while the inner rail shrinks to 0, doubled
+                 * border-left, mismatched width on resize), so `deck` is
+                 * rendered directly and owns its own layout.
                  */}
                 {deck}
             </div>

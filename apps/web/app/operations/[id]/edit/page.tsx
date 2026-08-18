@@ -31,10 +31,12 @@ interface MetaFields { title: string; department: string; date: string; loreDate
 
 type AttendanceStage = 'preparing' | 'rsvp_open' | 'rsvp_closed' | 'op_running' | 'confirmations_open' | 'completed'
 
-// Header (48px) + tab bar (36px) from shell.module.css — the drawers below dock
-// under the shell's own chrome now that FullscreenPage has dropped the site
-// navbar this route used to sit under (that's where the old `top: 64` came from).
-const EDITOR_CHROME_HEIGHT = 84
+// Header row height (Header.tsx) — back crumb, title, status pill, section
+// tabs and the save/Publish/overflow cluster all in one merged row now, no
+// separate tab bar underneath. The drawers below dock under the shell's own
+// chrome now that FullscreenPage has dropped the site navbar this route used
+// to sit under (that's where the old `top: 64` came from).
+const EDITOR_CHROME_HEIGHT = 52
 
 export default function Page() {
     const { id: routeId } = useParams<{ id: string }>()
@@ -854,6 +856,8 @@ export default function Page() {
                         onPublishClick={() => setPublishConfirmOpen(true)}
                         onPublishConfirm={confirmPublish}
                         onPublishCancel={() => setPublishConfirmOpen(false)}
+                        tab={tab}
+                        onTabChange={setTab}
                     />
                 }
                 statusBar={

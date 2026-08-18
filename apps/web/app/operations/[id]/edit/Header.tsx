@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { useOperationStatus } from './hooks/useOperationStatus'
+import { TABS, TAB_LABELS, type EditorTab } from './EditorShell'
+import styles from './shell.module.css'
 
 export type SaveStatus = 'saved' | 'saving' | 'unsaved'
 
@@ -23,6 +25,14 @@ interface HeaderProps {
     onPublishClick: () => void
     onPublishConfirm: () => void
     onPublishCancel: () => void
+    /** The section tabs (Brief/Map/Development/Attendance), rendered inline
+     * in this same row (spec §3) rather than in a separate bar underneath —
+     * EditorShell still owns which tab's *content* is on screen (it needs
+     * that regardless of where the buttons live), so this component mirrors
+     * its `visibleTabs`/fallback logic rather than importing a decision from
+     * it, to keep this a plain, self-contained header. */
+    tab: EditorTab
+    onTabChange: (t: EditorTab) => void
 }
 
 // Token-backed; translucent fills use the same hex→rgb the tokens carry
@@ -59,6 +69,7 @@ export default function Header({
     operationId, fromJ2, title, status, saveStatus, isHQ,
     onDelete, activityOpen, onToggleActivity,
     publishConfirmOpen, publishSaving, onPublishClick, onPublishConfirm, onPublishCancel,
+    tab, onTabChange,
 }: HeaderProps) {
     // Supplementary real data (not fabricated) for the status pill's countdown —
     // the pill's colour/label still comes from `status` above, which updates
@@ -80,14 +91,22 @@ export default function Header({
     const save = SAVE_COPY[saveStatus]
     const showPublish = isHQ && status === 'In Development'
 
+    // Same visibility/fallback rule as EditorShell's own `visibleTabs`/
+    // `active` (EditorShell.tsx) — kept in sync by construction since both
+    // read the same `TABS` constant and the same `tab`/`isHQ` props page.tsx
+    // passes to each. Attendance absent from the DOM entirely for non-HQ
+    // users, not merely disabled (spec §1's gate).
+    const visibleTabs = TABS.filter(t => t !== 'attendance' || isHQ)
+    const activeTab = visibleTabs.includes(tab) ? tab : 'brief'
+
     return (
         <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 16, padding: '0 16px', height: 48, flexShrink: 0,
+            display: 'flex', alignItems: 'center',
+            gap: 16, padding: '0 16px', height: 52, flexShrink: 0,
             borderBottom: '1px solid var(--line)',
             background: 'var(--s1)',
         }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: 1 }}>
                 <Link
                     href={fromJ2 ? '/dashboard/j2' : '/operations'}
                     style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-3)', textDecoration: 'none', flexShrink: 0 }}
@@ -111,6 +130,29 @@ export default function Header({
                     {status === 'Upcoming' && daysUntil !== null && <span style={{ opacity: 0.7 }}> · T-{daysUntil}d</span>}
                 </span>
             </div>
+
+            {/* Same divider style as the one between the back crumb and the
+                title above — separates the title/pill group from the tabs. */}
+            <div style={{ width: 1, height: 14, background: 'var(--line)', flexShrink: 0 }} />
+
+            <nav className={styles.tabsRow} aria-label='Operation editor sections'>
+                {visibleTabs.map(t => (
+                    <button
+                        key={t}
+                        type='button'
+                        onClick={() => onTabChange(t)}
+                        aria-current={t === activeTab ? 'page' : undefined}
+                        className={t === activeTab ? `${styles.tab} ${styles.tabOn}` : styles.tab}
+                    >
+                        {TAB_LABELS[t].toUpperCase()}
+                    </button>
+                ))}
+            </nav>
+
+            {/* Flexible spacer — pushes the save state / Publish / overflow
+                cluster to the row's end regardless of how much room the
+                title and tabs are currently taking. */}
+            <div style={{ flex: 1, minWidth: 0 }} />
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
                 <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: save.color }}>
