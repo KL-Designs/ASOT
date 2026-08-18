@@ -17,7 +17,6 @@ import NotificationBell from '@/app/dashboard/_components/NotificationBell'
 import AccountMenu from '@/components/nav/AccountMenu'
 import MobileSheet from '@/components/nav/MobileSheet'
 import Topo from '@/components/nav/Topo'
-import CursorGlow from '@/components/nav/CursorGlow'
 import StatusRail from '@/components/nav/StatusRail'
 import { useNavStatus, formatOpTime } from '@/components/nav/useNavStatus'
 import { NAV_ITEMS, isItemActive, type NavItem } from '@/components/nav/nav-data'
@@ -130,7 +129,6 @@ export default function Navbar() {
 
                 <nav className={s.bar} aria-label='Primary'>
                     <Topo opacity={0.065} driftSeconds={720} />
-                    <CursorGlow />
 
                     <div className={s.inner}>
                         {/* Wrapped so it can claim an equal share of the free space
