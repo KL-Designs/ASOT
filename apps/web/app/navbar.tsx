@@ -138,7 +138,7 @@ export default function Navbar() {
                             menu between them. See `.side` in the stylesheet. */}
                         <div className={s.side}>
                             <Link href='/' className={s.brand}>
-                                <Image src={Logo} alt='ASOT' className={s.brandMark} width={34} height={34} quality={100} priority />
+                                <Image src={Logo} alt='ASOT' className={s.brandMark} width={46} height={46} quality={100} priority />
                                 <span className={s.brandTxt}>
                                     <span className={s.brandName}>ASOT</span>
                                     <span className={s.brandSub}>Est. 2019 · Australia</span>

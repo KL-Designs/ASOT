@@ -268,13 +268,19 @@ a.amb:hover {
     height: 100%;
 }
 
+/*
+   The plate's vertical padding is what decides how large the mark can be: the
+   bar is a fixed 66px, so mark + padding*2 has to stay under it. At 46px the
+   plate comes to 60px and keeps 3px of air top and bottom — any bigger and the
+   plate starts defining the bar's height instead of sitting inside it.
+*/
 .brand {
     display: flex;
     align-items: center;
     gap: 11px;
     flex: none;
     position: relative;
-    padding: 8px 20px 8px 14px;
+    padding: 7px 20px 7px 14px;
     background: linear-gradient(90deg, #15171b, #0e1013);
     clip-path: polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%);
 }
@@ -290,8 +296,8 @@ a.amb:hover {
 }
 
 .brandMark {
-    width: 34px;
-    height: 34px;
+    width: 46px;
+    height: 46px;
     flex: none;
     object-fit: contain;
 }
@@ -1005,7 +1011,7 @@ a.amb:hover {
     }
 
     .brand {
-        padding: 10px 18px 10px 14px;
+        padding: 8px 18px 8px 14px;
     }
 
     .mi {
