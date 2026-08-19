@@ -776,6 +776,25 @@ export function breathing(p: Patient): boolean {
  * on a casualty who has stopped breathing gets you a clear airway; it does not
  * get you a rising number, and that gap is the whole reason to carry a BVM.
  */
+/**
+ * Whether both your hands are already on the casualty.
+ *
+ * Compressions and a bag-valve mask are things you are *doing*, continuously,
+ * with the hands you would otherwise be drawing up adrenaline with. So they
+ * block everything else until you stop — which is the decision they were
+ * always supposed to be: every second you spend on the drug is a second
+ * nobody is pushing on the chest, and the downtime clock speeds back up while
+ * you do it.
+ */
+export function handsFull(p: Patient): 'Compressions' | 'Bagging' | null {
+    if (p.cprActive) return 'Compressions'
+    if (p.bagging) return 'Bagging'
+    return null
+}
+
+/** The two rows that free your hands again, and so stay available. */
+export const FREES_HANDS: ReadonlySet<string> = new Set(['cpr', 'bvm'])
+
 export function ventilating(p: Patient): boolean {
     return airwayOpen(p) && (breathing(p) || p.bagging)
 }

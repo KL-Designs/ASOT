@@ -2,7 +2,8 @@ import {
     ADJUNCT_LABEL, APNOEA_AT, APNOEA_OUT, BAG_SIZES, BANDAGES, CPR_DOWNTIME_RATE, CPR_RATE,
     DEATH_DOWNTIME, DEPRESSED_RR, DRUGS, FATAL_SPO2, FLUIDS, OBSTRUCTION_LABEL,
     RHYTHM_LABEL, SHOCKABLE, VOMIT_ON_COLLAPSE, WOUND_TYPES,
-    airwayOpen, arrestHr, bestBandage, bleedFactor, breathing, clamp, dressingLife, intensity,
+    FREES_HANDS,
+    airwayOpen, arrestHr, bestBandage, bleedFactor, breathing, clamp, dressingLife, handsFull, intensity,
     isConscious, jitter, nextWound, onBoard, pName, reopenChance, setRhythm, stabilityIssues,
     totalBleed, ventilating,
     type Adjunct, type BandageId, type BodyPart, type DrugId, type FluidId, type Patient,
@@ -61,6 +62,19 @@ const ACTION_TIME: Record<string, number> = {
     monon: 5, monoff: 3, pads: 6,
     look: 3, tilt: 3, turn: 4, suction: 5, recov: 5,
     splint: 6, realign: 4, sling: 4, blanket: 3, heat: 3,
+}
+
+/**
+ * Whether this row can be pressed at all right now.
+ *
+ * Separate from `showFor`, which is about the casualty. This is about you:
+ * a row can be perfectly indicated and still be something you have no free
+ * hand for.
+ */
+export function blockedBy(p: Patient, a: Action): string | null {
+    const hands = handsFull(p)
+    if (hands && !FREES_HANDS.has(a.id)) return hands
+    return null
 }
 
 /** Seconds this action takes, however it was specified. */
@@ -870,19 +884,23 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
            — that is the entire point of giving it, and the reason it is worth
            interrupting compressions for the ten seconds it costs.
         */
-        const boost = onBoard(p, 'epi') ? 3.4 : 1
+        // Compressions on their own almost never restart a heart, and that is
+        // the honest number: they keep a brain alive long enough for something
+        // else to. Adrenaline is that something else, and this is the size of
+        // the difference it makes.
+        const boost = onBoard(p, 'epi') ? 4.5 : 1
         const rolled = (perSecond: number) => Math.random() < perSecond * dt * boost
 
-        if (p.rhythm === 'pea' && rolled(0.020)) {
+        if (p.rhythm === 'pea' && rolled(0.005)) {
             rosc(p, 66)
             return ['ROSC — output restored, rate coming back up', 'good']
         }
-        if (p.rhythm === 'asystole' && rolled(0.009)) {
+        if (p.rhythm === 'asystole' && rolled(0.0022)) {
             setRhythm(p, 'vf')
             p.cprActive = true
             return ['Rhythm change — coarse VF, shockable', 'warn']
         }
-        if ((p.rhythm === 'vf' || p.rhythm === 'vt') && rolled(0.004)) {
+        if ((p.rhythm === 'vf' || p.rhythm === 'vt') && rolled(0.0012)) {
             rosc(p, 62)
             return ['ROSC — output restored on compressions alone', 'good']
         }

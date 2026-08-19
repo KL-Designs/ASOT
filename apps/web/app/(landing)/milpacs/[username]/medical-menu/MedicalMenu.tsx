@@ -3,14 +3,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-    ACTIONS, TOOLS, TOOL_SEPS, actionTime, alarmFor, simulate, visibleRows,
+    ACTIONS, TOOLS, TOOL_SEPS, actionTime, alarmFor, blockedBy, simulate, visibleRows,
     type Action, type ActionRow, type LogKind, type ToolId,
 } from './actions'
 import { Monitor } from './audio'
 import {
     ADJUNCT_LABEL, BANDAGES, CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, DRUGS, FALLBACK_CASUALTY, FATAL_SPO2,
     FLUIDS, OBSTRUCTION_LABEL, PARTS, RHYTHM_LABEL, WOUND_TYPES,
-    airwayOpen, bestBandage, bleedFactor, bloodWord, breathing, chatter, clamp, handover, intensity, jitter,
+    airwayOpen, arrestHr, bestBandage, bleedFactor, bloodWord, breathing, chatter, clamp, handover, handsFull,
+    intensity, jitter,
     newPatient, nextWound, painWord, partBleeding, partSeverity, pName, shownRr,
     stabilityIssues, stampFrom, totalBleed,
     type BodyPart, type Casualty, type Difficulty, type PartId, type Patient, type Rhythm, type Triage,
@@ -210,7 +211,7 @@ export default function MedicalMenu({ roster, onClose }: {
        work, so *what you reach for first* is the decision this menu is asking
        you to make. Everything else is disabled until it finishes or you abort.
     */
-    const [busy, setBusy] = useState<{ label: string, seconds: number } | null>(null)
+    const [busy, setBusy] = useState<{ id: string, label: string, seconds: number } | null>(null)
     const busyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     useEffect(() => () => { if (busyTimer.current) clearTimeout(busyTimer.current) }, [])
 
@@ -411,6 +412,26 @@ export default function MedicalMenu({ roster, onClose }: {
         return () => clearInterval(id)
     }, [commit, pushLog, pushToast])
 
+    /**
+     * Take your hands off the casualty.
+     *
+     * Offered wherever you are rather than only on the row that started it —
+     * otherwise realising you need the adrenaline means finding your way back
+     * to Advanced Treatment before you can even begin.
+     */
+    function freeHands() {
+        const next = structuredClone(live.current)
+        if (next.cprActive) {
+            next.cprActive = false
+            next.hr = arrestHr(next.rhythm)
+            pushLog('Compressions stopped', 'warn')
+        } else if (next.bagging) {
+            next.bagging = false
+            pushLog('Bagging stopped', 'warn')
+        } else return
+        commit(next)
+    }
+
     /* ---------- running a treatment --------------------------------------- */
 
     /** Applies the treatment. Called when the timer runs out, not on click. */
@@ -425,13 +446,14 @@ export default function MedicalMenu({ roster, onClose }: {
 
     function startAction(a: Action, ml = 0) {
         if (busy || patient.outcome !== 'active') return
+        if (blockedBy(patient, a)) return
         const seconds = actionTime(tool, a)
         // The size is part of what you are doing, so it belongs in what the
         // progress bar and the log say you are doing.
         const label = ml ? `${a.label} ${ml} ml` : a.label
         if (seconds <= 0) { applyAction(a, ml); return }
 
-        setBusy({ label, seconds })
+        setBusy({ id: a.id, label, seconds })
         pushLog(`${label} — started`, '')
         // The charge runs for the length of the action, so the tone finishing
         // *is* the cue that the thing is about to happen.
@@ -496,6 +518,7 @@ export default function MedicalMenu({ roster, onClose }: {
     const woundUp = selPart ? nextWound(selPart) : null
     const bestPick = woundUp ? bestBandage(woundUp.t) : null
     const airOpen = airwayOpen(patient)
+    const hands = handsFull(patient)
     const breathes = breathing(patient)
 
 
@@ -577,14 +600,22 @@ export default function MedicalMenu({ roster, onClose }: {
                                 })}
                             </div>
 
-                            {busy && (
+                            {/* Normally the running row is its own progress bar. This
+                                is the fallback for when it is not on screen — switch
+                                tools or drop the limb mid-treatment and you would
+                                otherwise have nothing to abort with. */}
+                            {busy && !rows.some(r => r.id === busy.id) && (
                                 <div className={s.progress}>
                                     <span className={s.progressLabel}>{busy.label}</span>
                                     <button type='button' className={s.progressX} onClick={cancelAction}>Abort</button>
-                                    {/* Driven by the animation's own duration rather
-                                        than a ticking state value — nothing else on
-                                        screen needs to know how far along it is. */}
                                     <i style={{ animationDuration: `${busy.seconds}s` }} />
+                                </div>
+                            )}
+
+                            {hands && !busy && (
+                                <div className={s.hands}>
+                                    <span>{hands} running — both hands are on the casualty</span>
+                                    <button type='button' className={s.handsStop} onClick={freeHands}>Stop</button>
                                 </div>
                             )}
 
@@ -618,21 +649,33 @@ export default function MedicalMenu({ roster, onClose }: {
                                                 /* A bag is a choice of size, so the row
                                                    is the shelf and each button is what
                                                    you take off it. */
-                                                <div key={row.id} className={`${s.trow} ${s.trowSizes}`}>
+                                                <div
+                                                    key={row.id}
+                                                    className={`${s.trow} ${s.trowSizes} ${busy?.id === row.id ? s.trowBusy : ''}`}
+                                                >
+                                                    {busy?.id === row.id && (
+                                                        <i className={s.trowFill} style={{ animationDuration: `${busy.seconds}s` }} />
+                                                    )}
                                                     <span className={`${s.dot} ${row.dot ? DOT_CLASS[row.dot] : ''}`} />
-                                                    <span>{row.label}</span>
-                                                    <span className={s.qty}>
-                                                        {row.needsPart && !sel
-                                                            ? 'SELECT A LIMB'
-                                                            : [row.note, `${actionTime(tool, row)}s to hook up`].filter(Boolean).join(' · ')}
-                                                    </span>
+                                                    <span>{busy?.id === row.id ? busy.label : row.label}</span>
+                                                    {busy?.id === row.id ? (
+                                                        <button type='button' className={`${s.qty} ${s.rowAbort}`} onClick={cancelAction}>
+                                                            ABORT
+                                                        </button>
+                                                    ) : (
+                                                        <span className={s.qty}>
+                                                            {row.needsPart && !sel
+                                                                ? 'SELECT A LIMB'
+                                                                : [row.note, `${actionTime(tool, row)}s to hook up`].filter(Boolean).join(' · ')}
+                                                        </span>
+                                                    )}
                                                     <div className={s.sizes}>
                                                         {row.sizes.map(ml => (
                                                             <button
                                                                 key={ml}
                                                                 type='button'
                                                                 className={s.sizebtn}
-                                                                disabled={!!busy || patient.outcome !== 'active' || (row.needsPart && !sel)}
+                                                                disabled={!!busy || !!hands || patient.outcome !== 'active' || (row.needsPart && !sel)}
                                                                 onClick={() => startAction(row, ml)}
                                                             >
                                                                 {ml} ml
@@ -648,18 +691,29 @@ export default function MedicalMenu({ roster, onClose }: {
                                                         s.trow,
                                                         row.onFor?.(patient) ? s.trowOn : '',
                                                         row.bandage && row.bandage === bestPick ? s.trowBest : '',
+                                                        busy?.id === row.id ? s.trowBusy : '',
                                                     ].filter(Boolean).join(' ')}
-                                                    disabled={!!busy || patient.outcome !== 'active' || (row.needsPart && !sel)}
-                                                    onClick={() => startAction(row)}
+                                                    // The row you are waiting on is the row you abort with.
+                                                    disabled={busy
+                                                        ? busy.id !== row.id
+                                                        : patient.outcome !== 'active' || !!blockedBy(patient, row) || (row.needsPart && !sel)}
+                                                    onClick={() => busy?.id === row.id ? cancelAction() : startAction(row)}
                                                 >
+                                                    {busy?.id === row.id && (
+                                                        <i className={s.trowFill} style={{ animationDuration: `${busy.seconds}s` }} />
+                                                    )}
                                                     <span className={`${s.dot} ${row.dot ? DOT_CLASS[row.dot] : ''}`} />
-                                                    <span>{row.labelFor ? row.labelFor(patient) : row.label}</span>
-                                                    {row.bandage && row.bandage === bestPick && <span className={s.bestTag}>BEST</span>}
-                                                    <span className={s.qty}>
-                                                        {row.needsPart && !sel
-                                                            ? 'SELECT A LIMB'
-                                                            : [row.note, actionTime(tool, row) > 0 && `${actionTime(tool, row)}s`]
-                                                                .filter(Boolean).join(' · ')}
+                                                    <span>{busy?.id === row.id ? busy.label : row.labelFor ? row.labelFor(patient) : row.label}</span>
+                                                    {!busy && row.bandage && row.bandage === bestPick && <span className={s.bestTag}>BEST</span>}
+                                                    <span className={`${s.qty} ${busy?.id === row.id ? s.rowAbort : ''}`}>
+                                                        {busy?.id === row.id
+                                                            ? 'ABORT'
+                                                            : blockedBy(patient, row)
+                                                                ? 'HANDS FULL'
+                                                                : row.needsPart && !sel
+                                                                ? 'SELECT A LIMB'
+                                                                : [row.note, actionTime(tool, row) > 0 && `${actionTime(tool, row)}s`]
+                                                                    .filter(Boolean).join(' · ')}
                                                     </span>
                                                 </button>
                                             ))
@@ -683,6 +737,9 @@ export default function MedicalMenu({ roster, onClose }: {
                                     <defs>
                                         <clipPath id='hznHead'>
                                             <ellipse cx='150' cy='54' rx='35' ry='41' />
+                                        </clipPath>
+                                        <clipPath id='hznSeal'>
+                                            <rect x='152' y='148' width='36' height='36' rx='2' />
                                         </clipPath>
                                         <filter id='hznGlow'>
                                             <feGaussianBlur stdDeviation='3' result='b' />
@@ -771,14 +828,30 @@ export default function MedicalMenu({ roster, onClose }: {
                                                 </React.Fragment>
                                             )
                                         })}
-                                        {/* The hole, and whether anything is over it. */}
+                                        {/* The hole. A puncture reads as a puncture:
+                                            a dark centre with torn edges around it,
+                                            not a dot the same red as everything else. */}
                                         {patient.chestWound && (
+                                            <g className={s.chestHole}>
+                                                <circle cx='170' cy='166' r='11' fill='none' stroke='#7e1a15' strokeWidth='1.2' opacity='.8' />
+                                                <circle cx='170' cy='166' r='8.5' fill='#6b1712' stroke='#d2352c' strokeWidth='2.4' />
+                                                <circle cx='170' cy='166' r='3.2' fill='#170705' />
+                                            </g>
+                                        )}
+
+                                        {/* And the seal over it. Yellow and black,
+                                            because that is what one looks like and
+                                            because the previous pale blue square
+                                            disappeared into a torso the same colour. */}
+                                        {patient.sealed && (
                                             <g>
-                                                <circle className={s.chestHole} cx='170' cy='166' r='6.5' fill='#d2352c' />
-                                                {patient.sealed && (
-                                                    <rect x='157' y='153' width='26' height='26' rx='2'
-                                                        fill='rgba(143,208,245,.14)' stroke='#8fd0f5' strokeWidth='1.6' />
-                                                )}
+                                                <rect x='152' y='148' width='36' height='36' rx='2' fill='#151107' stroke='#e8c343' strokeWidth='2' />
+                                                <g clipPath='url(#hznSeal)' opacity='.85'>
+                                                    <path d='M146,172 L170,148 M152,190 L190,152 M166,190 L194,162'
+                                                        stroke='#e8c343' strokeWidth='5' fill='none' />
+                                                </g>
+                                                <text x='170' y='142' textAnchor='middle' fill='#e8c343'
+                                                    fontSize='8.5' fontWeight='700' letterSpacing='1.2'>SEALED</text>
                                             </g>
                                         )}
                                         {patient.pneumo && (

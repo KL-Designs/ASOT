@@ -487,6 +487,86 @@
 /* A dressing on a clock, or a wound with nothing on it at all. */
 .slipping { color: var(--yellow) }
 
+/* Both hands on the casualty. Sited above the list rather than on the row that
+   started it, because the row that started it is usually on another tool. */
+.hands {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+    padding: 7px 10px;
+    font-size: 13px;
+    letter-spacing: .3px;
+    color: var(--red);
+    font-weight: 700;
+    background: rgba(224, 59, 49, .12);
+    border: 1px solid rgba(224, 59, 49, .5);
+    border-radius: 2px;
+}
+
+.hands > span { flex: 1; min-width: 0 }
+
+.handsStop {
+    flex: none;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--red);
+    background: none;
+    border: 1px solid rgba(224, 59, 49, .6);
+    border-radius: 2px;
+    padding: 2px 10px;
+    cursor: pointer;
+}
+
+.handsStop:hover { color: #fff; background: rgba(224, 59, 49, .3); border-color: var(--red) }
+
+/* The row you are waiting on fills itself, rather than a separate bar above
+   the list telling you about a button you can already see. Driven by the
+   animation's own duration: nothing on screen needs to know how far along it
+   is, so nothing has to re-render to show it. */
+.trowBusy {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(217, 164, 65, .6);
+    opacity: 1;
+    cursor: pointer;
+}
+
+.trowBusy:disabled { opacity: 1; cursor: pointer }
+.trowBusy > span, .trowBusy > div, .trowBusy > button { position: relative; z-index: 1 }
+
+.trowFill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    z-index: 0;
+    background: rgba(217, 164, 65, .2);
+    border-right: 2px solid var(--hz-orange);
+    animation: fill linear forwards;
+    pointer-events: none;
+}
+
+/* The seconds slot becomes the way out of it. */
+.rowAbort {
+    font-family: monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    color: var(--hz-orange);
+    background: none;
+    border: 1px solid rgba(217, 164, 65, .5);
+    border-radius: 2px;
+    padding: 2px 8px;
+    cursor: pointer;
+}
+
+.rowAbort:hover { color: #fff; border-color: var(--hz-orange); background: rgba(217, 164, 65, .2) }
+
 /* A row that has latched on — compressions are running until you say stop. */
 .trowOn {
     background: rgba(224, 59, 49, .18);
