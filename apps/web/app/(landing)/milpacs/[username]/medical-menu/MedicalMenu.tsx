@@ -609,7 +609,7 @@ export default function MedicalMenu({ roster, onClose }: {
                                 <span><i style={{ background: '#f0d47e' }} />Light</span>
                                 <span><i style={{ background: '#e08a3c' }} />Moderate</span>
                                 <span><i style={{ background: '#d2352c' }} />Severe</span>
-                                <span><i style={{ background: '#8fd0f5' }} />Controlled</span>
+                                <span><i style={{ background: '#8fd0f5' }} />Dressed</span>
                                 <span><i style={{ background: '#d2352c', borderRadius: '50%' }} />Fracture</span>
                             </div>
                         </div>

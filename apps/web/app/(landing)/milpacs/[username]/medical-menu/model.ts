@@ -266,17 +266,21 @@ export const jitter = (v: number, d: number) => Math.round(v + (Math.random() * 
 export const pName = (id: PartId) => PARTS.find(p => p.id === id)?.name ?? id
 
 /**
- * -1 controlled · 0 clean · 1–3 how badly it is bleeding.
+ * -1 dressed · 0 clean · 1–3 how badly the open wounds bleed.
  *
  * Bleeding only. A fracture no longer tints the limb: it is drawn as a bone
  * inside it instead, so the two problems a limb can have stop competing for
- * one colour. A yellow leg means blood is coming out of it, every time.
+ * one colour.
+ *
+ * A tourniquet is deliberately *not* counted here. It stops the blood leaving —
+ * `partBleeding` returns zero and the pulsing marker goes out — but the wound
+ * underneath is exactly as open as it was, and a limb that goes white the
+ * moment you clamp it would be telling you it is fixed. It keeps its colour,
+ * and the TQ band on the diagram says why nothing is coming out. Blue is for a
+ * wound that has actually been dressed.
  */
 export function partSeverity(pt: BodyPart): -1 | 0 | 1 | 2 | 3 {
     if (!pt.wounds.length) return 0
-    // A tourniquet has stopped the bleed even though the wound is still open,
-    // which is exactly the state "controlled" is for.
-    if (pt.tourniquet) return -1
     const open = pt.wounds.filter(w => !w.bandaged)
     if (!open.length) return -1
     return Math.max(...open.map(w => WOUND_TYPES[w.t].sev)) as 1 | 2 | 3
