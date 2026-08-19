@@ -790,6 +790,20 @@ export default function MedicalMenu({ roster, onClose }: {
                                             </g>
                                         )}
 
+                                        {/* Rolled onto their side. Drawn on the body
+                                            rather than only listed under Airway,
+                                            because it is a fact about the casualty in
+                                            front of you and not a treatment you can
+                                            forget you applied. */}
+                                        {patient.recovery && (
+                                            <g>
+                                                <rect x='4' y='4' width='152' height='21' rx='3'
+                                                    fill='rgba(92,191,98,.16)' stroke='#5cbf62' strokeWidth='1.3' />
+                                                <text x='12' y='19' fill='#5cbf62'
+                                                    fontSize='10.5' fontWeight='700' letterSpacing='1.4'>RECOVERY POSITION</text>
+                                            </g>
+                                        )}
+
                                         {/* Somebody squeezing a bag over the face. */}
                                         {patient.bagging && (
                                             <g>
@@ -1028,7 +1042,9 @@ export default function MedicalMenu({ roster, onClose }: {
                                         </div>
                                     )}
                                     {patient.recovery && (
-                                        <div className={s.ovsub} style={{ color: 'var(--green)' }}>In the recovery position</div>
+                                        <div className={s.ovsub} style={{ color: 'var(--green)', fontWeight: 700 }}>
+                                            In the recovery position — airway will stay clear
+                                        </div>
                                     )}
                                     {patient.suction === 0 && (
                                         <div className={`${s.ovsub} ${s.ovsubB}`}>Suction pump spent</div>
@@ -1612,6 +1628,7 @@ function QuickView({ patient: p }: { patient: Patient }) {
                     <span className={`${s.chip} ${!p.airwayChecked ? s.chipB : airwayOpen(p) ? s.chipG : s.chipR}`}>
                         {!p.airwayChecked ? 'AIRWAY UNKNOWN' : airwayOpen(p) ? 'AIRWAY CLEAR' : 'AIRWAY BLOCKED'}
                     </span>
+                    {p.recovery && <span className={`${s.chip} ${s.chipG}`}>RECOVERY POSITION</span>}
                     {p.meds.length > 0 && <span className={`${s.chip} ${s.chipY}`}>{p.meds.length}× MEDS GIVEN</span>}
                 </div>
             </div>
