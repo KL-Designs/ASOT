@@ -282,21 +282,25 @@
    full-bleed off the right edge — that overflow is what tells you it scrolls.
    No scroll-snap here: the rail advances itself, and snapping would fight the
    animation for control of scrollLeft every frame.
+
+   Scrollable but with no scrollbar drawn. `overflow-x` has to stay `auto` —
+   that is the property that makes `scrollLeft` mean anything, and the drift,
+   the arrows and a trackpad swipe all move it. But a bar under a strip that is
+   already moving on its own reads as a stuck progress indicator, and Windows
+   paints it permanently at full weight rather than the hairline other platforms
+   fade in. The arrows are the affordance here.
 */
 .rail {
     display: flex;
     gap: var(--gap);
     overflow-x: auto;
-    padding: 0 var(--pad) 6px;
-    scrollbar-width: thin;
+    padding: 0 var(--pad);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
 .rail::-webkit-scrollbar {
-    height: 4px;
-}
-
-.rail::-webkit-scrollbar-thumb {
-    background: var(--line-2);
+    display: none;
 }
 
 .railItem {
