@@ -679,6 +679,16 @@ export default function StaffSidebar({
             <HomeButton pathname={pathname} onNavigate={onNavigate} />
 
             {/* ── Shortcuts ───────────────────────────────────────────────── */}
+            {/* Profile before Tasks: it is the one everybody here has, since
+                Tasks is staff-only and would otherwise leave a lone entry
+                sitting under Dashboard for everyone else. */}
+            <ShortcutButton
+                href='/dashboard/profile'
+                label='My Profile'
+                icon={<AccountCircle sx={{ fontSize: 14 }} />}
+                pathname={pathname}
+                onNavigate={onNavigate}
+            />
             {permissions.isStaff && (
                 <ShortcutButton
                     href='/dashboard/tasks'
@@ -688,13 +698,6 @@ export default function StaffSidebar({
                     onNavigate={onNavigate}
                 />
             )}
-            <ShortcutButton
-                href='/dashboard/profile'
-                label='My Profile'
-                icon={<AccountCircle sx={{ fontSize: 14 }} />}
-                pathname={pathname}
-                onNavigate={onNavigate}
-            />
 
             {/* ── Pinned section ──────────────────────────────────────────── */}
             <PinnedSection onNavigate={onNavigate} />
