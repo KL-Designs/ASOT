@@ -28,8 +28,8 @@ export function MedicalMenuEgg({ roster }: {
         <div style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-end',
-            padding: '4px 2px 0',
+            justifyContent: 'center',
+            padding: '10px 2px 2px',
         }}>
             <button
                 type='button'
@@ -41,23 +41,23 @@ export function MedicalMenuEgg({ roster }: {
                 style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 6,
+                    gap: 9,
                     background: 'none',
                     border: 'none',
-                    padding: '2px 4px',
+                    padding: '6px 10px',
                     cursor: 'pointer',
                     fontFamily: 'var(--mono)',
-                    fontSize: '0.6rem',
-                    letterSpacing: '0.18em',
+                    fontSize: '0.72rem',
+                    letterSpacing: '0.2em',
                     textTransform: 'uppercase',
                     color: hover ? 'var(--acc)' : 'var(--ink-3)',
-                    opacity: hover ? 1 : 0.35,
+                    opacity: hover ? 1 : 0.4,
                     transition: 'opacity .18s, color .18s',
                 }}
             >
-                <span style={{ fontSize: '0.85rem', lineHeight: 1 }} aria-hidden>⚕</span>
+                <span style={{ fontSize: '1.2rem', lineHeight: 1 }} aria-hidden>⚕</span>
                 <span style={{
-                    maxWidth: hover ? 96 : 0,
+                    maxWidth: hover ? 130 : 0,
                     overflow: 'hidden',
                     whiteSpace: 'nowrap',
                     transition: 'max-width .22s ease',

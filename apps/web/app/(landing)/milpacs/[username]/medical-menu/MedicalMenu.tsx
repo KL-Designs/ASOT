@@ -7,10 +7,10 @@ import {
     type Action, type ActionRow, type LogKind, type ToolId,
 } from './actions'
 import {
-    FALLBACK_CASUALTY, PARTS, WOUND_TYPES,
-    bloodWord, clamp, jitter, newPatient, painWord, partBleeding, partSeverity, pName,
+    DIFFICULTIES, FALLBACK_CASUALTY, PARTS, WOUND_TYPES,
+    bloodWord, clamp, handover, jitter, newPatient, painWord, partBleeding, partSeverity, pName,
     stampFrom, totalBleed,
-    type Casualty, type PartId, type Patient, type Triage,
+    type Casualty, type Difficulty, type PartId, type Patient, type Triage,
 } from './model'
 import { TOOL_ICONS } from './icons'
 import s from './medical-menu.module.css'
@@ -83,11 +83,12 @@ export default function MedicalMenu({ roster, onClose }: {
     roster: Casualty[]
     onClose: () => void
 }) {
+    const [difficulty, setDifficulty] = useState<Difficulty>('moderate')
+
     // Chosen once per open, in the initialiser rather than an effect: picking
     // in an effect would render the fallback first and swap the name out from
     // under you a frame later.
-    const [patient, setPatient] = useState<Patient>(() =>
-        newPatient(roster.length ? roster[Math.floor(Math.random() * roster.length)] : FALLBACK_CASUALTY))
+    const [patient, setPatient] = useState<Patient>(() => newPatient(drawCasualty(roster), 'moderate'))
     const [sel, setSel] = useState<PartId | null>(null)
     const [hover, setHover] = useState<PartId | null>(null)
     const [tool, setTool] = useState<ToolId>('examine')
@@ -130,14 +131,23 @@ export default function MedicalMenu({ roster, onClose }: {
     // Guarded: StrictMode runs effects twice in development, and without this
     // the handover you are given is printed to the log twice over.
     const booted = useRef(false)
-    const casualtyName = patient.name
     useEffect(() => {
         if (booted.current) return
         booted.current = true
-        pushLog('Casualty is bleeding', 'bad')
-        pushLog('Right Leg — fractured, 2× medium velocity wound', 'bad')
-        pushLog('Medical menu opened — casualty ' + casualtyName.toUpperCase(), '')
-    }, [pushLog, casualtyName])
+        handover(live.current).forEach(l => pushLog(l.text, l.kind))
+    }, [pushLog])
+
+    /* ---------- a fresh casualty ------------------------------------------ */
+    function resetPatient(d: Difficulty) {
+        const next = newPatient(drawCasualty(roster), d)
+        commit(next)
+        setDifficulty(d)
+        setSel(null)
+        setToasts([])
+        // The log belongs to the casualty who has just left the table.
+        setLog([])
+        setTimeout(() => handover(next).forEach(l => pushLog(l.text, l.kind)), 0)
+    }
 
     /* ---------- modal chrome: escape, scroll lock ------------------------- */
     useEffect(() => {
@@ -238,6 +248,21 @@ export default function MedicalMenu({ roster, onClose }: {
                         <span className={s.tag}>HZN-MED</span>
                         <span className={`${s.tag} ${s.tagAlt}`}>TRAINING</span>
                         <span className={s.spacer} />
+
+                        <label className={s.diff}>
+                            <span>CASUALTY</span>
+                            <select
+                                value={difficulty}
+                                aria-label='Difficulty'
+                                onChange={e => resetPatient(e.target.value as Difficulty)}
+                            >
+                                {DIFFICULTIES.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                            </select>
+                        </label>
+                        <button type='button' className={s.newbtn} onClick={() => resetPatient(difficulty)}>
+                            New casualty
+                        </button>
+
                         <span className={s.meta}>MISSION {clock}</span>
                         <span className={s.meta}>MEDIC · <b>DOC-1 KODA</b></span>
                         <button type='button' className={s.xbtn} title='Close' aria-label='Close' onClick={onClose}>✕</button>
@@ -305,8 +330,12 @@ export default function MedicalMenu({ roster, onClose }: {
                         {/* ---- patient ---- */}
                         <div className={s.col}>
                             <div className={s.colhead}>
+                                {patient.rank && <span className={s.rank}>{patient.rank}</span>}
                                 {patient.name}
-                                <span className={s.sub}>{patient.callsign} · {patient.unit}</span>
+                                <span className={s.sub}>
+                                    {[patient.callsign && `"${patient.callsign}"`, patient.unit]
+                                        .filter(Boolean).join(' · ')}
+                                </span>
                             </div>
 
                             <div className={s.bodywrap}>
@@ -493,6 +522,12 @@ export default function MedicalMenu({ roster, onClose }: {
     return createPortal(body, document.body)
 }
 
+/** Somebody off the roster, or the stand-in when the ORBAT gave us nobody. */
+function drawCasualty(roster: Casualty[]): Casualty {
+    if (!roster.length) return FALLBACK_CASUALTY
+    return roster[Math.floor(Math.random() * roster.length)]
+}
+
 /* ---------- vitals -------------------------------------------------------- */
 
 function Vitals({ patient: p }: { patient: Patient }) {
@@ -626,12 +661,20 @@ function TriageCard({ patient: p, note, setNote, onTriage, onNote, onPatch }: {
 
             <div className={s.sectlabel}>Card Details</div>
             <div className={s.cardfield}>
+                <label htmlFor='hzn-rank'>RANK</label>
+                <input id='hzn-rank' value={p.rank} onChange={e => onPatch({ rank: e.target.value })} placeholder='—' />
+            </div>
+            <div className={s.cardfield}>
                 <label htmlFor='hzn-name'>NAME</label>
                 <input id='hzn-name' value={p.name} onChange={e => onPatch({ name: e.target.value })} />
             </div>
             <div className={s.cardfield}>
                 <label htmlFor='hzn-cs'>CALLSIGN</label>
-                <input id='hzn-cs' value={p.callsign} onChange={e => onPatch({ callsign: e.target.value })} />
+                <input id='hzn-cs' value={p.callsign} onChange={e => onPatch({ callsign: e.target.value })} placeholder='none' />
+            </div>
+            <div className={s.cardfield}>
+                <label htmlFor='hzn-unit'>ELEMENT</label>
+                <input id='hzn-unit' readOnly value={p.unit} />
             </div>
             <div className={s.cardfield}>
                 <label htmlFor='hzn-bt'>BLOOD TYPE</label>

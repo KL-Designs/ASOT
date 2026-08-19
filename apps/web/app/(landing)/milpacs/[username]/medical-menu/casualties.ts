@@ -43,11 +43,16 @@ export async function sampleCasualties(): Promise<Casualty[]> {
     const users = await Db.users
         .find(
             { _id: { $in: positions.map(p => p.userId!) } },
-            { projection: { name: 1, globalName: 1, username: 1, 'guild.nickname': 1 } },
+            {
+                projection: {
+                    name: 1, globalName: 1, username: 1, 'guild.nickname': 1,
+                    'milpac.currentRank': 1, 'milpac.callsign': 1,
+                },
+            },
         )
         .toArray()
 
-    const nameById = new Map<string, string>()
+    const byId = new Map<string, { name: string, rank?: string, callsign?: string }>()
     for (const u of users) {
         // Same derivation the ORBAT itself uses: strip the [TAGS], then drop
         // the rank prefix off the front of the nickname.
@@ -55,19 +60,28 @@ export async function sampleCasualties(): Promise<Casualty[]> {
         const parts = (stripped || '').split(' ')
         const parsed = parts.length > 1 ? parts.slice(1).join(' ') : stripped
         const name = u.name || parsed || u.globalName || u.username
-        if (name) nameById.set(u._id, name)
+        if (!name) continue
+        byId.set(u._id, {
+            name,
+            // Fall back to the rank prefix on the nickname for members with no
+            // milpac of their own — it is where the ORBAT reads it from too.
+            rank: u.milpac?.currentRank || (parts.length > 1 ? parts[0] : undefined) || undefined,
+            callsign: u.milpac?.callsign || undefined,
+        })
     }
 
     const casualties: Casualty[] = []
     const seen = new Set<string>()
     for (const p of positions) {
-        const name = nameById.get(p.userId!)
+        const who = byId.get(p.userId!)
         // One casualty per person: somebody holding two billets should not be
         // twice as likely to end up on the table.
-        if (!name || !p.sectionTitle || seen.has(name)) continue
-        seen.add(name)
+        if (!who || !p.sectionTitle || seen.has(who.name)) continue
+        seen.add(who.name)
         casualties.push({
-            name,
+            name: who.name,
+            rank: who.rank,
+            callsign: who.callsign?.toUpperCase(),
             unit: p.sectionTitle.toUpperCase(),
             role: (p.role || 'Rifleman').toUpperCase(),
         })
