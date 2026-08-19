@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef, useMemo, Suspense, createCont
 import { usePathname, useRouter } from 'next/navigation'
 import { Drawer, Dialog, DialogContent } from '@mui/material'
 import StaffSidebar from './StaffSidebar'
+import { ToastProvider } from '@/components/dashboard'
+import s from '@/styles/dashboard.module.css'
 
 export interface DashboardPermissions {
     displayName: string
@@ -82,7 +84,15 @@ export default function StaffDashboardShell({
 
     return (
         <LockoutContext.Provider value={contextValue}>
-            <div className='flex w-full h-full'>
+            {/*
+                `.dash` is where the dashboard's own tokens live — the four-step
+                surface scale and the status palette — so every screen inside
+                inherits them without importing anything. ToastProvider sits
+                here for the same reason: one toast host for the whole portal
+                rather than one per screen that wants to confirm a save.
+            */}
+            <ToastProvider>
+            <div className={`${s.dash} flex w-full h-full`}>
 
                 {/* Desktop sidebar */}
                 <div
@@ -93,8 +103,8 @@ export default function StaffDashboardShell({
                         position: 'sticky',
                         top: 0,
                         alignSelf: 'flex-start',
-                        borderRight: '1px solid rgba(219,0,29,0.18)',
-                        background: 'rgba(8,8,8,0.98)',
+                        borderRight: '1px solid var(--line-1)',
+                        background: 'var(--ink-1)',
                     }}
                 >
                     <Suspense>
@@ -148,8 +158,8 @@ export default function StaffDashboardShell({
                     PaperProps={{
                         sx: {
                             width: 260,
-                            background: 'rgba(8,8,8,0.99)',
-                            borderRight: '1px solid rgba(219,0,29,0.18)',
+                            background: 'var(--ink-1)',
+                            borderRight: '1px solid var(--line-1)',
                         },
                     }}
                 >
@@ -211,6 +221,7 @@ export default function StaffDashboardShell({
                 </Dialog>
 
             </div>
+            </ToastProvider>
         </LockoutContext.Provider>
     )
 }
