@@ -137,7 +137,13 @@ export default function Hero({ sotm, roster, opCard }: {
                 }}
             >
                 <div className={s.heroCopy}>
-                    <Kicker centred={!opCard}>Est. 2019 · Oceania&apos;s largest ArmA 3 milsim unit</Kicker>
+                    {/* The wrapper is what centres it, not the kicker itself —
+                        see `.heroKick`. The kicker is inline-flex and would
+                        otherwise sit at the left of a column much wider than
+                        the lockup it belongs to. */}
+                    <div className={s.heroKick}>
+                        <Kicker centred>Est. 2019 · Oceania&apos;s largest ArmA 3 milsim unit</Kicker>
+                    </div>
 
                     {/* The unit lockup as a vector — emblem and wordmark are one
                         asset, so they can never drift apart or fall out of

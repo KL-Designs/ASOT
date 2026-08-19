@@ -58,8 +58,8 @@ export default async function Page() {
                 someone is meant to act on. */}
             <WhySection roster={roster} />
             <Platoons stats={platoons} />
-            <GalleryStrip tiles={tiles} />
             <IntelBoard featured={featured} log={log} />
+            <GalleryStrip tiles={tiles} />
             <EnlistBand />
         </div>
     )

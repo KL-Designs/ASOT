@@ -40,6 +40,12 @@ export type LandingOp = {
      */
     slots: number | null
     rsvpOpen: boolean
+    /**
+     * When sign-on is scheduled to open, if it is. Undefined on the document
+     * means nobody set a time and it will be opened by hand — so this is the
+     * only case where the page can say *when* rather than just "not yet".
+     */
+    rsvpOpenAt: string | null
     stage: string | null
 }
 
@@ -91,7 +97,7 @@ async function countSlots(assignedPlatoons?: string[]): Promise<number | null> {
 async function decorateOp(op: any): Promise<LandingOp> {
     const attendance = await Db.operationAttendance.findOne(
         { operationId: op._id },
-        { projection: { 'records.rsvp': 1, 'records.confirmed': 1, stage: 1, rsvpOpen: 1 } },
+        { projection: { 'records.rsvp': 1, 'records.confirmed': 1, stage: 1, rsvpOpen: 1, rsvpOpenAt: 1 } },
     ).catch(() => null)
 
     const records = attendance?.records ?? []
@@ -111,6 +117,7 @@ async function decorateOp(op: any): Promise<LandingOp> {
         confirmed: records.filter((r: any) => r.confirmed).length,
         slots: await countSlots(op.assignedPlatoons),
         rsvpOpen: !!attendance?.rsvpOpen,
+        rsvpOpenAt: attendance?.rsvpOpenAt ? new Date(attendance.rsvpOpenAt).toISOString() : null,
         stage: attendance?.stage ?? null,
     }
 }

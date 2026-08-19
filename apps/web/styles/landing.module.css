@@ -191,6 +191,29 @@
     padding-bottom: clamp(40px, 6vw, 72px);
 }
 
+/*
+   The kicker centres over the *lockup*, not over the column.
+
+   The two are not the same box: the lockup is capped at 560px inside a column
+   that is routinely wider, so centring on the column would leave the "Est.
+   2019" line floating noticeably right of the mark it introduces. Matching the
+   cap here means the two stay centred on each other at every width — and once
+   they do, the kicker's rule has to be mirrored on both sides, or one lone dash
+   reads as an alignment mistake rather than a flourish.
+*/
+.heroKick {
+    max-width: min(560px, 62vw);
+    text-align: center;
+}
+
+/* Centred, the copy column is a shrink-to-fit flex column — without an explicit
+   width this box would collapse to the text and the cap would never apply. The
+   same reason `.heroInnerSolo .heroMark` asks for it. */
+.heroInnerSolo .heroKick {
+    width: 100%;
+    max-width: min(620px, 68vw);
+}
+
 /* The lockup — emblem and wordmark in one vector, so nothing can drift out of
    alignment as the hero scales, and it stays sharp at any density. */
 .heroMark {

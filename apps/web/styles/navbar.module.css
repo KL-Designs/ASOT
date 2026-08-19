@@ -515,15 +515,23 @@ a.amb:hover {
 
 /* The three actions are the shared `components/ui/Button` — only their
    in-bar geometry and spacing live here. The silhouette, the variants and the
-   inset-face trick that survives the notch are all in ui.module.css. */
-.navAct {
+   inset-face trick that survives the notch are all in ui.module.css.
+
+   Descendant selector on purpose, for the same reason `.navAct.actDonate`
+   below is compound: every property in this block is also set by `.btn` in
+   ui.module.css, and at equal specificity the winner is whichever module the
+   bundler happens to emit last. It emitted ui last, so these buttons were
+   silently running at `.btn`'s 46px and standing a head taller than the
+   account chip beside them. `.nav .navAct` settles it. */
+.nav .navAct {
     height: var(--nav-ctl-h);
     padding: 0 16px;
     font-size: 13.5px;
     gap: 8px;
 }
 
-.navAct svg {
+/* Same tie, same fix — `.btn svg` sets 16px. */
+.nav .navAct svg {
     width: 15px;
     height: 15px;
 }
