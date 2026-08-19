@@ -113,6 +113,20 @@ export interface Patient {
     airway: string
     meds: string[]
     tqCount: number
+    /**
+     * Seconds this casualty has spent without an output.
+     *
+     * Accumulated, never reset by treatment: compressions buy time, they do not
+     * give it back. Five minutes of it and the brain has gone whatever the
+     * monitor says afterwards.
+     */
+    downtime: number
+    /** Seconds of compressions still running. CPR tops this up; the sim burns it. */
+    cprHold: number
+    /** Decided once. `active` is the only state the sim keeps running in. */
+    outcome: 'active' | 'stable' | 'dead'
+    /** Why they died, for the board. Empty unless `outcome` is 'dead'. */
+    cause: string
     triage: Triage
     triageEntries: { stamp: string, text: string }[]
     cprActive: boolean
@@ -219,6 +233,7 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         temp: Math.round((36.8 - Math.random() * 1.4) * 10) / 10,
         conscious: true, rhythm: 'sinus', analysed: null, cardiacArrest: false, airway: 'clear',
         meds: [], tqCount: 0,
+        downtime: 0, cprHold: 0, outcome: 'active', cause: '',
         triage: 'none', triageEntries: [],
         cprActive: false,
     }
@@ -239,6 +254,16 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
             })
         }
     }
+
+    /*
+       At least one wound has to be open.
+
+       On easy every wound can roll pre-dressed, and a casualty who arrives with
+       nothing outstanding is declared stable before you have touched them — a
+       win screen for opening the menu.
+    */
+    const all = Object.values(p.parts).flatMap(pt => pt.wounds)
+    if (all.length && all.every(w => w.bandaged)) all[randInt(0, all.length - 1)].bandaged = false
 
     // Fractures land on limbs the casualty already has trouble with where
     // possible, so a splint is something you find rather than stumble over.
@@ -284,13 +309,67 @@ export function setRhythm(p: Patient, r: Rhythm) {
     if (p.cardiacArrest) {
         p.conscious = false
         p.cprActive = false
+        p.cprHold = 0
         if (r === 'asystole') p.hr = 0
         else if (r === 'vf') p.hr = 0
         else if (r === 'vt') p.hr = 190
         else p.hr = 40                      // PEA: complexes, no output
-    } else if (p.conscious === false) {
+    } else {
         p.conscious = true
+        // An output is an output: the clock only runs while there is none, so
+        // getting one back stops it and clears what it had counted.
+        p.downtime = 0
+        p.cprHold = 0
+        p.cprActive = false
     }
+}
+
+/* ---------- winning and losing -------------------------------------------- */
+
+/** Five minutes without an output. */
+export const DEATH_DOWNTIME = 300
+
+/**
+ * Compressions do not stop the clock, they slow it.
+ *
+ * That is the honest version and the one worth teaching: CPR perfuses well
+ * enough to stretch the window and nowhere near well enough to reset it, so it
+ * buys you time to fix the actual problem rather than being the fix.
+ */
+export const CPR_DOWNTIME_RATE = 0.28
+
+/** How long one round of compressions keeps running for. */
+export const CPR_HOLD = 12
+
+/**
+ * What is still wrong, in the order you would fix it.
+ *
+ * Empty means stable — the casualty can be handed over. Returned as a list
+ * rather than a boolean so the menu can show you what is left instead of
+ * leaving you to guess which box is unticked.
+ */
+export function stabilityIssues(p: Patient): string[] {
+    const out: string[] = []
+    if (p.cardiacArrest) out.push('No cardiac output')
+    if (totalBleed(p) > 0) out.push('Still bleeding')
+
+    const undressed = Object.values(p.parts).reduce((n, pt) => n + pt.wounds.filter(w => !w.bandaged).length, 0)
+    if (undressed > 0) out.push(`${undressed} wound${undressed === 1 ? '' : 's'} undressed`)
+
+    const unsplinted = Object.values(p.parts).filter(pt => pt.fractured && !pt.splinted).length
+    if (unsplinted > 0) out.push(`${unsplinted} fracture${unsplinted === 1 ? '' : 's'} unsplinted`)
+
+    if (p.blood < 70) out.push(`Volume ${Math.round(p.blood)}% — needs fluids`)
+    if (p.spo2 < 92) out.push(`SpO₂ ${Math.round(p.spo2)}% — needs oxygen`)
+    if (p.pain > 30) out.push('In pain — needs analgesia')
+    return out
+}
+
+function die(p: Patient, cause: string) {
+    p.outcome = 'dead'
+    p.cause = cause
+    p.cprActive = false
+    p.cprHold = 0
 }
 
 /**

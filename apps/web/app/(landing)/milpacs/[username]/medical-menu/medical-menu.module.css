@@ -501,6 +501,122 @@
 .bloodbar { height: 12px; background: rgba(0, 0, 0, .55); border: 1px solid var(--panel-line-sub); margin-top: 4px }
 .bloodbar>i { display: block; height: 100%; background: linear-gradient(90deg, #7d1512, #d0322a); transition: width .4s }
 
+/* The clock the casualty is racing, not the one the mission is. */
+.downtime {
+    position: relative;
+    margin: 6px 0 2px;
+    padding: 5px 8px 7px;
+    background: rgba(224, 59, 49, .12);
+    border: 1px solid rgba(224, 59, 49, .5);
+    border-radius: 2px;
+    font-family: monospace;
+    font-size: 11px;
+    letter-spacing: 1.2px;
+    color: var(--red);
+    overflow: hidden;
+}
+
+.downtime b { color: var(--yellow); font-weight: 700 }
+
+.downtime > i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    background: var(--red);
+    transition: width .3s linear;
+}
+
+/* The result. Covers the menu because there is nothing left to do to them. */
+.board {
+    position: absolute;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    background: rgba(5, 6, 6, .82);
+    backdrop-filter: blur(4px);
+    animation: fade .22s ease;
+}
+
+.boardCard {
+    min-width: min(420px, 82vw);
+    padding: 26px 34px 22px;
+    text-align: center;
+    background: rgba(12, 14, 13, .96);
+    border: 1px solid var(--panel-line);
+    border-top-width: 3px;
+}
+
+.boardWin .boardCard { border-top-color: var(--green) }
+.boardLose .boardCard { border-top-color: var(--red) }
+
+.boardTag {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.boardWin .boardTag { color: var(--green) }
+.boardLose .boardTag { color: var(--red) }
+
+.boardName {
+    margin-top: 8px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+}
+
+.boardTime {
+    margin-top: 10px;
+    font-family: monospace;
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 2px;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+.boardSub {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--txt-dim);
+    letter-spacing: .4px;
+}
+
+.boardBtns { display: flex; gap: 8px; justify-content: center; margin-top: 20px }
+
+.boardGo,
+.boardOut {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 8px 18px;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.boardGo {
+    color: #1b1408;
+    background: var(--hz-orange);
+    border: 1px solid var(--hz-orange);
+}
+
+.boardGo:hover { background: #eec269 }
+
+.boardOut {
+    color: var(--txt-dim);
+    background: none;
+    border: 1px solid var(--panel-line-sub);
+}
+
+.boardOut:hover { color: #fff; border-color: var(--panel-line) }
+
 /* ---------- bottom docks ---------- */
 .docks {
     flex: 0 0 auto;

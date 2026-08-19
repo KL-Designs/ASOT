@@ -1,6 +1,7 @@
 import {
-    RHYTHM_LABEL, SHOCKABLE, clamp, jitter, pName, setRhythm, totalBleed,
-    type Patient, type PartId, type Rhythm,
+    CPR_DOWNTIME_RATE, CPR_HOLD, DEATH_DOWNTIME,
+    RHYTHM_LABEL, SHOCKABLE, clamp, jitter, pName, setRhythm, stabilityIssues, totalBleed,
+    type Patient, type PartId,
 } from './model'
 
 /* ============================================================================
@@ -261,6 +262,7 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
         { id: 'cpr', label: 'Perform CPR', note: '30:2', dot: 'r', run: p => {
             if (!p.cardiacArrest) return ['CPR not indicated — pulse present', 'warn']
             p.cprActive = true
+            p.cprHold = CPR_HOLD
             // Compressions are perfusion, not a cure. They buy time, they can
             // coarsen a fibrillating heart back into something worth shocking,
             // and just occasionally they get an output back on their own.
@@ -373,13 +375,44 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
  * changed on its own rather than because somebody did something.
  */
 export function simulate(p: Patient, dt: number): [string, LogKind] | null {
+    if (p.outcome !== 'active') return null
+
     const bleed = totalBleed(p)
-    if (bleed > 0 && !p.cardiacArrest) {
-        p.blood = clamp(p.blood - bleed * dt * 0.12, 0, 100)
-        p.hr    = clamp(p.hr + bleed * dt * 0.05, 40, 190)
-        p.sysBp = clamp(p.sysBp - bleed * dt * 0.05, 30, 190)
+    if (bleed > 0) {
+        /*
+           A stopped heart is not pushing anything out of the wound. It still
+           seeps — pressure and gravity do not need a pulse — but nowhere near
+           the rate it did, which is why a casualty in arrest can be worked on
+           for minutes without emptying.
+        */
+        const rate = p.cardiacArrest ? 0.16 : 1
+        p.blood = clamp(p.blood - bleed * dt * 0.12 * rate, 0, 100)
+        if (!p.cardiacArrest) {
+            p.hr    = clamp(p.hr + bleed * dt * 0.05, 40, 190)
+            p.sysBp = clamp(p.sysBp - bleed * dt * 0.05, 30, 190)
+        }
     }
     p.pain = clamp(p.pain - dt * 0.25, 0, 100)
+
+    // Compressions run for a while after the action and then stop, so keeping
+    // the clock slow means going back and doing it again.
+    if (p.cprHold > 0) {
+        p.cprHold = Math.max(0, p.cprHold - dt)
+        p.cprActive = p.cprHold > 0
+    }
+
+    if (p.blood <= 0) {
+        kill(p, 'Exsanguination — no circulating volume left')
+        return ['CASUALTY HAS BLED OUT — declared dead', 'bad']
+    }
+
+    if (p.cardiacArrest) {
+        p.downtime += dt * (p.cprActive ? CPR_DOWNTIME_RATE : 1)
+        if (p.downtime >= DEATH_DOWNTIME) {
+            kill(p, 'Five minutes without an output')
+            return ['DOWNTIME EXCEEDED — casualty declared dead', 'bad']
+        }
+    }
 
     if (p.blood < 22 && !p.cardiacArrest) {
         // Bleeding out arrests as PEA — the heart is still trying, there is
@@ -388,7 +421,20 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         setRhythm(p, 'pea')
         return ['CASUALTY IN CARDIAC ARREST — PEA, hypovolaemic', 'bad']
     }
+
+    if (stabilityIssues(p).length === 0) {
+        p.outcome = 'stable'
+        return ['CASUALTY STABLE — ready for transport', 'good']
+    }
+
     return null
+}
+
+function kill(p: Patient, cause: string) {
+    p.outcome = 'dead'
+    p.cause = cause
+    p.cprActive = false
+    p.cprHold = 0
 }
 
 /** What the monitor should be making a noise about. */

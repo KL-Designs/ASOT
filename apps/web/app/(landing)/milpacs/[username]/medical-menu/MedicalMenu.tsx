@@ -8,9 +8,9 @@ import {
 } from './actions'
 import { Monitor } from './audio'
 import {
-    DIFFICULTIES, FALLBACK_CASUALTY, PARTS, RHYTHM_LABEL, WOUND_TYPES,
+    DEATH_DOWNTIME, DIFFICULTIES, FALLBACK_CASUALTY, PARTS, RHYTHM_LABEL, WOUND_TYPES,
     bloodWord, clamp, handover, jitter, newPatient, painWord, partBleeding, partSeverity, pName,
-    stampFrom, totalBleed,
+    stabilityIssues, stampFrom, totalBleed,
     type Casualty, type Difficulty, type PartId, type Patient, type Rhythm, type Triage,
 } from './model'
 import { TOOL_ICONS } from './icons'
@@ -219,6 +219,9 @@ export default function MedicalMenu({ roster, onClose }: {
     const [log, setLog] = useState<LogLine[]>([])
     const [toasts, setToasts] = useState<{ id: number, text: string }[]>([])
     const [clock, setClock] = useState('00:00:00')
+    /** Seconds since this casualty arrived. Frozen the moment they are decided. */
+    const [elapsed, setElapsed] = useState(0)
+    const startedAt = useRef(Date.now())
     const [note, setNote] = useState('')
 
     // The mission clock starts 37 minutes in — you are not the first responder.
@@ -283,6 +286,8 @@ export default function MedicalMenu({ roster, onClose }: {
         setBusy(null)
 
         const next = newPatient(drawCasualty(roster), d)
+        startedAt.current = Date.now()
+        setElapsed(0)
         commit(next)
         setDifficulty(d)
         setSel(null)
@@ -344,12 +349,20 @@ export default function MedicalMenu({ roster, onClose }: {
             last = now
             setClock(stampFrom(t0.current, now))
 
+            // Everything below is the casualty's clock, and it stops when they
+            // do — a decided casualty should not keep bleeding on the board.
+            if (live.current.outcome !== 'active') return
+            setElapsed((now - startedAt.current) / 1000)
+
             const next = structuredClone(live.current)
             const event = simulate(next, dt)
             commit(next)
+            // The sim only speaks up when something happened on its own, and
+            // it is no longer only ever an arrest — it is also bleeding out,
+            // running the downtime clock out, and getting there.
             if (event) {
                 pushLog(event[0], event[1])
-                pushToast('CARDIAC ARREST')
+                pushToast(event[0])
             }
         }, 250)
         return () => clearInterval(id)
@@ -367,7 +380,7 @@ export default function MedicalMenu({ roster, onClose }: {
     }
 
     function startAction(a: Action) {
-        if (busy) return
+        if (busy || patient.outcome !== 'active') return
         const seconds = actionTime(tool, a)
         if (seconds <= 0) { applyAction(a); return }
 
@@ -411,6 +424,7 @@ export default function MedicalMenu({ roster, onClose }: {
     }
 
     /* ---------- derived ---------------------------------------------------- */
+    const issues = stabilityIssues(patient)
     const bleeding = totalBleed(patient) > 0
     const [bw, bcls] = bloodWord(patient.blood)
     const pw = painWord(patient.pain)
@@ -518,7 +532,7 @@ export default function MedicalMenu({ roster, onClose }: {
                                                     key={row.id}
                                                     type='button'
                                                     className={s.trow}
-                                                    disabled={!!busy || (row.needsPart && !sel)}
+                                                    disabled={!!busy || patient.outcome !== 'active' || (row.needsPart && !sel)}
                                                     onClick={() => startAction(row)}
                                                 >
                                                     <span className={`${s.dot} ${row.dot ? DOT_CLASS[row.dot] : ''}`} />
@@ -683,6 +697,16 @@ export default function MedicalMenu({ roster, onClose }: {
                                     <div className={`${s.ovline} ${s.ovlineDim}`}>No apparent injuries.</div>
                                 )}
 
+                                {patient.cardiacArrest && patient.outcome === 'active' && (
+                                    <div className={s.downtime}>
+                                        <span>
+                                            DOWNTIME {mmss(patient.downtime)} / {mmss(DEATH_DOWNTIME)}
+                                            {patient.cprActive && <b> · CPR SLOWING</b>}
+                                        </span>
+                                        <i style={{ width: `${Math.min(100, patient.downtime / DEATH_DOWNTIME * 100)}%` }} />
+                                    </div>
+                                )}
+
                                 <Vitals patient={patient} />
                                 <Ecg patient={patient} monitor={monitor} />
                                 <div className={s.bloodbar}><i style={{ width: `${patient.blood}%` }} /></div>
@@ -730,6 +754,17 @@ export default function MedicalMenu({ roster, onClose }: {
                                         <div className={s.ovsub}>{patient.airway} in situ</div>
                                     </div>
                                 )}
+
+                                {/* What still stands between this casualty and a
+                                    handover. Listed rather than reduced to a
+                                    light, so you are not guessing which box is
+                                    unticked. */}
+                                <div className={s.ovpart}>
+                                    <h4>To stabilise</h4>
+                                    {issues.length === 0
+                                        ? <div className={s.ovsub} style={{ color: 'var(--green)' }}>Nothing outstanding.</div>
+                                        : issues.map(i => <div key={i} className={s.ovsub}>· {i}</div>)}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -757,6 +792,29 @@ export default function MedicalMenu({ roster, onClose }: {
                     </div>
                 </div>
 
+                {patient.outcome !== 'active' && (
+                    <div className={`${s.board} ${patient.outcome === 'stable' ? s.boardWin : s.boardLose}`}>
+                        <div className={s.boardCard}>
+                            <div className={s.boardTag}>
+                                {patient.outcome === 'stable' ? 'Casualty stable' : 'Casualty deceased'}
+                            </div>
+                            <div className={s.boardName}>{patient.name}</div>
+                            <div className={s.boardTime}>{mmss(elapsed)}</div>
+                            <div className={s.boardSub}>
+                                {patient.outcome === 'stable'
+                                    ? 'Handed over for transport'
+                                    : patient.cause}
+                            </div>
+                            <div className={s.boardBtns}>
+                                <button type='button' className={s.boardGo} onClick={() => resetPatient(difficulty)}>
+                                    Next casualty
+                                </button>
+                                <button type='button' className={s.boardOut} onClick={onClose}>Close</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className={s.toastwrap}>
                     {toasts.map(t => <div key={t.id} className={s.toast}>{t.text}</div>)}
                 </div>
@@ -767,6 +825,12 @@ export default function MedicalMenu({ roster, onClose }: {
     // Portalled to the document so the milpac page's own stacking contexts and
     // `overflow-x: hidden` cannot clip or trap it.
     return createPortal(body, document.body)
+}
+
+/** m:ss, for the clocks that count a casualty rather than a mission. */
+function mmss(seconds: number): string {
+    const s = Math.max(0, Math.floor(seconds))
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
 /** Somebody off the roster, or the stand-in when the ORBAT gave us nobody. */
