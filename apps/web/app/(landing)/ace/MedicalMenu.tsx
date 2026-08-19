@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import {
     ACTIONS, TOOLS, TOOL_SEPS, actionTime, alarmFor, blockedBy, simulate, visibleRows,
     type Action, type ActionRow, type LogKind, type ToolId,
@@ -186,6 +185,7 @@ const LOG_CLASS: Record<LogKind, string> = { '': '', good: s.loglineGood, warn: 
 export default function MedicalMenu({ roster, onClose }: {
     /** Candidate casualties, pulled from the ORBAT by the server. */
     roster: Casualty[]
+    /** Leaving. A navigation now rather than a state change — see ./page.tsx. */
     onClose: () => void
 }) {
     const [difficulty, setDifficulty] = useState<Difficulty>('moderate')
@@ -354,7 +354,7 @@ export default function MedicalMenu({ roster, onClose }: {
         }
     })
 
-    /* ---------- modal chrome: escape, scroll lock ------------------------- */
+    /* ---------- keyboard ---------------------------------------------------- */
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             const el = e.target as HTMLElement | null
@@ -362,27 +362,19 @@ export default function MedicalMenu({ roster, onClose }: {
 
             if (e.key === 'Escape') {
                 // Escape unwinds one step at a time — abort the treatment, then
-                // drop the selected limb, and only close once there is nothing
-                // left to let go of. One stray key should never throw away a
-                // casualty you were half-way through.
+                // drop the selected limb. It stops there: this is a page now,
+                // and a stray key should not navigate away from a casualty you
+                // were half-way through.
                 if (cancelRef.current()) return
-                setSel(prev => {
-                    if (prev === null) onClose()
-                    return null
-                })
+                setSel(null)
                 return
             }
             const n = parseInt(e.key, 10)
             if (n >= 1 && n <= TOOLS.length) setTool(TOOLS[n - 1].id)
         }
         document.addEventListener('keydown', onKey)
-        const previous = document.body.style.overflow
-        document.body.style.overflow = 'hidden'
-        return () => {
-            document.removeEventListener('keydown', onKey)
-            document.body.style.overflow = previous
-        }
-    }, [onClose])
+        return () => document.removeEventListener('keydown', onKey)
+    }, [])
 
     /* ---------- sim loop --------------------------------------------------- */
     useEffect(() => {
@@ -528,9 +520,9 @@ export default function MedicalMenu({ roster, onClose }: {
     const pw = painWord(patient.pain)
     const selLabel = sel ? pName(sel) : hover ? pName(hover) : 'None'
 
-    const body = (
-        <div className={s.scrim} onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
-            <div className={s.root} role='dialog' aria-modal='true' aria-label='HZN-MED medical menu'>
+    return (
+        <div className={s.page}>
+            <div className={s.root} aria-label='HZN-MED medical menu'>
 
                 <div className={s.scene} aria-hidden>
                     <div className={s.sky} /><div className={s.ground} /><div className={s.medic} />
@@ -571,7 +563,7 @@ export default function MedicalMenu({ roster, onClose }: {
 
                         <span className={s.meta}>MISSION {clock}</span>
                         <span className={s.meta}>MEDIC · <b>DOC-1 KODA</b></span>
-                        <button type='button' className={s.xbtn} title='Close' aria-label='Close' onClick={onClose}>✕</button>
+                        <button type='button' className={s.xbtn} title='Back to the milpac' aria-label='Back to the milpac' onClick={onClose}>✕</button>
                     </div>
 
                     <div className={s.grid}>
@@ -1180,7 +1172,7 @@ export default function MedicalMenu({ roster, onClose }: {
                                 <button type='button' className={s.boardGo} onClick={() => resetPatient(difficulty)}>
                                     Next casualty
                                 </button>
-                                <button type='button' className={s.boardOut} onClick={onClose}>Close</button>
+                                <button type='button' className={s.boardOut} onClick={onClose}>Leave</button>
                             </div>
                         </div>
                     </div>
@@ -1193,9 +1185,7 @@ export default function MedicalMenu({ roster, onClose }: {
         </div>
     )
 
-    // Portalled to the document so the milpac page's own stacking contexts and
-    // `overflow-x: hidden` cannot clip or trap it.
-    return createPortal(body, document.body)
+
 }
 
 /** m:ss, for the clocks that count a casualty rather than a mission. */
@@ -1312,8 +1302,9 @@ function OnBoard({ patient: p }: { patient: Patient }) {
                 const at = intensity(drug, d.age)
                 const left = Math.max(0, Math.ceil(drug.duration - d.age))
                 return (
-                    <div key={d.id} className={s.dose}>
+                    <div key={d.id} className={`${s.dose} ${d.over ? s.doseOver : ''}`}>
                         <span>{drug.label}</span>
+                        {d.over && <span className={s.overTag}>OVER</span>}
                         <b>{d.age < drug.onset ? 'taking hold' : `${left}s`}</b>
                         <i style={{ width: `${at * 100}%` }} />
                     </div>

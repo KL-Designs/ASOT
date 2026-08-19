@@ -638,10 +638,27 @@ export interface Drug {
     effect: Partial<Record<VitalKey, number>>
     /** What it multiplies the bleeding by, if it does anything to bleeding. */
     bleedMul?: number
-    /** Doses that will still do something. Past this you are only adding risk. */
+    /** Doses that do what it says on the label. Past this you are dosing, not treating. */
     max: number
     /** Drugs this one reverses. Given, it pulls them straight back out. */
     antagonises?: DrugId[]
+    /**
+     * What too much of it does.
+     *
+     * Applied on top of the normal effect, by every dose past `max` — so the
+     * fourth ampoule of adrenaline still does everything the first one did and
+     * a great deal you did not want. The menu will let you give it. Refusing
+     * would be the safe design and the useless one: you cannot learn what an
+     * overdose looks like from a button that will not press.
+     */
+    toxic?: {
+        /** Extra offsets, per dose over the limit. */
+        effect?: Partial<Record<VitalKey, number>>
+        /** A rhythm it can throw the heart into, rolled once as the dose lands. */
+        rhythm?: { to: Rhythm, chance: number }
+        /** What to say when it bites. */
+        warn: string
+    }
 }
 
 /**
@@ -660,19 +677,31 @@ export interface Drug {
  * opposite effect but takes the opioid back off the board.
  */
 export const DRUGS: Record<DrugId, Drug> = {
-    morphine:      { label: 'Morphine',      dose: '10 mg IV', onset: 25, duration: 300, fade: 90,  max: 3, effect: { pain: -48, hr: -8, rr: -4, sysBp: -6 } },
-    nalbuphine:    { label: 'Nalbuphine',    dose: '10 mg IM', onset: 20, duration: 240, fade: 70,  max: 3, effect: { pain: -34, hr: -4, rr: -2 } },
-    fentanyl:      { label: 'Fentanyl',      dose: '800 µg',  onset: 12, duration: 180, fade: 50,  max: 3, effect: { pain: -42, rr: -3 } },
+    // The three opioids kill the same way and it is not the pain: they take the
+    // drive to breathe with them, and enough of them take it entirely.
+    morphine:      { label: 'Morphine',      dose: '10 mg IV', onset: 25, duration: 300, fade: 90,  max: 3, effect: { pain: -48, hr: -8, rr: -4, sysBp: -6 },
+        toxic: { effect: { rr: -6, sysBp: -10, spo2: -4 }, warn: 'Opioid overdose — respiratory drive going' } },
+    nalbuphine:    { label: 'Nalbuphine',    dose: '10 mg IM', onset: 20, duration: 240, fade: 70,  max: 3, effect: { pain: -34, hr: -4, rr: -2 },
+        toxic: { effect: { rr: -5, sysBp: -8 }, warn: 'Opioid overdose — respiratory drive going' } },
+    fentanyl:      { label: 'Fentanyl',      dose: '800 µg',  onset: 12, duration: 180, fade: 50,  max: 3, effect: { pain: -42, rr: -3 },
+        toxic: { effect: { rr: -7, spo2: -5 }, warn: 'Opioid overdose — respiratory drive going' } },
 
-    epi:           { label: 'Epinephrine',   dose: '1 mg',     onset: 8,  duration: 120, fade: 40,  max: 4, effect: { hr: 24, sysBp: 20, diaBp: 9 } },
-    atropine:      { label: 'Atropine',      dose: '0.5 mg',   onset: 10, duration: 200, fade: 60,  max: 3, effect: { hr: 18 } },
-    amiodarone:    { label: 'Amiodarone',    dose: '300 mg',   onset: 20, duration: 280, fade: 80,  max: 2, effect: { hr: -16, sysBp: -8 } },
-    phenylephrine: { label: 'Phenylephrine', dose: '100 µg',  onset: 10, duration: 90,  fade: 30,  max: 4, effect: { sysBp: 16, diaBp: 10, hr: -6 }, bleedMul: 0.8 },
+    epi:           { label: 'Epinephrine',   dose: '1 mg',     onset: 8,  duration: 120, fade: 40,  max: 4, effect: { hr: 24, sysBp: 20, diaBp: 9 },
+        toxic: { effect: { hr: 26, sysBp: 24 }, rhythm: { to: 'vf', chance: 0.35 }, warn: 'Adrenaline toxicity — the heart is irritable' } },
+    atropine:      { label: 'Atropine',      dose: '0.5 mg',   onset: 10, duration: 200, fade: 60,  max: 3, effect: { hr: 18 },
+        toxic: { effect: { hr: 26, spo2: -3 }, rhythm: { to: 'vt', chance: 0.2 }, warn: 'Atropine toxicity — rate running away' } },
+    amiodarone:    { label: 'Amiodarone',    dose: '300 mg',   onset: 20, duration: 280, fade: 80,  max: 2, effect: { hr: -16, sysBp: -8 },
+        toxic: { effect: { hr: -22, sysBp: -26 }, rhythm: { to: 'pea', chance: 0.25 }, warn: 'Amiodarone toxicity — pressure falling away' } },
+    phenylephrine: { label: 'Phenylephrine', dose: '100 µg',  onset: 10, duration: 90,  fade: 30,  max: 4, effect: { sysBp: 16, diaBp: 10, hr: -6 }, bleedMul: 0.8,
+        toxic: { effect: { sysBp: 26, diaBp: 16, hr: -14, spo2: -9 }, warn: 'Vessels clamped too hard — nothing is perfusing' } },
 
-    txa:           { label: 'TXA',           dose: '1 g slow', onset: 45, duration: 600, fade: 120, max: 1, effect: {}, bleedMul: 0.78 },
+    txa:           { label: 'TXA',           dose: '1 g slow', onset: 45, duration: 600, fade: 120, max: 1, effect: {}, bleedMul: 0.78,
+        toxic: { effect: { spo2: -6 }, warn: 'Too much TXA — clot where you did not want one' } },
     naloxone:      { label: 'Naloxone',      dose: '0.4 mg',   onset: 8,  duration: 150, fade: 40,  max: 3, effect: { rr: 4 },
-        antagonises: ['morphine', 'nalbuphine', 'fentanyl'] },
-    caffeine:      { label: 'Caffeine Gum',  dose: 'morale',   onset: 60, duration: 300, fade: 90,  max: 2, effect: { hr: 5 } },
+        antagonises: ['morphine', 'nalbuphine', 'fentanyl'],
+        toxic: { effect: { pain: 30, hr: 18, sysBp: 14 }, warn: 'Acute withdrawal — casualty is in agony' } },
+    caffeine:      { label: 'Caffeine Gum',  dose: 'morale',   onset: 60, duration: 300, fade: 90,  max: 2, effect: { hr: 5 },
+        toxic: { effect: { hr: 16 }, warn: 'Rather too much caffeine' } },
 }
 
 /** Respiratory rate below which they stop trying. Opioids get you here. */
@@ -690,6 +719,10 @@ export const DEPRESSED_RR = 5
 export interface Dose {
     id: number
     drug: DrugId
+    /** Given past the drug's limit. Carries the toxic effect as well as the normal one. */
+    over: boolean
+    /** Whether an over-limit dose has already rolled for what it might throw the heart into. */
+    bit: boolean
     /** Seconds since it went in. */
     age: number
     /** Fraction of the effect currently applied, 0–1. */
@@ -714,6 +747,9 @@ export function intensity(d: Drug, age: number): number {
     const fadeAt = d.duration - d.fade
     return age < fadeAt ? 1 : Math.max(0, (d.duration - age) / d.fade)
 }
+
+/** Doses on board that are past the label. */
+export const overdosed = (p: Patient) => p.doses.filter(d => d.over).length
 
 /** Whether a drug is actually working, as opposed to merely having been given. */
 export const onBoard = (p: Patient, drug: DrugId) =>

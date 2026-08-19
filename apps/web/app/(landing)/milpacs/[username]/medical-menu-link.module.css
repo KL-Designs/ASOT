@@ -1,0 +1,36 @@
+/* Dim until you are on it, and then only just. See medical-menu-link.tsx. */
+
+.wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 2px 2px;
+}
+
+.link {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 10px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    opacity: 0.4;
+    transition: opacity 0.18s, color 0.18s;
+}
+
+.link:hover { color: var(--acc); opacity: 1 }
+
+.mark { font-size: 1.2rem; line-height: 1 }
+
+/* Unrolls on hover rather than sitting there naming itself. */
+.label {
+    max-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition: max-width 0.22s ease;
+}
+
+.link:hover .label { max-width: 130px }

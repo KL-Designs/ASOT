@@ -34,8 +34,7 @@ import { kitIcon } from '@/lib/loadout/kit-icons'
 import { normaliseTags } from '@/lib/loadout/tags'
 import { LoadoutManager } from './loadout-manager'
 import RankProgress from '@/components/ui/RankProgress'
-import { MedicalMenuEgg } from './medical-menu'
-import { sampleCasualties } from './medical-menu/casualties'
+import { MedicalMenuLink } from './medical-menu-link'
 import s from './profile.module.css'
 
 
@@ -51,7 +50,7 @@ import s from './profile.module.css'
  * The one member whose overview carries the HZN-MED medical menu.
  *
  * An easter egg, matched against the Discord username or the milpac slug --
- * see the `showMedicalMenu` gate below and ./medical-menu/.
+ * see the `showMedicalMenu` gate below, ./medical-menu-link.tsx and app/(landing)/ace/.
  */
 const MEDICAL_MENU_MEMBER = 'res'
 
@@ -160,7 +159,6 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 		|| profile.canonical === MEDICAL_MENU_MEMBER
 	// Only queried for the one member who can see it — everyone else's milpac
 	// pays nothing for the egg.
-	const casualties = showMedicalMenu ? await sampleCasualties() : []
 
 	// Build uniform/box data (also used for the corps badge)
 	const uniformData = buildUniformData(member, orbatEntry)
@@ -452,7 +450,7 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 						)}
 					</div>
 				</div>
-				{showMedicalMenu && <MedicalMenuEgg roster={casualties} />}
+				{showMedicalMenu && <MedicalMenuLink />}
 				</>
 			)}
 

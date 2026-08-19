@@ -10,15 +10,14 @@
    game's UI, not like the rest of the site.
    ========================================================================== */
 
-.scrim {
-    position: fixed;
-    inset: 0;
-    z-index: 3000;
-    background: rgba(0, 0, 0, .72);
-    backdrop-filter: blur(3px);
+/* The page, not a scrim over one. It sits in the landing layout's flow under
+   the site nav rather than covering it, which is the whole difference between
+   what this was and what it is. */
+.page {
     display: grid;
     place-items: center;
-    padding: 2vh 2vw;
+    padding: 14px 2vw 26px;
+    background: #070908;
     animation: fade .18s ease;
 }
 
@@ -46,7 +45,7 @@
 
     position: relative;
     width: min(1480px, 100%);
-    height: min(940px, 96vh);
+    height: min(940px, 84vh);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -746,6 +745,21 @@
     letter-spacing: 2px;
     text-transform: uppercase;
     color: var(--txt-mute);
+}
+
+/* Past the label. */
+.doseOver { border-color: rgba(224, 59, 49, .55); background: rgba(224, 59, 49, .12) }
+.doseOver > i { background: var(--red) }
+
+.overTag {
+    font-family: monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: #fff;
+    background: var(--red);
+    padding: 1px 5px;
+    border-radius: 2px;
 }
 
 /* A drug on board, with its own curve as the bar. */

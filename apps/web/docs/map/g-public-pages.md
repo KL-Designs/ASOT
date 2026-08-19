@@ -327,6 +327,39 @@ milpacs index and (indirectly via similar pattern) other roster pages.
 Client sticky nav bar with dropdown sub-sections; smooth-scrolls to `#section-id` anchors on the
 milpacs index page.
 
+### app/(landing)/ace/ — HZN-MED
+
+`/ace`. A parody of ARMA's ACE + KAT medical interface, and the only thing on the site
+that is a game: you are handed a casualty off the ORBAT and have to keep them alive.
+Began as a modal inside one member's milpac and outgrew it. **Unlisted rather than
+gated** — no nav entry and `robots: noindex`; the milpac link above is how you are
+meant to find it. Public read, no writes, nothing persisted: close the page and the
+casualty is gone.
+
+- `page.tsx` — server. Samples the roster and renders the client half. Metadata only.
+- `ace-client.tsx` — `next/dynamic({ ssr: false })` around the menu, because it is
+  entirely a client machine (AudioContext, animation frame, 250 ms sim loop). Answers
+  the menu's Close with a navigation back to `/milpacs/res`.
+- `casualties.ts` — server-only. Samples up to 40 names off the ORBAT
+  (`Db.orbatPositions` → `Db.users`, projected) so the patient is somebody in the unit,
+  with rank, callsign and avatar. Deliberately **not** `fetchORBAT()` — that loads the
+  whole collection for four fields.
+- `model.ts` — the casualty and the rules about them. Pure and serialisable: wound
+  types and the bandage chart, fluids and dilution, the drug table with onsets/durations
+  /overdose thresholds, rhythms, the airway, consciousness, what counts as stable.
+  **The place to change how anything behaves.**
+- `actions.ts` — the treatment tables (`TOOLS`, `ACTIONS`, `visibleRows`, `blockedBy`)
+  and `simulate()`, the 250 ms tick. Every `run` mutates the casualty it is handed and
+  returns what to say about it; the component clones first, which is also the seam a
+  server would slot into.
+- `MedicalMenu.tsx` — the whole UI. A `live` ref keeps the sim loop and your clicks
+  from forking off the same render; the ECG runs on its own animation frame rather than
+  React state.
+- `audio.ts` — the monitor's voice. Synthesised (oscillators + one noise buffer),
+  context created lazily inside a user gesture, and nothing in it throws.
+- `icons.tsx` / `medical-menu.module.css` — toolbar glyphs, and the standalone
+  document's CSS scoped onto a `.root` class.
+
 #### app/(landing)/milpacs/[username]/layout.tsx
 Clears default OG/Twitter images (overridden per-profile by `opengraph-image.tsx`).
 **There is deliberately no `loading.tsx` beside it** — unlike the other landing routes. Now that each
@@ -369,36 +402,11 @@ same trigger, but only when the promotion history does not already offer that ra
 (`POST /api/award-request`). Public read (no login required to view a profile), but edit actions
 require login/role.
 
-#### app/(landing)/milpacs/[username]/medical-menu/
-
-HZN-MED — an easter egg, and the only thing on the site that is a game. A
-parody of ARMA's ACE + KAT medical interface, gated to one member: `milpac-file.tsx`
-renders `<MedicalMenuEgg/>` under the overview only when the resolved profile is
-`MEDICAL_MENU_MEMBER`, so for everybody else nothing is fetched, rendered or shipped.
-
-- `index.tsx` — the trigger. A small centred button at the foot of the overview;
-  `next/dynamic({ ssr: false })` so none of the below reaches anybody else's bundle.
-- `casualties.ts` — server-only. Samples up to 40 names off the ORBAT
-  (`Db.orbatPositions` → `Db.users`, projected) so the patient on the table is
-  somebody in the unit, with their rank, callsign and avatar. Deliberately *not*
-  `fetchORBAT()` — that loads the whole collection for four fields.
-- `model.ts` — the casualty, and the rules about them. Pure and serialisable:
-  wound types and the bandage chart, fluids, the drug table, rhythms, the airway,
-  consciousness, what counts as stable. **The place to change how anything behaves.**
-- `actions.ts` — the treatment tables (`TOOLS`, `ACTIONS`) and `simulate()`, the
-  250 ms tick. Every `run` mutates the casualty it is handed and returns what to
-  say about it; the component clones first, which is also the seam a server would
-  slot into.
-- `MedicalMenu.tsx` — the modal. Portalled to `document.body`; a `live` ref keeps
-  the sim loop and your clicks from forking off the same render, and the ECG runs
-  on its own animation frame rather than React state.
-- `audio.ts` — the monitor's voice. Synthesised (oscillators + one noise buffer),
-  context created lazily inside a user gesture, and nothing in it throws.
-- `icons.tsx` / `medical-menu.module.css` — toolbar glyphs, and the whole
-  standalone document's CSS scoped onto a `.root` class.
-
-Public read like the rest of the profile; no API routes, no writes, no persistence
-— close it and the casualty is gone.
+#### app/(landing)/milpacs/[username]/medical-menu-link.tsx
+The only link to `/ace`. Rendered at the foot of one member's overview — see the
+`MEDICAL_MENU_MEMBER` gate in `milpac-file.tsx` — as a dim caduceus that only unrolls
+into a label on hover. A plain `<Link>` with its own CSS module, so every other milpac
+carries nothing at all for it.
 
 #### app/(landing)/milpacs/[username]/RequestAwardButton.tsx
 Client modal: lets a logged-in member (not the profile owner) nominate an award for this member,

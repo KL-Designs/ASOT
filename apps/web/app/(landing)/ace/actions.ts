@@ -6,8 +6,8 @@ import {
     airwayOpen, arrestHr, bestBandage, bleedFactor, breathing, clamp, dressingLife, handsFull, intensity,
     isConscious, jitter, nextWound, onBoard, pName, reopenChance, setRhythm, stabilityIssues,
     totalBleed, ventilating,
-    type Adjunct, type BandageId, type BodyPart, type DrugId, type FluidId, type Patient,
-    type PartId, type VitalKey,
+    type Adjunct, type BandageId, type BodyPart, type Dose, type DrugId, type FluidId,
+    type Patient, type PartId, type VitalKey,
 } from './model'
 
 /* ============================================================================
@@ -211,9 +211,10 @@ const VITAL_CAP: Record<VitalKey, number> = { pain: 100, spo2: 100, hr: 250, sys
  */
 function give(p: Patient, id: DrugId): [string, LogKind] {
     const drug = DRUGS[id]
-    if (p.meds.filter(m => m === drug.label).length >= drug.max) {
-        return [`${drug.label} — max dose reached, refused`, 'bad']
-    }
+    // Past the label it still goes in. Refusing would be the safe design and
+    // the useless one — you cannot learn what an overdose looks like from a
+    // button that will not press.
+    const over = p.meds.filter(m => m === drug.label).length >= drug.max
     p.meds.push(drug.label)
 
     /*
@@ -230,13 +231,27 @@ function give(p: Patient, id: DrugId): [string, LogKind] {
         reversed++
     }
 
-    p.doses.push({ id: p.doseSeq++, drug: id, age: 0, applied: 0, hrApplied: 0 })
+    p.doses.push({ id: p.doseSeq++, drug: id, over, age: 0, bit: false, applied: 0, hrApplied: 0 })
+    if (over) return [`${drug.label} — past the maximum dose, and it is going in anyway`, 'bad']
     if (reversed) return [`${drug.label} given — ${reversed} opioid dose(s) reversing`, 'warn']
     return [`${drug.label} ${drug.dose} — in, working in ${drug.onset}s`, 'good']
 }
 
+/** What a dose is actually worth, which for an overdose is rather more. */
+function doseEffect(d: Dose): Partial<Record<VitalKey, number>> {
+    const drug = DRUGS[d.drug]
+    if (!d.over || !drug.toxic?.effect) return drug.effect
+    const out: Partial<Record<VitalKey, number>> = { ...drug.effect }
+    for (const k in drug.toxic.effect) {
+        const key = k as VitalKey
+        out[key] = (out[key] ?? 0) + (drug.toxic.effect[key] ?? 0)
+    }
+    return out
+}
+
 /** Everything on board, coming up and going back down. */
-function metabolise(p: Patient, dt: number) {
+function metabolise(p: Patient, dt: number): [string, LogKind] | null {
+    let said: [string, LogKind] | null = null
     // Rate is assigned outright by an arrest or by your hands, so nothing a
     // drug does to it is in that number while either is true.
     const rateForced = p.cardiacArrest || p.cprActive
@@ -245,21 +260,35 @@ function metabolise(p: Patient, dt: number) {
         d.age += dt
         const drug = DRUGS[d.drug]
         const want = intensity(drug, d.age)
+        const eff = doseEffect(d)
 
         const step = want - d.applied
         if (step !== 0) {
-            for (const k in drug.effect) {
+            for (const k in eff) {
                 const key = k as VitalKey
                 if (key === 'hr') continue
-                p[key] = clamp(p[key] + (drug.effect[key] ?? 0) * step, 0, VITAL_CAP[key])
+                p[key] = clamp(p[key] + (eff[key] ?? 0) * step, 0, VITAL_CAP[key])
             }
             d.applied = want
+        }
+
+        // An overdose bites once, as it comes fully on board, and what it does
+        // is a coin toss rather than a certainty — which is the honest version
+        // and the one that makes it worth not finding out.
+        if (d.over && !d.bit && want >= 0.99) {
+            d.bit = true
+            const t = drug.toxic
+            said = [t?.warn ?? `${drug.label} — too much`, 'bad']
+            if (t?.rhythm && !p.cardiacArrest && Math.random() < t.rhythm.chance) {
+                setRhythm(p, t.rhythm.to)
+                said = [`${drug.label.toUpperCase()} OVERDOSE — ${RHYTHM_LABEL[t.rhythm.to]}`, 'bad']
+            }
         }
 
         if (rateForced) { d.hrApplied = 0; continue }
         const hrStep = want - d.hrApplied
         if (hrStep !== 0) {
-            p.hr = clamp(p.hr + (drug.effect.hr ?? 0) * hrStep, 0, VITAL_CAP.hr)
+            p.hr = clamp(p.hr + (eff.hr ?? 0) * hrStep, 0, VITAL_CAP.hr)
             d.hrApplied = want
         }
     }
@@ -267,6 +296,7 @@ function metabolise(p: Patient, dt: number) {
     // Applied first, dropped after: a dose that has run out unwinds itself on
     // the tick it expires, and only then stops being anybody's business.
     p.doses = p.doses.filter(d => d.age < DRUGS[d.drug].duration)
+    return said
 }
 
 /**
@@ -828,7 +858,7 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         return ['CASUALTY HAS DIED OF HYPOXIA — no air was moving', 'bad']
     }
 
-    metabolise(p, dt)
+    event = metabolise(p, dt) ?? event
     if (p.wake > 0) p.wake = Math.max(0, p.wake - dt)
 
     // Enough opioid and they stop trying to breathe. Naloxone is the way back;
