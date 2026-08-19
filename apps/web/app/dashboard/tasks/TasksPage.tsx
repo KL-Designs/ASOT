@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Typography, Tabs, Tab, Dialog, DialogContent, TextField, Autocomplete } from '@mui/material'
+import { Tabs, Tab, Dialog, DialogContent, TextField, Autocomplete } from '@mui/material'
 import { Add, Delete, OpenInNew, NotificationsActive, CalendarToday, Person, Warning } from '@mui/icons-material'
-import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
+import { Button, PageHead } from '@/components/dashboard'
 import { useLockout } from '@/app/dashboard/StaffDashboardShell'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -48,18 +48,25 @@ interface MemberOption { id: string; displayName: string; username: string }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
+/*
+   One palette for the whole screen.
+
+   These were five hand-picked hexes that happened to be near the site's own
+   tokens without matching any of them, so an amber task badge and an amber
+   warning banner were two different ambers sitting a few pixels apart.
+*/
 function typeBadge(type?: TaskType): { label: string; color: string } {
-    if (type === 'attendance')         return { label: 'ATT', color: '#f97316' }
-    if (type === 'application_review') return { label: 'APP', color: '#3b82f6' }
-    if (type === 'extension_review')   return { label: 'EXT', color: '#f59e0b' }
-    return { label: 'TSK', color: 'rgba(237,237,237,0.3)' }
+    if (type === 'attendance')         return { label: 'ATT', color: 'var(--amber)' }
+    if (type === 'application_review') return { label: 'APP', color: 'var(--info)' }
+    if (type === 'extension_review')   return { label: 'EXT', color: 'var(--amber)' }
+    return { label: 'TSK', color: 'var(--txt-3)' }
 }
 
 function statusColor(s: TaskStatus) {
-    if (s === 'completed')   return 'rgba(34,197,94,0.7)'
-    if (s === 'in_progress') return '#f59e0b'
-    if (s === 'overdue')     return 'rgba(219,0,29,0.8)'
-    return 'rgba(237,237,237,0.35)'
+    if (s === 'completed')   return 'var(--live)'
+    if (s === 'in_progress') return 'var(--amber)'
+    if (s === 'overdue')     return 'var(--red)'
+    return 'var(--txt-3)'
 }
 
 function fmtDate(iso?: string | null, withTime = true) {
@@ -84,15 +91,18 @@ const inputSx = {
 }
 
 const fldLabel: React.CSSProperties = {
-    display: 'block', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.14em',
-    textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 4,
+    display: 'block', fontFamily: 'var(--font-mono)', fontSize: '9.5px', fontWeight: 600,
+    letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6,
 }
 
+// Matches the kit's .inp — this screen builds its inputs by spreading a style
+// object rather than taking a className, so the values are restated here rather
+// than the rule being duplicated in CSS.
 const rawInput: React.CSSProperties = {
-    display: 'block', width: '100%', fontSize: '0.8rem', color: 'rgba(237,237,237,0.85)',
-    background: 'rgba(255,255,255,0.04)', padding: '7px 10px',
+    display: 'block', width: '100%', fontSize: '13px', color: 'var(--txt-1)',
+    background: 'var(--ink-1)', padding: '8px 11px',
     border: '1px solid var(--line-2)', boxSizing: 'border-box',
-    outline: 'none', borderRadius: 0, colorScheme: 'dark', fontFamily: 'inherit',
+    outline: 'none', borderRadius: 3, colorScheme: 'dark', fontFamily: 'inherit',
 }
 
 const rawTextarea: React.CSSProperties = { ...rawInput, resize: 'vertical', lineHeight: 1.5 }
@@ -104,14 +114,18 @@ function ActionBtn({ label, icon, color, onClick, disabled }: {
 }) {
     return (
         <button onClick={onClick} disabled={disabled} style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            background: 'none', border: `1px solid ${disabled ? 'rgba(255,255,255,0.1)' : color}`,
-            color: disabled ? 'rgba(255,255,255,0.2)' : color,
-            padding: '4px 10px', cursor: disabled ? 'not-allowed' : 'pointer', borderRadius: 3,
-            fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', transition: 'background 0.12s',
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: 'none',
+            border: `1px solid ${disabled ? 'var(--line-1)' : `color-mix(in srgb, ${color} 45%, transparent)`}`,
+            color: disabled ? 'var(--txt-4)' : color,
+            height: 28, padding: '0 11px', cursor: disabled ? 'not-allowed' : 'pointer', borderRadius: 3,
+            fontFamily: 'var(--font-mono)', fontSize: '9.5px', fontWeight: 600,
+            letterSpacing: '0.13em', textTransform: 'uppercase', transition: 'background .14s, border-color .14s',
         }}
-            onMouseEnter={e => { if (!disabled) (e.currentTarget.style.background = color.replace(/,\s*[\d.]+\)$/, ', 0.12)')) }}
-            onMouseLeave={e => { if (!disabled) (e.currentTarget.style.background = 'none') }}
+            // color-mix rather than a regex over the colour string: these are
+            // tokens now, and `var(--live)` has no alpha channel to rewrite.
+            onMouseEnter={e => { if (!disabled) { e.currentTarget.style.background = `color-mix(in srgb, ${color} 12%, transparent)`; e.currentTarget.style.borderColor = color } }}
+            onMouseLeave={e => { if (!disabled) { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = `color-mix(in srgb, ${color} 45%, transparent)` } }}
         >{icon}{label}</button>
     )
 }
@@ -173,7 +187,7 @@ function ExtDecisionForm({
                     color={mode === 'approve' ? 'rgba(34,197,94,0.7)' : mode === 'deny' ? 'rgba(219,0,29,0.6)' : 'rgba(245,158,11,0.7)'}
                     onClick={submit}
                 />
-                <ActionBtn label='Back' color='rgba(237,237,237,0.3)' onClick={onBack} />
+                <ActionBtn label='Back' color='var(--txt-3)' onClick={onBack} />
             </div>
         </div>
     )
@@ -350,9 +364,9 @@ function TaskCard({
                             </div>
                             {extDecisionMode === null || extDecisionContext !== 'direct' ? (
                                 <div style={{ display: 'flex', gap: 6 }}>
-                                    <ActionBtn label='Approve' color='rgba(34,197,94,0.7)' onClick={() => openExtDecision('approve', 'direct')} />
-                                    <ActionBtn label='Deny' color='rgba(219,0,29,0.6)' onClick={() => openExtDecision('deny', 'direct')} />
-                                    <ActionBtn label='Suggest Alternative' color='rgba(245,158,11,0.6)' onClick={() => openExtDecision('alternative', 'direct')} />
+                                    <ActionBtn label='Approve' color='var(--live)' onClick={() => openExtDecision('approve', 'direct')} />
+                                    <ActionBtn label='Deny' color='var(--red)' onClick={() => openExtDecision('deny', 'direct')} />
+                                    <ActionBtn label='Suggest Alternative' color='var(--amber)' onClick={() => openExtDecision('alternative', 'direct')} />
                                 </div>
                             ) : (
                                 <ExtDecisionForm mode={extDecisionMode} onConfirm={submitExtDecision} onBack={() => setExtDecisionMode(null)} />
@@ -383,9 +397,9 @@ function TaskCard({
                             </div>
                             {!reassignDecision ? (
                                 <div style={{ display: 'flex', gap: 6 }}>
-                                    <ActionBtn label='Approve' color='rgba(34,197,94,0.7)' onClick={() => setReassignDecision('approve')} />
-                                    <ActionBtn label='Deny' color='rgba(219,0,29,0.6)' onClick={() => setReassignDecision('deny')} />
-                                    <ActionBtn label='Assign to Someone Else' color='rgba(59,130,246,0.7)' onClick={() => setReassignDecision('redirect')} />
+                                    <ActionBtn label='Approve' color='var(--live)' onClick={() => setReassignDecision('approve')} />
+                                    <ActionBtn label='Deny' color='var(--red)' onClick={() => setReassignDecision('deny')} />
+                                    <ActionBtn label='Assign to Someone Else' color='var(--info)' onClick={() => setReassignDecision('redirect')} />
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -418,7 +432,7 @@ function TaskCard({
                                                 setReassignDecision(null); setReassignDecisionNote(''); setReassignNewTarget(null); setReassignNewDue(''); setReassignNewReminder('')
                                             }}
                                         />
-                                        <ActionBtn label='Back' color='rgba(237,237,237,0.3)' onClick={() => { setReassignDecision(null); setReassignDecisionNote('') }} />
+                                        <ActionBtn label='Back' color='var(--txt-3)' onClick={() => { setReassignDecision(null); setReassignDecisionNote('') }} />
                                     </div>
                                 </div>
                             )}
@@ -435,8 +449,8 @@ function TaskCard({
                             </div>
                             {deleteDecision === null ? (
                                 <div style={{ display: 'flex', gap: 6 }}>
-                                    <ActionBtn label='Approve (delete)' color='rgba(219,0,29,0.7)' onClick={() => setDeleteDecision('approve')} />
-                                    <ActionBtn label='Deny' color='rgba(237,237,237,0.4)' onClick={() => setDeleteDecision('deny')} />
+                                    <ActionBtn label='Approve (delete)' color='var(--red)' onClick={() => setDeleteDecision('approve')} />
+                                    <ActionBtn label='Deny' color='var(--txt-3)' onClick={() => setDeleteDecision('deny')} />
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -444,13 +458,13 @@ function TaskCard({
                                     <div style={{ display: 'flex', gap: 6 }}>
                                         <ActionBtn
                                             label={deleteDecision === 'approve' ? 'Confirm Delete' : 'Confirm Denial'}
-                                            color={deleteDecision === 'approve' ? 'rgba(219,0,29,0.7)' : 'rgba(237,237,237,0.4)'}
+                                            color={deleteDecision === 'approve' ? 'var(--red)' : 'var(--txt-3)'}
                                             onClick={async () => {
                                                 await onAction(task._id, deleteDecision === 'approve' ? 'approve_delete' : 'deny_delete', { approverNote: deleteDecisionNote })
                                                 setDeleteDecision(null); setDeleteDecisionNote('')
                                             }}
                                         />
-                                        <ActionBtn label='Back' color='rgba(237,237,237,0.3)' onClick={() => { setDeleteDecision(null); setDeleteDecisionNote('') }} />
+                                        <ActionBtn label='Back' color='var(--txt-3)' onClick={() => { setDeleteDecision(null); setDeleteDecisionNote('') }} />
                                     </div>
                                 </div>
                             )}
@@ -462,10 +476,10 @@ function TaskCard({
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {extDecisionMode === null ? (
                                 <div style={{ display: 'flex', gap: 6 }}>
-                                    <ActionBtn label='Approve' color='rgba(34,197,94,0.7)' onClick={() => openExtDecision('approve', 'review')} />
-                                    <ActionBtn label='Deny' color='rgba(219,0,29,0.6)' onClick={() => openExtDecision('deny', 'review')} />
-                                    <ActionBtn label='Suggest Alternative' color='rgba(245,158,11,0.6)' onClick={() => openExtDecision('alternative', 'review')} />
-                                    <ActionBtn label='Delete' icon={<Delete sx={{ fontSize: '0.75rem' }} />} color='rgba(219,0,29,0.5)' onClick={() => setDeleteModal('direct')} />
+                                    <ActionBtn label='Approve' color='var(--live)' onClick={() => openExtDecision('approve', 'review')} />
+                                    <ActionBtn label='Deny' color='var(--red)' onClick={() => openExtDecision('deny', 'review')} />
+                                    <ActionBtn label='Suggest Alternative' color='var(--amber)' onClick={() => openExtDecision('alternative', 'review')} />
+                                    <ActionBtn label='Delete' icon={<Delete sx={{ fontSize: '0.75rem' }} />} color='var(--red)' onClick={() => setDeleteModal('direct')} />
                                 </div>
                             ) : (
                                 <ExtDecisionForm mode={extDecisionMode} onConfirm={submitExtDecision} onBack={() => setExtDecisionMode(null)} />
@@ -488,13 +502,13 @@ function TaskCard({
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', gap: 6 }}>
-                                        <ActionBtn label='Submit Request' color='rgba(245,158,11,0.7)' onClick={async () => {
+                                        <ActionBtn label='Submit Request' color='var(--amber)' onClick={async () => {
                                             if (extReqDate && extReqReason.trim()) {
                                                 await onAction(task._id, 'request_extension', { requestedDate: extReqDate, reason: extReqReason.trim() })
                                                 setRequestingExtension(false); setExtReqDate(''); setExtReqReason('')
                                             }
                                         }} />
-                                        <ActionBtn label='Cancel' color='rgba(237,237,237,0.3)' onClick={() => { setRequestingExtension(false); setExtReqDate(''); setExtReqReason('') }} />
+                                        <ActionBtn label='Cancel' color='var(--txt-3)' onClick={() => { setRequestingExtension(false); setExtReqDate(''); setExtReqReason('') }} />
                                     </div>
                                 </div>
                             )}
@@ -512,13 +526,13 @@ function TaskCard({
                                         <textarea value={reassignReason} onChange={e => setReassignReason(e.target.value)} rows={2} placeholder='Why should this be reassigned?' style={rawTextarea} />
                                     </div>
                                     <div style={{ display: 'flex', gap: 6 }}>
-                                        <ActionBtn label='Submit Request' color='rgba(59,130,246,0.7)' onClick={async () => {
+                                        <ActionBtn label='Submit Request' color='var(--info)' onClick={async () => {
                                             if (reassignTarget && reassignReason.trim()) {
                                                 await onAction(task._id, 'request_reassignment', { requestedToId: reassignTarget.id, requestedToName: reassignTarget.displayName, reason: reassignReason.trim() })
                                                 setRequestingReassign(false); setReassignTarget(null); setReassignSearch(''); setReassignReason('')
                                             }
                                         }} />
-                                        <ActionBtn label='Cancel' color='rgba(237,237,237,0.3)' onClick={() => { setRequestingReassign(false); setReassignTarget(null); setReassignSearch(''); setReassignReason('') }} />
+                                        <ActionBtn label='Cancel' color='var(--txt-3)' onClick={() => { setRequestingReassign(false); setReassignTarget(null); setReassignSearch(''); setReassignReason('') }} />
                                     </div>
                                 </div>
                             )}
@@ -588,8 +602,8 @@ function TaskCard({
                             {confirmingComplete && (
                                 <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                                     <TextField label='Completion notes (optional)' size='small' value={completingNotes} onChange={e => setCompletingNotes(e.target.value)} multiline rows={2} sx={{ ...inputSx, minWidth: 240 }} />
-                                    <ActionBtn label='Confirm' color='rgba(34,197,94,0.7)' onClick={async () => { await onAction(task._id, 'complete', { notes: completingNotes }); setConfirmingComplete(false) }} />
-                                    <ActionBtn label='Cancel' color='rgba(237,237,237,0.3)' onClick={() => setConfirmingComplete(false)} />
+                                    <ActionBtn label='Confirm' color='var(--live)' onClick={async () => { await onAction(task._id, 'complete', { notes: completingNotes }); setConfirmingComplete(false) }} />
+                                    <ActionBtn label='Cancel' color='var(--txt-3)' onClick={() => setConfirmingComplete(false)} />
                                 </div>
                             )}
 
@@ -597,30 +611,30 @@ function TaskCard({
                             {extending && (
                                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                                     <input type='datetime-local' value={newDueDate} onChange={e => setNewDueDate(e.target.value)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.8)', padding: '4px 8px', fontSize: '0.72rem', borderRadius: 2, outline: 'none', colorScheme: 'dark' }} />
-                                    <ActionBtn label='Save' color='rgba(34,197,94,0.7)' onClick={() => { if (newDueDate) { onAction(task._id, 'extend', { dueDate: newDueDate }); setExtending(false) } }} />
-                                    <ActionBtn label='Cancel' color='rgba(237,237,237,0.3)' onClick={() => setExtending(false)} />
+                                    <ActionBtn label='Save' color='var(--live)' onClick={() => { if (newDueDate) { onAction(task._id, 'extend', { dueDate: newDueDate }); setExtending(false) } }} />
+                                    <ActionBtn label='Cancel' color='var(--txt-3)' onClick={() => setExtending(false)} />
                                 </div>
                             )}
 
                             {/* ── Primary action buttons — hidden while any form is active ── */}
                             {!anyFormActive && (
                                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                    {task.actionUrl && <ActionBtn label='Open' icon={<OpenInNew sx={{ fontSize: '0.75rem' }} />} color='rgba(219,0,29,0.7)' onClick={() => (window.location.href = task.actionUrl!)} />}
+                                    {task.actionUrl && <ActionBtn label='Open' icon={<OpenInNew sx={{ fontSize: '0.75rem' }} />} color='var(--red)' onClick={() => (window.location.href = task.actionUrl!)} />}
 
                                     {task.status !== 'completed' && (
                                         <>
                                             {task.status === 'pending' && <ActionBtn label='Start' color='#f59e0b' onClick={() => onAction(task._id, 'start')} />}
-                                            <ActionBtn label='Complete' color='rgba(34,197,94,0.7)' onClick={() => setConfirmingComplete(true)} />
+                                            <ActionBtn label='Complete' color='var(--live)' onClick={() => setConfirmingComplete(true)} />
 
                                             {/* Creator: direct extend */}
-                                            {(isCreator || showAssignee) && <ActionBtn label='Extend' color='rgba(237,237,237,0.4)' onClick={() => setExtending(true)} />}
+                                            {(isCreator || showAssignee) && <ActionBtn label='Extend' color='var(--txt-3)' onClick={() => setExtending(true)} />}
 
                                             {/* Assignee-only actions */}
                                             {!showAssignee && isAssignee && (
                                                 <>
                                                     {task.extensionRequest?.status === 'pending'
                                                         ? <span style={{ fontSize: '0.6rem', color: 'rgba(245,158,11,0.7)', fontWeight: 600, letterSpacing: '0.06em', padding: '4px 0', alignSelf: 'center' }}>⏳ Extension requested</span>
-                                                        : <ActionBtn label='Request Extension' color='rgba(245,158,11,0.6)' onClick={() => setRequestingExtension(true)} />
+                                                        : <ActionBtn label='Request Extension' color='var(--amber)' onClick={() => setRequestingExtension(true)} />
                                                     }
                                                     {task.reassignmentRequest?.status === 'pending'
                                                         ? <span style={{ fontSize: '0.6rem', color: 'rgba(59,130,246,0.7)', fontWeight: 600, letterSpacing: '0.06em', padding: '4px 0', alignSelf: 'center' }}>🔁 Reassignment requested</span>
@@ -631,11 +645,11 @@ function TaskCard({
                                         </>
                                     )}
 
-                                    {task.status === 'completed' && <ActionBtn label='Re-open' color='rgba(237,237,237,0.4)' onClick={() => onAction(task._id, 'reopen')} />}
+                                    {task.status === 'completed' && <ActionBtn label='Re-open' color='var(--txt-3)' onClick={() => onAction(task._id, 'reopen')} />}
 
                                     {/* Delete: creator deletes directly (via modal); assignee sends delete request (via modal) */}
                                     {isCreator
-                                        ? <ActionBtn label='Delete' icon={<Delete sx={{ fontSize: '0.75rem' }} />} color='rgba(219,0,29,0.5)' onClick={() => setDeleteModal('direct')} />
+                                        ? <ActionBtn label='Delete' icon={<Delete sx={{ fontSize: '0.75rem' }} />} color='var(--red)' onClick={() => setDeleteModal('direct')} />
                                         : task.deleteRequest?.status === 'pending'
                                             ? <span style={{ fontSize: '0.6rem', color: 'rgba(219,0,29,0.6)', fontWeight: 600, letterSpacing: '0.06em', padding: '4px 0', alignSelf: 'center' }}>🗑️ Delete requested</span>
                                             : isAssignee
@@ -885,13 +899,15 @@ export default function TasksPage({ userId, displayName: _d, isElevated, isAllBa
 
             {/* Overdue lock banner */}
             {lockoutActive && (
-                <div style={{ margin: '16px 24px 0', background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.45)', borderLeft: '4px solid var(--red)', padding: '12px 16px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                    <Warning sx={{ fontSize: 20, color: 'rgba(219,0,29,0.8)', flexShrink: 0, marginTop: '2px' }} />
+                /* The one thing on this screen that has locked the member out
+                   of the portal, so it keeps every bit of its red. */
+                <div style={{ margin: '16px 24px 0', background: 'var(--red-wash)', border: '1px solid var(--line-2)', borderLeft: '3px solid var(--red)', padding: '12px 16px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                    <Warning sx={{ fontSize: 20, color: 'var(--red)', flexShrink: 0, marginTop: '2px' }} />
                     <div>
-                        <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(219,0,29,0.9)', marginBottom: 4 }}>
-                            OVERDUE TASKS REQUIRE ACTION
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--red)', marginBottom: 6 }}>
+                            Overdue tasks require action
                         </div>
-                        <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.5 }}>
+                        <div style={{ fontSize: '13px', color: 'var(--txt-2)', lineHeight: 1.5 }}>
                             {overdueUnactioned.length > 0
                                 ? 'You must action your overdue tasks before using the rest of the member portal.'
                                 : 'All overdue tasks have been actioned. You may return to the dashboard.'
@@ -907,22 +923,25 @@ export default function TasksPage({ userId, displayName: _d, isElevated, isAllBa
             )}
 
             {/* Header */}
-            <div className='flex items-center justify-between px-5 py-3 mx-6 mt-6' style={{ position: 'relative', border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.04)' }}>
-                <CornerBrackets />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--txt-4)' }}>{'//'}</span> UNIT</span>
-                    <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>Tasks</Typography>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button onClick={toggleCompleted} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer', borderRadius: 999, background: showCompleted ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.06)', border: `1px solid ${showCompleted ? 'rgba(34,197,94,0.4)' : 'rgba(219,0,29,0.25)'}`, color: showCompleted ? 'rgba(34,197,94,0.8)' : 'rgba(237,237,237,0.55)' }}>
-                        {showCompleted ? '● Showing completed' : '○ Show completed'}
-                    </button>
-                    {(tab === 0 || tab === 1 || (tab === 2 && isElevated)) && (
-                        <button onClick={() => setCreateOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', cursor: 'pointer', borderRadius: 999, background: 'rgba(219,0,29,0.25)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.9)' }}>
-                            <Add sx={{ fontSize: '0.85rem' }} /> New Task
-                        </button>
-                    )}
-                </div>
+            {/* One primary action per view: New Task. Show-completed is a
+                filter, so it stays subtle even when it is on. */}
+            <div className='mx-6 mt-6'>
+                <PageHead
+                    kicker={<>ASOT // Unit</>}
+                    title='Tasks'
+                    right={
+                        <>
+                            <Button variant={showCompleted ? 'subtle' : 'ghost'} size='sm' onClick={toggleCompleted}>
+                                {showCompleted ? '● Showing completed' : '○ Show completed'}
+                            </Button>
+                            {(tab === 0 || tab === 1 || (tab === 2 && isElevated)) && (
+                                <Button variant='primary' size='sm' onClick={() => setCreateOpen(true)}>
+                                    <Add sx={{ fontSize: '0.85rem' }} /> New task
+                                </Button>
+                            )}
+                        </>
+                    }
+                />
             </div>
 
             {/* Tabs — other tabs are disabled while lockout is active */}
