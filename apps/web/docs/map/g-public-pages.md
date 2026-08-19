@@ -369,6 +369,37 @@ same trigger, but only when the promotion history does not already offer that ra
 (`POST /api/award-request`). Public read (no login required to view a profile), but edit actions
 require login/role.
 
+#### app/(landing)/milpacs/[username]/medical-menu/
+
+HZN-MED — an easter egg, and the only thing on the site that is a game. A
+parody of ARMA's ACE + KAT medical interface, gated to one member: `milpac-file.tsx`
+renders `<MedicalMenuEgg/>` under the overview only when the resolved profile is
+`MEDICAL_MENU_MEMBER`, so for everybody else nothing is fetched, rendered or shipped.
+
+- `index.tsx` — the trigger. A small centred button at the foot of the overview;
+  `next/dynamic({ ssr: false })` so none of the below reaches anybody else's bundle.
+- `casualties.ts` — server-only. Samples up to 40 names off the ORBAT
+  (`Db.orbatPositions` → `Db.users`, projected) so the patient on the table is
+  somebody in the unit, with their rank, callsign and avatar. Deliberately *not*
+  `fetchORBAT()` — that loads the whole collection for four fields.
+- `model.ts` — the casualty, and the rules about them. Pure and serialisable:
+  wound types and the bandage chart, fluids, the drug table, rhythms, the airway,
+  consciousness, what counts as stable. **The place to change how anything behaves.**
+- `actions.ts` — the treatment tables (`TOOLS`, `ACTIONS`) and `simulate()`, the
+  250 ms tick. Every `run` mutates the casualty it is handed and returns what to
+  say about it; the component clones first, which is also the seam a server would
+  slot into.
+- `MedicalMenu.tsx` — the modal. Portalled to `document.body`; a `live` ref keeps
+  the sim loop and your clicks from forking off the same render, and the ECG runs
+  on its own animation frame rather than React state.
+- `audio.ts` — the monitor's voice. Synthesised (oscillators + one noise buffer),
+  context created lazily inside a user gesture, and nothing in it throws.
+- `icons.tsx` / `medical-menu.module.css` — toolbar glyphs, and the whole
+  standalone document's CSS scoped onto a `.root` class.
+
+Public read like the rest of the profile; no API routes, no writes, no persistence
+— close it and the casualty is gone.
+
 #### app/(landing)/milpacs/[username]/RequestAwardButton.tsx
 Client modal: lets a logged-in member (not the profile owner) nominate an award for this member,
 grouped by award type from `@/lib/military/awards`. Posts `POST /api/award-request`.
