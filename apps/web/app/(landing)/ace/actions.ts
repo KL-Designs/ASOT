@@ -1034,8 +1034,12 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
     if (awake !== p.conscious) {
         p.conscious = awake
         if (awake) {
-            // They hold their own airway again the moment they are back.
+            // They hold their own airway again the moment they are back — and
+            // nobody conscious stays where you put them. They roll off their
+            // side themselves, which also takes away the thing that was
+            // keeping the airway open for them.
             if (p.airway === 'tongue') p.airway = 'none'
+            p.recovery = false
             event = ['Casualty is coming round', 'good']
         } else {
             event = [collapse(p), 'bad']

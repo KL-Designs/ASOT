@@ -970,55 +970,23 @@ export default function MedicalMenu({ roster, onClose }: {
                             </div>
                         </div>
 
-                        {/* ---- overview ---- */}
+                        {/* ---- the monitor ---- */}
+                        <div className={`${s.col} ${s.colMonitor}`}>
+                            <div className={s.colhead}>MONITOR</div>
+                            <VitalsMonitor
+                                patient={patient}
+                                monitor={monitor}
+                                airOpen={airOpen}
+                                breathes={breathes}
+                            />
+                        </div>
+
+                        {/* ---- everything else ---- */}
                         <div className={`${s.col} ${s.colOverview}`}>
-                            <div className={s.colhead}>OVERVIEW</div>
+                            <div className={s.colhead}>DETAILS</div>
                             <div className={s.panel}>
-                                {patient.cardiacArrest && (
-                                    <div className={`${s.ovline} ${s.ovlineRed}`}>
-                                        CARDIAC ARREST — {patient.monitorOn ? RHYTHM_LABEL[patient.rhythm] : 'no monitor attached'}
-                                    </div>
-                                )}
-                                {patient.rhythm === 'stemi' && patient.monitorOn && (
-                                    <div className={`${s.ovline} ${s.ovlineYel}`}>{RHYTHM_LABEL.stemi}</div>
-                                )}
-                                {patient.outcome === 'active' && !breathes && !patient.bagging && (
-                                    <div className={`${s.ovline} ${s.ovlineRed} ${s.flash}`}>
-                                        NOT BREATHING — {airOpen ? 'get a bag on them' : 'open the airway, then bag'}
-                                    </div>
-                                )}
-                                {patient.outcome === 'active' && patient.spo2 <= 80 && (
-                                    <div className={`${s.ovline} ${s.ovlineRed} ${patient.spo2 <= 64 ? s.flash : ''}`}>
-                                        SpO₂ {Math.round(patient.spo2)}% — FATAL BELOW {FATAL_SPO2}%
-                                        {!airOpen && ' · AIRWAY BLOCKED'}
-                                    </div>
-                                )}
-                                {patient.pneumo && (
-                                    <div className={`${s.ovline} ${s.ovlineRed} ${s.flash}`}>
-                                        TENSION PNEUMOTHORAX — needs a needle
-                                    </div>
-                                )}
-                                {patient.reboa && (
-                                    <div className={s.reboa}>
-                                        <span>
-                                            REBOA UP {Math.round(patient.reboa.up)}s / {REBOA_FATAL}s
-                                            {patient.reboa.up > REBOA_WARN && <b> · LEGS DYING</b>}
-                                        </span>
-                                        <i style={{ width: `${Math.min(100, patient.reboa.up / REBOA_FATAL * 100)}%` }} />
-                                    </div>
-                                )}
                                 {patient.chestWound && !patient.sealed && !patient.pneumo && (
                                     <div className={`${s.ovline} ${s.ovlineYel}`}>Open chest wound — unsealed</div>
-                                )}
-                                {!patient.monitorOn && (
-                                    <div className={`${s.ovline} ${s.ovlineYel}`}>
-                                        No vitals monitor — attach one to an arm
-                                    </div>
-                                )}
-                                {!patient.padsOn && patient.cardiacArrest && (
-                                    <div className={`${s.ovline} ${s.ovlineYel}`}>
-                                        No defibrillator pads — site them on the chest
-                                    </div>
                                 )}
                                 {/* Whether they are with you. First, because it changes
                                     what every other line on this panel means. */}
@@ -1032,11 +1000,6 @@ export default function MedicalMenu({ roster, onClose }: {
                                                 : 'Unconscious · not responding'}
                                 </div>
 
-                                {patient.analysed && patient.analysed.rhythm === patient.rhythm && (
-                                    <div className={`${s.ovline} ${patient.analysed.advised ? s.ovlineRed : s.ovlineDim}`}>
-                                        {patient.analysed.advised ? 'Shock advised' : 'No shock advised'}
-                                    </div>
-                                )}
                                 {bleeding && <div className={`${s.ovline} ${s.ovlineRed}`}>Bleeding</div>}
 
                                 {bw && <div className={`${s.ovline} ${bcls === 'red' ? s.ovlineRed : s.ovlineYel}`}>{bw}</div>}
@@ -1046,16 +1009,6 @@ export default function MedicalMenu({ roster, onClose }: {
                                 )}
                                 {!bleeding && !bw && !pw && !patient.cardiacArrest && (
                                     <div className={`${s.ovline} ${s.ovlineDim}`}>No apparent injuries.</div>
-                                )}
-
-                                {patient.cardiacArrest && patient.outcome === 'active' && (
-                                    <div className={s.downtime}>
-                                        <span>
-                                            DOWNTIME {mmss(patient.downtime)} / {mmss(DEATH_DOWNTIME)}
-                                            {patient.cprActive && <b> · CPR SLOWING</b>}
-                                        </span>
-                                        <i style={{ width: `${Math.min(100, patient.downtime / DEATH_DOWNTIME * 100)}%` }} />
-                                    </div>
                                 )}
 
                                 {/* The limb you clicked, above everything about the
@@ -1068,10 +1021,6 @@ export default function MedicalMenu({ roster, onClose }: {
                                         selected
                                     />
                                 )}
-
-                                <Vitals patient={patient} />
-                                <Ecg patient={patient} monitor={monitor} />
-                                <div className={s.bloodbar}><i style={{ width: `${patient.blood}%` }} /></div>
 
                                 {/* Lines running. Sited under the volume bar because
                                     that is the bar they are filling, and left up while
@@ -1268,6 +1217,93 @@ function Vitals({ patient: p }: { patient: Patient }) {
 }
 
 /* ---------- ECG ----------------------------------------------------------- */
+
+/**
+ * The monitor, as a piece of kit.
+ *
+ * Everything a machine is telling you, in one box with a bezel round it —
+ * separated from the panel beside it, which is everything *you* know. The
+ * distinction is the point: the trace, the numbers and the alarms all go dark
+ * together the moment nothing is strapped to an arm, and what you found out by
+ * looking at the casualty carries on being true.
+ */
+function VitalsMonitor({ patient: p, monitor, airOpen, breathes }: {
+    patient: Patient
+    monitor: React.RefObject<Monitor | null>
+    airOpen: boolean
+    breathes: boolean
+}) {
+    const live = !!p.monitorOn
+    const arrested = p.cardiacArrest
+    const critical = live && p.outcome === 'active' && (p.spo2 <= 80 || arrested || p.pneumo)
+
+    return (
+        <div className={`${s.device} ${critical ? s.deviceAlarm : ''}`}>
+            <div className={s.deviceTop}>
+                <span className={`${s.led} ${live ? s.ledOn : ''}`} />
+                <span className={s.deviceName}>HZN-MED · FIELD MONITOR</span>
+                <span className={s.deviceState}>{live ? 'MONITORING' : 'STANDBY'}</span>
+            </div>
+
+            <div className={s.deviceScreen}>
+                <Ecg patient={p} monitor={monitor} />
+
+                {/* What the trace is, said in words, because a rhythm you have to
+                    recognise from the squiggle is a rhythm you will get wrong. */}
+                <div className={`${s.rhythmBand} ${!live ? s.rhythmOff : arrested ? s.rhythmBad : p.rhythm === 'stemi' ? s.rhythmWarn : ''}`}>
+                    {live ? RHYTHM_LABEL[p.rhythm] : 'No leads — attach a monitor to an arm'}
+                    {live && p.analysed && p.analysed.rhythm === p.rhythm && (
+                        <b>{p.analysed.advised ? ' · SHOCK ADVISED' : ' · NO SHOCK ADVISED'}</b>
+                    )}
+                </div>
+
+                <Vitals patient={p} />
+
+                <div className={s.volRow}>
+                    <span>VOLUME</span>
+                    <div className={s.bloodbar}><i style={{ width: `${p.blood}%` }} /></div>
+                </div>
+
+                {/* The alarms. Ordered by how soon each one kills them. */}
+                {p.outcome === 'active' && !breathes && !p.bagging && (
+                    <div className={`${s.alarm} ${s.flash}`}>
+                        NOT BREATHING — {airOpen ? 'get a bag on them' : 'open the airway, then bag'}
+                    </div>
+                )}
+                {p.outcome === 'active' && p.spo2 <= 80 && (
+                    <div className={`${s.alarm} ${p.spo2 <= 64 ? s.flash : ''}`}>
+                        SpO₂ {Math.round(p.spo2)}% — FATAL BELOW {FATAL_SPO2}%{!airOpen && ' · AIRWAY BLOCKED'}
+                    </div>
+                )}
+                {p.pneumo && <div className={`${s.alarm} ${s.flash}`}>TENSION PNEUMOTHORAX — needs a needle</div>}
+
+                {arrested && p.outcome === 'active' && (
+                    <div className={s.downtime}>
+                        <span>
+                            DOWNTIME {mmss(p.downtime)} / {mmss(DEATH_DOWNTIME)}
+                            {p.cprActive && <b> · CPR SLOWING</b>}
+                        </span>
+                        <i style={{ width: `${Math.min(100, p.downtime / DEATH_DOWNTIME * 100)}%` }} />
+                    </div>
+                )}
+                {p.reboa && (
+                    <div className={s.reboa}>
+                        <span>
+                            REBOA UP {Math.round(p.reboa.up)}s / {REBOA_FATAL}s
+                            {p.reboa.up > REBOA_WARN && <b> · LEGS DYING</b>}
+                        </span>
+                        <i style={{ width: `${Math.min(100, p.reboa.up / REBOA_FATAL * 100)}%` }} />
+                    </div>
+                )}
+
+                {!live && <div className={s.deviceHint}>Examine → Attach Vitals Monitor, on either arm.</div>}
+                {!p.padsOn && arrested && (
+                    <div className={s.deviceHint}>Advanced → Attach Defibrillator Pads, on the chest.</div>
+                )}
+            </div>
+        </div>
+    )
+}
 
 /** Anything about a limb worth a block of its own. */
 function hasSomething(pt: BodyPart): boolean {

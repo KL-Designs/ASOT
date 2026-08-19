@@ -242,7 +242,7 @@
     flex: 1 1 auto;
     display: grid;
     min-height: 0;
-    grid-template-columns: minmax(300px, 1.05fr) minmax(280px, .95fr) minmax(280px, 1fr);
+    grid-template-columns: minmax(290px, 1fr) minmax(250px, .82fr) minmax(275px, .92fr) minmax(275px, 1fr);
     padding: 6px 12px 0;
 }
 
@@ -266,6 +266,100 @@
     color: var(--tan);
     font-weight: 600;
     opacity: .9;
+}
+
+/* ---------- the monitor, as a box on the floor ---------- */
+
+/* A bezel round it, because it is a machine rather than a region of the page —
+   and because everything inside goes dark together when nothing is attached. */
+.device {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin-top: 6px;
+    background: linear-gradient(180deg, #23262a 0%, #191c1f 34%, #131618 100%);
+    border: 1px solid #2f343a;
+    border-radius: 7px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 8px 22px rgba(0, 0, 0, .6);
+    overflow: hidden;
+}
+
+.deviceAlarm { border-color: rgba(224, 59, 49, .55); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(224,59,49,.25), 0 8px 22px rgba(0,0,0,.6) }
+
+.deviceTop {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid #2f343a;
+    background: rgba(0, 0, 0, .28);
+    font-family: monospace;
+    font-size: 9.5px;
+    letter-spacing: 1.6px;
+    color: var(--txt-mute);
+}
+
+.deviceName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.deviceState { color: var(--txt-dim) }
+
+.led { width: 7px; height: 7px; border-radius: 50%; background: #3a4046; flex: 0 0 auto }
+.ledOn { background: var(--green); box-shadow: 0 0 6px var(--green); animation: drip 2s ease-in-out infinite }
+
+/* The screen. Scrolls on its own so a stack of alarms cannot push the trace
+   off the top of the device. */
+.deviceScreen {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px 9px 10px;
+    background: radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, .04), transparent 70%), #0b0e10;
+}
+
+/* The rhythm, in words. A trace you have to recognise from the squiggle is a
+   trace you will get wrong. */
+.rhythmBand {
+    margin: 6px 0 2px;
+    padding: 5px 8px;
+    font-family: monospace;
+    font-size: 11px;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--green);
+    background: rgba(92, 191, 98, .1);
+    border: 1px solid rgba(92, 191, 98, .35);
+    border-radius: 2px;
+}
+
+.rhythmBand b { font-weight: 700 }
+.rhythmWarn { color: var(--yellow); background: rgba(232, 195, 67, .1); border-color: rgba(232, 195, 67, .4) }
+.rhythmBad { color: var(--red); background: rgba(224, 59, 49, .12); border-color: rgba(224, 59, 49, .5) }
+.rhythmOff { color: var(--txt-mute); background: rgba(255, 255, 255, .04); border-color: var(--panel-line-sub); text-transform: none; letter-spacing: .6px }
+
+.volRow { display: flex; align-items: center; gap: 8px; margin-top: 6px }
+.volRow > span { font-size: 9.5px; letter-spacing: 1.4px; color: var(--txt-mute); flex: 0 0 auto }
+.volRow > div { flex: 1; margin-top: 0 }
+
+/* One alarm per thing that is about to kill them. */
+.alarm {
+    margin-top: 5px;
+    padding: 5px 8px;
+    font-family: monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+    background: rgba(224, 59, 49, .3);
+    border: 1px solid rgba(224, 59, 49, .75);
+    border-radius: 2px;
+}
+
+/* What to go and do about a machine that is not attached to anything. */
+.deviceHint {
+    margin-top: 6px;
+    font-size: 11.5px;
+    letter-spacing: .3px;
+    color: var(--txt-mute);
 }
 
 /* ---------- toolbar ---------- */
@@ -1144,12 +1238,16 @@
     from { opacity: 0; transform: translateX(12px) }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1480px) {
     .grid { grid-template-columns: 1fr 1fr }
-    .colOverview { grid-column: 1/-1 }
+    .colMonitor, .colOverview { grid-column: auto }
     .dock { padding: 2px 12px 6px }
 }
 
+@media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr }
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .scrim, .root, .toast { animation: none }
+    .page, .root, .toast { animation: none }
 }
