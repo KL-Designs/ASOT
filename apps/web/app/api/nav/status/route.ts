@@ -22,6 +22,9 @@ export type NavOp = {
     id: string
     title: string
     date: string
+    /** The operation's own banner, for the mega panel's card. Null when it has
+        none — the card falls back to the topo field rather than a broken box. */
+    coverImage: string | null
     status: 'Upcoming' | 'Active'
     /** Attendance lifecycle stage; null when the op has no attendance doc yet. */
     stage: NonNullable<OperationAttendance['stage']> | null
@@ -67,7 +70,7 @@ async function findNextOp(): Promise<NavOp | null> {
             status: { $in: ['Upcoming', 'Active'] },
             date: { $gte: new Date(Date.now() - RUNNING_WINDOW_MS) },
         },
-        { sort: { date: 1 }, projection: { title: 1, date: 1, status: 1 } },
+        { sort: { date: 1 }, projection: { title: 1, date: 1, status: 1, coverImage: 1 } },
     )
     if (!op) return null
 
@@ -86,6 +89,7 @@ async function findNextOp(): Promise<NavOp | null> {
         id: String(op._id),
         title: op.title,
         date: new Date(op.date).toISOString(),
+        coverImage: op.coverImage ?? null,
         status: op.status === 'Active' ? 'Active' : 'Upcoming',
         stage: attendance?.stage ?? null,
         rsvpOpen: !!attendance?.rsvpOpen,

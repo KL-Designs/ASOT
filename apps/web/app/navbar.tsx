@@ -20,6 +20,7 @@ import MobileSheet from '@/components/nav/MobileSheet'
 import Topo from '@/components/ui/Topo'
 import StatusRail from '@/components/nav/StatusRail'
 import { useNavStatus, formatOpTime } from '@/components/nav/useNavStatus'
+import type { NavOp } from '@/app/api/nav/status/route'
 import { NAV_ITEMS, isItemActive, type NavItem } from '@/components/nav/nav-data'
 
 import s from '@/styles/navbar.module.css'
@@ -232,7 +233,7 @@ function MenuItem({ item, active, open, onEnter, onLeave, onToggle, nextOp }: {
     onEnter: () => void
     onLeave: () => void
     onToggle: () => void
-    nextOp: { id: string, title: string, date: string } | null
+    nextOp: NavOp | null
 }) {
     const classes = [active ? s.active : '', open ? s.isOpen : ''].filter(Boolean).join(' ')
 
@@ -268,7 +269,7 @@ function MenuItem({ item, active, open, onEnter, onLeave, onToggle, nextOp }: {
     )
 }
 
-function MegaPanel({ item, nextOp }: { item: NavItem, nextOp: { id: string, title: string, date: string } | null }) {
+function MegaPanel({ item, nextOp }: { item: NavItem, nextOp: NavOp | null }) {
     const children = item.children!
     const withFeature = item.feature === 'nextOp' && !!nextOp
 
@@ -307,8 +308,16 @@ function MegaPanel({ item, nextOp }: { item: NavItem, nextOp: { id: string, titl
                     with dead space — as does a panel with no operation to show. */}
                 {withFeature && (
                     <Link href={`/operations/${nextOp!.id}` as any} className={s.megaFeat}>
+                        {/* The operation's own banner when it has one. Covers are
+                            arbitrary stored URLs, so next/image would mean
+                            allow-listing every host they can come from — a plain
+                            img is the honest choice, the same call the landing
+                            page's card makes. Without a cover the topo field
+                            stands in, so the card never shows a broken box. */}
                         <div className={s.featImg}>
-                            <Topo opacity={0.32} driftSeconds={900} mask='none' />
+                            {nextOp!.coverImage
+                                ? <img src={nextOp!.coverImage} alt='' className={s.featCover} />
+                                : <Topo opacity={0.32} driftSeconds={900} mask='none' />}
                             <span className={s.tag}>Next Op</span>
                         </div>
                         <div className={s.featT}>{nextOp!.title}</div>

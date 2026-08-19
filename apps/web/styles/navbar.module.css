@@ -844,6 +844,23 @@ a.amb:hover {
     border: 1px solid var(--line-1);
 }
 
+/* Covers are wider than this 92px band, so they crop rather than letterbox —
+   and they sit slightly dimmed, because at full strength a bright banner
+   out-shouts the panel of links it is sitting beside. It brightens on hover
+   with the rest of the card. */
+.featCover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    opacity: 0.82;
+    transition: opacity 0.2s var(--nav-ease);
+}
+
+.megaFeat:hover .featCover {
+    opacity: 1;
+}
+
 .featImg .tag {
     position: absolute;
     top: 8px;
