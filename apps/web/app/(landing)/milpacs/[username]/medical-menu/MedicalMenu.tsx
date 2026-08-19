@@ -10,8 +10,8 @@ import { Monitor } from './audio'
 import {
     ADJUNCT_LABEL, BANDAGES, CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, FALLBACK_CASUALTY, FATAL_SPO2, FLUIDS,
     OBSTRUCTION_LABEL, PARTS, RHYTHM_LABEL, WOUND_TYPES,
-    airwayOpen, bestBandage, bleedFactor, bloodWord, chatter, clamp, handover, jitter, newPatient, nextWound,
-    painWord, partBleeding, partSeverity, pName,
+    airwayOpen, bestBandage, bleedFactor, bloodWord, breathing, chatter, clamp, handover, jitter, newPatient,
+    nextWound, painWord, partBleeding, partSeverity, pName,
     stabilityIssues, stampFrom, totalBleed,
     type Casualty, type Difficulty, type PartId, type Patient, type Rhythm, type Triage,
 } from './model'
@@ -496,6 +496,7 @@ export default function MedicalMenu({ roster, onClose }: {
     const woundUp = selPart ? nextWound(selPart) : null
     const bestPick = woundUp ? bestBandage(woundUp.t) : null
     const airOpen = airwayOpen(patient)
+    const breathes = breathing(patient)
 
 
     const issues = stabilityIssues(patient)
@@ -789,6 +790,16 @@ export default function MedicalMenu({ roster, onClose }: {
                                             </g>
                                         )}
 
+                                        {/* Somebody squeezing a bag over the face. */}
+                                        {patient.bagging && (
+                                            <g>
+                                                <ellipse className={s.bagSqueeze} cx='150' cy='58' rx='26' ry='20'
+                                                    fill='rgba(86,168,224,.16)' stroke='#56a8e0' strokeWidth='1.8' />
+                                                <text x='150' y='24' textAnchor='middle' fill='#56a8e0'
+                                                    fontSize='9.5' fontWeight='700' letterSpacing='1.6'>BVM</text>
+                                            </g>
+                                        )}
+
                                         {/* An airway that somebody is holding open. */}
                                         {(patient.adjunct !== 'none' || !airOpen) && (
                                             <g>
@@ -870,6 +881,11 @@ export default function MedicalMenu({ roster, onClose }: {
                                 )}
                                 {patient.rhythm === 'stemi' && patient.monitorOn && (
                                     <div className={`${s.ovline} ${s.ovlineYel}`}>{RHYTHM_LABEL.stemi}</div>
+                                )}
+                                {patient.outcome === 'active' && !breathes && !patient.bagging && (
+                                    <div className={`${s.ovline} ${s.ovlineRed} ${s.flash}`}>
+                                        NOT BREATHING — {airOpen ? 'get a bag on them' : 'open the airway, then bag'}
+                                    </div>
                                 )}
                                 {patient.outcome === 'active' && patient.spo2 <= 80 && (
                                     <div className={`${s.ovline} ${s.ovlineRed} ${patient.spo2 <= 64 ? s.flash : ''}`}>
@@ -1021,6 +1037,22 @@ export default function MedicalMenu({ roster, onClose }: {
                                         </div>
                                     ) : (
                                         <div className={`${s.ovsub} ${s.ovsubB}`}>Unknown — check it</div>
+                                    )}
+                                    {/* Not gated on having checked: a chest either
+                                        rises or it does not, and you can see that
+                                        from where you are standing. */}
+                                    <div
+                                        className={s.ovsub}
+                                        style={{ color: breathes ? 'var(--green)' : 'var(--red)', fontWeight: breathes ? 400 : 700 }}
+                                    >
+                                        {breathes
+                                            ? 'Breathing on their own'
+                                            : patient.bagging
+                                                ? 'NOT BREATHING — bagged at 12/min'
+                                                : 'NOT BREATHING'}
+                                    </div>
+                                    {patient.oxygen && (
+                                        <div className={s.ovsub} style={{ color: 'var(--blue)' }}>Oxygen running · 15 L NRB</div>
                                     )}
                                     {patient.adjunct !== 'none' && (
                                         <div className={s.ovsub} style={{ color: 'var(--blue)' }}>

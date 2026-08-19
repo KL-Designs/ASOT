@@ -267,6 +267,12 @@ export interface Patient {
     airwayChecked: boolean
     /** Suction pump charges left. One, and it always works. */
     suction: number
+    /** Making respiratory effort of their own. Not the same as an open airway. */
+    spontaneous: boolean
+    /** Somebody has hands on a bag-valve mask. */
+    bagging: boolean
+    /** A non-rebreather is on with the tank running. */
+    oxygen: boolean
     /** A hole in the chest. Where a pneumothorax comes from. */
     chestWound: boolean
     /** Occlusive dressing over it. Stops it tensioning again. */
@@ -437,6 +443,7 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         temp: Math.round((36.8 - Math.random() * 1.4) * 10) / 10,
         conscious: true, rhythm: 'sinus', analysed: null, cardiacArrest: false,
         airway: 'none', adjunct: 'none', recovery: false, airwayChecked: false, suction: 1,
+        spontaneous: true, bagging: false, oxygen: false,
         chestWound: false, sealed: false, pneumoIn: null, pneumo: false,
         meds: [], tqCount: 0,
         pressor: 0, epi: 0, hrTarget: null, wake: 0,
@@ -637,6 +644,33 @@ export const OBSTRUCTION_LABEL: Record<Obstruction, string> = {
 /** Saturation below which the casualty is gone. */
 export const FATAL_SPO2 = 50
 
+/** Saturation at which respiratory effort gives out, and at which it comes back. */
+export const APNOEA_AT = 60
+export const APNOEA_OUT = 74
+
+/**
+ * Whether they are making respiratory effort of their own.
+ *
+ * The distinction the airway section turns on: an open airway is a pipe with
+ * nothing blocking it, and a pipe moves no air unless something is working it.
+ * A casualty in arrest is not breathing, and neither is one who has been
+ * hypoxic long enough to stop trying.
+ */
+export function breathing(p: Patient): boolean {
+    return !p.cardiacArrest && p.spontaneous
+}
+
+/**
+ * Whether air is actually reaching the lungs — theirs, or somebody's bag.
+ *
+ * This, and not `airwayOpen`, is what saturation follows. Clearing an airway
+ * on a casualty who has stopped breathing gets you a clear airway; it does not
+ * get you a rising number, and that gap is the whole reason to carry a BVM.
+ */
+export function ventilating(p: Patient): boolean {
+    return airwayOpen(p) && (breathing(p) || p.bagging)
+}
+
 /** How often going under brings the last meal up with it. */
 export const VOMIT_ON_COLLAPSE = 0.45
 
@@ -728,6 +762,9 @@ export function stabilityIssues(p: Patient): string[] {
     if (unsplinted > 0) out.push(`${unsplinted} fracture${unsplinted === 1 ? '' : 's'} unsplinted`)
 
     if (!airwayOpen(p)) out.push(OBSTRUCTION_LABEL[p.airway] + ' — airway blocked')
+    // A bag is somebody standing there squeezing. They are not stable until
+    // they are doing it themselves.
+    if (!p.cardiacArrest && !p.spontaneous) out.push('Not breathing — needs ventilating')
     if (p.pneumo) out.push('Tension pneumothorax — needs decompressing')
     if (p.chestWound && !p.sealed) out.push('Chest wound unsealed')
 

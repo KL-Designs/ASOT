@@ -1,8 +1,8 @@
 import {
     BAG_SIZES, BANDAGES, CPR_DOWNTIME_RATE, CPR_RATE, DEATH_DOWNTIME, EPI_WINDOW, FLUIDS,
     PRESSOR_LIFE, PRESSOR_MAX, RHYTHM_LABEL, SHOCKABLE, WOUND_TYPES,
-    ADJUNCT_LABEL, FATAL_SPO2, OBSTRUCTION_LABEL, VOMIT_ON_COLLAPSE,
-    airwayOpen, arrestHr, bestBandage, bleedFactor, clamp, dressingLife, isConscious, jitter,
+    ADJUNCT_LABEL, APNOEA_AT, APNOEA_OUT, FATAL_SPO2, OBSTRUCTION_LABEL, VOMIT_ON_COLLAPSE,
+    airwayOpen, arrestHr, breathing, ventilating, bestBandage, bleedFactor, clamp, dressingLife, isConscious, jitter,
     nextWound, pName, reopenChance, setRhythm, stabilityIssues, totalBleed,
     type Adjunct, type BandageId, type BodyPart, type FluidId, type Patient, type PartId,
 } from './model'
@@ -502,17 +502,42 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
             return [`Decompressed — rush of air${p.sealed ? '' : ' · seal the wound or it will tension again'}`,
                 p.sealed ? 'good' : 'warn']
         } },
-        { id: 'bvm', label: 'Bag-Valve Mask', note: '12/min', needsPart: true, showFor: onHead, dot: 'g', run: p => {
-            // Squeezing a bag into a closed airway inflates a stomach.
-            if (!airwayOpen(p)) return ['Bagging against an obstruction — nothing is going in', 'bad']
-            p.spo2 = clamp(p.spo2 + 5, 0, 100)
-            return ['Ventilating with BVM — 12/min', 'good']
-        } },
-        { id: 'oxy', label: 'Oxygen Tank', note: '15 L NRB', needsPart: true, showFor: onHead, dot: 'g', run: p => {
-            if (!airwayOpen(p)) return ['Oxygen on, but the airway is shut — open it first', 'bad']
-            p.spo2 = clamp(p.spo2 + 6, 0, 100)
-            return ['O₂ via non-rebreather at 15 L/min', 'good']
-        } },
+        {
+            id: 'bvm', note: '12/min', needsPart: true, showFor: onHead, dot: 'g', time: 0,
+            label: 'Start Bagging (BVM)',
+            labelFor: p => p.bagging ? 'Stop Bagging (BVM)' : 'Start Bagging (BVM)',
+            onFor: p => p.bagging,
+            /*
+               The answer to a casualty who is not breathing.
+
+               A switch rather than a press, for the same reason compressions
+               are: you do not bag somebody once. It moves air whether or not
+               they are trying to, which is the only thing here that does — but
+               only into an airway somebody has already opened.
+            */
+            run: p => {
+                if (p.bagging) { p.bagging = false; return ['Bagging stopped', 'warn'] }
+                if (!airwayOpen(p)) return ['Bagging against an obstruction — nothing is going in', 'bad']
+                p.bagging = true
+                return ['Bagging at 12 per minute — chest rising', 'good']
+            },
+        },
+        {
+            id: 'oxy', note: '15 L NRB', needsPart: true, showFor: onHead, dot: 'g', time: 3,
+            label: 'Oxygen Tank',
+            labelFor: p => p.oxygen ? 'Oxygen Tank — turn off' : 'Oxygen Tank — turn on',
+            onFor: p => p.oxygen,
+            run: p => {
+                p.oxygen = !p.oxygen
+                if (!p.oxygen) return ['Oxygen off', 'warn']
+                // A mask enriches what they are breathing. On somebody who is
+                // not breathing it does very little, and very little is not
+                // nothing — but it is not a substitute for the bag.
+                return breathing(p)
+                    ? ['O₂ at 15 L/min via non-rebreather', 'good']
+                    : ['O₂ running — but nothing is moving it, get a bag on them', 'warn']
+            },
+        },
     ],
 
     advanced: [
@@ -648,6 +673,15 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
 export function simulate(p: Patient, dt: number): [string, LogKind] | null {
     if (p.outcome !== 'active') return null
 
+    /*
+       What to say, if anything.
+
+       At most one line comes out of a tick, and the later something is written
+       here the more it mattered — the decisions at the bottom simply return and
+       never reach this.
+    */
+    let event: [string, LogKind] | null = null
+
     const bleed = totalBleed(p)
     if (bleed > 0) {
         /*
@@ -689,12 +723,34 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
        Coming back is quicker than going down, as it is in a real chest: open
        the airway and the numbers climb while you get on with something else.
     */
+    // Respiratory effort gives out when they have been hypoxic long enough,
+    // and comes back when they are not any more. Two thresholds, so a casualty
+    // sitting on the line is not starting and stopping four times a second.
+    if (p.spontaneous && p.spo2 <= APNOEA_AT) {
+        p.spontaneous = false
+        event = ['Casualty has stopped breathing — get a bag on them', 'bad']
+    } else if (!p.spontaneous && p.spo2 >= APNOEA_OUT) {
+        p.spontaneous = true
+        event = ['Casualty is breathing on their own again', 'good']
+    }
+
     const open = airwayOpen(p)
-    if (!open) {
-        p.spo2 = clamp(p.spo2 - dt * 0.2, 0, 100)
-        p.rr   = clamp(p.rr + dt * 0.35, 0, 46)
-    } else if (!p.pneumo && p.spo2 < 97) {
-        p.spo2 = clamp(p.spo2 + dt * 0.5, 0, 97)
+    const vent = ventilating(p)
+    if (!vent) {
+        // Oxygen sitting on the face of somebody who is not moving any still
+        // buys a little — it diffuses — and a little is all it buys.
+        p.spo2 = clamp(p.spo2 - dt * (open && p.oxygen ? 0.13 : 0.2), 0, 100)
+        // Trying and failing looks like effort. Not trying at all looks like
+        // nothing, which is the reading that should frighten you.
+        p.rr = breathing(p) ? clamp(p.rr + dt * 0.35, 0, 46) : 0
+    } else if (!breathing(p)) {
+        // Somebody else's hands doing the work.
+        const ceiling = p.oxygen ? 99 : 96
+        if (p.spo2 < ceiling) p.spo2 = clamp(p.spo2 + dt * (p.oxygen ? 0.7 : 0.5), 0, ceiling)
+        p.rr = 12
+    } else if (!p.pneumo) {
+        const ceiling = p.oxygen ? 99 : 97
+        if (p.spo2 < ceiling) p.spo2 = clamp(p.spo2 + dt * (p.oxygen ? 0.9 : 0.5), 0, ceiling)
     }
 
     // A chest filling with air that cannot get out.
@@ -733,7 +789,6 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
 
     // Whatever is hanging, running in. Announced only when a bag empties —
     // a line quietly working is not news, a line that has stopped is.
-    let event: [string, LogKind] | null = null
     if (p.infusions.length) {
         const emptied: string[] = []
         for (const inf of p.infusions) {
@@ -863,6 +918,8 @@ function kill(p: Patient, cause: string) {
        rhythm rather than needing the monitor to know what `outcome` means.
     */
     setRhythm(p, 'asystole')
+    p.bagging = false
+    p.oxygen = false
     p.sysBp = 0
     p.diaBp = 0
     p.spo2 = 0

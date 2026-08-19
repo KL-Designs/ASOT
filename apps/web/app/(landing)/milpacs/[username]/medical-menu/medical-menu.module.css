@@ -565,6 +565,19 @@
     45%      { transform: translateY(3px) }
 }
 
+/* The bag, on the twelve-a-minute the label promises. */
+.bagSqueeze {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: squeeze 5s ease-in-out infinite;
+}
+
+@keyframes squeeze {
+    0%, 100% { transform: scale(1);    opacity: .55 }
+    8%       { transform: scale(1.14); opacity: 1 }
+    16%      { transform: scale(1);    opacity: .55 }
+}
+
 /* The things that are about to kill them, said loudly. */
 .flash { animation: flash .8s steps(1, end) infinite }
 
