@@ -76,7 +76,7 @@ const selectSx: React.CSSProperties = {
     letterSpacing: '0.08em',
     color: 'rgba(237,237,237,0.7)',
     background: 'rgba(0,0,0,0.45)',
-    border: '1px solid rgba(219,0,29,0.3)',
+    border: '1px solid var(--line-2)',
     outline: 'none',
     textTransform: 'uppercase' as const,
 }
@@ -169,7 +169,7 @@ export default function TrainingRecordsTab({ userId: _userId, canManageMembers: 
     const btnBase: React.CSSProperties = {
         all: 'unset', cursor: 'pointer', padding: '3px 10px',
         fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const,
-        border: '1px solid rgba(219,0,29,0.2)',
+        border: '1px solid var(--line-2)',
     }
 
     return (
@@ -178,7 +178,7 @@ export default function TrainingRecordsTab({ userId: _userId, canManageMembers: 
             <div style={{
                 display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8,
                 padding: '8px 12px',
-                border: '1px solid rgba(219,0,29,0.22)',
+                border: '1px solid var(--line-2)',
                 borderBottom: 'none',
                 background: 'rgba(255,255,255,0.02)',
             }}>
@@ -228,10 +228,10 @@ export default function TrainingRecordsTab({ userId: _userId, canManageMembers: 
                     {statusOpen && (
                         <div style={{
                             position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 50,
-                            background: '#1a0a0a', border: '1px solid rgba(219,0,29,0.3)',
+                            background: '#1a0a0a', border: '1px solid var(--line-2)',
                             padding: '6px 0', minWidth: 140,
                         }}>
-                            <div style={{ display: 'flex', gap: 6, padding: '4px 12px 6px', borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                            <div style={{ display: 'flex', gap: 6, padding: '4px 12px 6px', borderBottom: '1px solid var(--line-2)' }}>
                                 <button
                                     onClick={() => setStatusFilter([...ALL_STATUSES])}
                                     style={{ all: 'unset', cursor: 'pointer', fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)' }}
@@ -276,7 +276,7 @@ export default function TrainingRecordsTab({ userId: _userId, canManageMembers: 
                         style={{
                             all: 'unset', padding: '3px 10px',
                             fontSize: '0.62rem', color: 'rgba(237,237,237,0.75)',
-                            background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(219,0,29,0.2)',
+                            background: 'rgba(0,0,0,0.35)', border: '1px solid var(--line-2)',
                             width: 160,
                         }}
                     />
@@ -288,7 +288,7 @@ export default function TrainingRecordsTab({ userId: _userId, canManageMembers: 
                 <div style={{
                     display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6,
                     padding: '5px 12px',
-                    border: '1px solid rgba(219,0,29,0.22)',
+                    border: '1px solid var(--line-2)',
                     borderBottom: 'none',
                     background: 'rgba(0,0,0,0.15)',
                 }}>
@@ -314,12 +314,12 @@ export default function TrainingRecordsTab({ userId: _userId, canManageMembers: 
             )}
 
             {/* Table */}
-            <div style={{ border: '1px solid rgba(219,0,29,0.22)', background: 'rgba(255,255,255,0.01)', minHeight: 200 }}>
+            <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', minHeight: 200 }}>
                 {/* Column headers */}
                 <div style={{
                     display: 'grid', gridTemplateColumns: GRID, gap: 8,
                     padding: '6px 12px',
-                    borderBottom: '1px solid rgba(219,0,29,0.15)',
+                    borderBottom: '1px solid var(--line-2)',
                     background: 'rgba(0,0,0,0.35)',
                 }}>
                     {COLUMNS.map(col => (
@@ -358,7 +358,7 @@ export default function TrainingRecordsTab({ userId: _userId, canManageMembers: 
                             style={{
                                 display: 'grid', gridTemplateColumns: GRID, gap: 8,
                                 padding: '7px 12px',
-                                borderBottom: '1px solid rgba(219,0,29,0.07)',
+                                borderBottom: '1px solid var(--line-2)',
                                 background: i % 2 === 0 ? 'rgba(255,255,255,0.018)' : 'rgba(0,0,0,0.15)',
                                 cursor: 'pointer', alignItems: 'center', transition: 'background 0.1s',
                             }}

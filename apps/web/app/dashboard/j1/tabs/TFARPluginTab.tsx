@@ -103,7 +103,7 @@ export default function TFARPluginTab() {
 
     return (
         <div style={{ padding: '24px 28px', maxWidth: 720 }}>
-            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 4, fontFamily: 'monospace' }}>
+            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 4, fontFamily: 'monospace' }}>
                 {'// J1 LEADS ONLY'}
             </div>
             <div style={{ fontSize: '0.95rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)', marginBottom: 4 }}>

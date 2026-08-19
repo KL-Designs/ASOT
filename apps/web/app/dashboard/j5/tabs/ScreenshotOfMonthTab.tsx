@@ -186,7 +186,7 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
                 ) : (
                     <div className='flex flex-col gap-4'>
                         {/* Preview */}
-                        <div style={{ position: 'relative', maxWidth: 480, aspectRatio: '16/9', background: '#0a0a0a', border: '1px solid rgba(219,0,29,0.42)' }}>
+                        <div style={{ position: 'relative', maxWidth: 480, aspectRatio: '16/9', background: '#0a0a0a', border: '1px solid var(--line-2)' }}>
                             <img
                                 src='/api/gallery/sotm/image'
                                 alt='Screenshot of the Month'
@@ -316,7 +316,7 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
                             {opResults.length > 0 && (
                                 <div style={{
                                     position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
-                                    background: 'rgb(18,18,18)', border: '1px solid rgba(219,0,29,0.25)',
+                                    background: 'rgb(18,18,18)', border: '1px solid var(--line-2)',
                                     borderTop: 'none', maxHeight: 220, overflowY: 'auto',
                                 }}>
                                     {opResults.map(op => (

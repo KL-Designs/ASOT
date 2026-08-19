@@ -533,7 +533,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
         const linesB = vB.contentSnapshot.split('\n')
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid rgba(219,0,29,0.15)', background: 'rgba(0,0,0,0.15)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid var(--line-2)', background: 'rgba(0,0,0,0.15)', flexShrink: 0 }}>
                     <button type='button' onClick={() => setCompareVersions(null)}
                         style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em' }}
                     >
@@ -588,7 +588,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                 {/* Toolbar */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid rgba(219,0,29,0.15)', background: 'rgba(0,0,0,0.15)', flexShrink: 0, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--line-2)', background: 'rgba(0,0,0,0.15)', flexShrink: 0, flexWrap: 'wrap' }}>
                     <button type='button' onClick={() => setOpenDocId(null)}
                         style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', flexShrink: 0 }}
                     >
@@ -1243,7 +1243,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
             {/* Delete file confirmation */}
             {deleteFileId && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ background: '#0f0f10', border: '1px solid rgba(219,0,29,0.4)', borderTop: '2px solid var(--red)', padding: '24px 28px', maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ background: '#0f0f10', border: '1px solid var(--line-2)', padding: '24px 28px', maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 12 }}>
                         <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Delete File?</div>
                         <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.6 }}>This will permanently remove the file and cannot be undone.</div>
                         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
@@ -1257,7 +1257,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
             {/* Delete doc confirmation */}
             {deleteDocId && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ background: '#0f0f10', border: '1px solid rgba(219,0,29,0.4)', borderTop: '2px solid var(--red)', padding: '24px 28px', maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ background: '#0f0f10', border: '1px solid var(--line-2)', padding: '24px 28px', maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 12 }}>
                         <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Delete Document?</div>
                         <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.6 }}>The document will be removed. This cannot be undone.</div>
                         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>

@@ -12,7 +12,7 @@ type OpSummary = {
 
 const btnBase: React.CSSProperties = {
     background: 'none',
-    border: '1px solid rgba(219,0,29,0.25)',
+    border: '1px solid var(--line-2)',
     color: 'rgba(237,237,237,0.4)',
     fontSize: '0.62rem',
     fontWeight: 700,

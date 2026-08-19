@@ -1342,8 +1342,8 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             <div
                 className='flex flex-col px-5 py-4'
                 style={{
-                    border: '1px solid rgba(219,0,29,0.42)',
-                    borderTop: '2px solid var(--red)',
+                    border: '1px solid var(--line-2)',
+                    borderTop: '1px solid var(--line-2)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
             >
@@ -1371,7 +1371,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                         position: 'fixed', bottom: 28, right: 80, zIndex: 1200,
                         display: 'flex', alignItems: 'center', gap: 8,
                         padding: '10px 18px', borderRadius: 999,
-                        background: 'rgba(15,15,15,0.92)', border: '1px solid rgba(219,0,29,0.5)',
+                        background: 'rgba(15,15,15,0.92)', border: '1px solid var(--line-2)',
                         color: 'rgba(237,237,237,0.85)', fontSize: '0.72rem', fontWeight: 700,
                         letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer',
                         boxShadow: '0 4px 20px rgba(0,0,0,0.5)', transition: 'background 0.15s, border-color 0.15s',

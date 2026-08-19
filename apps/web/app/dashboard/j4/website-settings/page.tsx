@@ -142,7 +142,7 @@ function TaskLimitPolicyPanel() {
     }
 
     const lbl: React.CSSProperties = { fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 4, display: 'block' }
-    const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(219,0,29,0.25)', color: 'rgba(237,237,237,0.85)', padding: '5px 8px', fontSize: '0.8rem', outline: 'none', width: '100%', boxSizing: 'border-box' }
+    const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.85)', padding: '5px 8px', fontSize: '0.8rem', outline: 'none', width: '100%', boxSizing: 'border-box' }
 
     if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><CircularProgress size={22} style={{ color: 'rgba(219,0,29,0.5)' }} /></div>
 
@@ -507,7 +507,7 @@ function RecruitmentSettingsPanel() {
     }
 
     const lbl: React.CSSProperties = { fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 4, display: 'block' }
-    const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(219,0,29,0.25)', color: 'rgba(237,237,237,0.85)', padding: '6px 8px', fontSize: '0.8rem', outline: 'none', width: '100%', boxSizing: 'border-box', resize: 'vertical' }
+    const inp: React.CSSProperties = { background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.85)', padding: '6px 8px', fontSize: '0.8rem', outline: 'none', width: '100%', boxSizing: 'border-box', resize: 'vertical' }
     const sectionHeading: React.CSSProperties = { fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.18em', color: 'rgba(219,0,29,0.55)', textTransform: 'uppercase', marginBottom: 8, marginTop: 24 }
     const card: React.CSSProperties = { border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)', padding: '14px 16px' }
     const saveBtn = (saving: boolean): React.CSSProperties => ({
@@ -869,7 +869,7 @@ function CertificateSignatoryPanel() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(219,0,29,0.18)' }}>
+            <div style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--line-2)' }}>
                 <span style={lbl}>Currently signing</span>
                 {signatory?.signaturer ? (
                     <div style={{ fontSize: '0.95rem', fontWeight: 700, letterSpacing: '0.04em' }}>
@@ -966,7 +966,7 @@ export default function J4WebsiteSettingsPage() {
             </div>
 
             {/* Sub-tab navigation */}
-            <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(219,0,29,0.22)' }}>
+            <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--line-2)' }}>
                 <button style={tabStyle(activePanel === 'notifications')} onClick={() => setActivePanel('notifications')}>Notification Toggles</button>
                 <button style={tabStyle(activePanel === 'task-limits')} onClick={() => setActivePanel('task-limits')}>Task Limits</button>
                 <button style={tabStyle(activePanel === 'task-lockout')} onClick={() => setActivePanel('task-lockout')}>Overdue Lockout</button>

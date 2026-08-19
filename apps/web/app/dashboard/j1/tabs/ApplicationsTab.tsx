@@ -294,7 +294,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                 },
             }}
         >
-            <DialogTitle style={{ padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.22)' }}>
+            <DialogTitle style={{ padding: '16px 20px', borderBottom: '1px solid var(--line-2)' }}>
                 <div className='flex items-center justify-between'>
                     <div>
                         <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
@@ -429,7 +429,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                             <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 6 }}>
                                 Experience
                             </div>
-                            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)', whiteSpace: 'pre-wrap', lineHeight: 1.7, background: 'rgba(255,255,255,0.04)', padding: '10px 12px', border: '1px solid rgba(219,0,29,0.08)' }}>
+                            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)', whiteSpace: 'pre-wrap', lineHeight: 1.7, background: 'rgba(255,255,255,0.04)', padding: '10px 12px', border: '1px solid var(--line-2)' }}>
                                 {app.experience}
                             </div>
                         </div>
@@ -495,7 +495,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                     })()}
 
                     {/* Divider */}
-                    <div style={{ borderTop: '1px solid rgba(219,0,29,0.22)', paddingTop: 16 }}>
+                    <div style={{ borderTop: '1px solid var(--line-2)', paddingTop: 16 }}>
                         <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 14 }}>
                             Review
                         </div>
@@ -514,7 +514,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
 
                             {/* Recruiter assignment + decision — grouped */}
                             {app.status !== 'accepted' && app.status !== 'rejected' && (
-                                <div style={{ border: '1px solid rgba(219,0,29,0.18)', background: 'rgba(255,255,255,0.02)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.02)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
                                     {/* Assign Recruiter form — only shown in assign mode (J1 Lead) */}
                                     {isLead && assigningMode && (
@@ -539,7 +539,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                     <button
                                                         onClick={() => setRecruiter(null)}
                                                         title='Remove recruiter'
-                                                        style={{ background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
+                                                        style={{ background: 'transparent', border: '1px solid var(--line-2)', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
                                                     >
                                                         <LinkOff style={{ fontSize: 16 }} />
                                                     </button>
@@ -576,7 +576,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                                 min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
                                                                 style={{
                                                                     background: 'rgba(255,255,255,0.04)',
-                                                                    border: '1px solid rgba(219,0,29,0.32)',
+                                                                    border: '1px solid var(--line-2)',
                                                                     color: 'rgba(237,237,237,0.85)',
                                                                     padding: '7px 10px',
                                                                     fontSize: '0.82rem',
@@ -664,7 +664,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                     {(() => {
                                         const hasRecruiter = !!app.assignedReviewerId
                                         const j4Override = !hasRecruiter && isJ4 && !isLead
-                                        const dividerStyle: React.CSSProperties = { borderTop: '1px solid rgba(219,0,29,0.15)', paddingTop: 10, marginTop: 4 }
+                                        const dividerStyle: React.CSSProperties = { borderTop: '1px solid var(--line-2)', paddingTop: 10, marginTop: 4 }
                                         const btnBase: React.CSSProperties = { fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer' }
 
                                         // Recruiter resubmit (returned status only)
@@ -976,7 +976,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                         noOptionsText={<span style={{ fontSize: '0.8rem' }}>No members found</span>}
                                         fullWidth
                                         PaperComponent={({ children, ...props }) => (
-                                            <div {...props as React.HTMLAttributes<HTMLDivElement>} style={{ background: '#1a1a1a', border: '1px solid rgba(219,0,29,0.32)', borderRadius: 0, marginTop: 2 }}>
+                                            <div {...props as React.HTMLAttributes<HTMLDivElement>} style={{ background: '#1a1a1a', border: '1px solid var(--line-2)', borderRadius: 0, marginTop: 2 }}>
                                                 {children}
                                             </div>
                                         )}
@@ -1216,7 +1216,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
             </div>
 
             {/* Column headers */}
-            <div className='grid gap-3 px-4 py-2 mx-4 mt-3' style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr 100px', borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+            <div className='grid gap-3 px-4 py-2 mx-4 mt-3' style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr 100px', borderBottom: '1px solid var(--line-2)' }}>
                 {([
                     { label: 'Discord', key: 'discordUsername' },
                     { label: 'In-Game Name', key: 'inGameName' },
@@ -1261,7 +1261,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
                         <div
                             key={app._id}
                             className='grid gap-3 px-4 py-3 cursor-pointer transition-colors'
-                            style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr 100px', borderBottom: '1px solid rgba(219,0,29,0.08)' }}
+                            style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr 100px', borderBottom: '1px solid var(--line-2)' }}
                             onClick={() => setSelected(app)}
                             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -1323,7 +1323,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
 
                     {/* Pagination */}
                     {totalPages > 1 && (
-                        <div className='flex items-center justify-between px-4 py-3' style={{ borderTop: '1px solid rgba(219,0,29,0.22)' }}>
+                        <div className='flex items-center justify-between px-4 py-3' style={{ borderTop: '1px solid var(--line-2)' }}>
                             <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)' }}>
                                 {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
                             </span>
@@ -1331,7 +1331,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
                                 <button
                                     onClick={() => setPage(p => p - 1)}
                                     disabled={page === 0}
-                                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === 0 ? 'default' : 'pointer' }}
+                                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid var(--line-2)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === 0 ? 'default' : 'pointer' }}
                                 >
                                     ‹ Prev
                                 </button>
@@ -1357,7 +1357,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
                                 <button
                                     onClick={() => setPage(p => p + 1)}
                                     disabled={page === totalPages - 1}
-                                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', color: page === totalPages - 1 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === totalPages - 1 ? 'default' : 'pointer' }}
+                                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid var(--line-2)', color: page === totalPages - 1 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === totalPages - 1 ? 'default' : 'pointer' }}
                                 >
                                     Next ›
                                 </button>

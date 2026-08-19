@@ -68,7 +68,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
     return (
         <div style={{
             fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
-            color: 'rgba(219,0,29,0.55)', fontFamily: 'monospace',
+            color: 'var(--txt-3)', fontFamily: 'monospace',
             padding: '10px 0 6px',
             borderBottom: '1px solid rgba(219,0,29,0.15)',
             marginBottom: 10,
@@ -95,7 +95,7 @@ function StatusBadge({ status, colors, labels }: { status: string; colors: Recor
 function GridItem({ label, value }: { label: string; value: React.ReactNode }) {
     return (
         <div>
-            <div style={{ fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)', fontFamily: 'monospace', marginBottom: 3 }}>
+            <div style={{ fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace', marginBottom: 3 }}>
                 {label}
             </div>
             <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.75)', fontWeight: 500 }}>
@@ -176,12 +176,12 @@ export default function TrainingRecordDetailPage() {
     const cellStyle: React.CSSProperties = {
         fontSize: '0.62rem', padding: '6px 10px',
         color: 'rgba(237,237,237,0.65)',
-        borderBottom: '1px solid rgba(219,0,29,0.07)',
+        borderBottom: '1px solid var(--line-2)',
     }
 
     const thStyle: React.CSSProperties = {
         fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
-        color: 'rgba(219,0,29,0.4)', fontFamily: 'monospace',
+        color: 'var(--txt-3)', fontFamily: 'monospace',
         padding: '6px 10px',
         borderBottom: '1px solid rgba(219,0,29,0.15)',
         background: 'rgba(0,0,0,0.3)',
@@ -224,7 +224,7 @@ export default function TrainingRecordDetailPage() {
             </div>
 
             {/* Summary grid */}
-            <div style={{ border: '1px solid rgba(219,0,29,0.18)', background: 'rgba(255,255,255,0.015)', padding: '14px 16px', marginBottom: 20 }}>
+            <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.015)', padding: '14px 16px', marginBottom: 20 }}>
                 <SectionHeader>Summary</SectionHeader>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px 24px' }}>
                     <GridItem label='Type' value={instance.courseType === 'selection' ? 'Selection' : 'Reinforcement Cycle'} />
@@ -246,8 +246,8 @@ export default function TrainingRecordDetailPage() {
 
             {/* Staff */}
             {staff.length > 0 && (
-                <div style={{ border: '1px solid rgba(219,0,29,0.18)', background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
-                    <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+                <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
+                    <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line-2)' }}>
                         <SectionHeader>Staff ({staff.length})</SectionHeader>
                     </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -274,13 +274,13 @@ export default function TrainingRecordDetailPage() {
             )}
 
             {/* Candidates */}
-            <div style={{ border: '1px solid rgba(219,0,29,0.18)', background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
-                <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(219,0,29,0.15)' }}>
+            <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', marginBottom: 20 }}>
+                <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line-2)' }}>
                     <SectionHeader>Candidates ({candidates.length})</SectionHeader>
                 </div>
 
                 {/* Results row */}
-                <div style={{ display: 'flex', gap: 20, padding: '8px 16px', borderBottom: '1px solid rgba(219,0,29,0.1)', background: 'rgba(0,0,0,0.2)' }}>
+                <div style={{ display: 'flex', gap: 20, padding: '8px 16px', borderBottom: '1px solid var(--line-2)', background: 'rgba(0,0,0,0.2)' }}>
                     {[
                         { label: 'Passed', count: passedCount, color: CANDIDATE_STATUS_COLORS.passed },
                         { label: 'Failed', count: failedCount, color: CANDIDATE_STATUS_COLORS.failed },
@@ -331,7 +331,7 @@ export default function TrainingRecordDetailPage() {
             </div>
 
             {/* Notes */}
-            <div style={{ border: '1px solid rgba(219,0,29,0.18)', background: 'rgba(255,255,255,0.01)', marginBottom: 20, padding: '14px 16px' }}>
+            <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', marginBottom: 20, padding: '14px 16px' }}>
                 <SectionHeader>Notes</SectionHeader>
                 {instance.isLocked ? (
                     <div>
@@ -358,7 +358,7 @@ export default function TrainingRecordDetailPage() {
                                 all: 'unset', display: 'block', width: '100%', boxSizing: 'border-box',
                                 padding: '8px 10px', fontSize: '0.68rem', lineHeight: 1.6,
                                 color: 'rgba(237,237,237,0.75)', background: 'rgba(0,0,0,0.3)',
-                                border: '1px solid rgba(219,0,29,0.2)', resize: 'vertical' as const,
+                                border: '1px solid var(--line-2)', resize: 'vertical' as const,
                                 minHeight: 90,
                             }}
                         />
@@ -386,7 +386,7 @@ export default function TrainingRecordDetailPage() {
             </div>
 
             {/* Linked Course Workspace */}
-            <div style={{ border: '1px solid rgba(219,0,29,0.18)', background: 'rgba(255,255,255,0.01)', marginBottom: 20, padding: '14px 16px' }}>
+            <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', marginBottom: 20, padding: '14px 16px' }}>
                 <SectionHeader>Course Workspace</SectionHeader>
                 <Link
                     href={`/dashboard/unit/training-hub/course/${String(instance._id)}`}
@@ -404,7 +404,7 @@ export default function TrainingRecordDetailPage() {
 
             {/* Activity Log */}
             {activity.length > 0 && (
-                <div style={{ border: '1px solid rgba(219,0,29,0.18)', background: 'rgba(255,255,255,0.01)', padding: '14px 16px' }}>
+                <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', padding: '14px 16px' }}>
                     <SectionHeader>
                         <History sx={{ fontSize: 13, verticalAlign: 'middle', marginRight: 4 }} />
                         Recent Activity
@@ -413,7 +413,7 @@ export default function TrainingRecordDetailPage() {
                         {activity.map(log => (
                             <div key={String(log._id)} style={{
                                 display: 'grid', gridTemplateColumns: '1fr auto',
-                                padding: '5px 0', borderBottom: '1px solid rgba(219,0,29,0.06)',
+                                padding: '5px 0', borderBottom: '1px solid var(--line-2)',
                                 alignItems: 'start', gap: 12,
                             }}>
                                 <div>

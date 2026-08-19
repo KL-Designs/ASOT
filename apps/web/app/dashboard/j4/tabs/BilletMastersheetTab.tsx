@@ -189,7 +189,7 @@ function EmailPopup({ memberId, memberName, currentEmail, emailHistory, onClose,
 
     return (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
-            <div style={{ background: '#111', border: '1px solid rgba(219,0,29,0.35)', borderTop: '2px solid var(--red)', padding: '24px', minWidth: 340, maxWidth: 440, color: '#ededed' }} onClick={e => e.stopPropagation()}>
+            <div style={{ background: '#111', border: '1px solid var(--line-2)', padding: '24px', minWidth: 340, maxWidth: 440, color: '#ededed' }} onClick={e => e.stopPropagation()}>
                 <div style={{ fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(219,0,29,0.7)', marginBottom: 4, textTransform: 'uppercase' }}>J4 — Administration</div>
                 <div style={{ fontSize: '0.85rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>Dept Email — {memberName}</div>
 
@@ -232,7 +232,7 @@ function EmailPopup({ memberId, memberName, currentEmail, emailHistory, onClose,
                             value={newEmail}
                             onChange={e => setNewEmail(e.target.value)}
                             placeholder='email@example.com'
-                            style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(219,0,29,0.3)', color: '#ededed', fontSize: '0.78rem', padding: '8px 10px', outline: 'none', marginBottom: 10, boxSizing: 'border-box', fontFamily: 'monospace' }}
+                            style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid var(--line-2)', color: '#ededed', fontSize: '0.78rem', padding: '8px 10px', outline: 'none', marginBottom: 10, boxSizing: 'border-box', fontFamily: 'monospace' }}
                         />
                         {err && <div style={{ fontSize: '0.68rem', color: 'var(--red)', marginBottom: 8 }}>{err}</div>}
                         <div style={{ display: 'flex', gap: 8 }}>
@@ -722,7 +722,7 @@ function PersonnelOverlay({ username, onClose }: { username: string; onClose: ()
         <div style={{ position: 'fixed', inset: 0, zIndex: 1500, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end', background: 'rgba(0,0,0,0.65)' }} onClick={onClose}>
             <div style={{ width: '100%', maxWidth: 900, background: '#0c0c0c', borderLeft: '2px solid rgba(219,0,29,0.4)', display: 'flex', flexDirection: 'column', minHeight: 0 }} onClick={e => e.stopPropagation()}>
                 {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid rgba(219,0,29,0.15)', background: 'rgba(0,0,0,0.5)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: '1px solid var(--line-2)', background: 'rgba(0,0,0,0.5)', flexShrink: 0 }}>
                     <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(219,0,29,0.7)', textTransform: 'uppercase' }}>Personnel Profile</span>
                     <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.45)', marginLeft: 4 }}>{username}</span>
                     <button onClick={onClose} style={{ marginLeft: 'auto', background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.5)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 12px', cursor: 'pointer' }}>Close</button>
@@ -908,7 +908,7 @@ export default function BilletMastersheetTab() {
     const hdrBase: React.CSSProperties = {
         padding: '5px 6px', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em',
         textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', background: 'rgba(0,0,0,0.55)',
-        borderBottom: '1px solid rgba(219,0,29,0.2)', whiteSpace: 'nowrap',
+        borderBottom: '1px solid var(--line-2)', whiteSpace: 'nowrap',
         textAlign: 'center',
     }
 
@@ -922,7 +922,7 @@ export default function BilletMastersheetTab() {
     const stickyNameHdr: React.CSSProperties = {
         ...hdrBase, position: 'sticky', left: 0, zIndex: 4,
         background: 'rgba(8,8,8,0.98)', textAlign: 'left', minWidth: 175,
-        borderRight: '1px solid rgba(219,0,29,0.15)',
+        borderRight: '1px solid var(--line-2)',
     } as React.CSSProperties
 
     const cellBase: React.CSSProperties = {
@@ -977,7 +977,7 @@ export default function BilletMastersheetTab() {
                 <input
                     type='text' value={search} onChange={e => handleSearch(e.target.value)}
                     placeholder='Search member…'
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(219,0,29,0.2)', color: '#ededed', fontSize: '0.72rem', padding: '5px 10px', outline: 'none', width: 180 }}
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line-2)', color: '#ededed', fontSize: '0.72rem', padding: '5px 10px', outline: 'none', width: 180 }}
                 />
 
                 {/* Membership filter */}
@@ -1078,7 +1078,7 @@ export default function BilletMastersheetTab() {
 
             {/* Grid with dual scrollbars */}
             {!diagnosticMode && <SyncScrollTable>
-                <div ref={tableRef} style={{ border: '1px solid rgba(219,0,29,0.15)' }}>
+                <div ref={tableRef} style={{ border: '1px solid var(--line-2)' }}>
                     <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                         <thead style={{ position: 'sticky', top: 0, zIndex: 5 }}>
                             {/* Group header row */}

@@ -186,8 +186,8 @@ export default function NotificationBell() {
                         width: 340,
                         maxHeight: 480,
                         background: 'rgba(12,12,12,0.98)',
-                        border: '1px solid rgba(219,0,29,0.42)',
-                        borderTop: '2px solid var(--red)',
+                        border: '1px solid var(--line-2)',
+                        borderTop: '1px solid var(--line-2)',
                         boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
                         zIndex: 200,
                         display: 'flex',
@@ -201,10 +201,10 @@ export default function NotificationBell() {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '10px 14px',
-                        borderBottom: '1px solid rgba(219,0,29,0.27)',
+                        borderBottom: '1px solid var(--line-2)',
                         flexShrink: 0,
                     }}>
-                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.75)', fontFamily: 'monospace' }}>
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                             {'// NOTIFICATIONS '}{unreadCount > 0 ? `[${unreadCount}]` : ''}
                         </span>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -329,7 +329,7 @@ export default function NotificationBell() {
                     </div>
 
                     {/* Footer — link to tasks */}
-                    <div style={{ padding: '8px 14px', borderTop: '1px solid rgba(219,0,29,0.12)', flexShrink: 0 }}>
+                    <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line-2)', flexShrink: 0 }}>
                         <button
                             onClick={() => { setOpen(false); router.push('/dashboard/tasks') }}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.55rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'monospace', transition: 'color 0.12s' }}
@@ -371,7 +371,7 @@ export default function NotificationBell() {
                                 pointerEvents: 'auto',
                                 width: 300,
                                 background: 'rgba(12,12,12,0.97)',
-                                border: '1px solid rgba(219,0,29,0.27)',
+                                border: '1px solid var(--line-2)',
                                 borderLeft: '3px solid var(--red)',
                                 boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
                                 padding: '12px 14px',

@@ -274,7 +274,7 @@ export default function CandidateFeedbackTab({ courseInstanceId, candidateId, ca
 
             {/* Candidate header */}
             <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 4 }}>Candidate Feedback</div>
+                <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 4 }}>Candidate Feedback</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
                     <span style={{ fontSize: '0.72rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.35)' }}>#{candidate.candidateNumber}</span>
                     <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'rgba(237,237,237,0.88)' }}>{candidate.displayName}</span>

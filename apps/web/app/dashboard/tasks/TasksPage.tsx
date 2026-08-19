@@ -91,7 +91,7 @@ const fldLabel: React.CSSProperties = {
 const rawInput: React.CSSProperties = {
     display: 'block', width: '100%', fontSize: '0.8rem', color: 'rgba(237,237,237,0.85)',
     background: 'rgba(255,255,255,0.04)', padding: '7px 10px',
-    border: '1px solid rgba(219,0,29,0.25)', boxSizing: 'border-box',
+    border: '1px solid var(--line-2)', boxSizing: 'border-box',
     outline: 'none', borderRadius: 0, colorScheme: 'dark', fontFamily: 'inherit',
 }
 
@@ -596,7 +596,7 @@ function TaskCard({
                             {/* ── Extend (creator) — direct date change ── */}
                             {extending && (
                                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                                    <input type='datetime-local' value={newDueDate} onChange={e => setNewDueDate(e.target.value)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(219,0,29,0.25)', color: 'rgba(237,237,237,0.8)', padding: '4px 8px', fontSize: '0.72rem', borderRadius: 2, outline: 'none', colorScheme: 'dark' }} />
+                                    <input type='datetime-local' value={newDueDate} onChange={e => setNewDueDate(e.target.value)} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.8)', padding: '4px 8px', fontSize: '0.72rem', borderRadius: 2, outline: 'none', colorScheme: 'dark' }} />
                                     <ActionBtn label='Save' color='rgba(34,197,94,0.7)' onClick={() => { if (newDueDate) { onAction(task._id, 'extend', { dueDate: newDueDate }); setExtending(false) } }} />
                                     <ActionBtn label='Cancel' color='rgba(237,237,237,0.3)' onClick={() => setExtending(false)} />
                                 </div>
@@ -907,10 +907,10 @@ export default function TasksPage({ userId, displayName: _d, isElevated, isAllBa
             )}
 
             {/* Header */}
-            <div className='flex items-center justify-between px-5 py-3 mx-6 mt-6' style={{ position: 'relative', border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.04)' }}>
+            <div className='flex items-center justify-between px-5 py-3 mx-6 mt-6' style={{ position: 'relative', border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.04)' }}>
                 <CornerBrackets />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'rgba(219,0,29,0.35)' }}>{'//'}</span> UNIT</span>
+                    <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ color: 'var(--txt-4)' }}>{'//'}</span> UNIT</span>
                     <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>Tasks</Typography>
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -926,7 +926,7 @@ export default function TasksPage({ userId, displayName: _d, isElevated, isAllBa
             </div>
 
             {/* Tabs — other tabs are disabled while lockout is active */}
-            <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+            <div className='mx-6 mt-4' style={{ borderBottom: '1px solid var(--line-2)' }}>
                 <Tabs value={tab} onChange={(_, v) => { if (!lockoutActive) setTab(v) }} TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }} sx={{ minHeight: 40 }}>
                     <Tab label='My Tasks' sx={tabSx} />
                     <Tab label='Created by Me' sx={{ ...tabSx, opacity: lockoutActive ? 0.3 : 1, pointerEvents: lockoutActive ? 'none' : undefined }} />
@@ -964,7 +964,7 @@ export default function TasksPage({ userId, displayName: _d, isElevated, isAllBa
                 {tab === 2 && isElevated && !lockoutActive && (
                     <>
                         <div style={{ marginBottom: 12 }}>
-                            <input placeholder='Filter by title, assignee, department…' value={allFilter} onChange={e => setAllFilter(e.target.value)} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(219,0,29,0.2)', color: 'rgba(237,237,237,0.8)', padding: '7px 12px', fontSize: '0.75rem', width: '100%', maxWidth: 380, outline: 'none', boxSizing: 'border-box', borderRadius: 0 }} />
+                            <input placeholder='Filter by title, assignee, department…' value={allFilter} onChange={e => setAllFilter(e.target.value)} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.8)', padding: '7px 12px', fontSize: '0.75rem', width: '100%', maxWidth: 380, outline: 'none', boxSizing: 'border-box', borderRadius: 0 }} />
                             {!allLoading && <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.25)', marginTop: 8, fontFamily: 'monospace' }}>{filteredAll.filter(t => t.status !== 'completed').length} pending{showCompleted ? ` · ${filteredAll.filter(t => t.status === 'completed').length} completed` : ''}{allFilter ? ` (filtered from ${allTasks.length})` : ''}</div>}
                         </div>
                         <TaskList tasks={filteredAll} onAction={handleAction} loading={allLoading} showAssignee emptyLabel='No tasks found' userId={userId} />

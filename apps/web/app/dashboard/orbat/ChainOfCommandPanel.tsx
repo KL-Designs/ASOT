@@ -65,7 +65,7 @@ function RoleNode({ data }: NodeProps<RoleFlowNode>) {
     return (
         <div style={{
             width: NODE_WIDTH, minHeight: NODE_HEIGHT, padding: '8px 12px',
-            background: 'rgba(20,20,20,0.95)', border: '1px solid rgba(219,0,29,0.4)', borderTop: '2px solid var(--red)',
+            background: 'rgba(20,20,20,0.95)', border: '1px solid var(--line-2)',
             opacity: dimmed ? 0.3 : 1, transition: 'opacity 0.15s',
         }}>
             <Handle type='target' position={Position.Top} style={{ background: 'rgba(219,0,29,0.6)' }} />

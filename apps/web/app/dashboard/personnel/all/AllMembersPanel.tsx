@@ -100,7 +100,7 @@ export default function AllMembersPanel({
                 className='flex flex-col flex-shrink-0'
                 style={{
                     width: 300,
-                    borderRight: '1px solid rgba(219,0,29,0.42)',
+                    borderRight: '1px solid var(--line-2)',
                     background: 'rgba(0,0,0,0.15)',
                     overflow: 'hidden',
                 }}
@@ -108,7 +108,7 @@ export default function AllMembersPanel({
                 {/* Header */}
                 <div
                     className='px-4 py-3 flex-shrink-0'
-                    style={{ borderBottom: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
+                    style={{ borderBottom: '1px solid var(--line-2)', borderTop: '1px solid var(--line-2)' }}
                 >
                     <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 2 }}>
                         Personnel
@@ -151,7 +151,7 @@ export default function AllMembersPanel({
                             disabled={page === 0 || loadingList}
                             style={{
                                 background: 'none',
-                                border: '1px solid rgba(219,0,29,0.25)',
+                                border: '1px solid var(--line-2)',
                                 color: page === 0 ? 'rgba(237,237,237,0.15)' : 'rgba(237,237,237,0.45)',
                                 fontSize: '0.65rem',
                                 fontWeight: 700,
@@ -170,7 +170,7 @@ export default function AllMembersPanel({
                             disabled={page >= totalPages - 1 || loadingList}
                             style={{
                                 background: 'none',
-                                border: '1px solid rgba(219,0,29,0.25)',
+                                border: '1px solid var(--line-2)',
                                 color: page >= totalPages - 1 ? 'rgba(237,237,237,0.15)' : 'rgba(237,237,237,0.45)',
                                 fontSize: '0.65rem',
                                 fontWeight: 700,

@@ -123,7 +123,7 @@ export default function StaffDashboardShell({
                         transform: 'translateY(-50%)',
                         zIndex: 51,
                         background: 'rgba(8,8,8,0.92)',
-                        border: '1px solid rgba(219,0,29,0.25)',
+                        border: '1px solid var(--line-2)',
                         borderLeft: 'none',
                         borderRadius: '0 6px 6px 0',
                         padding: '14px 7px',
@@ -189,7 +189,7 @@ export default function StaffDashboardShell({
                     }}
                 >
                     <DialogContent style={{ padding: '28px 28px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                        <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace' }}>
+                        <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                             {'// OVERDUE TASKS'}
                         </div>
                         <div style={{ fontSize: '0.9rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)', lineHeight: 1.2 }}>

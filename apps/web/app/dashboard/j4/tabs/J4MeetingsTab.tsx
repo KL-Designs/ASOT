@@ -60,8 +60,8 @@ export default function J4MeetingsTab({ userId }: { userId: string }) {
     return (
         <div className='m-6 mt-4 flex flex-col gap-0' style={{ flex: 1, minHeight: 0 }}>
             {/* Filters */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', border: '1px solid rgba(219,0,29,0.22)', borderBottom: 'none', background: 'rgba(255,255,255,0.02)', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', border: '1px solid var(--line-2)', borderBottom: 'none', background: 'rgba(255,255,255,0.02)', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                     {'// ALL MEETINGS'}
                 </span>
 
@@ -79,9 +79,9 @@ export default function J4MeetingsTab({ userId }: { userId: string }) {
                 </div>
             </div>
 
-            <div style={{ display: 'flex', flex: 1, minHeight: 400, border: '1px solid rgba(219,0,29,0.22)', background: 'rgba(255,255,255,0.01)' }}>
+            <div style={{ display: 'flex', flex: 1, minHeight: 400, border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)' }}>
                 {/* List */}
-                <div style={{ width: 280, flexShrink: 0, borderRight: '1px solid rgba(219,0,29,0.15)', overflowY: 'auto' }}>
+                <div style={{ width: 280, flexShrink: 0, borderRight: '1px solid var(--line-2)', overflowY: 'auto' }}>
                     {loading ? (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
                             <CircularProgress size={20} style={{ color: 'rgba(219,0,29,0.5)' }} />

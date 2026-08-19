@@ -83,7 +83,7 @@ function TemplatePicker({ onClose }: { onClose: () => void }) {
 
     return (
         <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, maxHeight: '70vh', background: 'rgb(13,13,13)', border: '1px solid rgba(219,0,29,0.25)', borderTop: '2px solid var(--red)', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.8)' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, maxHeight: '70vh', background: 'rgb(13,13,13)', border: '1px solid var(--line-2)', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.8)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                     <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.8)' }}>New from Template</span>
                     <button onClick={onClose} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.35)', display: 'flex' }}><Close style={{ fontSize: 18 }} /></button>
@@ -588,7 +588,7 @@ function NewMissionModal({
 
     return (
         <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgb(13,13,13)', border: '1px solid rgba(219,0,29,0.25)', borderTop: '2px solid var(--red)', boxShadow: '0 24px 64px rgba(0,0,0,0.8)' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgb(13,13,13)', border: '1px solid var(--line-2)', boxShadow: '0 24px 64px rgba(0,0,0,0.8)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                     <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.8)' }}>New Mission</span>
                     <button onClick={onClose} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.35)', display: 'flex' }}><Close style={{ fontSize: 18 }} /></button>
@@ -826,7 +826,7 @@ function AddDaySlotModal({
 
     return (
         <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 500, maxHeight: '80vh', background: 'rgb(13,13,13)', border: '1px solid rgba(219,0,29,0.25)', borderTop: '2px solid var(--red)', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.8)' }}>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 500, maxHeight: '80vh', background: 'rgb(13,13,13)', border: '1px solid var(--line-2)', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.8)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
                     <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.8)' }}>
                         Add {label} — {mission.name}
@@ -2383,7 +2383,7 @@ function AutoOrganiseModal({
             {showConfirm && (
 
                 <div onClick={() => setShowConfirm(false)} style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-                    <div onClick={e => e.stopPropagation()} style={{ background: 'rgb(18,18,18)', border: '1px solid rgba(219,0,29,0.28)', borderTop: '2px solid var(--red)', padding: '22px 24px', maxWidth: 440, width: '100%', display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 24px 64px rgba(0,0,0,0.95)' }}>
+                    <div onClick={e => e.stopPropagation()} style={{ background: 'rgb(18,18,18)', border: '1px solid var(--line-2)', padding: '22px 24px', maxWidth: 440, width: '100%', display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 24px 64px rgba(0,0,0,0.95)' }}>
                         <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.9)' }}>Apply campaign organisation?</div>
                         <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)', lineHeight: 1.65 }}>
                             This will create {selectedGroups.length} campaign{selectedGroups.length !== 1 ? 's' : ''} and link the operations into the campaign hierarchy.
@@ -2433,7 +2433,7 @@ function TemplatesSection({ refreshKey }: { refreshKey: number }) {
     }
 
     return (
-        <div style={{ border: '1px solid rgba(219,0,29,0.12)', background: 'rgba(255,255,255,0.01)', marginTop: 16 }}>
+        <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', marginTop: 16 }}>
             <button onClick={() => setOpen(o => !o)} style={{ all: 'unset', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: open ? '1px solid rgba(219,0,29,0.12)' : 'none' }}>
                 <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>Manage Templates</span>
                 <span style={{ color: 'rgba(237,237,237,0.3)', display: 'flex' }}>{open ? <ExpandLess style={{ fontSize: 16 }} /> : <ExpandMore style={{ fontSize: 16 }} />}</span>
@@ -2748,7 +2748,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
 
             {/* Header row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginRight: 'auto' }}>
+                <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', marginRight: 'auto' }}>
                     {missions.length} Mission{missions.length !== 1 ? 's' : ''}
                 </span>
 
@@ -2975,7 +2975,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                             <div style={{ overflowX: 'auto' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                                     <thead>
-                                        <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+                                        <tr style={{ borderBottom: '1px solid var(--line-2)' }}>
                                             {['Title', 'Deleted By', 'Deleted On', 'Days Remaining', ''].map(h => (
                                                 <th key={h} style={{ textAlign: 'left', padding: '6px 12px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>{h}</th>
                                             ))}
@@ -3104,7 +3104,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                     position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
                     zIndex: 1400, display: 'flex', alignItems: 'center', gap: 12,
                     padding: '10px 16px', background: 'rgb(22,22,22)',
-                    border: '1px solid rgba(219,0,29,0.42)', borderLeft: '3px solid var(--red)',
+                    border: '1px solid var(--line-2)', borderLeft: '3px solid var(--red)',
                     boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
                     fontSize: '0.8rem', color: 'rgba(237,237,237,0.8)', whiteSpace: 'nowrap',
                 }}>

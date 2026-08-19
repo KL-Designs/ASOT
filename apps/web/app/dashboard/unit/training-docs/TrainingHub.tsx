@@ -120,7 +120,7 @@ const inputStyle: React.CSSProperties = {
     boxSizing: 'border-box',
     background: 'rgba(255,255,255,0.04)',
     border: '1px solid rgba(255,255,255,0.08)',
-    borderBottom: '2px solid rgba(219,0,29,0.4)',
+    borderBottom: '1px solid var(--line-2)',
     color: 'rgba(237,237,237,0.9)',
     fontSize: '0.85rem',
     padding: '8px 10px',
@@ -142,7 +142,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
     return (
-        <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', paddingTop: 6, marginBottom: 2, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', paddingTop: 6, marginBottom: 2, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             {children}
         </div>
     )
@@ -1162,7 +1162,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     ))
                 )}
                 {isJ3Lead && showDeletedDocs[t._id] && (
-                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(219,0,29,0.1)' }}>
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line-2)' }}>
                         <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.35)', marginBottom: 6 }}>
                             Recycle Bin
                         </div>
@@ -1418,7 +1418,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     {/* Deleted guides panel */}
                     {isJ3Lead && showDeletedGuides && (
                         <div style={{ marginBottom: 20, border: '1px solid rgba(219,0,29,0.15)', background: 'rgba(219,0,29,0.03)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <div style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 2 }}>
+                            <div style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 2 }}>
                                 Recycle Bin
                             </div>
                             {loadingDeletedGuides ? (
@@ -1543,7 +1543,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                 >
                     <div style={{ background: '#0e0e0e', border: `1px solid rgba(219,0,29,0.25)`, borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 520, maxHeight: '88vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div>
-                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>
                                 {'//'} {modal.mode === 'create' ? 'ADD' : 'EDIT'} TRAINING TYPE
                             </div>
                             <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
@@ -1740,9 +1740,9 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             {deleteInstanceModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
                     onClick={e => { if (e.target === e.currentTarget) setDeleteInstanceModal(null) }}>
-                    <div style={{ background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.35)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ background: '#0e0e0e', border: '1px solid var(--line-2)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 16 }}>
                         <div>
-                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>{'//'} DELETE INSTANCE</div>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>{'//'} DELETE INSTANCE</div>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
                                 Delete {deleteInstanceModal.instanceRef}?
                             </h3>
@@ -1768,9 +1768,9 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             {createInstanceModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
                     onClick={e => { if (e.target === e.currentTarget) setCreateInstanceModal(null) }}>
-                    <div style={{ background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.25)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div style={{ background: '#0e0e0e', border: '1px solid var(--line-2)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div>
-                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>{'//'} LAUNCH COURSE</div>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>{'//'} LAUNCH COURSE</div>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
                                 Launch {createInstanceModal.courseType === 'selection' ? 'Selection' : 'Reinforcement Cycle'}?
                             </h3>
@@ -1785,7 +1785,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                                 value={createInstanceModal.session1Date}
                                 min={new Date().toLocaleDateString('en-CA')}
                                 onChange={e => setCreateInstanceModal(m => m ? { ...m, session1Date: e.target.value } : m)}
-                                style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '2px solid rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
+                                style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
                             />
                         </div>
                         {createInstanceModal.session1Date && (() => {
@@ -1820,7 +1820,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             {deleteDocModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
                     onClick={e => { if (e.target === e.currentTarget) setDeleteDocModal(null) }}>
-                    <div style={{ background: '#0d0d0d', border: '1px solid rgba(219,0,29,0.25)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ background: '#0d0d0d', border: '1px solid var(--line-2)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 16 }}>
                         <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.85)' }}>Delete Document</div>
                         <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.6)', fontFamily: 'Arial, sans-serif' }}>
                             Delete <strong style={{ color: 'rgba(237,237,237,0.85)' }}>{deleteDocModal.docTitle}</strong>? It will be moved to the recycle bin and can be restored later.
@@ -1843,11 +1843,11 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             {deletedGuideView && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 300, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 24px', overflowY: 'auto' }}
                     onClick={e => { if (e.target === e.currentTarget) setDeletedGuideView(null) }}>
-                    <div style={{ background: '#0d0d0d', border: '1px solid rgba(219,0,29,0.2)', borderTop: '3px solid rgba(219,0,29,0.5)', width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    <div style={{ background: '#0d0d0d', border: '1px solid var(--line-2)', width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 0 }}>
                         {/* Header */}
                         <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                             <div>
-                                <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 5 }}>
+                                <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 5 }}>
                                     Recycle Bin — Read-only Preview
                                 </div>
                                 <div style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.85)' }}>
@@ -1994,7 +1994,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             {deleteGuideModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
                     onClick={e => { if (e.target === e.currentTarget) setDeleteGuideModal(null) }}>
-                    <div style={{ background: '#0d0d0d', border: '1px solid rgba(219,0,29,0.25)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ background: '#0d0d0d', border: '1px solid var(--line-2)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 16 }}>
                         <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.85)' }}>Delete Training Guide</div>
                         <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.6)', fontFamily: 'Arial, sans-serif', lineHeight: 1.5 }}>
                             Delete <strong style={{ color: 'rgba(237,237,237,0.85)' }}>{deleteGuideModal.guideTitle}</strong>? It will be moved to the recycle bin and can be restored later. J3 leads will be notified.
@@ -2019,9 +2019,9 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
                     onClick={e => { if (e.target === e.currentTarget) setRejectDocModal(null) }}
                 >
-                    <div style={{ background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.25)', borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div style={{ background: '#0e0e0e', border: '1px solid var(--line-2)', borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div>
-                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>{'//'} REJECT DOCUMENT</div>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>{'//'} REJECT DOCUMENT</div>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Reject Submission</h3>
                         </div>
                         <Field label='Reason (optional)'>

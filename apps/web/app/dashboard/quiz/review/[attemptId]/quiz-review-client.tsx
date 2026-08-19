@@ -401,7 +401,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                                             <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>
                                                 {String(si + 1).padStart(2, '0')}
                                             </span>
-                                            <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.75)' }}>
+                                            <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)' }}>
                                                 {section.title}
                                             </span>
                                         </div>
@@ -461,7 +461,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                     {!isClosed && !submitted && (
                         <div style={{ marginTop: 32, border: '1px solid rgba(255,255,255,0.1)', borderTop: `2px solid ${RED}` }}>
                             <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.35)' }}>
-                                <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>
+                                <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                                     {'// DECISION'}
                                 </span>
                             </div>

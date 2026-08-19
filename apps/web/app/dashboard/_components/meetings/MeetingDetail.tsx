@@ -19,7 +19,7 @@ interface Props {
 
 const SECTION_LABEL: React.CSSProperties = {
     fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.2em',
-    textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)',
+    textTransform: 'uppercase', color: 'var(--txt-3)',
     fontFamily: 'monospace', marginBottom: 8,
 }
 
@@ -256,8 +256,8 @@ export default function MeetingDetail({ meeting, department, userId, isLead, onU
 
             {/* ── Right column: attendance panel ────────────────────────── */}
             <div style={{ width: 300, flexShrink: 0, borderLeft: '1px solid rgba(219,0,29,0.15)', overflowY: 'auto', background: 'rgba(219,0,29,0.02)' }}>
-                <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(219,0,29,0.12)' }}>
-                    <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace' }}>
+                <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--line-2)' }}>
+                    <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                         {'// Attendance'}
                     </span>
                 </div>

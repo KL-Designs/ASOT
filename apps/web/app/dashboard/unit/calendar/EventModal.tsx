@@ -332,7 +332,7 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                borderBottom: '1px solid rgba(219,0,29,0.42)',
+                borderBottom: '1px solid var(--line-2)',
                 pb: 1.5,
             }}>
                 <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase' }}>
@@ -664,7 +664,7 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                 )}
             </DialogContent>
 
-            <DialogActions sx={{ borderTop: '1px solid rgba(219,0,29,0.12)', px: 3, py: 1.5, justifyContent: 'space-between' }}>
+            <DialogActions sx={{ borderTop: '1px solid var(--line-2)', px: 3, py: 1.5, justifyContent: 'space-between' }}>
                 {isViewMode && event?.isOperation ? (
                     <Button
                         size='small'
@@ -748,8 +748,8 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
             <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 onClick={e => { if (e.target === e.currentTarget) setDeleteConfirming(false) }}
             >
-                <div style={{ width: '100%', maxWidth: 420, background: '#0f0f10', border: '1px solid rgba(219,0,29,0.4)', borderTop: '2px solid var(--red)', padding: '24px 24px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', fontFamily: 'monospace' }}>
+                <div style={{ width: '100%', maxWidth: 420, background: '#0f0f10', border: '1px solid var(--line-2)', padding: '24px 24px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                         {'// CONFIRM DELETE'}
                     </div>
                     <div style={{ fontSize: '0.88rem', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>

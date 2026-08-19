@@ -113,8 +113,8 @@ export default function RecruitVideoTab() {
     const continuedPct   = s.totalSessions ? Math.round((s.continued  / s.totalSessions) * 100) : 0
 
     const card = (label: string, value: string | number, sub?: string) => (
-        <div style={{ border: '1px solid rgba(219,0,29,0.18)', background: 'rgba(255,255,255,0.02)', padding: '14px 18px' }}>
-            <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace', marginBottom: 6 }}>{label}</div>
+        <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.02)', padding: '14px 18px' }}>
+            <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace', marginBottom: 6 }}>{label}</div>
             <div style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '0.05em', color: 'var(--foreground)' }}>{value}</div>
             {sub && <div style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)', marginTop: 4 }}>{sub}</div>}
         </div>
@@ -130,8 +130,8 @@ export default function RecruitVideoTab() {
         <div style={{ padding: '24px', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 24, alignItems: 'start' }}>
 
             {/* Config — left column */}
-            <div style={{ border: '1px solid rgba(219,0,29,0.22)', background: 'rgba(255,255,255,0.01)', padding: '20px 22px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, paddingBottom: 12, borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
+            <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', padding: '20px 22px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, paddingBottom: 12, borderBottom: '1px solid var(--line-2)' }}>
                     <VideocamIcon sx={{ fontSize: 18, color: 'var(--red)', opacity: 0.7 }} />
                     <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.7)' }}>
                         Video Configuration
@@ -240,8 +240,8 @@ export default function RecruitVideoTab() {
             </div>
 
             {/* Analytics — right column */}
-            <div style={{ border: '1px solid rgba(219,0,29,0.22)', background: 'rgba(255,255,255,0.01)', padding: '20px 22px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, paddingBottom: 12, borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
+            <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', padding: '20px 22px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, paddingBottom: 12, borderBottom: '1px solid var(--line-2)' }}>
                     <BarChartIcon sx={{ fontSize: 18, color: 'var(--red)', opacity: 0.7 }} />
                     <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.7)' }}>
                         Viewer Analytics

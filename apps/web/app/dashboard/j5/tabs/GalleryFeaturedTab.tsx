@@ -22,7 +22,7 @@ function HoverPreview({ src, rect }: { src: string; rect: DOMRect }) {
         <div style={{
             position: 'fixed', left, top, width: PREVIEW_SIZE, height: PREVIEW_SIZE,
             zIndex: 9999, pointerEvents: 'none', background: '#0e0e0e',
-            border: '1px solid rgba(219,0,29,0.4)', borderRadius: 4, overflow: 'hidden',
+            border: '1px solid var(--line-2)', borderRadius: 4, overflow: 'hidden',
             boxShadow: '0 16px 56px rgba(0,0,0,0.85)',
         }}>
             <img src={src} alt='' style={{ width: '100%', height: '100%', objectFit: 'contain' }} />

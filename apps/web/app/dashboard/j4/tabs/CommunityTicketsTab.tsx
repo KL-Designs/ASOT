@@ -152,7 +152,7 @@ export default function CommunityTicketsTab() {
         <>
         {confirmModal.open && (
             <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ background: '#111', border: '1px solid rgba(219,0,29,0.35)', borderTop: '3px solid rgba(219,0,29,0.6)', padding: '24px 28px', maxWidth: 420, width: '90%' }}>
+                <div style={{ background: '#111', border: '1px solid var(--line-2)', padding: '24px 28px', maxWidth: 420, width: '90%' }}>
                     <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'rgba(237,237,237,0.85)', marginBottom: 20, lineHeight: 1.5 }}>{confirmModal.message}</div>
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                         <button onClick={() => setConfirmModal(s => ({ ...s, open: false }))} style={{ padding: '7px 18px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.5)', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em' }}>CANCEL</button>

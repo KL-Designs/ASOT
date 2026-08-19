@@ -1156,7 +1156,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
 
     // ── Vertical step nav ──────────────────────────────────────────────────
     const verticalStepNav = (
-        <div style={{ width: 158, flexShrink: 0, borderRight: '1px solid rgba(219,0,29,0.12)', paddingTop: 8, paddingBottom: 16 }}>
+        <div style={{ width: 158, flexShrink: 0, borderRight: '1px solid var(--line-2)', paddingTop: 8, paddingBottom: 16 }}>
             {STEP_LABELS.map((label, i) => {
                 const stepNum = i + 1
                 const isDone = stepNum < step && isStepComplete(stepNum)
@@ -1953,8 +1953,8 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
             {/* Change-applicant confirmation modal */}
             {changeConfirmOpen && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 1300, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ background: '#0f0f0f', border: '1px solid rgba(219,0,29,0.4)', borderTop: '2px solid var(--red)', padding: '24px 28px', maxWidth: 420, width: '90%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace' }}>{'// CONFIRM'}</div>
+                    <div style={{ background: '#0f0f0f', border: '1px solid var(--line-2)', padding: '24px 28px', maxWidth: 420, width: '90%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>{'// CONFIRM'}</div>
                         <div style={{ fontSize: '0.92rem', fontWeight: 700, letterSpacing: '0.05em', color: 'rgba(237,237,237,0.9)', textTransform: 'uppercase' }}>Change Applicant?</div>
                         <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>You have unsaved changes. Changing applicant will clear the current form data.</p>
                         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
@@ -1968,8 +1968,8 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
             {/* Draft Restore Modal */}
             {draftPromptOpen && savedDraft && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 1400, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ background: '#0f0f10', border: '1px solid rgba(219,0,29,0.4)', borderTop: '2px solid var(--red)', padding: '24px 28px', maxWidth: 480, width: '90%', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', fontFamily: 'monospace' }}>{'// IN-PROGRESS RECRUITMENT'}</div>
+                    <div style={{ background: '#0f0f10', border: '1px solid var(--line-2)', padding: '24px 28px', maxWidth: 480, width: '90%', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>{'// IN-PROGRESS RECRUITMENT'}</div>
                         <div style={{ fontSize: '0.92rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Continue Previous Recruitment?</div>
                         <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.55)', lineHeight: 1.65 }}>
                             You have an in-progress recruitment
@@ -1994,7 +1994,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                     {/* Second confirmation for "Start New" */}
                     {draftStartNewConfirm && (
                         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <div style={{ background: '#0f0f10', border: '1px solid rgba(219,0,29,0.4)', borderTop: '2px solid var(--red)', padding: '24px 28px', maxWidth: 400, width: '90%', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                            <div style={{ background: '#0f0f10', border: '1px solid var(--line-2)', padding: '24px 28px', maxWidth: 400, width: '90%', display: 'flex', flexDirection: 'column', gap: 14 }}>
                                 <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Start New Recruitment?</div>
                                 <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.55)', lineHeight: 1.6 }}>
                                     The in-progress recruitment{savedDraft.selectedMember ? ` for ${(savedDraft.selectedMember as { displayName: string }).displayName}` : ''} will be permanently cleared. This cannot be undone.
@@ -2016,8 +2016,8 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
             {/* Clear In-Progress Confirmation Modal */}
             {clearInProgressOpen && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 1400, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ background: '#0f0f10', border: '1px solid rgba(219,0,29,0.4)', borderTop: '2px solid var(--red)', padding: '24px 28px', maxWidth: 440, width: '90%', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', fontFamily: 'monospace' }}>{'// CONFIRM CLEAR'}</div>
+                    <div style={{ background: '#0f0f10', border: '1px solid var(--line-2)', padding: '24px 28px', maxWidth: 440, width: '90%', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>{'// CONFIRM CLEAR'}</div>
                         <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Clear In-Progress Applicant?</div>
                         <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.55)', lineHeight: 1.6 }}>
                             This will clear the current in-progress recruitment and remove all saved progress for this applicant. This action cannot be undone.
@@ -2035,11 +2035,11 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
             )}
 
             {/* ── LEFT COLUMN ───────────────────────────────────────────────────── */}
-            <div className='xl:w-[60%]' style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid rgba(219,0,29,0.15)', minWidth: 0, minHeight: '500px' }}>
+            <div className='xl:w-[60%]' style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--line-2)', minWidth: 0, minHeight: '500px' }}>
 
                 {/* Header */}
-                <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
-                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 4, fontFamily: 'monospace' }}>
+                <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid var(--line-2)' }}>
+                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 4, fontFamily: 'monospace' }}>
                         J1 — DIRECT RECRUITMENT
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.45)', lineHeight: 1.5 }}>
@@ -2154,7 +2154,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                                     )}
                                                     sx={{ '& .MuiAutocomplete-paper': { borderRadius: 0, background: '#1a1a1a' }, ...inputSx }}
                                                     PaperComponent={({ children, ...props }) => (
-                                                        <div {...props as React.HTMLAttributes<HTMLDivElement>} style={{ background: '#1a1a1a', border: '1px solid rgba(219,0,29,0.32)', borderRadius: 0, marginTop: 2 }}>
+                                                        <div {...props as React.HTMLAttributes<HTMLDivElement>} style={{ background: '#1a1a1a', border: '1px solid var(--line-2)', borderRadius: 0, marginTop: 2 }}>
                                                             {children}
                                                         </div>
                                                     )}
@@ -2234,7 +2234,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
 
                                         {/* TS Address */}
                                         <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', marginBottom: 8 }}>
-                                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '9px 12px', fontSize: '0.82rem', fontFamily: 'monospace', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(219,0,29,0.25)', color: 'rgba(237,237,237,0.7)', letterSpacing: '0.04em' }}>
+                                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '9px 12px', fontSize: '0.82rem', fontFamily: 'monospace', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.7)', letterSpacing: '0.04em' }}>
                                                 {ASOT_TS_ADDRESS}
                                             </div>
                                             <button type='button' onClick={copyTsAddress}
@@ -2309,7 +2309,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                         ) : (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                                 <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
-                                                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '8px 12px', fontSize: '0.72rem', fontFamily: 'monospace', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(219,0,29,0.2)', color: 'rgba(237,237,237,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '8px 12px', fontSize: '0.72rem', fontFamily: 'monospace', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.55)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                         {sessionUrl}
                                                     </div>
                                                     <button type='button' onClick={copySessionLink}
@@ -2449,7 +2449,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                                 type='button'
                                                 onClick={resolveSteam}
                                                 disabled={!fields.steamUrl.trim() || steamStatus === 'resolving'}
-                                                style={{ flexShrink: 0, alignSelf: 'stretch', padding: '0 14px', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(219,0,29,0.25)', color: 'rgba(237,237,237,0.6)', cursor: 'pointer', opacity: !fields.steamUrl.trim() ? 0.4 : 1 }}
+                                                style={{ flexShrink: 0, alignSelf: 'stretch', padding: '0 14px', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.6)', cursor: 'pointer', opacity: !fields.steamUrl.trim() ? 0.4 : 1 }}
                                             >
                                                 RESOLVE
                                             </button>
@@ -3254,7 +3254,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                 <div style={{
                     flexShrink: 0,
                     padding: '20px 24px 14px',
-                    borderBottom: '1px solid rgba(219,0,29,0.2)',
+                    borderBottom: '1px solid var(--line-2)',
                     background: 'rgba(0,0,0,0.14)',
                     position: 'sticky',
                     top: 0,
@@ -3262,7 +3262,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                         <div>
-                            <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 6, fontFamily: 'monospace' }}>
+                            <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6, fontFamily: 'monospace' }}>
                                 {'// RECRUITER GUIDE'}
                             </div>
                             <div style={{ fontSize: '0.92rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.85)' }}>
@@ -3324,11 +3324,11 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                 onClick={e => { if (e.target === e.currentTarget) setPreviewOpen(false) }}
             >
                 {/* Outer container — position:relative so cursor is anchored here (outside scrollable) */}
-                <div style={{ position: 'relative', width: '98vw', maxWidth: 1440, height: '92vh', background: '#0a0a0a', border: '1px solid rgba(219,0,29,0.3)', borderTop: '2px solid rgba(219,0,29,0.6)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ position: 'relative', width: '98vw', maxWidth: 1440, height: '92vh', background: '#0a0a0a', border: '1px solid var(--line-2)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     {/* Preview chrome header */}
                     <div ref={previewHeaderRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0, background: 'rgba(0,0,0,0.5)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>{'// APPLICANT VIEW PREVIEW'}</div>
+                            <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>{'// APPLICANT VIEW PREVIEW'}</div>
                             {applicantCursor && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.6rem', color: 'rgba(219,0,29,0.45)' }}>
                                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(219,0,29,0.6)' }} />

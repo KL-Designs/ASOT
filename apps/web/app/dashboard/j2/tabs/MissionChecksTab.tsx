@@ -214,8 +214,8 @@ function AssignModal({
             background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
             <div style={{
-                background: 'rgba(18,18,18,0.98)', border: '1px solid rgba(219,0,29,0.35)',
-                borderTop: '2px solid var(--red)', width: 420, maxHeight: '80vh',
+                background: 'rgba(18,18,18,0.98)', border: '1px solid var(--line-2)',
+                borderTop: '1px solid var(--line-2)', width: 420, maxHeight: '80vh',
                 display: 'flex', flexDirection: 'column', padding: 24, gap: 16,
             }}>
                 <div>
@@ -532,7 +532,7 @@ function OpRow({
     }
 
     return (
-        <div style={{ border: '1px solid rgba(219,0,29,0.2)', marginBottom: 8, background: 'rgba(0,0,0,0.3)' }}>
+        <div style={{ border: '1px solid var(--line-2)', marginBottom: 8, background: 'rgba(0,0,0,0.3)' }}>
             {/* Op header */}
             <div
                 onClick={() => setExpanded(p => !p)}
@@ -747,7 +747,7 @@ export default function MissionChecksTab({
             {/* Header bar */}
             <div style={{
                 padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                borderBottom: '1px solid rgba(219,0,29,0.18)', flexShrink: 0,
+                borderBottom: '1px solid var(--line-2)', flexShrink: 0,
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <FilterList sx={{ fontSize: '0.95rem', color: 'rgba(219,0,29,0.6)' }} />
