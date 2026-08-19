@@ -81,9 +81,15 @@ function mkPart(id: PartId): BodyPart {
     return { id, wounds: [], fractured: false, tourniquet: false, splinted: false, iv: 0, checked: false }
 }
 
-export function newPatient(): Patient {
+/** Name, element and billet for the casualty on the table. */
+export interface Casualty { name: string, unit: string, role: string }
+
+/** The stand-in when the ORBAT has nobody to offer — an empty roster, mostly. */
+export const FALLBACK_CASUALTY: Casualty = { name: 'Noah Williams', unit: '2-1 BRAVO', role: 'RIFLEMAN' }
+
+export function newPatient(who: Casualty = FALLBACK_CASUALTY): Patient {
     const p: Patient = {
-        name: 'Noah Williams', callsign: '"VULTURE"', unit: '2-1 BRAVO · RIFLEMAN',
+        name: who.name, callsign: '"VULTURE"', unit: `${who.unit} · ${who.role}`,
         bloodType: 'O POS', bloodTypeKnown: false,
         parts: Object.fromEntries(PARTS.map(x => [x.id, mkPart(x.id)])) as Record<PartId, BodyPart>,
         blood: 82,

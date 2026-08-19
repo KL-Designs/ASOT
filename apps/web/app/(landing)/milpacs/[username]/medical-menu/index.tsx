@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
+import type { Casualty } from './model'
 
 /* ============================================================================
    Easter egg — the HZN-MED medical menu.
@@ -16,7 +17,10 @@ import dynamic from 'next/dynamic'
 
 const MedicalMenu = dynamic(() => import('./MedicalMenu'), { ssr: false })
 
-export function MedicalMenuEgg() {
+export function MedicalMenuEgg({ roster }: {
+    /** Candidate casualties from the ORBAT — see ./casualties.ts. */
+    roster: Casualty[]
+}) {
     const [open, setOpen] = useState(false)
     const [hover, setHover] = useState(false)
 
@@ -62,7 +66,7 @@ export function MedicalMenuEgg() {
                 </span>
             </button>
 
-            {open && <MedicalMenu onClose={() => setOpen(false)} />}
+            {open && <MedicalMenu roster={roster} onClose={() => setOpen(false)} />}
         </div>
     )
 }

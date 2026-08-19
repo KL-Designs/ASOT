@@ -7,10 +7,10 @@ import {
     type Action, type ActionRow, type LogKind, type ToolId,
 } from './actions'
 import {
-    PARTS, WOUND_TYPES,
+    FALLBACK_CASUALTY, PARTS, WOUND_TYPES,
     bloodWord, clamp, jitter, newPatient, painWord, partBleeding, partSeverity, pName,
     stampFrom, totalBleed,
-    type PartId, type Patient, type Triage,
+    type Casualty, type PartId, type Patient, type Triage,
 } from './model'
 import { TOOL_ICONS } from './icons'
 import s from './medical-menu.module.css'
@@ -78,8 +78,16 @@ const LOG_CLASS: Record<LogKind, string> = { '': '', good: s.loglineGood, warn: 
 
 /* ========================================================================== */
 
-export default function MedicalMenu({ onClose }: { onClose: () => void }) {
-    const [patient, setPatient] = useState<Patient>(newPatient)
+export default function MedicalMenu({ roster, onClose }: {
+    /** Candidate casualties, pulled from the ORBAT by the server. */
+    roster: Casualty[]
+    onClose: () => void
+}) {
+    // Chosen once per open, in the initialiser rather than an effect: picking
+    // in an effect would render the fallback first and swap the name out from
+    // under you a frame later.
+    const [patient, setPatient] = useState<Patient>(() =>
+        newPatient(roster.length ? roster[Math.floor(Math.random() * roster.length)] : FALLBACK_CASUALTY))
     const [sel, setSel] = useState<PartId | null>(null)
     const [hover, setHover] = useState<PartId | null>(null)
     const [tool, setTool] = useState<ToolId>('examine')
@@ -122,13 +130,14 @@ export default function MedicalMenu({ onClose }: { onClose: () => void }) {
     // Guarded: StrictMode runs effects twice in development, and without this
     // the handover you are given is printed to the log twice over.
     const booted = useRef(false)
+    const casualtyName = patient.name
     useEffect(() => {
         if (booted.current) return
         booted.current = true
         pushLog('Casualty is bleeding', 'bad')
         pushLog('Right Leg — fractured, 2× medium velocity wound', 'bad')
-        pushLog('Medical menu opened — casualty NOAH WILLIAMS', '')
-    }, [pushLog])
+        pushLog('Medical menu opened — casualty ' + casualtyName.toUpperCase(), '')
+    }, [pushLog, casualtyName])
 
     /* ---------- modal chrome: escape, scroll lock ------------------------- */
     useEffect(() => {
@@ -227,7 +236,7 @@ export default function MedicalMenu({ onClose }: { onClose: () => void }) {
                     <div className={s.titlebar}>
                         <h1>Medical Menu</h1>
                         <span className={s.tag}>HZN-MED</span>
-                        <span className={`${s.tag} ${s.tagAlt}`}>MOCKUP v0.1</span>
+                        <span className={`${s.tag} ${s.tagAlt}`}>TRAINING</span>
                         <span className={s.spacer} />
                         <span className={s.meta}>MISSION {clock}</span>
                         <span className={s.meta}>MEDIC · <b>DOC-1 KODA</b></span>

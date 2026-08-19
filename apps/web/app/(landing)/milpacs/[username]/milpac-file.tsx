@@ -35,6 +35,7 @@ import { normaliseTags } from '@/lib/loadout/tags'
 import { LoadoutManager } from './loadout-manager'
 import RankProgress from '@/components/ui/RankProgress'
 import { MedicalMenuEgg } from './medical-menu'
+import { sampleCasualties } from './medical-menu/casualties'
 import s from './profile.module.css'
 
 
@@ -157,6 +158,9 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 	// follows the person rather than whichever of the two the URL uses today.
 	const showMedicalMenu = username === MEDICAL_MENU_MEMBER
 		|| profile.canonical === MEDICAL_MENU_MEMBER
+	// Only queried for the one member who can see it — everyone else's milpac
+	// pays nothing for the egg.
+	const casualties = showMedicalMenu ? await sampleCasualties() : []
 
 	// Build uniform/box data (also used for the corps badge)
 	const uniformData = buildUniformData(member, orbatEntry)
@@ -448,7 +452,7 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 						)}
 					</div>
 				</div>
-				{showMedicalMenu && <MedicalMenuEgg />}
+				{showMedicalMenu && <MedicalMenuEgg roster={casualties} />}
 				</>
 			)}
 
