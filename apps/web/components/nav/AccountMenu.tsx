@@ -16,9 +16,11 @@ import s from '@/styles/navbar.module.css'
  * Holding the member-area links here is what lets DASHBOARD stay a single clean
  * jump in the bar rather than a menu of its own.
  *
- * Both the ORBAT position and the promotion progress are fetched lazily on
- * first open, not on mount: the navbar renders on every page, and neither
- * number is visible until the menu is opened.
+ * Promotion progress is fetched lazily on first open — the bar only exists
+ * inside the open panel, and the navbar renders on every page. The ORBAT entry
+ * is not: the chip's own subline falls back to it for any member whose milpac
+ * carries no callsign, so deferring it left the collapsed chip reading a
+ * placeholder until you clicked, and the real posting appeared afterwards.
  */
 export default function AccountMenu({ user }: { user: User }) {
     const [open, setOpen] = useState(false)
@@ -30,6 +32,20 @@ export default function AccountMenu({ user }: { user: User }) {
     useEffect(() => {
         setIsImpersonating(document.cookie.split(';').some(c => c.trim().startsWith('is_impersonating=')))
     }, [])
+
+    // Only for members the chip can't already describe from their milpac. One
+    // request per page for everyone else would be a request for nothing.
+    const needsOrbat = !user.milpac?.callsign
+
+    useEffect(() => {
+        if (!needsOrbat) return
+        let cancelled = false
+        fetch('/api/me/orbat')
+            .then(r => r.json())
+            .then(data => { if (!cancelled) setOrbatEntry(data ?? null) })
+            .catch(() => { if (!cancelled) setOrbatEntry(null) })
+        return () => { cancelled = true }
+    }, [needsOrbat])
 
     useEffect(() => {
         const onDown = (e: PointerEvent) => {
@@ -44,6 +60,8 @@ export default function AccountMenu({ user }: { user: User }) {
         setOpen(next)
         if (!next) return
 
+        // The panel names the member's ORBAT role even when the chip didn't
+        // need the entry to render its callsign.
         if (orbatEntry === undefined) {
             fetch('/api/me/orbat')
                 .then(r => r.json())
