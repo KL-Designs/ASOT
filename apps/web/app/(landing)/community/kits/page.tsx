@@ -139,7 +139,13 @@ export default async function Page() {
 
     return (
         <div
-            className={s.shell}
+            // `command` is where the palette lives (styles/command.css) and
+            // `.shell` only consumes it. Without it `--pad`, `--ink`, `--line`
+            // and `--mono` are undefined — and worse, `--ink-2` / `--ink-3`
+            // fall through to the globals.css tokens of the same name, which
+            // are *surfaces* rather than text, so half the page rendered
+            // near-black on near-black.
+            className={`command ${s.shell}`}
             style={{
                 ['--acc' as string]: UNIT_ACCENT,
                 ['--acc-rgb' as string]: hexToRgbTriplet(UNIT_ACCENT),
