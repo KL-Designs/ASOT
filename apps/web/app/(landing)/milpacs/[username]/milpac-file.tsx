@@ -34,6 +34,7 @@ import { kitIcon } from '@/lib/loadout/kit-icons'
 import { normaliseTags } from '@/lib/loadout/tags'
 import { LoadoutManager } from './loadout-manager'
 import RankProgress from '@/components/ui/RankProgress'
+import { MedicalMenuEgg } from './medical-menu'
 import s from './profile.module.css'
 
 
@@ -44,6 +45,15 @@ import s from './profile.module.css'
 // a badge misaligned against those without. They need the crop-a-known-region
 // treatment MedallionIcon uses, and nobody has measured the regions yet.
 // See docs/superpowers/specs/2026-08-17-milpac-redesign-design.md, risk R6.
+
+/**
+ * The one member whose overview carries the HZN-MED medical menu.
+ *
+ * An easter egg, matched against the Discord username or the milpac slug --
+ * see the `showMedicalMenu` gate below and ./medical-menu.tsx.
+ */
+const MEDICAL_MENU_MEMBER = 'res'
+
 
 /**
  * The certificate slide code for an award, or undefined if it has none.
@@ -140,6 +150,13 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 	// Discord username — the uniformHash write, the certificate routes and the
 	// editor's /api/members calls all look members up by it.
 	const username = member.username
+
+	// Easter egg. Matched on both the username and the canonical segment: if this
+	// member later claims a name slug the canonical changes, and if they already
+	// hold one then `res` is the slug rather than the username. Either way the egg
+	// follows the person rather than whichever of the two the URL uses today.
+	const showMedicalMenu = username === MEDICAL_MENU_MEMBER
+		|| profile.canonical === MEDICAL_MENU_MEMBER
 
 	// Build uniform/box data (also used for the corps badge)
 	const uniformData = buildUniformData(member, orbatEntry)
@@ -315,6 +332,7 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 
 			{/* Who this member is, and what they have been doing lately. */}
 			{tab === 'overview' && (
+				<>
 				<div className={`${s.page} ${s.pageLead}`}>
 					<div className={s.stack}>
 						{/* Shared with the navbar account menu — see components/ui/RankProgress. */}
@@ -430,6 +448,8 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 						)}
 					</div>
 				</div>
+				{showMedicalMenu && <MedicalMenuEgg />}
+				</>
 			)}
 
 			{/* What they have earned, and the paperwork behind it. */}
