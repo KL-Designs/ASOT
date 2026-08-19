@@ -289,14 +289,21 @@
    already moving on its own reads as a stuck progress indicator, and Windows
    paints it permanently at full weight rather than the hairline other platforms
    fade in. The arrows are the affordance here.
+
+   Full-bleed, and no page gutter. A carousel that stops short of the edge has
+   to explain where it ends; one that runs off both sides doesn't. The mask does
+   the explaining instead — tiles arrive and leave through a fade rather than
+   being cut off at a hard border, which is what makes it read as a strip
+   passing through the window rather than a row that happens to overflow.
 */
 .rail {
     display: flex;
     gap: var(--gap);
     overflow-x: auto;
-    padding: 0 var(--pad);
     scrollbar-width: none;
     -ms-overflow-style: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
 }
 
 .rail::-webkit-scrollbar {
@@ -331,23 +338,22 @@
     transform: scale(1.05);
 }
 
-@media (min-width: 1500px) {
-    .rail {
-        padding-left: calc(50% - 750px + var(--pad));
-        padding-right: calc(50% - 750px + var(--pad));
-    }
-}
-
 /* ---------- toolbar ------------------------------------------------------- */
 
 /*
-   Sticky under the navbar rather than under the viewport: the bar is 66px and
-   the status rail collapses on scroll, so 66px is the height that is actually
-   always there.
+   Pinned to the viewport, not to the navbar.
+
+   It reserved 66px for the bar above it, which is what the navbar measures —
+   but the navbar never occupies that space once you scroll. `.nav` is
+   `position: sticky` inside `#site-navbar`, a flex item sized to exactly the
+   navbar's own height, and a sticky box cannot travel outside its containing
+   block: with no slack to move in, it scrolls away like anything else. So the
+   reserved band held nothing, and the grid showed through above the toolbar in
+   a 66px strip — the clipping.
 */
 .toolbar {
     position: sticky;
-    top: 66px;
+    top: 0;
     z-index: 30;
     background: rgba(8, 9, 10, .94);
     backdrop-filter: blur(14px);
@@ -574,10 +580,10 @@
     align-items: start;
 }
 
-/* Clears the navbar plus the toolbar stacked above it. */
+/* Clears the toolbar pinned above it — the one thing that stays put. */
 .facetRail {
     position: sticky;
-    top: 142px;
+    top: 76px;
 }
 
 /* ---------- facets -------------------------------------------------------- */
