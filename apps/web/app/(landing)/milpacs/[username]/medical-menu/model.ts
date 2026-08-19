@@ -251,7 +251,30 @@ export interface Patient {
      */
     analysed: { rhythm: Rhythm, advised: boolean } | null
     cardiacArrest: boolean
-    airway: string
+    /** What is in the airway, whether or not anybody has looked. */
+    airway: Obstruction
+    /** The adjunct sited, if any. */
+    adjunct: Adjunct
+    /** Rolled onto their side. Gravity holds the airway open for you. */
+    recovery: boolean
+    /**
+     * Whether you have actually looked.
+     *
+     * The casualty's airway is not a readout, it is something you find out by
+     * putting your face next to theirs — so it reads unknown until you do, and
+     * goes back to unknown the moment it changes behind your back.
+     */
+    airwayChecked: boolean
+    /** Suction pump charges left. One, and it always works. */
+    suction: number
+    /** A hole in the chest. Where a pneumothorax comes from. */
+    chestWound: boolean
+    /** Occlusive dressing over it. Stops it tensioning again. */
+    sealed: boolean
+    /** Seconds until an unsealed chest tensions, or null if it is not going to. */
+    pneumoIn: number | null
+    /** Air in the pleural space with nowhere to go. Needs a needle. */
+    pneumo: boolean
     meds: string[]
     tqCount: number
     /**
@@ -365,25 +388,27 @@ const PROFILES: Record<Difficulty, {
     preDressed: number
     /** Chance the casualty is already in arrest when you open the menu. */
     arrest: number
+    /** Chance one of the wounds is a hole in the chest. */
+    chest: number
 }> = {
     // `woundsPerPart` counts actual wounds now rather than entries that each
     // stood for one or two, so the ranges are up to keep the casualties the
     // same weight as before.
     easy: {
         parts: [1, 2], woundsPerPart: [1, 2], kinds: ['abrasion', 'contusion', 'cut'],
-        fractures: [0, 0], blood: [88, 96], pain: [15, 35], preDressed: 0.35, arrest: 0,
+        fractures: [0, 0], blood: [88, 96], pain: [15, 35], preDressed: 0.35, arrest: 0, chest: 0,
     },
     moderate: {
         parts: [2, 3], woundsPerPart: [1, 3], kinds: ['cut', 'laceration', 'avulsion'],
-        fractures: [0, 1], blood: [72, 86], pain: [40, 65], preDressed: 0.2, arrest: 0,
+        fractures: [0, 1], blood: [72, 86], pain: [40, 65], preDressed: 0.2, arrest: 0, chest: 0.18,
     },
     hard: {
         parts: [3, 4], woundsPerPart: [2, 4], kinds: ['laceration', 'avulsion', 'puncture', 'velocity'],
-        fractures: [1, 2], blood: [52, 70], pain: [60, 85], preDressed: 0.1, arrest: 0.05,
+        fractures: [1, 2], blood: [52, 70], pain: [60, 85], preDressed: 0.1, arrest: 0.05, chest: 0.35,
     },
     extreme: {
         parts: [4, 6], woundsPerPart: [3, 5], kinds: ['velocity', 'crush', 'puncture', 'avulsion'],
-        fractures: [1, 3], blood: [30, 48], pain: [80, 100], preDressed: 0, arrest: 0.25,
+        fractures: [1, 3], blood: [30, 48], pain: [80, 100], preDressed: 0, arrest: 0.25, chest: 0.55,
     },
 }
 
@@ -410,7 +435,9 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         pain: randInt(...cfg.pain),
         hr: 80, sysBp: 118, diaBp: 74, spo2: 98, rr: 16, etco2: 36,
         temp: Math.round((36.8 - Math.random() * 1.4) * 10) / 10,
-        conscious: true, rhythm: 'sinus', analysed: null, cardiacArrest: false, airway: 'clear',
+        conscious: true, rhythm: 'sinus', analysed: null, cardiacArrest: false,
+        airway: 'none', adjunct: 'none', recovery: false, airwayChecked: false, suction: 1,
+        chestWound: false, sealed: false, pneumoIn: null, pneumo: false,
         meds: [], tqCount: 0,
         pressor: 0, epi: 0, hrTarget: null, wake: 0,
         monitorOn: null, padsOn: false, woundSeq: 0,
@@ -455,6 +482,22 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
     if (all.length && all.every(w => w.bandaged)) {
         const w = all[randInt(0, all.length - 1)]
         w.bandaged = false; w.dressing = null; w.failIn = null
+    }
+
+    /*
+       A hole in the chest, which is a different problem from a hole anywhere
+       else: it is the wound that kills you by filling the chest rather than
+       emptying it. Sometimes it has already tensioned by the time you get
+       there, which is the version you have to recognise rather than prevent.
+    */
+    if (Math.random() < cfg.chest) {
+        p.chestWound = true
+        p.parts.torso.wounds.push({
+            id: p.woundSeq++,
+            t: Math.random() < 0.5 ? 'puncture' : 'velocity',
+            bandaged: false, dressing: null, failIn: null,
+        })
+        p.pneumoIn = Math.random() < 0.22 ? 0 : randInt(25, 110)
     }
 
     // Fractures land on limbs the casualty already has trouble with where
@@ -578,6 +621,46 @@ export function bleedFactor(p: Patient): number {
     return Math.max(0.3, 1 - 0.2 * Math.min(p.pressor, PRESSOR_MAX))
 }
 
+/* ---------- the airway ----------------------------------------------------- */
+
+export type Obstruction = 'none' | 'tongue' | 'vomit'
+export type Adjunct = 'none' | 'npa' | 'opa' | 'king'
+
+export const ADJUNCT_LABEL: Record<Adjunct, string> = {
+    none: 'none', npa: 'NPA', opa: 'Guedel (OPA)', king: 'King LT',
+}
+
+export const OBSTRUCTION_LABEL: Record<Obstruction, string> = {
+    none: 'Clear', tongue: 'Tongue has fallen back', vomit: 'Vomit in the airway',
+}
+
+/** Saturation below which the casualty is gone. */
+export const FATAL_SPO2 = 50
+
+/** How often going under brings the last meal up with it. */
+export const VOMIT_ON_COLLAPSE = 0.45
+
+/**
+ * Whether air is actually moving.
+ *
+ * Four ways to keep it moving and they are not interchangeable, which is the
+ * whole lesson of the section:
+ *
+ * · The recovery position lets gravity do it, and gravity does not get tired.
+ * · A supraglottic seals the trachea off from the mouth, so it holds against
+ *   anything, including what the casualty brings up afterwards.
+ * · An NPA or a Guedel only holds the tongue off the back of the throat. They
+ *   are an answer to unconsciousness and no answer at all to vomit — which is
+ *   why putting one in a mouth full of it is not offered.
+ * · Clearing it by hand works on what is in there now and nothing after.
+ */
+export function airwayOpen(p: Patient): boolean {
+    if (p.recovery || p.adjunct === 'king') return true
+    if (p.airway === 'vomit') return false
+    if (p.airway === 'tongue') return p.adjunct !== 'none'
+    return true
+}
+
 /* ---------- consciousness -------------------------------------------------- */
 
 /**
@@ -644,6 +727,10 @@ export function stabilityIssues(p: Patient): string[] {
     const unsplinted = Object.values(p.parts).filter(pt => pt.fractured && !pt.splinted).length
     if (unsplinted > 0) out.push(`${unsplinted} fracture${unsplinted === 1 ? '' : 's'} unsplinted`)
 
+    if (!airwayOpen(p)) out.push(OBSTRUCTION_LABEL[p.airway] + ' — airway blocked')
+    if (p.pneumo) out.push('Tension pneumothorax — needs decompressing')
+    if (p.chestWound && !p.sealed) out.push('Chest wound unsealed')
+
     if (p.blood < 70) {
         // A bag already running is not an outstanding job, so say so rather
         // than telling you to go and hang the one you just hung.
@@ -676,6 +763,7 @@ export function handover(p: Patient): { text: string, kind: 'bad' | 'warn' | '' 
         if (bits.length) lines.push({ text: `${name} — ${bits.join(', ')}`, kind: 'bad' })
     }
 
+    if (p.chestWound) lines.push({ text: 'Penetrating chest wound — watch for a tension', kind: 'bad' })
     if (p.cardiacArrest) lines.push({ text: 'CASUALTY IS IN CARDIAC ARREST', kind: 'bad' })
     else if (totalBleed(p) > 0) lines.push({ text: 'Casualty is bleeding', kind: 'bad' })
     else if (!lines.length) lines.push({ text: 'No obvious injuries — survey the casualty', kind: '' })

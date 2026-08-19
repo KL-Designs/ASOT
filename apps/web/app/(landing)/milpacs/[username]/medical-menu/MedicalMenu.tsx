@@ -8,9 +8,10 @@ import {
 } from './actions'
 import { Monitor } from './audio'
 import {
-    BANDAGES, CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, FALLBACK_CASUALTY, FLUIDS, PARTS, RHYTHM_LABEL, WOUND_TYPES,
-    bestBandage, bleedFactor, bloodWord, chatter, clamp, handover, jitter, newPatient, nextWound, painWord,
-    partBleeding, partSeverity, pName,
+    ADJUNCT_LABEL, BANDAGES, CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, FALLBACK_CASUALTY, FATAL_SPO2, FLUIDS,
+    OBSTRUCTION_LABEL, PARTS, RHYTHM_LABEL, WOUND_TYPES,
+    airwayOpen, bestBandage, bleedFactor, bloodWord, chatter, clamp, handover, jitter, newPatient, nextWound,
+    painWord, partBleeding, partSeverity, pName,
     stabilityIssues, stampFrom, totalBleed,
     type Casualty, type Difficulty, type PartId, type Patient, type Rhythm, type Triage,
 } from './model'
@@ -258,6 +259,21 @@ export default function MedicalMenu({ roster, onClose }: {
         setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 2600)
     }, [])
 
+    /*
+       The retch.
+
+       Watched here rather than announced by the sim: whether a sound plays is
+       the menu's business, and the model has no idea a speaker exists. It is
+       the only warning that the airway has just shut, so it plays whether or
+       not you were looking at the head.
+    */
+    const vomiting = patient.airway === 'vomit'
+    const wasVomiting = useRef(vomiting)
+    useEffect(() => {
+        if (vomiting && !wasVomiting.current) monitor.current?.vomit()
+        wasVomiting.current = vomiting
+    }, [vomiting])
+
     /* ---------- the monitor's alarm --------------------------------------- */
     const alarm = alarmFor(patient)
     useEffect(() => { monitor.current!.setAlarm(alarm) }, [alarm])
@@ -456,6 +472,7 @@ export default function MedicalMenu({ roster, onClose }: {
     */
     const woundUp = selPart ? nextWound(selPart) : null
     const bestPick = woundUp ? bestBandage(woundUp.t) : null
+    const airOpen = airwayOpen(patient)
 
     const issues = stabilityIssues(patient)
     const bleeding = totalBleed(patient) > 0
@@ -729,6 +746,38 @@ export default function MedicalMenu({ roster, onClose }: {
                                                 </React.Fragment>
                                             )
                                         })}
+                                        {/* The hole, and whether anything is over it. */}
+                                        {patient.chestWound && (
+                                            <g>
+                                                <circle className={s.chestHole} cx='170' cy='166' r='6.5' fill='#d2352c' />
+                                                {patient.sealed && (
+                                                    <rect x='157' y='153' width='26' height='26' rx='2'
+                                                        fill='rgba(143,208,245,.14)' stroke='#8fd0f5' strokeWidth='1.6' />
+                                                )}
+                                            </g>
+                                        )}
+                                        {patient.pneumo && (
+                                            <g>
+                                                <circle className={s.pneumoRing} cx='170' cy='170' r='27'
+                                                    fill='none' stroke='#e03b31' strokeWidth='2' strokeDasharray='5 5' />
+                                                <text x='170' y='134' textAnchor='middle' fill='#e03b31'
+                                                    fontSize='10' fontWeight='700' letterSpacing='1.6'>TENSION</text>
+                                            </g>
+                                        )}
+
+                                        {/* An airway that somebody is holding open. */}
+                                        {(patient.adjunct !== 'none' || !airOpen) && (
+                                            <g>
+                                                <rect x='138' y='86' width='24' height='10' rx='2'
+                                                    fill={airOpen ? '#12181d' : '#2a1210'}
+                                                    stroke={airOpen ? '#56a8e0' : '#e03b31'} strokeWidth='1.4' />
+                                                {!airOpen && (
+                                                    <text x='150' y='118' textAnchor='middle' fill='#e03b31'
+                                                        fontSize='9.5' fontWeight='700' letterSpacing='1.4'>NO AIR</text>
+                                                )}
+                                            </g>
+                                        )}
+
                                         {/* The cuff, where you put it. */}
                                         {patient.monitorOn && MONITOR_BAND[patient.monitorOn] && (
                                             <g>
@@ -797,6 +846,20 @@ export default function MedicalMenu({ roster, onClose }: {
                                 )}
                                 {patient.rhythm === 'stemi' && patient.monitorOn && (
                                     <div className={`${s.ovline} ${s.ovlineYel}`}>{RHYTHM_LABEL.stemi}</div>
+                                )}
+                                {patient.outcome === 'active' && patient.spo2 <= 80 && (
+                                    <div className={`${s.ovline} ${s.ovlineRed} ${patient.spo2 <= 64 ? s.flash : ''}`}>
+                                        SpO₂ {Math.round(patient.spo2)}% — FATAL BELOW {FATAL_SPO2}%
+                                        {!airOpen && ' · AIRWAY BLOCKED'}
+                                    </div>
+                                )}
+                                {patient.pneumo && (
+                                    <div className={`${s.ovline} ${s.ovlineRed} ${s.flash}`}>
+                                        TENSION PNEUMOTHORAX — needs a needle
+                                    </div>
+                                )}
+                                {patient.chestWound && !patient.sealed && !patient.pneumo && (
+                                    <div className={`${s.ovline} ${s.ovlineYel}`}>Open chest wound — unsealed</div>
                                 )}
                                 {!patient.monitorOn && (
                                     <div className={`${s.ovline} ${s.ovlineYel}`}>
@@ -920,12 +983,33 @@ export default function MedicalMenu({ roster, onClose }: {
                                     </div>
                                 )}
 
-                                {patient.airway !== 'clear' && (
-                                    <div className={s.ovpart}>
-                                        <h4>Airway</h4>
-                                        <div className={s.ovsub}>{patient.airway} in situ</div>
-                                    </div>
-                                )}
+                                <div className={s.ovpart}>
+                                    <h4>Airway</h4>
+                                    {/* What is in it is something you find out by
+                                        looking. What you put in it, you know. */}
+                                    {patient.airwayChecked ? (
+                                        <div
+                                            className={s.ovsub}
+                                            style={{ color: airOpen ? 'var(--green)' : 'var(--red)', fontWeight: airOpen ? 400 : 700 }}
+                                        >
+                                            {OBSTRUCTION_LABEL[patient.airway]}
+                                            {airOpen ? '' : ' — NOT MOVING AIR'}
+                                        </div>
+                                    ) : (
+                                        <div className={`${s.ovsub} ${s.ovsubB}`}>Unknown — check it</div>
+                                    )}
+                                    {patient.adjunct !== 'none' && (
+                                        <div className={s.ovsub} style={{ color: 'var(--blue)' }}>
+                                            {ADJUNCT_LABEL[patient.adjunct]} sited
+                                        </div>
+                                    )}
+                                    {patient.recovery && (
+                                        <div className={s.ovsub} style={{ color: 'var(--green)' }}>In the recovery position</div>
+                                    )}
+                                    {patient.suction === 0 && (
+                                        <div className={`${s.ovsub} ${s.ovsubB}`}>Suction pump spent</div>
+                                    )}
+                                </div>
 
                                 {/* What still stands between this casualty and a
                                     handover. Listed rather than reduced to a
@@ -1034,7 +1118,9 @@ function Vitals({ patient: p }: { patient: Patient }) {
             {cell('BP', off ? '—' : p.cardiacArrest ? '0/0' : `${jitter(p.sysBp, 3)}/${jitter(p.diaBp, 2)}`, off ? '' : 'mmHg',
                 off ? s.vitOff : p.sysBp < 90 ? s.vitCrit : p.sysBp < 105 ? s.vitWarn : '')}
             {cell('SpO₂', off ? '—' : p.cardiacArrest ? '--' : jitter(p.spo2, 1), off ? '' : '%',
-                off ? s.vitOff : p.spo2 < 90 ? s.vitCrit : p.spo2 < 95 ? s.vitWarn : '')}
+                off ? s.vitOff
+                    : p.spo2 <= 64 ? `${s.vitCrit} ${s.flash}`
+                        : p.spo2 < 90 ? s.vitCrit : p.spo2 < 95 ? s.vitWarn : '')}
             {cell('RR', off ? '—' : p.cardiacArrest ? '0' : jitter(p.rr, 1), off ? '' : '/min',
                 off ? s.vitOff : p.rr > 24 || p.rr < 8 ? s.vitWarn : '')}
             {cell('TEMP', p.temp.toFixed(1), '°C', p.temp < 35.5 ? s.vitWarn : '')}
@@ -1418,7 +1504,9 @@ function QuickView({ patient: p }: { patient: Patient }) {
                     <span className={`${s.chip} ${p.cardiacArrest ? s.chipR : p.rhythm === 'stemi' ? s.chipY : s.chipG}`}>
                         {RHYTHM_LABEL[p.rhythm].toUpperCase()}
                     </span>
-                    <span className={s.chip}>{p.airway === 'clear' ? 'AIRWAY CLEAR' : p.airway.toUpperCase() + ' SITED'}</span>
+                    <span className={`${s.chip} ${!p.airwayChecked ? s.chipB : airwayOpen(p) ? s.chipG : s.chipR}`}>
+                        {!p.airwayChecked ? 'AIRWAY UNKNOWN' : airwayOpen(p) ? 'AIRWAY CLEAR' : 'AIRWAY BLOCKED'}
+                    </span>
                     {p.meds.length > 0 && <span className={`${s.chip} ${s.chipY}`}>{p.meds.length}× MEDS GIVEN</span>}
                 </div>
             </div>

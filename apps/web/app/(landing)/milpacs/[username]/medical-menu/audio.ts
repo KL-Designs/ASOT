@@ -179,6 +179,46 @@ export class Monitor {
         this.blip(1760, t + seconds, 0.35, 0.06, 'triangle')
     }
 
+    /**
+     * The casualty bringing it up.
+     *
+     * Filtered noise swept downwards over a low growl. Unpleasant on purpose:
+     * it is the only warning you get that the airway has just closed, and it
+     * has to carry across a screen you are not looking at.
+     */
+    vomit() {
+        const ctx = this.wake()
+        if (!ctx || this.muted || !this.noise) return
+        const t = ctx.currentTime
+
+        const src = ctx.createBufferSource()
+        src.buffer = this.noise
+        src.playbackRate.value = 0.55
+        const filter = ctx.createBiquadFilter()
+        filter.type = 'lowpass'
+        filter.frequency.setValueAtTime(1400, t)
+        filter.frequency.exponentialRampToValueAtTime(220, t + 0.85)
+        filter.Q.value = 6
+        const g = ctx.createGain()
+        g.gain.setValueAtTime(0.0001, t)
+        g.gain.linearRampToValueAtTime(0.3, t + 0.07)
+        g.gain.setValueAtTime(0.3, t + 0.45)
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9)
+        src.connect(filter); filter.connect(g); g.connect(this.master!)
+        src.start(t); src.stop(t + 0.95)
+
+        const growl = ctx.createOscillator()
+        const gg = ctx.createGain()
+        growl.type = 'sawtooth'
+        growl.frequency.setValueAtTime(96, t)
+        growl.frequency.exponentialRampToValueAtTime(58, t + 0.8)
+        gg.gain.setValueAtTime(0.0001, t)
+        gg.gain.linearRampToValueAtTime(0.08, t + 0.1)
+        gg.gain.exponentialRampToValueAtTime(0.0001, t + 0.85)
+        growl.connect(gg); gg.connect(this.master!)
+        growl.start(t); growl.stop(t + 0.9)
+    }
+
     /** The discharge itself — a crack over a low thump. */
     shock() {
         const ctx = this.wake()

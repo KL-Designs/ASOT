@@ -1,9 +1,10 @@
 import {
     BAG_SIZES, BANDAGES, CPR_DOWNTIME_RATE, CPR_RATE, DEATH_DOWNTIME, EPI_WINDOW, FLUIDS,
     PRESSOR_LIFE, PRESSOR_MAX, RHYTHM_LABEL, SHOCKABLE, WOUND_TYPES,
-    arrestHr, bestBandage, bleedFactor, clamp, dressingLife, isConscious, jitter, nextWound, pName,
-    reopenChance, setRhythm, stabilityIssues, totalBleed,
-    type BandageId, type BodyPart, type FluidId, type Patient, type PartId,
+    ADJUNCT_LABEL, FATAL_SPO2, OBSTRUCTION_LABEL, VOMIT_ON_COLLAPSE,
+    airwayOpen, arrestHr, bestBandage, bleedFactor, clamp, dressingLife, isConscious, jitter,
+    nextWound, pName, reopenChance, setRhythm, stabilityIssues, totalBleed,
+    type Adjunct, type BandageId, type BodyPart, type FluidId, type Patient, type PartId,
 } from './model'
 
 /* ============================================================================
@@ -56,6 +57,7 @@ const ACTION_TIME: Record<string, number> = {
     decom: 5, bvm: 2, oxy: 3,
     iv: 5, blood: 8, plasma: 8, saline: 8, analyse: 6, shock: 4, pak: 10, surg: 15,
     monon: 5, monoff: 3, pads: 6,
+    look: 3, tilt: 3, turn: 4, suction: 5, recov: 5,
     splint: 6, realign: 4, sling: 4, blanket: 3, heat: 3,
 }
 
@@ -223,11 +225,16 @@ function hang(p: Patient, fluid: FluidId, ml: number, id: PartId): [string, LogK
     return [`${f.label} ${ml} ml hung — ${pName(id)} · ${Math.round(ml / f.rate)}s to run through`, 'good']
 }
 
-function airway(p: Patient, kind: string): [string, LogKind] {
-    if (p.airway === kind) return [kind + ' already sited', 'warn']
-    p.airway = kind
-    p.spo2 = clamp(p.spo2 + 4, 0, 100)
-    return [kind + ' inserted — airway patent', 'good']
+function siteAdjunct(p: Patient, a: Adjunct): [string, LogKind] {
+    if (p.adjunct === a) return [ADJUNCT_LABEL[a] + ' already sited', 'warn']
+    p.adjunct = a
+    p.airwayChecked = true
+    // A supraglottic goes past the problem rather than holding it out of the
+    // way, so it is the only one that answers vomit — and the only one that
+    // keeps answering it.
+    if (a === 'king') p.airway = 'none'
+    return [`${ADJUNCT_LABEL[a]} sited — ${airwayOpen(p) ? 'air moving' : 'still obstructed'}`,
+        airwayOpen(p) ? 'good' : 'warn']
 }
 
 /* ---------- the tables ---------------------------------------------------- */
@@ -330,8 +337,12 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
         },
         {
             id: 'seal', label: 'Chest Seal (Vented)', needsPart: true, dot: 'g',
-            showFor: (p, pt) => onChest(p, pt) && isOpen(pt!),
-            run: () => ['Chest seal applied — occlusive dressing sited', 'good'],
+            showFor: (p, pt) => onChest(p, pt) && p.chestWound && !p.sealed,
+            run: p => {
+                p.sealed = true
+                if (!p.pneumo) p.pneumoIn = null
+                return ['Chest seal applied — occlusive dressing over the wound', 'good']
+            },
         },
 
         { sec: 'Fractures' },
@@ -405,21 +416,100 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
         { sec: 'Airway' },
         // Everything that goes in the mouth or over the face is a thing you do
         // to the head, and asks you to have selected it.
-        { id: 'npa',   label: 'Nasopharyngeal Tube',   needsPart: true, showFor: onHead, dot: 'g', run: p => airway(p, 'NPA') },
-        { id: 'opa',   label: 'Guedel (OPA)',          needsPart: true, showFor: onHead, dot: 'g', run: p => airway(p, 'OPA') },
-        { id: 'king',  label: 'King LT Supraglottic',  needsPart: true, showFor: onHead, dot: 'g', run: p => airway(p, 'King LT') },
-        { id: 'recov', label: 'Recovery Position',     dot: 'g', run: () => ['Casualty placed in recovery position', 'good'] },
+        {
+            id: 'look', label: 'Check Airway', note: 'look, listen, feel',
+            needsPart: true, showFor: onHead, dot: 'b', time: 3,
+            run: p => {
+                p.airwayChecked = true
+                const found = OBSTRUCTION_LABEL[p.airway]
+                return airwayOpen(p)
+                    ? [`Airway checked — ${found.toLowerCase()}, air moving`, 'good']
+                    : [`Airway checked — ${found.toUpperCase()}, NOT MOVING AIR`, 'bad']
+            },
+        },
+        {
+            id: 'tilt', label: 'Head Tilt / Chin Lift', note: 'hyper-extend',
+            needsPart: true, showFor: onHead, dot: 'g', time: 3,
+            run: p => {
+                p.airwayChecked = true
+                if (p.airway === 'none') return ['Airway is already clear', 'warn']
+                // Exactly the manoeuvre for a tongue, and close to useless
+                // against anything you would have to actually remove.
+                const odds = p.airway === 'tongue' ? 0.82 : 0.18
+                if (Math.random() < odds) {
+                    p.airway = 'none'
+                    return ['Head tilted, chin lifted — airway opens, air moving', 'good']
+                }
+                return ['Head tilted — still not moving air', 'bad']
+            },
+        },
+        {
+            id: 'turn', label: 'Turn Head & Finger Sweep', note: 'clear by hand',
+            needsPart: true, dot: 'y', time: 4,
+            showFor: (p, pt) => onHead(p, pt) && p.airway === 'vomit',
+            run: p => {
+                p.airwayChecked = true
+                if (Math.random() < 0.55) {
+                    p.airway = 'none'
+                    return ['Head turned, mouth swept — airway clear', 'good']
+                }
+                return ['Swept — still obstructed, go again', 'bad']
+            },
+        },
+        {
+            id: 'suction', label: 'Manual Suction Pump', note: 'one use · always works',
+            needsPart: true, dot: 'b', time: 5,
+            showFor: (p, pt) => onHead(p, pt) && p.suction > 0 && p.airway !== 'none',
+            run: p => {
+                p.suction--
+                p.airway = 'none'
+                p.airwayChecked = true
+                return ['Suctioned — airway clear · pump spent', 'good']
+            },
+        },
+        {
+            id: 'recov', label: 'Recovery Position', note: 'stays clear', dot: 'g', time: 5,
+            showFor: p => !p.recovery && !p.cardiacArrest,
+            run: p => {
+                p.recovery = true
+                p.airwayChecked = true
+                return ['Casualty rolled — the airway will stay clear on its own', 'good']
+            },
+        },
+
+        { sec: 'Adjuncts' },
+        // Not into a mouth full of vomit. Clear it, then site one.
+        { id: 'npa',  label: 'Nasopharyngeal Tube',  needsPart: true, dot: 'g',
+            showFor: (p, pt) => onHead(p, pt) && p.airway !== 'vomit' && p.adjunct !== 'npa',
+            run: p => siteAdjunct(p, 'npa') },
+        { id: 'opa',  label: 'Guedel (OPA)',         needsPart: true, dot: 'g',
+            showFor: (p, pt) => onHead(p, pt) && p.airway !== 'vomit' && p.adjunct !== 'opa',
+            run: p => siteAdjunct(p, 'opa') },
+        { id: 'king', label: 'King LT Supraglottic', needsPart: true, dot: 'g', note: 'seals the airway',
+            showFor: (p, pt) => onHead(p, pt) && p.adjunct !== 'king',
+            run: p => siteAdjunct(p, 'king') },
 
         { sec: 'Chest' },
-        { id: 'decom', label: 'Chest Decompression', note: '14G needle', needsPart: true, showFor: onChest, dot: 'r', run: p => {
-            p.spo2 = clamp(p.spo2 + 7, 0, 100); p.rr = clamp(p.rr - 4, 4, 40)
-            return ['Needle decompression — 2nd ICS MCL · rush of air', 'good']
+        { id: 'decom', label: 'Needle Decompression', note: '14G · 2nd ICS MCL', needsPart: true, showFor: onChest, dot: 'r', run: p => {
+            if (!p.pneumo) return ['Nothing to decompress — the chest is not tensioning', 'warn']
+            p.pneumo = false
+            p.spo2  = clamp(p.spo2 + 14, 0, 100)
+            p.sysBp = clamp(p.sysBp + 16, 0, 200)
+            p.rr    = clamp(p.rr - 6, 4, 46)
+            // The needle lets the air out. It does not close the hole letting
+            // it in, so an unsealed chest simply starts filling again.
+            p.pneumoIn = p.sealed ? null : 45
+            return [`Decompressed — rush of air${p.sealed ? '' : ' · seal the wound or it will tension again'}`,
+                p.sealed ? 'good' : 'warn']
         } },
         { id: 'bvm', label: 'Bag-Valve Mask', note: '12/min', needsPart: true, showFor: onHead, dot: 'g', run: p => {
+            // Squeezing a bag into a closed airway inflates a stomach.
+            if (!airwayOpen(p)) return ['Bagging against an obstruction — nothing is going in', 'bad']
             p.spo2 = clamp(p.spo2 + 5, 0, 100)
             return ['Ventilating with BVM — 12/min', 'good']
         } },
         { id: 'oxy', label: 'Oxygen Tank', note: '15 L NRB', needsPart: true, showFor: onHead, dot: 'g', run: p => {
+            if (!airwayOpen(p)) return ['Oxygen on, but the airway is shut — open it first', 'bad']
             p.spo2 = clamp(p.spo2 + 6, 0, 100)
             return ['O₂ via non-rebreather at 15 L/min', 'good']
         } },
@@ -467,6 +557,11 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
                     return ['Compressions stopped', 'warn']
                 }
                 p.cprActive = true
+                if (p.recovery) {
+                    // You cannot compress a chest that is facing the floor.
+                    p.recovery = false
+                    p.airwayChecked = false
+                }
                 return [`Compressions started — ${CPR_RATE} per minute`, 'good']
             },
         },
@@ -582,6 +677,43 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         }
     }
 
+    /*
+       Air, or the lack of it.
+
+       An obstructed airway is the fastest way to lose a casualty in this menu
+       and it is meant to be: you have about twenty seconds of not noticing
+       before it matters and under a minute before it is over.
+    */
+    const open = airwayOpen(p)
+    if (!open) {
+        p.spo2 = clamp(p.spo2 - dt * 1.2, 0, 100)
+        p.rr   = clamp(p.rr + dt * 1.4, 0, 46)
+    } else if (!p.pneumo && p.spo2 < 97) {
+        p.spo2 = clamp(p.spo2 + dt * 0.9, 0, 97)
+    }
+
+    // A chest filling with air that cannot get out.
+    if (p.pneumoIn !== null && !p.pneumo) {
+        p.pneumoIn -= dt
+        if (p.pneumoIn <= 0) {
+            p.pneumo = true
+            p.pneumoIn = null
+            p.spo2  = clamp(p.spo2 - 12, 0, 100)
+            p.sysBp = clamp(p.sysBp - 20, 20, 200)
+            return ['TENSION PNEUMOTHORAX — decompress the chest', 'bad']
+        }
+    }
+    if (p.pneumo) {
+        p.spo2  = clamp(p.spo2 - dt * 1.1, 0, 100)
+        p.sysBp = clamp(p.sysBp - dt * 0.7, 20, 200)
+        p.rr    = clamp(p.rr + dt * 0.5, 0, 46)
+    }
+
+    if (p.spo2 <= FATAL_SPO2) {
+        kill(p, open ? 'Hypoxia' : 'Hypoxia — the airway was never opened')
+        return ['CASUALTY HAS DIED OF HYPOXIA — no air was moving', 'bad']
+    }
+
     // The drugs wearing off.
     if (p.pressor > 0) p.pressor = Math.max(0, p.pressor - dt / PRESSOR_LIFE)
     if (p.epi > 0)     p.epi = Math.max(0, p.epi - dt)
@@ -676,12 +808,42 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
     const awake = isConscious(p)
     if (awake !== p.conscious) {
         p.conscious = awake
-        event = awake
-            ? ['Casualty is coming round', 'good']
-            : ['Casualty has lost consciousness', 'bad']
+        if (awake) {
+            // They hold their own airway again the moment they are back.
+            if (p.airway === 'tongue') p.airway = 'none'
+            event = ['Casualty is coming round', 'good']
+        } else {
+            event = [collapse(p), 'bad']
+        }
+    } else if (!p.conscious && !p.recovery && p.adjunct !== 'king' && p.airway !== 'vomit'
+        && Math.random() < 0.008 * dt) {
+        // Still under, and it can still happen. Rare per tick, near-certain
+        // over the minutes an unprotected airway is left alone.
+        p.airway = 'vomit'
+        p.airwayChecked = false
+        event = ['Casualty is vomiting — airway obstructed', 'bad']
     }
 
     return event
+}
+
+/**
+ * What happens the moment they go under.
+ *
+ * The tongue goes back — that is what unconsciousness *is*, mechanically — and
+ * often enough the stomach comes up with it. Both of them silently, unless you
+ * happen to be looking, which is why the airway reads unknown again afterwards.
+ */
+function collapse(p: Patient): string {
+    p.airwayChecked = false
+    if (p.recovery || p.adjunct === 'king') return 'Casualty has lost consciousness'
+
+    if (p.airway === 'none' && Math.random() < VOMIT_ON_COLLAPSE) {
+        p.airway = 'vomit'
+        return 'Casualty has vomited — airway obstructed'
+    }
+    if (p.airway === 'none') p.airway = 'tongue'
+    return 'Casualty has lost consciousness'
 }
 
 function kill(p: Patient, cause: string) {
@@ -709,6 +871,8 @@ export function alarmFor(p: Patient): 'none' | 'urgent' | 'flatline' {
     if (!p.monitorOn) return 'none'
     if (p.rhythm === 'asystole') return 'flatline'
     if (p.cardiacArrest) return 'urgent'
+    // Desaturating. The closer to fatal, the less this is a background noise.
+    if (p.spo2 <= 70) return 'urgent'
     return 'none'
 }
 

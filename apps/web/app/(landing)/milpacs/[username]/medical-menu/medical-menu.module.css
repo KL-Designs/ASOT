@@ -565,6 +565,23 @@
     45%      { transform: translateY(3px) }
 }
 
+/* The things that are about to kill them, said loudly. */
+.flash { animation: flash .8s steps(1, end) infinite }
+
+@keyframes flash {
+    0%, 49%   { opacity: 1 }
+    50%, 100% { opacity: .32 }
+}
+
+/* A hole in the chest, and the chest filling up because of it. */
+.chestHole { animation: drip 1s ease-in-out infinite }
+.pneumoRing { animation: pneumo 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center }
+
+@keyframes pneumo {
+    0%, 100% { transform: scale(.9); opacity: .55 }
+    50%      { transform: scale(1.06); opacity: 1 }
+}
+
 /* The cuff's own light, so an attached monitor reads as a live one. */
 .cuffLed { animation: drip 1.6s ease-in-out infinite }
 
