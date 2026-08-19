@@ -8,8 +8,9 @@ import {
 } from './actions'
 import { Monitor } from './audio'
 import {
-    CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, FALLBACK_CASUALTY, FLUIDS, PARTS, RHYTHM_LABEL, WOUND_TYPES,
-    bleedFactor, bloodWord, chatter, clamp, handover, jitter, newPatient, painWord, partBleeding, partSeverity, pName,
+    BANDAGES, CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, FALLBACK_CASUALTY, FLUIDS, PARTS, RHYTHM_LABEL, WOUND_TYPES,
+    bestBandage, bleedFactor, bloodWord, chatter, clamp, handover, jitter, newPatient, nextWound, painWord,
+    partBleeding, partSeverity, pName,
     stabilityIssues, stampFrom, totalBleed,
     type Casualty, type Difficulty, type PartId, type Patient, type Rhythm, type Triage,
 } from './model'
@@ -446,6 +447,16 @@ export default function MedicalMenu({ roster, onClose }: {
     const selPart = sel ? patient.parts[sel] : null
     const rows = tool === 'triage' ? [] : visibleRows(ACTIONS[tool], patient, selPart)
 
+    /*
+       The wound a dressing would go on, and what to reach for.
+
+       `nextWound` picks the worst one open, and `dress` treats that same one —
+       so the recommendation is about the wound you are actually about to
+       close rather than a general opinion about the limb.
+    */
+    const woundUp = selPart ? nextWound(selPart) : null
+    const bestPick = woundUp ? bestBandage(woundUp.t) : null
+
     const issues = stabilityIssues(patient)
     const bleeding = totalBleed(patient) > 0
     const [bw, bcls] = bloodWord(patient.blood)
@@ -536,6 +547,12 @@ export default function MedicalMenu({ roster, onClose }: {
                             )}
 
                             <div className={s.panel}>
+                                {tool === 'bandage' && woundUp && (
+                                    <div className={s.advice}>
+                                        Next: <b>{WOUND_TYPES[woundUp.t].name}</b> — reach for{' '}
+                                        <b>{BANDAGES[bestPick!].short}</b>
+                                    </div>
+                                )}
                                 {tool === 'triage' ? (
                                     <TriageCard
                                         patient={patient}
@@ -585,12 +602,17 @@ export default function MedicalMenu({ roster, onClose }: {
                                                 <button
                                                     key={row.id}
                                                     type='button'
-                                                    className={`${s.trow} ${row.onFor?.(patient) ? s.trowOn : ''}`}
+                                                    className={[
+                                                        s.trow,
+                                                        row.onFor?.(patient) ? s.trowOn : '',
+                                                        row.bandage && row.bandage === bestPick ? s.trowBest : '',
+                                                    ].filter(Boolean).join(' ')}
                                                     disabled={!!busy || patient.outcome !== 'active' || (row.needsPart && !sel)}
                                                     onClick={() => startAction(row)}
                                                 >
                                                     <span className={`${s.dot} ${row.dot ? DOT_CLASS[row.dot] : ''}`} />
                                                     <span>{row.labelFor ? row.labelFor(patient) : row.label}</span>
+                                                    {row.bandage && row.bandage === bestPick && <span className={s.bestTag}>BEST</span>}
                                                     <span className={s.qty}>
                                                         {row.needsPart && !sel
                                                             ? 'SELECT A LIMB'
@@ -865,9 +887,16 @@ export default function MedicalMenu({ roster, onClose }: {
                                                     {pt.splinted ? 'Fractured (splinted)' : 'Fractured'}
                                                 </div>
                                             )}
-                                            {pt.wounds.map((w, i) => (
-                                                <div key={i} className={`${s.ovsub} ${w.bandaged ? s.ovsubB : ''}`}>
-                                                    {w.bandaged ? '[B] ' : ''}{w.n}× {WOUND_TYPES[w.t].name}
+                                            {pt.wounds.map(w => (
+                                                <div key={w.id} className={`${s.ovsub} ${w.bandaged ? s.ovsubB : ''}`}>
+                                                    {WOUND_TYPES[w.t].name}
+                                                    {w.bandaged && w.dressing && (
+                                                        <span className={w.failIn !== null ? s.slipping : undefined}>
+                                                            {' · '}{BANDAGES[w.dressing].short}
+                                                            {w.failIn !== null ? ` ${Math.ceil(w.failIn)}s` : ' · holding'}
+                                                        </span>
+                                                    )}
+                                                    {!w.bandaged && <span className={s.slipping}>{' · open'}</span>}
                                                 </div>
                                             ))}
                                             {pt.tourniquet && <div className={s.ovsub} style={{ color: 'var(--yellow)' }}>Tourniquet applied</div>}
@@ -1363,8 +1392,8 @@ function TriageCard({ patient: p, note, setNote, onTriage, onNote, onPatch }: {
 
 function QuickView({ patient: p }: { patient: Patient }) {
     const bleeding = totalBleed(p) > 0
-    const wounds = Object.values(p.parts).reduce((a, pt) => a + pt.wounds.reduce((b, w) => b + w.n, 0), 0)
-    const open = Object.values(p.parts).reduce((a, pt) => a + pt.wounds.filter(w => !w.bandaged).reduce((b, w) => b + w.n, 0), 0)
+    const wounds = Object.values(p.parts).reduce((a, pt) => a + pt.wounds.length, 0)
+    const open = Object.values(p.parts).reduce((a, pt) => a + pt.wounds.filter(w => !w.bandaged).length, 0)
     const fx = Object.values(p.parts).filter(pt => pt.fractured).length
     const triCls = { minor: s.chipG, delayed: s.chipY, immediate: s.chipR, deceased: '', none: s.chipB }[p.triage]
 

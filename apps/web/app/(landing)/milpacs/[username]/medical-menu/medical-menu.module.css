@@ -455,6 +455,38 @@
     letter-spacing: .3px;
 }
 
+/* What the next dressing is going on, and what the chart says to use. */
+.advice {
+    margin-bottom: 8px;
+    padding: 7px 10px;
+    font-size: 12.5px;
+    letter-spacing: .2px;
+    color: var(--txt-dim);
+    background: rgba(217, 164, 65, .1);
+    border: 1px solid rgba(217, 164, 65, .38);
+    border-radius: 2px;
+}
+
+.advice b { color: var(--hz-orange); font-weight: 700 }
+
+/* The one the chart points at. */
+.trowBest { border-color: rgba(217, 164, 65, .6) }
+.trowBest:hover:not(:disabled) { border-color: rgba(217, 164, 65, .9) }
+
+.bestTag {
+    font-family: monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    color: #1b1408;
+    background: var(--hz-orange);
+    padding: 1px 5px;
+    border-radius: 2px;
+}
+
+/* A dressing on a clock, or a wound with nothing on it at all. */
+.slipping { color: var(--yellow) }
+
 /* A row that has latched on — compressions are running until you say stop. */
 .trowOn {
     background: rgba(224, 59, 49, .18);

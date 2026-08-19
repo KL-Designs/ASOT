@@ -22,20 +22,111 @@ export const PARTS: { id: PartId, name: string }[] = [
     { id: 'legR',  name: 'Right Leg' },
 ]
 
-export type WoundKind = 'scrape' | 'cut' | 'avulsion' | 'mvw' | 'hvw' | 'frag' | 'crush'
+export type WoundKind =
+    | 'abrasion' | 'contusion' | 'cut' | 'laceration'
+    | 'avulsion' | 'puncture' | 'crush' | 'velocity'
 
 /** name, severity 1–3, bleed rate. */
 export const WOUND_TYPES: Record<WoundKind, { name: string, sev: 1 | 2 | 3, bleed: number }> = {
-    scrape:   { name: 'Small Abrasion',            sev: 1, bleed: 0.4 },
-    cut:      { name: 'Medium Cut',                sev: 1, bleed: 0.8 },
-    avulsion: { name: 'Medium Avulsion',           sev: 2, bleed: 1.4 },
-    mvw:      { name: 'Medium Velocity Wound',     sev: 2, bleed: 2.0 },
-    hvw:      { name: 'High Velocity Wound',       sev: 3, bleed: 3.4 },
-    frag:     { name: 'Large Fragmentation Wound', sev: 3, bleed: 3.0 },
-    crush:    { name: 'Large Crush Wound',         sev: 3, bleed: 1.6 },
+    abrasion:   { name: 'Abrasion',       sev: 1, bleed: 0.4 },
+    contusion:  { name: 'Contusion',      sev: 1, bleed: 0.2 },
+    cut:        { name: 'Cut',            sev: 1, bleed: 0.9 },
+    laceration: { name: 'Laceration',     sev: 2, bleed: 1.7 },
+    avulsion:   { name: 'Avulsion',       sev: 2, bleed: 1.5 },
+    puncture:   { name: 'Puncture',       sev: 2, bleed: 1.2 },
+    crush:      { name: 'Crush Wound',    sev: 3, bleed: 1.8 },
+    velocity:   { name: 'Velocity Wound', sev: 3, bleed: 3.2 },
 }
 
-export interface Wound { t: WoundKind, n: number, bandaged: boolean }
+/* ---------- dressings ------------------------------------------------------ */
+
+export type BandageId = 'field' | 'packing' | 'elastic' | 'quik'
+
+/** `life` is how long it holds before it gives out, in seconds, at full efficiency. */
+export const BANDAGES: Record<BandageId, { label: string, short: string, life: number }> = {
+    field:   { label: 'Field Dressing',  short: 'Field',    life: 75 },
+    packing: { label: 'Packing Bandage', short: 'Packing',  life: 95 },
+    elastic: { label: 'Elastic Bandage', short: 'Elastic',  life: 120 },
+    quik:    { label: 'QuikClot',        short: 'QuikClot', life: 150 },
+}
+
+/**
+ * How well a dressing holds a wound, and how likely it is to give way.
+ *
+ * Written in the chart's own three colours rather than numbers so a cell can
+ * be corrected by reading one word off the chart and changing it here. Nothing
+ * else in the file knows what `some` is worth.
+ */
+export type Eff = 'ok' | 'poor'
+export type Reopen = 'none' | 'some' | 'high'
+
+export const BANDAGE_CHART: Record<WoundKind, Record<BandageId, readonly [Eff, Reopen]>> = {
+    abrasion:   { field: ['ok', 'high'],   packing: ['ok', 'high'], elastic: ['ok', 'some'], quik: ['ok', 'none'] },
+    contusion:  { field: ['ok', 'none'],   packing: ['ok', 'none'], elastic: ['ok', 'none'], quik: ['ok', 'none'] },
+    cut:        { field: ['ok', 'some'],   packing: ['ok', 'high'], elastic: ['ok', 'high'], quik: ['ok', 'high'] },
+    laceration: { field: ['ok', 'some'],   packing: ['ok', 'high'], elastic: ['ok', 'high'], quik: ['ok', 'none'] },
+    avulsion:   { field: ['ok', 'high'],   packing: ['ok', 'high'], elastic: ['ok', 'high'], quik: ['ok', 'none'] },
+    puncture:   { field: ['ok', 'none'],   packing: ['ok', 'none'], elastic: ['ok', 'none'], quik: ['ok', 'none'] },
+    crush:      { field: ['poor', 'some'], packing: ['poor', 'high'], elastic: ['ok', 'high'], quik: ['ok', 'high'] },
+    velocity:   { field: ['ok', 'high'],   packing: ['ok', 'high'], elastic: ['ok', 'high'], quik: ['ok', 'none'] },
+}
+
+const REOPEN_CHANCE: Record<Reopen, number> = { none: 0, some: 0.4, high: 0.8 }
+const EFF_HOLD: Record<Eff, number> = { ok: 1, poor: 0.55 }
+
+/** How likely this dressing is to give way on this wound, eventually. */
+export const reopenChance = (t: WoundKind, b: BandageId) => REOPEN_CHANCE[BANDAGE_CHART[t][b][1]]
+
+/** How long it holds first, if it is going to give way at all. */
+export const dressingLife = (t: WoundKind, b: BandageId) =>
+    BANDAGES[b].life * EFF_HOLD[BANDAGE_CHART[t][b][0]]
+
+/**
+ * What to reach for.
+ *
+ * Least likely to give way wins, because everything here is temporary until it
+ * is sutured and a dressing that pops is a wound you have to find again.
+ * Efficiency only breaks a tie — which is why the answer for a contusion, where
+ * nothing reopens, is simply the one that holds longest.
+ */
+export function bestBandage(t: WoundKind): BandageId {
+    const ids = Object.keys(BANDAGES) as BandageId[]
+    return ids.reduce((best, b) => {
+        const d = reopenChance(t, b) - reopenChance(t, best)
+        if (d < 0) return b
+        if (d > 0) return best
+        return dressingLife(t, b) > dressingLife(t, best) ? b : best
+    })
+}
+
+/**
+ * One wound. Not a count of them — a dressing goes on exactly one, and each
+ * one has to remember what is on it and how long that has left.
+ */
+export interface Wound {
+    id: number
+    t: WoundKind
+    bandaged: boolean
+    /** What is on it, once something is. */
+    dressing: BandageId | null
+    /** Seconds until that dressing gives way, or null if it is going to hold. */
+    failIn: number | null
+}
+
+/**
+ * The open wound a dressing would go on: the worst one there.
+ *
+ * Deterministic on purpose. The menu recommends a bandage for this wound, so
+ * the wound the recommendation is about has to be the wound that gets dressed.
+ */
+export function nextWound(pt: BodyPart): Wound | null {
+    let worst: Wound | null = null
+    for (const w of pt.wounds) {
+        if (w.bandaged) continue
+        if (!worst || WOUND_TYPES[w.t].sev > WOUND_TYPES[worst.t].sev) worst = w
+    }
+    return worst
+}
 
 export interface BodyPart {
     id: PartId
@@ -68,7 +159,7 @@ export const FLUIDS: Record<FluidId, {
     dot: 'r' | 'y' | 'b'
     colour: string
 }> = {
-    blood:  { label: 'Whole Blood', potency: 0.018, rate: 20, dot: 'r', colour: '#d2352c' },
+    blood:  { label: 'Blood', potency: 0.018, rate: 20, dot: 'r', colour: '#d2352c' },
     plasma: { label: 'Plasma',      potency: 0.012, rate: 25, dot: 'y', colour: '#e8c343' },
     saline: { label: 'Saline 0.9%', potency: 0.004, rate: 35, dot: 'b', colour: '#56a8e0' },
 }
@@ -194,6 +285,8 @@ export interface Patient {
     monitorOn: PartId | null
     /** Defibrillator pads sited on the chest. The AED does nothing without them. */
     padsOn: boolean
+    /** Ids for the wounds, so a dressing has something stable to sit on. */
+    woundSeq: number
     /** Lines up and running. Drained by the sim, not by the treatment. */
     infusions: Infusion[]
     /** Ids for the bags, so React can key them and the log can name them. */
@@ -273,20 +366,23 @@ const PROFILES: Record<Difficulty, {
     /** Chance the casualty is already in arrest when you open the menu. */
     arrest: number
 }> = {
+    // `woundsPerPart` counts actual wounds now rather than entries that each
+    // stood for one or two, so the ranges are up to keep the casualties the
+    // same weight as before.
     easy: {
-        parts: [1, 2], woundsPerPart: [1, 1], kinds: ['scrape', 'cut'],
+        parts: [1, 2], woundsPerPart: [1, 2], kinds: ['abrasion', 'contusion', 'cut'],
         fractures: [0, 0], blood: [88, 96], pain: [15, 35], preDressed: 0.35, arrest: 0,
     },
     moderate: {
-        parts: [2, 3], woundsPerPart: [1, 2], kinds: ['cut', 'avulsion', 'mvw'],
+        parts: [2, 3], woundsPerPart: [1, 3], kinds: ['cut', 'laceration', 'avulsion'],
         fractures: [0, 1], blood: [72, 86], pain: [40, 65], preDressed: 0.2, arrest: 0,
     },
     hard: {
-        parts: [3, 4], woundsPerPart: [1, 3], kinds: ['avulsion', 'mvw', 'crush', 'hvw'],
+        parts: [3, 4], woundsPerPart: [2, 4], kinds: ['laceration', 'avulsion', 'puncture', 'velocity'],
         fractures: [1, 2], blood: [52, 70], pain: [60, 85], preDressed: 0.1, arrest: 0.05,
     },
     extreme: {
-        parts: [4, 6], woundsPerPart: [2, 3], kinds: ['mvw', 'hvw', 'frag', 'crush'],
+        parts: [4, 6], woundsPerPart: [3, 5], kinds: ['velocity', 'crush', 'puncture', 'avulsion'],
         fractures: [1, 3], blood: [30, 48], pain: [80, 100], preDressed: 0, arrest: 0.25,
     },
 }
@@ -317,7 +413,7 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         conscious: true, rhythm: 'sinus', analysed: null, cardiacArrest: false, airway: 'clear',
         meds: [], tqCount: 0,
         pressor: 0, epi: 0, hrTarget: null, wake: 0,
-        monitorOn: null, padsOn: false,
+        monitorOn: null, padsOn: false, woundSeq: 0,
         infusions: [], infusionSeq: 0,
         downtime: 0, outcome: 'active', cause: '',
         triage: 'none', triageEntries: [],
@@ -333,10 +429,17 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
     for (const id of hit) {
         const wounds = randInt(...cfg.woundsPerPart)
         for (let i = 0; i < wounds; i++) {
+            const t = pick(cfg.kinds)
+            const pre = Math.random() < cfg.preDressed
+            // Whoever got there first used what they had, and it is as likely
+            // to give way as anything else you put on.
+            const b: BandageId = pre ? pick(['field', 'packing'] as const) : 'field'
             p.parts[id].wounds.push({
-                t: pick(cfg.kinds),
-                n: randInt(1, 2),
-                bandaged: Math.random() < cfg.preDressed,
+                id: p.woundSeq++,
+                t,
+                bandaged: pre,
+                dressing: pre ? b : null,
+                failIn: pre && Math.random() < reopenChance(t, b) ? dressingLife(t, b) : null,
             })
         }
     }
@@ -349,7 +452,10 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
        win screen for opening the menu.
     */
     const all = Object.values(p.parts).flatMap(pt => pt.wounds)
-    if (all.length && all.every(w => w.bandaged)) all[randInt(0, all.length - 1)].bandaged = false
+    if (all.length && all.every(w => w.bandaged)) {
+        const w = all[randInt(0, all.length - 1)]
+        w.bandaged = false; w.dressing = null; w.failIn = null
+    }
 
     // Fractures land on limbs the casualty already has trouble with where
     // possible, so a splint is something you find rather than stumble over.
@@ -524,6 +630,17 @@ export function stabilityIssues(p: Patient): string[] {
     const undressed = Object.values(p.parts).reduce((n, pt) => n + pt.wounds.filter(w => !w.bandaged).length, 0)
     if (undressed > 0) out.push(`${undressed} wound${undressed === 1 ? '' : 's'} undressed`)
 
+    /*
+       A dressing is a delay, not a repair.
+
+       Every one of them gives way eventually, so a casualty who is only
+       bandaged is a casualty who will be bleeding again by the time anybody
+       else sees them. Sutures are what close a wound for good, and nobody is
+       stable until every wound has some.
+    */
+    const unsutured = Object.values(p.parts).reduce((n, pt) => n + pt.wounds.length, 0)
+    if (unsutured > 0) out.push(`${unsutured} wound${unsutured === 1 ? '' : 's'} not sutured`)
+
     const unsplinted = Object.values(p.parts).filter(pt => pt.fractured && !pt.splinted).length
     if (unsplinted > 0) out.push(`${unsplinted} fracture${unsplinted === 1 ? '' : 's'} unsplinted`)
 
@@ -555,7 +672,7 @@ export function handover(p: Patient): { text: string, kind: 'bad' | 'warn' | '' 
         const open = pt.wounds.filter(w => !w.bandaged)
         const bits: string[] = []
         if (pt.fractured) bits.push('fractured')
-        for (const w of open) bits.push(`${w.n}× ${WOUND_TYPES[w.t].name.toLowerCase()}`)
+        for (const w of open) bits.push(WOUND_TYPES[w.t].name.toLowerCase())
         if (bits.length) lines.push({ text: `${name} — ${bits.join(', ')}`, kind: 'bad' })
     }
 
@@ -600,7 +717,7 @@ export function partSeverity(pt: BodyPart): -1 | 0 | 1 | 2 | 3 {
 /** A tourniquet stops the limb bleeding outright — that is the whole point. */
 export function partBleeding(pt: BodyPart): number {
     if (pt.tourniquet) return 0
-    return pt.wounds.reduce((a, w) => a + (w.bandaged ? 0 : WOUND_TYPES[w.t].bleed * w.n), 0)
+    return pt.wounds.reduce((a, w) => a + (w.bandaged ? 0 : WOUND_TYPES[w.t].bleed), 0)
 }
 
 export const totalBleed = (p: Patient) =>

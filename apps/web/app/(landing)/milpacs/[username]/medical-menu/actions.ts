@@ -1,8 +1,9 @@
 import {
-    BAG_SIZES, CPR_DOWNTIME_RATE, CPR_RATE, DEATH_DOWNTIME, EPI_WINDOW, FLUIDS,
-    PRESSOR_LIFE, PRESSOR_MAX, RHYTHM_LABEL, SHOCKABLE,
-    arrestHr, bleedFactor, clamp, isConscious, jitter, pName, setRhythm, stabilityIssues, totalBleed,
-    type BodyPart, type FluidId, type Patient, type PartId,
+    BAG_SIZES, BANDAGES, CPR_DOWNTIME_RATE, CPR_RATE, DEATH_DOWNTIME, EPI_WINDOW, FLUIDS,
+    PRESSOR_LIFE, PRESSOR_MAX, RHYTHM_LABEL, SHOCKABLE, WOUND_TYPES,
+    arrestHr, bestBandage, bleedFactor, clamp, dressingLife, isConscious, jitter, nextWound, pName,
+    reopenChance, setRhythm, stabilityIssues, totalBleed,
+    type BandageId, type BodyPart, type FluidId, type Patient, type PartId,
 } from './model'
 
 /* ============================================================================
@@ -90,6 +91,8 @@ export interface Action {
     labelFor?: (p: Patient) => string
     /** Whether the row is currently switched on, for the rows that latch. */
     onFor?: (p: Patient) => boolean
+    /** The dressing this row applies, so the menu can recommend one of them. */
+    bandage?: BandageId
     /**
      * Whether this is indicated at all, right now, for what is selected.
      *
@@ -156,15 +159,25 @@ function rosc(p: Patient, target: number) {
     p.spo2 = clamp(Math.max(p.spo2, 84), 0, 100)
 }
 
-function bandage(p: Patient, id: PartId, kind: string, power: number): [string, LogKind] {
+/**
+ * One dressing, one wound. The worst one open on that part.
+ *
+ * Whether it will hold is rolled here rather than every tick, so the answer is
+ * fixed the moment you put it on: a dressing that was going to give way was
+ * always going to, and the chart is what told you the odds beforehand.
+ */
+function dress(p: Patient, id: PartId, b: BandageId): [string, LogKind] {
     const pt = p.parts[id]
-    const open = pt.wounds.filter(w => !w.bandaged)
-    if (!open.length) return ['No open wounds on the ' + pName(id), 'warn']
-    let left = power
-    for (const w of open) { if (left <= 0) break; w.bandaged = true; left-- }
-    const done = power - Math.max(0, left)
+    const w = nextWound(pt)
+    if (!w) return ['No open wounds on the ' + pName(id), 'warn']
+
+    w.bandaged = true
+    w.dressing = b
+    w.failIn = Math.random() < reopenChance(w.t, b) ? dressingLife(w.t, b) : null
     p.pain = clamp(p.pain - 4, 0, 100)
-    return [`${kind} applied — ${pName(id)} · ${Math.min(done, open.length)} wound(s) dressed`, 'good']
+
+    const wound = WOUND_TYPES[w.t].name.toLowerCase()
+    return [`${BANDAGES[b].label} — ${pName(id)} · ${wound} closed`, 'good']
 }
 
 function med(p: Patient, name: string, eff: Partial<Record<keyof Patient, number>>, stack = false): [string, LogKind] {
@@ -239,7 +252,7 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
         { sec: 'Survey' },
         { id: 'part', label: 'Examine Selected Limb', needsPart: true, dot: 'g', run: (p, id) => {
             const pt = p.parts[id!]; pt.checked = true
-            const w = pt.wounds.reduce((a, b) => a + b.n, 0)
+            const w = pt.wounds.length
             return [`Examined ${pName(id!)} — ${w ? `${w} wound(s)` : 'no wounds'}${pt.fractured ? ', fracture felt' : ''}`,
                 w ? 'warn' : 'good']
         } },
@@ -276,10 +289,10 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
 
     bandage: [
         { sec: 'Dressings' },
-        { id: 'field',   label: 'Field Dressing',   needsPart: true, showFor: woundOn, dot: 'g', run: (p, id) => bandage(p, id!, 'Field Dressing', 1) },
-        { id: 'elastic', label: 'Elastic Bandage',  needsPart: true, showFor: woundOn, dot: 'g', run: (p, id) => bandage(p, id!, 'Elastic Bandage', 1) },
-        { id: 'packing', label: 'Packing Bandage',  needsPart: true, showFor: woundOn, dot: 'g', run: (p, id) => bandage(p, id!, 'Packing Bandage', 2) },
-        { id: 'quik',    label: 'QuikClot',         needsPart: true, showFor: woundOn, dot: 'g', run: (p, id) => bandage(p, id!, 'QuikClot', 3) },
+        { id: 'field',   label: BANDAGES.field.label,   bandage: 'field',   needsPart: true, showFor: woundOn, dot: 'g', run: (p, id) => dress(p, id!, 'field') },
+        { id: 'packing', label: BANDAGES.packing.label, bandage: 'packing', needsPart: true, showFor: woundOn, dot: 'g', run: (p, id) => dress(p, id!, 'packing') },
+        { id: 'elastic', label: BANDAGES.elastic.label, bandage: 'elastic', needsPart: true, showFor: woundOn, dot: 'g', run: (p, id) => dress(p, id!, 'elastic') },
+        { id: 'quik',    label: BANDAGES.quik.label,    bandage: 'quik',    needsPart: true, showFor: woundOn, dot: 'g', run: (p, id) => dress(p, id!, 'quik') },
 
         { sec: 'Haemorrhage Control' },
         {
@@ -426,7 +439,7 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
         },
         // The bags appear once there is somewhere to run them into, which is
         // what finally gives the cannula above a job.
-        { id: 'blood',  label: 'Whole Blood', note: 'O neg', dot: 'r', needsPart: true, showFor: hasLine, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'blood', ml, id!) },
+        { id: 'blood',  label: 'Blood', note: 'O neg', dot: 'r', needsPart: true, showFor: hasLine, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'blood', ml, id!) },
         { id: 'plasma', label: 'Plasma',      note: 'FFP',   dot: 'y', needsPart: true, showFor: hasLine, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'plasma', ml, id!) },
         { id: 'saline', label: 'Saline 0.9%', note: 'crystalloid', dot: 'b', needsPart: true, showFor: hasLine, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'saline', ml, id!) },
 
@@ -490,16 +503,29 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
             return ['Shock delivered — no change, resume compressions', 'bad']
         } },
         { id: 'pak', label: 'Personal Aid Kit (PAK)', note: 'stabilise', dot: 'g', run: p => {
-            Object.values(p.parts).forEach(pt => pt.wounds.forEach(w => { w.bandaged = true }))
+            // Everything open gets the right dressing for it, and every one of
+            // them can still give way — a kit is a shortcut, not an exemption.
+            let n = 0
+            for (const pt of Object.values(p.parts)) {
+                for (const w of pt.wounds) {
+                    if (w.bandaged) continue
+                    const b = bestBandage(w.t)
+                    w.bandaged = true; w.dressing = b
+                    w.failIn = Math.random() < reopenChance(w.t, b) ? dressingLife(w.t, b) : null
+                    n++
+                }
+            }
             p.pain = clamp(p.pain - 25, 0, 100)
-            return ['PAK used — all wounds dressed, casualty stabilised', 'good']
+            return [`PAK used — ${n} wound(s) dressed · still need suturing`, 'good']
         } },
-        { id: 'surg', label: 'Surgical Kit — Stitch', needsPart: true, note: '~15s', dot: 'g',
-            showFor: (_p, pt) => !!pt && pt.wounds.length > 0,
+        { id: 'surg', label: 'Surgical Kit — Suture', needsPart: true, note: 'closes for good', dot: 'g',
+            // Dressed first. You do not stitch something that is still filling
+            // up, and it makes the order of the job the order of the menu.
+            showFor: (_p, pt) => !!pt && pt.wounds.length > 0 && !isOpen(pt),
             run: (p, id) => {
                 const pt = p.parts[id!]; const n = pt.wounds.length
                 pt.wounds = []
-                return [`Sutured ${n} wound site(s) — ${pName(id!)}`, 'good']
+                return [`Sutured ${n} wound(s) — ${pName(id!)} closed for good`, 'good']
             },
         },
 
@@ -543,6 +569,19 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         }
     }
     p.pain = clamp(p.pain - dt * 0.25, 0, 100)
+    // Dressings giving way. A wound that reopens is one you have to find
+    // again, which is the whole argument for suturing before you move on.
+    let reopened = 0
+    for (const pt of Object.values(p.parts)) {
+        for (const w of pt.wounds) {
+            if (!w.bandaged || w.failIn === null) continue
+            w.failIn -= dt
+            if (w.failIn > 0) continue
+            w.bandaged = false; w.dressing = null; w.failIn = null
+            reopened++
+        }
+    }
+
     // The drugs wearing off.
     if (p.pressor > 0) p.pressor = Math.max(0, p.pressor - dt / PRESSOR_LIFE)
     if (p.epi > 0)     p.epi = Math.max(0, p.epi - dt)
@@ -570,6 +609,9 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         }
         p.infusions = p.infusions.filter(i => i.left > 0.001)
         if (emptied.length) event = [`${emptied.join(', ')} — bag empty, line run through`, 'warn']
+    }
+    if (reopened) {
+        event = [`${reopened} dressing${reopened === 1 ? ' has' : 's have'} given way — bleeding again`, 'bad']
     }
 
     if (p.cprActive && p.cardiacArrest) {
