@@ -9,6 +9,7 @@ import { Monitor } from './audio'
 import {
     ADJUNCT_LABEL, BANDAGES, CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, DRUGS, FALLBACK_CASUALTY, FATAL_SPO2,
     FLUIDS, OBSTRUCTION_LABEL, PARTS, RHYTHM_LABEL, WOUND_TYPES,
+    REBOA_FATAL, REBOA_WARN,
     airwayOpen, arrestHr, bestBandage, bleedFactor, bloodWord, breathing, chatter, clamp, handover, handsFull,
     intensity, jitter,
     newPatient, nextWound, painWord, partBleeding, partSeverity, pName, shownRr,
@@ -820,6 +821,26 @@ export default function MedicalMenu({ roster, onClose }: {
                                                 </React.Fragment>
                                             )
                                         })}
+                                        {/* The balloon, and the catheter that got it
+                                            there. Drawn from the groin it went in
+                                            through, because which side you used is a
+                                            thing you should be able to see. */}
+                                        {patient.reboa && (
+                                            <g>
+                                                <path
+                                                    d={`M${patient.reboa.site === 'legR' ? 134 : 166},322 L150,258`}
+                                                    stroke='#e8c343' strokeWidth='2' fill='none' opacity='.85' />
+                                                <ellipse className={s.balloon} cx='150' cy='240' rx='10' ry='17'
+                                                    fill='rgba(232,195,67,.3)' stroke='#e8c343' strokeWidth='2' />
+                                                <text
+                                                    x='150' y='288' textAnchor='middle'
+                                                    fill={patient.reboa.up > REBOA_WARN ? '#e03b31' : '#e8c343'}
+                                                    fontSize='10' fontWeight='700' letterSpacing='1.4'>
+                                                    REBOA {Math.round(patient.reboa.up)}s
+                                                </text>
+                                            </g>
+                                        )}
+
                                         {/* The hole. A puncture reads as a puncture:
                                             a dark centre with torn edges around it,
                                             not a dot the same red as everything else. */}
@@ -975,6 +996,15 @@ export default function MedicalMenu({ roster, onClose }: {
                                 {patient.pneumo && (
                                     <div className={`${s.ovline} ${s.ovlineRed} ${s.flash}`}>
                                         TENSION PNEUMOTHORAX — needs a needle
+                                    </div>
+                                )}
+                                {patient.reboa && (
+                                    <div className={s.reboa}>
+                                        <span>
+                                            REBOA UP {Math.round(patient.reboa.up)}s / {REBOA_FATAL}s
+                                            {patient.reboa.up > REBOA_WARN && <b> · LEGS DYING</b>}
+                                        </span>
+                                        <i style={{ width: `${Math.min(100, patient.reboa.up / REBOA_FATAL * 100)}%` }} />
                                     </div>
                                 )}
                                 {patient.chestWound && !patient.sealed && !patient.pneumo && (

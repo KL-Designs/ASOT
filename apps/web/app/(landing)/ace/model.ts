@@ -286,6 +286,13 @@ export interface Patient {
     bagging: boolean
     /** A non-rebreather is on with the tank running. */
     oxygen: boolean
+    /**
+     * The aortic balloon, if one is up.
+     *
+     * `site` is the groin it went in through and `up` is how long it has been
+     * inflated — which is the only number that matters about it.
+     */
+    reboa: { site: PartId, up: number } | null
     /** A hole in the chest. Where a pneumothorax comes from. */
     chestWound: boolean
     /** Occlusive dressing over it. Stops it tensioning again. */
@@ -452,7 +459,7 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         conscious: true, rhythm: 'sinus', analysed: null, cardiacArrest: false,
         airway: 'none', adjunct: 'none', recovery: false, airwayChecked: false, suction: 1,
         spontaneous: true, bagging: false, oxygen: false,
-        chestWound: false, sealed: false, pneumoIn: null, pneumo: false,
+        reboa: null, chestWound: false, sealed: false, pneumoIn: null, pneumo: false,
         meds: [], tqCount: 0,
         doses: [], doseSeq: 0, hrTarget: null, wake: 0,
         monitorOn: null, padsOn: false, woundSeq: 0,
@@ -614,6 +621,32 @@ export const WAKE_DELAY = 22
 
 /** How long 1 mg of epinephrine keeps working, in seconds. */
 export const EPI_WINDOW = 120
+
+/* ---------- the aortic balloon --------------------------------------------- */
+
+/**
+ * REBOA — a balloon up the femoral artery, inflated in the aorta.
+ *
+ * The answer to the bleeding you cannot put a tourniquet on: a pelvis, an
+ * abdomen, a torso. It shuts the aorta off and everything below the balloon
+ * stops bleeding because everything below the balloon stops being perfused,
+ * which is the whole trade and the reason it has a clock on it. It is not a
+ * treatment for a haemorrhage. It is a loan against one, and the interest is
+ * two legs.
+ */
+
+/** How much of the bleeding below the balloon it actually stops. */
+export const REBOA_OCCLUSION = 0.88
+
+/** Seconds before the legs start paying for it. */
+export const REBOA_WARN = 90
+
+/** Seconds before the casualty does. */
+export const REBOA_FATAL = 240
+
+/** Everything the balloon is upstream of. */
+export const bleedBelowBalloon = (p: Patient) =>
+    partBleeding(p.parts.torso) + partBleeding(p.parts.legL) + partBleeding(p.parts.legR)
 
 /* ---------- pharmacology --------------------------------------------------- */
 
@@ -939,6 +972,9 @@ export function stabilityIssues(p: Patient): string[] {
     if (unsplinted > 0) out.push(`${unsplinted} fracture${unsplinted === 1 ? '' : 's'} unsplinted`)
 
     if (!airwayOpen(p)) out.push(OBSTRUCTION_LABEL[p.airway] + ' — airway blocked')
+    // Nobody is handed over with a balloon in their aorta. Taking it down is
+    // the last thing you do, and it is the thing the rest of the job was for.
+    if (p.reboa) out.push(`REBOA inflated ${Math.round(p.reboa.up)}s — must come down`)
     // A bag is somebody standing there squeezing. They are not stable until
     // they are doing it themselves.
     if (!p.cardiacArrest && !p.spontaneous) out.push('Not breathing — needs ventilating')

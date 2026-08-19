@@ -2,8 +2,9 @@ import {
     ADJUNCT_LABEL, APNOEA_AT, APNOEA_OUT, BAG_SIZES, BANDAGES, CPR_DOWNTIME_RATE, CPR_RATE,
     DEATH_DOWNTIME, DEPRESSED_RR, DRUGS, FATAL_SPO2, FLUIDS, OBSTRUCTION_LABEL,
     RHYTHM_LABEL, SHOCKABLE, VOMIT_ON_COLLAPSE, WOUND_TYPES,
-    FREES_HANDS,
-    airwayOpen, arrestHr, bestBandage, bleedFactor, breathing, clamp, dressingLife, handsFull, intensity,
+    FREES_HANDS, REBOA_FATAL, REBOA_OCCLUSION, REBOA_WARN,
+    airwayOpen, arrestHr, bleedBelowBalloon, bestBandage, bleedFactor, breathing, clamp, dressingLife,
+    handsFull, intensity, partBleeding,
     isConscious, jitter, nextWound, onBoard, pName, reopenChance, setRhythm, stabilityIssues,
     totalBleed, ventilating,
     type Adjunct, type BandageId, type BodyPart, type Dose, type DrugId, type FluidId,
@@ -60,7 +61,7 @@ const ACTION_TIME: Record<string, number> = {
     decom: 5, bvm: 2, oxy: 3,
     iv: 5, blood: 8, plasma: 8, saline: 8, analyse: 6, shock: 4, pak: 10, surg: 15,
     monon: 5, monoff: 3, pads: 6,
-    look: 3, tilt: 3, turn: 4, suction: 5, recov: 5,
+    look: 3, tilt: 3, turn: 4, suction: 5, recov: 5, reboa: 20, reboaDown: 8,
     splint: 6, realign: 4, sling: 4, blanket: 3, heat: 3,
 }
 
@@ -640,6 +641,46 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
         { id: 'plasma', label: 'Plasma',      note: 'FFP',   dot: 'y', needsPart: true, showFor: hasLine, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'plasma', ml, id!) },
         { id: 'saline', label: 'Saline 0.9%', note: 'crystalloid', dot: 'b', needsPart: true, showFor: hasLine, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'saline', ml, id!) },
 
+        { sec: 'Non-compressible Haemorrhage' },
+        {
+            id: 'reboa', label: 'REBOA — Inflate', note: 'zone I · femoral', dot: 'r',
+            needsPart: true, time: 20,
+            // Through a groin, for bleeding a tourniquet cannot reach. Offering
+            // it for anything else would be offering it for the wrong reason.
+            showFor: (p, pt) => !p.reboa && !!pt && (pt.id === 'legL' || pt.id === 'legR')
+                && partBleeding(p.parts.torso) > 0,
+            run: (p, id) => {
+                p.reboa = { site: id!, up: 0 }
+                p.sysBp = clamp(p.sysBp + 34, 0, 200)
+                p.pain  = clamp(p.pain + 14, 0, 100)
+                return [`REBOA inflated — ${pName(id!)} · everything below it is on the clock`, 'warn']
+            },
+        },
+        {
+            id: 'reboaDown', label: 'REBOA — Deflate', note: 'restores flow', dot: 'y', time: 8,
+            showFor: p => !!p.reboa,
+            run: p => {
+                const up = p.reboa!.up
+                p.reboa = null
+                /*
+                   Letting it down is its own event. Everything that has been
+                   sitting without blood empties back into the circulation the
+                   moment it flows again, and the longer it sat the worse that
+                   is — which is why the balloon is a reason to hurry rather
+                   than a reason to relax.
+                */
+                p.sysBp = clamp(p.sysBp - 30, 20, 200)
+                p.spo2  = clamp(p.spo2 - (up > REBOA_WARN ? 8 : 3), 0, 100)
+                if (up > REBOA_WARN && !p.cardiacArrest && Math.random() < 0.3) {
+                    setRhythm(p, 'pea')
+                    return ['REBOA down — reperfusion has arrested the casualty', 'bad']
+                }
+                return [up > REBOA_WARN
+                    ? `REBOA down after ${Math.round(up)}s — reperfusion, pressure dropping`
+                    : 'REBOA down — flow restored below the balloon', 'warn']
+            },
+        },
+
         { sec: 'Resuscitation' },
         {
             id: 'cpr', note: `${CPR_RATE}/min`, dot: 'r', time: 0, needsPart: true, showFor: onChest,
@@ -764,7 +805,15 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
     */
     let event: [string, LogKind] | null = null
 
-    const bleed = totalBleed(p)
+    /*
+       Everything the balloon is upstream of, held back.
+
+       Subtracted from the total rather than folded into `totalBleed`, for the
+       same reason a tourniqueted limb keeps its colour: the wounds under it are
+       exactly as open as they were, and the moment it comes down they will
+       prove it.
+    */
+    const bleed = Math.max(0, totalBleed(p) - (p.reboa ? bleedBelowBalloon(p) * REBOA_OCCLUSION : 0))
     if (bleed > 0) {
         /*
            A stopped heart is not pushing anything out of the wound. It still
@@ -856,6 +905,22 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
     if (p.spo2 <= FATAL_SPO2) {
         kill(p, open ? 'Hypoxia' : 'Hypoxia — the airway was never opened')
         return ['CASUALTY HAS DIED OF HYPOXIA — no air was moving', 'bad']
+    }
+
+    if (p.reboa) {
+        p.reboa.up += dt
+        // Above the balloon the pressure is excellent. That is not the same
+        // thing as a casualty doing well, and it is worth being suspicious of.
+        p.sysBp = clamp(p.sysBp + dt * 1.6, 0, 200)
+        if (p.reboa.up >= REBOA_FATAL) {
+            kill(p, `Ischaemia — the balloon was up for ${Math.round(p.reboa.up)}s`)
+            return ['BALLOON UP TOO LONG — casualty declared dead', 'bad']
+        }
+        if (p.reboa.up > REBOA_WARN) {
+            // Nothing below it is getting blood, and it is starting to show.
+            p.pain = clamp(p.pain + dt * 0.9, 0, 100)
+            p.spo2 = clamp(p.spo2 - dt * 0.06, 0, 100)
+        }
     }
 
     event = metabolise(p, dt) ?? event

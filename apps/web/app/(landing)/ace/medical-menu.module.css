@@ -840,6 +840,44 @@
     50%      { opacity: 1;   transform: scale(1) }
 }
 
+/* The balloon, breathing slightly so it reads as inflated rather than drawn. */
+.balloon {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: balloon 2.4s ease-in-out infinite;
+}
+
+@keyframes balloon {
+    0%, 100% { transform: scale(1) }
+    50%      { transform: scale(1.06) }
+}
+
+/* The other clock, and the one you chose to start. */
+.reboa {
+    position: relative;
+    margin: 6px 0 2px;
+    padding: 5px 8px 7px;
+    background: rgba(232, 195, 67, .12);
+    border: 1px solid rgba(232, 195, 67, .5);
+    border-radius: 2px;
+    font-family: monospace;
+    font-size: 11px;
+    letter-spacing: 1.2px;
+    color: var(--yellow);
+    overflow: hidden;
+}
+
+.reboa b { color: var(--red); font-weight: 700 }
+
+.reboa > i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    background: var(--yellow);
+    transition: width .3s linear;
+}
+
 /* The clock the casualty is racing, not the one the mission is. */
 .downtime {
     position: relative;
