@@ -731,20 +731,52 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
                 ? [`Analysis — ${found}. SHOCK ADVISED`, 'bad']
                 : [`Analysis — ${found}. No shock advised`, 'warn']
         } },
-        { id: 'shock', label: 'Deliver Shock', note: '200 J', needsPart: true, showFor: (p, pt) => onChest(p, pt) && p.padsOn, dot: 'r', sound: 'charge', run: p => {
-            // The analysis is the interlock, and it is keyed to the rhythm it
-            // was taken from: a heart that has moved since is a heart the
-            // reading no longer describes.
-            if (!p.analysed) return ['Defibrillator will not charge — analyse the rhythm first', 'warn']
-            if (p.analysed.rhythm !== p.rhythm) return ['Rhythm has changed since analysis — re-analyse', 'warn']
-            if (!p.analysed.advised) return ['Defibrillator will not charge — no shockable rhythm', 'warn']
+        {
+            id: 'shock', label: 'Deliver Shock', note: '200 J · no interlock',
+            needsPart: true, showFor: (p, pt) => onChest(p, pt) && p.padsOn, dot: 'r', sound: 'charge',
+            /*
+               It will charge into anything.
 
-            p.analysed = null
-            const roll = Math.random()
-            if (roll < 0.55) { rosc(p, p.rhythm === 'vt' ? 78 : 70); return ['Shock delivered — sinus rhythm restored', 'good'] }
-            if (roll < 0.72) { setRhythm(p, 'asystole'); return ['Shock delivered — rhythm has gone to asystole', 'bad'] }
-            return ['Shock delivered — no change, resume compressions', 'bad']
-        } },
+               There is no interlock, and there should not be one: the analysis
+               is how you find out whether this is a good idea, not a licence
+               the machine issues. Skipping it and pressing the button anyway is
+               a decision, and a decision has to be able to go badly or it was
+               never one.
+            */
+            run: p => {
+                const was = p.rhythm
+                p.analysed = null
+                const roll = Math.random()
+
+                if (SHOCKABLE.has(was)) {
+                    if (roll < 0.55) { rosc(p, was === 'vt' ? 78 : 70); return ['Shock delivered — sinus rhythm restored', 'good'] }
+                    if (roll < 0.72) { setRhythm(p, 'asystole'); return ['Shock delivered — rhythm has gone to asystole', 'bad'] }
+                    return ['Shock delivered — no change, resume compressions', 'bad']
+                }
+
+                if (was === 'asystole') {
+                    return ['Shock delivered into asystole — there was nothing there to defibrillate', 'warn']
+                }
+
+                if (was === 'pea') {
+                    // Organised complexes, no pulse. A shock does nothing for it
+                    // and can flatten the little that was there.
+                    if (roll < 0.18) { setRhythm(p, 'asystole'); return ['Shock into PEA — the rhythm has gone flat', 'bad'] }
+                    return ['Shock into PEA — no effect. It was never shockable', 'warn']
+                }
+
+                /*
+                   And this is the one. A heart that was beating, stopped by a
+                   man who did not look first — R on T, and it is almost always
+                   worse afterwards than it was before.
+                */
+                p.pain = clamp(p.pain + 22, 0, 100)
+                if (roll < 0.45) { setRhythm(p, 'vf');       return ['SHOCKED A PERFUSING RHYTHM — casualty has gone into VF', 'bad'] }
+                if (roll < 0.65) { setRhythm(p, 'asystole'); return ['SHOCKED A PERFUSING RHYTHM — the heart has stopped', 'bad'] }
+                if (roll < 0.85) { setRhythm(p, 'vt');       return ['SHOCKED A PERFUSING RHYTHM — ventricular tachycardia', 'bad'] }
+                return ['Shocked a perfusing rhythm and got away with it. Analyse first.', 'warn']
+            },
+        },
         { id: 'pak', label: 'Personal Aid Kit (PAK)', note: 'stabilise', dot: 'g', run: p => {
             // Everything open gets the right dressing for it, and every one of
             // them can still give way — a kit is a shortcut, not an exemption.
