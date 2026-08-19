@@ -1,59 +1,35 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 
 /* ============================================================================
-   Easter egg — HZN-MED medical menu.
+   Easter egg — the HZN-MED medical menu.
 
-   A parody of the ARMA 3 ACE/KAT medical interface, for practising treatment
-   without being under fire. It renders for exactly one member (see
-   MEDICAL_MENU_MEMBER in milpac-file.tsx) and is meant to be found rather than
-   advertised, so it sits at the foot of the overview as a dim caduceus that
-   only resolves into a label on hover.
+   Renders for exactly one member (see MEDICAL_MENU_MEMBER in milpac-file.tsx)
+   at the foot of their overview, as a dim caduceus that only resolves into a
+   label on hover. Meant to be found rather than advertised.
 
-   The mockup itself is a self-contained HTML document under
-   public/easter-eggs/. It is not a React component on purpose: it is ~1,000
-   lines with its own reset, its own font stack and a `body` that owns the whole
-   viewport, none of which survives being dropped into a page that already has
-   all three. A popup window gives it the blank slate it was written against.
+   The menu itself is a separate chunk: ~700 lines of UI that one person will
+   ever open has no business in the bundle every other milpac downloads.
    ========================================================================== */
 
-const HREF = '/easter-eggs/medical-menu.html'
+const MedicalMenu = dynamic(() => import('./MedicalMenu'), { ssr: false })
 
 export function MedicalMenuEgg() {
+    const [open, setOpen] = useState(false)
     const [hover, setHover] = useState(false)
-    const [blocked, setBlocked] = useState(false)
-
-    function open() {
-        setBlocked(false)
-        const w = window.open(
-            HREF,
-            'hzn-med',
-            'popup=yes,width=1480,height=920,menubar=no,toolbar=no,location=no,status=no',
-        )
-        // A blocked popup returns null. Say so rather than appearing to do
-        // nothing at all — there is no second way to open it that a blocker
-        // would not also stop.
-        if (!w) setBlocked(true)
-        else w.focus()
-    }
 
     return (
         <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
-            gap: 10,
             padding: '4px 2px 0',
         }}>
-            {blocked && (
-                <span style={{ fontSize: '0.62rem', letterSpacing: '0.06em', color: 'var(--ink-3)' }}>
-                    Popup blocked — allow popups for this site.
-                </span>
-            )}
             <button
                 type='button'
-                onClick={open}
+                onClick={() => setOpen(true)}
                 onMouseEnter={() => setHover(true)}
                 onMouseLeave={() => setHover(false)}
                 title='HZN-MED · Medical Menu'
@@ -85,6 +61,8 @@ export function MedicalMenuEgg() {
                     HZN-MED
                 </span>
             </button>
+
+            {open && <MedicalMenu onClose={() => setOpen(false)} />}
         </div>
     )
 }

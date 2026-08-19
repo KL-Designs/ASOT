@@ -1,0 +1,321 @@
+import {
+    clamp, jitter, pName, totalBleed,
+    type Patient, type PartId,
+} from './model'
+
+/* ============================================================================
+   HZN-MED — the treatment tables.
+
+   Three tables and nothing else is hard-coded: TOOLS is the toolbar, ACTIONS is
+   what each tool offers, and model.ts's PARTS / WOUND_TYPES are what it acts on.
+   Add a limb, an injury or a treatment by editing one of those.
+
+   Every `run` mutates the patient it is handed and returns what to say about
+   it. The component clones first, so the mutation lands on a copy — which is
+   also the seam to POST {action, part} at instead, if this ever grows a server.
+   ========================================================================== */
+
+export type ToolId =
+    | 'triage' | 'examine' | 'bandage' | 'medication'
+    | 'airway' | 'advanced' | 'splint' | 'drag' | 'transfer'
+
+export const TOOLS: { id: ToolId, label: string }[] = [
+    { id: 'triage',     label: 'Triage Card' },
+    { id: 'examine',    label: 'Examine' },
+    { id: 'bandage',    label: 'Bandages' },
+    { id: 'medication', label: 'Medication' },
+    { id: 'airway',     label: 'Airway & Chest' },
+    { id: 'advanced',   label: 'Advanced Treatment' },
+    { id: 'splint',     label: 'Splints & Fractures' },
+    { id: 'drag',       label: 'Drag / Carry' },
+    { id: 'transfer',   label: 'Handover / Transfer' },
+]
+
+/** A rule drawn after these, so the toolbar groups rather than runs on. */
+export const TOOL_SEPS = new Set<ToolId>(['triage', 'advanced'])
+
+export type LogKind = '' | 'good' | 'warn' | 'bad'
+
+/** A section heading in the treatment list. */
+export interface ActionSection { sec: string, id?: undefined }
+
+export interface Action {
+    id: string
+    label: string
+    /** Right-aligned detail — a dose, a duration, the instrument. */
+    note?: string
+    /** Status dot: g healthy · y caution · r serious · b informational. */
+    dot?: 'g' | 'y' | 'r' | 'b'
+    /** Disabled until a body part is selected. */
+    needsPart?: boolean
+    run: (p: Patient, partId: PartId | null) => [string, LogKind]
+    sec?: undefined
+}
+
+export type ActionRow = Action | ActionSection
+
+/* ---------- shared treatment effects -------------------------------------- */
+
+function bandage(p: Patient, id: PartId, kind: string, power: number): [string, LogKind] {
+    const pt = p.parts[id]
+    const open = pt.wounds.filter(w => !w.bandaged)
+    if (!open.length) return ['No open wounds on the ' + pName(id), 'warn']
+    let left = power
+    for (const w of open) { if (left <= 0) break; w.bandaged = true; left-- }
+    const done = power - Math.max(0, left)
+    p.pain = clamp(p.pain - 4, 0, 100)
+    return [`${kind} applied — ${pName(id)} · ${Math.min(done, open.length)} wound(s) dressed`, 'good']
+}
+
+function med(p: Patient, name: string, eff: Partial<Record<keyof Patient, number>>): [string, LogKind] {
+    // Three doses is the ceiling. Refusing is the safety behaviour worth having.
+    if (p.meds.filter(m => m === name).length >= 3) return [name + ' — max dose reached, refused', 'bad']
+    p.meds.push(name)
+    for (const k in eff) {
+        const key = k as 'pain' | 'hr' | 'sysBp' | 'diaBp' | 'rr' | 'spo2'
+        p[key] = clamp(p[key] + (eff[key] ?? 0), 0, key === 'pain' ? 100 : 250)
+    }
+    return [`${name} administered`, 'good']
+}
+
+function fluid(p: Patient, name: string, gain: number): [string, LogKind] {
+    p.blood = clamp(p.blood + gain, 0, 100)
+    p.sysBp = clamp(p.sysBp + gain, 0, 200)
+    p.diaBp = clamp(p.diaBp + Math.round(gain * 0.6), 0, 140)
+    return [`${name} transfused — volume ${Math.round(p.blood)}%`, 'good']
+}
+
+function airway(p: Patient, kind: string): [string, LogKind] {
+    if (p.airway === kind) return [kind + ' already sited', 'warn']
+    p.airway = kind
+    p.spo2 = clamp(p.spo2 + 4, 0, 100)
+    return [kind + ' inserted — airway patent', 'good']
+}
+
+/* ---------- the tables ---------------------------------------------------- */
+
+export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
+    examine: [
+        { sec: 'Diagnostics' },
+        { id: 'pulse', label: 'Check Pulse', note: 'Stethoscope', dot: 'b', run: p => {
+            const v = p.cardiacArrest ? 'no pulse detected' : `${jitter(p.hr, 3)} bpm`
+            return ['Checked pulse — ' + v, p.cardiacArrest ? 'bad' : '']
+        } },
+        { id: 'bp', label: 'Check Blood Pressure', note: 'BP Cuff', dot: 'b', run: p => {
+            const bp = p.cardiacArrest ? '0/0' : `${jitter(p.sysBp, 4)}/${jitter(p.diaBp, 3)}`
+            return ['Blood pressure — ' + bp + ' mmHg', p.sysBp < 100 ? 'warn' : '']
+        } },
+        { id: 'spo2', label: 'Check SpO₂ / Perfusion', note: 'Pulse Oximeter', dot: 'b', run: p =>
+            [`SpO₂ — ${jitter(p.spo2, 1)}% · cap refill ${p.blood < 70 ? '>3s' : '<2s'}`, p.spo2 < 95 ? 'warn' : ''] },
+        { id: 'resp', label: 'Check Response', note: 'AVPU', dot: 'b', run: p =>
+            [`Response — ${p.cardiacArrest ? 'UNRESPONSIVE' : p.pain > 70 ? 'responds to voice, agitated' : 'alert & oriented'}`,
+                p.cardiacArrest ? 'bad' : ''] },
+
+        { sec: 'Survey' },
+        { id: 'part', label: 'Examine Selected Limb', needsPart: true, dot: 'g', run: (p, id) => {
+            const pt = p.parts[id!]; pt.checked = true
+            const w = pt.wounds.reduce((a, b) => a + b.n, 0)
+            return [`Examined ${pName(id!)} — ${w ? `${w} wound(s)` : 'no wounds'}${pt.fractured ? ', fracture felt' : ''}`,
+                w ? 'warn' : 'good']
+        } },
+        { id: 'full', label: 'Full Body Survey', note: '~8s', dot: 'g', run: p => {
+            Object.values(p.parts).forEach(x => { x.checked = true })
+            return ['Full body survey complete — all regions assessed', 'good']
+        } },
+        { id: 'bt', label: 'Blood Type Test', note: 'Test Kit', dot: 'b', run: p => {
+            p.bloodTypeKnown = true
+            return ['Blood type identified — ' + p.bloodType, 'good']
+        } },
+    ],
+
+    bandage: [
+        { sec: 'Dressings' },
+        { id: 'field',   label: 'Field Dressing',   needsPart: true, dot: 'g', run: (p, id) => bandage(p, id!, 'Field Dressing', 1) },
+        { id: 'elastic', label: 'Elastic Bandage',  needsPart: true, dot: 'g', run: (p, id) => bandage(p, id!, 'Elastic Bandage', 1) },
+        { id: 'packing', label: 'Packing Bandage',  needsPart: true, dot: 'g', run: (p, id) => bandage(p, id!, 'Packing Bandage', 2) },
+        { id: 'quik',    label: 'QuikClot',         needsPart: true, dot: 'g', run: (p, id) => bandage(p, id!, 'QuikClot', 3) },
+
+        { sec: 'Haemorrhage Control' },
+        { id: 'tq', label: 'Apply Tourniquet (CAT)', needsPart: true, dot: 'r', run: (p, id) => {
+            const pt = p.parts[id!]
+            if (id === 'head' || id === 'torso') return ['Cannot apply a tourniquet to the ' + pName(id), 'bad']
+            if (pt.tourniquet) return ['Tourniquet already in place on ' + pName(id!), 'warn']
+            pt.tourniquet = true; p.tqCount++; p.pain = clamp(p.pain + 12, 0, 100)
+            return ['Tourniquet applied — ' + pName(id!) + ' · time noted', 'warn']
+        } },
+        { id: 'tqoff', label: 'Remove Tourniquet', needsPart: true, dot: 'y', run: (p, id) => {
+            const pt = p.parts[id!]
+            if (!pt.tourniquet) return ['No tourniquet on ' + pName(id!), 'warn']
+            pt.tourniquet = false; p.tqCount = Math.max(0, p.tqCount - 1)
+            return ['Tourniquet released — ' + pName(id!), '']
+        } },
+        { id: 'seal', label: 'Chest Seal (Vented)', dot: 'g', run: () =>
+            ['Chest seal applied — occlusive dressing sited', 'good'] },
+    ],
+
+    medication: [
+        { sec: 'Analgesia' },
+        { id: 'morph', label: 'Morphine',          note: '10 mg IV', dot: 'y', run: p => med(p, 'Morphine',   { pain: -45, hr: -8, rr: -3 }) },
+        { id: 'nalb',  label: 'Nalbuphine',        note: '10 mg IM', dot: 'y', run: p => med(p, 'Nalbuphine', { pain: -32, hr: -4 }) },
+        { id: 'fent',  label: 'Fentanyl Lozenge',  note: '800 µg',   dot: 'y', run: p => med(p, 'Fentanyl',   { pain: -38, rr: -2 }) },
+
+        { sec: 'Cardiac / Resus' },
+        { id: 'epi',   label: 'Epinephrine',   note: '1 mg',   dot: 'r', run: p => med(p, 'Epinephrine',   { hr: +22, sysBp: +18, diaBp: +8 }) },
+        { id: 'atro',  label: 'Atropine',      note: '0.5 mg', dot: 'r', run: p => med(p, 'Atropine',      { hr: +16 }) },
+        { id: 'amio',  label: 'Amiodarone',    note: '300 mg', dot: 'r', run: p => med(p, 'Amiodarone',    { hr: -14 }) },
+        { id: 'phen',  label: 'Phenylephrine', note: '100 µg', dot: 'r', run: p => med(p, 'Phenylephrine', { sysBp: +14, diaBp: +9, hr: -6 }) },
+
+        { sec: 'Adjuncts' },
+        { id: 'txa',   label: 'TXA',          note: '1 g slow IV', dot: 'b', run: p => med(p, 'TXA', {}) },
+        { id: 'nalox', label: 'Naloxone',     note: '0.4 mg',      dot: 'b', run: p => med(p, 'Naloxone', { rr: +5, pain: +18 }) },
+        { id: 'carb',  label: 'Caffeine Gum', note: 'morale',      dot: 'b', run: p => med(p, 'Caffeine Gum', { hr: +4 }) },
+    ],
+
+    airway: [
+        { sec: 'Airway' },
+        { id: 'npa',   label: 'Nasopharyngeal Tube',   dot: 'g', run: p => airway(p, 'NPA') },
+        { id: 'opa',   label: 'Guedel (OPA)',          dot: 'g', run: p => airway(p, 'OPA') },
+        { id: 'king',  label: 'King LT Supraglottic',  dot: 'g', run: p => airway(p, 'King LT') },
+        { id: 'recov', label: 'Recovery Position',     dot: 'g', run: () => ['Casualty placed in recovery position', 'good'] },
+
+        { sec: 'Chest' },
+        { id: 'decom', label: 'Chest Decompression', note: '14G needle', dot: 'r', run: p => {
+            p.spo2 = clamp(p.spo2 + 7, 0, 100); p.rr = clamp(p.rr - 4, 4, 40)
+            return ['Needle decompression — 2nd ICS MCL · rush of air', 'good']
+        } },
+        { id: 'bvm', label: 'Bag-Valve Mask', note: '12/min', dot: 'g', run: p => {
+            p.spo2 = clamp(p.spo2 + 5, 0, 100)
+            return ['Ventilating with BVM — 12/min', 'good']
+        } },
+        { id: 'oxy', label: 'Oxygen Tank', note: '15 L NRB', dot: 'g', run: p => {
+            p.spo2 = clamp(p.spo2 + 6, 0, 100)
+            return ['O₂ via non-rebreather at 15 L/min', 'good']
+        } },
+    ],
+
+    advanced: [
+        { sec: 'IV Access & Fluids' },
+        { id: 'iv', label: 'IV Cannula 18G', needsPart: true, dot: 'b', run: (p, id) => {
+            p.parts[id!].iv++
+            return ['IV access established — ' + pName(id!), 'good']
+        } },
+        { id: 'blood500', label: 'Whole Blood 500 ml',  dot: 'r', run: p => fluid(p, 'Whole Blood 500 ml', 9) },
+        { id: 'plasma',   label: 'Plasma 500 ml',       dot: 'y', run: p => fluid(p, 'Plasma 500 ml', 6) },
+        { id: 'saline',   label: 'Saline 0.9% 1000 ml', dot: 'b', run: p => fluid(p, 'Saline 1000 ml', 4) },
+
+        { sec: 'Resuscitation' },
+        { id: 'cpr', label: 'Perform CPR', note: '30:2', dot: 'r', run: p => {
+            if (!p.cardiacArrest) return ['CPR not indicated — pulse present', 'warn']
+            p.cprActive = true
+            if (Math.random() < 0.45) {
+                p.cardiacArrest = false; p.hr = 64; p.sysBp = 92; p.diaBp = 54; p.spo2 = 90
+                return ['ROSC — pulse returned after CPR', 'good']
+            }
+            return ['CPR in progress — no ROSC, continuing compressions', 'bad']
+        } },
+        { id: 'aed', label: 'AED / Defibrillator', note: '200 J', dot: 'r', run: p => {
+            if (!p.cardiacArrest) return ['AED advises: NO SHOCK — organised rhythm', 'warn']
+            if (Math.random() < 0.5) {
+                p.cardiacArrest = false; p.hr = 72; p.sysBp = 98; p.diaBp = 60
+                return ['Shock delivered — rhythm restored', 'good']
+            }
+            return ['Shock delivered — no change, resume compressions', 'bad']
+        } },
+        { id: 'pak', label: 'Personal Aid Kit (PAK)', note: 'stabilise', dot: 'g', run: p => {
+            Object.values(p.parts).forEach(pt => pt.wounds.forEach(w => { w.bandaged = true }))
+            p.pain = clamp(p.pain - 25, 0, 100)
+            return ['PAK used — all wounds dressed, casualty stabilised', 'good']
+        } },
+        { id: 'surg', label: 'Surgical Kit — Stitch', needsPart: true, note: '~15s', dot: 'g', run: (p, id) => {
+            const pt = p.parts[id!]; const n = pt.wounds.length
+            if (!n) return ['No wounds to suture on ' + pName(id!), 'warn']
+            pt.wounds = []
+            return [`Sutured ${n} wound site(s) — ${pName(id!)}`, 'good']
+        } },
+    ],
+
+    splint: [
+        { sec: 'Fractures' },
+        { id: 'splint', label: 'Apply Splint', needsPart: true, dot: 'g', run: (p, id) => {
+            const pt = p.parts[id!]
+            if (!pt.fractured) return ['No fracture detected in the ' + pName(id!), 'warn']
+            if (pt.splinted) return [pName(id!) + ' is already splinted', 'warn']
+            pt.splinted = true; p.pain = clamp(p.pain - 10, 0, 100)
+            return ['Splint applied — ' + pName(id!) + ' immobilised', 'good']
+        } },
+        { id: 'realign', label: 'Realign Limb', needsPart: true, note: 'painful', dot: 'y', run: (p, id) => {
+            const pt = p.parts[id!]
+            if (!pt.fractured) return ['Nothing to realign — ' + pName(id!), 'warn']
+            p.pain = clamp(p.pain + 20, 0, 100)
+            return ['Limb realigned — ' + pName(id!) + ' · casualty screaming', 'warn']
+        } },
+        { id: 'sling', label: 'Improvised Sling', needsPart: true, dot: 'g', run: (p, id) =>
+            (id === 'armL' || id === 'armR')
+                ? ['Sling applied — ' + pName(id) + ' supported', 'good']
+                : ['A sling will not help the ' + pName(id!), 'warn'] },
+
+        { sec: 'Environment' },
+        { id: 'blanket', label: 'Emergency Blanket', dot: 'g', run: p => {
+            p.temp = clamp(p.temp + 0.4, 30, 40)
+            return ['Casualty wrapped — hypothermia prevention', 'good']
+        } },
+        { id: 'heat', label: 'Chemical Heat Pack', dot: 'g', run: p => {
+            p.temp = clamp(p.temp + 0.3, 30, 40)
+            return ['Heat packs sited — axilla & groin', 'good']
+        } },
+    ],
+
+    drag: [
+        { sec: 'Movement' },
+        { id: 'drag',    label: 'Drag Casualty',      dot: 'y', run: () => ['Dragging casualty to cover', ''] },
+        { id: 'carry',   label: 'Fireman Carry',      dot: 'y', run: () => ['Casualty lifted — fireman carry', ''] },
+        { id: 'stretch', label: 'Load onto Stretcher', dot: 'g', run: () => ['Casualty secured to stretcher', 'good'] },
+        { id: 'veh',     label: 'Load into Vehicle',   dot: 'g', run: () => ['Casualty loaded — 9-line pending', 'good'] },
+
+        { sec: 'Final' },
+        { id: 'bag', label: 'Place in Body Bag', dot: 'r', run: p => {
+            if (p.triage !== 'deceased') return ['Casualty is not confirmed deceased', 'warn']
+            return ['Remains bagged and tagged — KIA', 'bad']
+        } },
+    ],
+
+    transfer: [
+        { sec: 'Handover' },
+        { id: 'medevac',  label: 'Request MEDEVAC (9-Line)', dot: 'r', run: () => ['9-Line transmitted — ETA 6 min, LZ CHARLIE', 'good'] },
+        { id: 'casrep',   label: 'Send CASREP',              dot: 'y', run: () => ['CASREP sent to HQ NET', ''] },
+        { id: 'handover', label: 'Handover to Role 1',       dot: 'g', run: () => ['Handover given — MIST report passed', 'good'] },
+
+        { sec: 'Command' },
+        { id: 'swap', label: 'Transfer Patient to Another Medic', dot: 'b', run: () => ['Patient care transferred to DOC-2', ''] },
+        { id: 'stabilise', label: 'Mark as Stable for Transport', dot: 'g', run: p => {
+            const ok = p.blood > 70 && !p.cardiacArrest
+            return [ok ? 'Casualty marked STABLE for transport' : 'Refused — casualty is not stable enough', ok ? 'good' : 'bad']
+        } },
+    ],
+}
+
+/* ---------- the tick ------------------------------------------------------ */
+
+/**
+ * One step of the sim: bleed out, let pain fade, arrest on severe volume loss.
+ *
+ * Mutates, like the treatments, and returns a line to log when something
+ * changed on its own rather than because somebody did something.
+ */
+export function simulate(p: Patient, dt: number): [string, LogKind] | null {
+    const bleed = totalBleed(p)
+    if (bleed > 0 && !p.cardiacArrest) {
+        p.blood = clamp(p.blood - bleed * dt * 0.12, 0, 100)
+        p.hr    = clamp(p.hr + bleed * dt * 0.05, 40, 190)
+        p.sysBp = clamp(p.sysBp - bleed * dt * 0.05, 30, 190)
+    }
+    p.pain = clamp(p.pain - dt * 0.25, 0, 100)
+
+    if (p.blood < 22 && !p.cardiacArrest) {
+        p.cardiacArrest = true
+        p.cprActive = false
+        return ['CASUALTY IN CARDIAC ARREST — hypovolaemic', 'bad']
+    }
+    return null
+}
+

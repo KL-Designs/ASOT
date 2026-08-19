@@ -50,7 +50,7 @@ import s from './profile.module.css'
  * The one member whose overview carries the HZN-MED medical menu.
  *
  * An easter egg, matched against the Discord username or the milpac slug --
- * see the `showMedicalMenu` gate below and ./medical-menu.tsx.
+ * see the `showMedicalMenu` gate below and ./medical-menu/.
  */
 const MEDICAL_MENU_MEMBER = 'res'
 
