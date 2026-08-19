@@ -355,6 +355,35 @@ export default function MedicalMenu({ roster, onClose }: {
         }
     })
 
+    /*
+       The whole window.
+
+       The menu is a cockpit rather than an article: four columns, a dock and a
+       body diagram that wants every pixel it can get, and none of it benefits
+       from a navbar above it or a footer waiting underneath. Both are hidden
+       for exactly as long as this is mounted and put back on the way out, so a
+       navigation away leaves the site precisely as it found it — which is why
+       this restores the previous inline values rather than assuming they were
+       empty.
+    */
+    useEffect(() => {
+        const nav = document.getElementById('site-navbar')
+        const foot = document.getElementById('site-footer')
+        const wasNav = nav?.style.display ?? ''
+        const wasFoot = foot?.style.display ?? ''
+        const wasOverflow = document.body.style.overflow
+
+        if (nav) nav.style.display = 'none'
+        if (foot) foot.style.display = 'none'
+        document.body.style.overflow = 'hidden'
+
+        return () => {
+            if (nav) nav.style.display = wasNav
+            if (foot) foot.style.display = wasFoot
+            document.body.style.overflow = wasOverflow
+        }
+    }, [])
+
     /* ---------- keyboard ---------------------------------------------------- */
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -813,8 +842,8 @@ export default function MedicalMenu({ roster, onClose }: {
                                                     )}
                                                     {pt.tourniquet && (
                                                         <g>
-                                                            <rect x={x - 22} y={tqY} width='44' height='9' rx='2' fill='#1c1c1c' stroke='#d9a441' strokeWidth='1.4' />
-                                                            <text x={x} y={tqY - 4} textAnchor='middle' fill='#d9a441' fontSize='10'>TQ</text>
+                                                            <rect x={x - 22} y={tqY} width='44' height='9' rx='2' fill='#141518' stroke='#d8ac45' strokeWidth='1.4' />
+                                                            <text x={x} y={tqY - 4} textAnchor='middle' fill='#d8ac45' fontSize='10'>TQ</text>
                                                         </g>
                                                     )}
                                                     {pt.iv > 0 && <circle cx={x - 16} cy={y + 10} r='4' fill='#56a8e0' />}
@@ -829,12 +858,12 @@ export default function MedicalMenu({ roster, onClose }: {
                                             <g>
                                                 <path
                                                     d={`M${patient.reboa.site === 'legR' ? 134 : 166},322 L150,258`}
-                                                    stroke='#e8c343' strokeWidth='2' fill='none' opacity='.85' />
+                                                    stroke='#d8ac45' strokeWidth='2' fill='none' opacity='.85' />
                                                 <ellipse className={s.balloon} cx='150' cy='240' rx='10' ry='17'
-                                                    fill='rgba(232,195,67,.3)' stroke='#e8c343' strokeWidth='2' />
+                                                    fill='rgba(216, 172, 69,.3)' stroke='#d8ac45' strokeWidth='2' />
                                                 <text
                                                     x='150' y='288' textAnchor='middle'
-                                                    fill={patient.reboa.up > REBOA_WARN ? '#e03b31' : '#e8c343'}
+                                                    fill={patient.reboa.up > REBOA_WARN ? '#ff6a5e' : '#d8ac45'}
                                                     fontSize='10' fontWeight='700' letterSpacing='1.4'>
                                                     REBOA {Math.round(patient.reboa.up)}s
                                                 </text>
@@ -861,12 +890,12 @@ export default function MedicalMenu({ roster, onClose }: {
                                             disappeared into a torso the same colour. */}
                                         {patient.sealed && (
                                             <g>
-                                                <rect x='152' y='148' width='36' height='36' rx='2' fill='#151107' stroke='#e8c343' strokeWidth='2' />
+                                                <rect x='152' y='148' width='36' height='36' rx='2' fill='#151107' stroke='#d8ac45' strokeWidth='2' />
                                                 <g clipPath='url(#hznSeal)' opacity='.85'>
                                                     <path d='M146,172 L170,148 M152,190 L190,152 M166,190 L194,162'
-                                                        stroke='#e8c343' strokeWidth='5' fill='none' />
+                                                        stroke='#d8ac45' strokeWidth='5' fill='none' />
                                                 </g>
-                                                <text x='170' y='142' textAnchor='middle' fill='#e8c343'
+                                                <text x='170' y='142' textAnchor='middle' fill='#d8ac45'
                                                     fontSize='8.5' fontWeight='700' letterSpacing='1.2'>SEALED</text>
                                             </g>
                                         )}
@@ -894,8 +923,8 @@ export default function MedicalMenu({ roster, onClose }: {
                                         {patient.recovery && (
                                             <g>
                                                 <rect x='4' y='4' width='152' height='21' rx='3'
-                                                    fill='rgba(92,191,98,.16)' stroke='#5cbf62' strokeWidth='1.3' />
-                                                <text x='12' y='19' fill='#5cbf62'
+                                                    fill='rgba(61, 220, 132,.16)' stroke='#3ddc84' strokeWidth='1.3' />
+                                                <text x='12' y='19' fill='#3ddc84'
                                                     fontSize='10.5' fontWeight='700' letterSpacing='1.4'>RECOVERY POSITION</text>
                                             </g>
                                         )}
@@ -915,9 +944,9 @@ export default function MedicalMenu({ roster, onClose }: {
                                             <g>
                                                 <rect x='138' y='86' width='24' height='10' rx='2'
                                                     fill={airOpen ? '#12181d' : '#2a1210'}
-                                                    stroke={airOpen ? '#56a8e0' : '#e03b31'} strokeWidth='1.4' />
+                                                    stroke={airOpen ? '#56a8e0' : '#ff6a5e'} strokeWidth='1.4' />
                                                 {!airOpen && (
-                                                    <text x='150' y='118' textAnchor='middle' fill='#e03b31'
+                                                    <text x='150' y='118' textAnchor='middle' fill='#ff6a5e'
                                                         fontSize='9.5' fontWeight='700' letterSpacing='1.4'>NO AIR</text>
                                                 )}
                                             </g>
@@ -938,11 +967,11 @@ export default function MedicalMenu({ roster, onClose }: {
                                         {/* Pads: right anterior, left lateral. */}
                                         {patient.padsOn && (
                                             <g>
-                                                <path d='M129,160 L171,208' stroke='#d9a441' strokeWidth='1' opacity='.45' fill='none' />
+                                                <path d='M129,160 L171,208' stroke='#d8ac45' strokeWidth='1' opacity='.45' fill='none' />
                                                 <rect x='114' y='138' width='30' height='22' rx='3'
-                                                    fill='#241d12' stroke='#d9a441' strokeWidth='1.5' />
+                                                    fill='#1e1a10' stroke='#d8ac45' strokeWidth='1.5' />
                                                 <rect x='156' y='206' width='30' height='22' rx='3'
-                                                    fill='#241d12' stroke='#d9a441' strokeWidth='1.5' />
+                                                    fill='#1e1a10' stroke='#d8ac45' strokeWidth='1.5' />
                                             </g>
                                         )}
 
@@ -952,11 +981,11 @@ export default function MedicalMenu({ roster, onClose }: {
                                         {patient.cprActive && (
                                             <g>
                                                 <circle className={s.cprRing} cx='150' cy='186' r='31'
-                                                    fill='rgba(224,59,49,.16)' stroke='#e03b31' strokeWidth='2' />
+                                                    fill='rgba(255, 106, 94,.16)' stroke='#ff6a5e' strokeWidth='2' />
                                                 <path className={s.cprHands}
                                                     d='M139,176 h22 v10 h-22 z M142,186 h16 v9 h-16 z'
-                                                    fill='#e03b31' opacity='.92' />
-                                                <text x='150' y='216' textAnchor='middle' fill='#e03b31'
+                                                    fill='#ff6a5e' opacity='.92' />
+                                                <text x='150' y='216' textAnchor='middle' fill='#ff6a5e'
                                                     fontSize='12' fontWeight='700' letterSpacing='2.5'>CPR</text>
                                             </g>
                                         )}
@@ -1104,8 +1133,6 @@ export default function MedicalMenu({ roster, onClose }: {
                                         <div className={`${s.ovsub} ${s.ovsubB}`}>Suction pump spent</div>
                                     )}
                                 </div>
-
-                                <OnBoard patient={patient} />
 
                                 {/* What still stands between this casualty and a
                                     handover. Listed rather than reduced to a
@@ -1363,29 +1390,39 @@ function PartCard({ name, pt, selected }: { name: string, pt: BodyPart, selected
 /**
  * Everything still working, and how far through it is.
  *
- * The bar is the drug's own curve — climbing while it takes hold, full while it
- * holds, falling as it lets go — so “given” and “working” stop being the same
- * word. Two drugs pulling the same vital opposite ways are both on the list,
+ * Down in the quick view rather than up in the details, because it is a
+ * standing fact about the casualty in the same way the tourniquet count is —
+ * something you want in the corner of your eye while you work on something
+ * else, not something you scroll a panel to find.
+ *
+ * Each chip's fill is the drug's own curve: climbing while it takes hold, full
+ * while it holds, falling as it lets go — so "given" and "working" stop being
+ * the same word. Two drugs pulling the same vital opposite ways are both here,
  * which is the only warning you get that you have cancelled yourself out.
  */
 function OnBoard({ patient: p }: { patient: Patient }) {
-    if (!p.doses.length) return null
     return (
-        <div className={s.ovpart}>
-            <h4>On board</h4>
-            {p.doses.map(d => {
-                const drug = DRUGS[d.drug]
-                const at = intensity(drug, d.age)
-                const left = Math.max(0, Math.ceil(drug.duration - d.age))
-                return (
-                    <div key={d.id} className={`${s.dose} ${d.over ? s.doseOver : ''}`}>
-                        <span>{drug.label}</span>
-                        {d.over && <span className={s.overTag}>OVER</span>}
-                        <b>{d.age < drug.onset ? 'taking hold' : `${left}s`}</b>
-                        <i style={{ width: `${at * 100}%` }} />
+        <div className={`${s.qv} ${s.qvfull}`}>
+            <div className={s.k}>IN THE SYSTEM</div>
+            {p.doses.length === 0
+                ? <div className={s.qvNone}>Nothing on board.</div>
+                : (
+                    <div className={s.chips}>
+                        {p.doses.map(d => {
+                            const drug = DRUGS[d.drug]
+                            const at = intensity(drug, d.age)
+                            const left = Math.max(0, Math.ceil(drug.duration - d.age))
+                            return (
+                                <span key={d.id} className={`${s.doseChip} ${d.over ? s.doseChipOver : ''}`}>
+                                    {drug.label}
+                                    <b>{d.age < drug.onset ? 'taking hold' : `${left}s`}</b>
+                                    {d.over && <em>OVER</em>}
+                                    <i style={{ width: `${at * 100}%` }} />
+                                </span>
+                            )
+                        })}
                     </div>
-                )
-            })}
+                )}
         </div>
     )
 }
@@ -1431,7 +1468,7 @@ function SpeechBubble({ text }: { text: string }) {
         <g className={s.bubble}>
             <path d={`M188,${h - 8} L172,${h + 14} L204,${h - 2} Z`} fill='rgba(10,12,11,.95)' />
             <rect x='186' y='4' width='112' height={h} rx='5'
-                fill='rgba(10,12,11,.95)' stroke='#d9a441' strokeWidth='1.1' />
+                fill='rgba(10,12,11,.96)' stroke='#e0223c' strokeWidth='1.1' />
             {lines.map((l, i) => (
                 <text key={i} x='192' y={4 + 16 + i * 13} fontSize='10.5' fill='#e6e9ec'>{l}</text>
             ))}
@@ -1565,12 +1602,12 @@ function traceOf(p: Patient): Trace {
 
 const TRACE_COLOUR: Record<Trace, string> = {
     cpr: '#e08a3c',
-    sinus: '#5cbf62',
-    stemi: '#e8c343',
-    vt: '#e03b31',
-    vf: '#e03b31',
-    pea: '#e8c343',
-    asystole: '#e03b31',
+    sinus: '#3ddc84',
+    stemi: '#d8ac45',
+    vt: '#ff6a5e',
+    vf: '#ff6a5e',
+    pea: '#d8ac45',
+    asystole: '#ff6a5e',
 }
 
 /** Rhythms that make a noise. VF has no organised beat to beep on. */
@@ -1757,6 +1794,7 @@ function QuickView({ patient: p }: { patient: Patient }) {
             <div className={s.qv}><div className={s.k}>WOUNDS</div><div className={s.v}>{open} open / {wounds}</div></div>
             <div className={s.qv}><div className={s.k}>FRACTURES</div><div className={s.v}>{fx}</div></div>
             <div className={s.qv}><div className={s.k}>TOURNIQUETS</div><div className={s.v}>{p.tqCount}</div></div>
+            <OnBoard patient={p} />
             <div className={`${s.qv} ${s.qvfull}`}>
                 <div className={s.k}>TRIAGE / BLOOD TYPE / AIRWAY</div>
                 <div className={s.chips}>

@@ -16,7 +16,7 @@ import AceClient from './ace-client'
    ========================================================================== */
 
 export const metadata: Metadata = {
-    title: 'HZN-MED',
+    title: 'ASOT-MED',
     description: 'Field medical trainer.',
     robots: { index: false, follow: false },
 }

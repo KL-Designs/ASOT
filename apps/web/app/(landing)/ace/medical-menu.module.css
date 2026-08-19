@@ -14,11 +14,13 @@
    the site nav rather than covering it, which is the whole difference between
    what this was and what it is. */
 .page {
+    height: 100vh;
+    height: 100dvh;
     display: grid;
-    place-items: center;
-    /* Tight. The casualty wants the room more than the margins do. */
-    padding: 10px 12px 18px;
-    background: #070908;
+    /* Every pixel. The site's own chrome is hidden while this is up — see the
+       effect in MedicalMenu.tsx — so there is nothing to leave room for. */
+    padding: 0;
+    background: #08090a;
     animation: fade .18s ease;
 }
 
@@ -27,35 +29,45 @@
 }
 
 .root {
-    --hz-orange: #d9a441;
-    --hz-bar: linear-gradient(180deg, #e0b155 0%, #c8912f 45%, #a4741f 100%);
-    --panel: rgba(14, 16, 15, .72);
-    --panel-line: rgba(255, 255, 255, .22);
-    --panel-line-sub: rgba(255, 255, 255, .10);
-    --txt: #eef1f2;
-    --txt-dim: #a9b0b3;
-    --txt-mute: #6e7679;
-    --red: #e03b31;
-    --yellow: #e8c343;
-    --green: #5cbf62;
+    /*
+       ASOT's palette rather than ARMA's.
+
+       Two families, kept apart on purpose. `--hz-acc` is the unit's red and
+       belongs to the chrome — the title bar, the active tool, a selected limb,
+       a tag. `--red` is clinical and belongs to the casualty; it is deliberately
+       hotter and lighter so an alarm never reads as decoration and a heading
+       never reads as an alarm. Everything between them is grey, which is the
+       other half of the unit's look and the reason a colour means something
+       when it does appear.
+    */
+    --hz-acc: #e0223c;
+    --hz-bar: linear-gradient(180deg, #c8172f 0%, #a5101f 48%, #7d1122 100%);
+    --panel: rgba(11, 12, 14, .74);
+    --panel-line: rgba(255, 255, 255, .20);
+    --panel-line-sub: rgba(255, 255, 255, .09);
+    --txt: #f2f3f5;
+    --txt-dim: #9aa0a8;
+    --txt-mute: #5f656e;
+    --red: #ff6a5e;
+    --yellow: #d8ac45;
+    --green: #3ddc84;
     --blue: #56a8e0;
-    --tan: #cbbf9d;
+    --tan: #9aa0a8;
     --hit: rgba(255, 255, 255, .06);
-    --hit-on: rgba(217, 164, 65, .22);
+    --hit-on: rgba(224, 34, 60, .24);
     --font: "Bahnschrift", "DIN Alternate", "Roboto Condensed", "Arial Narrow", Arial, sans-serif;
 
     position: relative;
-    width: min(1900px, 100%);
-    height: min(1250px, 88vh);
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     font-family: var(--font);
     font-size: 15px;
     color: var(--txt);
-    background: #0b0d0c;
-    border: 1px solid rgba(0, 0, 0, .8);
-    box-shadow: 0 24px 80px rgba(0, 0, 0, .8);
+    background: #0b0c0e;
+    border: 0;
     -webkit-font-smoothing: antialiased;
     animation: rise .22s cubic-bezier(.2, .7, .3, 1);
 }
@@ -73,11 +85,14 @@
 /* ---------- faux 3D scene behind the UI ---------- */
 .scene { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none }
 
+/* Grey, with one ember of the unit's red where the horizon used to be. The
+   khaki field this started as was ARMA's; the room it is in now is ours. */
 .sky {
     position: absolute;
     inset: 0;
-    background: radial-gradient(120% 80% at 50% 8%, #b9a887 0%, #8e8467 38%, #5f5b46 62%, #2c2b22 100%);
-    filter: saturate(.75);
+    background:
+        radial-gradient(90% 60% at 50% 4%, rgba(224, 34, 60, .16) 0%, transparent 58%),
+        radial-gradient(120% 80% at 50% 8%, #2b2e33 0%, #1d2024 38%, #14161a 64%, #0b0c0e 100%);
 }
 
 .ground {
@@ -88,12 +103,12 @@
     bottom: -10%;
     background:
         radial-gradient(80% 60% at 50% 0%, rgba(0, 0, 0, .28), transparent 70%),
-        linear-gradient(180deg, #6d6144 0%, #4c452f 45%, #2b271b 100%);
+        linear-gradient(180deg, #26282c 0%, #17191c 45%, #0d0e10 100%);
     transform: perspective(600px) rotateX(46deg);
     transform-origin: 50% 0%;
 }
 
-.haze { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(180, 170, 140, .20), rgba(0, 0, 0, .55)) }
+.haze { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(150, 155, 165, .12), rgba(0, 0, 0, .62)) }
 .vig { position: absolute; inset: 0; box-shadow: inset 0 0 240px 60px rgba(0, 0, 0, .85) }
 .blur { position: absolute; inset: 0; backdrop-filter: blur(2px) }
 
@@ -152,7 +167,7 @@
     font-size: 19px;
     font-weight: 700;
     letter-spacing: .4px;
-    color: #1b1408;
+    color: #150407;
     text-shadow: 0 1px 0 rgba(255, 255, 255, .28);
 }
 
@@ -286,7 +301,7 @@
     overflow: hidden;
 }
 
-.deviceAlarm { border-color: rgba(224, 59, 49, .55); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(224,59,49,.25), 0 8px 22px rgba(0,0,0,.6) }
+.deviceAlarm { border-color: rgba(255, 106, 94, .55); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(255, 106, 94,.25), 0 8px 22px rgba(0,0,0,.6) }
 
 .deviceTop {
     display: flex;
@@ -333,8 +348,8 @@
 }
 
 .rhythmBand b { font-weight: 700 }
-.rhythmWarn { color: var(--yellow); background: rgba(232, 195, 67, .1); border-color: rgba(232, 195, 67, .4) }
-.rhythmBad { color: var(--red); background: rgba(224, 59, 49, .12); border-color: rgba(224, 59, 49, .5) }
+.rhythmWarn { color: var(--yellow); background: rgba(216, 172, 69, .1); border-color: rgba(216, 172, 69, .4) }
+.rhythmBad { color: var(--red); background: rgba(255, 106, 94, .12); border-color: rgba(255, 106, 94, .5) }
 .rhythmOff { color: var(--txt-mute); background: rgba(255, 255, 255, .04); border-color: var(--panel-line-sub); text-transform: none; letter-spacing: .6px }
 
 .volRow { display: flex; align-items: center; gap: 8px; margin-top: 6px }
@@ -350,8 +365,8 @@
     font-weight: 700;
     letter-spacing: 1px;
     color: #fff;
-    background: rgba(224, 59, 49, .3);
-    border: 1px solid rgba(224, 59, 49, .75);
+    background: rgba(255, 106, 94, .3);
+    border: 1px solid rgba(255, 106, 94, .75);
     border-radius: 2px;
 }
 
@@ -384,7 +399,7 @@
 
 .tool svg { width: 26px; height: 26px }
 .tool:hover { opacity: 1; background: var(--hit); border-color: var(--panel-line-sub) }
-.toolOn { opacity: 1; color: var(--hz-orange); background: var(--hit-on); border-color: rgba(217, 164, 65, .55) }
+.toolOn { opacity: 1; color: var(--hz-acc); background: var(--hit-on); border-color: rgba(224, 34, 60, .55) }
 .tool:hover.toolOn { background: var(--hit-on) }
 .kbd { position: absolute; right: 2px; bottom: 0; font-size: 9px; color: var(--txt-mute) }
 .toolsep { width: 1px; height: 26px; background: var(--panel-line); margin: 0 6px; flex: none }
@@ -402,8 +417,8 @@
     gap: 10px;
     margin-bottom: 4px;
     padding: 7px 10px 9px;
-    background: rgba(217, 164, 65, .10);
-    border: 1px solid rgba(217, 164, 65, .45);
+    background: rgba(224, 34, 60, .10);
+    border: 1px solid rgba(224, 34, 60, .45);
     border-radius: 2px;
     overflow: hidden;
 }
@@ -413,7 +428,7 @@
     min-width: 0;
     font-size: 13px;
     letter-spacing: .4px;
-    color: var(--hz-orange);
+    color: var(--hz-acc);
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
@@ -443,7 +458,7 @@
     bottom: 0;
     height: 3px;
     width: 0;
-    background: var(--hz-orange);
+    background: var(--hz-acc);
     animation-name: fill;
     animation-timing-function: linear;
     animation-fill-mode: forwards;
@@ -478,11 +493,11 @@
 .sectlabel {
     font-size: 11px;
     letter-spacing: 1.8px;
-    color: var(--hz-orange);
+    color: var(--hz-acc);
     font-weight: 700;
     margin: 8px 2px 5px;
     padding-bottom: 3px;
-    border-bottom: 1px solid rgba(217, 164, 65, .28);
+    border-bottom: 1px solid rgba(224, 34, 60, .28);
 }
 
 .sectlabel:first-child { margin-top: 2px }
@@ -505,7 +520,7 @@
     border-radius: 2px;
 }
 
-.trow:hover:not(:disabled) { background: rgba(217, 164, 65, .18); border-color: rgba(217, 164, 65, .5) }
+.trow:hover:not(:disabled) { background: rgba(224, 34, 60, .18); border-color: rgba(224, 34, 60, .5) }
 .trow:active:not(:disabled) { transform: translateY(1px) }
 .trow:disabled { opacity: .34; cursor: not-allowed }
 .qty { margin-left: auto; font-size: 12px; color: var(--txt-mute); letter-spacing: .5px }
@@ -536,7 +551,7 @@
     cursor: pointer;
 }
 
-.sizebtn:hover:not(:disabled) { background: rgba(217, 164, 65, .22); border-color: rgba(217, 164, 65, .6); color: #fff }
+.sizebtn:hover:not(:disabled) { background: rgba(224, 34, 60, .22); border-color: rgba(224, 34, 60, .6); color: #fff }
 .sizebtn:active:not(:disabled) { transform: translateY(1px) }
 .sizebtn:disabled { opacity: .34; cursor: not-allowed }
 
@@ -556,24 +571,24 @@
     font-size: 12.5px;
     letter-spacing: .2px;
     color: var(--txt-dim);
-    background: rgba(217, 164, 65, .1);
-    border: 1px solid rgba(217, 164, 65, .38);
+    background: rgba(224, 34, 60, .1);
+    border: 1px solid rgba(224, 34, 60, .38);
     border-radius: 2px;
 }
 
-.advice b { color: var(--hz-orange); font-weight: 700 }
+.advice b { color: var(--hz-acc); font-weight: 700 }
 
 /* The one the chart points at. */
-.trowBest { border-color: rgba(217, 164, 65, .6) }
-.trowBest:hover:not(:disabled) { border-color: rgba(217, 164, 65, .9) }
+.trowBest { border-color: rgba(224, 34, 60, .6) }
+.trowBest:hover:not(:disabled) { border-color: rgba(224, 34, 60, .9) }
 
 .bestTag {
     font-family: monospace;
     font-size: 9.5px;
     font-weight: 700;
     letter-spacing: 1.4px;
-    color: #1b1408;
-    background: var(--hz-orange);
+    color: #150407;
+    background: var(--hz-acc);
     padding: 1px 5px;
     border-radius: 2px;
 }
@@ -593,8 +608,8 @@
     letter-spacing: .3px;
     color: var(--red);
     font-weight: 700;
-    background: rgba(224, 59, 49, .12);
-    border: 1px solid rgba(224, 59, 49, .5);
+    background: rgba(255, 106, 94, .12);
+    border: 1px solid rgba(255, 106, 94, .5);
     border-radius: 2px;
 }
 
@@ -609,13 +624,13 @@
     text-transform: uppercase;
     color: var(--red);
     background: none;
-    border: 1px solid rgba(224, 59, 49, .6);
+    border: 1px solid rgba(255, 106, 94, .6);
     border-radius: 2px;
     padding: 2px 10px;
     cursor: pointer;
 }
 
-.handsStop:hover { color: #fff; background: rgba(224, 59, 49, .3); border-color: var(--red) }
+.handsStop:hover { color: #fff; background: rgba(255, 106, 94, .3); border-color: var(--red) }
 
 /* The row you are waiting on fills itself, rather than a separate bar above
    the list telling you about a button you can already see. Driven by the
@@ -624,7 +639,7 @@
 .trowBusy {
     position: relative;
     overflow: hidden;
-    border-color: rgba(217, 164, 65, .6);
+    border-color: rgba(224, 34, 60, .6);
     opacity: 1;
     cursor: pointer;
 }
@@ -639,8 +654,8 @@
     bottom: 0;
     width: 0;
     z-index: 0;
-    background: rgba(217, 164, 65, .2);
-    border-right: 2px solid var(--hz-orange);
+    background: rgba(224, 34, 60, .2);
+    border-right: 2px solid var(--hz-acc);
     animation: fill linear forwards;
     pointer-events: none;
 }
@@ -651,23 +666,23 @@
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 1.4px;
-    color: var(--hz-orange);
+    color: var(--hz-acc);
     background: none;
-    border: 1px solid rgba(217, 164, 65, .5);
+    border: 1px solid rgba(224, 34, 60, .5);
     border-radius: 2px;
     padding: 2px 8px;
     cursor: pointer;
 }
 
-.rowAbort:hover { color: #fff; border-color: var(--hz-orange); background: rgba(217, 164, 65, .2) }
+.rowAbort:hover { color: #fff; border-color: var(--hz-acc); background: rgba(224, 34, 60, .2) }
 
 /* A row that has latched on — compressions are running until you say stop. */
 .trowOn {
-    background: rgba(224, 59, 49, .18);
-    border-color: rgba(224, 59, 49, .55);
+    background: rgba(255, 106, 94, .18);
+    border-color: rgba(255, 106, 94, .55);
 }
 
-.trowOn:hover:not(:disabled) { background: rgba(224, 59, 49, .26); border-color: rgba(224, 59, 49, .75) }
+.trowOn:hover:not(:disabled) { background: rgba(255, 106, 94, .26); border-color: rgba(255, 106, 94, .75) }
 
 /* ---------- body diagram ---------- */
 .bodywrap {
@@ -813,20 +828,20 @@
 .ovpartSel {
     margin: 4px 0 2px;
     padding: 8px 10px 9px;
-    border-left: 3px solid var(--hz-orange);
-    background: rgba(217, 164, 65, .09);
+    border-left: 3px solid var(--hz-acc);
+    background: rgba(224, 34, 60, .09);
     border-radius: 0 2px 2px 0;
 }
 
-.ovpartSel h4 { color: var(--hz-orange); display: flex; align-items: center; gap: 8px }
+.ovpartSel h4 { color: var(--hz-acc); display: flex; align-items: center; gap: 8px }
 
 .selTag {
     font-family: monospace;
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 1.4px;
-    color: #1b1408;
-    background: var(--hz-orange);
+    color: #150407;
+    background: var(--hz-acc);
     padding: 1px 5px;
     border-radius: 2px;
 }
@@ -840,53 +855,6 @@
     letter-spacing: 2px;
     text-transform: uppercase;
     color: var(--txt-mute);
-}
-
-/* Past the label. */
-.doseOver { border-color: rgba(224, 59, 49, .55); background: rgba(224, 59, 49, .12) }
-.doseOver > i { background: var(--red) }
-
-.overTag {
-    font-family: monospace;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 1.2px;
-    color: #fff;
-    background: var(--red);
-    padding: 1px 5px;
-    border-radius: 2px;
-}
-
-/* A drug on board, with its own curve as the bar. */
-.dose {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    margin-top: 3px;
-    padding: 4px 8px 6px;
-    background: rgba(255, 255, 255, .05);
-    border: 1px solid var(--panel-line-sub);
-    border-radius: 2px;
-    font-size: 12.5px;
-    overflow: hidden;
-}
-
-.dose b {
-    margin-left: auto;
-    font-family: monospace;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--txt-dim);
-}
-
-.dose > i {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    height: 3px;
-    background: var(--hz-orange);
-    transition: width .3s linear;
 }
 
 /* A bag running. The bar is what is left in it, so it empties as it works. */
@@ -952,8 +920,8 @@
     position: relative;
     margin: 6px 0 2px;
     padding: 5px 8px 7px;
-    background: rgba(232, 195, 67, .12);
-    border: 1px solid rgba(232, 195, 67, .5);
+    background: rgba(216, 172, 69, .12);
+    border: 1px solid rgba(216, 172, 69, .5);
     border-radius: 2px;
     font-family: monospace;
     font-size: 11px;
@@ -978,8 +946,8 @@
     position: relative;
     margin: 6px 0 2px;
     padding: 5px 8px 7px;
-    background: rgba(224, 59, 49, .12);
-    border: 1px solid rgba(224, 59, 49, .5);
+    background: rgba(255, 106, 94, .12);
+    border: 1px solid rgba(255, 106, 94, .5);
     border-radius: 2px;
     font-family: monospace;
     font-size: 11px;
@@ -1074,12 +1042,12 @@
 }
 
 .boardGo {
-    color: #1b1408;
-    background: var(--hz-orange);
-    border: 1px solid var(--hz-orange);
+    color: #150407;
+    background: var(--hz-acc);
+    border: 1px solid var(--hz-acc);
 }
 
-.boardGo:hover { background: #eec269 }
+.boardGo:hover { background: #ef4459 }
 
 .boardOut {
     color: var(--txt-dim);
@@ -1146,7 +1114,7 @@
 
 .logline { padding: 1px 0; color: var(--txt-dim); letter-spacing: .2px }
 .logline b { color: var(--txt); font-weight: 600 }
-.logline .t { color: var(--hz-orange); font-variant-numeric: tabular-nums; margin-right: 6px }
+.logline .t { color: var(--hz-acc); font-variant-numeric: tabular-nums; margin-right: 6px }
 .loglineWarn b { color: var(--yellow) }
 .loglineBad b { color: var(--red) }
 .loglineGood b { color: var(--green) }
@@ -1159,6 +1127,56 @@
 
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px }
 
+.qvNone { margin-top: 4px; font-size: 12px; color: var(--txt-mute) }
+
+/* A drug on board. Same shape as the chips beside it, with the drug's own
+   curve running along the bottom of it. */
+.doseChip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    letter-spacing: .4px;
+    padding: 2px 7px 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid var(--panel-line-sub);
+    color: var(--txt-dim);
+    overflow: hidden;
+}
+
+.doseChip b { font-family: monospace; font-weight: 700; color: var(--txt-mute); font-variant-numeric: tabular-nums }
+
+.doseChip em {
+    font-style: normal;
+    font-family: monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    color: #fff;
+    background: var(--red);
+    padding: 0 4px;
+    border-radius: 2px;
+}
+
+.doseChip > i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--hz-acc);
+    transition: width .3s linear;
+}
+
+.doseChipOver {
+    color: #ffb3ad;
+    border-color: rgba(255, 106, 94, .5);
+    background: rgba(255, 106, 94, .16);
+}
+
+.doseChipOver > i { background: var(--red) }
+
 .chip {
     font-size: 11px;
     letter-spacing: .6px;
@@ -1169,9 +1187,9 @@
     color: var(--txt-dim);
 }
 
-.chipR { color: #ffb3ad; border-color: rgba(224, 59, 49, .5); background: rgba(224, 59, 49, .16) }
+.chipR { color: #ffb3ad; border-color: rgba(255, 106, 94, .5); background: rgba(255, 106, 94, .16) }
 .chipG { color: #bdeec0; border-color: rgba(92, 191, 98, .5); background: rgba(92, 191, 98, .14) }
-.chipY { color: #f6e3a1; border-color: rgba(232, 195, 67, .5); background: rgba(232, 195, 67, .14) }
+.chipY { color: #f6e3a1; border-color: rgba(216, 172, 69, .5); background: rgba(216, 172, 69, .14) }
 .chipB { color: #bcdff7; border-color: rgba(86, 168, 224, .5); background: rgba(86, 168, 224, .14) }
 
 /* triage tag buttons */
@@ -1194,7 +1212,7 @@
 .triOn { opacity: 1; box-shadow: 0 0 0 2px #fff inset }
 .triMinor { background: #5cbf62 }
 .triDelayed { background: #e8c343 }
-.triImmediate { background: #e03b31 }
+.triImmediate { background: #ff6a5e }
 .triDeceased { background: #2b2b2b; color: #e8e8e8 }
 
 .cardfield { display: flex; gap: 6px; align-items: center; margin-bottom: 4px }
@@ -1211,7 +1229,7 @@
     padding: 4px 6px;
 }
 
-.cardfield input:focus { outline: none; border-color: var(--hz-orange) }
+.cardfield input:focus { outline: none; border-color: var(--hz-acc) }
 
 .toastwrap {
     position: absolute;
@@ -1227,7 +1245,7 @@
 
 .toast {
     background: rgba(0, 0, 0, .86);
-    border: 1px solid var(--hz-orange);
+    border: 1px solid var(--hz-acc);
     color: #fff;
     padding: 6px 14px;
     font-size: 13.5px;

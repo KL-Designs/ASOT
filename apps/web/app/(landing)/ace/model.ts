@@ -930,17 +930,62 @@ export function isConscious(p: Patient): boolean {
  * quiet when they go under, which is its own indicator.
  */
 export function chatter(p: Patient): string[] {
+    /** How much of a drug class is actually working, summed across doses. */
+    const load = (...ids: DrugId[]) =>
+        p.doses.filter(d => ids.includes(d.drug)).reduce((n, d) => n + d.applied, 0)
+
+    const opioid = load('morphine', 'nalbuphine', 'fentanyl')
+    const tooMuch = p.doses.some(d => d.over && d.applied > 0.5)
+
+    /*
+       A casualty full of morphine has opinions and none of them are about their
+       injuries. Checked before anything else because it is comfortably the
+       loudest thing about them, and because a man telling you he loves you is
+       a more useful reading than a pain score — it is how you notice you have
+       given him rather a lot.
+    */
+    if (opioid >= 1.6 || (opioid >= 0.7 && tooMuch)) {
+        return [
+            "…m'fine. M'totally fine.",
+            "Why're there two of you?",
+            "'m just gonna have a little sleep…",
+            'Wha… who… wha?',
+            "Is it Thursday? It feels like a Thursday.",
+        ]
+    }
+    if (opioid >= 0.7) {
+        return [
+            'I love you, mate. Genuinely.',
+            'Am I floating? I think I might be floating.',
+            "You've got really kind eyes, you know that?",
+            'Tell my mum I did a good job.',
+            "I can't feel my face and I am completely fine with it.",
+            'Put me in for a commendation. I have earned it.',
+            "Everything's gone all warm and lovely.",
+            'Do you reckon I could still make the op?',
+            "I'm naming my firstborn after you.",
+            'This is the best I have felt all year.',
+        ]
+    }
+
     const out: string[] = []
+    if (load('naloxone') > 0.4 && p.meds.some(m => m === 'Morphine' || m === 'Fentanyl' || m === 'Nalbuphine')) {
+        out.push('WHY would you do that', 'Bring back the good stuff. Please.', "You've ruined a perfectly nice time")
+    }
+    if (load('epi') > 0.5)      out.push("My heart is going like a machine gun", 'I can hear my own pulse')
+    if (load('caffeine') > 0.6) out.push('I am extremely awake now', 'I could run the whole way back')
+
     if (p.pain > 72)      out.push('Aaah — that really hurts', 'Please, something for the pain', "I can't take much more of this")
     else if (p.pain > 38) out.push('That stings like hell', 'Careful — careful', 'It hurts when you touch it')
     if (p.blood < 58)     out.push("I'm freezing", "I'm so thirsty", 'Everything has gone grey')
     if (p.blood < 44)     out.push("I don't feel right", 'Am I going to be alright?', "I can't feel my hands")
     if (p.spo2 < 92)      out.push("I can't get a breath", 'My chest is tight')
     if (totalBleed(p) > 0) out.push("I'm still bleeding, aren't I", "Don't let go of it")
-    if (p.tqCount > 0)    out.push("That strap is agony", 'Am I keeping the leg?')
+    if (p.tqCount > 0)    out.push('That strap is agony', 'Am I keeping the leg?')
     if (!out.length)      out.push("How's it looking?", 'I can walk it off', 'Just get me out of here', "Cheers — I owe you one", "Tell them I'm alright")
     return out
 }
+
 
 /**
  * What is still wrong, in the order you would fix it.
