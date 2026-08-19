@@ -633,7 +633,29 @@
 .handsStop:hover { color: #fff; background: rgba(255, 106, 94, .3); border-color: var(--red) }
 
 /* One hand on a bag. Not a wall like compressions are — a tax. */
+.oneHand > span { flex: 1; min-width: 0 }
+
+.oneHandStop {
+    flex: none;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--blue);
+    background: none;
+    border: 1px solid rgba(86, 168, 224, .55);
+    border-radius: 2px;
+    padding: 2px 10px;
+    cursor: pointer;
+}
+
+.oneHandStop:hover { color: #fff; background: rgba(86, 168, 224, .3); border-color: var(--blue) }
+
 .oneHand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     margin-bottom: 4px;
     padding: 6px 10px;
     font-size: 12.5px;

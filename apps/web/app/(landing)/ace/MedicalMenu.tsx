@@ -470,10 +470,14 @@ export default function MedicalMenu({ roster, onClose }: {
      */
     function freeHands() {
         const next = structuredClone(live.current)
-        if (!next.cprActive) return
-        next.cprActive = false
-        next.hr = arrestHr(next.rhythm)
-        pushLog('Compressions stopped', 'warn')
+        if (next.cprActive) {
+            next.cprActive = false
+            next.hr = arrestHr(next.rhythm)
+            pushLog('Compressions stopped', 'warn')
+        } else if (next.bagging) {
+            next.bagging = false
+            pushLog('Bagging stopped', 'warn')
+        } else return
         commit(next)
     }
 
@@ -676,7 +680,8 @@ export default function MedicalMenu({ roster, onClose }: {
                             {/* A bag is one hand. You keep working, slowly. */}
                             {patient.bagging && !hands && (
                                 <div className={s.oneHand}>
-                                    Bagging — one hand free, everything takes {BAGGING_SLOWDOWN}× as long
+                                    <span>Bagging — one hand free, everything takes {BAGGING_SLOWDOWN}× as long</span>
+                                    <button type='button' className={s.oneHandStop} onClick={freeHands}>Stop</button>
                                 </div>
                             )}
 

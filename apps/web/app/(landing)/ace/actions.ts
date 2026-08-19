@@ -844,6 +844,9 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
                     return ['Compressions stopped', 'warn']
                 }
                 p.cprActive = true
+                // Both hands. Whatever else you were doing with them, you are
+                // not doing it now.
+                p.bagging = false
                 if (p.recovery) {
                     // You cannot compress a chest that is facing the floor.
                     p.recovery = false
@@ -995,7 +998,10 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         const rate = (p.cardiacArrest ? 0.38 : 1) * bleedFactor(p)
         p.blood = clamp(p.blood - bleed * dt * 0.12 * rate, 0, 100)
         if (!p.cardiacArrest) {
-            p.hr    = clamp(p.hr + bleed * dt * 0.05, 40, 190)
+            // Compensatory tachycardia only ever adds. The floor of 40 this
+            // used to carry was quietly topping the rate back up under a drug
+            // that had lowered it, which is the same disagreement in miniature.
+            p.hr    = clamp(p.hr + bleed * dt * 0.05, 0, 200)
             p.sysBp = clamp(p.sysBp - bleed * dt * 0.05, 30, 190)
         }
     }
@@ -1104,10 +1110,20 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         event = ['Respiratory depression — casualty has stopped breathing', 'bad']
     }
 
-    // A heart that has just restarted, working its way back up.
+    /*
+       A heart that has just restarted, working its way back up.
+
+       It only ever pushes upwards. `Math.min(target, hr + step)` looked
+       harmless and was not: adrenaline on board puts the rate above the target
+       within seconds, the min clamped it back down to the target, and the drug
+       ledger — which had no idea its contribution had just been thrown away —
+       subtracted it again when the dose wore off. Which is why a casualty you
+       got back with an ampoule and some compressions would crash into arrest
+       two minutes later for no reason you could see.
+    */
     if (p.hrTarget !== null) {
-        p.hr = Math.min(p.hrTarget, p.hr + dt * 2.2)
-        if (p.hr >= p.hrTarget - 0.05) p.hrTarget = null
+        if (p.hr < p.hrTarget) p.hr = Math.min(p.hrTarget, p.hr + dt * 2.2)
+        else p.hrTarget = null
     }
 
     // Whatever is hanging, running in. Announced only when a bag empties —
