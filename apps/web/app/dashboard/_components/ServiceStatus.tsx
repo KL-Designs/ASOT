@@ -104,64 +104,51 @@ function summarise(status: StatusResponse | null): { text: string, color: string
     return { text: 'All ok', color: 'var(--live)' }
 }
 
-const STORE_KEY = 'asot.sidebar.services'
-
 /**
- * One row per service, stacked, behind a [-]/[+] header.
+ * One row per service, stacked, revealed by hovering the card that hosts them.
  *
  * These were six icons in a row at the top-right of the dashboard home, where
  * the only thing distinguishing "Discord is in dev mode" from "Discord is down"
  * was the hue of a 15px glyph you had to hover to name. Stacked, each row says
  * what it is and what it is doing without the tooltip — which is still there
  * for the dev-mode distinction the word alone compresses.
+ *
+ * Collapsed it shows a one-word summary instead, worst state winning. A status
+ * block you can hide is only safe if hiding it still tells you when something
+ * is wrong.
  */
-export function ServiceStatusList() {
+export function ServiceStatusList({ open, onToggle }: {
+    /** Controlled by the card that hosts it — see StaffSidebar. */
+    open: boolean
+    onToggle: () => void
+}) {
     const status = useServiceStatus()
-
-    // Starts open so the server and the first client render agree; a stored
-    // preference is applied on mount. One frame of expanded is the price of not
-    // hydrating a mismatch.
-    const [open, setOpen] = useState(true)
-    useEffect(() => {
-        try {
-            if (window.localStorage.getItem(STORE_KEY) === '0') setOpen(false)
-        } catch { /* private mode — the default stands */ }
-    }, [])
-
-    function toggle() {
-        setOpen(prev => {
-            try { window.localStorage.setItem(STORE_KEY, prev ? '0' : '1') } catch { /* ignore */ }
-            return !prev
-        })
-    }
-
     const summary = summarise(status)
 
     return (
         <div>
-            {/* Matches the sidebar's own [-]/[+] section headers. */}
+            {/* The header is still a real button so the list is reachable
+                without a pointer; the card's hover just gets there first. */}
             <button
-                onClick={toggle}
+                onClick={e => { e.stopPropagation(); onToggle() }}
                 aria-expanded={open}
                 className='w-full flex items-center justify-between'
-                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', marginBottom: open ? 8 : 0 }}
+                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', marginBottom: open ? 8 : 0, transition: 'margin .18s' }}
             >
                 <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ color: 'var(--txt-4)', fontFamily: 'monospace' }}>{'//'}</span>
                     Services
                 </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {!open && (
-                        <span style={{
-                            fontFamily: 'monospace', fontSize: '0.52rem', fontWeight: 700,
-                            letterSpacing: '0.14em', textTransform: 'uppercase', color: summary.color,
-                        }}>
-                            {summary.text}
-                        </span>
-                    )}
-                    <span style={{ fontSize: '0.62rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.25)', lineHeight: 1 }}>
-                        {open ? '[−]' : '[+]'}
-                    </span>
+                {/* The summary is what the header says when the list is not
+                    showing — collapsing must never hide a service being down. */}
+                <span style={{
+                    fontFamily: 'monospace', fontSize: '0.52rem', fontWeight: 700,
+                    letterSpacing: '0.14em', textTransform: 'uppercase',
+                    color: summary.color,
+                    opacity: open ? 0 : 1,
+                    transition: 'opacity .16s',
+                }}>
+                    {summary.text}
                 </span>
             </button>
 

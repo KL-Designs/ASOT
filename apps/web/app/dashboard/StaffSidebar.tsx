@@ -8,7 +8,7 @@ import {
     PersonAdd, Map, School, AdminPanelSettings, Collections,
     SportsEsports, Code, Badge, Groups, People,
     AccountTree, CalendarMonth, MenuBook, Policy, ConfirmationNumber,
-    Dashboard, TaskAlt,
+    Dashboard, TaskAlt, AccountCircle,
 } from '@mui/icons-material'
 import type { DashboardPermissions } from './StaffDashboardShell'
 import { useLockout } from './StaffDashboardShell'
@@ -312,16 +312,28 @@ function HomeButton({ pathname, onNavigate }: { pathname: string; onNavigate?: (
     )
 }
 
-// ── Tasks shortcut button (pinned below Dashboard) ────────────────────────────
+// ── Shortcut buttons (pinned below Dashboard) ─────────────────────────────────
 
-function TasksShortcutButton({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
-    const isActive = pathname === '/dashboard/tasks' || pathname.startsWith('/dashboard/tasks/')
+/**
+ * A top-level destination that is not a department — Tasks, your own profile.
+ *
+ * Was written twice over before Profile joined it; parameterised now so a third
+ * cannot drift from the other two.
+ */
+function ShortcutButton({ href, label, icon, pathname, onNavigate }: {
+    href: string
+    label: string
+    icon: React.ReactNode
+    pathname: string
+    onNavigate?: () => void
+}) {
+    const isActive = pathname === href || pathname.startsWith(`${href}/`)
     const [hovered, setHovered] = useState(false)
 
     return (
         <div>
             <Link
-                href='/dashboard/tasks'
+                href={href as never}
                 onClick={onNavigate}
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
@@ -358,9 +370,9 @@ function TasksShortcutButton({ pathname, onNavigate }: { pathname: string; onNav
                     transition: 'color 0.12s',
                     fontSize: 14,
                 }}>
-                    <TaskAlt sx={{ fontSize: 14 }} />
+                    {icon}
                 </span>
-                Tasks
+                {label}
             </Link>
         </div>
     )
@@ -585,6 +597,19 @@ export default function StaffSidebar({
         },
     ]
 
+    /*
+       The services list opens when the pointer is anywhere on the identity
+       card, and latches open on a tap.
+
+       Hover alone never touches `pinned`, so a mouse user is not left having to
+       close something they only glanced at, and a list opened by tapping — the
+       only way in on a touch screen, where there is no hover — does not slam
+       shut the instant the finger lifts.
+    */
+    const [svcHover, setSvcHover] = useState(false)
+    const [svcPinned, setSvcPinned] = useState(false)
+    const svcOpen = svcHover || svcPinned
+
     function toggle(key: keyof typeof expanded) {
         setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
     }
@@ -605,13 +630,18 @@ export default function StaffSidebar({
                what it is: the card that identifies who is signed in.
             */}
             <div
+                onMouseEnter={() => setSvcHover(true)}
+                onMouseLeave={() => setSvcHover(false)}
+                onClick={() => setSvcPinned(p => !p)}
                 style={{
                     position: 'relative',
                     margin: '0 12px 12px',
                     padding: '14px 14px 12px',
-                    border: '1px solid var(--line-1)',
+                    border: `1px solid ${svcOpen ? 'var(--line-2)' : 'var(--line-1)'}`,
                     borderRadius: 'var(--r)',
                     background: 'var(--ink-2)',
+                    cursor: 'pointer',
+                    transition: 'border-color .18s',
                 }}
             >
                 <CornerBrackets />
@@ -642,14 +672,29 @@ export default function StaffSidebar({
                    is the thing staff actually chase — and it was six unlabelled
                    glyphs at the far corner of one screen until now.
                 */}
-                <ServiceStatusList />
+                <ServiceStatusList open={svcOpen} onToggle={() => setSvcPinned(p => !p)} />
             </div>
 
             {/* ── Home button ─────────────────────────────────────────────── */}
             <HomeButton pathname={pathname} onNavigate={onNavigate} />
 
-            {/* ── Tasks shortcut ──────────────────────────────────────────── */}
-            {permissions.isStaff && <TasksShortcutButton pathname={pathname} onNavigate={onNavigate} />}
+            {/* ── Shortcuts ───────────────────────────────────────────────── */}
+            {permissions.isStaff && (
+                <ShortcutButton
+                    href='/dashboard/tasks'
+                    label='Tasks'
+                    icon={<TaskAlt sx={{ fontSize: 14 }} />}
+                    pathname={pathname}
+                    onNavigate={onNavigate}
+                />
+            )}
+            <ShortcutButton
+                href='/dashboard/profile'
+                label='My Profile'
+                icon={<AccountCircle sx={{ fontSize: 14 }} />}
+                pathname={pathname}
+                onNavigate={onNavigate}
+            />
 
             {/* ── Pinned section ──────────────────────────────────────────── */}
             <PinnedSection onNavigate={onNavigate} />
