@@ -12,7 +12,7 @@ import {
     BAGGING_SLOWDOWN, REBOA_FATAL, REBOA_WARN,
     airwayOpen, arrestHr, bestBandage, bleedFactor, bloodWord, breathing, chatter, clamp, handover, handsFull,
     intensity, jitter,
-    newPatient, nextWound, painWord, partBleeding, partSeverity, pName, shownRr,
+    newPatient, nextWound, painWord, partBleeding, partSeverity, pName, shownBp, shownRr, shownSpo2,
     stabilityIssues, stampFrom, totalBleed,
     type BodyPart, type Casualty, type Difficulty, type PartId, type Patient, type Rhythm, type Triage,
 } from './model'
@@ -1271,16 +1271,21 @@ function Vitals({ patient: p }: { patient: Patient }) {
        monitor, and the second is the estimate you are working from.
     */
     const off = !p.monitorOn
+    const bp = shownBp(p)
+    const sat = shownSpo2(p)
     return (
         <div className={s.vitals}>
             {cell('HR', off ? '—' : p.cardiacArrest ? '0' : jitter(p.hr, 2), off ? '' : 'bpm',
                 off ? s.vitOff : p.hr > 120 || p.hr < 50 || p.cardiacArrest ? s.vitCrit : p.hr > 100 ? s.vitWarn : '')}
-            {cell('BP', off ? '—' : p.cardiacArrest ? '0/0' : `${jitter(p.sysBp, 3)}/${jitter(p.diaBp, 2)}`, off ? '' : 'mmHg',
-                off ? s.vitOff : p.sysBp < 90 ? s.vitCrit : p.sysBp < 105 ? s.vitWarn : '')}
-            {cell('SpO₂', off ? '—' : p.cardiacArrest ? '--' : jitter(p.spo2, 1), off ? '' : '%',
-                off ? s.vitOff
-                    : p.spo2 <= 64 ? `${s.vitCrit} ${s.flash}`
-                        : p.spo2 < 90 ? s.vitCrit : p.spo2 < 95 ? s.vitWarn : '')}
+            {cell('BP', off ? '—' : bp.join('/'), off ? '' : 'mmHg',
+                off ? s.vitOff : bp[0] < 90 ? s.vitCrit : bp[0] < 105 ? s.vitWarn : '')}
+            {/* Dashes only when there is nothing for the probe to find. Start
+                compressing and it comes back — and keeps falling, which is the
+                thing you are meant to notice. */}
+            {cell('SpO₂', off ? '—' : sat ?? '--', off || sat === null ? '' : '%',
+                off || sat === null ? s.vitOff
+                    : sat <= 64 ? `${s.vitCrit} ${s.flash}`
+                        : sat < 90 ? s.vitCrit : sat < 95 ? s.vitWarn : '')}
             {cell('RR', off ? '—' : shownRr(p), off ? '' : '/min',
                 off ? s.vitOff : shownRr(p) === 0 ? `${s.vitCrit} ${s.flash}` : shownRr(p) > 24 || shownRr(p) < 8 ? s.vitWarn : '')}
             {cell('TEMP', p.temp.toFixed(1), '°C', p.temp < 35.5 ? s.vitWarn : '')}

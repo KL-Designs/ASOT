@@ -5,7 +5,8 @@ import {
     BAGGING_SLOWDOWN, FREES_HANDS, REBOA_FATAL, REBOA_OCCLUSION, REBOA_WARN,
     airwayOpen, arrestHr, bleedBelowBalloon, bestBandage, bleedFactor, breathing, clamp, dressingLife,
     handsFull, intensity, partBleeding,
-    isConscious, jitter, nextWound, onBoard, pName, reopenChance, setRhythm, stabilityIssues,
+    isConscious, jitter, nextWound, onBoard, pName, reopenChance, setRhythm, shownBp, shownSpo2,
+    stabilityIssues,
     totalBleed, ventilating,
     type Adjunct, type BandageId, type BodyPart, type Dose, type DrugId, type FluidId,
     type Patient, type PartId, type VitalKey,
@@ -452,15 +453,24 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
     examine: [
         { sec: 'Diagnostics' },
         { id: 'pulse', label: 'Check Pulse', note: 'Stethoscope', dot: 'b', run: p => {
-            const v = p.cardiacArrest ? 'no pulse detected' : `${jitter(p.hr, 3)} bpm`
-            return ['Checked pulse — ' + v, p.cardiacArrest ? 'bad' : '']
+            if (p.cardiacArrest) {
+                // Your own compressions, felt at the wrist. Not the same thing
+                // as a pulse, and worth saying so.
+                return p.cprActive
+                    ? ['Checked pulse — a pulse with each compression, nothing between', 'bad']
+                    : ['Checked pulse — no pulse detected', 'bad']
+            }
+            return [`Checked pulse — ${jitter(p.hr, 3)} bpm`, '']
         } },
         { id: 'bp', label: 'Check Blood Pressure', note: 'BP Cuff', dot: 'b', run: p => {
-            const bp = p.cardiacArrest ? '0/0' : `${jitter(p.sysBp, 4)}/${jitter(p.diaBp, 3)}`
-            return ['Blood pressure — ' + bp + ' mmHg', p.sysBp < 100 ? 'warn' : '']
+            const [sys, dia] = shownBp(p)
+            return [`Blood pressure — ${sys}/${dia} mmHg`, sys < 100 ? 'warn' : '']
         } },
-        { id: 'spo2', label: 'Check SpO₂ / Perfusion', note: 'Pulse Oximeter', dot: 'b', run: p =>
-            [`SpO₂ — ${jitter(p.spo2, 1)}% · cap refill ${p.blood < 70 ? '>3s' : '<2s'}`, p.spo2 < 95 ? 'warn' : ''] },
+        { id: 'spo2', label: 'Check SpO₂ / Perfusion', note: 'Pulse Oximeter', dot: 'b', run: p => {
+            const sat = shownSpo2(p)
+            if (sat === null) return ['SpO₂ — the probe cannot find a pulse to read', 'bad']
+            return [`SpO₂ — ${sat}% · cap refill ${p.blood < 70 ? '>3s' : '<2s'}`, sat < 95 ? 'warn' : '']
+        } },
         { id: 'resp', label: 'Check Response', note: 'AVPU', dot: 'b', run: p =>
             [`Response — ${p.cardiacArrest ? 'UNRESPONSIVE' : p.pain > 70 ? 'responds to voice, agitated' : 'alert & oriented'}`,
                 p.cardiacArrest ? 'bad' : ''] },

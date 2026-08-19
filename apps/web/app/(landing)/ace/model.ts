@@ -900,6 +900,37 @@ export function ventilating(p: Patient): boolean {
  * at all if they have stopped, twelve if somebody is squeezing a bag, and
  * visibly laboured if they are working against something that is in the way.
  */
+/**
+ * The pressure the monitor reads.
+ *
+ * A stopped heart makes none. Somebody's hands make a surprising amount of
+ * systolic and almost no diastolic, which is both what compressions actually
+ * produce and the reason the number is worth showing: it is enough for the
+ * probe to find and nowhere near enough to be a circulation.
+ */
+export function shownBp(p: Patient): [number, number] {
+    if (!p.cardiacArrest) return [Math.round(p.sysBp), Math.round(p.diaBp)]
+    if (p.cprActive) return [jitter(74, 7), jitter(26, 4)]
+    return [0, 0]
+}
+
+/**
+ * Saturation as the probe reads it, or null if it cannot find anything.
+ *
+ * A pulse oximeter needs pulsatile flow. An arrest has none and the cell reads
+ * dashes — but compressions are flow, so the moment you start pushing the
+ * number comes back, and what it does from there is the point: without a bag on
+ * them it carries on falling while you compress, which is the whole argument
+ * for both at once.
+ *
+ * Derived rather than written, so nothing here fights the drugs or the fluids
+ * for ownership of a vital.
+ */
+export function shownSpo2(p: Patient): number | null {
+    if (p.cardiacArrest && !p.cprActive) return null
+    return jitter(p.spo2, 1)
+}
+
 export function shownRr(p: Patient): number {
     if (!breathing(p)) return p.bagging ? 12 : 0
     return Math.round(airwayOpen(p) ? p.rr : p.rr * 1.6)
